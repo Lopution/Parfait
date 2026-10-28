@@ -13,11 +13,9 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 
 class _RecordedRequest {
   _RecordedRequest(this.method, this.uri, this.body);
@@ -64,7 +62,6 @@ Future<World> _makeWorld({
   int addStatus = 200,
   int deleteStatus = 200,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _BookmarkApiFixture(gate: gate)
     ..addStatus = addStatus
     ..deleteStatus = deleteStatus;
@@ -73,10 +70,6 @@ Future<World> _makeWorld({
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test(
     'short press sends exactly one public add and confirms (R3/R4)',
     () async {

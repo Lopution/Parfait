@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/download_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
+import 'helpers/waits.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:http/testing.dart';
@@ -53,7 +53,6 @@ DownloadManager _manager(
 }
 
 void main() {
-  installMemoryPreferences();
   group('DownloadRequest normalization (R4)', () {
     test('display name is traversal-safe and mime mapped', () {
       expect(request().displayName, '42_p0.jpg');
@@ -203,7 +202,7 @@ void main() {
       // (matches beta56: failed/completed tasks can be re-run).
       final events = <DownloadEvent>[];
       final sub = manager.events.listen(events.add);
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       expect(manager.taskById(first.id)!.status, DownloadStatus.succeeded);
       final rerun = manager.submit(request());
       expect(rerun.id, isNot(first.id));
@@ -224,7 +223,7 @@ void main() {
       final manager = _manager(transport, sinks: sinks);
 
       manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
 
       expect(manager.tasks, hasLength(1));
       expect(manager.tasks.single.progress, 1.0);
@@ -248,7 +247,7 @@ void main() {
       addTearDown(manager.dispose);
 
       manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
 
       expect(
         transport.openedUrls,
@@ -278,7 +277,7 @@ void main() {
         addTearDown(manager.dispose);
 
         manager.submit(request(url: url));
-        await _Watcher(manager).pumpUntilTerminal();
+        await _untilAllEnded(manager);
 
         expect(transport.openedUrls, isEmpty);
         expect(manager.tasks.single.status, DownloadStatus.succeeded);
@@ -306,7 +305,7 @@ void main() {
       addTearDown(manager.dispose);
 
       manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
 
       expect(transport.openedUrls, hasLength(1));
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
@@ -325,7 +324,7 @@ void main() {
       );
       final manager = _manager(transport);
       manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       expect(manager.tasks.single.totalBytes, isNull);
       expect(manager.tasks.single.progress, isNull);
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
@@ -411,7 +410,7 @@ void main() {
         final sub = manager.events.listen(events.add);
 
         final task = manager.submit(request());
-        await _Watcher(manager).pumpUntilTerminal();
+        await _untilAllEnded(manager);
         final failed = manager.taskById(task.id)!;
         expect(failed.status, DownloadStatus.failed);
         expect(failed.error, isNotNull);
@@ -424,7 +423,7 @@ void main() {
           retried!.status,
           anyOf(DownloadStatus.queued, DownloadStatus.running),
         );
-        await _Watcher(manager).pumpUntilTerminal();
+        await _untilAllEnded(manager);
         expect(manager.taskById(retried.id)!.status, DownloadStatus.succeeded);
 
         await Future<void>.delayed(Duration.zero);
@@ -469,7 +468,7 @@ void main() {
       );
       addTearDown(manager.dispose);
       manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       // Long throttle window: intermediate receives are never applied, but
       // the terminal snapshot carries the exact final byte count.
       expect(manager.tasks.single.receivedBytes, 8);
@@ -492,7 +491,7 @@ void main() {
       final events = <DownloadEvent>[];
       final sub = manager.events.listen(events.add);
       manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       await Future<void>.delayed(Duration.zero);
       expect(events, hasLength(1));
       expect(events.single.kind, DownloadEventKind.succeeded);
@@ -522,7 +521,7 @@ void main() {
       final manager = _manager(transport, recoveryStore: recovery);
 
       final first = manager.submitGroup([request()]);
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       final oldId = first.tasks.single.id;
       expect(manager.groups, hasLength(1));
 
@@ -547,7 +546,7 @@ void main() {
       expect(second.tasks.single.id, first.tasks.single.id);
       expect(manager.groups, hasLength(1));
       gate.complete();
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
     });
 
     test(
@@ -581,7 +580,7 @@ void main() {
           request(pageIndex: 0),
           request(pageIndex: 1),
         ]);
-        await _Watcher(manager).pumpUntilTerminal();
+        await _untilAllEnded(manager);
         final oldIds = first.tasks.map((task) => task.id).toSet();
 
         final second = manager.submitGroup([
@@ -620,7 +619,7 @@ void main() {
           request(pageIndex: 0),
           request(pageIndex: 1),
         ]);
-        await _Watcher(manager).pumpUntilTerminal();
+        await _untilAllEnded(manager);
         await manager.flushPersistence();
         expect(manager.groups.single.jobIds, hasLength(2));
         expect(recovery.records, isNotEmpty);
@@ -667,13 +666,9 @@ void main() {
         );
       final manager = _manager(transport);
       final snapshot = manager.submit(request());
-      for (
-        var i = 0;
-        i < 500 && manager.tasks.single.status != DownloadStatus.running;
-        i++
-      ) {
-        await Future<void>.delayed(Duration.zero);
-      }
+      await turnUntil(
+        () => manager.tasks.single.status == DownloadStatus.running,
+      );
       expect(manager.tasks.single.status, DownloadStatus.running);
 
       // In-flight work is not history — dismissAll skips it.
@@ -681,7 +676,7 @@ void main() {
       expect(manager.tasks, hasLength(1));
 
       gate.complete();
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       expect(manager.dismissAll([snapshot.id]).count, 1);
       expect(manager.tasks, isEmpty);
     });
@@ -710,22 +705,11 @@ void main() {
       final manager = _manager(transport);
       manager.submit(request(pageIndex: 0));
       manager.submit(request(pageIndex: 1));
-      for (
-        var i = 0;
-        i < 500 &&
-            !manager.tasks.any((t) => t.status == DownloadStatus.running);
-        i++
-      ) {
-        await Future<void>.delayed(Duration.zero);
-      }
+      await turnUntil(
+        () => manager.tasks.any((t) => t.status == DownloadStatus.running),
+      );
       // Wait for the failure to land too.
-      for (
-        var i = 0;
-        i < 500 && !manager.tasks.any((t) => isTerminal(t.status));
-        i++
-      ) {
-        await Future<void>.delayed(Duration.zero);
-      }
+      await turnUntil(() => manager.tasks.any((t) => isTerminal(t.status)));
 
       List<String> all() => [for (final task in manager.tasks) task.id];
       expect(manager.dismissAll(all()).count, 1);
@@ -733,7 +717,7 @@ void main() {
       expect(manager.tasks.single.status, DownloadStatus.running);
 
       gate.complete();
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       expect(manager.dismissAll(all()).count, 1);
       expect(manager.tasks, isEmpty);
     });
@@ -761,7 +745,7 @@ void main() {
         request(pageIndex: 2),
       ]);
       manager.submit(request(illustId: 7));
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       await manager.flushPersistence();
       return (manager, recovery);
     }
@@ -979,7 +963,7 @@ void main() {
       );
       addTearDown(manager.dispose);
       final task = manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
+      await _untilAllEnded(manager);
       expect(manager.taskById(task.id)!.status, DownloadStatus.failed);
       expect(failingSinkFactory.lastSink!.aborted, isTrue);
       expect(failingSinkFactory.lastSink!.finalized, isFalse);
@@ -1308,23 +1292,6 @@ class _FakeHandle implements MediaStoreHandle {
   }
 }
 
-class _Watcher {
-  _Watcher(this.manager);
-
-  final DownloadManager manager;
-
-  Future<void> pumpUntilTerminal() async {
-    for (var i = 0; i < 500; i++) {
-      await Future<void>.delayed(Duration.zero);
-      if (manager.tasks.every(
-        (t) =>
-            t.status == DownloadStatus.succeeded ||
-            t.status == DownloadStatus.failed ||
-            t.status == DownloadStatus.canceled,
-      )) {
-        return;
-      }
-    }
-    fail('task never reached a terminal state');
-  }
-}
+/// Turns the event loop until every task has ended.
+Future<void> _untilAllEnded(DownloadManager manager) =>
+    turnUntil(() => manager.tasks.every((t) => isTerminal(t.status)));

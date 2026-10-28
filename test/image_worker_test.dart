@@ -15,6 +15,7 @@ import 'package:parfait/core/network/compat/network_contracts.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/worker_entries.dart';
+import 'helpers/waits.dart';
 
 const _url = 'https://i.pximg.net/img-master/a.jpg';
 
@@ -102,11 +103,7 @@ void main() {
     // The first worker exits on its first message: that request fails
     // loudly, it is not retried behind the caller's back.
     await expectLater(_fetch(worker), throwsA(isA<ImageWorkerUnavailable>()));
-    final deadline = DateTime.now().add(_exitBound);
-    while (worker.live != null && DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    expect(worker.live, isNull);
+    await pollUntil(() => worker.live == null, timeout: _exitBound);
 
     final result = await _fetch(worker);
     expect(result.bytes, onePixelPng.length);
@@ -140,11 +137,7 @@ void main() {
     );
 
     await expectLater(_fetch(worker), throwsA(isA<ImageWorkerUnavailable>()));
-    final deadline = DateTime.now().add(_exitBound);
-    while (worker.live != null && DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    expect(worker.live, isNull);
+    await pollUntil(() => worker.live == null, timeout: _exitBound);
 
     await _fetch(worker);
     expect(worker.starts, 2);
@@ -222,12 +215,7 @@ void main() {
     source = 'i.pixiv.cat';
     await worker.configChanged();
     final host = starts.hosts.single;
-    final deadline = DateTime.now().add(const Duration(seconds: 5));
-    while (host.config.imageSource != 'i.pixiv.cat' &&
-        DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    expect(host.config.imageSource, 'i.pixiv.cat');
+    await pollUntil(() => host.config.imageSource == 'i.pixiv.cat');
   });
 
   test('a snapshot never starts a worker', () async {

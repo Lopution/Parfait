@@ -20,11 +20,9 @@ import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/login/login_webview_error_card.dart';
 import 'package:parfait/features/login/login_webview_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/fake_webview.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 /// The login page's web view as its platform drives it.
@@ -121,7 +119,6 @@ void main() {
   late FakeInAppWebViewPlatform platform;
 
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     platform = FakeInAppWebViewPlatform();
     InAppWebViewPlatform.instance = platform;
   });

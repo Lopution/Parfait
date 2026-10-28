@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/series/illust_series_context_controller.dart';
@@ -12,17 +11,14 @@ import 'package:parfait/core/series/series_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/series_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     // Navigating into the detail page brings VisibilityDetector-based page
     // tracking; a zero interval keeps timers out of test teardown.
     VisibilityDetectorController.instance.updateInterval = Duration.zero;
@@ -151,9 +147,7 @@ void main() {
         .read(seriesRecentOpenStoreProvider.notifier)
         .record(accountId: '100', seriesId: 55, illustId: 911, contentOrder: 2);
 
-    await mockNetworkImagesFor(() async {
-      await pumpSeriesPage(tester, container);
-    });
+    await pumpSeriesPage(tester, container);
 
     final resume = find.widgetWithText(FilledButton, '继续第 2 话');
     final startOver = find.widgetWithText(TextButton, '从第 1 话开始');

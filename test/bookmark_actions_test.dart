@@ -9,14 +9,12 @@ import 'package:parfait/core/network/api_error.dart';
 
 import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 
 const _key = BookmarkKey(BookmarkEntityType.illust, 1);
 
 /// The real actions and store over a recording repository — the network
 /// boundary is the only fake.
 Future<(ProviderContainer, RecordingBookmarkRepository)> _world() async {
-  installMemoryPreferences();
   final repository = RecordingBookmarkRepository();
   final container = ProviderContainer.test(
     overrides: [

@@ -203,7 +203,6 @@ void main() {
     }
 
     setUp(() {
-      installMemoryPreferences();
       container = makeContainer();
     });
 

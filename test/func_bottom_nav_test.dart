@@ -7,10 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -28,7 +26,6 @@ Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   String location = '/settings',
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   setViewSize(tester, const Size(390, _screenHeight));
   final router = pixivRouter(location);
   await tester.pumpWidget(

@@ -10,9 +10,7 @@ import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
 
 Widget _wrap(Widget child) {
-  return localizedApp(
-    home: Scaffold(body: SingleChildScrollView(child: child)),
-  );
+  return localizedApp(body: SingleChildScrollView(child: child));
 }
 
 NetworkProbeReport _report(

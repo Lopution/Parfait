@@ -55,7 +55,6 @@ Future<(ProviderContainer, _ApiScript)> _world(
   ],
   String? currentId = '100',
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
@@ -90,10 +89,6 @@ Future<(ProviderContainer, _ApiScript)> _world(
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('fetch reads both endpoints with the documented field names', () async {
     final (container, script) = await _world(
       _ApiScript({

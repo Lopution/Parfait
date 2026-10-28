@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
@@ -24,7 +23,6 @@ import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -138,7 +136,6 @@ Future<GoRouter> _pumpHome(
   AnimationSpeed? speed,
   String location = '/recommended',
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   setViewSize(tester, const Size(390, 844));
   final router = pixivRouter(location);
   Widget app = localizedRouterApp(router, locale: const Locale('en', 'US'));
@@ -726,7 +723,6 @@ void main() {
   testWidgets(
     'a dirty profile editor confirms on the back gesture instead of popping',
     (tester) async {
-      installMemoryPreferences();
       const owner = ProfileEditOwner(accountId: 'account-a');
       const user = UserEntity(
         id: 42,

@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -28,9 +27,7 @@ Widget _cardApp(ProviderContainer container, Widget home) {
   return localizedApp(
     container: container,
     builder: promptHostBuilder,
-    home: Scaffold(
-      body: Center(child: SizedBox(width: 300, child: home)),
-    ),
+    body: Center(child: SizedBox(width: 300, child: home)),
   );
 }
 
@@ -49,12 +46,10 @@ void main() {
     tester,
   ) async {
     final (container, _, _) = await makeCardWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-      );
-      await _openSheet(tester);
-    });
+    await tester.pumpWidget(
+      _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+    );
+    await _openSheet(tester);
 
     final actions = container.read(illustCardActionsProvider);
     // Bookmarking stays with the card's heart.
@@ -96,25 +91,23 @@ void main() {
                     .decoration
                 as BoxDecoration)
             .color;
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-      );
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      expect(hoverLayer(), isNull);
-      await mouse.moveTo(tester.getCenter(card));
-      await tester.pump();
-      expect(hoverLayer(), isNotNull);
+    await tester.pumpWidget(
+      _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    expect(hoverLayer(), isNull);
+    await mouse.moveTo(tester.getCenter(card));
+    await tester.pump();
+    expect(hoverLayer(), isNotNull);
 
-      await tester.tap(
-        card,
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await tester.pumpAndSettle();
-    });
+    await tester.tap(
+      card,
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
     expect(find.widgetWithText(ListTile, '分享'), findsOneWidget);
   });
 
@@ -123,13 +116,11 @@ void main() {
     await container
         .read(muteStoreProvider.notifier)
         .muteWork(const MutedWork(illustId: 7));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-      );
-      await _openSheet(tester);
-      await _tapEntry(tester, '解除屏蔽此作品');
-    });
+    await tester.pumpWidget(
+      _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+    );
+    await _openSheet(tester);
+    await _tapEntry(tester, '解除屏蔽此作品');
     expect(container.read(muteStoreProvider).isWorkMuted(7), isFalse);
     expect(find.text('已解除屏蔽'), findsOneWidget);
 
@@ -143,26 +134,20 @@ void main() {
   ) async {
     final (container, _, repository) = await makeCardWorld();
     final entity = parseIllust(illustJson(9));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
-      await _openSheet(tester);
-      await _tapEntry(tester, '稍后再看');
-      await tester.pump();
-      await tester.pump();
-    });
+    await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+    await _openSheet(tester);
+    await _tapEntry(tester, '稍后再看');
+    await tester.pump();
+    await tester.pump();
 
     expect(find.text('已加入稍后再看'), findsOneWidget);
     expect((await repository.list('100')).map((e) => e.entity.id), [9]);
 
-    await mockNetworkImagesFor(() async {
-      await _openSheet(tester);
-    });
+    await _openSheet(tester);
     expect(find.widgetWithText(ListTile, '从稍后再看移除'), findsOneWidget);
-    await mockNetworkImagesFor(() async {
-      await _tapEntry(tester, '从稍后再看移除');
-      await tester.pump();
-      await tester.pump();
-    });
+    await _tapEntry(tester, '从稍后再看移除');
+    await tester.pump();
+    await tester.pump();
     expect(await repository.list('100'), isEmpty);
   });
 
@@ -177,14 +162,12 @@ void main() {
     await repository.restoreAll('100', [
       WatchLaterEntry(addedAt: originalAddedAt, entity: entity),
     ]);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
-      await tester.pump();
-      await _openSheet(tester);
-      await _tapEntry(tester, '从稍后再看移除');
-      await tester.pump();
-      await tester.pump();
-    });
+    await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+    await tester.pump();
+    await _openSheet(tester);
+    await _tapEntry(tester, '从稍后再看移除');
+    await tester.pump();
+    await tester.pump();
 
     // The removal snackbar carries the undo action.
     expect(find.text('已从稍后再看移除'), findsOneWidget);
@@ -195,10 +178,8 @@ void main() {
     expect(haptics.roles, [HapticRole.longPress]);
     await tester.tap(find.text('撤销'));
     expect(haptics.roles, [HapticRole.longPress, HapticRole.select]);
-    await mockNetworkImagesFor(() async {
-      await tester.pump();
-      await tester.pump();
-    });
+    await tester.pump();
+    await tester.pump();
     final restored = await repository.list('100');
     expect(restored.map((e) => e.entity.id), [9]);
     // Undo pins the original timestamp — the row keeps its old position.
@@ -214,13 +195,9 @@ void main() {
       // so downloadAll throws FormatException — the adapter must catch
       // and report instead of propagating.
       final entity = parseIllust(illustJson(13, pageCount: 3));
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          _cardApp(container, IllustCard(entity: entity)),
-        );
-        await _openSheet(tester);
-        await _tapEntry(tester, '下载');
-      });
+      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+      await _openSheet(tester);
+      await _tapEntry(tester, '下载');
       expect(find.textContaining('下载失败'), findsOneWidget);
     },
   );
@@ -230,13 +207,11 @@ void main() {
   ) async {
     final share = RecordingShareService();
     final (container, _, _) = await makeCardWorld(shareService: share);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
-      );
-      await _openSheet(tester);
-      await _tapEntry(tester, '分享');
-    });
+    await tester.pumpWidget(
+      _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
+    );
+    await _openSheet(tester);
+    await _tapEntry(tester, '分享');
 
     expect(
       share.lastPayload?.text,
@@ -250,13 +225,11 @@ void main() {
     final share = RecordingShareService()
       ..outcome = ShareOutcome.copiedToClipboard;
     final (container, _, _) = await makeCardWorld(shareService: share);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
-      );
-      await _openSheet(tester);
-      await _tapEntry(tester, '分享');
-    });
+    await tester.pumpWidget(
+      _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
+    );
+    await _openSheet(tester);
+    await _tapEntry(tester, '分享');
 
     expect(find.text('链接已复制'), findsOneWidget);
   });
@@ -264,13 +237,11 @@ void main() {
   testWidgets('mute-work action toggles the local work mute', (tester) async {
     final (container, fixture, _) = await makeCardWorld();
     final entity = parseIllust(illustJson(31));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
-      await _openSheet(tester);
-      await _tapEntry(tester, '屏蔽此作品');
-      await tester.pump();
-      await tester.pump();
-    });
+    await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+    await _openSheet(tester);
+    await _tapEntry(tester, '屏蔽此作品');
+    await tester.pump();
+    await tester.pump();
 
     expect(
       container.read(muteStoreProvider.select((s) => s.isWorkMuted(31))),
@@ -286,9 +257,7 @@ void main() {
       isEmpty,
     );
 
-    await mockNetworkImagesFor(() async {
-      await _openSheet(tester);
-    });
+    await _openSheet(tester);
     expect(find.widgetWithText(ListTile, '解除屏蔽此作品'), findsOneWidget);
   });
 
@@ -297,13 +266,11 @@ void main() {
   ) async {
     final (container, fixture, _) = await makeCardWorld();
     final entity = parseIllust(illustJson(33));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
-      await _openSheet(tester);
-      await _tapEntry(tester, '屏蔽作者');
-      await tester.pump();
-      await tester.pump();
-    });
+    await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+    await _openSheet(tester);
+    await _tapEntry(tester, '屏蔽作者');
+    await tester.pump();
+    await tester.pump();
 
     final edit = fixture.posts.indexWhere(
       (u) => u.path.endsWith('/v1/mute/edit'),
@@ -317,9 +284,7 @@ void main() {
       isTrue,
     );
 
-    await mockNetworkImagesFor(() async {
-      await _openSheet(tester);
-    });
+    await _openSheet(tester);
     expect(find.widgetWithText(ListTile, '解除屏蔽作者'), findsOneWidget);
   });
 
@@ -331,10 +296,8 @@ void main() {
     await container
         .read(muteStoreProvider.notifier)
         .muteWork(const MutedWork(illustId: 51));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
-      await tester.pump();
-    });
+    await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+    await tester.pump();
 
     expect(find.byType(MutedCover), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('已屏蔽.*illust 51')), findsOneWidget);
@@ -342,10 +305,8 @@ void main() {
     // the card offscreen again on every frame it paints.
     expect(tester.layers.whereType<ImageFilterLayer>(), isEmpty);
 
-    await mockNetworkImagesFor(() async {
-      await tester.tap(find.byType(MutedCover));
-      await tester.pump();
-    });
+    await tester.tap(find.byType(MutedCover));
+    await tester.pump();
 
     // Reveal swaps the cover for the normal card; the mute itself is
     // untouched (session-local presentation only).

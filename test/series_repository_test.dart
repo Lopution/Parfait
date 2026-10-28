@@ -5,11 +5,9 @@ import 'package:http/testing.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/series/series_repository.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 
 http.Response _ok(Map<String, dynamic> body) => jsonResponse(body);
 
@@ -38,10 +36,6 @@ Future<PixivSeriesRepository> _repo(MockClient client) async {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   group('PixivSeriesRepository.fetchSeriesWorks', () {
     test(
       'requests /v1/illust/series with illust_series_id and filter',

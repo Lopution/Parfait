@@ -12,10 +12,8 @@ import 'package:parfait/core/watchlist/watchlist_feed_controller.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_repository.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 
 class _Fixture {
   final requests = <http.Request>[];
@@ -67,7 +65,6 @@ Future<_World> _makeWorld({
   _Fixture? fixture,
   InMemoryActionStore? store,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final resolvedFixture = fixture ?? _Fixture();
   final resolvedStore = store ?? InMemoryActionStore();
   final container = await signedInApiContainer(
@@ -81,10 +78,6 @@ const _mangaKey = WatchlistKey(WatchlistType.manga, 9);
 const _novelKey = WatchlistKey(WatchlistType.novel, 21);
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   group('repository', () {
     test('fetches the manga watchlist and parses entries', () async {
       final world = await _makeWorld();

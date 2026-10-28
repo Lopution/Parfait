@@ -204,12 +204,16 @@ reviewed: 2026-10-28
   `InAppWebView` set a fake `InAppWebViewPlatform.instance`. Read
   `SystemChrome.latestStyle` only after a `pump`. Record haptics with
   `recordHaptics()`, not a platform-channel mock. Wrap motion subjects in
-  `MotionScope(reduce:, speed:)`.
+  `MotionScope(reduce:, speed:)`. Every case starts with empty in-memory
+  preferences from `test/flutter_test_config.dart`; a case that needs
+  stored values installs them with `installMemoryPreferences(data)`, and
+  no file adds its own empty reset.
 - **Why:** Each trap made a correct implementation look broken: finders
   matched nothing, fixtures threw on construction, styles were read before
-  the frame applied them.
+  the frame applied them. The missing preferences plugin was worked around
+  by 146 copies of one reset in `setUp` blocks and world builders.
 - **Check:** manual
-- **Code:** `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
+- **Code:** `test/flutter_test_config.dart`, `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
 
 ### TEST-11 Waits use fake time
 - **Rule:** No `sleep`. Advance time with `fakeAsync` or
@@ -217,10 +221,14 @@ reviewed: 2026-10-28
   inside `tester.runAsync` for real IO, in a bounded loop. The loop ends on
   a condition, not a round count: database calls a widget made in the fake
   zone advance one round trip per pump, so wait for a probe queued behind
-  them on the database lock (`settleHistory`).
+  them on the database lock (`settleHistory`). Condition waits come from
+  `test/helpers/waits.dart` (`turnUntil`, `pollUntil`, `pumpUntil`,
+  `pumpIoUntil`), which fail when the condition never holds.
 - **Why:** A real wait makes a case slow on a fast machine and flaky on a
   loaded one, and `sleep` also blocks the isolate the test drives. Two
   fixed rounds left a history query waiting for the lock on a loaded CI
-  runner, and its lock-warning timer outlived the test.
+  runner, and its lock-warning timer outlived the test. Local wait loops
+  that gave up silently hid a condition that never held: a download test
+  waited for progress the throttle never showed.
 - **Check:** `test/architecture/test_hygiene_test.dart` "no real sleeps"
-- **Code:** `test`, `test/helpers/history_world.dart`
+- **Code:** `test/helpers/waits.dart`, `test/helpers/history_world.dart`

@@ -96,10 +96,7 @@ void main() {
         list = PullToRefresh(onRefresh: () async {}, child: list);
       }
       await tester.pumpWidget(
-        localizedApp(
-          scrollBehavior: const FuncScrollBehavior(),
-          home: Scaffold(body: list),
-        ),
+        localizedApp(scrollBehavior: const FuncScrollBehavior(), body: list),
       );
 
       final titleScroll = tester.state<ScrollableState>(
@@ -137,10 +134,7 @@ void main() {
         list = PullToRefresh(onRefresh: () async {}, child: list);
       }
       await tester.pumpWidget(
-        localizedApp(
-          scrollBehavior: const FuncScrollBehavior(),
-          home: Scaffold(body: list),
-        ),
+        localizedApp(scrollBehavior: const FuncScrollBehavior(), body: list),
       );
       controller.jumpTo(800);
 

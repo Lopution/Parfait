@@ -7,12 +7,10 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/auth/pkce.dart';
 
 void main() {
-  installMemoryPreferences();
   group('PKCE (RFC 7636)', () {
     test('S256 challenge matches the RFC 7636 appendix B vector', () {
       const verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';

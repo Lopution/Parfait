@@ -6,14 +6,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/widgets/settings/settings_group.dart';
 import 'package:parfait/core/mute/mute_store.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 /// Mute API transport: one muted tag on the server; every `/v1/mute/edit`
 /// is recorded and answered with [editStatus].
@@ -49,24 +47,23 @@ Future<(ProviderContainer, _MuteApi)> _pump(
   WidgetTester tester, {
   List<Object> users = const [],
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final api = _MuteApi(users: users);
   final container = await signedInApiContainer(api.build());
-  await mockNetworkImagesFor(
-    () => tester.pumpWidget(
-      localizedApp(
-        container: container,
-        builder: promptHostBuilder,
-        home: MutedItemsPage(),
-      ),
+  await tester.pumpWidget(
+    localizedApp(
+      container: container,
+      builder: promptHostBuilder,
+      home: MutedItemsPage(),
     ),
   );
   // The page's watch starts the hydrate; the transport answers in
   // microtasks, so frames drive it home.
-  for (var i = 0; i < 50; i++) {
-    if (container.read(muteStoreProvider).serverSynced) break;
-    await tester.pump(const Duration(milliseconds: 10));
-  }
+  await pumpUntil(
+    tester,
+    () => container.read(muteStoreProvider).serverSynced,
+    step: const Duration(milliseconds: 10),
+    frames: 50,
+  );
   expect(container.read(muteStoreProvider).tags, {'bad-tag'});
   await tester.pumpAndSettle();
   return (container, api);

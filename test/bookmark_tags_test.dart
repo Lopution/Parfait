@@ -118,7 +118,6 @@ class _RecordedRequest {
 typedef World = (ProviderContainer, List<_RecordedRequest>);
 
 Future<World> _makeWorld(Map<String, Object> responses) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final requests = <_RecordedRequest>[];
   final mock = MockClient((request) async {
     requests.add(
@@ -145,10 +144,6 @@ Future<World> _makeWorld(Map<String, Object> responses) async {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('add with tags space-joins into a single tags[] field', () async {
     final (container, requests) = await _makeWorld({});
     final repository = container.read(bookmarkRepositoryProvider);
@@ -468,10 +463,6 @@ void main() {
   });
 
   group('bookmark tag feed page', () {
-    setUp(() {
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    });
-
     testWidgets('bookmark tag feed labels range and isolates hero scope', (
       tester,
     ) async {

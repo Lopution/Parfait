@@ -22,24 +22,31 @@ import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/waits.dart';
 
 Widget _app(Widget child) => localizedApp(locale: null, home: child);
 
-/// Alternates real-async waits (file/db IO) with frames until [finder]
-/// appears — `pumpAndSettle` cannot be used because the loading spinner
+/// Alternates real-async waits (file/db IO) with frames until [condition]
+/// holds — `pumpAndSettle` cannot be used because the loading spinner
 /// animates while real futures resolve.
+Future<void> _pumpIoUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  int rounds = 60,
+}) => pumpIoUntil(
+  tester,
+  condition,
+  io: const Duration(milliseconds: 10),
+  step: const Duration(milliseconds: 50),
+  rounds: rounds,
+);
+
+/// [_pumpIoUntil] until [finder] matches.
 Future<void> _pumpUntil(
   WidgetTester tester,
   Finder finder, {
-  int attempts = 60,
-}) async {
-  for (var i = 0; i < attempts && finder.evaluate().isEmpty; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 10)),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
-  }
-}
+  int rounds = 60,
+}) => _pumpIoUntil(tester, () => finder.tryEvaluate(), rounds: rounds);
 
 /// Reads a row back without crossing the async boundary twice: the sqflite
 /// call is issued inside the fake-async zone (same zone the reader's
@@ -60,15 +67,7 @@ Future<LocalNovel?> _readStored(
       done = true;
     }),
   );
-  for (var i = 0; i < 120 && !done; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 10)),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
-  }
-  if (!done) {
-    fail('timed out waiting for local novel $id to be readable');
-  }
+  await _pumpIoUntil(tester, () => done, rounds: 120);
   return result;
 }
 
@@ -399,7 +398,7 @@ void main() {
     // avoids racing the reader's unawaited cursor writes, which are issued
     // inside the fake-async zone and can hold sqflite's lock across a
     // real-zone `runAsync` call.
-    await _pumpUntil(tester, find.text('closing paragraph'), attempts: 240);
+    await _pumpUntil(tester, find.text('closing paragraph'), rounds: 240);
     expect(find.text('closing paragraph'), findsOneWidget);
     expect(find.text('opening paragraph'), findsNothing);
   });

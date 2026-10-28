@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -13,11 +12,9 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 /// Minimal provider world for a bare [IllustCard]: the account + network
@@ -68,33 +65,25 @@ Future<void> _pumpCard(
   double textScale = 1,
   double width = 300,
 }) async {
-  await mockNetworkImagesFor(() async {
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
-        theme: theme,
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: SizedBox(width: width, child: card),
-          ),
-        ),
+  await tester.pumpWidget(
+    localizedApp(
+      container: container,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
       ),
-    );
-    await tester.pump();
-  });
+      theme: theme,
+      body: SingleChildScrollView(
+        child: SizedBox(width: width, child: card),
+      ),
+    ),
+  );
+  await tester.pump();
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('a parent rebuild with the same inputs skips the card body', (
     tester,
   ) async {
@@ -135,36 +124,30 @@ void main() {
     final source = IllustPagerSource();
     // 400dp slots on a 600dp screen: card 3 is built in the cache extent
     // but off screen.
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: Scaffold(
-            body: IllustPagerScope(
-              source: source,
-              child: ListView(
-                children: [
-                  for (final id in [1, 2, 3])
-                    SizedBox(
-                      height: 400,
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: SizedBox(
-                          width: 150,
-                          child: IllustCard(
-                            entity: parseIllust(illustJson(id)),
-                          ),
-                        ),
-                      ),
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        body: IllustPagerScope(
+          source: source,
+          child: ListView(
+            children: [
+              for (final id in [1, 2, 3])
+                SizedBox(
+                  height: 400,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 150,
+                      child: IllustCard(entity: parseIllust(illustJson(id))),
                     ),
-                ],
-              ),
-            ),
+                  ),
+                ),
+            ],
           ),
         ),
-      );
-      await tester.pump();
-    });
+      ),
+    );
+    await tester.pump();
     bool flies(int id) => tester
         .widget<HeroMode>(
           find

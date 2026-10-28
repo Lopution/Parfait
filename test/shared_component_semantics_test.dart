@@ -8,11 +8,7 @@ import 'helpers/localized_app.dart';
 
 Widget _host(Widget child) {
   return ProviderScope(
-    child: localizedApp(
-      locale: null,
-      builder: promptHostBuilder,
-      home: Scaffold(body: child),
-    ),
+    child: localizedApp(locale: null, builder: promptHostBuilder, body: child),
   );
 }
 

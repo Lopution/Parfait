@@ -16,7 +16,6 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/platform/account_transfer_clipboard.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 
 const _sourceAccount = Account(
   id: '42',
@@ -157,7 +156,6 @@ Map<String, dynamic> _authoritativeDetail({int id = 42}) => {
 };
 
 void main() {
-  installMemoryPreferences();
   test(
     'successful import uses server-authoritative metadata and clears owned clipboard',
     () async {

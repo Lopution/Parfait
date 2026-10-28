@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:http/http.dart' as http;
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/pixiv_image.dart';
@@ -31,9 +30,9 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/waits.dart';
 
 void main() {
   // Every test that builds an image creates the network factory, which
@@ -100,40 +99,38 @@ void main() {
     // card → detail page-0 → viewer page-0; only the page suffix differs.
     // Asserted through the real route glue (openIllust / openImageViewer /
     // heroTagForPage), so a second tag family or a lost scope fails here.
-    await mockNetworkImagesFor(() async {
-      await pushFromFeed(
-        tester,
-        illustJson(42, pageCount: 2, withMetaPages: true),
-      );
-      await tester.pump(const Duration(milliseconds: 400));
-      final baseTag = illustHeroTag('feed', 42);
+    await pushFromFeed(
+      tester,
+      illustJson(42, pageCount: 2, withMetaPages: true),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    final baseTag = illustHeroTag('feed', 42);
 
-      expect(find.byType(IllustDetailPage), findsOneWidget);
-      expect(
-        find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
-        findsOneWidget,
-        reason: 'detail page-0 must fly with the feed card tag',
-      );
+    expect(find.byType(IllustDetailPage), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
+      findsOneWidget,
+      reason: 'detail page-0 must fly with the feed card tag',
+    );
 
-      // Tap the page image → the viewer continues the same tag base.
-      await tester.tap(find.byType(DetailPageImage).first);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pumpAndSettle();
+    // Tap the page image → the viewer continues the same tag base.
+    await tester.tap(find.byType(DetailPageImage).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(ImageViewerPage), findsOneWidget);
-      expect(
-        find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
-        findsOneWidget,
-        reason: 'viewer page-0 continues the same spatial chain',
-      );
-      // Page 1 derives from the same base — no second family appears.
-      expect(
-        find.byWidgetPredicate((w) => w is Hero && w.tag == '$baseTag-1'),
-        findsNothing,
-        reason: 'other pages mount only inside the pager when visited',
-      );
-    });
+    expect(find.byType(ImageViewerPage), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
+      findsOneWidget,
+      reason: 'viewer page-0 continues the same spatial chain',
+    );
+    // Page 1 derives from the same base — no second family appears.
+    expect(
+      find.byWidgetPredicate((w) => w is Hero && w.tag == '$baseTag-1'),
+      findsNothing,
+      reason: 'other pages mount only inside the pager when visited',
+    );
   });
 
   // A root page (the viewer) pairs its Hero with the top page of every
@@ -142,36 +139,34 @@ void main() {
   testWidgets('the viewer pairs only with the branch on screen', (
     tester,
   ) async {
-    await mockNetworkImagesFor(() async {
-      setViewSize(tester, const Size(390, 844));
-      VisibilityDetectorController.instance.updateInterval = Duration.zero;
-      final (container, _, _) = await makeWorld();
-      final entity = parseIllust(illustJson(42));
-      container.read(illustStoreProvider).mergeAll([entity]);
-      final router = pixivRouter('/settings');
-      await tester.pumpWidget(localizedRouterApp(router, container: container));
+    setViewSize(tester, const Size(390, 844));
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+    final (container, _, _) = await makeWorld();
+    final entity = parseIllust(illustJson(42));
+    container.read(illustStoreProvider).mergeAll([entity]);
+    final router = pixivRouter('/settings');
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    await tester.pump();
+    for (final branch in ['/settings', '/recommended']) {
+      router.go(branch);
       await tester.pump();
-      for (final branch in ['/settings', '/recommended']) {
-        router.go(branch);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 500));
-        unawaited(
-          router.push<void>(
-            '$branch/illust/42',
-            extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(seconds: 1));
-      }
-      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pump(const Duration(milliseconds: 500));
+      unawaited(
+        router.push<void>(
+          '$branch/illust/42',
+          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
+        ),
+      );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(tester.takeException(), isNull, reason: 'one Hero per tag');
-      expect(find.byType(HeroRectClip), findsOneWidget);
-      await tester.pumpAndSettle();
-      expect(find.byType(ImageViewerPage), findsOneWidget);
-    });
+      await tester.pump(const Duration(seconds: 1));
+    }
+    await tester.tap(find.byType(DetailPageImage).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.takeException(), isNull, reason: 'one Hero per tag');
+    expect(find.byType(HeroRectClip), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.byType(ImageViewerPage), findsOneWidget);
   });
 
   // The flight self-check: a card end the user cannot see is logged and
@@ -179,7 +174,6 @@ void main() {
   testWidgets('a flight from a card out of sight is logged, others not', (
     tester,
   ) async {
-    installMemoryPreferences();
     final navigator = GlobalKey<NavigatorState>();
     var live = true;
     late StateSetter setLive;
@@ -241,151 +235,142 @@ void main() {
 
   testWidgets('only the entry page flies back; a drag from another page '
       'slides away, back leaves like any page', (tester) async {
-    await mockNetworkImagesFor(() async {
-      await pushFromFeed(
-        tester,
-        illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
-      );
+    await pushFromFeed(
+      tester,
+      illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
+    );
+    await tester.pumpAndSettle();
+    final baseTag = illustHeroTag('feed', 42);
+    final viewer = find.byType(ImageViewerPage);
+    double slide() => tester
+        .widget<FractionalTranslation>(
+          find
+              .descendant(
+                of: viewer,
+                matching: find.byType(FractionalTranslation),
+              )
+              .first,
+        )
+        .translation
+        .dy;
+
+    // Leaving from page 2, where the viewer did not open: it carries no
+    // Hero. Back plays the page transition; a drag slides the stage down.
+    for (final drag in [false, true]) {
+      await tester.tap(find.byType(DetailPageImage).first);
       await tester.pumpAndSettle();
-      final baseTag = illustHeroTag('feed', 42);
-      final viewer = find.byType(ImageViewerPage);
-      double slide() => tester
-          .widget<FractionalTranslation>(
-            find
-                .descendant(
-                  of: viewer,
-                  matching: find.byType(FractionalTranslation),
-                )
-                .first,
-          )
-          .translation
-          .dy;
-
-      // Leaving from page 2, where the viewer did not open: it carries no
-      // Hero. Back plays the page transition; a drag slides the stage down.
-      for (final drag in [false, true]) {
-        await tester.tap(find.byType(DetailPageImage).first);
-        await tester.pumpAndSettle();
-        expect(
-          find.descendant(
-            of: viewer,
-            matching: find.byWidgetPredicate(
-              (w) => w is Hero && w.tag == baseTag,
-            ),
+      expect(
+        find.descendant(
+          of: viewer,
+          matching: find.byWidgetPredicate(
+            (w) => w is Hero && w.tag == baseTag,
           ),
-          findsOneWidget,
-          reason: 'the viewer opened on page 1 carries its Hero',
-        );
-        await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
-        await tester.pumpAndSettle();
-        expect(find.text('2 / 2'), findsOneWidget);
-        expect(
-          find.descendant(
-            of: viewer,
-            matching: find.byWidgetPredicate(
-              (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
-            ),
+        ),
+        findsOneWidget,
+        reason: 'the viewer opened on page 1 carries its Hero',
+      );
+      await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 2'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: viewer,
+          matching: find.byWidgetPredicate(
+            (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
           ),
-          findsNothing,
-        );
+        ),
+        findsNothing,
+      );
 
-        if (drag) {
-          await tester.drag(find.byType(DragToDismiss), const Offset(0, 300));
-        } else {
-          await tester.tap(find.byType(BackButton));
-        }
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 150));
-        expect(slide(), drag ? greaterThan(0) : 0, reason: 'drag: $drag');
-        await tester.pumpAndSettle();
-        expect(viewer, findsNothing);
+      if (drag) {
+        await tester.drag(find.byType(DragToDismiss), const Offset(0, 300));
+      } else {
+        await tester.tap(find.byType(BackButton));
       }
-    });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(slide(), drag ? greaterThan(0) : 0, reason: 'drag: $drag');
+      await tester.pumpAndSettle();
+      expect(viewer, findsNothing);
+    }
   });
 
   testWidgets('an image sent back mid-flight turns where it is', (
     tester,
   ) async {
-    await mockNetworkImagesFor(() async {
-      await pushFromFeed(tester, illustJson(42));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DetailPageImage).first);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 180));
-      Offset at() => tester.getCenter(find.byType(HeroRectClip));
-      var last = at();
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-      expect(at(), last, reason: 'turns without a jump');
-      final steps = <double>[];
-      for (var i = 0; i < 20; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        if (find.byType(HeroRectClip).evaluate().isEmpty) break;
-        steps.add((at() - last).distance);
-        last = at();
-      }
-      // Home on the return curve from where it was: it starts from rest.
-      // The opening curve played backwards set off at its fastest.
-      expect(steps.length, greaterThan(4));
-      expect(steps.first, lessThan(steps[1] / 2));
-      await tester.pumpAndSettle();
-      expect(find.byType(ImageViewerPage), findsNothing);
-    });
+    await pushFromFeed(tester, illustJson(42));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DetailPageImage).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 180));
+    Offset at() => tester.getCenter(find.byType(HeroRectClip));
+    var last = at();
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(at(), last, reason: 'turns without a jump');
+    final steps = <double>[];
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      if (find.byType(HeroRectClip).evaluate().isEmpty) break;
+      steps.add((at() - last).distance);
+      last = at();
+    }
+    // Home on the return curve from where it was: it starts from rest.
+    // The opening curve played backwards set off at its fastest.
+    expect(steps.length, greaterThan(4));
+    expect(steps.first, lessThan(steps[1] / 2));
+    await tester.pumpAndSettle();
+    expect(find.byType(ImageViewerPage), findsNothing);
   });
 
   testWidgets(
     'the viewer leaves whole and square; the detail page answers mid-flight',
     (tester) async {
-      await mockNetworkImagesFor(() async {
-        await pushFromFeed(tester, illustJson(42));
-        await tester.pumpAndSettle();
-        final detail = find.byType(IllustDetailPage);
-        await tester.tap(find.byType(DetailPageImage).first);
-        await tester.pumpAndSettle();
-        int? decodeWidthIn(Finder scope) => tester
-            .widget<PixivImage>(
-              find.descendant(of: scope, matching: find.byType(PixivImage)),
+      await pushFromFeed(tester, illustJson(42));
+      await tester.pumpAndSettle();
+      final detail = find.byType(IllustDetailPage);
+      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pumpAndSettle();
+      int? decodeWidthIn(Finder scope) => tester
+          .widget<PixivImage>(
+            find.descendant(of: scope, matching: find.byType(PixivImage)),
+          )
+          .memCacheWidth;
+      final shown = decodeWidthIn(find.byType(ImageViewerPage));
+      expect(shown, isNotNull, reason: 'the viewer shows its preview');
+      await tester.tap(find.byType(BackButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
+      // The shuttle paints the decode the viewer showed: no second decode.
+      expect(decodeWidthIn(find.byType(HeroRectClip)), shown);
+      // The stage fades out whole: no hole where the image sat. The image
+      // flies square: neither end is a card.
+      expect(
+        tester.layers.whereType<ClipPathLayer>().where(
+          (layer) => layer.clipPath!.fillType == PathFillType.evenOdd,
+        ),
+        isEmpty,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HeroRectClip && w.child is ClipRRect,
+        ),
+        findsNothing,
+      );
+      // The detail page below stays live rather than a frozen texture, and
+      // a tap on its image opens the viewer again.
+      expect(
+        tester
+            .widgetList<SnapshotWidget>(
+              find.ancestor(of: detail, matching: find.byType(SnapshotWidget)),
             )
-            .memCacheWidth;
-        final shown = decodeWidthIn(find.byType(ImageViewerPage));
-        expect(shown, isNotNull, reason: 'the viewer shows its preview');
-        await tester.tap(find.byType(BackButton));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
-        expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
-        // The shuttle paints the decode the viewer showed: no second decode.
-        expect(decodeWidthIn(find.byType(HeroRectClip)), shown);
-        // The stage fades out whole: no hole where the image sat. The image
-        // flies square: neither end is a card.
-        expect(
-          tester.layers.whereType<ClipPathLayer>().where(
-            (layer) => layer.clipPath!.fillType == PathFillType.evenOdd,
-          ),
-          isEmpty,
-        );
-        expect(
-          find.byWidgetPredicate(
-            (w) => w is HeroRectClip && w.child is ClipRRect,
-          ),
-          findsNothing,
-        );
-        // The detail page below stays live rather than a frozen texture, and
-        // a tap on its image opens the viewer again.
-        expect(
-          tester
-              .widgetList<SnapshotWidget>(
-                find.ancestor(
-                  of: detail,
-                  matching: find.byType(SnapshotWidget),
-                ),
-              )
-              .where((snapshot) => snapshot.controller.allowSnapshotting),
-          isEmpty,
-        );
-        await tester.tap(find.byType(DetailPageImage).first);
-        await tester.pumpAndSettle();
-        expect(find.byType(ImageViewerPage), findsOneWidget);
-      });
+            .where((snapshot) => snapshot.controller.allowSnapshotting),
+        isEmpty,
+      );
+      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pumpAndSettle();
+      expect(find.byType(ImageViewerPage), findsOneWidget);
     },
   );
 
@@ -654,98 +639,94 @@ void main() {
     container.read(illustStoreProvider).mergeAll([entity]);
     final navigatorKey = GlobalKey<NavigatorState>();
 
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          navigatorKey: navigatorKey,
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 150,
-                height: 200,
-                child: Hero(
-                  tag: illustHeroTag('feed', 42),
-                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                  child: const ColoredBox(color: Colors.red),
-                ),
-              ),
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        navigatorKey: navigatorKey,
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 150,
+            height: 200,
+            child: Hero(
+              tag: illustHeroTag('feed', 42),
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              child: const ColoredBox(color: Colors.red),
             ),
           ),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      unawaited(
-        navigatorKey.currentState!.push(
-          MaterialPageRoute<void>(
-            builder: (_) => IllustDetailPage(
-              illustId: 42,
-              initialEntity: entity,
-              heroImageUrl: entity.imageUrls.medium,
-            ),
+    unawaited(
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => IllustDetailPage(
+            illustId: 42,
+            initialEntity: entity,
+            heroImageUrl: entity.imageUrls.medium,
           ),
         ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
-      final page = find.byType(DetailPageImage);
-      expect(page, findsOneWidget);
-      // The Hero keeps its child mounted but Offstage while it flies.
-      bool painted(Element element) {
-        var onstage = true;
-        element.visitAncestorElements((ancestor) {
-          final widget = ancestor.widget;
-          if (widget is Offstage && widget.offstage) onstage = false;
-          return onstage;
-        });
+    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
+    final page = find.byType(DetailPageImage);
+    expect(page, findsOneWidget);
+    // The Hero keeps its child mounted but Offstage while it flies.
+    bool painted(Element element) {
+      var onstage = true;
+      element.visitAncestorElements((ancestor) {
+        final widget = ancestor.widget;
+        if (widget is Offstage && widget.offstage) onstage = false;
         return onstage;
-      }
+      });
+      return onstage;
+    }
 
-      final artwork = find
-          .descendant(
-            of: find.byType(IllustDetailPage),
-            matching: find.byWidgetPredicate(
-              (w) => w is PixivImage && w.url == entity.imageUrls.medium,
-            ),
-          )
-          .evaluate();
-      expect(
-        artwork.where(painted).map((element) => element.widget),
-        isEmpty,
-        reason: 'the page draws no copy of the artwork under the flight',
-      );
-      // The top bar and the action bar enter with the page, under the
-      // flight, rather than after the image has landed.
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
-      double barEntrance() =>
-          tester.widget<AppTopBar>(find.byType(AppTopBar)).entrance!.value;
-      double actionBar() => tester
-          .widget<DetailActionBar>(find.byType(DetailActionBar))
-          .visibility
-          .value;
-      expect(barEntrance(), greaterThan(0));
-      expect(actionBar(), greaterThan(0));
-      await tester.pumpAndSettle();
-      expect(barEntrance(), 1);
-      expect(actionBar(), 1);
-      expect(
-        find.descendant(of: page, matching: find.byType(PixivImage)),
-        findsOneWidget,
-      );
+    final artwork = find
+        .descendant(
+          of: find.byType(IllustDetailPage),
+          matching: find.byWidgetPredicate(
+            (w) => w is PixivImage && w.url == entity.imageUrls.medium,
+          ),
+        )
+        .evaluate();
+    expect(
+      artwork.where(painted).map((element) => element.widget),
+      isEmpty,
+      reason: 'the page draws no copy of the artwork under the flight',
+    );
+    // The top bar and the action bar enter with the page, under the
+    // flight, rather than after the image has landed.
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
+    double barEntrance() =>
+        tester.widget<AppTopBar>(find.byType(AppTopBar)).entrance!.value;
+    double actionBar() => tester
+        .widget<DetailActionBar>(find.byType(DetailActionBar))
+        .visibility
+        .value;
+    expect(barEntrance(), greaterThan(0));
+    expect(actionBar(), greaterThan(0));
+    await tester.pumpAndSettle();
+    expect(barEntrance(), 1);
+    expect(actionBar(), 1);
+    expect(
+      find.descendant(of: page, matching: find.byType(PixivImage)),
+      findsOneWidget,
+    );
 
-      // Leaving, the action bar stays put and goes with the page; the
-      // flight back is drawn above it.
-      navigatorKey.currentState!.pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(actionBar(), 1);
-      await tester.pumpAndSettle();
-    });
+    // Leaving, the action bar stays put and goes with the page; the
+    // flight back is drawn above it.
+    navigatorKey.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(actionBar(), 1);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('Hero pop onto a user page matches its own chrome', (

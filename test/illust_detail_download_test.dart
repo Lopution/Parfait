@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
@@ -15,50 +14,41 @@ import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
+import 'helpers/waits.dart';
 
 void main() {
-  installMemoryPreferences();
-
   // The detail page tracks the visible image page through
   // VisibilityDetector (compact-header page counter); a zero interval
   // defers updates to post-frame callbacks so no Timer outlives a test.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   group('IllustDetailPage download mode (R4)', () {
     testWidgets('download feedback opens tasks after the detail is disposed', (
       tester,
     ) async {
-      await mockNetworkImagesFor(() async {
-        final (container, _, _) = await makeWorld();
-        await pumpDetail(tester, container, useRouter: true);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Download All'));
-        await tester.pumpAndSettle();
-        expect(container.read(downloadManagerProvider).tasks, hasLength(2));
-        expect(find.text('View'), findsOneWidget);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, useRouter: true);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Download All'));
+      await tester.pumpAndSettle();
+      expect(container.read(downloadManagerProvider).tasks, hasLength(2));
+      expect(find.text('View'), findsOneWidget);
 
-        await tester.binding.handlePopRoute();
-        await tester.pumpAndSettle();
-        expect(find.byType(IllustDetailPage), findsNothing);
-        await tester.tap(find.text('View'));
-        await tester.pumpAndSettle();
-        expect(find.byType(DownloadTasksPage), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      });
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(IllustDetailPage), findsNothing);
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadTasksPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('multi-page works expose an explicit selection action', (
@@ -116,20 +106,16 @@ void main() {
 
         // Tapping page 0's badge toggles the selection — nothing downloads
         // yet.
-        await mockNetworkImagesFor(() async {
-          await tester.tap(unselected.first);
-          await tester.pump();
-        });
+        await tester.tap(unselected.first);
+        await tester.pump();
         final manager = container.read(downloadManagerProvider);
         expect(manager.tasks, isEmpty);
         expect(find.byIcon(Icons.check_circle), findsOneWidget);
         expect(selectionCount(tester), '1');
 
         // Download submits exactly the selected page and exits the mode.
-        await mockNetworkImagesFor(() async {
-          await tester.tap(downloadSelectedButton);
-          await tester.pump();
-        });
+        await tester.tap(downloadSelectedButton);
+        await tester.pump();
         expect(manager.tasks, hasLength(1));
         expect(manager.tasks.single.illustId, 42);
         expect(manager.tasks.single.pageIndex, 0);
@@ -139,10 +125,11 @@ void main() {
         );
         expect(sinks.sinks, hasLength(1));
 
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 20));
-          if (manager.tasks.single.status != DownloadStatus.running) break;
-        }
+        await pumpUntil(
+          tester,
+          () => manager.tasks.single.status != DownloadStatus.running,
+          frames: 20,
+        );
         expect(manager.tasks.single.status, DownloadStatus.succeeded);
         await tester.pumpAndSettle();
         expect(selectionCount(tester), isNull);
@@ -257,20 +244,17 @@ void main() {
       await pumpDetail(tester, container);
 
       // Always-visible entry — no selection mode needed.
-      await mockNetworkImagesFor(() async {
-        await tester.tap(find.byTooltip('Download All'));
-        await tester.pump();
-      });
+      await tester.tap(find.byTooltip('Download All'));
+      await tester.pump();
 
       final manager = container.read(downloadManagerProvider);
       // Let both transfers drain so no FakeResponse timers leak past the
       // widget-tree disposal.
-      for (var i = 0; i < 30; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-        if (manager.tasks.every((t) => t.status == DownloadStatus.succeeded)) {
-          break;
-        }
-      }
+      await pumpUntil(
+        tester,
+        () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+        frames: 30,
+      );
       expect(manager.tasks.map((t) => t.pageIndex).toSet(), {0, 1});
       expect(transport.openedUrls, hasLength(2));
       expect(sinks.sinks, hasLength(2));
@@ -304,12 +288,10 @@ void main() {
       // Enter the selection mode, pick page 0, submit — the task itself
       // then fails asynchronously.
       await longPressImage(tester);
-      await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
-        await tester.pump();
-        await tester.tap(downloadSelectedButton);
-        await tester.pump(const Duration(milliseconds: 100));
-      });
+      await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
+      await tester.pump();
+      await tester.tap(downloadSelectedButton);
+      await tester.pump(const Duration(milliseconds: 100));
 
       expect(manager.tasks.single.status, DownloadStatus.failed);
 
@@ -326,10 +308,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(DetailActionBar).hitTestable(), findsNothing);
 
-      await mockNetworkImagesFor(() async {
-        await tester.tap(pageError);
-        await tester.pump();
-      });
+      await tester.tap(pageError);
+      await tester.pump();
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
       expect(
         find.ancestor(
@@ -339,10 +319,8 @@ void main() {
         findsOneWidget,
       );
 
-      await mockNetworkImagesFor(() async {
-        await tester.tap(downloadSelectedButton);
-        await tester.pump(const Duration(milliseconds: 100));
-      });
+      await tester.tap(downloadSelectedButton);
+      await tester.pump(const Duration(milliseconds: 100));
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
     });
   });

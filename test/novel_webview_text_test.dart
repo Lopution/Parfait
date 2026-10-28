@@ -9,15 +9,12 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/novel/novel_webview_text.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final container = await signedInApiContainer(
     MockClient(handler),
     account: const Account(id: 'account', userId: 10, name: 'tester'),

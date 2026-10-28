@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/navigation/routes.dart';
@@ -22,7 +21,6 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
@@ -49,10 +47,6 @@ final _rootCopy = find.descendant(
 );
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('shell owns the active tab and preserves branch stacks', (
     tester,
   ) async {

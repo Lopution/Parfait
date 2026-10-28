@@ -13,6 +13,7 @@ import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 const _url = 'https://i.pximg.net/img-master/progress.jpg';
 

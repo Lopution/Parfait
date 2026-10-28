@@ -4,20 +4,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 Widget host(Widget child, {Locale? locale}) =>
     localizedApp(locale: locale, home: child);
 
 void main() {
-  installMemoryPreferences();
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('never takes pointer input — taps reach the artwork below', (
     tester,
   ) async {

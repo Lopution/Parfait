@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/system_ui.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -28,6 +27,7 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 Future<ProviderContainer> _apiContainer({
   Map<String, Object> preferences = const {},
@@ -115,15 +115,16 @@ Object.defineProperty(window, 'pixiv', {value: {
 /// Pumps until the async pagination lands on its real page count: the
 /// controller boots at `1/1`, so a still-laying-out footer always shows
 /// `· 1/1 ·`. Layout yields on zero-duration timers, which `pump` drains.
-Future<void> _settleReader(WidgetTester tester) async {
+Future<void> _settleReader(WidgetTester tester) {
   final hint = find.textContaining('novel 1 ·');
-  for (var i = 0; i < 80; i++) {
-    if (hint.evaluate().isNotEmpty &&
-        !tester.widget<Text>(hint).data!.contains('· 1/1 ·')) {
-      return;
-    }
-    await tester.pump(const Duration(milliseconds: 50));
-  }
+  return pumpUntil(
+    tester,
+    () =>
+        hint.tryEvaluate() &&
+        !tester.widget<Text>(hint).data!.contains('· 1/1 ·'),
+    step: const Duration(milliseconds: 50),
+    frames: 80,
+  );
 }
 
 /// Mounts [NovelPage] (pushed over a host page when [pushed]) and lets the
@@ -133,21 +134,19 @@ Future<void> _mountReader(
   ProviderContainer container, {
   bool pushed = false,
 }) async {
-  await mockNetworkImagesFor(() async {
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        home: pushed ? const _Host() : const NovelPage(novelId: 1),
-      ),
-    );
-    if (pushed) {
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-    }
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
-  });
+  await tester.pumpWidget(
+    localizedApp(
+      container: container,
+      home: pushed ? const _Host() : const NovelPage(novelId: 1),
+    ),
+  );
+  if (pushed) {
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+  }
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 /// [_mountReader], then waits out the async pagination. Chrome still starts
@@ -157,7 +156,7 @@ Future<void> _openReader(
   ProviderContainer container,
 ) async {
   await _mountReader(tester, container);
-  await mockNetworkImagesFor(() => _settleReader(tester));
+  await _settleReader(tester);
 }
 
 Map<String, Object> _seriesNovel(int id, String title) => {
@@ -595,55 +594,53 @@ void main() {
 
     for (final scale in [1.0, 2.0]) {
       final container = await _apiContainer();
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(scale)),
-              child: child!,
-            ),
-            home: const NovelPage(novelId: 1),
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
           ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pump(const Duration(milliseconds: 300));
-        await _settleReader(tester);
+          home: const NovelPage(novelId: 1),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+      await _settleReader(tester);
 
-        final hint = tester.getRect(find.textContaining('novel 1 ·'));
-        var lastLineBottom = 0.0;
-        Rect? lastLine;
-        for (final line in tester.widgetList<Text>(
-          find.descendant(
-            of: find.byType(NovelReader),
-            matching: find.byType(Text),
-          ),
-        )) {
-          final rect = tester.getRect(find.byWidget(line));
-          if (rect.bottom > lastLineBottom) {
-            lastLineBottom = rect.bottom;
-            lastLine = rect;
-          }
+      final hint = tester.getRect(find.textContaining('novel 1 ·'));
+      var lastLineBottom = 0.0;
+      Rect? lastLine;
+      for (final line in tester.widgetList<Text>(
+        find.descendant(
+          of: find.byType(NovelReader),
+          matching: find.byType(Text),
+        ),
+      )) {
+        final rect = tester.getRect(find.byWidget(line));
+        if (rect.bottom > lastLineBottom) {
+          lastLineBottom = rect.bottom;
+          lastLine = rect;
         }
-        expect(
-          lastLine,
-          isNotNull,
-          reason: 'scale $scale: the laid-out page must have text lines',
-        );
-        expect(
-          hint.overlaps(lastLine!),
-          isFalse,
-          reason:
-              'scale $scale: hint $hint must not cover the last body line '
-              '$lastLine',
-        );
-        // Sanity: the hint itself still sits inside the bottom inset band
-        // it is supposed to live in.
-        expect(hint.bottom, lessThanOrEqualTo(600));
-      });
+      }
+      expect(
+        lastLine,
+        isNotNull,
+        reason: 'scale $scale: the laid-out page must have text lines',
+      );
+      expect(
+        hint.overlaps(lastLine!),
+        isFalse,
+        reason:
+            'scale $scale: hint $hint must not cover the last body line '
+            '$lastLine',
+      );
+      // Sanity: the hint itself still sits inside the bottom inset band
+      // it is supposed to live in.
+      expect(hint.bottom, lessThanOrEqualTo(600));
       container.dispose();
     }
   });
@@ -658,39 +655,37 @@ void main() {
         ),
       },
     );
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            theme: replicaTheme(Brightness.light),
-            // The same root default app.dart's builder installs.
-            builder: (context, routeChild) => FuncSystemBars(
-              background: Theme.of(context).brightness,
-              child: routeChild ?? const SizedBox.shrink(),
-            ),
-            home: const _Host(),
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          theme: replicaTheme(Brightness.light),
+          // The same root default app.dart's builder installs.
+          builder: (context, routeChild) => FuncSystemBars(
+            background: Theme.of(context).brightness,
+            child: routeChild ?? const SizedBox.shrink(),
           ),
+          home: const _Host(),
         ),
-      );
-      // Two pumps: mount, then RenderView publishes latestStyle.
-      await tester.pump();
-      await tester.pump();
-      expect(
-        SystemChrome.latestStyle?.statusBarIconBrightness,
-        Brightness.dark,
-        reason: 'the light root theme starts with dark icons',
-      );
+      ),
+    );
+    // Two pumps: mount, then RenderView publishes latestStyle.
+    await tester.pump();
+    await tester.pump();
+    expect(
+      SystemChrome.latestStyle?.statusBarIconBrightness,
+      Brightness.dark,
+      reason: 'the light root theme starts with dark icons',
+    );
 
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump();
-    });
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
 
     expect(
       SystemChrome.latestStyle?.statusBarIconBrightness,

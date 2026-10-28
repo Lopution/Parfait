@@ -127,40 +127,6 @@ class RangeServingClient extends http.BaseClient {
 Uint8List patternBytes(int size) =>
     Uint8List.fromList([for (var i = 0; i < size; i++) i * 31 % 251]);
 
-/// Lets queued microtasks and immediate timers run (real async only).
-Future<void> settleIo([int rounds = 20]) async {
-  for (var i = 0; i < rounds; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
-
-/// Polls [condition] in real time; disk-backed cache work needs actual IO
-/// turns, not just microtasks. Fails after [timeout].
-Future<void> pollUntil(
-  bool Function() condition, {
-  Duration timeout = const Duration(seconds: 5),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (!condition()) {
-    if (DateTime.now().isAfter(deadline)) {
-      fail('condition not met within $timeout');
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  }
-}
-
-/// Real IO turns between pumps until [done] — an in-process worker's hops
-/// each need one — failing after a bound.
-Future<void> pumpIoUntil(WidgetTester tester, bool Function() done) async {
-  for (var i = 0; i < 60 && !done(); i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 20)),
-    );
-    await tester.pump();
-  }
-  expect(done(), isTrue, reason: 'settled within the bound');
-}
-
 /// Unmounts the tree and lets the release grace run out: releasing a URL
 /// whose worker transfer is still in flight arms a re-check timer, which
 /// must not outlive the test.

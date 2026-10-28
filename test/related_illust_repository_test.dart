@@ -5,11 +5,9 @@ import 'package:http/testing.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/illust/related_illust_repository.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 
 http.Response _ok(Map<String, dynamic> body) => jsonResponse(body);
 
@@ -19,10 +17,6 @@ Future<PixivRelatedIllustRepository> _repo(MockClient client) async {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   group('PixivRelatedIllustRepository', () {
     test('requests /v2/illust/related with illust_id and filter', () async {
       final client = MockClient((request) async {

@@ -6,21 +6,15 @@ import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/app/widgets/watchlist_toggle.dart';
 import 'package:parfait/features/watchlist/watchlist_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/watchlist_world.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 Widget _app(Widget child) =>
     localizedApp(locale: null, builder: promptHostBuilder, home: child);
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('watchlist page lists entries under both type tabs', (
     tester,
   ) async {

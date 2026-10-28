@@ -14,6 +14,7 @@ import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/fake_account.dart';
+import 'helpers/waits.dart';
 
 IllustEntity _illust(int id, {String? title}) {
   final json = illustJson(id);
@@ -76,14 +77,6 @@ final _filteringFeedProvider =
       _FilteringFeedController.new,
     );
 
-Future<void> _waitUntil(bool Function() condition) async {
-  for (var attempt = 0; attempt < 100; attempt++) {
-    if (condition()) return;
-    await Future<void>.delayed(Duration.zero);
-  }
-  throw StateError('condition did not become true');
-}
-
 ProviderContainer _container() => ProviderContainer.test(
   overrides: [
     accountStoreProvider.overrideWith(
@@ -132,7 +125,7 @@ void main() {
       final store = IllustStore();
 
       final initialFuture = container.read(provider.future);
-      await _waitUntil(() => controller.requests.length == 1);
+      await turnUntil(() => controller.requests.length == 1);
       final initialContext = controller.requests.single;
       expect(initialContext.feedKey, 'recommended:illust');
       expect(initialContext.accountId, 'account-a');
@@ -154,7 +147,7 @@ void main() {
       await initialFuture;
 
       final appendFuture = controller.loadMore();
-      await _waitUntil(() => controller.requests.length == 2);
+      await turnUntil(() => controller.requests.length == 2);
       final appendContext = controller.requests[1];
       final appendCompletion = controller.completions[0];
       expect(appendContext.generation, 1);
@@ -162,7 +155,7 @@ void main() {
       expect(appendContext.cursor, 'cursor-1');
 
       final refreshFuture = controller.refresh();
-      await _waitUntil(() => controller.requests.length == 3);
+      await turnUntil(() => controller.requests.length == 3);
       final refreshContext = controller.requests[2];
       final refreshCompletion = controller.completions[1];
       expect(refreshContext.generation, 2);
@@ -225,7 +218,7 @@ void main() {
       final store = IllustStore();
 
       final initialFuture = container.read(provider.future);
-      await _waitUntil(() => controller.requests.length == 1);
+      await turnUntil(() => controller.requests.length == 1);
       controller.completions
           .removeAt(0)
           .complete(
@@ -238,7 +231,7 @@ void main() {
       await initialFuture;
 
       final appendFuture = controller.loadMore();
-      await _waitUntil(() => controller.requests.length == 2);
+      await turnUntil(() => controller.requests.length == 2);
       controller.completions
           .removeAt(0)
           .complete(
@@ -262,7 +255,7 @@ void main() {
       expect(store.get(3)!.title, 'duplicate server item');
 
       final refreshFuture = controller.refresh();
-      await _waitUntil(() => controller.requests.length == 3);
+      await turnUntil(() => controller.requests.length == 3);
       controller.completions
           .removeAt(0)
           .complete(
@@ -290,7 +283,7 @@ void main() {
       var commits = 0;
 
       final initialFuture = container.read(provider.future);
-      await _waitUntil(() => controller.requests.length == 1);
+      await turnUntil(() => controller.requests.length == 1);
       controller.completions
           .removeAt(0)
           .complete(
@@ -303,7 +296,7 @@ void main() {
       await initialFuture;
 
       final appendFuture = controller.loadMore();
-      await _waitUntil(() => controller.requests.length == 2);
+      await turnUntil(() => controller.requests.length == 2);
       controller.completions
           .removeAt(0)
           .complete(
@@ -347,10 +340,10 @@ void main() {
         );
     final feedSubscription = container.listen(provider.future, (_, _) {});
     addTearDown(feedSubscription.close);
-    await _waitUntil(() => controller.requests.length == 1);
+    await turnUntil(() => controller.requests.length == 1);
     final oldContext = controller.requests.single;
     accountStore.switchCurrentTo('account-b');
-    await _waitUntil(() => controller.requests.length == 2);
+    await turnUntil(() => controller.requests.length == 2);
     final newContext = controller.requests[1];
     expect(newContext.accountId, 'account-b');
 
@@ -390,7 +383,7 @@ void main() {
           (value) => value,
           onError: (_, _) => const PagedFeedState(initialPhase: FeedPhase.idle),
         );
-    await _waitUntil(() => controller.requests.length == 1);
+    await turnUntil(() => controller.requests.length == 1);
 
     container.dispose();
     controller.completions.single.complete(

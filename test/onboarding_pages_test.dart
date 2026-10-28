@@ -11,9 +11,7 @@ import 'package:parfait/features/onboarding/language_page.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'helpers/test_preferences.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -21,10 +19,6 @@ import 'helpers/view_size.dart';
 /// Settings storage stub: serves a fixed snapshot and records writes so
 /// tests can assert `completeGuide()` really persisted.
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   Future<void> pumpPage(
     WidgetTester tester,
     Size size,

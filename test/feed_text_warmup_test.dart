@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
@@ -17,7 +16,6 @@ import 'package:parfait/core/user/user_entity.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/warm_text.dart';
 
 List<WarmText> _lines(int count) => [
@@ -37,8 +35,6 @@ void _add(FeedTextWarmup warmup, int count) => warmup.add(
 );
 
 void main() {
-  installMemoryPreferences();
-
   testWidgets('warms one line per frame gap, and only after a short frame', (
     tester,
   ) async {
@@ -213,42 +209,38 @@ void main() {
       paragraphs: const [],
     );
     late BuildContext context;
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: localizedApp(
-            theme: replicaTheme(Brightness.light),
-            // The bold-text setting is merged after the card's style.
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(boldText: true),
-              child: child!,
-            ),
-            home: Scaffold(
-              body: Builder(
-                builder: (c) {
-                  context = c;
-                  return ListView(
-                    children: [
-                      // As the recommended users list lays it out.
-                      const Card(
-                        child: AuthorSummary(
-                          name: 'ねこ',
-                          account: '@neko',
-                          imageUrl: null,
-                        ),
-                      ),
-                      NovelEntry.compact(entity: novel),
-                      SizedBox(width: 300, child: IllustCard(entity: illust)),
-                    ],
-                  );
-                },
-              ),
-            ),
+    await tester.pumpWidget(
+      ProviderScope(
+        child: localizedApp(
+          theme: replicaTheme(Brightness.light),
+          // The bold-text setting is merged after the card's style.
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(boldText: true),
+            child: child!,
+          ),
+          body: Builder(
+            builder: (c) {
+              context = c;
+              return ListView(
+                children: [
+                  // As the recommended users list lays it out.
+                  const Card(
+                    child: AuthorSummary(
+                      name: 'ねこ',
+                      account: '@neko',
+                      imageUrl: null,
+                    ),
+                  ),
+                  NovelEntry.compact(entity: novel),
+                  SizedBox(width: 300, child: IllustCard(entity: illust)),
+                ],
+              );
+            },
           ),
         ),
-      );
-      await tester.pump();
-    });
+      ),
+    );
+    await tester.pump();
     final lines = [
       ...NovelEntry.warmTexts(context, novel),
       ...IllustCard.warmTexts(context, illust),

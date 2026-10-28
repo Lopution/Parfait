@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:parfait/core/auth/account.dart';
@@ -24,7 +23,6 @@ import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 
 /// Minimal entity payload in the NovelSnapshotCodec schema.
 Map<String, Object?> _novelSnapshotJson(int id) => {
@@ -97,7 +95,6 @@ class _World {
 }
 
 Future<_World> _makeWorld({bool blockR18 = false}) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = NovelRankingFixture();
   final directory = await Directory.systemTemp.createTemp('pixiv-feeds-test-');
   final database = FeedDatabase(

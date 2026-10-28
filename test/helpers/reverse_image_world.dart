@@ -7,19 +7,20 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
+import 'waits.dart';
 
 export 'fake_webview.dart';
 
 /// Pumps until [finder] matches: the page copies and decodes the picked
 /// file on real IO, which only advances under `runAsync`.
-Future<void> pumpUntilVisible(WidgetTester tester, Finder finder) async {
-  for (var attempt = 0; attempt < 40 && finder.evaluate().isEmpty; attempt++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+Future<void> pumpUntilVisible(WidgetTester tester, Finder finder) =>
+    pumpIoUntil(
+      tester,
+      () => finder.tryEvaluate(),
+      io: const Duration(milliseconds: 10),
+      step: const Duration(milliseconds: 50),
+      rounds: 40,
     );
-    await tester.pump(const Duration(milliseconds: 50));
-  }
-}
 
 /// A 1×1 PNG at `image.png` in [directory].
 File writeTinyPng(Directory directory) => File('${directory.path}/image.png')

@@ -14,11 +14,9 @@ import 'package:parfait/core/platform/intent_router.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/test_preferences.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -85,10 +83,6 @@ Future<void> _pumpHome(
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets(
     'update prompt clears the shell bar and times out at eight seconds',
     (tester) async {

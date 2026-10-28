@@ -13,7 +13,6 @@ import 'package:parfait/core/user/follow_store.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 
@@ -53,7 +52,6 @@ Finder get _undo => promptAction('撤销');
 void main() {
   testWidgets('a removed bookmark offers no Undo; the heart brings it back '
       'private with its tags', (tester) async {
-    installMemoryPreferences();
     final repository = RecordingBookmarkRepository()
       ..detail = const BookmarkDetail(
         isBookmarked: true,

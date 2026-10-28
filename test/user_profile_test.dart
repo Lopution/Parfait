@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
@@ -28,12 +27,10 @@ import 'package:parfait/features/profile/profile_novel_feed.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
 import 'package:parfait/features/profile/user_series_feed.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -120,10 +117,6 @@ int _selectedTabIndex(WidgetTester tester) =>
     tester.widget<TabBar>(find.byType(TabBar)).controller!.index;
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('detail and preview payloads normalize without losing profile data', () {
     final detail = UserEntity.fromDetailJson(_detailJson());
     final preview = UserEntity.fromPreviewJson({
@@ -234,77 +227,71 @@ void main() {
         sampleUser(42),
       ];
       for (final user in users) {
-        await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              localizedApp(
-                builder: promptHostBuilder,
-                home: Scaffold(
-                  body: CustomScrollView(
-                    key: ValueKey(user.profileImageUrl ?? 'placeholder'),
-                    slivers: [
-                      _MeasuredProfileHeader(
-                        delegateFor: (extent, onMeasured) =>
-                            ReplicaProfileHeaderDelegate(
-                              user: user,
-                              isMe: true,
-                              selectedTabIndex: 0,
-                              onShare: (_) {},
-                              expandedExtent: extent,
-                              onExpandedExtentMeasured: onMeasured,
-                            ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-                    ],
+        await tester.pumpWidget(
+          withStalledImages(
+            localizedApp(
+              builder: promptHostBuilder,
+              body: CustomScrollView(
+                key: ValueKey(user.profileImageUrl ?? 'placeholder'),
+                slivers: [
+                  _MeasuredProfileHeader(
+                    delegateFor: (extent, onMeasured) =>
+                        ReplicaProfileHeaderDelegate(
+                          user: user,
+                          isMe: true,
+                          selectedTabIndex: 0,
+                          onShare: (_) {},
+                          expandedExtent: extent,
+                          onExpandedExtentMeasured: onMeasured,
+                        ),
                   ),
-                ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+                ],
               ),
             ),
-          );
-          await tester.pump();
-          await tester.pump();
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
 
-          for (var step = 0; step <= 10; step++) {
-            final avatar = find.byKey(
-              const ValueKey('profile-expanded-avatar'),
+        for (var step = 0; step <= 10; step++) {
+          final avatar = find.byKey(const ValueKey('profile-expanded-avatar'));
+          final name = find.byKey(const ValueKey('profile-expanded-name'));
+          if (avatar.evaluate().isNotEmpty && name.evaluate().isNotEmpty) {
+            expect(
+              tester.getRect(avatar).overlaps(tester.getRect(name)),
+              isFalse,
+              reason: 'avatar/name overlap at drag step $step',
             );
-            final name = find.byKey(const ValueKey('profile-expanded-name'));
-            if (avatar.evaluate().isNotEmpty && name.evaluate().isNotEmpty) {
+            if (step == 0) {
+              // R2: the avatar's centre line sits exactly on the
+              // banner's bottom edge — topInset(0) + toolbar(56) +
+              // bannerBelowToolbar(80) = 136.
               expect(
-                tester.getRect(avatar).overlaps(tester.getRect(name)),
-                isFalse,
-                reason: 'avatar/name overlap at drag step $step',
+                tester.getRect(avatar).center.dy,
+                moreOrLessEquals(
+                  kToolbarHeight +
+                      ReplicaProfileHeaderGeometry.bannerBelowToolbar,
+                  epsilon: 0.5,
+                ),
               );
-              if (step == 0) {
-                // R2: the avatar's centre line sits exactly on the
-                // banner's bottom edge — topInset(0) + toolbar(56) +
-                // bannerBelowToolbar(80) = 136.
-                expect(
-                  tester.getRect(avatar).center.dy,
-                  moreOrLessEquals(
-                    kToolbarHeight +
-                        ReplicaProfileHeaderGeometry.bannerBelowToolbar,
-                    epsilon: 0.5,
-                  ),
-                );
-              }
             }
-            await tester.drag(
-              find.byType(CustomScrollView),
-              const Offset(0, -40),
-            );
-            await tester.pump();
           }
+          await tester.drag(
+            find.byType(CustomScrollView),
+            const Offset(0, -40),
+          );
+          await tester.pump();
+        }
 
-          expect(
-            find.byKey(const ValueKey('profile-expanded-avatar')),
-            findsNothing,
-          );
-          expect(
-            find.byKey(const ValueKey('profile-toolbar-title')),
-            findsOneWidget,
-          );
-        });
+        expect(
+          find.byKey(const ValueKey('profile-expanded-avatar')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('profile-toolbar-title')),
+          findsOneWidget,
+        );
       }
     },
   );
@@ -315,23 +302,21 @@ void main() {
     var muted = false;
     Widget app() => localizedApp(
       builder: promptHostBuilder,
-      home: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            _MeasuredProfileHeader(
-              delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
-                user: sampleUser(42),
-                isMe: false,
-                selectedTabIndex: 0,
-                onShare: (_) {},
-                isMuted: muted,
-                onToggleMute: () => muted = !muted,
-                expandedExtent: extent,
-                onExpandedExtentMeasured: onMeasured,
-              ),
+      body: CustomScrollView(
+        slivers: [
+          _MeasuredProfileHeader(
+            delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
+              user: sampleUser(42),
+              isMe: false,
+              selectedTabIndex: 0,
+              onShare: (_) {},
+              isMuted: muted,
+              onToggleMute: () => muted = !muted,
+              expandedExtent: extent,
+              onExpandedExtentMeasured: onMeasured,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
     Future<void> openMenu() async {
@@ -358,26 +343,24 @@ void main() {
       await tester.pumpWidget(
         localizedApp(
           builder: promptHostBuilder,
-          home: Scaffold(
-            body: CustomScrollView(
-              controller: controller,
-              slivers: [
-                _MeasuredProfileHeader(
-                  delegateFor: (extent, onMeasured) =>
-                      ReplicaProfileHeaderDelegate(
-                        user: sampleUser(42),
-                        isMe: true,
-                        selectedTabIndex: 0,
-                        onShare: (_) {},
-                        onEditProfile: () {},
-                        onDownloadAll: () {},
-                        expandedExtent: extent,
-                        onExpandedExtentMeasured: onMeasured,
-                      ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-              ],
-            ),
+          body: CustomScrollView(
+            controller: controller,
+            slivers: [
+              _MeasuredProfileHeader(
+                delegateFor: (extent, onMeasured) =>
+                    ReplicaProfileHeaderDelegate(
+                      user: sampleUser(42),
+                      isMe: true,
+                      selectedTabIndex: 0,
+                      onShare: (_) {},
+                      onEditProfile: () {},
+                      onDownloadAll: () {},
+                      expandedExtent: extent,
+                      onExpandedExtentMeasured: onMeasured,
+                    ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+            ],
           ),
         ),
       );
@@ -830,7 +813,7 @@ void main() {
       detail: sampleUser(42).copyWith(totalIllusts: 30, hasDetail: true),
     );
     final container = await makeProfileWorld(users: repository);
-    await mockNetworkImagesFor(() => _pumpProfile(tester, container));
+    await _pumpProfile(tester, container);
 
     // The works total row is clipped with its tab, never squeezed into an
     // overflow.
@@ -842,64 +825,62 @@ void main() {
     setViewSize(tester, const Size(360, 640));
     final repository = FakeUserRepository(works: _works(30));
     final container = await makeProfileWorld(users: repository);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          locale: const Locale('ru'),
-          builder: (context, child) => promptHostBuilder(
-            context,
-            MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: const TextScaler.linear(2)),
-              child: child!,
-            ),
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        locale: const Locale('ru'),
+        builder: (context, child) => promptHostBuilder(
+          context,
+          MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
           ),
-          home: const UserPage(userId: 42),
         ),
-      );
-      await tester.pumpAndSettle();
+        home: const UserPage(userId: 42),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Drag target: the nested scroll view itself. At 360×640 with 2x
-      // text the measured header is taller than the viewport, so the feed
-      // slivers are entirely below the fold — finders treat them as
-      // offstage and `tester.drag(feed)` cannot resolve a hit point. The
-      // NestedScrollView's centre is the same screen point the gesture
-      // would land on anyway.
-      final scrollable = find.byType(NestedScrollView);
-      double tabTop() =>
-          tester.getRect(find.byType(TabBar, skipOffstage: false)).top;
+    // Drag target: the nested scroll view itself. At 360×640 with 2x
+    // text the measured header is taller than the viewport, so the feed
+    // slivers are entirely below the fold — finders treat them as
+    // offstage and `tester.drag(feed)` cannot resolve a hit point. The
+    // NestedScrollView's centre is the same screen point the gesture
+    // would land on anyway.
+    final scrollable = find.byType(NestedScrollView);
+    double tabTop() =>
+        tester.getRect(find.byType(TabBar, skipOffstage: false)).top;
 
-      var previous = tabTop();
-      final tops = <double>[previous];
-      for (var step = 0; step < 14; step++) {
-        await tester.drag(scrollable, const Offset(0, -30));
-        await tester.pump();
-        final top = tabTop();
-        // Monotone, and never ahead of the finger: the height change per
-        // frame cannot exceed the dragged distance.
-        expect(top, lessThanOrEqualTo(previous + 0.01));
-        expect(previous - top, lessThanOrEqualTo(30.1));
-        tops.add(top);
-        previous = top;
-      }
-      // More steps back than forward: what the collapsed header did not
-      // take went to the feed, which unwinds first.
-      for (var step = 0; step < 20; step++) {
-        await tester.drag(scrollable, const Offset(0, 30));
-        await tester.pump();
-        final top = tabTop();
-        expect(top, greaterThanOrEqualTo(previous - 0.01));
-        expect(top - previous, lessThanOrEqualTo(30.1));
-        previous = top;
-      }
-      expect(tester.takeException(), isNull);
-      expect(tabTop(), tops.first);
-      // Flush any overscroll/refresh timers the reverse drags armed so the
-      // test does not leave a pending Timer behind.
-      await tester.pumpAndSettle();
-    });
+    var previous = tabTop();
+    final tops = <double>[previous];
+    for (var step = 0; step < 14; step++) {
+      await tester.drag(scrollable, const Offset(0, -30));
+      await tester.pump();
+      final top = tabTop();
+      // Monotone, and never ahead of the finger: the height change per
+      // frame cannot exceed the dragged distance.
+      expect(top, lessThanOrEqualTo(previous + 0.01));
+      expect(previous - top, lessThanOrEqualTo(30.1));
+      tops.add(top);
+      previous = top;
+    }
+    // More steps back than forward: what the collapsed header did not
+    // take went to the feed, which unwinds first.
+    for (var step = 0; step < 20; step++) {
+      await tester.drag(scrollable, const Offset(0, 30));
+      await tester.pump();
+      final top = tabTop();
+      expect(top, greaterThanOrEqualTo(previous - 0.01));
+      expect(top - previous, lessThanOrEqualTo(30.1));
+      previous = top;
+    }
+    expect(tester.takeException(), isNull);
+    expect(tabTop(), tops.first);
+    // Flush any overscroll/refresh timers the reverse drags armed so the
+    // test does not leave a pending Timer behind.
+    await tester.pumpAndSettle();
   });
 
   // The device's outer Scrollable inside the profile NestedScrollView —
@@ -948,69 +929,6 @@ void main() {
       for (final speed in [300.0, 600.0]) {
         final repository = FakeUserRepository(works: _works(30));
         final container = await makeProfileWorld(users: repository);
-        await mockNetworkImagesFor(() async {
-          await _pumpProfile(
-            tester,
-            container,
-            scrollBehavior: const FuncScrollBehavior(),
-          );
-
-          final outer = outerPosition(tester);
-          final inner = activeFeedPosition(tester);
-          final maxExtent = outer.maxScrollExtent;
-          expect(maxExtent, greaterThan(0));
-
-          // Drag just short of the collapse edge, then release at the
-          // measured speed — the coordinator starts one ballistic on each
-          // position over the combined metrics.
-          await tester.flingFrom(
-            tester.getCenter(find.byType(NestedScrollView)),
-            Offset(0, -(maxExtent - 60)),
-            speed,
-          );
-          // The invariant: while the header is still collapsing the feed
-          // must not have started scrolling. A divergent inner simulation
-          // breaks it — inner rolls while outer is still short of the end.
-          var frames = 0;
-          while (frames < 240) {
-            await tester.pump(const Duration(milliseconds: 16));
-            if (outer.pixels >= maxExtent - 0.001) break;
-            expect(
-              inner.pixels,
-              lessThanOrEqualTo(0.001),
-              reason:
-                  'v=$speed frame $frames: outer=${outer.pixels} of '
-                  '$maxExtent — the inner feed rolled before the header '
-                  'finished collapsing',
-            );
-            if (!outer.isScrollingNotifier.value &&
-                !inner.isScrollingNotifier.value) {
-              break;
-            }
-            frames++;
-          }
-          // Settle: either the header finished collapsing (inner may then
-          // roll), or everything stopped inside bounds.
-          await tester.pumpAndSettle();
-          expect(
-            outer.pixels >= maxExtent - 0.001 || inner.pixels <= 0.001,
-            isTrue,
-            reason:
-                'v=$speed: settled at outer=${outer.pixels}/$maxExtent, '
-                'inner=${inner.pixels} — inconsistent stop positions',
-          );
-        });
-      }
-    },
-  );
-
-  testWidgets(
-    'a light pull-down while the header is collapsing keeps it expanding',
-    (tester) async {
-      setViewSize(tester, const Size(360, 640));
-      final repository = FakeUserRepository(works: _works(30));
-      final container = await makeProfileWorld(users: repository);
-      await mockNetworkImagesFor(() async {
         await _pumpProfile(
           tester,
           container,
@@ -1022,45 +940,55 @@ void main() {
         final maxExtent = outer.maxScrollExtent;
         expect(maxExtent, greaterThan(0));
 
-        // The state a light collapse fling leaves on the buggy build:
-        // header collapsed, feed already mid-scroll.
-        outer.jumpTo(maxExtent);
-        inner.jumpTo(115);
-        await tester.pump();
-
-        // A deliberate ~80px pull released at low speed: the inner feed
-        // slides back to 0 and the leftover momentum must expand the
-        // header, not die at the boundary.
+        // Drag just short of the collapse edge, then release at the
+        // measured speed — the coordinator starts one ballistic on each
+        // position over the combined metrics.
         await tester.flingFrom(
           tester.getCenter(find.byType(NestedScrollView)),
-          const Offset(0, 80),
-          300,
+          Offset(0, -(maxExtent - 60)),
+          speed,
         );
+        // The invariant: while the header is still collapsing the feed
+        // must not have started scrolling. A divergent inner simulation
+        // breaks it — inner rolls while outer is still short of the end.
         var frames = 0;
-        while (frames < 240 &&
-            (outer.isScrollingNotifier.value ||
-                inner.isScrollingNotifier.value)) {
+        while (frames < 240) {
           await tester.pump(const Duration(milliseconds: 16));
+          if (outer.pixels >= maxExtent - 0.001) break;
+          expect(
+            inner.pixels,
+            lessThanOrEqualTo(0.001),
+            reason:
+                'v=$speed frame $frames: outer=${outer.pixels} of '
+                '$maxExtent — the inner feed rolled before the header '
+                'finished collapsing',
+          );
+          if (!outer.isScrollingNotifier.value &&
+              !inner.isScrollingNotifier.value) {
+            break;
+          }
           frames++;
         }
+        // Settle: either the header finished collapsing (inner may then
+        // roll), or everything stopped inside bounds.
         await tester.pumpAndSettle();
-        expect(inner.pixels, closeTo(0, 0.001));
         expect(
-          outer.pixels,
-          lessThan(maxExtent - 0.5),
+          outer.pixels >= maxExtent - 0.001 || inner.pixels <= 0.001,
+          isTrue,
           reason:
-              'after the feed reached its top the pull must keep expanding '
-              'the header — outer=${outer.pixels} of $maxExtent',
+              'v=$speed: settled at outer=${outer.pixels}/$maxExtent, '
+              'inner=${inner.pixels} — inconsistent stop positions',
         );
-      });
+      }
     },
   );
 
-  testWidgets('a pull at the very top still pulls to refresh', (tester) async {
-    setViewSize(tester, const Size(360, 640));
-    final repository = FakeUserRepository(works: _works(30));
-    final container = await makeProfileWorld(users: repository);
-    await mockNetworkImagesFor(() async {
+  testWidgets(
+    'a light pull-down while the header is collapsing keeps it expanding',
+    (tester) async {
+      setViewSize(tester, const Size(360, 640));
+      final repository = FakeUserRepository(works: _works(30));
+      final container = await makeProfileWorld(users: repository);
       await _pumpProfile(
         tester,
         container,
@@ -1068,23 +996,70 @@ void main() {
       );
 
       final outer = outerPosition(tester);
-      expect(outer.pixels, 0);
-      final firstLoads = repository.requests
-          .where((request) => request == 'works:42:illust:first')
-          .length;
+      final inner = activeFeedPosition(tester);
+      final maxExtent = outer.maxScrollExtent;
+      expect(maxExtent, greaterThan(0));
 
-      // A deliberate pull past the 100dp arm threshold, then release.
-      await tester.drag(find.byType(NestedScrollView), const Offset(0, 400));
-      await tester.pumpAndSettle();
-      expect(
-        repository.requests
-            .where((request) => request == 'works:42:illust:first')
-            .length,
-        firstLoads + 1,
-        reason: 'the top pull must still reach the feed refresh',
+      // The state a light collapse fling leaves on the buggy build:
+      // header collapsed, feed already mid-scroll.
+      outer.jumpTo(maxExtent);
+      inner.jumpTo(115);
+      await tester.pump();
+
+      // A deliberate ~80px pull released at low speed: the inner feed
+      // slides back to 0 and the leftover momentum must expand the
+      // header, not die at the boundary.
+      await tester.flingFrom(
+        tester.getCenter(find.byType(NestedScrollView)),
+        const Offset(0, 80),
+        300,
       );
-      expect(outer.pixels, 0);
-    });
+      var frames = 0;
+      while (frames < 240 &&
+          (outer.isScrollingNotifier.value ||
+              inner.isScrollingNotifier.value)) {
+        await tester.pump(const Duration(milliseconds: 16));
+        frames++;
+      }
+      await tester.pumpAndSettle();
+      expect(inner.pixels, closeTo(0, 0.001));
+      expect(
+        outer.pixels,
+        lessThan(maxExtent - 0.5),
+        reason:
+            'after the feed reached its top the pull must keep expanding '
+            'the header — outer=${outer.pixels} of $maxExtent',
+      );
+    },
+  );
+
+  testWidgets('a pull at the very top still pulls to refresh', (tester) async {
+    setViewSize(tester, const Size(360, 640));
+    final repository = FakeUserRepository(works: _works(30));
+    final container = await makeProfileWorld(users: repository);
+    await _pumpProfile(
+      tester,
+      container,
+      scrollBehavior: const FuncScrollBehavior(),
+    );
+
+    final outer = outerPosition(tester);
+    expect(outer.pixels, 0);
+    final firstLoads = repository.requests
+        .where((request) => request == 'works:42:illust:first')
+        .length;
+
+    // A deliberate pull past the 100dp arm threshold, then release.
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(
+      repository.requests
+          .where((request) => request == 'works:42:illust:first')
+          .length,
+      firstLoads + 1,
+      reason: 'the top pull must still reach the feed refresh',
+    );
+    expect(outer.pixels, 0);
   });
 
   // The feed's clamping header keeps it at its top, so the coordinator gave
@@ -1096,50 +1071,48 @@ void main() {
       setViewSize(tester, const Size(360, 640));
       final repository = FakeUserRepository(works: _works(30));
       final container = await makeProfileWorld(users: repository);
-      await mockNetworkImagesFor(() async {
-        await _pumpProfile(
-          tester,
-          container,
-          scrollBehavior: const FuncScrollBehavior(),
-        );
-        final outer = outerPosition(tester);
-        final inner = activeFeedPosition(tester);
-        final indicator = find.byType(RefreshProgressIndicator);
-        final requests = repository.requests.length;
-        final card = find.byType(IllustCard).first;
-        final cardTop = tester.getTopLeft(card).dy;
-        final tabsTop = tester.getTopLeft(find.byType(AppTabBar)).dy;
+      await _pumpProfile(
+        tester,
+        container,
+        scrollBehavior: const FuncScrollBehavior(),
+      );
+      final outer = outerPosition(tester);
+      final inner = activeFeedPosition(tester);
+      final indicator = find.byType(RefreshProgressIndicator);
+      final requests = repository.requests.length;
+      final card = find.byType(IllustCard).first;
+      final cardTop = tester.getTopLeft(card).dy;
+      final tabsTop = tester.getTopLeft(find.byType(AppTabBar)).dy;
 
-        final gesture = await tester.startGesture(
-          tester.getCenter(find.byType(NestedScrollView)),
-        );
-        // Past the 100dp arm threshold, then all the way back.
-        for (var i = 0; i < 10; i++) {
-          await gesture.moveBy(const Offset(0, 40));
-          await tester.pump();
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(NestedScrollView)),
+      );
+      // Past the 100dp arm threshold, then all the way back.
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 40));
+        await tester.pump();
+      }
+      expect(indicator, findsOneWidget);
+      // As in any feed, the list slides down; the tabs above stay.
+      expect(tester.getTopLeft(card).dy, greaterThan(cardTop + 80));
+      expect(tester.getTopLeft(find.byType(AppTabBar)).dy, tabsTop);
+      var retracted = false;
+      for (var i = 0; i < 24; i++) {
+        await gesture.moveBy(const Offset(0, -30));
+        await tester.pump();
+        retracted = retracted || indicator.evaluate().isEmpty;
+        if (!retracted) {
+          expect(outer.pixels, 0, reason: 'step $i: the header stays put');
+          expect(inner.pixels, 0, reason: 'step $i: the feed stays put');
         }
-        expect(indicator, findsOneWidget);
-        // As in any feed, the list slides down; the tabs above stay.
-        expect(tester.getTopLeft(card).dy, greaterThan(cardTop + 80));
-        expect(tester.getTopLeft(find.byType(AppTabBar)).dy, tabsTop);
-        var retracted = false;
-        for (var i = 0; i < 24; i++) {
-          await gesture.moveBy(const Offset(0, -30));
-          await tester.pump();
-          retracted = retracted || indicator.evaluate().isEmpty;
-          if (!retracted) {
-            expect(outer.pixels, 0, reason: 'step $i: the header stays put');
-            expect(inner.pixels, 0, reason: 'step $i: the feed stays put');
-          }
-        }
-        expect(retracted, isTrue);
-        expect(outer.pixels, greaterThan(0), reason: 'the rest collapses it');
+      }
+      expect(retracted, isTrue);
+      expect(outer.pixels, greaterThan(0), reason: 'the rest collapses it');
 
-        await gesture.up();
-        await tester.pumpAndSettle();
-        expect(repository.requests.length, requests, reason: 'no refresh');
-        expect(indicator, findsNothing);
-      });
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(repository.requests.length, requests, reason: 'no refresh');
+      expect(indicator, findsNothing);
     },
   );
 
@@ -1152,42 +1125,40 @@ void main() {
     setViewSize(tester, const Size(360, 640));
     final repository = FakeUserRepository(works: _works(30));
     final container = await makeProfileWorld(users: repository);
-    await mockNetworkImagesFor(() async {
-      await _pumpProfile(
-        tester,
-        container,
-        scrollBehavior: const FuncScrollBehavior(),
-      );
-      final outer = outerPosition(tester);
-      final tabs = find.byType(AppTabBar);
-      final refresh = repository.worksGate = Completer<void>();
-      Future<void> frames(int count) async {
-        for (var i = 0; i < count; i++) {
-          await tester.pump(const Duration(milliseconds: 16));
-        }
+    await _pumpProfile(
+      tester,
+      container,
+      scrollBehavior: const FuncScrollBehavior(),
+    );
+    final outer = outerPosition(tester);
+    final tabs = find.byType(AppTabBar);
+    final refresh = repository.worksGate = Completer<void>();
+    Future<void> frames(int count) async {
+      for (var i = 0; i < count; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
       }
+    }
 
-      final pull = await tester.startGesture(
-        tester.getCenter(find.byType(NestedScrollView)),
-      );
-      for (var i = 0; i < 10; i++) {
-        await pull.moveBy(const Offset(0, 40));
-        await tester.pump();
-      }
-      await pull.up();
-      await frames(30);
-      await tester.drag(find.byType(NestedScrollView), const Offset(0, -250));
-      await frames(60);
-      final pushedUp = outer.pixels;
-      final tabsTop = tester.getTopLeft(tabs).dy;
+    final pull = await tester.startGesture(
+      tester.getCenter(find.byType(NestedScrollView)),
+    );
+    for (var i = 0; i < 10; i++) {
+      await pull.moveBy(const Offset(0, 40));
+      await tester.pump();
+    }
+    await pull.up();
+    await frames(30);
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -250));
+    await frames(60);
+    final pushedUp = outer.pixels;
+    final tabsTop = tester.getTopLeft(tabs).dy;
 
-      refresh.complete();
-      await frames(100);
-      expect(outer.pixels, pushedUp);
-      await tester.drag(find.byType(NestedScrollView), const Offset(0, -10));
-      await frames(60);
-      expect(tester.getTopLeft(tabs).dy, tabsTop, reason: 'no jump open');
-    });
+    refresh.complete();
+    await frames(100);
+    expect(outer.pixels, pushedUp);
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -10));
+    await frames(60);
+    expect(tester.getTopLeft(tabs).dy, tabsTop, reason: 'no jump open');
   });
 
   testWidgets(
@@ -1195,27 +1166,25 @@ void main() {
     (tester) async {
       final repository = FakeUserRepository(works: _works(36));
       final container = await makeProfileWorld(users: repository);
-      await mockNetworkImagesFor(() async {
-        await _pumpProfile(tester, container);
+      await _pumpProfile(tester, container);
 
-        final outer = outerPosition(tester);
-        final inner = activeFeedPosition(tester);
-        expect(outer.maxScrollExtent, greaterThan(0));
-        expect(inner.maxScrollExtent, greaterThan(0));
+      final outer = outerPosition(tester);
+      final inner = activeFeedPosition(tester);
+      expect(outer.maxScrollExtent, greaterThan(0));
+      expect(inner.maxScrollExtent, greaterThan(0));
 
-        outer.jumpTo(80);
-        inner.jumpTo(120);
-        await tester.pump();
-        expect(outer.pixels, greaterThan(0));
-        expect(inner.pixels, greaterThan(0));
+      outer.jumpTo(80);
+      inner.jumpTo(120);
+      await tester.pump();
+      expect(outer.pixels, greaterThan(0));
+      expect(inner.pixels, greaterThan(0));
 
-        await tester.tap(
-          find.descendant(of: find.byType(TabBar), matching: find.text('插画')),
-        );
-        await tester.pumpAndSettle();
-        expect(outer.pixels, 0);
-        expect(inner.pixels, 0);
-      });
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('插画')),
+      );
+      await tester.pumpAndSettle();
+      expect(outer.pixels, 0);
+      expect(inner.pixels, 0);
     },
   );
 
@@ -1227,64 +1196,62 @@ void main() {
         bookmarks: List.generate(36, (index) => _illust(100 + index)),
       );
       final container = await makeProfileWorld(users: repository);
-      await mockNetworkImagesFor(() async {
-        await _pumpProfile(tester, container);
+      await _pumpProfile(tester, container);
 
-        // A tab switched away from is kept alive offstage.
-        ScrollPosition innerOf(ProfileFeedKey key) {
-          final scrollable = find
-              .descendant(
-                of: find.byKey(PageStorageKey(key), skipOffstage: false),
-                matching: find.byWidgetPredicate(
-                  (widget) =>
-                      widget is Scrollable &&
-                      widget.axisDirection == AxisDirection.down,
-                  skipOffstage: false,
-                ),
+      // A tab switched away from is kept alive offstage.
+      ScrollPosition innerOf(ProfileFeedKey key) {
+        final scrollable = find
+            .descendant(
+              of: find.byKey(PageStorageKey(key), skipOffstage: false),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
                 skipOffstage: false,
-              )
-              .first;
-          return tester.state<ScrollableState>(scrollable).position;
-        }
+              ),
+              skipOffstage: false,
+            )
+            .first;
+        return tester.state<ScrollableState>(scrollable).position;
+      }
 
-        const workKey = ProfileFeedKey(
-          userId: 42,
-          kind: ProfileFeedKind.work,
-          workType: UserWorkType.illust,
-        );
-        const bookmarkKey = ProfileFeedKey(
-          userId: 42,
-          kind: ProfileFeedKind.bookmarks,
-          restrict: UserRestrict.public,
-        );
-        expect(innerOf(workKey).maxScrollExtent, greaterThan(0));
+      const workKey = ProfileFeedKey(
+        userId: 42,
+        kind: ProfileFeedKind.work,
+        workType: UserWorkType.illust,
+      );
+      const bookmarkKey = ProfileFeedKey(
+        userId: 42,
+        kind: ProfileFeedKind.bookmarks,
+        restrict: UserRestrict.public,
+      );
+      expect(innerOf(workKey).maxScrollExtent, greaterThan(0));
 
-        // Scroll tab A (插画), then switch to tab B (收藏) — the TabBarView
-        // builds a page on first visit, so B's position only exists after
-        // the switch — and drag it. Positions are re-read: handing the
-        // nested controller from tab to tab replaces them.
-        innerOf(workKey).jumpTo(150);
-        await tester.pump();
-        await tester.tap(
-          find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
-        );
-        await tester.pumpAndSettle();
-        expect(innerOf(bookmarkKey).maxScrollExtent, greaterThan(0));
-        innerOf(bookmarkKey).jumpTo(140);
-        await tester.pump();
-        expect(innerOf(bookmarkKey).pixels, 140);
-        // Only the selected tab is on the nested controller: A no longer
-        // follows B, so a fling on one tab is never computed against
-        // another's offset.
-        expect(innerOf(workKey).pixels, 150);
+      // Scroll tab A (插画), then switch to tab B (收藏) — the TabBarView
+      // builds a page on first visit, so B's position only exists after
+      // the switch — and drag it. Positions are re-read: handing the
+      // nested controller from tab to tab replaces them.
+      innerOf(workKey).jumpTo(150);
+      await tester.pump();
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
+      );
+      await tester.pumpAndSettle();
+      expect(innerOf(bookmarkKey).maxScrollExtent, greaterThan(0));
+      innerOf(bookmarkKey).jumpTo(140);
+      await tester.pump();
+      expect(innerOf(bookmarkKey).pixels, 140);
+      // Only the selected tab is on the nested controller: A no longer
+      // follows B, so a fling on one tab is never computed against
+      // another's offset.
+      expect(innerOf(workKey).pixels, 150);
 
-        await tester.tap(
-          find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
-        );
-        await tester.pumpAndSettle();
-        expect(innerOf(bookmarkKey).pixels, 0);
-        expect(innerOf(workKey).pixels, 150);
-      });
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
+      );
+      await tester.pumpAndSettle();
+      expect(innerOf(bookmarkKey).pixels, 0);
+      expect(innerOf(workKey).pixels, 150);
     },
   );
 

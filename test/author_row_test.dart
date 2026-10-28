@@ -1,14 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/widgets/person_card.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -38,44 +35,36 @@ Future<GoRouter> _pumpOnRouter(WidgetTester tester, Widget row) async {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('the whole row is one 48dp target that opens the profile', (
     tester,
   ) async {
-    await mockNetworkImagesFor(() async {
-      final router = await _pumpOnRouter(
-        tester,
-        const AuthorRow(userId: 42, name: 'author'),
-      );
+    final router = await _pumpOnRouter(
+      tester,
+      const AuthorRow(userId: 42, name: 'author'),
+    );
 
-      final target = find.byType(InkWell);
-      expect(target, findsOneWidget);
-      expect(
-        tester.getSize(target).height,
-        greaterThanOrEqualTo(AuthorRow.minHeight),
-      );
-      // The target spans the row, not just the name text.
-      expect(tester.getSize(target).width, 300);
-      // The chevron follows the name, inside the one target.
-      final chevron = find.descendant(
-        of: target,
-        matching: find.byIcon(Icons.chevron_right),
-      );
-      expect(
-        tester.getTopLeft(chevron).dx,
-        moreOrLessEquals(tester.getTopRight(find.text('author')).dx),
-      );
+    final target = find.byType(InkWell);
+    expect(target, findsOneWidget);
+    expect(
+      tester.getSize(target).height,
+      greaterThanOrEqualTo(AuthorRow.minHeight),
+    );
+    // The target spans the row, not just the name text.
+    expect(tester.getSize(target).width, 300);
+    // The chevron follows the name, inside the one target.
+    final chevron = find.descendant(
+      of: target,
+      matching: find.byIcon(Icons.chevron_right),
+    );
+    expect(
+      tester.getTopLeft(chevron).dx,
+      moreOrLessEquals(tester.getTopRight(find.text('author')).dx),
+    );
 
-      // A tap well right of the name still lands.
-      await tester.tapAt(
-        tester.getRect(target).centerRight - const Offset(8, 0),
-      );
-      await tester.pump();
-      expect(router.state.uri.path, '/recommended/user/42');
-    });
+    // A tap well right of the name still lands.
+    await tester.tapAt(tester.getRect(target).centerRight - const Offset(8, 0));
+    await tester.pump();
+    expect(router.state.uri.path, '/recommended/user/42');
   });
 
   testWidgets('a person card is one target; its trailing button is its own', (
@@ -86,19 +75,17 @@ void main() {
     var followed = 0;
     await tester.pumpWidget(
       localizedApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 300,
-              child: PersonCard(
-                onTap: () => opened++,
-                tapHint: 'open',
-                trailing: TextButton(
-                  onPressed: () => followed++,
-                  child: const Text('follow'),
-                ),
-                child: const Text('name'),
+        body: Center(
+          child: SizedBox(
+            width: 300,
+            child: PersonCard(
+              onTap: () => opened++,
+              tapHint: 'open',
+              trailing: TextButton(
+                onPressed: () => followed++,
+                child: const Text('follow'),
               ),
+              child: const Text('name'),
             ),
           ),
         ),

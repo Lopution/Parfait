@@ -21,10 +21,8 @@ import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -43,7 +41,6 @@ Future<GoRouter> _pumpHome(
   Stream<bool> touchExploration = const Stream.empty(),
   bool firstFrameOnly = false,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   setViewSize(tester, Size(width, height));
   final router = pixivRouter(location);
   Widget app = localizedRouterApp(

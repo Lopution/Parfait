@@ -32,11 +32,9 @@ import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/pixiv_router.dart';
 
 class _StaticSearchRepository implements SearchRepository {
@@ -133,10 +131,6 @@ Widget _routerApp(
 http.Response _json(Map<String, dynamic> value) => jsonResponse(value);
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('restores the active search branch and its nested route', (
     tester,
   ) async {

@@ -4,13 +4,10 @@ import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
 
-import 'helpers/test_preferences.dart';
-
 void main() {
   late ProviderContainer container;
 
   setUp(() {
-    installMemoryPreferences();
     container = ProviderContainer.test();
   });
 

@@ -11,7 +11,6 @@ import 'package:parfait/app/icons/app_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -27,13 +26,11 @@ import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/search_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -43,7 +40,6 @@ Future<ProviderContainer> _apiContainer(
   bool accountIsPremium = false,
   List<Override> extraOverrides = const [],
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   return signedInApiContainer(
     MockClient(handler),
     account: Account(
@@ -62,9 +58,6 @@ void main() {
   // Widget tests below build PixivImage, which reads SharedPreferencesAsync.
   // Without this they only passed when an earlier test in the file had set the
   // platform, and failed once `flutter test --total-shards` split the file.
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   Future<GoRouter> pumpSearchRouter(
     WidgetTester tester,
@@ -736,23 +729,21 @@ void main() {
         () => VisibilityDetectorController.instance.updateInterval = interval,
       );
       final haptics = recordHaptics();
-      await mockNetworkImagesFor(() async {
-        final router = await pumpSearchRouter(tester, '/search');
-        await tester.tap(find.widgetWithText(Tab, tab));
-        await tester.pumpAndSettle();
-        // The tile is an image card: it takes the card press (MOTION-06).
-        expect(
-          find.ancestor(
-            of: find.text('#风景').hitTestable(),
-            matching: find.byType(PressScale),
-          ),
-          findsOneWidget,
-        );
+      final router = await pumpSearchRouter(tester, '/search');
+      await tester.tap(find.widgetWithText(Tab, tab));
+      await tester.pumpAndSettle();
+      // The tile is an image card: it takes the card press (MOTION-06).
+      expect(
+        find.ancestor(
+          of: find.text('#风景').hitTestable(),
+          matching: find.byType(PressScale),
+        ),
+        findsOneWidget,
+      );
 
-        await tester.longPress(find.text('#风景').hitTestable());
-        await tester.pump();
-        expect(router.state.uri.path, '/search/illust/901');
-      });
+      await tester.longPress(find.text('#风景').hitTestable());
+      await tester.pump();
+      expect(router.state.uri.path, '/search/illust/901');
       expect(haptics.roles, [HapticRole.longPress]);
     });
   }
@@ -785,24 +776,22 @@ void main() {
     tester,
   ) async {
     final repository = FakeSearchRepository();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          home: SearchHomePage(),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      expect(repository.trendingTagsLastType, SearchResultType.illust);
-      expect(repository.trendingTagsCallCount, 1);
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        home: SearchHomePage(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(repository.trendingTagsLastType, SearchResultType.illust);
+    expect(repository.trendingTagsCallCount, 1);
 
-      await tester.tap(find.widgetWithText(Tab, '小说'));
-      await tester.pumpAndSettle();
-      // Each tab keeps its own list; switching back does not re-request.
-      await tester.tap(find.widgetWithText(Tab, '插画 & 漫画'));
-      await tester.pumpAndSettle();
-    });
+    await tester.tap(find.widgetWithText(Tab, '小说'));
+    await tester.pumpAndSettle();
+    // Each tab keeps its own list; switching back does not re-request.
+    await tester.tap(find.widgetWithText(Tab, '插画 & 漫画'));
+    await tester.pumpAndSettle();
     expect(repository.trendingTagsLastType, SearchResultType.novel);
     expect(repository.trendingTagsCallCount, 2);
   });
@@ -810,13 +799,11 @@ void main() {
   testWidgets('U2: tapping a trending tag still searches that tag', (
     tester,
   ) async {
-    await mockNetworkImagesFor(() async {
-      await pumpSearchRouter(tester, '/search');
+    await pumpSearchRouter(tester, '/search');
 
-      // Adding the image must not turn the primary tap into "open the work".
-      await tester.tap(find.text('#风景'));
-      await tester.pumpAndSettle();
-    });
+    // Adding the image must not turn the primary tap into "open the work".
+    await tester.tap(find.text('#风景'));
+    await tester.pumpAndSettle();
     expect(find.byType(SearchResultPage), findsOneWidget);
     expect(find.byType(IllustDetailPage), findsNothing);
   });
@@ -828,33 +815,31 @@ void main() {
     final showSearch = ValueNotifier<bool>(true);
     addTearDown(showSearch.dispose);
 
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          home: ValueListenableBuilder<bool>(
-            valueListenable: showSearch,
-            builder: (context, visible, _) => visible
-                ? const SearchHomePage()
-                : const Scaffold(body: SizedBox.shrink()),
-          ),
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        home: ValueListenableBuilder<bool>(
+          valueListenable: showSearch,
+          builder: (context, visible, _) => visible
+              ? const SearchHomePage()
+              : const Scaffold(body: SizedBox.shrink()),
         ),
-      );
-      await tester.pump();
-      await tester.pump();
-      expect(repository.trendingTagsCallCount, 1);
-      // The tab next to it loads its own tags on a still screen.
-      await tester.pumpAndSettle();
-      final settled = repository.trendingTagsCallCount;
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(repository.trendingTagsCallCount, 1);
+    // The tab next to it loads its own tags on a still screen.
+    await tester.pumpAndSettle();
+    final settled = repository.trendingTagsCallCount;
 
-      // Fully unmount the page: with an autoDispose provider this removed the
-      // last listener and the next visit re-requested the endpoint.
-      showSearch.value = false;
-      await tester.pumpAndSettle();
-      showSearch.value = true;
-      await tester.pumpAndSettle();
-      expect(repository.trendingTagsCallCount, settled);
-    });
+    // Fully unmount the page: with an autoDispose provider this removed the
+    // last listener and the next visit re-requested the endpoint.
+    showSearch.value = false;
+    await tester.pumpAndSettle();
+    showSearch.value = true;
+    await tester.pumpAndSettle();
+    expect(repository.trendingTagsCallCount, settled);
 
     expect(find.text('#风景').hitTestable(), findsOneWidget);
   });
@@ -933,43 +918,41 @@ void main() {
     // Compact viewport: at ≥600px the shell swaps the bottom bar for a
     // rail and FuncShellBottomNav leaves the tree.
     setViewSize(tester, const Size(390, 844));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          overrides: [
-            searchRepositoryProvider.overrideWithValue(repository),
-            ...signedInAccountOverrides(),
-          ],
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          ...signedInAccountOverrides(),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      final feedView = find.byKey(const PageStorageKey('search-home-illust'));
-      expect(feedView, findsOneWidget);
-      final controller = tester.widget<CustomScrollView>(feedView).controller!;
-      controller.jumpTo(500);
-      await tester.pump();
-      expect(controller.offset, 500);
+    final feedView = find.byKey(const PageStorageKey('search-home-illust'));
+    expect(feedView, findsOneWidget);
+    final controller = tester.widget<CustomScrollView>(feedView).controller!;
+    controller.jumpTo(500);
+    await tester.pump();
+    expect(controller.offset, 500);
 
-      // Snapshot rather than a literal: the provider re-fires once when the
-      // account id lands asynchronously — that is hydration, not the re-tap.
-      final callsBefore = repository.trendingTagsCallCount;
-      await tester.tap(
-        find.descendant(
-          of: find.byType(FuncShellBottomNav),
-          matching: find.byIcon(AppIcons.search),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
+    // Snapshot rather than a literal: the provider re-fires once when the
+    // account id lands asynchronously — that is hydration, not the re-tap.
+    final callsBefore = repository.trendingTagsCallCount;
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FuncShellBottomNav),
+        matching: find.byIcon(AppIcons.search),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      expect(controller.offset, 0);
-      // Pure scroll — the re-tap itself causes no refresh or re-request.
-      expect(repository.trendingTagsCallCount, callsBefore);
-    });
+    expect(controller.offset, 0);
+    // Pure scroll — the re-tap itself causes no refresh or re-request.
+    expect(repository.trendingTagsCallCount, callsBefore);
   });
 
   testWidgets('the result title reopens the input prefilled with the query', (

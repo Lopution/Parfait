@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 
-import 'helpers/test_preferences.dart';
 import 'helpers/view_size.dart';
 
 /// A card 100 high that records its mounts and unmounts.
@@ -43,8 +42,6 @@ class _CardState extends State<_Card> {
 }
 
 void main() {
-  installMemoryPreferences();
-
   for (final grid in [false, true]) {
     testWidgets('a ${grid ? 'grid' : 'card list'} builds the cache area of an '
         'appended page over frames and keeps the cards it built', (

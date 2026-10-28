@@ -4,9 +4,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-import 'helpers/test_preferences.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
@@ -31,8 +28,6 @@ PixivPolicyHttpClient _imageClient(NetworkAccessPolicy policy) {
 }
 
 void main() {
-  installMemoryPreferences();
-
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('image mirror integration', () {
@@ -586,7 +581,6 @@ void main() {
     test(
       'a persisted route kind seeds the group preference on warm-up',
       () async {
-        SharedPreferencesAsyncPlatform.instance = memoryPreferences();
         final preferences = SharedPreferencesAsync();
         final store = RouteKindStore(preferences: preferences);
         // A previous session learned that dohRealSni works for mirrors.
@@ -778,7 +772,6 @@ void main() {
     });
 
     test('origin-tier successes are neither shared nor persisted', () async {
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final policy = ladderPolicy(
         store: RouteKindStore(preferences: SharedPreferencesAsync()),
       );
@@ -811,7 +804,6 @@ void main() {
     });
 
     test('a persisted origin-tier image preference is ignored', () async {
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final store = RouteKindStore(preferences: SharedPreferencesAsync());
       // Written by a version that let the origin tier win the race.
       await store.remember('initial', 'image', 'noSni');
@@ -857,7 +849,6 @@ void main() {
     }
 
     test('the winner persists scoped to the network identity', () async {
-      installMemoryPreferences();
       final source = AutoImageSource(preferences: SharedPreferencesAsync());
       await source.remember('wifi', 'i.pixiv.re');
 

@@ -233,7 +233,7 @@ void main() {
       await tester.pumpWidget(
         localizedApp(
           scrollBehavior: const FuncScrollBehavior(),
-          home: Scaffold(body: layout()),
+          body: layout(),
         ),
       );
       await tester.binding.delayed(kSemanticsPushInterval);
@@ -276,28 +276,26 @@ void main() {
         await tester.pumpWidget(
           localizedApp(
             scrollBehavior: const FuncScrollBehavior(),
-            home: Scaffold(
-              body: ListenableBuilder(
-                listenable: Listenable.merge([swapped, label]),
-                builder: (context, _) => Column(
-                  children: [
-                    Text(label.value),
-                    Expanded(
-                      child: switch ((swapped.value, unmount)) {
-                        (true, true) => const SizedBox(),
-                        // A new physics type makes the scrollable replace
-                        // its position; the new one absorbs the fling.
-                        (true, false) => _rows(
-                          controller: controller,
-                          physics: const ClampingScrollPhysics(
-                            parent: AlwaysScrollableScrollPhysics(),
-                          ),
+            body: ListenableBuilder(
+              listenable: Listenable.merge([swapped, label]),
+              builder: (context, _) => Column(
+                children: [
+                  Text(label.value),
+                  Expanded(
+                    child: switch ((swapped.value, unmount)) {
+                      (true, true) => const SizedBox(),
+                      // A new physics type makes the scrollable replace
+                      // its position; the new one absorbs the fling.
+                      (true, false) => _rows(
+                        controller: controller,
+                        physics: const ClampingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
                         ),
-                        _ => _rows(controller: controller),
-                      },
-                    ),
-                  ],
-                ),
+                      ),
+                      _ => _rows(controller: controller),
+                    },
+                  ),
+                ],
               ),
             ),
           ),

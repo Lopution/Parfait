@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
@@ -28,8 +27,8 @@ import '../helpers/download_world.dart';
 import '../helpers/fake_account.dart';
 import '../helpers/history_world.dart';
 import '../helpers/locale_layout.dart';
-import '../helpers/test_preferences.dart';
 import '../helpers/watchlist_world.dart';
+import '../helpers/waits.dart';
 
 Future<void> _expectSettled(
   WidgetTester tester,
@@ -48,8 +47,6 @@ FakeCommentRepository _comments() => FakeCommentRepository()
   ];
 
 void main() {
-  installMemoryPreferences();
-
   localeLayoutMatrix('lists: download tasks', (tester, locale, profile) async {
     final gate = Completer<void>();
     addTearDown(() {
@@ -81,27 +78,25 @@ void main() {
       );
     }
     manager.submitGroup([downloadRequest(5), downloadRequest(6)]);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localeLayoutApp(
-          locale: locale,
-          container: container,
-          home: const DownloadTasksPage(),
-        ),
-      );
-      await pumpUntil(
-        tester,
-        () => manager.tasks.any((t) => t.status == DownloadStatus.running),
-      );
-      await _expectSettled(tester, locale, profile);
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        container: container,
+        home: const DownloadTasksPage(),
+      ),
+    );
+    await pumpUntil(
+      tester,
+      () => manager.tasks.any((t) => t.status == DownloadStatus.running),
+    );
+    await _expectSettled(tester, locale, profile);
 
-      final l10n = lookupAppLocalizations(locale);
-      // The failure's details, then the management bar.
-      await tester.tap(find.text(l10n.errorDetails));
-      await _expectSettled(tester, locale, profile);
-      await tester.tap(find.text(l10n.manage));
-      await _expectSettled(tester, locale, profile);
-    });
+    final l10n = lookupAppLocalizations(locale);
+    // The failure's details, then the management bar.
+    await tester.tap(find.text(l10n.errorDetails));
+    await _expectSettled(tester, locale, profile);
+    await tester.tap(find.text(l10n.manage));
+    await _expectSettled(tester, locale, profile);
   });
 
   final commentPages = <String, Widget>{
@@ -161,16 +156,14 @@ void main() {
           },
       ];
     final (container, _) = await makeWatchlistWorld(fixture: fixture);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localeLayoutApp(
-          locale: locale,
-          container: container,
-          home: const WatchlistPage(),
-        ),
-      );
-      await _expectSettled(tester, locale, profile);
-    });
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        container: container,
+        home: const WatchlistPage(),
+      ),
+    );
+    await _expectSettled(tester, locale, profile);
   });
 
   localeLayoutMatrix('lists: history', (tester, locale, profile) async {
@@ -196,7 +189,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       await tester.pump();
     });
-    await mockNetworkImagesFor(() => _expectSettled(tester, locale, profile));
+    await _expectSettled(tester, locale, profile);
   });
 
   // A three-digit rank beside the title, and every corner badge, on the
@@ -213,41 +206,39 @@ void main() {
       contentVersion: 'v9',
       paragraphs: const [],
     );
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localeLayoutApp(
-          locale: locale,
-          container: container,
-          home: Scaffold(
-            body: ListView(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final id in [7, 8])
-                      Expanded(
-                        child: IllustCard(
-                          entity: parseIllust(
-                            illustJson(
-                              id,
-                              type: 'ugoira',
-                              xRestrict: 1,
-                              aiType: 2,
-                              pageCount: 12,
-                            ),
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        container: container,
+        home: Scaffold(
+          body: ListView(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final id in [7, 8])
+                    Expanded(
+                      child: IllustCard(
+                        entity: parseIllust(
+                          illustJson(
+                            id,
+                            type: 'ugoira',
+                            xRestrict: 1,
+                            aiType: 2,
+                            pageCount: 12,
                           ),
-                          rank: 100 + id,
                         ),
+                        rank: 100 + id,
                       ),
-                  ],
-                ),
-                NovelEntry.ranking(entity: novel, rank: 128),
-              ],
-            ),
+                    ),
+                ],
+              ),
+              NovelEntry.ranking(entity: novel, rank: 128),
+            ],
           ),
         ),
-      );
-      await _expectSettled(tester, locale, profile);
-    });
+      ),
+    );
+    await _expectSettled(tester, locale, profile);
   });
 }

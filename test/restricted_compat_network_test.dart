@@ -3,8 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
-
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:parfait/core/download/download_transport.dart';
@@ -14,6 +12,7 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
 
 import 'helpers/restricted_compat_support.dart';
+import 'helpers/waits.dart';
 
 /// An app-API client over [policy], which the test disposes.
 PixivPolicyHttpClient _appApi(NetworkAccessPolicy policy) {
@@ -25,8 +24,6 @@ PixivPolicyHttpClient _appApi(NetworkAccessPolicy policy) {
 }
 
 void main() {
-  installMemoryPreferences();
-
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
@@ -645,9 +642,7 @@ void main() {
     );
 
     final response = client.get(Uri.parse('https://i.pximg.net/a.jpg'));
-    while (noSni.requests.isEmpty) {
-      await Future<void>.delayed(Duration.zero);
-    }
+    await turnUntil(() => noSni.requests.isNotEmpty);
     policy.advanceNetworkRevision(networkIdentity: 'cellular');
     noSni.gate.complete();
 

@@ -13,10 +13,8 @@ import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 
@@ -81,10 +79,6 @@ Future<({GoRouter router, _ScriptedIntentSource source})> _pump(
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('cold-start Pixiv links use the recommended branch', (
     tester,
   ) async {

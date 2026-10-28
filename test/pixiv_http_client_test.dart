@@ -196,10 +196,6 @@ PixivHttpClient _clientOver(
 );
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test(
     'requests carry centralized identity headers and bearer token',
     () async {
@@ -224,7 +220,6 @@ void main() {
   });
 
   test('pixivHttpClientProvider follows settings.languageTag (R6)', () async {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     final repository = FakeSettingsRepository(
       const AppSettings(
         guideCompleted: true,

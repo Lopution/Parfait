@@ -43,7 +43,6 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'helpers/illust_fixtures.dart';
 import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
@@ -55,7 +54,6 @@ import 'helpers/image_network.dart';
 import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart';
 import 'helpers/recording_haptics.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -66,6 +64,7 @@ import 'package:parfait/app/app.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/waits.dart';
 
 /// Save gate for the switch-busy test: `save` parks on [gate] so the
 /// widget layer's in-flight state is observable mid-switch.
@@ -177,10 +176,6 @@ Future<void> _pumpAccountSettings(
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('settings read failures expose a retryable UI', (tester) async {
     final repository = FakeSettingsRepository(
       baseTestSettings(),
@@ -1396,7 +1391,6 @@ void main() {
     testWidgets(
       'settings change on a pushed page must not jump to /recommended',
       (tester) async {
-        SharedPreferencesAsyncPlatform.instance = memoryPreferences();
         setViewSize(tester, const Size(390, 844));
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
           const MethodChannel('parfait/widget'),

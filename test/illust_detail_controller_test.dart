@@ -8,11 +8,10 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_detail_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
+import 'helpers/waits.dart';
 
 /// Drives PixivHttpClient with a scripted API transport. [webHandler]
 /// scripts the `/ajax/illust/{id}/pages` web transport separately — it is a
@@ -21,7 +20,6 @@ Future<ProviderContainer> makeContainer(
   Future<http.Response> Function(http.Request request) handler, {
   Future<http.Response> Function(http.Request request)? webHandler,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final container = await signedInApiContainer(
     MockClient(handler),
     overrides: [
@@ -34,20 +32,7 @@ Future<ProviderContainer> makeContainer(
 
 http.Response okJson(Map<String, dynamic> json) => jsonResponse(json);
 
-/// Waits for the async page-dimensions seed to land in the store — it runs
-/// unawaited behind the Ready emission, so a bare `.future` read can race it.
-Future<void> untilStore(bool Function() done) async {
-  for (var i = 0; i < 200 && !done(); i++) {
-    await Future<void>.delayed(const Duration(milliseconds: 1));
-  }
-  expect(done(), isTrue, reason: 'timed out waiting for the store update');
-}
-
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('detail fetch merges the store and reports ready', () async {
     final container = await makeContainer((request) async {
       expect(request.url.path, '/v1/illust/detail');
@@ -100,7 +85,7 @@ void main() {
       expect(state, isA<IllustDetailReady>());
       // The dims seed lands asynchronously behind Ready — wait for the
       // merge instead of racing.
-      await untilStore(
+      await pollUntil(
         () =>
             container.read(illustStoreProvider).get(50)!.metaPages[1].width ==
             1200,
@@ -256,7 +241,7 @@ void main() {
         container.invalidate(provider);
         final snapshot = await container.read(provider.future);
         expect((snapshot as IllustDetailReady).entity.totalView, 10);
-        await untilStore(() => requests.isNotEmpty);
+        await pollUntil(() => requests.isNotEmpty);
         await Future<void>.delayed(Duration.zero);
         final refreshed = container.read(provider).value;
         expect((refreshed as IllustDetailReady).entity.totalView, 99);
