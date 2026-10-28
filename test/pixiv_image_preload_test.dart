@@ -12,6 +12,7 @@ import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 
 import 'helpers/image_network.dart';
+import 'helpers/waits.dart';
 
 const _backgroundSlots = ImageFetchScheduler.defaultBackgroundSlots;
 

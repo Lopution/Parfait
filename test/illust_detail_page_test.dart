@@ -34,6 +34,7 @@ import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 class _RecordingOpener implements OutboundUrlOpener {
   final urls = <String>[];
@@ -173,11 +174,12 @@ void main() {
 
         gate.complete();
         // The loaded detail replaces the skeleton and fades in.
-        for (var i = 0; i < 20; i++) {
-          if (find.byType(IllustDetailSkeleton).evaluate().isEmpty) break;
-          await tester.pump(const Duration(milliseconds: 1));
-        }
-        expect(find.byType(IllustDetailSkeleton), findsNothing);
+        await pumpUntil(
+          tester,
+          () => !find.byType(IllustDetailSkeleton).tryEvaluate(),
+          step: const Duration(milliseconds: 1),
+          frames: 20,
+        );
         expect(stateFadeOpacity(tester), lessThan(1));
         await tester.pumpAndSettle();
         expect(stateFadeOpacity(tester), 1);

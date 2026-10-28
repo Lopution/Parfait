@@ -15,6 +15,7 @@ import 'package:parfait/core/network/compat/segmented_fetch.dart';
 import 'package:parfait/core/network/pixiv_headers.dart';
 
 import 'helpers/image_network.dart';
+import 'helpers/waits.dart';
 
 /// Drives an [ImageWorkerHost] in-process through its real wire protocol.
 class _Harness {

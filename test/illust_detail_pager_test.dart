@@ -24,6 +24,7 @@ import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 import 'helpers/warm_text.dart';
+import 'helpers/waits.dart';
 
 Future<void> _pumpPager(
   WidgetTester tester,
@@ -44,13 +45,14 @@ Future<void> _pumpPager(
   });
 }
 
-/// Pumps single frames until [finder] matches, failing after a second.
-Future<void> _pumpUntil(WidgetTester tester, Finder finder) async {
-  for (var i = 0; i < 120 && finder.evaluate().isEmpty; i++) {
-    await tester.pump(const Duration(milliseconds: 8));
-  }
-  expect(finder, findsOneWidget);
-}
+/// Pumps 8 ms frames until [condition] holds, failing after a second.
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) =>
+    pumpUntil(
+      tester,
+      condition,
+      step: const Duration(milliseconds: 8),
+      frames: 120,
+    );
 
 double _page(WidgetTester tester) =>
     tester.widget<PageView>(find.byType(PageView)).controller!.page!;
@@ -426,9 +428,9 @@ void main() {
 
       // The page ahead joins first, in a frame of its own.
       await tester.pump(const Duration(milliseconds: 400));
-      await _pumpUntil(tester, _detail(43));
+      await _pumpUntil(tester, () => _detail(43).tryEvaluate());
       expect(_detail(41), findsNothing);
-      await _pumpUntil(tester, _detail(41));
+      await _pumpUntil(tester, () => _detail(41).tryEvaluate());
     });
   });
 
@@ -550,9 +552,7 @@ void main() {
       await gesture.moveBy(const Offset(-40, 0));
       await gesture.moveBy(const Offset(-280, 0));
       await gesture.up();
-      for (var frame = 0; _page(tester) != 2 && frame < 60; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
+      await _pumpUntil(tester, () => _page(tester) == 2);
       await tester.pump(IllustDetailPagerPage.activeDwell);
     });
     // Closing commits each built page; one never seen leaves no row.
@@ -631,10 +631,7 @@ void main() {
         await gesture.moveBy(const Offset(-200, 0));
         await gesture.up();
         // Settling starts the dwell; the frames after it would outlast it.
-        for (var frame = 0; _page(tester) != 1 && frame < 60; frame++) {
-          await tester.pump(const Duration(milliseconds: 16));
-        }
-        expect(_page(tester), 1);
+        await _pumpUntil(tester, () => _page(tester) == 1);
         expect(log, [42], reason: 'a page just settled on sends nothing yet');
 
         // Reveal the current page's related section explicitly so this

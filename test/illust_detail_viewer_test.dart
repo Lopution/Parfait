@@ -19,6 +19,7 @@ import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 // §7 screen-reader representative paths — the three priority surfaces
 // (author header, artwork viewer, comment composer). These are widget-tree
@@ -342,14 +343,12 @@ void main() {
         // event stream must rebuild the button into the exist-check —
         // without the subscription the icon stays a download glyph.
         final manager = container.read(downloadManagerProvider);
-        for (var i = 0; i < 30; i++) {
-          await tester.pump(const Duration(milliseconds: 20));
-          if (manager.tasks.every(
-            (t) => t.status == DownloadStatus.succeeded,
-          )) {
-            break;
-          }
-        }
+        await pumpUntil(
+          tester,
+          () =>
+              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+          frames: 30,
+        );
         expect(manager.tasks.single.status, DownloadStatus.succeeded);
         await tester.pump();
         expect(find.byIcon(Icons.check_circle), findsOneWidget);

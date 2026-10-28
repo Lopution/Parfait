@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/download_world.dart' show FakeTransport, ScriptedResponse;
+import 'helpers/waits.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_request.dart';
@@ -25,12 +26,6 @@ DownloadRequest _request() => DownloadRequest(
 
 DownloadSubmissionContext _context() =>
     const DownloadSubmissionContext(accountId: 'account-a');
-
-Future<void> _pumpUntil(bool Function() predicate, {int turns = 500}) async {
-  for (var i = 0; i < turns && !predicate(); i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
 
 const _mib = 1 << 20;
 
@@ -337,10 +332,12 @@ Future<(DownloadManager, DownloadTaskSnapshot, Completer<void>)> _stalled(
     sinkFactory: sinks,
     submissionContext: context,
     recoveryStore: recoveryStore,
+    // Unthrottled, so the snapshot shows the ten bytes as they land.
+    progressThrottle: Duration.zero,
   );
   addTearDown(manager.dispose);
   final task = manager.submit(_request());
-  await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
+  await turnUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
   return (manager, task, gate);
 }
 
@@ -364,7 +361,7 @@ Future<(DownloadManager, DownloadTaskSnapshot)> _interrupted(
   await (cancel ? manager.cancel(task.id) : manager.pause(task.id));
   gate.complete();
   final landed = cancel ? DownloadStatus.canceled : DownloadStatus.retryable;
-  await _pumpUntil(() => manager.taskById(task.id)?.status == landed);
+  await turnUntil(() => manager.taskById(task.id)?.status == landed);
   return (manager, task);
 }
 
@@ -374,7 +371,7 @@ Future<DownloadTaskSnapshot> _retried(
   String id,
 ) async {
   final retried = manager.retry(id)!;
-  await _pumpUntil(
+  await turnUntil(
     () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
   );
   return manager.taskById(retried.id)!;
@@ -478,7 +475,7 @@ void main() {
       addTearDown(manager.dispose);
 
       final task = manager.submit(_request());
-      await _pumpUntil(
+      await turnUntil(
         () => manager.taskById(task.id)?.status == DownloadStatus.failed,
       );
 
@@ -553,7 +550,7 @@ void main() {
       await detaching.future;
       await manager.cancel(task.id);
       held.complete();
-      await _pumpUntil(() => factory.store.files.isEmpty);
+      await turnUntil(() => factory.store.files.isEmpty);
       expect(manager.taskById(task.id)!.status, DownloadStatus.canceled);
       expect(factory.store.files, isEmpty);
     });
@@ -575,7 +572,7 @@ void main() {
           ScriptedResponse(contentLength: 30, chunks: [List.filled(30, 4)]),
         );
         await _retried(manager, task.id);
-        await _pumpUntil(() => factory.sinks.any((sink) => sink.aborted));
+        await turnUntil(() => factory.sinks.any((sink) => sink.aborted));
         expect(factory.sinks.any((sink) => sink.aborted), isTrue);
         expect(transport.openedHeaders.last.containsKey('Range'), isFalse);
         expect(factory.store.files.values.single, List.filled(30, 4));
@@ -612,7 +609,7 @@ void main() {
       await pumpEventQueue();
       factory.holdResume = null;
       deleting.complete();
-      await _pumpUntil(
+      await turnUntil(
         () => next.taskById(retried.id)?.status == DownloadStatus.succeeded,
       );
       expect(factory.store.files.values.single, List.filled(30, 4));
@@ -645,7 +642,7 @@ void main() {
       await detaching.future;
       await manager.cancel(task.id);
       held.complete();
-      await _pumpUntil(() => factory.store.files.isEmpty);
+      await turnUntil(() => factory.store.files.isEmpty);
       expect(manager.taskById(task.id)!.status, DownloadStatus.canceled);
       expect(factory.store.files, isEmpty);
     });
@@ -655,7 +652,7 @@ void main() {
       final (manager, task) = await _interrupted(FakeTransport(), factory);
 
       await manager.cancel(task.id);
-      await _pumpUntil(() => factory.store.files.isEmpty);
+      await turnUntil(() => factory.store.files.isEmpty);
       final canceled = manager.taskById(task.id)!;
       expect(canceled.status, DownloadStatus.canceled);
       expect(canceled.resumeAnchor, isNull);
@@ -703,7 +700,7 @@ void main() {
       DownloadManager manager,
       String id,
       DownloadStatus status,
-    ) => _pumpUntil(() => manager.taskById(id)?.status == status, turns: 5000);
+    ) => turnUntil(() => manager.taskById(id)?.status == status, turns: 5000);
 
     List<int> stored() => factory.store.files.values.single;
 
@@ -760,7 +757,7 @@ void main() {
           ..holdFrom = 3 * _mib;
         final manager = managerFor(transport);
         final task = manager.submit(_request());
-        await _pumpUntil(
+        await turnUntil(
           () => factory.store.files.values.firstOrNull?.length == 3 * _mib,
           turns: 5000,
         );
@@ -803,7 +800,7 @@ void main() {
       final transport = _RangeTransport(_bytes(5 * _mib))..holdFrom = 0;
       final manager = managerFor(transport);
       final task = manager.submit(_request());
-      await _pumpUntil(
+      await turnUntil(
         () => transport.live == SegmentedFetch.defaultParallel,
         turns: 5000,
       );
@@ -854,7 +851,7 @@ void main() {
       await manager.recover();
       await manager.pause(task.id);
       gate.complete();
-      await _pumpUntil(
+      await turnUntil(
         () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
       );
       await manager.recover();
@@ -910,7 +907,7 @@ void main() {
 
       await manager.pause(task.id);
       gate.complete();
-      await _pumpUntil(
+      await turnUntil(
         () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
       );
       transport.responses.add(

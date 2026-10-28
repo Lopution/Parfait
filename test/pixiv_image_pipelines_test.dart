@@ -11,6 +11,7 @@ import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/image/worker_image_provider.dart';
 
 import 'helpers/image_network.dart';
+import 'helpers/waits.dart';
 
 /// One scope as the app has it: the worker serves a PNG for every URL but
 /// original files, whose transfer never ends.

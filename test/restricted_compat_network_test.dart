@@ -12,6 +12,7 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
 
 import 'helpers/restricted_compat_support.dart';
+import 'helpers/waits.dart';
 
 /// An app-API client over [policy], which the test disposes.
 PixivPolicyHttpClient _appApi(NetworkAccessPolicy policy) {
@@ -641,9 +642,7 @@ void main() {
     );
 
     final response = client.get(Uri.parse('https://i.pximg.net/a.jpg'));
-    while (noSni.requests.isEmpty) {
-      await Future<void>.delayed(Duration.zero);
-    }
+    await turnUntil(() => noSni.requests.isNotEmpty);
     policy.advanceNetworkRevision(networkIdentity: 'cellular');
     noSni.gate.complete();
 

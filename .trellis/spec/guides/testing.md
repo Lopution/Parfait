@@ -221,10 +221,14 @@ reviewed: 2026-10-28
   inside `tester.runAsync` for real IO, in a bounded loop. The loop ends on
   a condition, not a round count: database calls a widget made in the fake
   zone advance one round trip per pump, so wait for a probe queued behind
-  them on the database lock (`settleHistory`).
+  them on the database lock (`settleHistory`). Condition waits come from
+  `test/helpers/waits.dart` (`turnUntil`, `pollUntil`, `pumpUntil`,
+  `pumpIoUntil`), which fail when the condition never holds.
 - **Why:** A real wait makes a case slow on a fast machine and flaky on a
   loaded one, and `sleep` also blocks the isolate the test drives. Two
   fixed rounds left a history query waiting for the lock on a loaded CI
-  runner, and its lock-warning timer outlived the test.
+  runner, and its lock-warning timer outlived the test. Local wait loops
+  that gave up silently hid a condition that never held: a download test
+  waited for progress the throttle never showed.
 - **Check:** `test/architecture/test_hygiene_test.dart` "no real sleeps"
-- **Code:** `test`, `test/helpers/history_world.dart`
+- **Code:** `test/helpers/waits.dart`, `test/helpers/history_world.dart`

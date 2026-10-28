@@ -29,6 +29,7 @@ import '../helpers/fake_account.dart';
 import '../helpers/history_world.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/watchlist_world.dart';
+import '../helpers/waits.dart';
 
 Future<void> _expectSettled(
   WidgetTester tester,

@@ -31,6 +31,7 @@ import 'helpers/spotlight_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
+import 'helpers/waits.dart';
 
 const _articleHtml = '''
 <!DOCTYPE html>

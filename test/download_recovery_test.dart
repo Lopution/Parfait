@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'helpers/waits.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/core/download/download_manager.dart';
@@ -224,14 +225,6 @@ class _RecoverableSinkFactory extends MemorySinkFactory
   }
 }
 
-Future<void> _pumpUntil(bool Function() predicate, {int attempts = 500}) async {
-  for (var i = 0; i < attempts; i++) {
-    await Future<void>.delayed(Duration.zero);
-    if (predicate()) return;
-  }
-  fail('condition was not reached');
-}
-
 void main() {
   test(
     'preferences recovery store round-trips only bounded metadata',
@@ -355,7 +348,7 @@ void main() {
       final events = <DownloadEvent>[];
       final subscription = manager.events.listen(events.add);
       final task = manager.submit(_request());
-      await _pumpUntil(
+      await turnUntil(
         () => manager.taskById(task.id)?.status == DownloadStatus.finalizing,
       );
 
@@ -364,7 +357,7 @@ void main() {
       expect(events, isEmpty);
 
       gate.complete();
-      await _pumpUntil(
+      await turnUntil(
         () => manager.taskById(task.id)?.status == DownloadStatus.succeeded,
       );
       expect(sink.finalizeCalls, 1);
@@ -451,7 +444,7 @@ void main() {
     );
 
     final task = manager.submit(_request());
-    await _pumpUntil(
+    await turnUntil(
       () => manager.taskById(task.id)?.status == DownloadStatus.failed,
     );
     final failed = manager.taskById(task.id)!;
@@ -464,11 +457,11 @@ void main() {
     final manager = _manager(transport: _CancelErrorTransport());
 
     final task = manager.submit(_request());
-    await _pumpUntil(
+    await turnUntil(
       () => manager.taskById(task.id)?.status == DownloadStatus.running,
     );
     await manager.cancel(task.id);
-    await _pumpUntil(
+    await turnUntil(
       () => manager.taskById(task.id)?.status == DownloadStatus.canceled,
     );
 
@@ -779,7 +772,7 @@ void main() {
     expect(manager.taskById('job-retry')!.displayName, '42_100x200_123_p0');
 
     final retried = manager.retry('job-retry')!;
-    await _pumpUntil(
+    await turnUntil(
       () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
     );
 

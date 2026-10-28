@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_request.dart';
@@ -131,17 +130,6 @@ Future<(ProviderContainer, DownloadManager, FakeTransport)> makeDownloadWorld({
     overrides: [downloadManagerProvider.overrideWithValue(manager)],
   );
   return (container, manager, transport);
-}
-
-/// Pumps 20ms frames until [predicate] holds or [tries] run out.
-Future<void> pumpUntil(
-  WidgetTester tester,
-  bool Function() predicate, {
-  int tries = 40,
-}) async {
-  for (var i = 0; i < tries && !predicate(); i++) {
-    await tester.pump(const Duration(milliseconds: 20));
-  }
 }
 
 DownloadRequest downloadRequest(

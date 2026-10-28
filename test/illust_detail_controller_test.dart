@@ -11,6 +11,7 @@ import 'package:parfait/core/search/search_models.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/waits.dart';
 
 /// Drives PixivHttpClient with a scripted API transport. [webHandler]
 /// scripts the `/ajax/illust/{id}/pages` web transport separately — it is a
@@ -30,15 +31,6 @@ Future<ProviderContainer> makeContainer(
 }
 
 http.Response okJson(Map<String, dynamic> json) => jsonResponse(json);
-
-/// Waits for the async page-dimensions seed to land in the store — it runs
-/// unawaited behind the Ready emission, so a bare `.future` read can race it.
-Future<void> untilStore(bool Function() done) async {
-  for (var i = 0; i < 200 && !done(); i++) {
-    await Future<void>.delayed(const Duration(milliseconds: 1));
-  }
-  expect(done(), isTrue, reason: 'timed out waiting for the store update');
-}
 
 void main() {
   test('detail fetch merges the store and reports ready', () async {
@@ -93,7 +85,7 @@ void main() {
       expect(state, isA<IllustDetailReady>());
       // The dims seed lands asynchronously behind Ready — wait for the
       // merge instead of racing.
-      await untilStore(
+      await pollUntil(
         () =>
             container.read(illustStoreProvider).get(50)!.metaPages[1].width ==
             1200,
@@ -249,7 +241,7 @@ void main() {
         container.invalidate(provider);
         final snapshot = await container.read(provider.future);
         expect((snapshot as IllustDetailReady).entity.totalView, 10);
-        await untilStore(() => requests.isNotEmpty);
+        await pollUntil(() => requests.isNotEmpty);
         await Future<void>.delayed(Duration.zero);
         final refreshed = container.read(provider).value;
         expect((refreshed as IllustDetailReady).entity.totalView, 99);

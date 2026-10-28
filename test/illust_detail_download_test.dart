@@ -23,6 +23,7 @@ import 'helpers/illust_fixtures.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
+import 'helpers/waits.dart';
 
 void main() {
   // The detail page tracks the visible image page through
@@ -131,10 +132,11 @@ void main() {
         );
         expect(sinks.sinks, hasLength(1));
 
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 20));
-          if (manager.tasks.single.status != DownloadStatus.running) break;
-        }
+        await pumpUntil(
+          tester,
+          () => manager.tasks.single.status != DownloadStatus.running,
+          frames: 20,
+        );
         expect(manager.tasks.single.status, DownloadStatus.succeeded);
         await tester.pumpAndSettle();
         expect(selectionCount(tester), isNull);
@@ -257,12 +259,11 @@ void main() {
       final manager = container.read(downloadManagerProvider);
       // Let both transfers drain so no FakeResponse timers leak past the
       // widget-tree disposal.
-      for (var i = 0; i < 30; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-        if (manager.tasks.every((t) => t.status == DownloadStatus.succeeded)) {
-          break;
-        }
-      }
+      await pumpUntil(
+        tester,
+        () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+        frames: 30,
+      );
       expect(manager.tasks.map((t) => t.pageIndex).toSet(), {0, 1});
       expect(transport.openedUrls, hasLength(2));
       expect(sinks.sinks, hasLength(2));

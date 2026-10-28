@@ -16,6 +16,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/waits.dart';
 
 /// Mute API transport: serves `/v1/mute/list` from [listTags]/[listUsers]
 /// and records every `/v1/mute/edit` body for assertions.
@@ -74,21 +75,6 @@ Future<World> _makeWorld({
   return (container, fixture, prefs);
 }
 
-/// Waits until [condition] holds or the deadline passes. Hydration is
-/// async work fired from build(), so assertions poll instead of assuming
-/// a fixed number of event-loop turns.
-Future<void> _until(
-  bool Function() condition, {
-  Duration step = const Duration(milliseconds: 10),
-  int maxTurns = 200,
-}) async {
-  for (var i = 0; i < maxTurns; i++) {
-    if (condition()) return;
-    await Future<void>.delayed(step);
-  }
-  fail('condition not met within ${maxTurns * step.inMilliseconds}ms');
-}
-
 void main() {
   test('hydrate merges server tags/users and marks synced', () async {
     final (container, _, _) = await _makeWorld(
@@ -103,7 +89,7 @@ void main() {
       ],
     );
     container.read(muteStoreProvider);
-    await _until(() => container.read(muteStoreProvider).serverSynced);
+    await pollUntil(() => container.read(muteStoreProvider).serverSynced);
 
     final state = container.read(muteStoreProvider);
     expect(state.tags, contains('nsfw-tag'));
@@ -118,12 +104,12 @@ void main() {
         legacyBlockedTags: ['already-remote', 'legacy-only'],
       );
       container.read(muteStoreProvider);
-      await _until(
+      await pollUntil(
         () =>
             container.read(muteStoreProvider).serverSynced &&
             fixture.edits.isNotEmpty,
       );
-      await _until(
+      await pollUntil(
         () => container.read(muteStoreProvider).legacyTagsPending.isEmpty,
       );
 
@@ -142,7 +128,7 @@ void main() {
       editStatus: 500,
     );
     container.read(muteStoreProvider);
-    await _until(() => container.read(muteStoreProvider).serverSynced);
+    await pollUntil(() => container.read(muteStoreProvider).serverSynced);
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     final state = container.read(muteStoreProvider);
@@ -157,7 +143,7 @@ void main() {
     final store = container.read(muteStoreProvider.notifier);
     container.read(muteStoreProvider);
     await store.muteWork(const MutedWork(illustId: 7));
-    await _until(() => container.read(muteStoreProvider).pending.isEmpty);
+    await pollUntil(() => container.read(muteStoreProvider).pending.isEmpty);
 
     final state = container.read(muteStoreProvider);
     expect(state.serverSynced, isFalse);
@@ -203,7 +189,7 @@ void main() {
   test('tag toggle is optimistic and issues the wire edit', () async {
     final (container, fixture, _) = await _makeWorld();
     container.read(muteStoreProvider);
-    await _until(() => container.read(muteStoreProvider).serverSynced);
+    await pollUntil(() => container.read(muteStoreProvider).serverSynced);
 
     await container.read(muteStoreProvider.notifier).toggleTag('bad-tag');
     expect(container.read(muteStoreProvider).tags, contains('bad-tag'));
@@ -219,7 +205,7 @@ void main() {
     () async {
       final (container, _, _) = await _makeWorld(editStatus: 500);
       container.read(muteStoreProvider);
-      await _until(() => container.read(muteStoreProvider).serverSynced);
+      await pollUntil(() => container.read(muteStoreProvider).serverSynced);
 
       await expectLater(
         container.read(muteStoreProvider.notifier).toggleTag('x'),

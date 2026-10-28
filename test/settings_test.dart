@@ -64,6 +64,7 @@ import 'package:parfait/app/app.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/waits.dart';
 
 /// Save gate for the switch-busy test: `save` parks on [gate] so the
 /// widget layer's in-flight state is observable mid-switch.

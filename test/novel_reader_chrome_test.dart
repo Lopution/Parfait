@@ -28,6 +28,7 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 Future<ProviderContainer> _apiContainer({
   Map<String, Object> preferences = const {},
@@ -115,15 +116,16 @@ Object.defineProperty(window, 'pixiv', {value: {
 /// Pumps until the async pagination lands on its real page count: the
 /// controller boots at `1/1`, so a still-laying-out footer always shows
 /// `· 1/1 ·`. Layout yields on zero-duration timers, which `pump` drains.
-Future<void> _settleReader(WidgetTester tester) async {
+Future<void> _settleReader(WidgetTester tester) {
   final hint = find.textContaining('novel 1 ·');
-  for (var i = 0; i < 80; i++) {
-    if (hint.evaluate().isNotEmpty &&
-        !tester.widget<Text>(hint).data!.contains('· 1/1 ·')) {
-      return;
-    }
-    await tester.pump(const Duration(milliseconds: 50));
-  }
+  return pumpUntil(
+    tester,
+    () =>
+        hint.tryEvaluate() &&
+        !tester.widget<Text>(hint).data!.contains('· 1/1 ·'),
+    step: const Duration(milliseconds: 50),
+    frames: 80,
+  );
 }
 
 /// Mounts [NovelPage] (pushed over a host page when [pushed]) and lets the

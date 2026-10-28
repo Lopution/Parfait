@@ -12,6 +12,7 @@ import 'package:parfait/features/settings/pages/muted_items_page.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 /// Mute API transport: one muted tag on the server; every `/v1/mute/edit`
 /// is recorded and answered with [editStatus].
@@ -60,10 +61,12 @@ Future<(ProviderContainer, _MuteApi)> _pump(
   );
   // The page's watch starts the hydrate; the transport answers in
   // microtasks, so frames drive it home.
-  for (var i = 0; i < 50; i++) {
-    if (container.read(muteStoreProvider).serverSynced) break;
-    await tester.pump(const Duration(milliseconds: 10));
-  }
+  await pumpUntil(
+    tester,
+    () => container.read(muteStoreProvider).serverSynced,
+    step: const Duration(milliseconds: 10),
+    frames: 50,
+  );
   expect(container.read(muteStoreProvider).tags, {'bad-tag'});
   await tester.pumpAndSettle();
   return (container, api);

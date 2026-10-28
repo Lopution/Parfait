@@ -24,6 +24,7 @@ import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 /// Cancels end when [cancels] completes, as dropping kept bytes on disk
 /// does.

@@ -33,6 +33,7 @@ import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/waits.dart';
 
 void main() {
   // Every test that builds an image creates the network factory, which
