@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -42,15 +44,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      // The cards on screen, as (index, rect).
+      Iterable<(int, Rect)> shown() => [
+        for (final card in tester.widgetList<_Card>(find.byType(_Card)))
+          (card.index, tester.getRect(find.byWidget(card))),
+      ].where((card) => card.$2.overlaps(Offset.zero & const Size(400, 800)));
+      final before = shown().map((card) => card.$1).reduce(math.max);
 
       // The cache area past the screen grows over frames; the screen
-      // itself is built whole.
+      // itself is built whole, past every card shown before the jump.
       controller.jumpTo(3000);
       await tester.pump();
+      expect(shown().map((card) => card.$1), everyElement(greaterThan(before)));
       expect(
-        tester
-            .widgetList(find.byType(_Card))
-            .map((card) => tester.getBottomLeft(find.byWidget(card)).dy),
+        shown().map((card) => card.$2.bottom),
         contains(greaterThanOrEqualTo(800)),
       );
       await tester.pumpAndSettle();
