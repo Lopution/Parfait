@@ -233,24 +233,22 @@ void main() {
             withStalledImages(
               localizedApp(
                 builder: promptHostBuilder,
-                home: Scaffold(
-                  body: CustomScrollView(
-                    key: ValueKey(user.profileImageUrl ?? 'placeholder'),
-                    slivers: [
-                      _MeasuredProfileHeader(
-                        delegateFor: (extent, onMeasured) =>
-                            ReplicaProfileHeaderDelegate(
-                              user: user,
-                              isMe: true,
-                              selectedTabIndex: 0,
-                              onShare: (_) {},
-                              expandedExtent: extent,
-                              onExpandedExtentMeasured: onMeasured,
-                            ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-                    ],
-                  ),
+                body: CustomScrollView(
+                  key: ValueKey(user.profileImageUrl ?? 'placeholder'),
+                  slivers: [
+                    _MeasuredProfileHeader(
+                      delegateFor: (extent, onMeasured) =>
+                          ReplicaProfileHeaderDelegate(
+                            user: user,
+                            isMe: true,
+                            selectedTabIndex: 0,
+                            onShare: (_) {},
+                            expandedExtent: extent,
+                            onExpandedExtentMeasured: onMeasured,
+                          ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+                  ],
                 ),
               ),
             ),
@@ -309,23 +307,21 @@ void main() {
     var muted = false;
     Widget app() => localizedApp(
       builder: promptHostBuilder,
-      home: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            _MeasuredProfileHeader(
-              delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
-                user: sampleUser(42),
-                isMe: false,
-                selectedTabIndex: 0,
-                onShare: (_) {},
-                isMuted: muted,
-                onToggleMute: () => muted = !muted,
-                expandedExtent: extent,
-                onExpandedExtentMeasured: onMeasured,
-              ),
+      body: CustomScrollView(
+        slivers: [
+          _MeasuredProfileHeader(
+            delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
+              user: sampleUser(42),
+              isMe: false,
+              selectedTabIndex: 0,
+              onShare: (_) {},
+              isMuted: muted,
+              onToggleMute: () => muted = !muted,
+              expandedExtent: extent,
+              onExpandedExtentMeasured: onMeasured,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
     Future<void> openMenu() async {
@@ -352,26 +348,24 @@ void main() {
       await tester.pumpWidget(
         localizedApp(
           builder: promptHostBuilder,
-          home: Scaffold(
-            body: CustomScrollView(
-              controller: controller,
-              slivers: [
-                _MeasuredProfileHeader(
-                  delegateFor: (extent, onMeasured) =>
-                      ReplicaProfileHeaderDelegate(
-                        user: sampleUser(42),
-                        isMe: true,
-                        selectedTabIndex: 0,
-                        onShare: (_) {},
-                        onEditProfile: () {},
-                        onDownloadAll: () {},
-                        expandedExtent: extent,
-                        onExpandedExtentMeasured: onMeasured,
-                      ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-              ],
-            ),
+          body: CustomScrollView(
+            controller: controller,
+            slivers: [
+              _MeasuredProfileHeader(
+                delegateFor: (extent, onMeasured) =>
+                    ReplicaProfileHeaderDelegate(
+                      user: sampleUser(42),
+                      isMe: true,
+                      selectedTabIndex: 0,
+                      onShare: (_) {},
+                      onEditProfile: () {},
+                      onDownloadAll: () {},
+                      expandedExtent: extent,
+                      onExpandedExtentMeasured: onMeasured,
+                    ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+            ],
           ),
         ),
       );

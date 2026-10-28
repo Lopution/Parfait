@@ -39,7 +39,7 @@ void main() {
           container: container,
           locale: null,
           theme: replicaTheme(Brightness.light),
-          home: Scaffold(body: state),
+          body: state,
         ),
       );
       return container;
@@ -153,15 +153,13 @@ void main() {
       localizedApp(
         locale: const Locale('en'),
         theme: replicaTheme(Brightness.light),
-        home: Scaffold(
-          body: FeedTail(
-            feed: const PagedFeedState(
-              initialPhase: FeedPhase.idle,
-              loadMorePaused: true,
-            ),
-            onRetry: () => continued++,
-            retryLabel: 'Retry',
+        body: FeedTail(
+          feed: const PagedFeedState(
+            initialPhase: FeedPhase.idle,
+            loadMorePaused: true,
           ),
+          onRetry: () => continued++,
+          retryLabel: 'Retry',
         ),
       ),
     );

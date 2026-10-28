@@ -101,13 +101,11 @@ void main() {
     await tester.pumpWidget(
       withStalledImages(
         localizedApp(
-          home: Scaffold(
-            body: UgoiraViewer(
-              illustId: 42,
-              previewUrl: 'https://i.pximg.net/42/large.jpg',
-              width: 800,
-              height: 600,
-            ),
+          body: UgoiraViewer(
+            illustId: 42,
+            previewUrl: 'https://i.pximg.net/42/large.jpg',
+            width: 800,
+            height: 600,
           ),
         ),
       ),
@@ -128,13 +126,11 @@ void main() {
             _FailingUgoiraRepository(failure),
           ),
         ],
-        home: Scaffold(
-          body: UgoiraViewer(
-            illustId: 42,
-            previewUrl: 'https://i.pximg.net/42/large.jpg',
-            width: 800,
-            height: 600,
-          ),
+        body: UgoiraViewer(
+          illustId: 42,
+          previewUrl: 'https://i.pximg.net/42/large.jpg',
+          width: 800,
+          height: 600,
         ),
       ),
     );

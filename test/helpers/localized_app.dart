@@ -9,29 +9,34 @@ const zhCN = Locale('zh', 'CN');
 
 /// A [MaterialApp] with the app's localizations, in [locale]: under
 /// [container], or under a [ProviderScope] with [overrides], when given.
+/// [body] stands for a [home] that is a [Scaffold] with that body.
 Widget localizedApp({
   ProviderContainer? container,
   List<Override>? overrides,
   Widget? home,
+  Widget? body,
   Locale? locale = zhCN,
   TransitionBuilder? builder,
   ThemeData? theme,
   GlobalKey<NavigatorState>? navigatorKey,
   ScrollBehavior? scrollBehavior,
-}) => _scoped(
-  container,
-  overrides,
-  MaterialApp(
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: locale,
-    builder: builder,
-    theme: theme,
-    navigatorKey: navigatorKey,
-    scrollBehavior: scrollBehavior,
-    home: home,
-  ),
-);
+}) {
+  assert(home == null || body == null, 'a home or a body, not both');
+  return _scoped(
+    container,
+    overrides,
+    MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale,
+      builder: builder,
+      theme: theme,
+      navigatorKey: navigatorKey,
+      scrollBehavior: scrollBehavior,
+      home: body == null ? home : Scaffold(body: body),
+    ),
+  );
+}
 
 /// [localizedApp] over [router].
 Widget localizedRouterApp(

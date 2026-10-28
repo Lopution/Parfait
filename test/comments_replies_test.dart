@@ -651,7 +651,7 @@ void main() {
       Widget app(Widget home) => localizedApp(
         container: container,
         builder: promptHostBuilder,
-        home: Scaffold(body: home),
+        body: home,
       );
       await tester.pumpWidget(
         app(

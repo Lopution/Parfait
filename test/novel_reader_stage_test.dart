@@ -344,18 +344,14 @@ Widget _stageApp(
     ],
     builder: promptHostBuilder,
     theme: theme,
-    home: Scaffold(
-      body: NovelReaderStage(
-        spec: NovelReaderStageSpec(
-          novel:
-              novel ??
-              (chapters
-                  ? _novelWithChapters()
-                  : _novel(text ?? 'reader ' * 400)),
-          infoTooltip: 'info',
-          infoSheet: (context) => const Text('info sheet'),
-          progress: binding,
-        ),
+    body: NovelReaderStage(
+      spec: NovelReaderStageSpec(
+        novel:
+            novel ??
+            (chapters ? _novelWithChapters() : _novel(text ?? 'reader ' * 400)),
+        infoTooltip: 'info',
+        infoSheet: (context) => const Text('info sheet'),
+        progress: binding,
       ),
     ),
   );

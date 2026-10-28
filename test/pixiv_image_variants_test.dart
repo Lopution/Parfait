@@ -15,7 +15,7 @@ late ImageWorker _worker;
 
 Widget _host(Widget child) => localizedApp(
   overrides: [imageWorkerProvider.overrideWithValue(_worker)],
-  home: Scaffold(body: child),
+  body: child,
 );
 
 /// The layout width the image on screen was given.

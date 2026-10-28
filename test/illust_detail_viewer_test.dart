@@ -28,7 +28,7 @@ import 'helpers/waits.dart';
 // not imply the AT path was exercised.
 
 Widget _host(Widget child) {
-  return withStalledImages(localizedApp(home: Scaffold(body: child)));
+  return withStalledImages(localizedApp(body: child));
 }
 
 double _scale(WidgetTester tester) => tester

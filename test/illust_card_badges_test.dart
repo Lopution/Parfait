@@ -77,10 +77,8 @@ Future<void> _pumpCard(
           child: child!,
         ),
         theme: theme,
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: SizedBox(width: width, child: card),
-          ),
+        body: SingleChildScrollView(
+          child: SizedBox(width: width, child: card),
         ),
       ),
     );
@@ -133,26 +131,22 @@ void main() {
       await tester.pumpWidget(
         localizedApp(
           container: container,
-          home: Scaffold(
-            body: IllustPagerScope(
-              source: source,
-              child: ListView(
-                children: [
-                  for (final id in [1, 2, 3])
-                    SizedBox(
-                      height: 400,
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: SizedBox(
-                          width: 150,
-                          child: IllustCard(
-                            entity: parseIllust(illustJson(id)),
-                          ),
-                        ),
+          body: IllustPagerScope(
+            source: source,
+            child: ListView(
+              children: [
+                for (final id in [1, 2, 3])
+                  SizedBox(
+                    height: 400,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(
+                        width: 150,
+                        child: IllustCard(entity: parseIllust(illustJson(id))),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         ),

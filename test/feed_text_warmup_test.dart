@@ -220,26 +220,24 @@ void main() {
               data: MediaQuery.of(context).copyWith(boldText: true),
               child: child!,
             ),
-            home: Scaffold(
-              body: Builder(
-                builder: (c) {
-                  context = c;
-                  return ListView(
-                    children: [
-                      // As the recommended users list lays it out.
-                      const Card(
-                        child: AuthorSummary(
-                          name: 'ねこ',
-                          account: '@neko',
-                          imageUrl: null,
-                        ),
+            body: Builder(
+              builder: (c) {
+                context = c;
+                return ListView(
+                  children: [
+                    // As the recommended users list lays it out.
+                    const Card(
+                      child: AuthorSummary(
+                        name: 'ねこ',
+                        account: '@neko',
+                        imageUrl: null,
                       ),
-                      NovelEntry.compact(entity: novel),
-                      SizedBox(width: 300, child: IllustCard(entity: illust)),
-                    ],
-                  );
-                },
-              ),
+                    ),
+                    NovelEntry.compact(entity: novel),
+                    SizedBox(width: 300, child: IllustCard(entity: illust)),
+                  ],
+                );
+              },
             ),
           ),
         ),

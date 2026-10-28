@@ -35,11 +35,9 @@ Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
     localizedApp(
       container: container,
       builder: promptHostBuilder,
-      home: Scaffold(
-        body: Center(
-          child:
-              child ?? const BookmarkSwitchButton(illustId: 1, title: 'work 1'),
-        ),
+      body: Center(
+        child:
+            child ?? const BookmarkSwitchButton(illustId: 1, title: 'work 1'),
       ),
     ),
   );

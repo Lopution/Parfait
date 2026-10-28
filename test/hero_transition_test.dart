@@ -658,17 +658,15 @@ void main() {
         localizedApp(
           container: container,
           navigatorKey: navigatorKey,
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 150,
-                height: 200,
-                child: Hero(
-                  tag: illustHeroTag('feed', 42),
-                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                  child: const ColoredBox(color: Colors.red),
-                ),
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 150,
+              height: 200,
+              child: Hero(
+                tag: illustHeroTag('feed', 42),
+                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                child: const ColoredBox(color: Colors.red),
               ),
             ),
           ),

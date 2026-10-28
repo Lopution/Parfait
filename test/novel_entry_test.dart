@@ -38,7 +38,7 @@ NovelEntity _novel(
 Widget _host(Widget child, {MuteState mutes = const MuteState()}) =>
     localizedApp(
       overrides: [muteStoreProvider.overrideWith(() => SeededMuteStore(mutes))],
-      home: Scaffold(body: child),
+      body: child,
     );
 
 void main() {

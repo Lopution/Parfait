@@ -80,19 +80,17 @@ void main() {
     var followed = 0;
     await tester.pumpWidget(
       localizedApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 300,
-              child: PersonCard(
-                onTap: () => opened++,
-                tapHint: 'open',
-                trailing: TextButton(
-                  onPressed: () => followed++,
-                  child: const Text('follow'),
-                ),
-                child: const Text('name'),
+        body: Center(
+          child: SizedBox(
+            width: 300,
+            child: PersonCard(
+              onTap: () => opened++,
+              tapHint: 'open',
+              trailing: TextButton(
+                onPressed: () => followed++,
+                child: const Text('follow'),
               ),
+              child: const Text('name'),
             ),
           ),
         ),

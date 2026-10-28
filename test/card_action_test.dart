@@ -28,9 +28,7 @@ Widget _cardApp(ProviderContainer container, Widget home) {
   return localizedApp(
     container: container,
     builder: promptHostBuilder,
-    home: Scaffold(
-      body: Center(child: SizedBox(width: 300, child: home)),
-    ),
+    body: Center(child: SizedBox(width: 300, child: home)),
   );
 }
 

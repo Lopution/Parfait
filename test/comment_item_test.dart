@@ -68,13 +68,11 @@ void main() {
             ),
           ),
         ],
-        home: Scaffold(
-          body: CommentItem(
-            comment: comment,
-            onReply: () => replies++,
-            onOpenReplies: () => openedReplies++,
-            onDelete: () => deletes++,
-          ),
+        body: CommentItem(
+          comment: comment,
+          onReply: () => replies++,
+          onOpenReplies: () => openedReplies++,
+          onDelete: () => deletes++,
         ),
       ),
     );

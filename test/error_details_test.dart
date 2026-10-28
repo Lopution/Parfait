@@ -14,7 +14,7 @@ import 'helpers/localized_app.dart';
 Widget _host(Widget child) {
   return localizedApp(
     builder: promptHostBuilder,
-    home: Scaffold(body: Center(child: child)),
+    body: Center(child: child),
   );
 }
 

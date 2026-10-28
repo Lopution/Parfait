@@ -186,13 +186,11 @@ void main() {
     var pages = 0;
     await tester.pumpWidget(
       localizedApp(
-        home: Scaffold(
-          body: NovelReader(
-            novel: _novel('reader ' * 400),
-            handle: handle,
-            onCenterTap: () => centerTaps += 1,
-            onProgressChanged: (page, pageCount) => pages = pageCount,
-          ),
+        body: NovelReader(
+          novel: _novel('reader ' * 400),
+          handle: handle,
+          onCenterTap: () => centerTaps += 1,
+          onProgressChanged: (page, pageCount) => pages = pageCount,
         ),
       ),
     );
@@ -227,11 +225,9 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       await tester.pumpWidget(
         localizedApp(
-          home: Scaffold(
-            body: NovelReader(
-              novel: _novel('reader ' * 400),
-              onProgressChanged: (_, count) => pageCounts[scale] = count,
-            ),
+          body: NovelReader(
+            novel: _novel('reader ' * 400),
+            onProgressChanged: (_, count) => pageCounts[scale] = count,
           ),
         ),
       );
@@ -263,11 +259,9 @@ void main() {
     final handle = NovelReaderHandle();
     await tester.pumpWidget(
       localizedApp(
-        home: Scaffold(
-          body: NovelReader(
-            novel: _novel([for (var i = 0; i < 1200; i++) 'w$i'].join(' ')),
-            handle: handle,
-          ),
+        body: NovelReader(
+          novel: _novel([for (var i = 0; i < 1200; i++) 'w$i'].join(' ')),
+          handle: handle,
         ),
       ),
     );
@@ -305,15 +299,13 @@ void main() {
       addTearDown(settings.dispose);
       await tester.pumpWidget(
         localizedApp(
-          home: Scaffold(
-            body: ValueListenableBuilder(
-              valueListenable: settings,
-              builder: (_, value, _) => NovelReader(
-                novel: _novel([for (var i = 0; i < 900; i++) '$word$i'].join()),
-                settings: value,
-                handle: handle,
-                textWarmup: warmup,
-              ),
+          body: ValueListenableBuilder(
+            valueListenable: settings,
+            builder: (_, value, _) => NovelReader(
+              novel: _novel([for (var i = 0; i < 900; i++) '$word$i'].join()),
+              settings: value,
+              handle: handle,
+              textWarmup: warmup,
             ),
           ),
         ),
@@ -367,9 +359,7 @@ void main() {
     final handle = NovelReaderHandle();
     await tester.pumpWidget(
       localizedApp(
-        home: Scaffold(
-          body: NovelReader(novel: _novel('reader ' * 400), handle: handle),
-        ),
+        body: NovelReader(novel: _novel('reader ' * 400), handle: handle),
       ),
     );
     await tester.pump();
@@ -454,12 +444,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: localizedApp(
-          home: Scaffold(
-            body: NovelReader(
-              novel: _novel('reader ' * 400),
-              layoutEngine: engine,
-              budget: const NovelLayoutBudget(maxTextUnits: 2),
-            ),
+          body: NovelReader(
+            novel: _novel('reader ' * 400),
+            layoutEngine: engine,
+            budget: const NovelLayoutBudget(maxTextUnits: 2),
           ),
         ),
       ),
@@ -490,12 +478,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: localizedApp(
-          home: Scaffold(
-            body: NovelReader(
-              novel: _novel('reader ' * 400),
-              handle: handle,
-              budget: const NovelLayoutBudget(maxTextUnits: 2),
-            ),
+          body: NovelReader(
+            novel: _novel('reader ' * 400),
+            handle: handle,
+            budget: const NovelLayoutBudget(maxTextUnits: 2),
           ),
         ),
       ),

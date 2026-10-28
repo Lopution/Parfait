@@ -5,9 +5,7 @@ import 'package:parfait/app/widgets/expandable_text.dart';
 import 'helpers/localized_app.dart';
 
 Widget _host(Widget child) => localizedApp(
-  home: Scaffold(
-    body: SingleChildScrollView(child: SizedBox(width: 300, child: child)),
-  ),
+  body: SingleChildScrollView(child: SizedBox(width: 300, child: child)),
 );
 
 final _long = List.filled(40, 'a long caption line').join(' ');

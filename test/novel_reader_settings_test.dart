@@ -208,12 +208,10 @@ void main() {
 
     await tester.pumpWidget(
       localizedApp(
-        home: Scaffold(
-          body: NovelReader(
-            novel: _novel(text),
-            initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
-            onProgressChanged: (page, pageCount) => restoredPage = page,
-          ),
+        body: NovelReader(
+          novel: _novel(text),
+          initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
+          onProgressChanged: (page, pageCount) => restoredPage = page,
         ),
       ),
     );

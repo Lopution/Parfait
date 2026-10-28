@@ -29,34 +29,30 @@ void main() {
       );
     }
     return localizedApp(
-      home: Scaffold(
-        body: PullToRefresh(onRefresh: onRefresh, child: list),
-      ),
+      body: PullToRefresh(onRefresh: onRefresh, child: list),
     );
   }
 
   Widget buildNestedSubject({required Future<void> Function() onRefresh}) {
     return localizedApp(
-      home: Scaffold(
-        body: NestedScrollView(
-          physics: const NestedRefreshOuterPhysics(),
-          headerSliverBuilder: (context, innerBoxIsScrolled) => [
-            const SliverToBoxAdapter(child: SizedBox(height: 180)),
-          ],
-          body: PullToRefresh(
-            isNested: true,
-            onRefresh: onRefresh,
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: 41,
-              itemBuilder: (_, index) {
-                if (index == 0) return const HeaderLocator();
-                return SizedBox(
-                  height: 60,
-                  child: Text('nested item ${index - 1}'),
-                );
-              },
-            ),
+      body: NestedScrollView(
+        physics: const NestedRefreshOuterPhysics(),
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          const SliverToBoxAdapter(child: SizedBox(height: 180)),
+        ],
+        body: PullToRefresh(
+          isNested: true,
+          onRefresh: onRefresh,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: 41,
+            itemBuilder: (_, index) {
+              if (index == 0) return const HeaderLocator();
+              return SizedBox(
+                height: 60,
+                child: Text('nested item ${index - 1}'),
+              );
+            },
           ),
         ),
       ),
@@ -238,20 +234,18 @@ void main() {
       late StateSetter setPage;
       await tester.pumpWidget(
         localizedApp(
-          home: Scaffold(
-            body: StatefulBuilder(
-              builder: (context, setState) {
-                setPage = setState;
-                final shown = page;
-                return PullToRefresh(
-                  onRefresh: () async => refreshed.add(shown),
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [Text('page $shown')],
-                  ),
-                );
-              },
-            ),
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              setPage = setState;
+              final shown = page;
+              return PullToRefresh(
+                onRefresh: () async => refreshed.add(shown),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [Text('page $shown')],
+                ),
+              );
+            },
           ),
         ),
       );
