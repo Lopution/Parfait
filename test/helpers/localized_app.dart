@@ -68,7 +68,13 @@ Widget _scoped(
 ) {
   assert(container == null || overrides == null, 'one scope, not two');
   if (container != null) {
-    return UncontrolledProviderScope(container: container, child: app);
+    return UncontrolledProviderScope(
+      // A scope registers with its container once, at mount: a new
+      // container needs a new scope, or its disposals fall back to timers.
+      key: ObjectKey(container),
+      container: container,
+      child: app,
+    );
   }
   if (overrides != null) return ProviderScope(overrides: overrides, child: app);
   return app;

@@ -133,7 +133,13 @@ Future<void> pumpDetail(
     );
   }
   await tester.pumpWidget(
-    UncontrolledProviderScope(container: container, child: app),
+    UncontrolledProviderScope(
+      // A scope registers with its container once, at mount: a new
+      // container needs a new scope, or its disposals fall back to timers.
+      key: ObjectKey(container),
+      container: container,
+      child: app,
+    ),
   );
   if (firstFrameOnly) return;
   await tester.pump();
