@@ -16,7 +16,7 @@ applies_to:
   - rust-toolchain.toml
   - CHANGELOG.md
   - .github/pull_request_template.md
-reviewed: 2026-10-14
+reviewed: 2026-10-29
 ---
 
 # Release artifacts, updater and toolchain

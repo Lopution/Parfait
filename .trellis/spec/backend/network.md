@@ -7,7 +7,7 @@ applies_to:
   - lib/core/image/image_worker_host.dart
   - lib/core/platform/local_network.dart
   - lib/core/settings/image_mirror.dart
-reviewed: 2026-10-26
+reviewed: 2026-10-29
 ---
 
 # Network policy, auth and transfers

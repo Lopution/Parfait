@@ -9,7 +9,7 @@ applies_to:
   - lib/app/widgets/errors/**
   - lib/l10n/*.arb
   - lib/features/settings/pages/download_task_presentation.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-29
 ---
 
 # Errors, user-facing failure copy and logging

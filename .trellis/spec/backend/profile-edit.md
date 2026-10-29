@@ -3,7 +3,7 @@ prefix: PROF
 applies_to:
   - lib/core/profile/**
   - lib/features/profile/profile_edit_page.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-29
 ---
 
 # Profile editing
