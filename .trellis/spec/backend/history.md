@@ -3,10 +3,17 @@ prefix: HIST
 applies_to:
   - lib/core/history/**
   - lib/features/history/**
-reviewed: 2026-10-12
+reviewed: 2026-10-29
 ---
 
 # Browsing history
+
+## Contents
+
+- [Storing and recording](#storing-and-recording)
+- [Reading](#reading)
+
+## Storing and recording
 
 ### HIST-01 One connection, owned by the repository
 - **Rule:** `HistoryDatabase` opens `history.db` lazily once per provider
@@ -88,12 +95,19 @@ reviewed: 2026-10-12
 - **Check:** `test/history_persistence_test.dart` "announces writes to the local rows, not to the outbox"; `test/history_page_test.dart` "each open reads afresh; open, the order holds; hidden, it "
 - **Code:** `lib/core/history/history_repository.dart`, `lib/core/history/history_feed_controller.dart`, `lib/features/history/history_page.dart`
 
+## Reading
+
 ### HIST-08 The history feed pages after the last row read
 - **Rule:** The history feed's cursor is the last loaded row's
   (`last_viewed_at`, id); `HistoryRepository.page(after:)` reads past it
   in `last_viewed_at DESC, id DESC` order, never by offset. A failed
-  first read shows `FeedError` with retry, not the empty view.
+  first read shows `FeedError` with retry, not the empty view. A reader
+  that needs every row (the backup export) reads them in one statement
+  (`HistoryRepository.all`), not page by page.
 - **Why:** Offset paging skipped an unread row for each loaded row
-  deleted, and a read error said "no history" with no way to retry.
-- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"
-- **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`
+  deleted, and a read error said "no history" with no way to retry. An
+  export read in pages while views arrived wrote some rows twice and
+  dropped others: a view moves its row to the top, behind the reader,
+  whether pages go by offset or by cursor.
+- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
+- **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`, `lib/core/backup/backup_service.dart`

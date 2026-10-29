@@ -9,7 +9,7 @@ applies_to:
   - lib/app/widgets/feed/illust_card*.dart
   - lib/features/illust/**
   - android/app/src/main/AndroidManifest.xml
-reviewed: 2026-10-25
+reviewed: 2026-10-29
 ---
 
 # Page transitions, back gesture and Hero flights
@@ -388,8 +388,10 @@ reviewed: 2026-10-25
 - **Rule:** At its start the shared shuttle (`inspectHeroFlight`) checks
   the card end (the source of a push, the landing of a pop): live
   (TickerMode on), on its route's page (measured in the page, which may
-  still be moving), and, pushed within 2 s of a card tap, overlapping
-  the box `noteHeroCardOpened` took at the tap. A failure logs one entry
+  still be moving), and, pushed from a card (`IllustHeroCardFrame`)
+  within 2 s of a card tap, overlapping the box `noteHeroCardOpened`
+  took at the tap; detail to viewer shares the tag but starts from the
+  detail image, so it skips that check. A failure logs one entry
   (tag, direction, reasons, each end's route, navigator restoration id
   and box) to `HeroAnomalyLog`, newest first, the last 20 kept in
   preferences; with developer options unlocked a prompt says so. The
@@ -398,5 +400,5 @@ reviewed: 2026-10-25
 - **Why:** A wrong flight showed on devices a few times a day and never
   on demand, so the user could not record one. Route names and
   restoration ids say which page and branch a flight end is on.
-- **Check:** `test/hero_transition_test.dart` "a flight from a card out of sight is logged, others not"
+- **Check:** `test/hero_transition_test.dart` "a flight from a card out of sight is logged, others not" "a push is held to the tapped card only when it leaves a card"
 - **Code:** `lib/app/motion/hero_anomaly.dart`, `lib/core/debug/hero_anomaly_log.dart`, `lib/features/settings/pages/frame_probe_page.dart`

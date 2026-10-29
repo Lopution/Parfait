@@ -440,6 +440,43 @@ void main() {
       expect(parsed.history.map((r) => r.contentId), containsAll([1, 2, 3]));
     });
 
+    test(
+      'views recorded during an export neither repeat nor drop a row',
+      () async {
+        final start = DateTime.utc(2026, 9, 1);
+        final world = await _world(
+          seededHistory: [
+            for (var id = 1; id <= 250; id++)
+              _record(id, lastViewedAt: start.add(Duration(minutes: id))),
+          ],
+        );
+        var exporting = true;
+        final export = world.service.export().whenComplete(
+          () => exporting = false,
+        );
+        // Views keep arriving from the oldest row up, each moving a row the
+        // export has not reached to the top.
+        var viewedDuring = 0;
+        for (var id = 1; exporting && id <= 250; id++) {
+          await world.history.upsert(
+            _record(
+              id,
+              lastViewedAt: start.add(Duration(days: 30, minutes: id)),
+            ),
+          );
+          if (exporting) viewedDuring++;
+        }
+        await export;
+        expect(viewedDuring, greaterThan(0), reason: 'views landed mid-export');
+
+        final ids = BackupEnvelope.parse(
+          world.sinks.last!.bytes,
+        ).history.map((r) => r.contentId);
+        expect(ids, hasLength(250));
+        expect(ids.toSet(), hasLength(250));
+      },
+    );
+
     test('picker cancel produces no document', () async {
       final world = await _world(nextTree: null);
       expect(await world.service.export(), isNull);
