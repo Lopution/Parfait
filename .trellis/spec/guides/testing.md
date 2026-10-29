@@ -6,7 +6,7 @@ applies_to:
   - tool/test_budget.py
   - tool/test_budget.json
   - dart_test.yaml
-reviewed: 2026-10-29
+reviewed: 2026-10-30
 ---
 
 # Tests
@@ -208,11 +208,15 @@ reviewed: 2026-10-29
   listener (`container.listen`). The same trap exists in pages: subscribe
   (`ref.watch` or `ref.listenManual`) before `ref.read(...notifier).load()`.
   A failing `AsyncNotifier.build` retries forever, so assert its
-  `AsyncError` state instead of awaiting `.future`.
+  `AsyncError` state instead of awaiting `.future`. A test that pumps a
+  second container keys its `UncontrolledProviderScope` by the container,
+  as the helpers do.
 - **Why:** A zero-listener notifier was disposed mid-load and left a
-  permanent spinner; awaiting a failing build hung until dispose.
+  permanent spinner; awaiting a failing build hung until dispose. A scope
+  registers with its container only at mount: the second container's
+  disposals fell back to a timer still pending when the test ended.
 - **Check:** manual
-- **Code:** `lib/features/profile/profile_edit_page.dart`
+- **Code:** `lib/features/profile/profile_edit_page.dart`, `test/helpers/localized_app.dart`
 
 ### TEST-09 Widget test harness traps
 - **Rule:** Import `package:material_ui/material_ui.dart`, not

@@ -13,7 +13,7 @@ applies_to:
   - lib/core/paging/**
   - lib/core/series/**
   - lib/core/novel/**
-reviewed: 2026-10-13
+reviewed: 2026-10-30
 ---
 
 # Stores, mutations and the account boundary
@@ -95,6 +95,22 @@ reviewed: 2026-10-13
   while it was in flight.
 - **Check:** manual
 - **Code:** `lib/core/user`, `lib/core/illust`
+
+### STORE-16 A page's providers go with the page
+- **Rule:** A family keyed by what one page shows (a work, a user, a
+  query, a series) is `autoDispose`. The page's subscriptions keep it,
+  paused ones too, and a reopened page builds it again. A tab view whose
+  tabs hold such a family keeps its tab bodies alive. Only the home tabs'
+  families, which keep their place across visits, stay for the session;
+  the check lists them. A notifier registers `ref.onDispose` in every
+  `build`: a rebuild runs the previous build's callbacks and drops them.
+- **Why:** Kept for the session, a reopened work was never rebuilt, so
+  its detail never refreshed past `illustDetailFreshness`. Profiles,
+  comments and searches showed the first visit's list, and instances
+  piled up. A feed that registered its dispose callback once stopped
+  cancelling its request on dispose after its first rebuild.
+- **Check:** `test/provider_retry_test.dart` "only the home tab families outlive their pages", `test/illust_detail_controller_test.dart` "a fresh full list payload is Ready with no request; reopened stale, it refreshes behind it", `test/feed_generation_commit_test.dart` "dispose fences a response without reading the disposed ref", `test/bookmark_tags_test.dart` "BookmarkTagsPage lists each visibility in its own tab"
+- **Code:** `lib/core/paging/paged_feed_controller.dart`, `lib/features/bookmark/bookmark_tags_page.dart`
 
 ## Optimistic toggles
 
