@@ -248,9 +248,7 @@ class _SearchFeedController extends PagedFeedController {
   }
 }
 
-final searchFeedProvider =
-    AsyncNotifierProvider.family<
-      _SearchFeedController,
-      PagedFeedState,
-      SearchQuery
-    >(_SearchFeedController.new);
+final searchFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_SearchFeedController, PagedFeedState, SearchQuery>(
+      _SearchFeedController.new,
+    );

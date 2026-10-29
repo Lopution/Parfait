@@ -95,16 +95,12 @@ class _UserSeriesFeedController extends PagedFeedController {
   }
 }
 
-final illustSeriesFeedProvider =
-    AsyncNotifierProvider.family<
-      _IllustSeriesFeedController,
-      PagedFeedState,
-      int
-    >(_IllustSeriesFeedController.new);
+final illustSeriesFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_IllustSeriesFeedController, PagedFeedState, int>(
+      _IllustSeriesFeedController.new,
+    );
 
-final userSeriesFeedProvider =
-    AsyncNotifierProvider.family<
-      _UserSeriesFeedController,
-      PagedFeedState,
-      int
-    >(_UserSeriesFeedController.new);
+final userSeriesFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_UserSeriesFeedController, PagedFeedState, int>(
+      _UserSeriesFeedController.new,
+    );

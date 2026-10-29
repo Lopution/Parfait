@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/bookmark/bookmark_tags_controller.dart';
 import 'package:parfait/core/errors/no_retry.dart';
@@ -26,5 +28,27 @@ void main() {
     for (final MapEntry(:key, :value) in retries.entries) {
       expect(value, same(noRetry), reason: key);
     }
+  });
+
+  // STORE-16: a family keyed by what a page shows is autoDispose and goes
+  // with its page. Only the home tabs, which keep their place across
+  // visits, are kept for the session.
+  test('only the home tab families outlive their pages', () {
+    final family = RegExp(r'final\s+(\w+)\s*=\s*\w+Provider\s*\.\s*family\b');
+    final kept = {
+      for (final file in Directory('lib').listSync(recursive: true))
+        if (file is File && file.path.endsWith('.dart'))
+          for (final match in family.allMatches(file.readAsStringSync()))
+            match[1],
+    };
+    expect(kept, {
+      'recommendedFeedProvider',
+      'rankingFeedControllerProvider',
+      'novelRankingFeedProvider',
+      'newFeedProvider',
+      'watchlistFeedProvider',
+      'spotlightFeedProvider',
+      'trendingTagsProvider',
+    });
   });
 }

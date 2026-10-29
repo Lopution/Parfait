@@ -59,7 +59,7 @@ class _UserNovelFeedController extends PagedFeedController {
   }
 }
 
-final userNovelFeedProvider =
-    AsyncNotifierProvider.family<_UserNovelFeedController, PagedFeedState, int>(
+final userNovelFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_UserNovelFeedController, PagedFeedState, int>(
       _UserNovelFeedController.new,
     );

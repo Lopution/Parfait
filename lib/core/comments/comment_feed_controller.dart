@@ -84,12 +84,10 @@ class _CommentFeedController extends PagedFeedController {
   }
 }
 
-final commentFeedProvider =
-    AsyncNotifierProvider.family<
-      _CommentFeedController,
-      PagedFeedState,
-      CommentFeedQuery
-    >(_CommentFeedController.new);
+final commentFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_CommentFeedController, PagedFeedState, CommentFeedQuery>(
+      _CommentFeedController.new,
+    );
 
 /// The comment count each work's comments response last reported, by
 /// [CommentFeedQuery.workKey]. The comments call carries it, so the detail

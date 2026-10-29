@@ -86,15 +86,27 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
   }
 }
 
-/// One visibility's tags, refreshable and paged.
-class _RestrictTags extends ConsumerWidget {
+/// One visibility's tags, refreshable and paged. Kept alive in the tab
+/// view: its list goes with the page, not when the other tab shows.
+class _RestrictTags extends ConsumerStatefulWidget {
   const _RestrictTags({required this.restrict});
 
   final BookmarkRestrict restrict;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RestrictTags> createState() => _RestrictTagsState();
+}
+
+class _RestrictTagsState extends ConsumerState<_RestrictTags>
+    with AutomaticKeepAliveClientMixin<_RestrictTags> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     final l10n = context.l10n;
+    final restrict = widget.restrict;
     final BookmarkTagQuery query = (BookmarkEntityType.illust, restrict);
     final async = ref.watch(userBookmarkTagsProvider(query));
     return PullToRefresh(

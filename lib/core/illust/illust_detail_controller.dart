@@ -220,9 +220,7 @@ final _illustDetailRepositoryProvider = Provider<IllustDetailRepository>(
   ),
 );
 
-final illustDetailControllerProvider =
-    AsyncNotifierProvider.family<
-      _IllustDetailController,
-      IllustDetailState,
-      int
-    >(_IllustDetailController.new);
+final illustDetailControllerProvider = AsyncNotifierProvider.autoDispose
+    .family<_IllustDetailController, IllustDetailState, int>(
+      _IllustDetailController.new,
+    );
