@@ -456,6 +456,7 @@ void main() {
         );
         // Views keep arriving from the oldest row up, each moving a row the
         // export has not reached to the top.
+        var viewedDuring = 0;
         for (var id = 1; exporting && id <= 250; id++) {
           await world.history.upsert(
             _record(
@@ -463,8 +464,10 @@ void main() {
               lastViewedAt: start.add(Duration(days: 30, minutes: id)),
             ),
           );
+          if (exporting) viewedDuring++;
         }
         await export;
+        expect(viewedDuring, greaterThan(0), reason: 'views landed mid-export');
 
         final ids = BackupEnvelope.parse(
           world.sinks.last!.bytes,

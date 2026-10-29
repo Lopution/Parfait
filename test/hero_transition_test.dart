@@ -213,11 +213,13 @@ void main() {
     noteHeroCardOpened(tester.element(find.byKey(tapped)), tag);
 
     await push(Center(child: hero(const SizedBox.square(dimension: 300))));
+    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'flying');
     final entries = (await tester.runAsync(log.read))!;
     expect(entries.single, contains('card end away from the tapped card'));
     await tester.pumpAndSettle();
 
     await push(hero(const SizedBox.expand()));
+    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'flying');
     expect(await tester.runAsync(log.read), hasLength(1));
     await tester.pumpAndSettle(const Duration(seconds: 5));
   });
