@@ -814,14 +814,17 @@ void main() {
 
       await expectLater(request, throwsA(isA<ApiCancelled>()));
 
-      // The response is in and its page closes while the body parses.
-      final parsing = CancelToken();
-      final parsed = _clientOver(
-        container,
-        MockClient((_) async => http.Response('{}', 200)),
-        dataWorker: _CancelOnParse(parsing),
-      ).getJson(Uri.parse(_api), cancelToken: parsing);
-      await expectLater(parsed, throwsA(isA<ApiCancelled>()));
+      // The response is in and its page closes while the body parses: the
+      // request ends cancelled, a malformed body too.
+      for (final body in ['{}', '{']) {
+        final parsing = CancelToken();
+        final parsed = _clientOver(
+          container,
+          MockClient((_) async => http.Response(body, 200)),
+          dataWorker: _CancelOnParse(parsing),
+        ).getJson(Uri.parse(_api), cancelToken: parsing);
+        await expectLater(parsed, throwsA(isA<ApiCancelled>()), reason: body);
+      }
     },
   );
 
