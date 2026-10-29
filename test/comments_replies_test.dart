@@ -1299,18 +1299,23 @@ void main() {
     },
   );
 
-  testWidgets('send failure fires no haptic', (tester) async {
-    final haptics = recordHaptics();
-    await pumpCommentsPage(
-      tester,
-      FakeCommentRepository()..addError = StateError('offline'),
-    );
+  testWidgets('a top-level send plays one success haptic, a failed one none', (
+    tester,
+  ) async {
+    for (final (error, roles) in [
+      (null, [HapticRole.success]),
+      (StateError('offline'), <HapticRole>[]),
+    ]) {
+      final haptics = recordHaptics();
+      await pumpCommentsPage(tester, FakeCommentRepository()..addError = error);
 
-    await tester.enterText(find.byType(TextField), 'hi');
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.send_outlined));
-    await tester.pumpAndSettle();
-    expect(haptics.played, isEmpty);
+      await tester.enterText(find.byType(TextField), 'hi');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send_outlined));
+      await tester.pumpAndSettle();
+      expect(haptics.roles, roles, reason: '$error');
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 }
 
