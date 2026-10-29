@@ -109,23 +109,10 @@ class BackupService {
       muteTags: mute.tags,
       muteUsers: mute.users.values.toList(),
       muteWorks: mute.works,
-      history: accountId == null ? const [] : await _readAllHistory(accountId),
+      history: accountId == null
+          ? const []
+          : await _history.all(accountId: accountId),
     );
-  }
-
-  Future<List<HistoryRecord>> _readAllHistory(String accountId) async {
-    final records = <HistoryRecord>[];
-    var offset = 0;
-    while (true) {
-      final page = await _history.page(
-        accountId: accountId,
-        offset: offset,
-        limit: 100,
-      );
-      records.addAll(page.records);
-      if (!page.hasMore) return records;
-      offset += page.records.length;
-    }
   }
 
   /// Applies a parsed document under [strategy]. Order matters: the

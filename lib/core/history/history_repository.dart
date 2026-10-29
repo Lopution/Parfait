@@ -81,11 +81,9 @@ class HistoryRepository {
     required String accountId,
     HistoryContentType? contentType,
     ({DateTime viewedAt, int rowId})? after,
-    int offset = 0,
     int limit = defaultPageSize,
   }) async {
     _validateAccount(accountId);
-    if (offset < 0) throw ArgumentError.value(offset, 'offset');
     if (limit < 1 || limit > 100) {
       throw ArgumentError.value(limit, 'limit', 'must be between 1 and 100');
     }
@@ -110,7 +108,6 @@ class HistoryRepository {
       whereArgs: whereArgs,
       orderBy: 'last_viewed_at DESC, id DESC',
       limit: limit,
-      offset: offset,
     );
     final countRows = await db.rawQuery(
       'SELECT COUNT(*) AS count FROM ${HistoryDatabase.historyTable} '
@@ -121,9 +118,25 @@ class HistoryRepository {
     return HistoryPageResult(
       records: [for (final row in rows) HistoryRecord.fromRow(row)],
       total: total,
-      offset: offset,
       limit: limit,
     );
+  }
+
+  /// Every record of [accountId], in [page]'s order, read by one statement:
+  /// one snapshot, so a view recorded meanwhile neither repeats nor drops a
+  /// row as it would between pages. For the backup export, which holds the
+  /// whole history anyway.
+  Future<List<HistoryRecord>> all({required String accountId}) async {
+    _validateAccount(accountId);
+    final db = await _database.database;
+    final rows = await db.query(
+      HistoryDatabase.historyTable,
+      columns: _historyColumns,
+      where: 'account_id = ?',
+      whereArgs: [accountId],
+      orderBy: 'last_viewed_at DESC, id DESC',
+    );
+    return [for (final row in rows) HistoryRecord.fromRow(row)];
   }
 
   Future<HistoryRecord?> find({
@@ -151,7 +164,6 @@ class HistoryRepository {
     final result = await page(
       accountId: accountId,
       contentType: contentType,
-      offset: 0,
       limit: 1,
     );
     return result.total;

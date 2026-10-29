@@ -236,16 +236,14 @@ class HistoryPageResult {
   const HistoryPageResult({
     required this.records,
     required this.total,
-    required this.offset,
     required this.limit,
   });
 
   final List<HistoryRecord> records;
   final int total;
-  final int offset;
   final int limit;
 
-  bool get hasMore => offset + records.length < total;
+  bool get hasMore => records.length < total;
 }
 
 class HistorySyncException implements Exception {
