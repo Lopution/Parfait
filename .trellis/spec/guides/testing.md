@@ -88,13 +88,13 @@ reviewed: 2026-10-29
   `flutter gen-l10n` writes into `lib/l10n/`), so tests grow with the code
   but not faster. Only the user changes the ratio, and only lowers it; an
   agent asks and never edits it. A change whose `test/` growth exceeds the
-  ratio × its `lib/` growth by more than `growth_warning` (400) code lines
-  gets a CI warning, never a failure: table-drive or prune before adding
-  more. A change that needs room makes it in this order: dedupe or
-  table-drive repeated cases; drop UI tests of colour, spacing, order or
-  copy; drop tests of removed code; drop a duplicated layer; prune under
-  TEST-13. Coverage of core logic, fixed bugs and security is never given up
-  for room. A UI change ships one or two tests of its key behaviour; layout,
+  ratio × its `lib/` growth (none when `lib/` shrinks) by more than
+  `growth_warning` (400) code lines gets a CI warning, never a failure:
+  table-drive or prune before adding more. A change that needs room makes
+  it in this order: dedupe or table-drive repeated cases; drop UI tests of
+  colour, spacing, order or copy; drop tests of removed code; drop a
+  duplicated layer; prune under TEST-13. Coverage of core logic, fixed bugs
+  and security is never given up for room. A UI change ships one or two tests of its key behaviour; layout,
   colour, spacing and copy are checked with review screenshots. No
   per-locale or per-variant copies of a case. Core logic (network,
   credentials, downloads, paging, parsing, persistence) and every fixed bug
@@ -109,8 +109,8 @@ reviewed: 2026-10-29
   line) and met the cap again within a week; a ratio keeps the alarm for
   tests outgrowing the code without a wall every few days. The cap alone
   showed growth only at the wall; the warning shows it in the change that
-  adds it (400 flags about 4% of PRs 2–206). Generated localizations grow
-  with every string, not with the code tests cover.
+  adds it (400 would have flagged about 4% of past PRs). Generated
+  localizations grow with every string, not with the code tests cover.
 - **Check:** `tool/test_budget.py`, `test/architecture/test_hygiene_test.dart` "test files stay under"
 - **Code:** `test`
 
@@ -133,7 +133,7 @@ reviewed: 2026-10-29
   case, and removals came only from deleted code or slimming passes.
   Agents add tests readily, and deleting a failing test is how an agent
   cheats; whether the test was failing separates pruning from cheating.
-  Two merges in the 10-29 pass kept every check yet lost the condition:
+  Two merges in a slimming pass kept every check yet lost the condition:
   one re-tapped a tab after a switch instead of the tab the page opened on,
   the other sent a reply instead of a top-level comment.
 - **Check:** manual
@@ -147,10 +147,10 @@ reviewed: 2026-10-29
   the cases stay.
 - **Why:** Each instance of a class got its own regression test while
   nothing stopped the next instance. Stale async results (a page gone, an
-  account switched, a retry overtaking) stay cases (evaluated 10-29): a
-  scan inside one function sees about half of the past page-gone instances
-  and flagged only correct code on the current tree, and a late write after
-  an account switch or an overtaking retry has no syntactic mark.
+  account switched, a retry overtaking) stay cases: a scan inside one
+  function sees about half of the past page-gone instances and flagged only
+  correct code on the current tree, and a late write after an account
+  switch or an overtaking retry has no syntactic mark.
 - **Check:** manual
 - **Code:** `test/architecture`
 

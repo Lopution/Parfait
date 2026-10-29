@@ -12,8 +12,8 @@ table-driven loop counts once) and the code lines per case are reported
 for the trend, never enforced.
 
 With --base, a change whose test/ growth exceeds `ratio` times its lib/
-growth by more than `growth_warning` code lines gets a warning, never a
-failure.
+growth (none when lib/ shrinks: the cap already tightens) by more than
+`growth_warning` code lines gets a warning, never a failure.
 
 Usage:
   python3 tool/test_budget.py                 count the working tree
