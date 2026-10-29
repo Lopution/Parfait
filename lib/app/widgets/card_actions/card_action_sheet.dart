@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,7 +50,7 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
                       title: Text(action.labelFor(ref, entity, l10n)),
                       onTap: () {
                         Navigator.of(sheetContext).pop();
-                        action.run(context, ref, entity);
+                        unawaited(action.run(context, ref, entity));
                       },
                     ),
                   ),

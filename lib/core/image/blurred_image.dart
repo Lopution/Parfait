@@ -37,14 +37,18 @@ class BlurredImage extends ImageProvider<BlurredImageKey> {
   Future<BlurredImageKey> obtainKey(ImageConfiguration configuration) {
     Completer<BlurredImageKey>? completer;
     SynchronousFuture<BlurredImageKey>? result;
-    imageProvider.obtainKey(configuration).then((Object key) {
-      final blurred = BlurredImageKey._(key, sigmaPerWidth);
-      if (completer == null) {
-        result = SynchronousFuture(blurred);
-      } else {
-        completer.complete(blurred);
-      }
-    });
+    // The sources here (the worker provider and the resizes over it) key
+    // synchronously and never fail.
+    unawaited(
+      imageProvider.obtainKey(configuration).then((Object key) {
+        final blurred = BlurredImageKey._(key, sigmaPerWidth);
+        if (completer == null) {
+          result = SynchronousFuture(blurred);
+        } else {
+          completer.complete(blurred);
+        }
+      }),
+    );
     if (result case final result?) return result;
     completer = Completer<BlurredImageKey>();
     return completer.future;

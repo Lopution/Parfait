@@ -178,7 +178,7 @@ class _DownloadActionState extends ConsumerState<_DownloadAction> {
 
   @override
   void dispose() {
-    _changes?.cancel();
+    unawaited(_changes?.cancel());
     super.dispose();
   }
 

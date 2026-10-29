@@ -253,7 +253,7 @@ class _TagsSection extends ConsumerWidget {
                     ),
                   );
                 } else {
-                  openTagSearch(context, tag.name);
+                  unawaited(openTagSearch(context, tag.name));
                 }
               },
               // Long-press opens the direct action menu (search /

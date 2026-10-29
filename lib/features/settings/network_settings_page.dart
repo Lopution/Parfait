@@ -298,7 +298,7 @@ class _ImageSourceSectionState extends ConsumerState<_ImageSourceSection> {
             onTap: () {
               final saved = settings.customImageSource;
               if (saved != null) {
-                _selectSource(saved);
+                unawaited(_selectSource(saved));
               } else {
                 _customFocusNode.requestFocus();
               }
@@ -732,7 +732,7 @@ class _ThirdPartyReachabilitySectionState
   @override
   void initState() {
     super.initState();
-    _check();
+    unawaited(_check());
   }
 
   Future<void> _check() async {

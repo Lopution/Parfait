@@ -104,7 +104,7 @@ Widget settingsUnavailable(
 }
 
 void openSettingsPage(BuildContext context, String path) {
-  context.push<void>(path);
+  unawaited(context.push<void>(path));
 }
 
 /// Supported app languages as (native display name, BCP-47 tag) pairs —

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../core/platform/platform_caps.dart';
@@ -54,6 +56,6 @@ class WebNavigationGuard {
   /// Stops a navigation that has started, when [stops] says so.
   void stopAsStarted(InAppWebViewController controller, WebUri? url) {
     if (url == null) return;
-    if (stops(url.toString())) controller.stopLoading();
+    if (stops(url.toString())) unawaited(controller.stopLoading());
   }
 }

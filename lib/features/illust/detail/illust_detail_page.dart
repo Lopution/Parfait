@@ -456,7 +456,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 
   @override
   void dispose() {
-    _downloadEvents?.cancel();
+    unawaited(_downloadEvents?.cancel());
     _narrowScroll.dispose();
     _topVisiblePage.dispose();
     _pagesToggleOnScreen.dispose();
@@ -1048,7 +1048,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         final related = relatedIllustControllerProvider(widget.illustId);
         if (ref.exists(related) &&
             ref.read(related).value?.isAllHidden == false) {
-          ref.read(related.notifier).loadMore();
+          unawaited(ref.read(related.notifier).loadMore());
         }
       }
       return false;

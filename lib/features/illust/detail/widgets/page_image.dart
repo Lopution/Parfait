@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -167,19 +168,21 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   bool _revealWhenDecoded(String url, int? decodeWidth) {
     if (_revealed || url == _revealing) return _revealed;
     _revealing = url;
-    PixivImage.preload(
-      context,
-      url,
-      tierKey: entity.imageTierKeyAt(widget.index),
-      tier: entity.imageTierOf(url),
-      memCacheWidth: decodeWidth ?? PixivImage.screenDecodeWidth,
-      // The page's own image resolves the same entry: the first resolve
-      // sets the fetch's priority.
-      priority: ImageFetchPriority.foreground,
-    ).then((_) {
-      if (!mounted || _revealing != url) return;
-      setState(() => _revealed = true);
-    });
+    unawaited(
+      PixivImage.preload(
+        context,
+        url,
+        tierKey: entity.imageTierKeyAt(widget.index),
+        tier: entity.imageTierOf(url),
+        memCacheWidth: decodeWidth ?? PixivImage.screenDecodeWidth,
+        // The page's own image resolves the same entry: the first resolve
+        // sets the fetch's priority.
+        priority: ImageFetchPriority.foreground,
+      ).then((_) {
+        if (!mounted || _revealing != url) return;
+        setState(() => _revealed = true);
+      }),
+    );
     return false;
   }
 
@@ -402,12 +405,14 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   }
 
   void _openViewer(BuildContext context, {required ViewQuality quality}) {
-    openImageViewer(
-      context,
-      entity: entity,
-      page: widget.index,
-      quality: quality,
-      heroScope: widget.heroScope,
+    unawaited(
+      openImageViewer(
+        context,
+        entity: entity,
+        page: widget.index,
+        quality: quality,
+        heroScope: widget.heroScope,
+      ),
     );
   }
 }

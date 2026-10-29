@@ -50,9 +50,9 @@ class _CaptionRichTextState extends ConsumerState<CaptionRichText> {
     switch (uri == null ? null : _route(uri)) {
       case UserRoute(:final userId):
         // The facade pushes its own route with the right-in rhythm.
-        openUser(context, userId);
+        unawaited(openUser(context, userId));
       case IllustRoute(:final illustId):
-        openIllust(context, illustId);
+        unawaited(openIllust(context, illustId));
       case _ when uri?.scheme == 'pixiv' || uri?.scheme == 'parfait':
         // No page here for it; Android would only hand it back.
         break;

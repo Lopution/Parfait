@@ -660,10 +660,12 @@ class _TrendingTagTile extends ConsumerWidget {
         ? null
         : () {
             AppHaptics.longPress();
-            openIllust(
-              context,
-              representative.id,
-              initialEntity: representative,
+            unawaited(
+              openIllust(
+                context,
+                representative.id,
+                initialEntity: representative,
+              ),
             );
           };
     return PressScale(

@@ -102,7 +102,7 @@ class _Server {
         sent += n;
         if (sent >= bytes.length) {
           timer?.cancel();
-          body.close();
+          unawaited(body.close());
           hangUp();
         }
       }),
@@ -156,17 +156,19 @@ class _Run {
       maxParallel: maxParallel,
       clock: () => start.add(async.elapsed),
     );
-    server
-        .open(0, SegmentedFetch.defaultSegmentBytes - 1, cancel: _Cancel())
-        .then((first) {
-          subscription = fetch
-              .continueFrom(first, cancel: cancel)
-              .listen(
-                bytes.add,
-                onError: (Object e) => error = e,
-                onDone: () => done = true,
-              );
-        });
+    unawaited(
+      server
+          .open(0, SegmentedFetch.defaultSegmentBytes - 1, cancel: _Cancel())
+          .then((first) {
+            subscription = fetch
+                .continueFrom(first, cancel: cancel)
+                .listen(
+                  bytes.add,
+                  onError: (Object e) => error = e,
+                  onDone: () => done = true,
+                );
+          }),
+    );
     async.flushMicrotasks();
   }
 
@@ -175,6 +177,8 @@ class _Run {
   final SegmentBudget budget;
   final NetworkCancelSignal? cancel;
   late final SegmentedFetch fetch;
+  // Cancelled by the cases that stop reading; the rest read to the end.
+  // ignore: cancel_subscriptions
   late StreamSubscription<List<int>> subscription;
   final bytes = BytesBuilder(copy: false);
   var done = false;
@@ -277,7 +281,7 @@ void main() {
       );
       expect(run.done, isFalse);
       expect(run.error, isNull);
-      run.subscription.cancel();
+      unawaited(run.subscription.cancel());
       async.flushMicrotasks();
       expect(server.openConnections, 0);
       expect(run.budget.inUse, 0);
@@ -355,9 +359,11 @@ void main() {
       final budget = SegmentBudget();
       final fetch = SegmentedFetch(open: server.open, budget: budget);
       late Stream<List<int>> output;
-      server
-          .open(0, SegmentedFetch.defaultSegmentBytes - 1, cancel: _Cancel())
-          .then((first) => output = fetch.continueFrom(first));
+      unawaited(
+        server
+            .open(0, SegmentedFetch.defaultSegmentBytes - 1, cancel: _Cancel())
+            .then((first) => output = fetch.continueFrom(first)),
+      );
       async.flushMicrotasks();
       fetch.close();
       Object? error;

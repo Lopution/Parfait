@@ -339,13 +339,13 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     if (_disposed) return;
     if (_failure != null) {
       _playRequested = true;
-      _loadAndPlay();
+      unawaited(_loadAndPlay());
       return;
     }
     final scheduler = _scheduler;
     if (scheduler == null || !_frameReady) {
       _playRequested = true;
-      _loadAndPlay();
+      unawaited(_loadAndPlay());
       return;
     }
     if (scheduler.isPlaying) {

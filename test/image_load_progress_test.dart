@@ -38,6 +38,9 @@ class _Transfer {
   _Transfer({required this.total});
 
   final int total;
+  // A case ends the body when its transfer should finish; others leave the
+  // transfer open.
+  // ignore: close_sinks
   final body = StreamController<List<int>>();
   late final client = HeldBodyClient(
     respond: (request) => '${request.url}' == _url

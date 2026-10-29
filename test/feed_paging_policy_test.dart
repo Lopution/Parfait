@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,7 +97,7 @@ void _withFeed(
 /// Requests sent by the next load-more once its interval has passed.
 int _pageOnce(FakeAsync async, _EndlessFeed feed) {
   final before = feed.requests.length;
-  feed.loadMore();
+  unawaited(feed.loadMore());
   async.elapse(_policy.minPageInterval);
   return feed.requests.length - before;
 }
@@ -104,11 +106,11 @@ void main() {
   test('pages wait out the interval; the first after a load goes at once', () {
     _withFeed((async, container, feed) {
       final loadedAt = feed.requests.length;
-      feed.loadMore();
+      unawaited(feed.loadMore());
       async.flushMicrotasks();
       expect(feed.requests.length, loadedAt + 1);
 
-      feed.loadMore();
+      unawaited(feed.loadMore());
       async.flushMicrotasks();
       // Held, with the tail spinning.
       expect(feed.requests.length, loadedAt + 1);
@@ -137,7 +139,7 @@ void main() {
       // Scrolling alone stays paused.
       expect(_pageOnce(async, feed), 0);
 
-      feed.retryLoadMore();
+      unawaited(feed.retryLoadMore());
       async.elapse(_policy.minPageInterval);
       expect(container.read(_feed).value!.loadMorePaused, isFalse);
       for (var page = 1; page < _policy.maxAutoPages; page++) {
@@ -156,7 +158,7 @@ void main() {
       expect(container.read(_feed).value!.loadMorePaused, isTrue);
 
       async.elapse(_policy.burstIdleReset);
-      feed.loadMore();
+      unawaited(feed.loadMore());
       async.flushMicrotasks();
       expect(container.read(_feed).value!.loadMorePaused, isFalse);
       for (var page = 1; page < _policy.maxAutoPages; page++) {
@@ -168,11 +170,11 @@ void main() {
   test('a refresh during the wait takes over; its next page is not held', () {
     _withFeed((async, container, feed) {
       _pageOnce(async, feed);
-      feed.loadMore();
+      unawaited(feed.loadMore());
       async.flushMicrotasks();
       final held = feed.requests.length;
 
-      feed.refresh();
+      unawaited(feed.refresh());
       async.flushMicrotasks();
       expect(feed.requests.length, held + 1, reason: 'refresh goes at once');
       async.elapse(_policy.minPageInterval);
@@ -180,7 +182,7 @@ void main() {
       expect(feed.requests.length, held + 1);
       expect(container.read(_feed).value!.ids, [held + 1]);
 
-      feed.loadMore();
+      unawaited(feed.loadMore());
       async.flushMicrotasks();
       expect(feed.requests.length, held + 2);
     });
@@ -194,10 +196,10 @@ void main() {
     ) {
       // Pages 1-2 are visible; from 3 on every page is filtered out, so
       // the load-more refills behind each one.
-      feed.loadMore();
+      unawaited(feed.loadMore());
       async.flushMicrotasks();
       final start = feed.requests.length;
-      feed.loadMore();
+      unawaited(feed.loadMore());
       async.elapse(const Duration(seconds: 10));
       final hops = feed.requests.sublist(start - 1);
       expect(hops.length, greaterThan(2));

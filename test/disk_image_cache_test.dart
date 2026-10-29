@@ -117,13 +117,17 @@ void main() {
       File(dir.path).writeAsStringSync('');
       addTearDown(() => File(dir.path).deleteSync());
       var released = false;
+      // The cache cancels this body; the case checks that it does.
+      // ignore: close_sinks
       final body = StreamController<List<int>>(onCancel: () => released = true);
       final unhandled = <Object>[];
       final outcome = Completer<Object?>();
       runZonedGuarded(() {
-        cache
-            .store('https://i.pximg.net/nowhere.jpg', body.stream)
-            .then((_) => outcome.complete(null), onError: outcome.complete);
+        unawaited(
+          cache
+              .store('https://i.pximg.net/nowhere.jpg', body.stream)
+              .then((_) => outcome.complete(null), onError: outcome.complete),
+        );
       }, (error, _) => unhandled.add(error));
       Timer(const Duration(milliseconds: 20), () => body.add(_bytes(0, 10)));
       expect(

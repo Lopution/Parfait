@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -133,16 +135,18 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
       }
     }
 
-    _controller
-        .animateTo(target, duration: duration, curve: Curves.linear)
-        .then((_) {
-          // The accumulator only clears when nothing newer superseded it —
-          // otherwise an old animation completing would drop queued ticks.
-          if (_futurePosition == target &&
-              _controller.position.pixels == target) {
-            _futurePosition = null;
-          }
-        });
+    unawaited(
+      _controller
+          .animateTo(target, duration: duration, curve: Curves.linear)
+          .then((_) {
+            // The accumulator only clears when nothing newer superseded it —
+            // otherwise an old animation completing would drop queued ticks.
+            if (_futurePosition == target &&
+                _controller.position.pixels == target) {
+              _futurePosition = null;
+            }
+          }),
+    );
   }
 
   void _enterWheelMode() {

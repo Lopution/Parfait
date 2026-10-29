@@ -213,7 +213,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   @override
   void dispose() {
     _prefetchDemand?.clearPrefetchWindow(this);
-    _downloadEvents?.cancel();
+    unawaited(_downloadEvents?.cancel());
     for (final controller in _transformations.values) {
       controller.dispose();
     }

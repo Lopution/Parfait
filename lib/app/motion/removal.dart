@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -44,7 +46,7 @@ class RemovalController {
   void restore(Iterable<Object> ids) {
     _leaving.remove(ids);
     for (final id in ids) {
-      _items[id]?._animateTo(1);
+      unawaited(_items[id]?._animateTo(1));
     }
   }
 
@@ -167,7 +169,7 @@ class _RemovableState extends State<Removable>
     // The spring needs the motion scope, so the entrance starts here.
     if (_pendingEnter) {
       _pendingEnter = false;
-      _animateTo(1);
+      unawaited(_animateTo(1));
     }
     final controller = RemovalScope.maybeOf(context);
     if (controller == _controller) return;

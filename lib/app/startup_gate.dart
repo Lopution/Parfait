@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -285,9 +286,11 @@ class _PipelineWarmupState extends State<PipelineWarmup> {
     final program = _sparkleProgram = ui.FragmentProgram.fromAsset(
       _sparkleAsset,
     );
-    program.then(
-      _warmSparkle,
-      onError: (Object error) => log('PipelineWarmup: ink sparkle: $error'),
+    unawaited(
+      program.then(
+        _warmSparkle,
+        onError: (Object error) => log('PipelineWarmup: ink sparkle: $error'),
+      ),
     );
   }
 

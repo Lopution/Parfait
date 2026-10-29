@@ -110,15 +110,17 @@ class PixivPolicyHttpClient extends http.BaseClient {
 
 class _RequestCancelSignal implements NetworkCancelSignal {
   _RequestCancelSignal(Future<void> trigger) {
-    trigger.then<void>(
-      (_) {
-        _cancelled = true;
-        if (!_completer.isCompleted) _completer.complete();
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        _cancelled = true;
-        if (!_completer.isCompleted) _completer.complete();
-      },
+    unawaited(
+      trigger.then<void>(
+        (_) {
+          _cancelled = true;
+          if (!_completer.isCompleted) _completer.complete();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          _cancelled = true;
+          if (!_completer.isCompleted) _completer.complete();
+        },
+      ),
     );
   }
 

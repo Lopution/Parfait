@@ -98,6 +98,8 @@ class RangeServingClient extends http.BaseClient {
 
   Stream<List<int>> _body(Uint8List bytes) {
     if (hold) {
+      // releaseHeld ends it.
+      // ignore: close_sinks
       final body = StreamController<List<int>>();
       _held.add((body, bytes));
       return body.stream;

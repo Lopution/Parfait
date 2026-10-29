@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -232,13 +234,15 @@ class _SeriesHeader extends ConsumerWidget {
     final latest = detail.latestContentId;
     if (latest != null && accountId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref
-            .read(watchlistReadCursorProvider)
-            .markSeen(
-              accountId,
-              WatchlistKey(WatchlistType.manga, detail.id),
-              latest,
-            );
+        unawaited(
+          ref
+              .read(watchlistReadCursorProvider)
+              .markSeen(
+                accountId,
+                WatchlistKey(WatchlistType.manga, detail.id),
+                latest,
+              ),
+        );
       });
     }
     // 「继续第 n 话」honest variant: only what the session memory recorded —

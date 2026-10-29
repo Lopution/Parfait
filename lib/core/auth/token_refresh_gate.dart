@@ -70,9 +70,11 @@ class TokenRefreshGate {
     // A failed attempt reaches every caller through the returned future;
     // the cleanup branch absorbs the error so it is not reported twice as
     // an unhandled one.
-    inFlight.future.then<void>(
-      (_) => release(),
-      onError: (Object _, StackTrace _) => release(),
+    unawaited(
+      inFlight.future.then<void>(
+        (_) => release(),
+        onError: (Object _, StackTrace _) => release(),
+      ),
     );
     return inFlight.future;
   }

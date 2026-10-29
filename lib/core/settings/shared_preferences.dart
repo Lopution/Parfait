@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,12 +25,14 @@ final developerOptionsProvider =
 class _DeveloperOptionsNotifier extends Notifier<bool> {
   @override
   bool build() {
-    ref
-        .watch(sharedPreferencesProvider)
-        .getBool(PreferenceKeys.developerOptions)
-        .then((value) {
-          if (value == true) state = true;
-        });
+    unawaited(
+      ref
+          .watch(sharedPreferencesProvider)
+          .getBool(PreferenceKeys.developerOptions)
+          .then((value) {
+            if (value == true) state = true;
+          }),
+    );
     return false;
   }
 

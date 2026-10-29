@@ -458,12 +458,12 @@ void _openSpotlightLink(BuildContext context, String href) {
   if (_pixivHosts.contains(resolved.host)) {
     final artwork = _artworksPattern.firstMatch(resolved.path);
     if (artwork != null) {
-      openIllust(context, int.parse(artwork.group(1)!));
+      unawaited(openIllust(context, int.parse(artwork.group(1)!)));
       return;
     }
     final user = _usersPattern.firstMatch(resolved.path);
     if (user != null) {
-      openUser(context, int.parse(user.group(1)!));
+      unawaited(openUser(context, int.parse(user.group(1)!)));
       return;
     }
   }

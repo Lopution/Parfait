@@ -78,7 +78,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
 
   @override
   void dispose() {
-    _changes?.cancel();
+    unawaited(_changes?.cancel());
     super.dispose();
   }
 
