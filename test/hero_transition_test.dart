@@ -166,6 +166,62 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 5));
   });
 
+  // Within the tap window a push from a card is held to the tapped card's
+  // box; a push from the detail page to the viewer, under the same tag,
+  // starts from the detail image and is not.
+  testWidgets('a push is held to the tapped card only when it leaves a card', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    final tapped = GlobalKey();
+    const tag = 'IllustHero:feed:8';
+    Widget hero(Widget child) => Hero(
+      tag: tag,
+      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+      child: child,
+    );
+    Future<void> push(Widget page) async {
+      unawaited(
+        navigator.currentState!.push(
+          MaterialPageRoute<void>(builder: (_) => page),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: const [],
+        navigatorKey: navigator,
+        builder: promptHostBuilder,
+        home: Stack(
+          children: [
+            hero(
+              const IllustHeroCardFrame(child: SizedBox.square(dimension: 100)),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: SizedBox.square(key: tapped, dimension: 50),
+            ),
+          ],
+        ),
+      ),
+    );
+    final log = HeroAnomalyLog(SharedPreferencesAsync());
+    noteHeroCardOpened(tester.element(find.byKey(tapped)), tag);
+
+    await push(Center(child: hero(const SizedBox.square(dimension: 300))));
+    final entries = (await tester.runAsync(log.read))!;
+    expect(entries.single, contains('card end away from the tapped card'));
+    await tester.pumpAndSettle();
+
+    await push(hero(const SizedBox.expand()));
+    expect(await tester.runAsync(log.read), hasLength(1));
+    await tester.pumpAndSettle(const Duration(seconds: 5));
+  });
+
   testWidgets('only the entry page flies back; a drag from another page '
       'slides away, back leaves like any page', (tester) async {
     await pushFromFeed(

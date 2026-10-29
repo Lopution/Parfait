@@ -33,12 +33,17 @@ void inspectHeroFlight({
   required BuildContext card,
   required BuildContext other,
 }) {
-  final tag = (card.widget as Hero).tag;
+  final hero = card.widget as Hero;
+  final tag = hero.tag;
   final cardRect = _heroScreenRect(card);
   final reasons = [
     if (!TickerMode.getValuesNotifier(card).value.enabled) 'card end still',
     if (_offPage(card)) 'card end off its page',
-    if (direction == HeroFlightDirection.push && _awayFromTap(tag, cardRect))
+    // Only a card was tapped: detail to viewer shares the tag but starts
+    // from the detail image.
+    if (direction == HeroFlightDirection.push &&
+        hero.child is IllustHeroCardFrame &&
+        _awayFromTap(tag, cardRect))
       'card end away from the tapped card',
   ];
   if (reasons.isEmpty) return;
