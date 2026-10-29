@@ -117,7 +117,7 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
       final cookie = await _session.readSessionCookie();
       // The save rewrites the profile of whoever the session is signed in
       // as; the cookie read here is the one the requests send.
-      if (webSessionUserId(cookie) != request.patch.userId) {
+      if (cookie == null || webSessionUserId(cookie) != request.patch.userId) {
         return const ProfileEditSubmitFailure(
           ProfileEditFailureCode.unavailable,
           'The in-app Pixiv session has expired; sign in again before saving',
@@ -135,13 +135,12 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
       final injected = _httpClient;
       ownedClient = injected == null ? _newClient() : null;
       final client = injected ?? ownedClient!;
-      final webCookie = cookie!;
 
       // The page contains the current SPA CSRF token. The token is also sent
       // as a header on the JSON and multipart requests below.
       final settings = await _fetchSettingsPage(
         client,
-        webCookie,
+        cookie,
         cancelToken: cancelToken,
       );
       if (!_isSuccessStatus(settings.status)) {
@@ -164,7 +163,7 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
       // visible text fields can clear privacy and external-service settings.
       final currentResponse = await _fetchMyProfile(
         client,
-        cookie: webCookie,
+        cookie: cookie,
         csrf: csrf,
         cancelToken: cancelToken,
       );
@@ -186,7 +185,7 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
       );
       final update = await _postProfileUpdate(
         client,
-        cookie: webCookie,
+        cookie: cookie,
         csrf: csrf,
         boundary: boundary,
         body: body,

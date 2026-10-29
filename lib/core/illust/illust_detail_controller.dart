@@ -144,6 +144,8 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
         source: EntityMergeSource.detail,
         snapshotRevision: revision,
       );
+      // [claim] still holds, so the build that made it is current, and
+      // every build watches the store: [store] is live and kept [fresh].
       final merged = store.get(id)!;
       if (!merged.visible) {
         return IllustDetailRestricted(merged);

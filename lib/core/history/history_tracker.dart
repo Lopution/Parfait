@@ -163,10 +163,12 @@ class HistoryTracker {
           : Duration.zero,
     );
     if (shouldEnqueuePixiv) _pixivCommittedDuration = duration;
-    if (shouldFlush) {
+    // Read after the await: settings may have handed over a newer remote.
+    final remote = _remote;
+    if (shouldFlush && remote != null) {
       await _repository.flushOutbox(
         accountId: _accountId,
-        remote: _remote!,
+        remote: remote,
         isAccountCurrent: _isAccountCurrent,
       );
     }

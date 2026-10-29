@@ -440,9 +440,7 @@ class AppSettings {
         base.followSystemColors,
       ),
       imageSource: source is String && ImageMirror.isValidSource(source)
-          ? (ImageSourceMode.fromHost(source) != null
-                ? source
-                : ImageMirror.normalizeCustomSource(source)!)
+          ? source
           : base.imageSource,
       customImageSource:
           _nullableString(json, 'customImageSource', base.customImageSource) ??
@@ -751,9 +749,7 @@ class AppSettings {
       themeCode: _theme(themeCode, this.themeCode),
       followSystemColors: followSystemColors ?? this.followSystemColors,
       imageSource: imageSource != null && ImageMirror.isValidSource(imageSource)
-          ? (ImageSourceMode.fromHost(imageSource) != null
-                ? imageSource
-                : ImageMirror.normalizeCustomSource(imageSource)!)
+          ? imageSource
           : this.imageSource,
       customImageSource: identical(customImageSource, _unset)
           ? (imageSource != null &&
