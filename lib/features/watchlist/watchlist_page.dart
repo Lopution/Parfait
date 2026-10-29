@@ -17,6 +17,7 @@ import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/errors/error_category.dart';
+import '../../core/log.dart';
 import '../../core/series/series_recent_open_store.dart';
 import '../../core/watchlist/watchlist_actions.dart';
 import '../../core/watchlist/watchlist_feed_controller.dart';
@@ -258,7 +259,10 @@ class _WatchlistEntryTile extends ConsumerWidget {
       unawaited(
         ref
             .read(watchlistReadCursorProvider)
-            .markSeen(accountId, entry.key, latest),
+            .markSeen(accountId, entry.key, latest)
+            .catchError((Object error, _) {
+              log('series seen cursor not remembered: $error');
+            }),
       );
     }
     ref.invalidate(_watchlistSeenProvider(entry.key));

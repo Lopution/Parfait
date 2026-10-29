@@ -37,8 +37,9 @@ class WatchlistFixture {
 
 Future<(ProviderContainer, WatchlistFixture)> makeWatchlistWorld({
   WatchlistFixture? fixture,
+  SharedPreferencesAsyncPlatform? preferences,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = preferences ?? memoryPreferences();
   final resolvedFixture = fixture ?? WatchlistFixture();
   final container = await signedInApiContainer(
     resolvedFixture.build(),
