@@ -372,21 +372,28 @@ void main() {
     );
   });
 
-  test('dispose fences a response without reading the disposed ref', () async {
+  test('dispose fences a response without reading the disposed ref, '
+      'after a rebuild too', () async {
     final container = _container();
     final provider = _deferredFeedProvider('recommended:illust');
     final controller = container.read(provider.notifier);
     var commits = 0;
+    final subscription = container.listen(provider, (_, _) {});
+    addTearDown(subscription.close);
+    await turnUntil(() => controller.requests.length == 1);
+    // A rebuild runs the first build's dispose callbacks and drops them.
+    container.invalidate(provider);
     final future = container
         .read(provider.future)
         .then(
           (value) => value,
           onError: (_, _) => const PagedFeedState(initialPhase: FeedPhase.idle),
         );
-    await turnUntil(() => controller.requests.length == 1);
+    await turnUntil(() => controller.requests.length == 2);
 
     container.dispose();
-    controller.completions.single.complete(
+    expect(controller.requests.last.isCancelled, isTrue);
+    controller.completions.last.complete(
       FeedPage(ids: [99], nextCursor: null, commit: (_) => commits++),
     );
     await future;

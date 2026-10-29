@@ -325,7 +325,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   final List<String> _committedCursors = <String>[];
   bool _disposed = false;
   bool _cancelRequested = false;
-  bool _disposeCallbackRegistered = false;
   final FeedCommitGate _commitGate = FeedCommitGate();
 
   /// Current valid cursor (visible for subclass/tests).
@@ -374,13 +373,12 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     _page = 0;
     _resetPaging();
     _committedCursors.clear();
-    if (!_disposeCallbackRegistered) {
-      _disposeCallbackRegistered = true;
-      ref.onDispose(() {
-        _disposed = true;
-        _commitGate.dispose();
-      });
-    }
+    // Every build: a rebuild runs the previous build's callbacks and drops
+    // them, and the final dispose runs only this build's.
+    ref.onDispose(() {
+      _disposed = true;
+      _commitGate.dispose();
+    });
     // The snapshot read must complete before a generation is opened: no
     // request context exists during the read, so nothing can commit over a
     // restored page, and an invalidated build never reaches _beginRequest
