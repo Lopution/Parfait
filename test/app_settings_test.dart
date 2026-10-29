@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Size;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,8 +8,10 @@ import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/keyboard_heights.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/settings_world.dart';
@@ -454,6 +457,27 @@ void main() {
     );
   });
 
+  test('preferences that fail leave keyboard heights and developer options '
+      'to this run', () async {
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(_BrokenPreferences()),
+      ],
+    );
+    addTearDown(container.dispose);
+    const screen = Size(400, 800);
+
+    expect(container.read(developerOptionsProvider), isFalse);
+    container.read(keyboardHeightsProvider.notifier).record(screen, 300);
+    await pumpEventQueue();
+
+    expect(
+      container.read(keyboardHeightsProvider.notifier).heightFor(screen),
+      300,
+    );
+    expect(container.read(developerOptionsProvider), isFalse);
+  });
+
   test('plain settings JSON never contains translation credentials', () {
     final json = baseTestSettings().toJson();
     expect(json.keys, isNot(contains('translateAuthData')));
@@ -498,4 +522,16 @@ void _expectStored<T extends Object>(
     previous,
     reason: '$key missing',
   );
+}
+
+class _BrokenPreferences extends SharedPreferencesAsync {
+  @override
+  Future<bool?> getBool(String key) => Future.error(StateError('broken'));
+
+  @override
+  Future<String?> getString(String key) => Future.error(StateError('broken'));
+
+  @override
+  Future<void> setString(String key, String value) =>
+      Future.error(StateError('broken'));
 }

@@ -31,13 +31,15 @@ import 'helpers/waits.dart';
 
 Future<ProviderContainer> _apiContainer({
   Map<String, Object> preferences = const {},
+  SharedPreferencesAsyncPlatform? platform,
   bool withSeries = false,
   Future<http.Response> Function(int request)? seriesHandler,
   List<Uri>? seriesRequests,
   Completer<void>? detailGate,
   bool detailFails = false,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences(preferences);
+  SharedPreferencesAsyncPlatform.instance =
+      platform ?? memoryPreferences(preferences);
   final container = await signedInApiContainer(
     MockClient((request) async {
       if (request.url.path == '/v2/novel/detail') {
@@ -480,6 +482,21 @@ void main() {
       1,
       reason: 'hiding and revealing the chrome must not refetch',
     );
+  });
+
+  testWidgets('a seen cursor that fails to save is logged, not thrown', (
+    tester,
+  ) async {
+    final container = await _apiContainer(
+      withSeries: true,
+      platform: IntWriteFailingPreferences(),
+      seriesHandler: (_) async =>
+          _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
+    );
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.text('series five'), findsOneWidget);
   });
 
   testWidgets('system bars hide with the chrome and return on pop', (

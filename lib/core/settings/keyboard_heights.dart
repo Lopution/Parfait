@@ -4,6 +4,7 @@ import 'dart:ui' show Size;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../log.dart';
 import 'preference_keys.dart';
 import 'shared_preferences.dart';
 
@@ -45,6 +46,9 @@ class KeyboardHeights extends Notifier<Map<String, double>>
             final saved = _decode(raw);
             // A height seen in this run before the read landed is newer.
             if (saved.isNotEmpty) state = {...saved, ...state};
+          })
+          .catchError((Object error, _) {
+            log('keyboard heights not read: $error');
           }),
     );
     return const {};
@@ -79,7 +83,10 @@ class KeyboardHeights extends Notifier<Map<String, double>>
     unawaited(
       ref
           .read(sharedPreferencesProvider)
-          .setString(PreferenceKeys.keyboardHeights, jsonEncode(state)),
+          .setString(PreferenceKeys.keyboardHeights, jsonEncode(state))
+          .catchError((Object error, _) {
+            log('keyboard height not remembered: $error');
+          }),
     );
   }
 }

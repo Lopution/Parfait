@@ -1236,7 +1236,10 @@ class _NovelSeriesBarState extends ConsumerState<_NovelSeriesBar> {
                     accountId,
                     WatchlistKey(WatchlistType.novel, seriesId),
                     novelId,
-                  ),
+                  )
+                  .catchError((Object error, _) {
+                    log('series seen cursor not remembered: $error');
+                  }),
             );
           });
         }

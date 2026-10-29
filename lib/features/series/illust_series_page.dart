@@ -19,6 +19,7 @@ import '../../app/widgets/expandable_text.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
+import '../../core/log.dart';
 import '../../core/network/api_error.dart';
 import '../../core/series/series_feed_controller.dart';
 import '../../core/series/series_models.dart';
@@ -241,7 +242,10 @@ class _SeriesHeader extends ConsumerWidget {
                 accountId,
                 WatchlistKey(WatchlistType.manga, detail.id),
                 latest,
-              ),
+              )
+              .catchError((Object error, _) {
+                log('series seen cursor not remembered: $error');
+              }),
         );
       });
     }

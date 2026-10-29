@@ -16,3 +16,16 @@ void installMemoryPreferences([Map<String, Object> data = const {}]) {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.withData(data);
 }
+
+/// In-memory preferences whose `setInt` fails, as on a full disk; the
+/// reads a page loads with still answer.
+final class IntWriteFailingPreferences extends InMemorySharedPreferencesAsync {
+  IntWriteFailingPreferences() : super.empty();
+
+  @override
+  Future<bool> setInt(
+    String key,
+    int value,
+    SharedPreferencesOptions options,
+  ) => Future.error(StateError('disk full'));
+}
