@@ -277,6 +277,8 @@ void main() {
     final first = world.container.listen(userNovelFeedProvider(1), (_, _) {});
     await world.container.read(userNovelFeedProvider(1).future);
     await pumpEventQueue();
+    final key = world.container.read(userNovelFeedProvider(1).notifier).feedKey;
+    expect((await world.snapshots.read('100', key))?.ids, [11]);
     first.close();
 
     final shown = <List<int>>[];
