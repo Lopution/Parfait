@@ -7,7 +7,7 @@ applies_to:
   - lib/core/image/image_worker_host.dart
   - lib/core/platform/local_network.dart
   - lib/core/settings/image_mirror.dart
-reviewed: 2026-10-26
+reviewed: 2026-10-29
 ---
 
 # Network policy, auth and transfers
@@ -141,7 +141,7 @@ reviewed: 2026-10-26
 - **Rule:** A 429 maps to `ApiRateLimited` with its `Retry-After`; reads
   wait out the cooldown, posts still go.
 - **Why:** Hammering the API after a 429 extended the block.
-- **Check:** `test/pixiv_http_client_test.dart` "429 maps to rate limited with the retry-after hint" "after a 429 reads wait out the cooldown; posts still go"
+- **Check:** `test/pixiv_http_client_test.dart` "429, server, parse and transport failures map to errors, no retry" "after a 429 reads wait out the cooldown; posts still go"
 - **Code:** `lib/core/network/pixiv_http_client.dart`
 
 ### NET-10 Identical GETs share one flight

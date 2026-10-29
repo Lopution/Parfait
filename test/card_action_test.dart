@@ -202,9 +202,8 @@ void main() {
     },
   );
 
-  testWidgets('share action hands the formatted payload to the share service', (
-    tester,
-  ) async {
+  testWidgets('share hands the formatted payload over; a clipboard fallback '
+      'confirms the copy', (tester) async {
     final share = RecordingShareService();
     final (container, _, _) = await makeCardWorld(shareService: share);
     await tester.pumpWidget(
@@ -217,17 +216,9 @@ void main() {
       share.lastPayload?.text,
       'illust 15 | author #Pixiv https://www.pixiv.net/artworks/15',
     );
-  });
+    expect(find.text('链接已复制'), findsNothing);
 
-  testWidgets('share fallback to clipboard shows the copy confirmation', (
-    tester,
-  ) async {
-    final share = RecordingShareService()
-      ..outcome = ShareOutcome.copiedToClipboard;
-    final (container, _, _) = await makeCardWorld(shareService: share);
-    await tester.pumpWidget(
-      _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
-    );
+    share.outcome = ShareOutcome.copiedToClipboard;
     await _openSheet(tester);
     await _tapEntry(tester, '分享');
 

@@ -374,31 +374,23 @@ void main() {
   });
 
   group('cancellation', () {
-    test('pre-cancelled token is rethrown as ApiCancelled', () async {
-      final token = CancelToken()..cancel();
-      final repository = PixivWebProfileEditRepository(
-        userRepository: _StubUserRepository(),
-        session: _FakeSession(_sessionCookie),
-        httpClient: _RecordingWebClient(const []),
-      );
+    test('a pre-cancelled token or a request abort is rethrown as '
+        'ApiCancelled', () async {
+      for (final (token, client) in [
+        (CancelToken()..cancel(), _RecordingWebClient(const [])),
+        (null, _AbortingWebClient()),
+      ]) {
+        final repository = PixivWebProfileEditRepository(
+          userRepository: _StubUserRepository(),
+          session: _FakeSession(_sessionCookie),
+          httpClient: client,
+        );
 
-      await expectLater(
-        repository.submit(_renameRequest(), cancelToken: token),
-        throwsA(isA<ApiCancelled>()),
-      );
-    });
-
-    test('request abort is rethrown as ApiCancelled', () async {
-      final repository = PixivWebProfileEditRepository(
-        userRepository: _StubUserRepository(),
-        session: _FakeSession(_sessionCookie),
-        httpClient: _AbortingWebClient(),
-      );
-
-      await expectLater(
-        repository.submit(_renameRequest()),
-        throwsA(isA<ApiCancelled>()),
-      );
+        await expectLater(
+          repository.submit(_renameRequest(), cancelToken: token),
+          throwsA(isA<ApiCancelled>()),
+        );
+      }
     });
   });
 

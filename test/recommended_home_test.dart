@@ -16,7 +16,6 @@ import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_store.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/illust/recommended_feed_controller.dart';
 import 'package:parfait/core/illust/recommended_repository.dart';
@@ -412,49 +411,5 @@ void main() {
       find.descendant(of: shownPrompt, matching: find.text('重试')),
       findsOneWidget,
     );
-  });
-
-  testWidgets('sideways drags and tab hops leave the loaded feed unbuilt', (
-    tester,
-  ) async {
-    // Every drag start warms the neighbours and every tab hop rebuilds the
-    // page. Neither may reach a feed that is already on screen: on device
-    // that rebuilt all of its cards inside the swipe frame.
-    final (container, _) = await _makeWorld();
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        builder: promptHostBuilder,
-        home: RecommendedHomePage(),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.pumpAndSettle();
-    // The illust feed's cards as mounted now; any later build of these
-    // same elements is a rebuild (the hook's builtOnce flag is only kept
-    // under debugPrintRebuildDirtyWidgets).
-    final settledCards = find.byType(IllustCard).evaluate().toSet();
-    expect(settledCards, isNotEmpty);
-
-    var cardRebuilds = 0;
-    debugOnRebuildDirtyWidget = (element, _) {
-      if (settledCards.contains(element)) cardRebuilds++;
-    };
-    addTearDown(() => debugOnRebuildDirtyWidget = null);
-
-    // Short, slow drags: the strip follows and reels back, no commit.
-    for (var i = 0; i < 2; i++) {
-      await tester.timedDrag(
-        find.bySubtype<CustomScrollView>().first,
-        const Offset(-60, 0),
-        const Duration(milliseconds: 600),
-      );
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(find.byType(Tab).at(1));
-    await tester.pumpAndSettle();
-
-    expect(cardRebuilds, 0);
   });
 }

@@ -7,37 +7,26 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SharePayload', () {
-    test('illust payload follows the share text contract', () {
-      final payload = SharePayload.illust(
-        id: 1234,
-        title: 'A piece',
-        author: 'an artist',
-      );
-      expect(payload.url, 'https://www.pixiv.net/artworks/1234');
-      expect(
-        payload.text,
-        'A piece | an artist #Pixiv https://www.pixiv.net/artworks/1234',
-      );
-    });
-
-    test('novel payload points at the canonical show.php URL', () {
-      final payload = SharePayload.novel(
-        id: 77,
-        title: 'A story',
-        author: 'a writer',
-      );
-      expect(
-        payload.text,
-        'A story | a writer #Pixiv https://www.pixiv.net/novel/show.php?id=77',
-      );
-    });
-
-    test('user payload shares the profile URL', () {
-      final payload = SharePayload.user(id: 42, name: 'tester');
-      expect(
-        payload.text,
-        'tester | tester #Pixiv https://www.pixiv.net/users/42',
-      );
+    test('each payload shares its title, author and canonical URL', () {
+      for (final (payload, url, text) in [
+        (
+          SharePayload.illust(id: 1234, title: 'A piece', author: 'an artist'),
+          'https://www.pixiv.net/artworks/1234',
+          'A piece | an artist #Pixiv https://www.pixiv.net/artworks/1234',
+        ),
+        (
+          SharePayload.novel(id: 77, title: 'A story', author: 'a writer'),
+          'https://www.pixiv.net/novel/show.php?id=77',
+          'A story | a writer #Pixiv https://www.pixiv.net/novel/show.php?id=77',
+        ),
+        (
+          SharePayload.user(id: 42, name: 'tester'),
+          'https://www.pixiv.net/users/42',
+          'tester | tester #Pixiv https://www.pixiv.net/users/42',
+        ),
+      ]) {
+        expect((payload.url, payload.text), (url, text));
+      }
     });
   });
 

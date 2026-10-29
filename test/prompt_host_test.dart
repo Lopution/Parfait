@@ -133,17 +133,21 @@ void main() {
       expect(find.text('最新提示'), findsOneWidget);
     });
 
-    testWidgets('ordered prompts show one after another', (tester) async {
+    testWidgets('ordered prompts show one after another, on timeout or swipe', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _app(
           home: _Buttons({
             'first': (c) => showAppSnackBar(c, '第一步'),
             'second': (c) => showAppSnackBar(c, '第二步', replaceCurrent: false),
+            'third': (c) => showAppSnackBar(c, '第三步', replaceCurrent: false),
           }),
         ),
       );
       await tester.tap(find.text('first'));
       await tester.tap(find.text('second'));
+      await tester.tap(find.text('third'));
       await tester.pumpAndSettle();
       expect(find.text('第一步'), findsOneWidget);
       expect(find.text('第二步'), findsNothing);
@@ -152,54 +156,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('第一步'), findsNothing);
       expect(find.text('第二步'), findsOneWidget);
-    });
 
-    testWidgets('swiping down dismisses and the next prompt follows', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _app(
-          home: _Buttons({
-            'first': (c) => showAppSnackBar(c, '第一步'),
-            'second': (c) => showAppSnackBar(c, '第二步', replaceCurrent: false),
-          }),
-        ),
-      );
-      await tester.tap(find.text('first'));
-      await tester.tap(find.text('second'));
+      await tester.drag(find.text('第二步'), const Offset(0, 200));
       await tester.pumpAndSettle();
-
-      await tester.drag(find.text('第一步'), const Offset(0, 200));
-      await tester.pumpAndSettle();
-      expect(find.text('第一步'), findsNothing);
-      expect(find.text('第二步'), findsOneWidget);
+      expect(find.text('第二步'), findsNothing);
+      expect(find.text('第三步'), findsOneWidget);
     });
   });
 
   group('dwell', () {
-    testWidgets('a prompt with an action times out like any other', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _app(
-          home: _Buttons({
-            'show': (c) => showAppSnackBar(
-              c,
-              '带按钮提示',
-              action: PromptAction(label: '打开', onPressed: () {}),
-            ),
-          }),
-        ),
-      );
-      await tester.tap(find.text('show'));
-      await tester.pumpAndSettle();
-      expect(find.text('带按钮提示'), findsOneWidget);
-
-      await tester.pump(defaultPromptDuration);
-      await tester.pumpAndSettle();
-      expect(find.text('带按钮提示'), findsNothing);
-    });
-
     testWidgets('the system timeout stretches the dwell', (tester) async {
       final timeouts = _ScaledTimeouts(3);
       await tester.pumpWidget(

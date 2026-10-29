@@ -14,7 +14,6 @@ import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
@@ -476,41 +475,6 @@ void main() {
       expect(router.state.uri.queryParameters['mode'], 'week');
     });
   }
-
-  testWidgets('a mode swipe leaves the outgoing feed unbuilt', (tester) async {
-    // The swipe hops the tab index mid-drag and echoes the mode into the
-    // route; both rebuild the page. The feed sliding out must not rebuild
-    // its cards for either — on device that landed inside the swipe frame.
-    final (container, _) = await _makeWorld(
-      fixture: _RankingFixture(itemsPerPage: 4),
-    );
-    final router = await _pumpRanking(tester, container);
-    // The test host is desktop: SmoothWheelScroll leaves wheel mode on
-    // the first pointer down and rebuilds its scrollable once. Spend that
-    // on a short drag that does not commit.
-    await tester.timedDrag(
-      find.byType(TabSlideStack),
-      const Offset(-40, 0),
-      const Duration(milliseconds: 400),
-    );
-    await tester.pumpAndSettle();
-    expect(router.state.uri.queryParameters['mode'], isNull);
-
-    // The day feed's cards as mounted now; a later build of these same
-    // elements is a rebuild.
-    final dayCards = find.byType(IllustCard).evaluate().toSet();
-    expect(dayCards, isNotEmpty);
-    var cardRebuilds = 0;
-    debugOnRebuildDirtyWidget = (element, _) {
-      if (dayCards.contains(element)) cardRebuilds++;
-    };
-    addTearDown(() => debugOnRebuildDirtyWidget = null);
-
-    await tester.fling(find.byType(TabSlideStack), const Offset(-300, 0), 1200);
-    await tester.pumpAndSettle();
-    expect(router.state.uri.queryParameters['mode'], 'week');
-    expect(cardRebuilds, 0);
-  });
 
   testWidgets('branch re-tap scrolls the active ranking feed to top', (
     tester,

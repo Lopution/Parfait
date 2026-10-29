@@ -207,25 +207,20 @@ void main() {
     });
   }
 
-  test('a budget of 2 caps the transfer at 3 connections', () {
-    fakeAsync((async) {
-      final server = _Server(10 * _mib);
-      final run = _Run(async, server, budget: SegmentBudget(limit: 2));
-      async.elapse(const Duration(seconds: 30));
-      run.expectComplete();
-      expect(server.peakConnections, 3);
-    });
-  });
-
-  test('with no budget left the first connection does it all', () {
-    fakeAsync((async) {
-      final server = _Server(4 * _mib);
-      final run = _Run(async, server, budget: SegmentBudget(limit: 0));
-      async.elapse(const Duration(seconds: 30));
-      run.expectComplete();
-      expect(server.peakConnections, 1);
-    });
-  });
+  test(
+    'a budget of 2 caps the transfer at 3 connections, a spent one at 1',
+    () {
+      for (final (size, limit, peak) in [(10 * _mib, 2, 3), (4 * _mib, 0, 1)]) {
+        fakeAsync((async) {
+          final server = _Server(size);
+          final run = _Run(async, server, budget: SegmentBudget(limit: limit));
+          async.elapse(const Duration(seconds: 30));
+          run.expectComplete();
+          expect(server.peakConnections, peak, reason: 'limit $limit');
+        });
+      }
+    },
+  );
 
   test('a slow segment restarts from the byte it reached', () {
     fakeAsync((async) {

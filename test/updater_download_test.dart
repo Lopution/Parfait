@@ -198,38 +198,25 @@ void main() {
     expect(File(result.path!).readAsBytesSync(), bytes);
   });
 
-  test(
-    'apply requires explicit confirmation and never silently installs',
-    () async {
-      final release = _release(<int>[1, 2, 3, 4]);
-      final platform = FakeUpdatePlatform();
-      final downloader = _downloaded();
-      final service = _service(downloader, platform);
+  test('apply requires explicit confirmation and never silently installs; '
+      'confirmed, it reuses a verified recovery before any download', () async {
+    final release = _release(<int>[1, 2, 3, 4]);
+    final platform = FakeUpdatePlatform();
+    final downloader = _downloaded();
+    final service = _service(downloader, platform);
 
-      final result = await service.apply(release);
+    final unconfirmed = await service.apply(release);
+    expect(unconfirmed.status, UpdateApplyStatus.requiresConfirmation);
+    expect(platform.installCalls, 0);
+    expect(downloader.recoverCalls, 0);
+    expect(downloader.calls, 0);
 
-      expect(result.status, UpdateApplyStatus.requiresConfirmation);
-      expect(platform.installCalls, 0);
-      expect(downloader.calls, 0);
-    },
-  );
-
-  test(
-    'confirmed apply reuses a verified recovery before starting a download',
-    () async {
-      final release = _release(<int>[1, 2, 3, 4]);
-      final platform = FakeUpdatePlatform();
-      final downloader = _downloaded();
-      final service = _service(downloader, platform);
-
-      final result = await service.apply(release, confirmed: true);
-
-      expect(result.status, UpdateApplyStatus.installStarted);
-      expect(downloader.recoverCalls, 1);
-      expect(downloader.calls, 0);
-      expect(platform.installCalls, 1);
-    },
-  );
+    final confirmed = await service.apply(release, confirmed: true);
+    expect(confirmed.status, UpdateApplyStatus.installStarted);
+    expect(downloader.recoverCalls, 1);
+    expect(downloader.calls, 0);
+    expect(platform.installCalls, 1);
+  });
 
   test('cancel delegates to the downloader task boundary', () async {
     final downloader = _FakeDownloader(

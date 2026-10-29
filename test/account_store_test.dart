@@ -181,34 +181,24 @@ void main() {
     expect(state.current, isNull);
   });
 
-  test('upsert adds accounts and selects the newest as current', () async {
+  test('upsert adds or refreshes an account and selects it', () async {
     final (container, credentials, _) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
+    AccountState state() => container.read(accountStoreProvider).requireValue;
 
     await store.upsertAccount(account('100'), credential('100'));
     await store.upsertAccount(account('200'), credential('200'));
-
-    final state = container.read(accountStoreProvider).requireValue;
-    expect(state.accounts.map((a) => a.id), ['100', '200']);
-    expect(state.currentId, '200');
-    expect(await credentials.read('100'), isNotNull);
+    expect(state().accounts.map((a) => a.id), ['100', '200']);
+    expect(state().currentId, '200');
     expect(await credentials.read('200'), isNotNull);
-  });
 
-  test('upsert with existing id refreshes credentials in place', () async {
-    final (container, credentials, _) = makeContainer();
-    final store = container.read(accountStoreProvider.notifier);
-    await container.read(accountStoreProvider.future);
-
-    await store.upsertAccount(account('100'), credential('100'));
     await store.upsertAccount(
       account('100'),
       const Credential(accessToken: 'new-access', refreshToken: 'new-refresh'),
     );
-
-    final state = container.read(accountStoreProvider).requireValue;
-    expect(state.accounts, hasLength(1));
+    expect(state().accounts.map((a) => a.id), unorderedEquals(['100', '200']));
+    expect(state().currentId, '100');
     final stored = await credentials.read('100');
     expect(stored!.accessToken, 'new-access');
     expect(stored.refreshToken, 'new-refresh');
@@ -240,24 +230,6 @@ void main() {
     expect(state.currentId, '100');
     expect(state.usableCurrent!.id, '100');
   });
-
-  test(
-    'removeAccount drops current reference and deletes the secret',
-    () async {
-      final (container, credentials, _) = makeContainer();
-      final store = container.read(accountStoreProvider.notifier);
-      await container.read(accountStoreProvider.future);
-
-      await store.upsertAccount(account('100'), credential('100'));
-      await store.upsertAccount(account('200'), credential('200'));
-      await store.removeAccount('200');
-
-      final state = container.read(accountStoreProvider).requireValue;
-      expect(state.accounts.map((a) => a.id), ['100']);
-      expect(state.currentId, '100');
-      expect(await credentials.read('200'), isNull);
-    },
-  );
 
   test('metadata cut short at any write still loads', () async {
     for (final (before, beforeCurrent, after, afterCurrent) in [
@@ -318,19 +290,6 @@ void main() {
     saving.complete();
     await Future.wait([refreshed, switched]);
     expect(state().currentId, '200');
-  });
-
-  test('removing the last account clears current', () async {
-    final (container, _, _) = makeContainer();
-    final store = container.read(accountStoreProvider.notifier);
-    await container.read(accountStoreProvider.future);
-
-    await store.upsertAccount(account('100'), credential('100'));
-    await store.removeAccount('100');
-
-    final state = container.read(accountStoreProvider).requireValue;
-    expect(state.hasAccounts, isFalse);
-    expect(state.currentId, isNull);
   });
 
   test(
@@ -439,23 +398,13 @@ void main() {
     expect(metadata.stored!.single.authState, AccountAuthState.reauthRequired);
   });
 
-  test('isPremium survives the metadata JSON round-trip', () {
+  test('account JSON keeps isPremium and holds no secrets', () {
     final premium = account('100').copyWith(isPremium: true);
     expect(Account.fromJson(premium.toJson()).isPremium, isTrue);
     // Older payloads without the flag deserialize as free, never premium.
     expect(Account.fromJson(account('100').toJson()).isPremium, isFalse);
-  });
-
-  test('metadata serialization never contains secret fields', () async {
-    final (container, _, _) = makeContainer();
-    final store = container.read(accountStoreProvider.notifier);
-    await container.read(accountStoreProvider.future);
-
-    await store.upsertAccount(account('100'), credential('100'));
-
-    final json = account('100').toJson();
     expect(
-      json.keys,
+      premium.toJson().keys,
       isNot(contains(anyOf('accessToken', 'refreshToken', 'cookie'))),
     );
   });
@@ -468,7 +417,8 @@ void main() {
   });
 
   test(
-    'removeAccount clears remote history outbox and keeps local history',
+    'removeAccount reselects, deletes the secret and the outbox, keeps local '
+    'history',
     () async {
       final credentials = InMemoryCredentialStore();
       final metadata = InMemoryMetadataRepository();
@@ -490,14 +440,13 @@ void main() {
       expect(history.clearedOutbox, ['200']);
       expect(history.clearedLocal, isEmpty);
       expect(await credentials.read('200'), isNull);
-      expect(
-        container
-            .read(accountStoreProvider)
-            .requireValue
-            .accounts
-            .map((a) => a.id),
-        ['100'],
-      );
+      AccountState state() => container.read(accountStoreProvider).requireValue;
+      expect(state().accounts.map((a) => a.id), ['100']);
+      expect(state().currentId, '100');
+
+      await store.removeAccount('100');
+      expect(state().hasAccounts, isFalse);
+      expect(state().currentId, isNull);
     },
   );
 }

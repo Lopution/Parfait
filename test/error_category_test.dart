@@ -10,142 +10,62 @@ import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/next_page_parser.dart';
 
 void main() {
-  group('categorizeError', () {
-    test('transport-level failures are network', () {
-      expect(
-        categorizeError(const ApiNetworkError('no route')),
-        ErrorCategory.network,
-      );
-      expect(
-        categorizeError(const SocketException('closed')),
-        ErrorCategory.network,
-      );
-      expect(
-        categorizeError(const HandshakeException('tls')),
-        ErrorCategory.network,
-      );
-    });
-
-    test('NetworkFailureException refines only the timeout kind', () {
-      expect(
-        categorizeError(
-          const NetworkFailureException(NetworkFailureKind.timeout),
+  test('categorizeError puts each error in its category', () {
+    for (final (error, category) in <(Object, ErrorCategory)>[
+      // Transport-level failures are network.
+      (const ApiNetworkError('no route'), ErrorCategory.network),
+      (const SocketException('closed'), ErrorCategory.network),
+      (const HandshakeException('tls'), ErrorCategory.network),
+      // NetworkFailureException refines only the timeout kind.
+      for (final kind in NetworkFailureKind.values)
+        (
+          NetworkFailureException(kind),
+          kind == NetworkFailureKind.timeout
+              ? ErrorCategory.timeout
+              : ErrorCategory.network,
         ),
-        ErrorCategory.timeout,
-      );
-      for (final kind in NetworkFailureKind.values.where(
-        (k) => k != NetworkFailureKind.timeout,
-      )) {
-        expect(
-          categorizeError(NetworkFailureException(kind)),
-          ErrorCategory.network,
-          reason: 'kind $kind stays the coarse network bucket',
-        );
-      }
-    });
-
-    test('timeout family', () {
-      expect(categorizeError(const ApiTimeout()), ErrorCategory.timeout);
-      expect(categorizeError(TimeoutException('slow')), ErrorCategory.timeout);
-    });
-
-    test('rate limit and auth', () {
-      expect(
-        categorizeError(const ApiRateLimited(null)),
-        ErrorCategory.rateLimited,
-      );
-      expect(
-        categorizeError(const ApiUnauthorized()),
-        ErrorCategory.unauthorized,
-      );
-    });
-
-    test('ApiHttpError splits by status', () {
-      expect(categorizeError(const ApiHttpError(404)), ErrorCategory.notFound);
-      for (final status in [500, 502, 503, 599]) {
-        expect(
-          categorizeError(ApiHttpError(status)),
-          ErrorCategory.server,
-          reason: 'HTTP $status',
-        );
-      }
-      for (final status in [400, 403, 418, 499]) {
-        expect(
-          categorizeError(ApiHttpError(status)),
-          ErrorCategory.unknown,
-          reason: 'HTTP $status has no user-actionable bucket',
-        );
-      }
-    });
-
-    test('parse family', () {
-      expect(categorizeError(const ApiParseError('nope')), ErrorCategory.parse);
-      expect(
-        categorizeError(const FormatException('bad json')),
-        ErrorCategory.parse,
-      );
-      expect(
-        categorizeError(const NextPageParseError('missing cursor')),
-        ErrorCategory.parse,
-      );
-    });
-
-    test('storage', () {
-      expect(
-        categorizeError(const FileSystemException('denied', '/tmp/x')),
-        ErrorCategory.storage,
-      );
-    });
-
-    test('cancel and anything else fall to unknown', () {
+      (const ApiTimeout(), ErrorCategory.timeout),
+      (TimeoutException('slow'), ErrorCategory.timeout),
+      (const ApiRateLimited(null), ErrorCategory.rateLimited),
+      (const ApiUnauthorized(), ErrorCategory.unauthorized),
+      // ApiHttpError splits by status; other 4xx have no user-actionable
+      // bucket.
+      (const ApiHttpError(404), ErrorCategory.notFound),
+      for (final status in [500, 502, 503, 599])
+        (ApiHttpError(status), ErrorCategory.server),
+      for (final status in [400, 403, 418, 499])
+        (ApiHttpError(status), ErrorCategory.unknown),
+      (const ApiParseError('nope'), ErrorCategory.parse),
+      (const FormatException('bad json'), ErrorCategory.parse),
+      (const NextPageParseError('missing cursor'), ErrorCategory.parse),
+      (const FileSystemException('denied', '/tmp/x'), ErrorCategory.storage),
       // Callers must not surface a deliberate cancel as a failure; if one
       // leaks through anyway it reads as a generic failure, never a lie
       // about the network.
-      expect(categorizeError(const ApiCancelled()), ErrorCategory.unknown);
-      expect(categorizeError(StateError('x')), ErrorCategory.unknown);
-      expect(categorizeError('plain string'), ErrorCategory.unknown);
-    });
+      (const ApiCancelled(), ErrorCategory.unknown),
+      (StateError('x'), ErrorCategory.unknown),
+      ('plain string', ErrorCategory.unknown),
+    ]) {
+      expect(categorizeError(error), category, reason: '$error');
+    }
   });
 
-  group('categorizeDownloadFailure', () {
-    test('mapped kinds', () {
+  test('categorizeDownloadFailure maps five kinds; the rest stay unknown', () {
+    // Download-specific and non-error kinds are covered by download copy
+    // or hidden.
+    const mapped = {
+      DownloadFailureKind.auth: ErrorCategory.unauthorized,
+      DownloadFailureKind.rateLimit: ErrorCategory.rateLimited,
+      DownloadFailureKind.network: ErrorCategory.network,
+      DownloadFailureKind.storage: ErrorCategory.storage,
+      DownloadFailureKind.decode: ErrorCategory.parse,
+    };
+    for (final kind in DownloadFailureKind.values) {
       expect(
-        categorizeDownloadFailure(DownloadFailureKind.auth),
-        ErrorCategory.unauthorized,
+        categorizeDownloadFailure(kind),
+        mapped[kind] ?? ErrorCategory.unknown,
+        reason: '$kind',
       );
-      expect(
-        categorizeDownloadFailure(DownloadFailureKind.rateLimit),
-        ErrorCategory.rateLimited,
-      );
-      expect(
-        categorizeDownloadFailure(DownloadFailureKind.network),
-        ErrorCategory.network,
-      );
-      expect(
-        categorizeDownloadFailure(DownloadFailureKind.storage),
-        ErrorCategory.storage,
-      );
-      expect(
-        categorizeDownloadFailure(DownloadFailureKind.decode),
-        ErrorCategory.parse,
-      );
-    });
-
-    test('download-specific and non-error kinds stay unknown', () {
-      for (final kind in [
-        DownloadFailureKind.permission,
-        DownloadFailureKind.resource,
-        DownloadFailureKind.ownership,
-        DownloadFailureKind.unknown,
-        DownloadFailureKind.canceled,
-        DownloadFailureKind.paused,
-      ]) {
-        expect(
-          categorizeDownloadFailure(kind),
-          ErrorCategory.unknown,
-          reason: 'kind $kind is covered by download copy or hidden',
-        );
-      }
-    });
+    }
   });
 }

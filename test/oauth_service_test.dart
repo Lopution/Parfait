@@ -48,27 +48,19 @@ void main() {
       expect((result as PixivCallbackCode).code, 'abc123');
     });
 
-    test('wrong scheme or host is a normal navigation', () {
-      for (final uri in [
-        'https://account?code=abc',
-        'pixiv://other?code=abc',
-        'pixiv://',
-        'https://www.pixiv.net/some/page',
+    test('a wrong scheme or host is a normal navigation; a missing, empty or '
+        'duplicate code is invalid', () {
+      for (final (uri, type) in [
+        ('https://account?code=abc', isA<PixivCallbackOther>()),
+        ('pixiv://other?code=abc', isA<PixivCallbackOther>()),
+        ('pixiv://', isA<PixivCallbackOther>()),
+        ('https://www.pixiv.net/some/page', isA<PixivCallbackOther>()),
+        ('pixiv://account', isA<PixivCallbackInvalid>()),
+        ('pixiv://account?other=1', isA<PixivCallbackInvalid>()),
+        ('pixiv://account?code=', isA<PixivCallbackInvalid>()),
+        ('pixiv://account?code=a&code=b', isA<PixivCallbackInvalid>()),
       ]) {
-        final result = parsePixivAccountCallback(Uri.parse(uri));
-        expect(result, isA<PixivCallbackOther>(), reason: uri);
-      }
-    });
-
-    test('missing, empty and duplicate codes are invalid', () {
-      for (final uri in [
-        'pixiv://account',
-        'pixiv://account?other=1',
-        'pixiv://account?code=',
-        'pixiv://account?code=a&code=b',
-      ]) {
-        final result = parsePixivAccountCallback(Uri.parse(uri));
-        expect(result, isA<PixivCallbackInvalid>(), reason: uri);
+        expect(parsePixivAccountCallback(Uri.parse(uri)), type, reason: uri);
       }
     });
 

@@ -16,7 +16,7 @@ applies_to:
   - rust-toolchain.toml
   - CHANGELOG.md
   - .github/pull_request_template.md
-reviewed: 2026-10-14
+reviewed: 2026-10-29
 ---
 
 # Release artifacts, updater and toolchain
@@ -97,7 +97,7 @@ reviewed: 2026-10-14
   `invalid` with `abi_unsupported`. Versions compare by semver, then by
   `versionCode` against the installed code modulo 1000.
 - **Why:** An unsupported device was told it was up to date.
-- **Check:** `test/updater_manifest_test.dart` "unsupported ABI is invalid, never up_to_date" "installed 2001 is up to date against manifest base 1"
+- **Check:** `test/updater_manifest_test.dart` "a failed check reports its status and code and offers no" "ABI selection picks the first supported ABI present in assets" "installed 2001 is up to date against manifest base 1"
 - **Code:** `lib/core/updater`
 
 ### REL-07 Updates install only after confirmation and full verification
