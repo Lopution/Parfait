@@ -484,7 +484,7 @@ void main() {
     );
   });
 
-  testWidgets('a seen cursor that fails to save is logged, not thrown', (
+  testWidgets('a seen cursor that fails to save leaves the page working', (
     tester,
   ) async {
     final preferences = IntWriteFailingPreferences();
