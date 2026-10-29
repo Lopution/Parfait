@@ -3,8 +3,10 @@ prefix: TEST
 applies_to:
   - test/**
   - tool/test_shards.py
+  - tool/test_budget.py
+  - tool/test_budget.json
   - dart_test.yaml
-reviewed: 2026-10-28
+reviewed: 2026-10-29
 ---
 
 # Tests
@@ -81,10 +83,14 @@ reviewed: 2026-10-28
 
 ### TEST-05 The suite stays within its budget
 - **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart code
-  lines (`tool/test_budget.json`, 0.607; blank and comment lines excluded;
-  `test/review/` and `test/fixtures/` not counted), so tests grow with the
-  code but not faster. Only the user changes the ratio; an agent asks and
-  never edits it. A change that needs room makes it in this order: dedupe or
+  lines (`tool/test_budget.json`, 0.65; blank and comment lines excluded;
+  `test/review/` and `test/fixtures/` not counted, nor the localizations
+  `flutter gen-l10n` writes into `lib/l10n/`), so tests grow with the code
+  but not faster. Only the user changes the ratio, and only lowers it; an
+  agent asks and never edits it. A change whose `test/` growth exceeds the
+  ratio × its `lib/` growth by more than `growth_warning` (400) code lines
+  gets a CI warning, never a failure: table-drive or prune before adding
+  more. A change that needs room makes it in this order: dedupe or
   table-drive repeated cases; drop UI tests of colour, spacing, order or
   copy; drop tests of removed code; drop a duplicated layer; prune under
   TEST-13. Coverage of core logic, fixed bugs and security is never given up
@@ -101,7 +107,10 @@ reviewed: 2026-10-28
   test/lib rose from 0.41 to 0.81. Under a fixed 60,000-line cap the
   suite grew in step with `lib/` (about 0.55 test lines per new lib
   line) and met the cap again within a week; a ratio keeps the alarm for
-  tests outgrowing the code without a wall every few days.
+  tests outgrowing the code without a wall every few days. The cap alone
+  showed growth only at the wall; the warning shows it in the change that
+  adds it (400 flags about 4% of PRs 2–206). Generated localizations grow
+  with every string, not with the code tests cover.
 - **Check:** `tool/test_budget.py`, `test/architecture/test_hygiene_test.dart` "test files stay under"
 - **Code:** `test`
 
