@@ -273,8 +273,8 @@ reviewed: 2026-10-29
   every build, the viewer's zoom curve and every page's removal controller
   outlived their pages, and the image progress listener dropped the frame
   it was handed without disposing it. Filtering out objects created by
-  test helpers keeps a creation stack for every tracked object, which ran
-  the full suite out of its 8G cap. A frame Flutter dropped after an
-  earlier case's decode failed a later case, on CI only.
-- **Check:** `test/helpers/leak_tracking.dart` "LeakTesting.enable" "clearLiveImages"
+  test helpers needs a creation stack for every tracked object, more than
+  the full suite's 8G memory cap holds. A dropped frame fails whichever
+  case it lands in, which depends on the machine's speed.
+- **Check:** `test/flutter_test_config.dart` "enableLeakTracking();", `test/locale_layout/flutter_test_config.dart` "enableLeakTracking();", `test/helpers/leak_tracking.dart` "LeakTesting.enable" "clearLiveImages"
 - **Code:** `test/helpers/leak_tracking.dart`, `test/flutter_test_config.dart`, `test/locale_layout/flutter_test_config.dart`
