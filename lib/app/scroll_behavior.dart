@@ -130,6 +130,7 @@ class _ScrollSemanticsHoldState extends State<ScrollSemanticsHold> {
     }
     final next = scrollable.position;
     if (!next.isScrollingNotifier.value) return _stop();
+    // Set and cleared together with [_scrollable].
     _position!.isScrollingNotifier.removeListener(_onScrolling);
     _position = next..isScrollingNotifier.addListener(_onScrolling);
   }

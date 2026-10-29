@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
@@ -10,6 +11,7 @@ import 'package:parfait/features/watchlist/watchlist_page.dart';
 import 'helpers/watchlist_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/test_preferences.dart';
 
 Widget _app(Widget child) =>
     localizedApp(locale: null, builder: promptHostBuilder, home: child);
@@ -110,5 +112,54 @@ void main() {
     expect(find.text('Unfollow series'), findsOneWidget);
     expect(fixture.requests.single.url.path, '/v1/watchlist/manga/add');
     expect(container.read(watchlistStoreProvider)[key]!.added, isTrue);
+  });
+
+  testWidgets('a seen cursor that fails to save still opens the work', (
+    tester,
+  ) async {
+    final preferences = IntWriteFailingPreferences();
+    final fixture = WatchlistFixture()
+      ..mangaSeries = [
+        {
+          'id': 9,
+          'title': 'Series Nine',
+          'user': {'id': 5, 'name': 'author-a'},
+          'latest_content_id': 777,
+        },
+      ];
+    final (container, _) = await makeWatchlistWorld(
+      fixture: fixture,
+      preferences: preferences,
+    );
+    final router = GoRouter(
+      initialLocation: '/recommended',
+      routes: [
+        GoRoute(path: '/recommended', builder: (_, _) => const WatchlistPage()),
+        GoRoute(
+          path: '/recommended/illust/:illustId',
+          builder: (_, state) => Scaffold(
+            body: Text('illust ${state.pathParameters['illustId']}'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: localizedRouterApp(
+          router,
+          locale: null,
+          builder: promptHostBuilder,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Series Nine'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('illust 777'), findsOneWidget);
+    expect(preferences.intWrites, [777]);
   });
 }

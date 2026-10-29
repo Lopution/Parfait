@@ -203,9 +203,9 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
               ),
             ],
             const SizedBox(height: FuncSpacing.lg),
-            if (_report != null) ...[
+            if (_report case final report?) ...[
               SelectableText(
-                _report!,
+                report,
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontFamily: 'monospace',
                 ),
@@ -215,7 +215,7 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
                 child: TextButton.icon(
                   onPressed: () => copyToClipboard(
                     context,
-                    _report!,
+                    report,
                     message: context.l10n.networkProbeCopied,
                   ),
                   icon: const Icon(Icons.copy_outlined, size: 16),

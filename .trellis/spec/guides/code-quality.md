@@ -3,7 +3,7 @@ prefix: QUAL
 applies_to:
   - lib/**
   - analysis_options.yaml
-reviewed: 2026-10-29
+reviewed: 2026-10-30
 ---
 
 # Code quality
@@ -80,3 +80,16 @@ reviewed: 2026-10-29
   forgotten `await`.
 - **Check:** `analysis_options.yaml` "discarded_futures" "close_sinks" "cancel_subscriptions" "avoid_void_async"
 - **Code:** `analysis_options.yaml`
+
+### QUAL-07 A `!` rests on what the reader sees
+- **Rule:** A null assertion follows a check on the same value with nothing
+  async in between, or rests on a contract of the type or the framework: a
+  const map over every enum value, a regex group that is not optional, a
+  laid-out child's geometry, a `NOT NULL` column. When the guarantee lives
+  elsewhere (a field set and cleared with another, a value no await can
+  clear), a pattern or a local carries it, else a comment names it.
+- **Why:** An assertion whose guarantee lives in another method breaks
+  without a sign when that method changes, and a reader cannot tell it
+  from one that is a crash waiting to happen.
+- **Check:** manual
+- **Code:** `lib`
