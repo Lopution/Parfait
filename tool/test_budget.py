@@ -4,11 +4,16 @@
 A code line is a line of a .dart file that is neither blank nor a `//`
 comment. The budget counts test/ except test/review/ (the screenshot
 review, reported on its own line) and test/fixtures/ (recorded data). The
-cap is `ratio` (tool/test_budget.json) times lib/'s code lines, so tests
-may grow with the code but not faster; changing the ratio needs the
-user's consent. The case count (call sites of `test(` and `testWidgets(`
-on code lines; a table-driven loop counts once) and the code lines per
-case are reported for the trend, never enforced.
+cap is `ratio` (tool/test_budget.json) times lib/'s code lines, without
+the localizations `flutter gen-l10n` writes, so tests may grow with the
+code but not faster; changing the ratio needs the user's consent. The
+case count (call sites of `test(` and `testWidgets(` on code lines; a
+table-driven loop counts once) and the code lines per case are reported
+for the trend, never enforced.
+
+With --base, a change whose test/ growth exceeds `ratio` times its lib/
+growth (none when lib/ shrinks: the cap already tightens) by more than
+`growth_warning` code lines gets a warning, never a failure.
 
 Usage:
   python3 tool/test_budget.py                 count the working tree
@@ -16,7 +21,7 @@ Usage:
   python3 tool/test_budget.py --summary FILE  append a Markdown report
       (CI passes $GITHUB_STEP_SUMMARY)
 
-Exit status is 1 when the counted lines exceed the cap.
+Exit status is 1 when the counted lines exceed the cap; growth only warns.
 """
 
 from __future__ import annotations
@@ -35,6 +40,10 @@ BUDGET = REPO / 'tool/test_budget.json'
 REVIEW_DIR = 'test/review/'
 UNCOUNTED = (REVIEW_DIR, 'test/fixtures/')
 CASE = re.compile(r'(?<![\w.])(?:testWidgets|test)\(')
+# `flutter gen-l10n` output: app_localizations.dart and one
+# app_localizations_<language>.dart per language, generated from the ARB
+# files. Hand-written files beside them (the delegates) still count.
+GENERATED_LIB = re.compile(r'lib/l10n/app_localizations(?:_[a-z]{2,3})?\.dart')
 
 
 @dataclass(frozen=True)
@@ -100,7 +109,9 @@ def count(ref: str | None) -> Count:
         cases=sum(case_count(text) for text in counted),
         review=sum(code_lines(text) for path, text in tests.items()
                    if path.startswith(REVIEW_DIR)),
-        lib=sum(code_lines(text) for text in dart_sources('lib', ref).values()),
+        lib=sum(code_lines(text)
+                for path, text in dart_sources('lib', ref).items()
+                if not GENERATED_LIB.fullmatch(path)),
     )
 
 
@@ -108,8 +119,26 @@ def signed(delta: int) -> str:
     return f'{delta:+,}'
 
 
+@dataclass(frozen=True)
+class Growth:
+    tests: int
+    allowance: int
+
+    @property
+    def over(self) -> int:
+        return self.tests - self.allowance
+
+
+def growth(now: Count, base: Count, ratio: float) -> Growth:
+    """test/ lines added against [base], and what [ratio] allows for the
+    lib/ lines added; a change that removes lib/ code is allowed none."""
+    return Growth(tests=now.tests - base.tests,
+                  allowance=int(max(now.lib - base.lib, 0) * ratio))
+
+
 def report(now: Count, base: Count | None, base_name: str | None,
-           ratio: float) -> tuple[list[str], list[str]]:
+           ratio: float, grown: Growth | None,
+           warn: int) -> tuple[list[str], list[str]]:
     """Plain lines for the log and Markdown lines for the job summary."""
     cap = now.cap(ratio)
     change = (f' ({signed(now.tests - base.tests)} against {base_name}, '
@@ -125,6 +154,9 @@ def report(now: Count, base: Count | None, base_name: str | None,
         f'{per_case:.1f} code lines per case',
         f'test/review/ (not counted): {now.review:,}',
     ]
+    if grown is not None:
+        log.append(f'growth over {ratio} x lib/ growth: {grown.over:,} '
+                   f'(warns above {warn:,})')
     summary = [
         '### Test budget (TEST-05)',
         '',
@@ -135,8 +167,11 @@ def report(now: Count, base: Count | None, base_name: str | None,
         f'| Cases{case_change} | {now.cases:,} '
         f'({per_case:.1f} lines each) |',
         f'| test/review/ (not counted) | {now.review:,} |',
-        '',
     ]
+    if grown is not None:
+        summary.append(f'| Growth over {ratio} × lib/ growth '
+                       f'(warns above {warn:,}) | {grown.over:,} |')
+    summary.append('')
     return log, summary
 
 
@@ -154,15 +189,24 @@ def main() -> int:
                         help='append a Markdown report to this file')
     args = parser.parse_args()
 
-    ratio = json.loads(BUDGET.read_text())['ratio']
+    budget = json.loads(BUDGET.read_text())
+    ratio, warn = budget['ratio'], budget['growth_warning']
     now = count(None)
     base = count(args.base) if args.base else None
-    log, summary = report(now, base, args.base, ratio)
+    grown = growth(now, base, ratio) if base else None
+    log, summary = report(now, base, args.base, ratio, grown, warn)
     print('\n'.join(log))
     if args.summary:
         with args.summary.open('a', encoding='utf-8') as out:
             out.write('\n'.join(summary) + '\n')
 
+    if grown is not None and grown.over > warn:
+        annotate('warning',
+                 f'TEST-05 this change adds {grown.tests:,} test/ code lines, '
+                 f'{grown.over:,} more than {ratio} x its lib/ growth allows '
+                 f'({grown.allowance:,}); the warning starts above {warn:,}. '
+                 'Before adding more, table-drive near-copies and drop cases '
+                 'another case covers. This never fails the build.')
     cap = now.cap(ratio)
     if now.tests > cap:
         annotate('error',

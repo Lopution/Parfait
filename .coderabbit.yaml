@@ -37,10 +37,11 @@ reviews:
         covers its behaviour, or TEST-12 when it asserts only a mechanism
         no user can observe (TEST-13); flag a prune that names neither, a
         test that also checked observable behaviour pruned on TEST-12
-        alone, or a test loosened to pass. Tests of removed or
-        changed behaviour go with that change (TEST-04). The system under
-        test always runs for real; only network, disk, clock and
-        third-party boundaries may be faked.
+        alone, a merge that keeps a replaced case's checks but not the
+        state it started from, or a test loosened to pass. Tests of
+        removed or changed behaviour go with that change (TEST-04). The
+        system under test always runs for real; only network, disk, clock
+        and third-party boundaries may be faked.
     - path: "CHANGELOG.md"
       instructions: >-
         Written for users in Chinese and English, following Keep a
