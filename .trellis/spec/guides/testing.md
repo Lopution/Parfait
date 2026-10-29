@@ -120,7 +120,9 @@ reviewed: 2026-10-29
   commit that changes or removes the behaviour it asserts (TEST-04). A
   passing test of a behaviour that stays may be pruned when the confidence
   it gives is kept: another case or a scan covers the same condition, or
-  it repeats another case. A test that pins implementation (TEST-03,
+  it repeats another case. A merge keeps each case's starting state as well
+  as its checks: cases that start from different states test different
+  conditions. A test that pins implementation (TEST-03,
   TEST-12) is rewritten against the behaviour it guards, or pruned when
   that behaviour is covered or not observable by a user. Prunes get their
   own commit whose message names, for each, the reason and the covering
@@ -131,6 +133,9 @@ reviewed: 2026-10-29
   case, and removals came only from deleted code or slimming passes.
   Agents add tests readily, and deleting a failing test is how an agent
   cheats; whether the test was failing separates pruning from cheating.
+  Two merges in the 10-29 pass kept every check yet lost the condition:
+  one re-tapped a tab after a switch instead of the tab the page opened on,
+  the other sent a reply instead of a top-level comment.
 - **Check:** manual
 - **Code:** `test`
 
