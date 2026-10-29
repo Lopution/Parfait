@@ -22,10 +22,12 @@ void installMemoryPreferences([Map<String, Object> data = const {}]) {
 final class IntWriteFailingPreferences extends InMemorySharedPreferencesAsync {
   IntWriteFailingPreferences() : super.empty();
 
+  /// Each value a write was asked for.
+  final intWrites = <int>[];
+
   @override
-  Future<bool> setInt(
-    String key,
-    int value,
-    SharedPreferencesOptions options,
-  ) => Future.error(StateError('disk full'));
+  Future<bool> setInt(String key, int value, SharedPreferencesOptions options) {
+    intWrites.add(value);
+    return Future.error(StateError('disk full'));
+  }
 }

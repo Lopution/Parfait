@@ -186,10 +186,10 @@ void main() {
   testWidgets('a seen cursor that fails to save is logged, not thrown', (
     tester,
   ) async {
-    final (container, _) = await makeSeriesWorld(
-      preferences: IntWriteFailingPreferences(),
-    );
+    final preferences = IntWriteFailingPreferences();
+    final (container, _) = await makeSeriesWorld(preferences: preferences);
     await pumpSeriesPage(tester, container);
     expect(find.text('开始阅读'), findsOneWidget);
+    expect(preferences.intWrites, contains(912), reason: 'the latest work');
   });
 }

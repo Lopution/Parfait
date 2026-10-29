@@ -487,9 +487,10 @@ void main() {
   testWidgets('a seen cursor that fails to save is logged, not thrown', (
     tester,
   ) async {
+    final preferences = IntWriteFailingPreferences();
     final container = await _apiContainer(
       withSeries: true,
-      platform: IntWriteFailingPreferences(),
+      platform: preferences,
       seriesHandler: (_) async =>
           _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
     );
@@ -497,6 +498,7 @@ void main() {
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
     expect(find.text('series five'), findsOneWidget);
+    expect(preferences.intWrites, [1], reason: 'the open novel');
   });
 
   testWidgets('system bars hide with the chrome and return on pop', (

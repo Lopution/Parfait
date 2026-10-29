@@ -9,6 +9,7 @@ import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/keyboard_heights.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
@@ -459,10 +460,9 @@ void main() {
 
   test('preferences that fail leave keyboard heights and developer options '
       'to this run', () async {
+    final preferences = _BrokenPreferences();
     final container = ProviderContainer(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(_BrokenPreferences()),
-      ],
+      overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
     );
     addTearDown(container.dispose);
     const screen = Size(400, 800);
@@ -476,6 +476,11 @@ void main() {
       300,
     );
     expect(container.read(developerOptionsProvider), isFalse);
+    expect(preferences.calls, [
+      'getBool ${PreferenceKeys.developerOptions}',
+      'getString ${PreferenceKeys.keyboardHeights}',
+      'setString ${PreferenceKeys.keyboardHeights}',
+    ]);
   });
 
   test('plain settings JSON never contains translation credentials', () {
@@ -525,13 +530,20 @@ void _expectStored<T extends Object>(
 }
 
 class _BrokenPreferences extends SharedPreferencesAsync {
-  @override
-  Future<bool?> getBool(String key) => Future.error(StateError('broken'));
+  /// Each call, as `method key`.
+  final calls = <String>[];
+
+  Future<T> _fail<T>(String call) {
+    calls.add(call);
+    return Future.error(StateError('broken'));
+  }
 
   @override
-  Future<String?> getString(String key) => Future.error(StateError('broken'));
+  Future<bool?> getBool(String key) => _fail('getBool $key');
 
   @override
-  Future<void> setString(String key, String value) =>
-      Future.error(StateError('broken'));
+  Future<String?> getString(String key) => _fail('getString $key');
+
+  @override
+  Future<void> setString(String key, String value) => _fail('setString $key');
 }
