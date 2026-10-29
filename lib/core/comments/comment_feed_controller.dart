@@ -15,6 +15,9 @@ class _CommentFeedController extends PagedFeedController {
   final CommentFeedQuery query;
 
   @override
+  String get feedKey => 'comments:${query.cacheKey}';
+
+  @override
   Future<PagedFeedState> build() {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
     return super.build();

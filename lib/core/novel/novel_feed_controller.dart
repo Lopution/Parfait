@@ -14,6 +14,9 @@ class _UserNovelFeedController extends PagedFeedController {
   final int userId;
 
   @override
+  String get feedKey => 'profile:novel:$userId';
+
+  @override
   FeedSnapshotCodec? get snapshotCodec => const NovelSnapshotCodec();
 
   /// C9: an author's works are discovery content, as for illusts.

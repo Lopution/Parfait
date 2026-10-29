@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -12,6 +14,7 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_snapshot_codec.dart';
+import 'package:parfait/core/novel/novel_feed_controller.dart';
 import 'package:parfait/core/novel/novel_ranking_feed_controller.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/novel/novel_store.dart';
@@ -94,7 +97,10 @@ class _World {
   }
 }
 
-Future<_World> _makeWorld({bool blockR18 = false}) async {
+Future<_World> _makeWorld({
+  bool blockR18 = false,
+  http.Client? transport,
+}) async {
   final fixture = NovelRankingFixture();
   final directory = await Directory.systemTemp.createTemp('pixiv-feeds-test-');
   final database = FeedDatabase(
@@ -102,7 +108,7 @@ Future<_World> _makeWorld({bool blockR18 = false}) async {
     databasePath: path.join(directory.path, 'feeds.db'),
   );
   final container = await signedInApiContainer(
-    fixture.client(),
+    transport ?? fixture.client(),
     others: const [Account(id: '200', userId: 200, name: 'b')],
     overrides: [
       feedSnapshotStoreProvider.overrideWithValue(_HeldSnapshotStore(database)),
@@ -254,6 +260,35 @@ void main() {
       expect(state.ids, [1, 2], reason: owner);
       expect(world.container.read(novelStoreProvider)[10], isNull);
     }
+  });
+
+  test("a user's novel works never restore another user's", () async {
+    // Each user has one novel: id user * 10 + 1.
+    final world = await _makeWorld(
+      transport: MockClient((request) async {
+        final user = int.parse(request.url.queryParameters['user_id']!);
+        return jsonResponse({
+          'novels': [novelJson(user * 10 + 1)],
+          'next_url': null,
+        });
+      }),
+    );
+    addTearDown(world.dispose);
+    final first = world.container.listen(userNovelFeedProvider(1), (_, _) {});
+    await world.container.read(userNovelFeedProvider(1).future);
+    await pumpEventQueue();
+    first.close();
+
+    final shown = <List<int>>[];
+    world.container.listen(userNovelFeedProvider(2), (_, next) {
+      if (next.value case final state?) shown.add(state.ids);
+    });
+    await world.container.read(userNovelFeedProvider(2).future);
+    await pumpEventQueue();
+
+    expect(shown, [
+      [21],
+    ]);
   });
 
   test('a snapshot read landing after a switch restores nothing', () async {

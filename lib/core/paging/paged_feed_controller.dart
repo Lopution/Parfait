@@ -123,12 +123,11 @@ class PagedFeedState {
 ///   loadMoreError without touching existing content; exhausted stops fetches.
 /// - every next cursor goes through [validateCursor] before being stored.
 abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
-  /// Stable identity of the feed family and all of its selectors.
-  ///
-  /// Feed families should override this with a key that includes their mode,
-  /// query, filter, or profile selector. The key is copied into every request
-  /// context and never inferred from a late response.
-  String get feedKey => runtimeType.toString();
+  /// Stable identity of the feed family and all of its selectors: its mode,
+  /// query, filter or profile. The key is copied into every request context
+  /// and never inferred from a late response, and it names the feed's
+  /// snapshot: two lists that differ never share a key.
+  String get feedKey;
 
   /// Fetches and parses one page without committing shared state.
   ///
