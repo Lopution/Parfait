@@ -34,7 +34,7 @@ void main() {
   // with its page. Only the home tabs, which keep their place across
   // visits, are kept for the session.
   test('only the home tab families outlive their pages', () {
-    final family = RegExp(r'final\s+(\w+)\s*=\s*\w+Provider\s*\.\s*family\b');
+    final family = RegExp(r'final\s+(\w+)\s*=\s*\w*Provider\s*\.\s*family\b');
     final kept = {
       for (final file in Directory('lib').listSync(recursive: true))
         if (file is File && file.path.endsWith('.dart'))
