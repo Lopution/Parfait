@@ -146,7 +146,11 @@ reviewed: 2026-10-29
   TEST-13. A scan that cannot avoid flagging correct code is not added;
   the cases stay.
 - **Why:** Each instance of a class got its own regression test while
-  nothing stopped the next instance.
+  nothing stopped the next instance. Stale async results (a page gone, an
+  account switched, a retry overtaking) stay cases (evaluated 10-29): a
+  scan inside one function sees about half of the past page-gone instances
+  and flagged only correct code on the current tree, and a late write after
+  an account switch or an overtaking retry has no syntactic mark.
 - **Check:** manual
 - **Code:** `test/architecture`
 
