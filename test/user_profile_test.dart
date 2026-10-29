@@ -1200,6 +1200,20 @@ void main() {
       );
       expect(innerOf(workKey).maxScrollExtent, greaterThan(0));
 
+      // A re-tap of the tab the page opened on rewinds it and the header.
+      outerPosition(tester).jumpTo(80);
+      await tester.pump();
+      innerOf(workKey).jumpTo(120);
+      await tester.pump();
+      expect(outerPosition(tester).pixels, greaterThan(0));
+      expect(innerOf(workKey).pixels, 120);
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('插画')),
+      );
+      await tester.pumpAndSettle();
+      expect(outerPosition(tester).pixels, 0);
+      expect(innerOf(workKey).pixels, 0);
+
       // Scroll tab A (插画), then switch to tab B (收藏) — the TabBarView
       // builds a page on first visit, so B's position only exists after
       // the switch — and drag it. Positions are re-read: handing the
