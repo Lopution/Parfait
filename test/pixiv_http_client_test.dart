@@ -195,6 +195,27 @@ PixivHttpClient _clientOver(
   dataWorker: dataWorker,
 );
 
+/// Cancels [token] as the parse starts: the response is in, the parse is
+/// not.
+class _CancelOnParse implements DataWorker {
+  _CancelOnParse(this.token);
+
+  final CancelToken token;
+
+  @override
+  Future<R> run<I, R>(
+    R Function(I input) task,
+    I input, {
+    required String label,
+  }) {
+    token.cancel();
+    return const InlineDataWorker().run(task, input, label: label);
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
 void main() {
   test(
     'requests carry centralized identity headers and bearer token',
@@ -780,7 +801,7 @@ void main() {
   });
 
   test(
-    'cancellation during an in-flight request surfaces ApiCancelled',
+    'cancellation in flight or during the parse surfaces ApiCancelled',
     () async {
       final (container, client, _, _) = await _makeWorld(
         fixture: _Fixture(apiDelay: const Duration(milliseconds: 500)),
@@ -792,6 +813,15 @@ void main() {
       token.cancel();
 
       await expectLater(request, throwsA(isA<ApiCancelled>()));
+
+      // The response is in and its page closes while the body parses.
+      final parsing = CancelToken();
+      final parsed = _clientOver(
+        container,
+        MockClient((_) async => http.Response('{}', 200)),
+        dataWorker: _CancelOnParse(parsing),
+      ).getJson(Uri.parse(_api), cancelToken: parsing);
+      await expectLater(parsed, throwsA(isA<ApiCancelled>()));
     },
   );
 
