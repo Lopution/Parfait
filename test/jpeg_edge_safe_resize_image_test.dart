@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -7,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/image/jpeg_edge_safe_resize_image.dart';
+
+import 'helpers/image_network.dart';
 
 /// A white JPEG 62 pixels wide whose last block pads its right edge with
 /// black, the way pixiv pads with zeros: encoded 64 wide, then declared 62.
@@ -28,19 +29,6 @@ Uint8List _paddedJpeg() {
   throw StateError('no baseline frame header');
 }
 
-Future<ui.Image> _decode(ImageProvider provider) {
-  final done = Completer<ui.Image>();
-  provider
-      .resolve(ImageConfiguration.empty)
-      .addListener(
-        ImageStreamListener(
-          (info, _) => done.complete(info.image),
-          onError: done.completeError,
-        ),
-      );
-  return done.future;
-}
-
 /// The darkest channel of the image's right-hand column.
 Future<int> _rightEdgeMin(ui.Image image) async {
   final data = (await image.toByteData())!;
@@ -60,11 +48,11 @@ void main() {
       // 54 of 62 shrinks by 7/8, 23 by 3/8: the last pixel of either
       // spans the padding.
       for (final width in [54, 23]) {
-        final plain = await _decode(
+        final plain = await firstFrame(
           ResizeImage(MemoryImage(Uint8List.fromList(bytes)), width: width),
         );
         expect(await _rightEdgeMin(plain), lessThan(200), reason: 'fixture');
-        final safe = await _decode(
+        final safe = await firstFrame(
           JpegEdgeSafeResizeImage(
             MemoryImage(Uint8List.fromList(bytes)),
             width: width,

@@ -116,6 +116,8 @@ void main() {
   group('the detector', () {
     testWidgets('accepts whole UI text, ellipsized user content and a '
         'floating label shrunk by the spec', (tester) async {
+      final controller = TextEditingController(text: 'value');
+      addTearDown(controller.dispose);
       final texts = [
         const SizedBox(width: 200, child: Text(_hint)),
         const SizedBox(
@@ -129,7 +131,7 @@ void main() {
         SizedBox(
           width: 300,
           child: TextField(
-            controller: TextEditingController(text: 'value'),
+            controller: controller,
             decoration: const InputDecoration(labelText: _short),
           ),
         ),

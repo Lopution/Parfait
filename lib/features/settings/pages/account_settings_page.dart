@@ -60,6 +60,12 @@ class AccountSettingsPage extends ConsumerStatefulWidget {
 class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   final _removals = RemovalController();
 
+  @override
+  void dispose() {
+    _removals.dispose();
+    super.dispose();
+  }
+
   /// Id of the account a switch is committing to, or null when idle.
   /// `switchAccount` is an action write (metadata save + network session
   /// reset), not an instant toggle — the target row spins and every row's

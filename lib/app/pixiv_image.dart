@@ -724,7 +724,11 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     ).resolve(ImageConfiguration.empty);
     void idle() => notifier.value = const ImageLoadProgress.idle();
     final listener = ImageStreamListener(
-      (_, _) => idle(),
+      // Each listener gets its own clone of the frame, to dispose.
+      (image, _) {
+        image.dispose();
+        idle();
+      },
       onError: (_, _) => idle(),
     );
     stream.addListener(listener);

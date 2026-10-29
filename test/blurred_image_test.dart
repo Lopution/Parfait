@@ -1,10 +1,11 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/image/blurred_image.dart';
+
+import 'helpers/image_network.dart';
 
 /// A [size]-pixel square PNG, black on its left half and white on its right.
 Future<Uint8List> _halvesPng(int size) async {
@@ -19,25 +20,15 @@ Future<Uint8List> _halvesPng(int size) async {
       Rect.fromLTWH(half, 0, half, size.toDouble()),
       Paint()..color = const Color(0xFFFFFFFF),
     );
-  final image = await recorder.endRecording().toImage(size, size);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(size, size);
+  picture.dispose();
   final png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
   return png!.buffer.asUint8List();
 }
 
 /// The first image [provider] resolves to.
-Future<ui.Image> _resolve(ImageProvider provider) {
-  final image = Completer<ui.Image>();
-  final stream = provider.resolve(ImageConfiguration.empty);
-  late final ImageStreamListener listener;
-  listener = ImageStreamListener((info, _) {
-    stream.removeListener(listener);
-    image.complete(info.image);
-  }, onError: image.completeError);
-  stream.addListener(listener);
-  return image.future;
-}
-
 void main() {
   setUp(
     () => imageCache
@@ -50,7 +41,7 @@ void main() {
     await tester.runAsync(() async {
       final sharp = MemoryImage(await _halvesPng(64));
       final blurred = BlurredImage(sharp, sigmaPerWidth: 0.1);
-      final image = await _resolve(blurred);
+      final image = await firstFrame(blurred);
       expect(
         (image.width, image.height),
         (16, 16),

@@ -14,6 +14,7 @@ import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/waits.dart';
+import 'helpers/leak_tracking.dart';
 
 const _url = 'https://i.pximg.net/img-master/progress.jpg';
 
@@ -62,6 +63,7 @@ class _Transfer {
 }
 
 void main() {
+  ignoreOctoImageFades();
   setUp(
     () => PaintingBinding.instance.imageCache
       ..clear()

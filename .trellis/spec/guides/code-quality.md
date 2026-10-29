@@ -71,7 +71,10 @@ reviewed: 2026-10-29
   handler first, and an rhttp cancel calls `.ignore()` (NET-18). Its owner
   closes a `StreamController` and cancels a subscription; one left open on
   purpose says why above its `// ignore:` (QUAL-01). The analyzer enforces
-  this.
+  this. Likewise its owner disposes a notifier, controller or animation;
+  a `build` curves with a `CurveTween`, which holds nothing, not a new
+  `CurvedAnimation`, and an image stream listener disposes the `ImageInfo`
+  it is handed. Leak tracking (TEST-15) fails a widget test that leaves one.
 - **Why:** A dropped future's error reaches the zone and the crash log with
   no handler, and nothing told a deliberate fire-and-forget from a
   forgotten `await`.

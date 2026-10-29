@@ -50,6 +50,10 @@ class RemovalController {
     }
   }
 
+  /// Called by the page state that owns this controller. A restore that
+  /// lands later finds its rows unregistered and notifies nothing.
+  void dispose() => _leaving.dispose();
+
   void _register(Object id, _RemovableState item) => _items[id] = item;
 
   void _unregister(Object id, _RemovableState item) {

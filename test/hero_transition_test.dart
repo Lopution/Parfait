@@ -33,8 +33,10 @@ import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 import 'helpers/waits.dart';
+import 'helpers/leak_tracking.dart';
 
 void main() {
+  ignoreOctoImageFades();
   // Every test that builds an image creates the network factory, which
   // listens to connectivity. Unanswered, a cancel's reply lands in a later
   // test's real async (the decode test's runAsync) as an exception.
@@ -851,13 +853,15 @@ void main() {
           shared: true,
         ),
       );
+      final heroes = HeroController();
+      addTearDown(heroes.dispose);
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
             builder: (context) {
               root = context;
               return Navigator(
-                observers: [HeroController()],
+                observers: [heroes],
                 onGenerateRoute: (_) => page(
                   Builder(
                     builder: (context) {
@@ -959,6 +963,8 @@ void main() {
     // A card right under a 100px app bar, over a 100px bottom bar that, as
     // the home shell's, floats over the card's Navigator on the page
     // around it.
+    final heroes = HeroController();
+    addTearDown(heroes.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -967,7 +973,7 @@ void main() {
             return Stack(
               children: [
                 Navigator(
-                  observers: [HeroController()],
+                  observers: [heroes],
                   onGenerateRoute: (_) => page(
                     Builder(
                       builder: (context) {
@@ -1237,19 +1243,13 @@ const _bottomBar = ColoredBox(color: Colors.blue, child: SizedBox(height: 100));
 PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
     PageRouteBuilder<T>(
       pageBuilder: (context, animation, secondaryAnimation) => builder(context),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: MotionTokens.pageCurve,
-        );
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        );
-      },
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          SlideTransition(
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .chain(CurveTween(curve: MotionTokens.pageCurve))
+                .animate(animation),
+            child: child,
+          ),
       transitionDuration: MotionTokens.pageTransition,
       reverseTransitionDuration: MotionTokens.pageTransition,
     );

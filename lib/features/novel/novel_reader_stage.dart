@@ -1007,13 +1007,12 @@ class _ChromeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTop = edge == _ChromeEdge.top;
-    final slide =
-        Tween<Offset>(
-          begin: Offset(0, isTop ? -1 : 1),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(parent: animation, curve: MotionTokens.chromeCurve),
-        );
+    // A tween chain, not a CurvedAnimation: this runs on every build and
+    // holds nothing to dispose.
+    final slide = Tween<Offset>(
+      begin: Offset(0, isTop ? -1 : 1),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: MotionTokens.chromeCurve)).animate(animation);
     // No SafeArea here: the bar surface must paint edge-to-edge so its
     // background covers the system inset. The inset padding lives inside
     // each bar's Material instead — the bar slides from the screen edge

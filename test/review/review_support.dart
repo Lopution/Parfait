@@ -12,7 +12,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:parfait/app/app.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/theme/system_colors.dart';
@@ -25,6 +24,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'review_device.dart';
 import 'review_world.dart';
+import '../helpers/pixiv_router.dart';
 
 export 'review_device.dart';
 export 'review_fixtures.dart';
@@ -94,7 +94,7 @@ Future<GoRouter> pumpReviewApp(
   // VisibilityDetector debounces on a 500ms timer every repaint re-arms;
   // zero reports synchronously, so no timer outlives the scene.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
-  final router = createPixivRouter(initialLocation: location);
+  final router = pixivRouter(location);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: world.container,

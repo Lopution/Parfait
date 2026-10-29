@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -267,10 +268,16 @@ Future<ImageWorkerClient> scriptedImageWorkerClient(
 
 /// A worker whose isolate never comes up: every image on it stays a
 /// placeholder. For tests about how an image is set up, not loaded.
-ImageWorker stalledImageWorker() => ImageWorker(
-  start: (_, _) => Completer<ImageWorkerClient>().future,
-  config: () async => testImageWorkerConfig,
-);
+/// Disposed when the test ends: an override's value is never disposed by
+/// its provider.
+ImageWorker stalledImageWorker() {
+  final worker = ImageWorker(
+    start: (_, _) => Completer<ImageWorkerClient>().future,
+    config: () async => testImageWorkerConfig,
+  );
+  addTearDown(worker.dispose);
+  return worker;
+}
 
 /// [child] under a scope whose images never load, for tests about
 /// something else: every `PixivImage` needs a [ProviderScope].
@@ -278,3 +285,19 @@ Widget withStalledImages(Widget child) => ProviderScope(
   overrides: [imageWorkerProvider.overrideWithValue(stalledImageWorker())],
   child: child,
 );
+
+/// [provider]'s first frame. Its handle is disposed when the test ends.
+Future<ui.Image> firstFrame(ImageProvider provider) {
+  ImageInfo? frame;
+  addTearDown(() => frame?.dispose());
+  final done = Completer<ui.Image>();
+  final stream = provider.resolve(ImageConfiguration.empty);
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener((info, _) {
+    stream.removeListener(listener);
+    frame = info;
+    done.complete(info.image);
+  }, onError: done.completeError);
+  stream.addListener(listener);
+  return done.future;
+}

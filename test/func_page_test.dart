@@ -350,6 +350,8 @@ void main() {
         ),
       ],
     );
+    final heroes = HeroController();
+    addTearDown(heroes.dispose);
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
@@ -357,7 +359,7 @@ void main() {
           builder: (context) {
             rootContext = context;
             return Navigator(
-              observers: [HeroController()],
+              observers: [heroes],
               onGenerateRoute: (_) => page(
                 Builder(
                   builder: (context) => Stack(

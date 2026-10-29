@@ -64,6 +64,8 @@ void main() {
     });
     final open = ValueNotifier(true);
     final shown = ValueNotifier(true);
+    addTearDown(open.dispose);
+    addTearDown(shown.dispose);
     await tester.pumpWidget(
       localizedApp(
         container: container,

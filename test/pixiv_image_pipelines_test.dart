@@ -12,6 +12,7 @@ import 'package:parfait/core/image/worker_image_provider.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/waits.dart';
+import 'helpers/leak_tracking.dart';
 
 /// One scope as the app has it: the worker serves a PNG for every URL but
 /// original files, whose transfer never ends.
@@ -39,6 +40,7 @@ bool _painted(WidgetTester tester) => tester
     .any((image) => image.image != null);
 
 void main() {
+  ignoreOctoImageFades();
   setUp(
     () => PaintingBinding.instance.imageCache
       ..clear()

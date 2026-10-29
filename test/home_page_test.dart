@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/app.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/external_intent_bridge.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_repository.dart';
@@ -20,6 +19,7 @@ import 'helpers/prompt_host.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 /// Answers [initial] and never delivers a new intent.
 class _FixedIntentSource implements AndroidIntentSource {
@@ -43,7 +43,7 @@ Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
   final source =
       intentSource ??
       const _FixedIntentSource(IgnoredAndroidIntent('test: no android intent'));
-  final router = createPixivRouter(initialLocation: '/recommended');
+  final router = pixivRouter('/recommended');
   final credentials = FakeCredentialStore(
     values: const {
       '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),

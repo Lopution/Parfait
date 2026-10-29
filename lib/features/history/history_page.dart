@@ -85,6 +85,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   void dispose() {
     unawaited(_changes?.cancel());
+    _removals.dispose();
     super.dispose();
   }
 

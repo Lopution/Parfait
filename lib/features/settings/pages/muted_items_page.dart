@@ -47,6 +47,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _removals.dispose();
     super.dispose();
   }
 
