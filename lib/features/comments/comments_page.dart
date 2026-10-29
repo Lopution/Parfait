@@ -47,6 +47,12 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   final _composerKey = GlobalKey<CommentComposerState>();
   final _removals = RemovalController();
 
+  @override
+  void dispose() {
+    _removals.dispose();
+    super.dispose();
+  }
+
   CommentFeedQuery get _query =>
       CommentFeedQuery.root(workId: widget.workId, kind: widget.kind);
 
@@ -196,6 +202,12 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   CommentEntity? _replyTarget;
   final _composerKey = GlobalKey<CommentComposerState>();
   final _removals = RemovalController();
+
+  @override
+  void dispose() {
+    _removals.dispose();
+    super.dispose();
+  }
 
   CommentFeedQuery get _query => CommentFeedQuery.replies(
     workId: widget.workId,

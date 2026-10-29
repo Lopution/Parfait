@@ -225,7 +225,7 @@ class SegmentedFetch {
       onResume: _deliver,
       onCancel: _shutdown,
     );
-    cancel?.whenCancel.then((_) => close());
+    unawaited(cancel?.whenCancel.then((_) => close()));
     return _output.stream;
   }
 
@@ -234,9 +234,8 @@ class SegmentedFetch {
   /// output is listened to.
   void close() {
     if (!_started || _closed) return;
-    _output
-      ..addError(const SegmentedFetchCancelled())
-      ..close();
+    _output.addError(const SegmentedFetchCancelled());
+    unawaited(_output.close());
     _shutdown();
   }
 
@@ -468,9 +467,8 @@ class SegmentedFetch {
 
   void _fail(Object error, StackTrace stack) {
     if (_closed) return;
-    _output
-      ..addError(error, stack)
-      ..close();
+    _output.addError(error, stack);
+    unawaited(_output.close());
     _shutdown();
   }
 

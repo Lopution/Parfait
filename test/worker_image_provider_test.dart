@@ -4,8 +4,8 @@ library;
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' as ui;
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/io_client.dart';
 import 'package:parfait/core/image/image_worker_client.dart';
@@ -35,7 +35,7 @@ void main() {
     // Everything that does real IO — the loopback server, the worker host
     // and the provider resolve — lives inside runAsync; listeners
     // registered in the test's fake zone are never pumped during it.
-    final info = (await tester.runAsync<ImageInfo>(() async {
+    final image = (await tester.runAsync<ui.Image>(() async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
       unawaited(
@@ -68,18 +68,8 @@ void main() {
         'http://127.0.0.1:${server.port}/img/p0.jpg',
         priority: ImageFetchPriority.foreground,
       );
-      final stream = provider.resolve(ImageConfiguration.empty);
-      final completer = Completer<ImageInfo>();
-      late final ImageStreamListener listener;
-      listener = ImageStreamListener((image, _) {
-        completer.complete(image);
-        stream.removeListener(listener);
-      }, onError: (error, _) => completer.completeError(error));
-      stream.addListener(listener);
-      return completer.future.timeout(const Duration(seconds: 10));
+      return firstFrame(provider).timeout(const Duration(seconds: 10));
     }))!;
-    expect(info.image.width, 1);
-    expect(info.image.height, 1);
-    info.dispose();
+    expect((image.width, image.height), (1, 1));
   });
 }

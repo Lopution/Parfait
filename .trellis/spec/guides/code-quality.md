@@ -3,7 +3,7 @@ prefix: QUAL
 applies_to:
   - lib/**
   - analysis_options.yaml
-reviewed: 2026-10-17
+reviewed: 2026-10-29
 ---
 
 # Code quality
@@ -63,3 +63,20 @@ reviewed: 2026-10-17
   janky "users" tab of the recommended page read as the whole page.
 - **Check:** `test/trace_marks_test.dart` "a tap and a fling are marked down and up, the fling fast" "a route change marks the page and the scene it plays" "a tab switched to is marked, the first tab is not"
 - **Code:** `lib/core/debug/trace_marks.dart`, `lib/core/debug/frame_probe.dart`, `lib/app/widgets/app_tab_bar.dart`
+
+### QUAL-06 A future, sink or subscription ends on purpose
+- **Rule:** A future started from synchronous code is awaited, or passed to
+  `unawaited` when its errors are handled where it runs (a loader's own
+  `catch`, a navigation push); one whose errors nobody handles gets a
+  handler first, and an rhttp cancel calls `.ignore()` (NET-18). Its owner
+  closes a `StreamController` and cancels a subscription; one left open on
+  purpose says why above its `// ignore:` (QUAL-01). The analyzer enforces
+  this. Likewise its owner disposes a notifier, controller or animation;
+  a `build` curves with a `CurveTween`, which holds nothing, not a new
+  `CurvedAnimation`, and an image stream listener disposes the `ImageInfo`
+  it is handed. Leak tracking (TEST-15) fails a widget test that leaves one.
+- **Why:** A dropped future's error reaches the zone and the crash log with
+  no handler, and nothing told a deliberate fire-and-forget from a
+  forgotten `await`.
+- **Check:** `analysis_options.yaml` "discarded_futures" "close_sinks" "cancel_subscriptions" "avoid_void_async"
+- **Code:** `analysis_options.yaml`

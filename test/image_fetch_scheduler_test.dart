@@ -30,6 +30,15 @@ class _Harness {
   final pending = <String, Completer<String>>{};
   final cancels = <NetworkCancelSignal>[];
 
+  /// A request whose outcome the case does not read.
+  void submit(
+    int requestId,
+    String url, {
+    required ImageFetchPriority priority,
+  }) {
+    unawaited(scheduler.submit(requestId, url, priority: priority));
+  }
+
   void finish(String url, [String result = 'ok']) {
     pending.remove(url)!.complete(result);
   }
@@ -45,15 +54,17 @@ class _Harness {
 /// microtasks, which hangs the test.
 class _Capture<T> {
   _Capture(Future<T> future) {
-    future.then(
-      (result) {
-        value = result;
-        done = true;
-      },
-      onError: (Object e) {
-        error = e;
-        done = true;
-      },
+    unawaited(
+      future.then(
+        (result) {
+          value = result;
+          done = true;
+        },
+        onError: (Object e) {
+          error = e;
+          done = true;
+        },
+      ),
     );
   }
 
@@ -93,7 +104,7 @@ void main() {
   test('lane caps hold; a finished transfer admits the next waiter', () {
     fakeAsync((async) {
       final harness = _Harness(foreground: 2, background: 1);
-      harness.scheduler
+      harness
         ..submit(1, 'f1', priority: ImageFetchPriority.foreground)
         ..submit(2, 'f2', priority: ImageFetchPriority.foreground)
         ..submit(3, 'f3', priority: ImageFetchPriority.foreground)
@@ -117,7 +128,7 @@ void main() {
     fakeAsync((async) {
       final harness = _Harness(foreground: 1, background: 1);
       // Occupy both lanes; queue a background fetch behind them.
-      harness.scheduler
+      harness
         ..submit(1, 'bg', priority: ImageFetchPriority.background)
         ..submit(2, 'fg', priority: ImageFetchPriority.foreground);
       final queued = _Capture(
@@ -132,11 +143,7 @@ void main() {
 
       // A visible request for the same URL promotes it onto the
       // foreground lane — it overtakes other background waiters.
-      harness.scheduler.submit(
-        4,
-        'bg2',
-        priority: ImageFetchPriority.background,
-      );
+      harness.submit(4, 'bg2', priority: ImageFetchPriority.background);
       final visible = _Capture(
         harness.scheduler.submit(
           5,
@@ -164,7 +171,7 @@ void main() {
   test('a cancelled queued request drops after the grace window', () {
     fakeAsync((async) {
       final harness = _Harness(foreground: 1, background: 1);
-      harness.scheduler
+      harness
         ..submit(1, 'fg', priority: ImageFetchPriority.foreground)
         ..submit(2, 'bg', priority: ImageFetchPriority.background);
       final dead = _Capture(
@@ -189,11 +196,7 @@ void main() {
 
       // The freed queue position admits the next waiter once a lane slot
       // opens — the drop leaked nothing.
-      harness.scheduler.submit(
-        4,
-        'next',
-        priority: ImageFetchPriority.background,
-      );
+      harness.submit(4, 'next', priority: ImageFetchPriority.background);
       async.flushMicrotasks();
       expect(harness.scheduler.queued, 1);
       harness.finish('bg');
@@ -205,11 +208,7 @@ void main() {
   test('a request re-submitted inside the grace keeps its place', () {
     fakeAsync((async) {
       final harness = _Harness(foreground: 0, background: 1);
-      harness.scheduler.submit(
-        1,
-        'bg',
-        priority: ImageFetchPriority.background,
-      );
+      harness.submit(1, 'bg', priority: ImageFetchPriority.background);
       final gone = _Capture(
         harness.scheduler.submit(
           2,
@@ -322,7 +321,7 @@ void main() {
       expect(done.error, isNull);
 
       // A later request for the URL starts a fresh flight.
-      harness.scheduler.submit(2, 'a', priority: ImageFetchPriority.foreground);
+      harness.submit(2, 'a', priority: ImageFetchPriority.foreground);
       async.flushMicrotasks();
       expect(harness.started, ['a', 'a']);
     });
@@ -357,11 +356,7 @@ void main() {
   test('a queued fetch nobody wants is dropped at its turn', () {
     fakeAsync((async) {
       final harness = _Harness(foreground: 0, background: 1);
-      harness.scheduler.submit(
-        1,
-        'bg',
-        priority: ImageFetchPriority.background,
-      );
+      harness.submit(1, 'bg', priority: ImageFetchPriority.background);
       final dead = _Capture(
         harness.scheduler.submit(
           2,
@@ -378,11 +373,7 @@ void main() {
       async.flushMicrotasks();
       expect(harness.started, isNot(contains('warm')));
 
-      harness.scheduler.submit(
-        3,
-        'next',
-        priority: ImageFetchPriority.background,
-      );
+      harness.submit(3, 'next', priority: ImageFetchPriority.background);
       async.flushMicrotasks();
       expect(harness.started.last, 'next');
     });

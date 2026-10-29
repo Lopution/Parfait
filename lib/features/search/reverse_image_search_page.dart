@@ -792,7 +792,7 @@ bool _applyNavigationAction(
         _ => null,
       };
       if (id != null) {
-        openIllust(context, id);
+        unawaited(openIllust(context, id));
       } else {
         unawaited(onOpenExternal(Uri.parse(rawUrl)));
       }
@@ -803,7 +803,7 @@ bool _applyNavigationAction(
         _ => null,
       };
       if (id != null) {
-        openUser(context, id);
+        unawaited(openUser(context, id));
       } else {
         unawaited(onOpenExternal(Uri.parse(rawUrl)));
       }
@@ -977,7 +977,7 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
                     raw,
                     widget.onOpenExternal,
                   )) {
-                    controller.stopLoading();
+                    unawaited(controller.stopLoading());
                   }
                 },
                 onProgressChanged: (controller, progress) {

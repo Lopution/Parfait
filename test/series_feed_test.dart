@@ -16,6 +16,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 import 'helpers/series_world.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/test_preferences.dart';
 
 void main() {
   setUp(() {
@@ -180,5 +181,15 @@ void main() {
       await cursor.read('100', WatchlistKey(WatchlistType.manga, 55)),
       912,
     );
+  });
+
+  testWidgets('a seen cursor that fails to save leaves the page working', (
+    tester,
+  ) async {
+    final preferences = IntWriteFailingPreferences();
+    final (container, _) = await makeSeriesWorld(preferences: preferences);
+    await pumpSeriesPage(tester, container);
+    expect(find.text('开始阅读'), findsOneWidget);
+    expect(preferences.intWrites, contains(912), reason: 'the latest work');
   });
 }

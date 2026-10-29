@@ -123,8 +123,9 @@ class SeriesFixture {
 
 Future<(ProviderContainer, SeriesFixture)> makeSeriesWorld({
   SeriesFixture? fixture,
+  SharedPreferencesAsyncPlatform? preferences,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = preferences ?? memoryPreferences();
   final activeFixture = fixture ?? SeriesFixture();
   final container = await signedInApiContainer(
     activeFixture.client(),

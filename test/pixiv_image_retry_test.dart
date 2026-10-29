@@ -11,6 +11,7 @@ import 'package:parfait/core/image/image_worker_providers.dart';
 import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/waits.dart';
+import 'helpers/leak_tracking.dart';
 
 /// One URL per kind of image: an uncapped decode is recorded app-wide, and
 /// a capped request for a URL with one paints that instead.
@@ -87,6 +88,7 @@ bool _painted(WidgetTester tester) => tester
     .any((image) => image.image != null);
 
 void main() {
+  ignoreOctoImageFades();
   // Each test resolves the same URL; a decoded or errored entry left in the
   // image cache would answer without asking the network.
   setUp(

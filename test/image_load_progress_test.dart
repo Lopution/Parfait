@@ -14,6 +14,7 @@ import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/waits.dart';
+import 'helpers/leak_tracking.dart';
 
 const _url = 'https://i.pximg.net/img-master/progress.jpg';
 
@@ -38,6 +39,9 @@ class _Transfer {
   _Transfer({required this.total});
 
   final int total;
+  // A case ends the body when its transfer should finish; others leave the
+  // transfer open.
+  // ignore: close_sinks
   final body = StreamController<List<int>>();
   late final client = HeldBodyClient(
     respond: (request) => '${request.url}' == _url
@@ -59,6 +63,7 @@ class _Transfer {
 }
 
 void main() {
+  ignoreOctoImageFades();
   setUp(
     () => PaintingBinding.instance.imageCache
       ..clear()

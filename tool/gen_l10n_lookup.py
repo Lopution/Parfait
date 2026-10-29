@@ -55,16 +55,8 @@ def main() -> None:
         "    };\n"
         "\n"
         "/// Lookup against an explicit locale (language picker previews).\n"
-        "///\n"
-        "/// gen-l10n's delegate completes synchronously for its bundled ARBs\n"
-        "/// (SynchronousFuture), so the listener runs before we return.\n"
-        "String l10nLookupFor(Locale locale, String key) {\n"
-        "  late String result;\n"
-        "  AppLocalizations.delegate.load(locale).then((l10n) {\n"
-        "    result = l10nLookup(l10n, key);\n"
-        "  });\n"
-        "  return result;\n"
-        "}\n"
+        "String l10nLookupFor(Locale locale, String key) =>\n"
+        "    l10nLookup(lookupAppLocalizations(locale), key);\n"
     )
     print(f'{OUT}: {len(cases)} keys')
 

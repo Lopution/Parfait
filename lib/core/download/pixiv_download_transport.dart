@@ -294,6 +294,9 @@ class _HopDownloadResponse
     if (_cancelled) {
       throw const DownloadCancelledException();
     }
+    // Kept in _controller: close(), _requestCancellation and the end of the
+    // source close it.
+    // ignore: close_sinks
     late final StreamController<List<int>> controller;
     controller = StreamController<List<int>>(
       onListen: () {

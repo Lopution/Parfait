@@ -234,6 +234,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'errorUnauthorized' => l10n.errorUnauthorized,
   'errorUnknown' => l10n.errorUnknown,
   'expandText' => l10n.expandText,
+  'feedAllHidden' => l10n.feedAllHidden,
   'feedContinueLoading' => l10n.feedContinueLoading,
   'feedDensity' => l10n.feedDensity,
   'feedDensityComfortable' => l10n.feedDensityComfortable,
@@ -902,13 +903,5 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
 };
 
 /// Lookup against an explicit locale (language picker previews).
-///
-/// gen-l10n's delegate completes synchronously for its bundled ARBs
-/// (SynchronousFuture), so the listener runs before we return.
-String l10nLookupFor(Locale locale, String key) {
-  late String result;
-  AppLocalizations.delegate.load(locale).then((l10n) {
-    result = l10nLookup(l10n, key);
-  });
-  return result;
-}
+String l10nLookupFor(Locale locale, String key) =>
+    l10nLookup(lookupAppLocalizations(locale), key);

@@ -224,16 +224,18 @@ class _IllustCardBody extends ConsumerWidget {
       pressWarmup.stop();
       _preloadTransitionImages(context, ref, preview, cardDecodeWidth);
       if (hasHero) noteHeroCardOpened(context, heroTag);
-      openIllust(
-        context,
-        entity.id,
-        initialEntity: entity,
-        heroScope: heroScope,
-        heroImageUrl: hasHero ? preview.url : null,
-        heroImageDecodeWidth: hasHero ? cardDecodeWidth : null,
-        // Inside a feed grid this carries the feed's work list — the
-        // detail route then opens as a work-to-work pager.
-        pagerSource: IllustPagerScope.maybeOf(context),
+      unawaited(
+        openIllust(
+          context,
+          entity.id,
+          initialEntity: entity,
+          heroScope: heroScope,
+          heroImageUrl: hasHero ? preview.url : null,
+          heroImageDecodeWidth: hasHero ? cardDecodeWidth : null,
+          // Inside a feed grid this carries the feed's work list — the
+          // detail route then opens as a work-to-work pager.
+          pagerSource: IllustPagerScope.maybeOf(context),
+        ),
       );
     }
 
@@ -253,7 +255,7 @@ class _IllustCardBody extends ConsumerWidget {
         onLongPress ??
         () {
           AppHaptics.longPress();
-          showCardActionSheet(context, entity);
+          unawaited(showCardActionSheet(context, entity));
         };
     return PressScale(
       child: Semantics(

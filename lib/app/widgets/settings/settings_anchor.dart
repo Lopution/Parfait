@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
@@ -85,14 +86,16 @@ class _SettingsFocusScopeState extends State<SettingsFocusScope> {
     if (target != null) {
       _done = true;
       final duration = MotionTokens.resolve(context, MotionTokens.spatial);
-      Scrollable.ensureVisible(
-        target.context,
-        alignment: _revealAlignment,
-        duration: duration,
-        curve: MotionTokens.spatialCurve,
-      ).then((_) {
-        if (target.mounted) target.mark();
-      });
+      unawaited(
+        Scrollable.ensureVisible(
+          target.context,
+          alignment: _revealAlignment,
+          duration: duration,
+          curve: MotionTokens.spatialCurve,
+        ).then((_) {
+          if (target.mounted) target.mark();
+        }),
+      );
       return;
     }
     final any = _anchors.values.firstOrNull;

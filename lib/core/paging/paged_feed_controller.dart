@@ -838,7 +838,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   void _scheduleSnapshotRefresh() {
     // Runs on the next event-loop turn: by then Riverpod has published the
     // restored state, so refresh() observes it instead of the loading phase.
-    Future(() {
+    Timer.run(() {
       if (_disposed || _cancelRequested || !state.hasValue) return;
       unawaited(refresh());
     });

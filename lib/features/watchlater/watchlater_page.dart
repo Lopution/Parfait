@@ -35,6 +35,12 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
   final Set<int> _selected = {};
   final _removals = RemovalController();
 
+  @override
+  void dispose() {
+    _removals.dispose();
+    super.dispose();
+  }
+
   void _enterManaging() {
     // Entering management mode is the explicit-vibration role (§5.6).
     AppHaptics.confirm();

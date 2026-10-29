@@ -141,7 +141,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// driving it (focal zoom → Matrix4, not a scalar scale).
   TransformationController? _zoomTarget;
   Tween<Matrix4>? _zoomTween;
-  late final Animation<double> _zoomCurve;
+  late final CurvedAnimation _zoomCurve;
 
   /// Focal point of the in-flight double tap, in viewport coordinates.
   Offset? _doubleTapFocal;
@@ -213,13 +213,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   @override
   void dispose() {
     _prefetchDemand?.clearPrefetchWindow(this);
-    _downloadEvents?.cancel();
+    unawaited(_downloadEvents?.cancel());
     for (final controller in _transformations.values) {
       controller.dispose();
     }
     for (final progress in _progress.values) {
       progress.dispose();
     }
+    _zoomCurve.dispose();
     _zoomController.dispose();
     _pageController.dispose();
     if (!_viewerSessionChromeVisible) _setSystemChrome(visible: true);

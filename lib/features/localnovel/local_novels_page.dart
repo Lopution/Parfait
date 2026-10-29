@@ -37,6 +37,12 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
   final _removals = RemovalController();
 
   @override
+  void dispose() {
+    _removals.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final async = ref.watch(localNovelStoreProvider);
     return Scaffold(

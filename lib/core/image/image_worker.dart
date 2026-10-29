@@ -121,14 +121,15 @@ class ImageWorker implements ImageFetcher {
     String url, {
     required ImageFetchPriority priority,
   }) async {
-    if (priority != ImageFetchPriority.foreground) {
+    if (priority != ImageFetchPriority.foreground || _disposed) {
       return (await _ready()).fetch(url, priority: priority);
     }
     _foregroundLoads.value++;
     try {
       return await (await _ready()).fetch(url, priority: priority);
     } finally {
-      _foregroundLoads.value--;
+      // The count went with the worker when it was disposed meanwhile.
+      if (!_disposed) _foregroundLoads.value--;
     }
   }
 
@@ -229,7 +230,9 @@ class ImageWorker implements ImageFetcher {
   }
 
   Future<void> dispose() async {
+    if (_disposed) return;
     _disposed = true;
+    _foregroundLoads.dispose();
     final live = _live;
     _client = null;
     _live = null;

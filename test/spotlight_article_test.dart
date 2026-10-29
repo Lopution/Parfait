@@ -31,6 +31,7 @@ import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/waits.dart';
+import 'helpers/leak_tracking.dart';
 
 const _articleHtml = '''
 <!DOCTYPE html>
@@ -132,6 +133,7 @@ Future<GoRouter> pumpArticle(
 }
 
 void main() {
+  ignoreOctoImageFades();
   setUp(() {
     // Images on the page start the network policy's connectivity watch;
     // unanswered, its replies land in whichever later test runs real async.

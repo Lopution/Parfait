@@ -391,14 +391,20 @@ void main() {
   test('a switched-away account never replays under the next', () {
     fakeAsync((async) {
       late final _World world;
-      _makeWorld(coldStartPump: true).then((created) => world = created);
+      unawaited(
+        _makeWorld(coldStartPump: true).then((created) => world = created),
+      );
       async.flushMicrotasks();
       world.fixture.failures['follow'] = http.ClientException('offline');
-      world.container.read(followActionsProvider).toggle(7);
+      unawaited(world.container.read(followActionsProvider).toggle(7));
       async.flushMicrotasks();
       final offlineRequests = world.fixture.requests.length;
 
-      world.container.read(accountStoreProvider.notifier).switchAccount('200');
+      unawaited(
+        world.container
+            .read(accountStoreProvider.notifier)
+            .switchAccount('200'),
+      );
       world.fixture.failures.remove('follow');
       async.elapse(const Duration(minutes: 1));
 

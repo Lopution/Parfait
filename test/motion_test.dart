@@ -388,6 +388,7 @@ void main() {
     testWidgets('a row collapses and fades before the commit, and the '
         'exit future waits for it', (tester) async {
       final controller = RemovalController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(list(controller, ['a', 'b']));
       final bTop = tester.getTopLeft(find.text('b')).dy;
 
@@ -409,6 +410,7 @@ void main() {
     testWidgets('leaving lists rows from exit start until restore or '
         'disposal', (tester) async {
       final controller = RemovalController();
+      addTearDown(controller.dispose);
       var notified = 0;
       controller.leaving.addListener(() => notified++);
       await tester.pumpWidget(list(controller, ['a', 'b']));
@@ -441,6 +443,7 @@ void main() {
       tester,
     ) async {
       final controller = RemovalController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(list(controller, ['a', 'b']));
       final bTop = tester.getTopLeft(find.text('b')).dy;
       unawaited(controller.playExit(['a']));
@@ -457,6 +460,7 @@ void main() {
       tester,
     ) async {
       final controller = RemovalController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(list(controller, ['a', 'b'], reduce: true));
       final bTop = tester.getTopLeft(find.text('b')).dy;
 
@@ -471,6 +475,7 @@ void main() {
       tester,
     ) async {
       final controller = RemovalController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(list(controller, ['a', 'b']));
       unawaited(controller.playExit(['a']));
       await tester.pumpAndSettle();
@@ -485,6 +490,7 @@ void main() {
       tester,
     ) async {
       final controller = RemovalController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(list(controller, ['a', 'b']));
       var done = false;
       unawaited(controller.playExit(['a']).then((_) => done = true));

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -167,11 +168,13 @@ void main() {
   test('no usable account fails at once, without a retry backoff', () {
     fakeAsync((async) {
       late final ProviderContainer container;
-      _world(
-        _ApiScript({}),
-        accounts: const [],
-        currentId: null,
-      ).then((world) => container = world.$1);
+      unawaited(
+        _world(
+          _ApiScript({}),
+          accounts: const [],
+          currentId: null,
+        ).then((world) => container = world.$1),
+      );
       async.flushMicrotasks();
 
       final sub = container.listen(serverDisplaySettingsProvider, (_, _) {});

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Size;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,8 +8,11 @@ import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/keyboard_heights.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/settings_world.dart';
@@ -454,6 +458,31 @@ void main() {
     );
   });
 
+  test('preferences that fail leave keyboard heights and developer options '
+      'to this run', () async {
+    final preferences = _BrokenPreferences();
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
+    );
+    addTearDown(container.dispose);
+    const screen = Size(400, 800);
+
+    expect(container.read(developerOptionsProvider), isFalse);
+    container.read(keyboardHeightsProvider.notifier).record(screen, 300);
+    await pumpEventQueue();
+
+    expect(
+      container.read(keyboardHeightsProvider.notifier).heightFor(screen),
+      300,
+    );
+    expect(container.read(developerOptionsProvider), isFalse);
+    expect(preferences.calls, [
+      'getBool ${PreferenceKeys.developerOptions}',
+      'getString ${PreferenceKeys.keyboardHeights}',
+      'setString ${PreferenceKeys.keyboardHeights}',
+    ]);
+  });
+
   test('plain settings JSON never contains translation credentials', () {
     final json = baseTestSettings().toJson();
     expect(json.keys, isNot(contains('translateAuthData')));
@@ -498,4 +527,23 @@ void _expectStored<T extends Object>(
     previous,
     reason: '$key missing',
   );
+}
+
+class _BrokenPreferences extends SharedPreferencesAsync {
+  /// Each call, as `method key`.
+  final calls = <String>[];
+
+  Future<T> _fail<T>(String call) {
+    calls.add(call);
+    return Future.error(StateError('broken'));
+  }
+
+  @override
+  Future<bool?> getBool(String key) => _fail('getBool $key');
+
+  @override
+  Future<String?> getString(String key) => _fail('getString $key');
+
+  @override
+  Future<void> setString(String key, String value) => _fail('setString $key');
 }

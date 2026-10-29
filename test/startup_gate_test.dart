@@ -12,7 +12,6 @@ import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/home/home_page.dart';
 import 'package:parfait/features/login/login_page.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/startup_gate.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
@@ -22,6 +21,7 @@ import 'dart:async';
 import 'helpers/fake_account.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/pixiv_router.dart';
 
 class _StaticMetadataRepository implements AccountMetadataRepository {
   const _StaticMetadataRepository(this.snapshot, {this.corrupt = false});
@@ -72,10 +72,8 @@ Widget _wrap({
   AccountMetadataRepository? metadataRepository,
   GoRouter? router,
 }) {
-  router ??= createPixivRouter(
-    initialLocation:
-        initialLocation ??
-        (settings.guideCompleted ? '/recommended' : '/welcome'),
+  router ??= pixivRouter(
+    initialLocation ?? (settings.guideCompleted ? '/recommended' : '/welcome'),
   );
   return localizedRouterApp(
     router,
@@ -225,7 +223,7 @@ void main() {
   testWidgets('user agreement pushed from login stays reachable', (
     tester,
   ) async {
-    final router = createPixivRouter(initialLocation: '/login');
+    final router = pixivRouter('/login');
     await tester.pumpWidget(
       localizedRouterApp(
         router,
@@ -264,7 +262,7 @@ void main() {
   testWidgets('add account survives the gate rebuilding under it', (
     tester,
   ) async {
-    final router = createPixivRouter(initialLocation: '/recommended');
+    final router = pixivRouter('/recommended');
     await tester.pumpWidget(_wrap(snapshot: _signedIn, router: router));
     await tester.pumpAndSettle();
     unawaited(router.push<void>('/login'));
@@ -298,7 +296,7 @@ void main() {
     // Android pushes the share over the splash before the account loads.
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
     final metadata = _PendingMetadataRepository();
-    final router = createPixivRouter(initialLocation: '/splash');
+    final router = pixivRouter('/splash');
     await tester.pumpWidget(
       _wrap(snapshot: _signedIn, router: router, metadataRepository: metadata),
     );

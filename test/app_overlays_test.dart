@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/scroll_behavior.dart';
@@ -58,6 +59,11 @@ Future<void> _openSheet(BuildContext context) => showAppBottomSheet<void>(
 );
 
 void main() {
+  // Flutter's modal bottom sheet makes a CurvedAnimation on every drag end
+  // and never disposes it.
+  LeakTesting.settings = LeakTesting.settings.withIgnored(
+    notDisposed: {'CurvedAnimation': null},
+  );
   for (final (kind, open) in [
     ('dialog', (BuildContext c) => _openDialog(c)),
     ('sheet', _openSheet),

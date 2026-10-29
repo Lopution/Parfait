@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
@@ -58,6 +59,11 @@ List<String> _historyShown(WidgetTester tester) => [
 ];
 
 void main() {
+  // The `paints` matcher records into a context that owns no layers: the
+  // text field's LeaderLayers it builds there are never disposed.
+  LeakTesting.settings = LeakTesting.settings.withIgnored(
+    notDisposed: {'LeaderLayer': null},
+  );
   group('searchShortcutFor', () {
     test('a bare number is an id of the selected kind', () {
       expect(

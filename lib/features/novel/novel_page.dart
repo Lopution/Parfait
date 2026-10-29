@@ -165,11 +165,13 @@ class NovelPage extends ConsumerWidget {
     // start from the persisted novel defaults like every other entry.
     void searchTag(String tag) {
       Navigator.of(sheetContext).pop();
-      openSearchResults(
-        sheetContext,
-        NovelSearchQuery(
-          keyword: tag,
-          filters: ref.read(searchNovelFiltersProvider),
+      unawaited(
+        openSearchResults(
+          sheetContext,
+          NovelSearchQuery(
+            keyword: tag,
+            filters: ref.read(searchNovelFiltersProvider),
+          ),
         ),
       );
     }
@@ -196,7 +198,7 @@ class NovelPage extends ConsumerWidget {
               tapHint: context.l10n.openAuthorProfile,
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                openUser(context, novel.user.id);
+                unawaited(openUser(context, novel.user.id));
               },
               child: AuthorSummary(
                 name: novel.user.name,
@@ -249,7 +251,7 @@ class NovelPage extends ConsumerWidget {
             child: TextButton.icon(
               onPressed: () {
                 Navigator.of(sheetContext).pop();
-                openNovelComments(context, novel.id);
+                unawaited(openNovelComments(context, novel.id));
               },
               icon: const Icon(Icons.comment_outlined),
               label: Text(

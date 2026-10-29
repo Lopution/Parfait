@@ -138,6 +138,9 @@ class StallClient extends http.BaseClient {
 /// waits, the generator goes on waiting; an error that comes next fails the
 /// cancel future instead of reaching any handler.
 class RustBodyClient extends http.BaseClient {
+  // Cases drive the port and leave it open: the generator waits on it
+  // through a cancel, as rhttp's does.
+  // ignore: close_sinks
   final port = StreamController<Object>();
 
   @override

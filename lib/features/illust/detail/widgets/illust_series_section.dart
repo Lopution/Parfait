@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -89,10 +91,12 @@ class _SeriesCardView extends ConsumerWidget {
     final cover = detail.coverUrl;
     void openNeighbour(int? illustId) {
       if (illustId == null) return;
-      openIllust(
-        buildContext,
-        illustId,
-        initialEntity: ref.read(illustStoreProvider).get(illustId),
+      unawaited(
+        openIllust(
+          buildContext,
+          illustId,
+          initialEntity: ref.read(illustStoreProvider).get(illustId),
+        ),
       );
     }
 

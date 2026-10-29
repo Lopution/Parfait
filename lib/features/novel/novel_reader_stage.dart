@@ -198,7 +198,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     // Chrome starts hidden, so the reader opens straight into immersion.
     unawaited(setSystemUiMode(SystemUiMode.immersiveSticky));
     _shellRail = ref.read(shellRailHiddenProvider.notifier);
-    _loadPrefs();
+    unawaited(_loadPrefs());
   }
 
   @override
@@ -714,26 +714,25 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   /// so the sheet publishes its own [FuncSystemBars] region: the nav bar
   /// under it takes icon brightness from the sheet's theme brightness,
   /// not from the stage behind it.
-  Future<T?> _showReaderSheet<T>({
+  void _showReaderSheet({
     required WidgetBuilder builder,
     bool isScrollControlled = false,
   }) {
-    return showAppBottomSheet<T>(
-      context: context,
-      isScrollControlled: isScrollControlled,
-      showDragHandle: true,
-      builder: (sheetContext) => FuncSystemBars(
-        background: Theme.of(sheetContext).brightness,
-        child: builder(sheetContext),
+    unawaited(
+      showAppBottomSheet<void>(
+        context: context,
+        isScrollControlled: isScrollControlled,
+        showDragHandle: true,
+        builder: (sheetContext) => FuncSystemBars(
+          background: Theme.of(sheetContext).brightness,
+          child: builder(sheetContext),
+        ),
       ),
     );
   }
 
   void _showInfoSheet(BuildContext context) {
-    _showReaderSheet<void>(
-      isScrollControlled: true,
-      builder: widget.spec.infoSheet,
-    );
+    _showReaderSheet(isScrollControlled: true, builder: widget.spec.infoSheet);
   }
 
   /// Page-jump sheet: the slider only moves a local preview — the reader
@@ -744,7 +743,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final pageCount = _pageCount;
     final chapters = _readerHandle.chapters?.call() ?? const [];
     var preview = _page;
-    _showReaderSheet<void>(
+    _showReaderSheet(
       isScrollControlled: true,
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -866,7 +865,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
 
   void _showReaderSettings(BuildContext context) {
     final l10n = context.l10n;
-    _showReaderSheet<void>(
+    _showReaderSheet(
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -1008,13 +1007,12 @@ class _ChromeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTop = edge == _ChromeEdge.top;
-    final slide =
-        Tween<Offset>(
-          begin: Offset(0, isTop ? -1 : 1),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(parent: animation, curve: MotionTokens.chromeCurve),
-        );
+    // A tween chain, not a CurvedAnimation: this runs on every build and
+    // holds nothing to dispose.
+    final slide = Tween<Offset>(
+      begin: Offset(0, isTop ? -1 : 1),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: MotionTokens.chromeCurve)).animate(animation);
     // No SafeArea here: the bar surface must paint edge-to-edge so its
     // background covers the system inset. The inset padding lives inside
     // each bar's Material instead — the bar slides from the screen edge
@@ -1051,7 +1049,7 @@ void _showNovelPage(BuildContext context, int novelId) {
     showAppSnackBar(context, context.l10n.novelNotFound);
     return;
   }
-  openNovel(context, novelId);
+  unawaited(openNovel(context, novelId));
 }
 
 final _novelSeriesProvider = FutureProvider.autoDispose
@@ -1231,13 +1229,18 @@ class _NovelSeriesBarState extends ConsumerState<_NovelSeriesBar> {
           _seenMarked = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            ref
-                .read(watchlistReadCursorProvider)
-                .markSeen(
-                  accountId,
-                  WatchlistKey(WatchlistType.novel, seriesId),
-                  novelId,
-                );
+            unawaited(
+              ref
+                  .read(watchlistReadCursorProvider)
+                  .markSeen(
+                    accountId,
+                    WatchlistKey(WatchlistType.novel, seriesId),
+                    novelId,
+                  )
+                  .catchError((Object error, _) {
+                    log('series seen cursor not remembered: $error');
+                  }),
+            );
           });
         }
         return _SeriesBarRow(

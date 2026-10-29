@@ -428,14 +428,17 @@ class PixivHttpClient {
       cancelToken: cancelToken,
     );
     _getFlights[key] = future;
+    // The entry removed is this flight, which its callers await.
+    void forget() {
+      if (identical(_getFlights[key], future)) {
+        unawaited(_getFlights.remove(key));
+      }
+    }
+
     unawaited(
       future.then<void>(
-        (_) {
-          if (identical(_getFlights[key], future)) _getFlights.remove(key);
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          if (identical(_getFlights[key], future)) _getFlights.remove(key);
-        },
+        (_) => forget(),
+        onError: (Object error, StackTrace stackTrace) => forget(),
       ),
     );
     return future;

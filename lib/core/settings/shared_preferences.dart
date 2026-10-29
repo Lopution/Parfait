@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../log.dart';
 import 'preference_keys.dart';
 
 /// Single owner of the app-wide [SharedPreferencesAsync] instance (C5b).
@@ -23,12 +26,17 @@ final developerOptionsProvider =
 class _DeveloperOptionsNotifier extends Notifier<bool> {
   @override
   bool build() {
-    ref
-        .watch(sharedPreferencesProvider)
-        .getBool(PreferenceKeys.developerOptions)
-        .then((value) {
-          if (value == true) state = true;
-        });
+    unawaited(
+      ref
+          .watch(sharedPreferencesProvider)
+          .getBool(PreferenceKeys.developerOptions)
+          .then((value) {
+            if (value == true && ref.mounted) state = true;
+          })
+          .catchError((Object error, _) {
+            log('developer options not read: $error');
+          }),
+    );
     return false;
   }
 

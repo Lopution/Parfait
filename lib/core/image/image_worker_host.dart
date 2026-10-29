@@ -73,7 +73,7 @@ void imageWorkerEntry(Map<String, Object?> args) {
     config: ImageWorkerConfig.fromJson((args['config'] as Map).cast()),
     cacheDir: args['cacheDir'] as String,
   );
-  host.run();
+  unawaited(host.run());
 }
 
 /// The orchestrator inside the image-worker isolate.
