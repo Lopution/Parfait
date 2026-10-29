@@ -25,6 +25,12 @@ void enableLeakTracking() {
       // whichever goes first; it holds no resource, only listeners each of
       // them removes.
       'IllustPagerSource': null,
+      // Flutter's multi-frame completer drops a frame whose decode ends
+      // after the completer was disposed, and the decode runs in real time:
+      // the frame lands in whichever case is running then, on a slow
+      // machine a later one. Frames handed to listeners stay tracked as
+      // their ImageInfo.
+      'Image': null,
     },
   );
   // Image loads in tests mostly never answer (a fetch the fakes leave

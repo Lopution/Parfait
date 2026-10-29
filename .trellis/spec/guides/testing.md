@@ -254,22 +254,27 @@ reviewed: 2026-10-29
 ### TEST-15 Widget tests fail on what they leave undisposed
 - **Rule:** Every test file tracks leaks (`enableLeakTracking()` in each
   `testExecutable`): a file fails when a widget test leaves a notifier,
-  controller, layer, image or animation undisposed. A leak from `lib/` is
-  fixed in `lib/` (QUAL-06); a test disposes what it creates, through
-  `addTearDown` or a helper that does (`pixivRouter`,
+  controller, layer, image frame (`ImageInfo`) or animation undisposed. A
+  leak from `lib/` is fixed in `lib/` (QUAL-06); a test disposes what it
+  creates, through `addTearDown` or a helper that does (`pixivRouter`,
   `stalledImageWorker`). A leak nobody here can fix is ignored by class,
   with its reason: in `test/helpers/leak_tracking.dart` for one that comes
-  from a package everywhere or lives as long as the app, at the top of a
-  file's `main` for one only that file meets (`ignoreOctoImageFades`, the
-  modal sheet's drag curve, the `paints` matcher's layers). Each case ends
-  with an empty image cache, live entries included: loads the fakes never
-  answer stay pending, so a listener left on an image stream is not caught.
+  from a package or Flutter everywhere or lives as long as the app, at the
+  top of a file's `main` for one only that file meets
+  (`ignoreOctoImageFades`, the modal sheet's drag curve, the `paints`
+  matcher's layers). Each case ends with an empty image cache, live
+  entries included: loads the fakes never answer stay pending, so a
+  listener left on an image stream is not caught. A bare `ui.Image` is not
+  tracked either: Flutter drops a frame whose decode outlives its
+  completer, in whichever case runs then, so one the app makes itself
+  (`toImageSync`) has only its owner's `dispose`.
 - **Why:** Nothing reported an undisposed object. The image worker never
   disposed its load count, the novel reader's bars built an animation on
   every build, the viewer's zoom curve and every page's removal controller
   outlived their pages, and the image progress listener dropped the frame
   it was handed without disposing it. Filtering out objects created by
   test helpers keeps a creation stack for every tracked object, which ran
-  the full suite out of its 8G cap.
+  the full suite out of its 8G cap. A frame Flutter dropped after an
+  earlier case's decode failed a later case, on CI only.
 - **Check:** `test/helpers/leak_tracking.dart` "LeakTesting.enable" "clearLiveImages"
 - **Code:** `test/helpers/leak_tracking.dart`, `test/flutter_test_config.dart`, `test/locale_layout/flutter_test_config.dart`
