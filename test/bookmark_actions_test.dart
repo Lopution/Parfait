@@ -1,29 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_actions.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
-import 'package:parfait/core/network/api_error.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/bookmark_world.dart';
-import 'helpers/fake_account.dart';
 
 const _key = BookmarkKey(BookmarkEntityType.illust, 1);
 
-/// The real actions and store over a recording repository — the network
-/// boundary is the only fake.
-Future<(ProviderContainer, RecordingBookmarkRepository)> _world() async {
-  final repository = RecordingBookmarkRepository();
-  final container = ProviderContainer.test(
-    overrides: [
-      accountStoreProvider.overrideWith(StubAccountStore.new),
-      bookmarkRepositoryProvider.overrideWithValue(repository),
-    ],
-  );
-  await container.read(accountStoreProvider.future);
-  return (container, repository);
+/// The real actions, store and repository over the bookmark endpoints.
+Future<(ProviderContainer, BookmarkApi)> _world() async {
+  final repository = BookmarkApi();
+  return (await bookmarkWorld(repository), repository);
 }
 
 void main() {
@@ -36,7 +25,7 @@ void main() {
       tags: const ['a', 'b'],
     );
     // A lookup would fail and leave nothing to restore.
-    repository.detailError = const ApiHttpError(500);
+    repository.detailFailure = failing(500);
 
     await actions.toggle(_key);
     await actions.toggle(_key);
@@ -83,7 +72,7 @@ void main() {
     container
         .read(bookmarkStoreProvider.notifier)
         .observeRemote(_key, bookmarked: true);
-    repository.detailError = const ApiHttpError(500);
+    repository.detailFailure = failing(500);
     final actions = container.read(bookmarkActionsProvider);
 
     await actions.toggle(_key);

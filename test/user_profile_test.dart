@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/user/follow_actions.dart';
@@ -28,6 +27,8 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
 import 'package:parfait/features/profile/user_series_feed.dart';
 
+import 'helpers/api_responses.dart';
+import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
@@ -105,7 +106,7 @@ Future<void> _pumpProfile(
   await tester.pumpAndSettle();
 }
 
-List<IllustEntity> _works(int count) =>
+List<Map<String, dynamic>> _works(int count) =>
     List.generate(count, (index) => _illust(index + 1));
 
 List<String> _tabLabels(WidgetTester tester) => [
@@ -144,7 +145,7 @@ void main() {
     'follow action exposes pending state and commits through the store',
     () async {
       final gate = Completer<void>();
-      final repository = FakeFollowRepository()..gate = gate;
+      final repository = FollowApi()..gate = gate;
       final container = await makeProfileWorld(follows: repository);
       final userStore = container.read(userStoreProvider.notifier);
       userStore.mergeAll([sampleUser(42)]);
@@ -167,8 +168,7 @@ void main() {
   test(
     'follow failure restores confirmed state and records the error',
     () async {
-      final repository = FakeFollowRepository()
-        ..failure = StateError('offline');
+      final repository = FollowApi()..failure = failing(400);
       final container = await makeProfileWorld(follows: repository);
       final userStore = container.read(userStoreProvider.notifier);
       userStore.mergeAll([sampleUser(42)]);
@@ -177,7 +177,7 @@ void main() {
       final entry = container.read(followStoreProvider)[42]!;
       expect(entry.followed, isFalse);
       expect(entry.isPending, isFalse);
-      expect(entry.error, isA<StateError>());
+      expect(entry.error, isA<ApiHttpError>());
     },
   );
 
@@ -555,9 +555,7 @@ void main() {
   testWidgets(
     'stale profile error banner can be dismissed without hiding the snapshot',
     (tester) async {
-      final repository = FakeUserRepository(
-        detailFailure: const ApiNetworkError('offline'),
-      );
+      final repository = UserApi(detailFailure: offline);
       final container = await makeProfileWorld(users: repository);
       container.read(userStoreProvider.notifier).mergeAll([sampleUser(42)]);
       await _pumpProfile(tester, container);
@@ -586,7 +584,7 @@ void main() {
 
   testWidgets('work tabs follow the types a user has; each list shows its '
       'total', (tester) async {
-    final repository = FakeUserRepository(
+    final repository = UserApi(
       detail: sampleUser(42).copyWith(
         totalIllusts: 12345,
         totalNovels: 3,
@@ -637,7 +635,7 @@ void main() {
   });
 
   testWidgets('a long tag list sends the rest to the tag page', (tester) async {
-    final bookmarks = RecordingBookmarkRepository()
+    final bookmarks = BookmarkApi()
       ..tagPage = UserBookmarkTagPage(
         tags: [
           for (var i = 0; i < 11; i++)
@@ -646,9 +644,7 @@ void main() {
         nextUrl: null,
       );
     final container = await makeProfileWorld(
-      users: FakeUserRepository(
-        detail: sampleUser(100).copyWith(hasDetail: true),
-      ),
+      users: UserApi(detail: sampleUser(100).copyWith(hasDetail: true)),
       bookmarks: bookmarks,
     );
     await tester.pumpWidget(
@@ -673,7 +669,7 @@ void main() {
   testWidgets('a profile without works opens on its first other tab', (
     tester,
   ) async {
-    final repository = FakeUserRepository(
+    final repository = UserApi(
       detail: sampleUser(42).copyWith(hasDetail: true),
     );
     final container = await makeProfileWorld(users: repository);
@@ -691,7 +687,7 @@ void main() {
   testWidgets('a tab that disappears on refresh falls back to the first', (
     tester,
   ) async {
-    final repository = FakeUserRepository(
+    final repository = UserApi(
       detail: sampleUser(
         42,
       ).copyWith(totalIllusts: 2, totalManga: 2, hasDetail: true),
@@ -722,7 +718,7 @@ void main() {
   testWidgets('profile stats open their tabs and keep myPixiv read-only', (
     tester,
   ) async {
-    final repository = FakeUserRepository(
+    final repository = UserApi(
       detail: sampleUser(42).copyWith(
         totalFollowUsers: 11,
         totalMyPixivUsers: 12,
@@ -808,7 +804,7 @@ void main() {
   ) async {
     // The expanded header and tabs end at 344: the tab gets a 16dp strip.
     setViewSize(tester, const Size(816, 360));
-    final repository = FakeUserRepository(
+    final repository = UserApi(
       works: _works(30),
       detail: sampleUser(42).copyWith(totalIllusts: 30, hasDetail: true),
     );
@@ -823,7 +819,7 @@ void main() {
 
   testWidgets('header height tracks the drag without jumps', (tester) async {
     setViewSize(tester, const Size(360, 640));
-    final repository = FakeUserRepository(works: _works(30));
+    final repository = UserApi(works: _works(30));
     final container = await makeProfileWorld(users: repository);
     await tester.pumpWidget(
       localizedApp(
@@ -927,7 +923,7 @@ void main() {
     (tester) async {
       setViewSize(tester, const Size(360, 640));
       for (final speed in [300.0, 600.0]) {
-        final repository = FakeUserRepository(works: _works(30));
+        final repository = UserApi(works: _works(30));
         final container = await makeProfileWorld(users: repository);
         await _pumpProfile(
           tester,
@@ -987,7 +983,7 @@ void main() {
     'a light pull-down while the header is collapsing keeps it expanding',
     (tester) async {
       setViewSize(tester, const Size(360, 640));
-      final repository = FakeUserRepository(works: _works(30));
+      final repository = UserApi(works: _works(30));
       final container = await makeProfileWorld(users: repository);
       await _pumpProfile(
         tester,
@@ -1035,7 +1031,7 @@ void main() {
 
   testWidgets('a pull at the very top still pulls to refresh', (tester) async {
     setViewSize(tester, const Size(360, 640));
-    final repository = FakeUserRepository(works: _works(30));
+    final repository = UserApi(works: _works(30));
     final container = await makeProfileWorld(users: repository);
     await _pumpProfile(
       tester,
@@ -1069,7 +1065,7 @@ void main() {
     'a reversed pull retracts the indicator before the header collapses',
     (tester) async {
       setViewSize(tester, const Size(360, 640));
-      final repository = FakeUserRepository(works: _works(30));
+      final repository = UserApi(works: _works(30));
       final container = await makeProfileWorld(users: repository);
       await _pumpProfile(
         tester,
@@ -1123,7 +1119,7 @@ void main() {
     tester,
   ) async {
     setViewSize(tester, const Size(360, 640));
-    final repository = FakeUserRepository(works: _works(30));
+    final repository = UserApi(works: _works(30));
     final container = await makeProfileWorld(users: repository);
     await _pumpProfile(
       tester,
@@ -1164,7 +1160,7 @@ void main() {
   testWidgets(
     'each tab scrolls on its own; re-tap rewinds only the selected one',
     (tester) async {
-      final repository = FakeUserRepository(
+      final repository = UserApi(
         works: _works(36),
         bookmarks: List.generate(36, (index) => _illust(100 + index)),
       );
@@ -1257,7 +1253,7 @@ void main() {
       addTearDown(() {
         if (!gate.isCompleted) gate.complete();
       });
-      final repository = FakeUserRepository()..detailGate = gate;
+      final repository = UserApi()..detailGate = gate;
       final container = await makeProfileWorld(users: repository);
 
       // Push the page so canPop is true — the skeleton's BackButton is a
@@ -1323,7 +1319,7 @@ void main() {
       pawooUrl: 'https://pawoo.test/sample',
     );
     final container = await makeProfileWorld(
-      users: FakeUserRepository(detail: user),
+      users: UserApi(detail: user),
       outboundUrlOpener: opener,
     );
     await _pumpProfile(tester, container);
@@ -1367,8 +1363,14 @@ void main() {
   testWidgets(
     'header tabs and actions stay mounted while the work feed fails',
     (tester) async {
-      final repository = FakeUserRepository(
-        worksFailure: ApiNetworkError(StateError('offline')),
+      final repository = UserApi(
+        detail: sampleUser(42).copyWith(
+          totalIllusts: 1,
+          totalManga: 1,
+          totalNovels: 1,
+          totalIllustSeries: 1,
+        ),
+        worksFailure: offline,
       );
       final container = await makeProfileWorld(users: repository);
       await _pumpProfile(tester, container);
@@ -1387,32 +1389,7 @@ void main() {
   );
 }
 
-IllustEntity _illust(int id) => IllustEntity(
-  id: id,
-  title: 'work $id',
-  type: IllustType.illust,
-  imageUrls: const IllustImageUrls(
-    squareMedium: 'https://i.pximg.net/square.png',
-    medium: 'https://i.pximg.net/medium.png',
-    large: 'https://i.pximg.net/large.png',
-  ),
-  caption: '',
-  user: const IllustUser(
-    id: 42,
-    name: 'sample user',
-    account: 'sample',
-    profileImageUrl: null,
-  ),
-  tags: const [],
-  pageCount: 1,
-  width: 300,
-  height: 400,
-  xRestrict: 0,
-  aiType: 0,
-  isBookmarked: false,
-  totalView: 1,
-  totalBookmarks: 1,
-);
+Map<String, dynamic> _illust(int id) => illustJson(id, width: 300, height: 400);
 
 Map<String, dynamic> _detailJson() => {
   'user': {

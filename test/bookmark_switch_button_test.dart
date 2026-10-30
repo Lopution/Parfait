@@ -7,29 +7,25 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/recording_haptics.dart';
 import 'helpers/bookmark_world.dart';
-import 'helpers/fake_account.dart';
+import 'helpers/api_responses.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 
-Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
+Future<(ProviderContainer, BookmarkApi)> _pump(
   WidgetTester tester, {
   Widget? child,
 }) async {
-  final repository = RecordingBookmarkRepository();
-  final container = ProviderContainer.test(
-    overrides: [
-      accountStoreProvider.overrideWith(
-        () => StubAccountStore(accounts: stubAccountPair),
-      ),
-      bookmarkRepositoryProvider.overrideWithValue(repository),
-    ],
+  final repository = BookmarkApi();
+  final container = await bookmarkWorld(
+    repository,
+    others: const [Account(id: '200', userId: 200, name: 'b')],
   );
   await tester.pumpWidget(
     localizedApp(
@@ -41,10 +37,6 @@ Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
       ),
     ),
   );
-  // Mutation envelopes require a resolved authenticated boundary.  Wait for
-  // the async account fixture before exercising the button; a single frame
-  // only starts AccountStore.build().
-  await container.read(accountStoreProvider.future);
   await tester.pumpAndSettle();
   return (container, repository);
 }
@@ -120,7 +112,7 @@ void main() {
     // the tap's haptic and the failure's.
     await tester.runAsync(() => Future<void>.delayed(AppHaptics.heavyInterval));
     final gate = repository.addGate = Completer<void>();
-    repository.addError = StateError('boom');
+    repository.addFailure = failing(400);
     await tester.tap(find.byType(BookmarkSwitchButton));
     await tester.pump();
     expect(haptics.roles.last, HapticRole.success, reason: 'felt on the tap');
@@ -169,7 +161,7 @@ void main() {
   testWidgets('a failed add rolls the heart back and says why', (tester) async {
     final (_, repository) = await _pump(tester);
     final gate = repository.addGate = Completer<void>();
-    repository.addError = StateError('boom');
+    repository.addFailure = failing(400);
 
     await tester.tap(find.byType(BookmarkSwitchButton));
     await tester.pump();
@@ -225,7 +217,7 @@ void main() {
   ) async {
     final (container, repository) = await _pump(tester);
     const key = BookmarkKey(BookmarkEntityType.illust, 1);
-    repository.detailGate = Completer<BookmarkDetail>();
+    repository.detailGate = Completer<void>();
     repository.detail = const BookmarkDetail(
       isBookmarked: true,
       restrict: BookmarkRestrict.private,
@@ -255,7 +247,7 @@ void main() {
 
     // The arriving detail fully populates the persisted state and editing
     // resumes.
-    repository.detailGate!.complete(repository.detail);
+    repository.detailGate!.complete();
     await tester.pumpAndSettle();
     expect(_privateSwitch(tester).onChanged, isNotNull);
     expect(_privateSwitch(tester).value, isTrue);
@@ -412,8 +404,7 @@ void main() {
   ) async {
     final haptics = recordHaptics();
     final (container, repository) = await _pump(tester);
-    final accounts =
-        container.read(accountStoreProvider.notifier) as StubAccountStore;
+    final accounts = container.read(accountStoreProvider.notifier);
     const key = BookmarkKey(BookmarkEntityType.illust, 1);
     // Closed during the submit: the outcome is still felt. Then across a
     // switch, and back again: the entry the store holds for the key by
@@ -429,7 +420,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('确定'));
       await tester.pump();
-      switches.forEach(accounts.switchCurrentTo);
+      for (final id in switches) {
+        await accounts.switchAccount(id);
+      }
       if (switches.isEmpty) {
         tester.state<NavigatorState>(find.byType(Navigator)).pop();
       } else {
@@ -450,7 +443,7 @@ void main() {
         tester.state<NavigatorState>(find.byType(Navigator)).pop();
         await tester.pumpAndSettle();
       }
-      accounts.switchCurrentTo('100');
+      await accounts.switchAccount('100');
       await tester.pumpAndSettle();
     }
   });
@@ -459,7 +452,7 @@ void main() {
     tester,
   ) async {
     final (_, repository) = await _pump(tester);
-    repository.addError = StateError('boom');
+    repository.addFailure = failing(400);
 
     await tester.longPress(find.byType(BookmarkSwitchButton));
     await tester.pumpAndSettle();
@@ -473,21 +466,23 @@ void main() {
     await tester.pumpAndSettle();
 
     // Sheet stays open, the inline error is visible, and the draft is
-    // untouched — nothing was submitted.
+    // untouched.
     expect(find.text('收藏插画'), findsOneWidget);
     expect(find.textContaining('收藏操作失败'), findsWidgets);
-    expect(repository.adds, isEmpty);
+    expect(repository.adds, hasLength(1));
     expect(_privateSwitch(tester).value, isTrue);
     expect(find.text('新タグ'), findsOneWidget);
 
     // Retrying after the repository recovers submits the same draft.
-    repository.addError = null;
+    repository.addFailure = null;
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
     expect(find.text('收藏插画'), findsNothing);
-    expect(repository.adds, hasLength(1));
-    expect(repository.adds.single.$2, 'private');
-    expect(repository.adds.single.$3, ['新タグ']);
+    expect(repository.adds, hasLength(2));
+    for (final (_, restrict, tags) in repository.adds) {
+      expect(restrict, 'private');
+      expect(tags, ['新タグ']);
+    }
   });
 
   testWidgets('residual tag input text merges into the submitted tags', (

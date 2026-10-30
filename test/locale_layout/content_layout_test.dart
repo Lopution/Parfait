@@ -154,9 +154,9 @@ void main() {
       profile,
     ) async {
       final container = await makeProfileWorld(
-        users: FakeUserRepository(
+        users: UserApi(
           detail: _author,
-          works: [for (var id = 1; id <= 6; id++) parseIllust(illustJson(id))],
+          works: [for (var id = 1; id <= 6; id++) illustJson(id)],
         ),
       );
       await _pumpChecked(

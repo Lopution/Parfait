@@ -10,48 +10,59 @@ import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_recovery.dart';
 import 'package:parfait/core/download/download_sink.dart';
-import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/profile/author_works_download_dialog.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/download_world.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/profile_world.dart';
 
-/// Serves scripted works pages per type, in order.
-class _PagedWorksRepository implements UserRepository {
-  final pages = <UserWorkType, List<UserIllustPage>>{
-    UserWorkType.illust: [],
-    UserWorkType.manga: [],
+/// The App API's user works, scripted per type: each request answers its
+/// type's next page, chained to the one after it by `next_url`. [calls]
+/// logs each request's type and offset.
+class _WorksPages {
+  final pages = <String, List<List<Map<String, dynamic>>>>{
+    'illust': [],
+    'manga': [],
   };
-  final calls = <(UserWorkType, String?)>[];
-  CancelToken? lastToken;
+  final calls = <(String, String?)>[];
 
-  void script(UserWorkType type, List<UserIllustPage> scripted) {
+  /// When set, answers wait on it — a request still in flight.
+  Completer<void>? gate;
+
+  void script(String type, List<List<Map<String, dynamic>>> scripted) {
     pages[type]!.addAll(scripted);
   }
 
-  @override
-  Future<UserIllustPage> fetchWorks(
-    int userId, {
-    required UserWorkType type,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    calls.add((type, cursor));
-    lastToken = cancelToken;
-    final queue = pages[type]!;
-    if (queue.isEmpty) {
-      throw StateError('no scripted page for $type cursor=$cursor');
-    }
-    return queue.removeAt(0);
-  }
+  Map<String, ApiRoute> get routes => {
+    '/v1/user/illusts': (request) async {
+      final query = request.url.queryParameters;
+      final type = query['type']!;
+      calls.add((type, query['offset']));
+      await gate?.future;
+      final queue = pages[type]!;
+      if (queue.isEmpty) throw StateError('no scripted page for $type');
+      final page = queue.removeAt(0);
+      final offset = int.parse(query['offset'] ?? '0') + page.length;
+      return jsonResponse({
+        'illusts': page,
+        'next_url': queue.isEmpty
+            ? null
+            : request.url
+                  .replace(queryParameters: {...query, 'offset': '$offset'})
+                  .toString(),
+      });
+    },
+  };
 
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('${invocation.memberName}');
+  /// An enumerator over the app's user repository on these pages.
+  Future<AuthorWorksEnumerator> enumerator() async =>
+      AuthorWorksEnumerator(await userRepositoryOver(routes));
 }
 
 /// Holds caption sidecars at the sink until [gate] opens, so a submission
@@ -76,75 +87,77 @@ class _HeldRawSinks extends MemorySinkFactory {
   }
 }
 
-UserIllustPage _page(List<IllustEntity> illusts, {String? next}) =>
-    UserIllustPage(illusts: illusts, nextUrl: next);
-
-IllustEntity _work(int id, {String type = 'illust', int pageCount = 1}) =>
-    parseIllust(
-      illustJson(
-        id,
-        type: type,
-        pageCount: pageCount,
-        withMetaPages: pageCount > 1,
-        withMetaSinglePage: pageCount == 1,
-      ),
-    );
+Map<String, dynamic> _work(
+  int id, {
+  String type = 'illust',
+  int pageCount = 1,
+}) => illustJson(
+  id,
+  type: type,
+  pageCount: pageCount,
+  withMetaPages: pageCount > 1,
+  withMetaSinglePage: pageCount == 1,
+);
 
 void main() {
   group('AuthorWorksEnumerator', () {
     test('walks illust then manga cursors and skips ugoira', () async {
-      final repository = _PagedWorksRepository()
-        ..script(UserWorkType.illust, [
-          _page([_work(1), _work(2, type: 'ugoira')], next: 'next-illust'),
-          _page([_work(3)]),
+      final repository = _WorksPages()
+        ..script('illust', [
+          [_work(1), _work(2, type: 'ugoira')],
+          [_work(3)],
         ])
-        ..script(UserWorkType.manga, [
-          _page([_work(4, pageCount: 3)]),
+        ..script('manga', [
+          [_work(4, pageCount: 3)],
         ]);
       final progress = <int>[];
 
-      final result = await AuthorWorksEnumerator(
-        repository,
-      ).enumerate(42, onProgress: progress.add);
+      final result = await (await repository.enumerator()).enumerate(
+        42,
+        onProgress: progress.add,
+      );
 
       expect(result.truncated, isFalse);
       expect([for (final w in result.works) w.id], [1, 3, 4]);
       // Cursors chain per type; both types are enumerated.
       expect(repository.calls, [
-        (UserWorkType.illust, null),
-        (UserWorkType.illust, 'next-illust'),
-        (UserWorkType.manga, null),
+        ('illust', null),
+        ('illust', '2'),
+        ('manga', null),
       ]);
       expect(progress, [1, 2, 3]);
     });
 
     test('stops at the hard cap and reports truncation', () async {
-      final repository = _PagedWorksRepository()
-        ..script(UserWorkType.illust, [
+      final repository = _WorksPages()
+        ..script('illust', [
           for (var page = 0; page < 40; page++)
-            _page([
-              for (var i = 0; i < 60; i++) _work(page * 60 + i + 1),
-            ], next: 'cursor-$page'),
+            [for (var i = 0; i < 60; i++) _work(page * 60 + i + 1)],
         ]);
-      final result = await AuthorWorksEnumerator(repository).enumerate(7);
+      final result = await (await repository.enumerator()).enumerate(7);
 
       expect(result.works, hasLength(AuthorWorksEnumerator.maxWorks));
       expect(result.truncated, isTrue);
     });
 
-    test('propagates the cancel token to in-flight requests', () async {
-      final repository = _PagedWorksRepository()
-        ..script(UserWorkType.illust, [
-          _page([_work(1)]),
-        ])
-        ..script(UserWorkType.manga, [
-          _page([_work(2)]),
+    test('the cancel token cancels the request in flight', () async {
+      final gate = Completer<void>();
+      final repository = _WorksPages()
+        ..gate = gate
+        ..script('illust', [
+          [_work(1)],
         ]);
       final token = CancelToken();
 
-      await AuthorWorksEnumerator(repository).enumerate(5, cancelToken: token);
+      final enumeration = (await repository.enumerator()).enumerate(
+        5,
+        cancelToken: token,
+      );
+      await pumpEventQueue();
+      token.cancel();
 
-      expect(repository.lastToken, same(token));
+      await expectLater(enumeration, throwsA(isA<ApiCancelled>()));
+      gate.complete();
     });
   });
 
@@ -154,8 +167,9 @@ void main() {
 
     Future<(ProviderContainer, DownloadManager)> pumpDialog(
       WidgetTester tester,
-      _PagedWorksRepository repository,
+      _WorksPages repository,
     ) async {
+      final enumerator = await repository.enumerator();
       sinks = _HeldRawSinks();
       final manager = DownloadManager(
         transport: FakeTransport()
@@ -185,10 +199,8 @@ void main() {
       );
       dialogResult = showDialog<int>(
         context: tester.element(find.text('author page')),
-        builder: (_) => AuthorWorksDownloadDialog(
-          userId: 9,
-          enumerator: AuthorWorksEnumerator(repository),
-        ),
+        builder: (_) =>
+            AuthorWorksDownloadDialog(userId: 9, enumerator: enumerator),
       );
       await tester.pump();
       return (container, manager);
@@ -197,11 +209,11 @@ void main() {
     testWidgets('confirm submits one group covering every page', (
       tester,
     ) async {
-      final repository = _PagedWorksRepository()
-        ..script(UserWorkType.illust, [
-          _page([_work(1), _work(2, pageCount: 2)]),
+      final repository = _WorksPages()
+        ..script('illust', [
+          [_work(1), _work(2, pageCount: 2)],
         ])
-        ..script(UserWorkType.manga, [_page(const [])]);
+        ..script('manga', [[]]);
       final (_, manager) = await pumpDialog(tester, repository);
       await tester.pumpAndSettle();
 
@@ -232,11 +244,11 @@ void main() {
     testWidgets('a submit that ends under another page closes the dialog', (
       tester,
     ) async {
-      final repository = _PagedWorksRepository()
-        ..script(UserWorkType.illust, [
-          _page([_work(1)]),
+      final repository = _WorksPages()
+        ..script('illust', [
+          [_work(1)],
         ])
-        ..script(UserWorkType.manga, [_page(const [])]);
+        ..script('manga', [[]]);
       await pumpDialog(tester, repository);
       await tester.pumpAndSettle();
       await tester.tap(find.text('确定'));
@@ -265,12 +277,12 @@ void main() {
     testWidgets('cancel during enumeration pops without submitting', (
       tester,
     ) async {
-      final repository = _PagedWorksRepository()
-        ..script(UserWorkType.illust, [
-          _page([_work(1)]),
+      final repository = _WorksPages()
+        ..script('illust', [
+          [_work(1)],
         ])
-        ..script(UserWorkType.manga, [
-          _page([_work(2)]),
+        ..script('manga', [
+          [_work(2)],
         ]);
       final (_, manager) = await pumpDialog(tester, repository);
 

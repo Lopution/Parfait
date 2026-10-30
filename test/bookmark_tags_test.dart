@@ -4,20 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_tags_controller.dart';
 import 'package:parfait/core/network/api_error.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/api_responses.dart';
+import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
-import 'dart:async';
-import 'package:parfait/core/entity/illust_entity.dart';
+import 'helpers/illust_fixtures.dart';
+import 'helpers/profile_world.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/profile/profile_feed_controller.dart';
@@ -28,82 +26,31 @@ import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/localized_app.dart';
 
-class _RecordingUserRepository implements UserRepository {
-  final requests = <({int userId, UserRestrict restrict, String? tag})>[];
-
-  /// When set, every bookmark fetch awaits it — holds the feed's initial
-  /// load in flight.
-  Completer<void>? pendingFetch;
-
-  final works = [
+/// Two bookmarked works with tags, for the bookmark tag feed.
+UserApi _users() => UserApi(
+  bookmarks: [
     _illust(1, 'Blue Sky', [
-      const IllustTag(name: '空', translatedName: 'blue'),
+      {'name': '空', 'translated_name': 'blue'},
     ]),
-    _illust(2, 'Sakura', [const IllustTag(name: '花')]),
-  ];
+    _illust(2, 'Sakura', [
+      {'name': '花'},
+    ]),
+  ],
+);
 
-  @override
-  Future<UserIllustPage> fetchBookmarks(
-    int userId, {
-    required UserRestrict restrict,
-    String? tag,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add((userId: userId, restrict: restrict, tag: tag));
-    await pendingFetch?.future;
-    return UserIllustPage(illusts: works, nextUrl: null);
-  }
+Map<String, dynamic> _illust(
+  int id,
+  String title,
+  List<Map<String, dynamic>> tags,
+) => {...illustJson(id, bookmarked: true), 'title': title, 'tags': tags};
 
-  @override
-  bool validateBookmarksCursor(
-    int userId, {
-    required UserRestrict restrict,
-    String? tag,
-    required String cursor,
-  }) => false;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-IllustEntity _illust(int id, String title, List<IllustTag> tags) =>
-    IllustEntity(
-      id: id,
-      title: title,
-      type: IllustType.illust,
-      imageUrls: IllustImageUrls(
-        squareMedium: 'https://example.test/$id-square.png',
-        medium: 'https://example.test/$id-medium.png',
-        large: 'https://example.test/$id-large.png',
-      ),
-      caption: '',
-      user: const IllustUser(
-        id: 200,
-        name: 'artist',
-        account: 'artist',
-        profileImageUrl: null,
-      ),
-      tags: tags,
-      pageCount: 1,
-      width: 400,
-      height: 400,
-      xRestrict: 0,
-      aiType: 0,
-      isBookmarked: true,
-      totalView: 1,
-      totalBookmarks: 1,
-    );
-
-ProviderContainer _makeContainer(_RecordingUserRepository repository) =>
-    ProviderContainer.test(
-      overrides: [
-        accountStoreProvider.overrideWith(StubAccountStore.new),
-        feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
-        userRepositoryProvider.overrideWithValue(repository),
-        illustStoreProvider.overrideWithValue(IllustStore()),
-      ],
-    );
+Future<ProviderContainer> _makeContainer(UserApi users) => signedInApiContainer(
+  PixivApi({...backgroundRoutes, ...users.routes}).client,
+  overrides: [
+    feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
+    illustStoreProvider.overrideWithValue(IllustStore()),
+  ],
+);
 
 Widget _testApp(ProviderContainer container, Widget home) =>
     localizedApp(container: container, home: home);
@@ -384,14 +331,8 @@ void main() {
   testWidgets('BookmarkTagsPage lists each visibility in its own tab', (
     tester,
   ) async {
-    final repository = _FakeTagRepository();
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    final container = ProviderContainer.test(
-      overrides: [
-        accountStoreProvider.overrideWith(StubAccountStore.new),
-        bookmarkRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
+    final repository = BookmarkApi()..tagPage = _procreate;
+    final container = await bookmarkWorld(repository);
     await tester.pumpWidget(
       localizedApp(container: container, home: BookmarkTagsPage()),
     );
@@ -400,9 +341,9 @@ void main() {
     expect(find.text('收藏标签'), findsOneWidget);
     expect(find.text('procreate'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
-    expect(repository.requests, ['tags:100:public']);
+    expect(repository.tagRequests, ['tags:100:public']);
 
-    repository.page = const UserBookmarkTagPage(
+    repository.tagPage = const UserBookmarkTagPage(
       tags: [UserBookmarkTag(name: 'hidden', count: 2)],
       nextUrl: null,
     );
@@ -412,7 +353,7 @@ void main() {
 
     expect(find.text('hidden'), findsOneWidget);
     expect(find.text('procreate'), findsNothing);
-    expect(repository.requests.last, 'tags:100:private');
+    expect(repository.tagRequests.last, 'tags:100:private');
     expect(find.text('已显示全部标签'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
@@ -420,26 +361,21 @@ void main() {
     await tester.fling(find.text('hidden'), const Offset(400, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('procreate'), findsOneWidget);
-    expect(repository.requests, ['tags:100:public', 'tags:100:private']);
+    expect(repository.tagRequests, ['tags:100:public', 'tags:100:private']);
   });
 
   testWidgets('BookmarkTagsPage retries a failed load-more request', (
     tester,
   ) async {
-    final repository = _FakeTagRepository()
-      ..page = const UserBookmarkTagPage(
-        tags: [UserBookmarkTag(name: 'procreate', count: 5)],
+    final repository = BookmarkApi()
+      ..tagPage = UserBookmarkTagPage(
+        tags: _procreate.tags,
         nextUrl:
             'https://app-api.pixiv.net/v1/user/bookmark-tags/illust'
             '?user_id=100&restrict=public&offset=30',
       )
-      ..loadMoreFailure = StateError('temporary failure');
-    final container = ProviderContainer.test(
-      overrides: [
-        accountStoreProvider.overrideWith(StubAccountStore.new),
-        bookmarkRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
+      ..tagsNextFailure = failing(500);
+    final container = await bookmarkWorld(repository);
     const query = (BookmarkEntityType.illust, BookmarkRestrict.public);
 
     await container.read(userBookmarkTagsProvider(query).future);
@@ -451,12 +387,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('加载更多失败'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
-    expect(repository.requests, ['tags:100:public', 'tags:100:public:next']);
+    expect(repository.tagRequests, ['tags:100:public', 'tags:100:public:next']);
 
     await tester.tap(find.text('重试'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 10));
-    expect(repository.requests, [
+    expect(repository.tagRequests, [
       'tags:100:public',
       'tags:100:public:next',
       'tags:100:public:next',
@@ -467,8 +403,8 @@ void main() {
     testWidgets('bookmark tag feed labels range and isolates hero scope', (
       tester,
     ) async {
-      final repository = _RecordingUserRepository();
-      final container = _makeContainer(repository);
+      final repository = _users();
+      final container = await _makeContainer(repository);
 
       await tester.pumpWidget(
         _testApp(
@@ -483,9 +419,7 @@ void main() {
 
       expect(find.text('draw'), findsOneWidget);
       expect(find.text('私密'), findsOneWidget);
-      expect(repository.requests, [
-        (userId: 100, restrict: UserRestrict.private, tag: 'draw'),
-      ]);
+      expect(repository.requests, ['bookmarks:100:private:draw']);
       final taggedScope = tester
           .widget<IllustCard>(find.byType(IllustCard).first)
           .heroScope;
@@ -514,8 +448,8 @@ void main() {
     testWidgets('bookmark tag filter only changes loaded works locally', (
       tester,
     ) async {
-      final repository = _RecordingUserRepository();
-      final container = _makeContainer(repository);
+      final repository = _users();
+      final container = await _makeContainer(repository);
 
       await tester.pumpWidget(
         _testApp(
@@ -547,52 +481,29 @@ void main() {
       expect(repository.requests, hasLength(1));
     });
 
-    test('the untagged list and a tag spelled null keep apart snapshots', () {
-      final container = _makeContainer(_RecordingUserRepository());
-      String snapshotKey(String? tag) => container
-          .read(
-            profileIllustFeedProvider(
-              ProfileFeedKey(
-                userId: 100,
-                kind: ProfileFeedKind.bookmarks,
-                bookmarkTag: tag,
-              ),
-            ).notifier,
-          )
-          .feedKey;
+    test(
+      'the untagged list and a tag spelled null keep apart snapshots',
+      () async {
+        final container = await _makeContainer(_users());
+        String snapshotKey(String? tag) => container
+            .read(
+              profileIllustFeedProvider(
+                ProfileFeedKey(
+                  userId: 100,
+                  kind: ProfileFeedKind.bookmarks,
+                  bookmarkTag: tag,
+                ),
+              ).notifier,
+            )
+            .feedKey;
 
-      expect(snapshotKey(null), isNot(snapshotKey('null')));
-    });
+        expect(snapshotKey(null), isNot(snapshotKey('null')));
+      },
+    );
   });
 }
 
-class _FakeTagRepository implements BookmarkRepository {
-  final requests = <String>[];
-  Object? loadMoreFailure;
-  UserBookmarkTagPage page = const UserBookmarkTagPage(
-    tags: [UserBookmarkTag(name: 'procreate', count: 5)],
-    nextUrl: null,
-  );
-
-  @override
-  Future<UserBookmarkTagPage> fetchUserTags(
-    int userId, {
-    required BookmarkEntityType entityType,
-    required BookmarkRestrict restrict,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(
-      'tags:$userId:${restrict.name}${cursor == null ? '' : ':next'}',
-    );
-    if (cursor != null) {
-      final error = loadMoreFailure;
-      if (error != null) throw error;
-    }
-    return page;
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('${invocation.memberName}');
-}
+const _procreate = UserBookmarkTagPage(
+  tags: [UserBookmarkTag(name: 'procreate', count: 5)],
+  nextUrl: null,
+);

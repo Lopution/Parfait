@@ -9,41 +9,22 @@ import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/core/user/follow_models.dart';
-import 'package:parfait/core/user/follow_repository.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/localized_app.dart';
 
-Future<ProviderContainer> _world({FollowRepository? follows}) async {
-  await seedAccounts([
-    const Account(id: '100', userId: 100, name: 'me'),
-  ], currentId: '100');
-  final container = ProviderContainer.test(
-    overrides: [
-      if (follows != null) followRepositoryProvider.overrideWithValue(follows),
-      ...accountProviderOverrides(
-        credentialStore: FakeCredentialStore(
-          values: const {
-            '100': Credential(
-              accessToken: 'access-1',
-              refreshToken: 'refresh-1',
-            ),
-          },
-        ),
-      ),
-    ],
-  );
-  await container.read(accountStoreProvider.future);
-  return container;
-}
+Future<ProviderContainer> _world({required FollowApi follows}) =>
+    signedInApiContainer(
+      PixivApi(follows.routes).client,
+      account: const Account(id: '100', userId: 100, name: 'me'),
+    );
 
 Future<void> _pump(
   WidgetTester tester,
@@ -106,7 +87,7 @@ void main() {
   testWidgets('a follow pops the button with success; an unfollow is '
       'quiet; a failure adds an error', (tester) async {
     final haptics = recordHaptics();
-    final follows = FakeFollowRepository();
+    final follows = FollowApi();
     final container = await _world(follows: follows);
     await _pump(
       tester,
@@ -148,7 +129,7 @@ void main() {
     expect(haptics.roles, [HapticRole.success, HapticRole.select]);
 
     await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
-    follows.failure = StateError('boom');
+    follows.failure = failing(400);
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pumpAndSettle();
     expect(haptics.roles, [
@@ -161,7 +142,7 @@ void main() {
 
   testWidgets('the button flips before the server answers and rolls back on '
       'failure', (tester) async {
-    final follows = FakeFollowRepository();
+    final follows = FollowApi();
     final container = await _world(follows: follows);
     await _pump(
       tester,
@@ -171,7 +152,7 @@ void main() {
       ),
     );
     final gate = follows.gate = Completer<void>();
-    follows.failure = StateError('boom');
+    follows.failure = failing(400);
 
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pump();
@@ -192,7 +173,7 @@ void main() {
 
   testWidgets('long press opens the follow sheet once', (tester) async {
     final haptics = recordHaptics();
-    final follows = FakeFollowRepository();
+    final follows = FollowApi();
     final container = await _world(follows: follows);
     await _pump(
       tester,
@@ -218,7 +199,7 @@ void main() {
   testWidgets('the sheet offers direct actions for each follow state', (
     tester,
   ) async {
-    final follows = FakeFollowRepository();
+    final follows = FollowApi();
     final container = await _world(follows: follows);
     await _pump(
       tester,

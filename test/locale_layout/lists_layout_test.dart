@@ -8,7 +8,6 @@ import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/comments/comment_repository.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/history/history_models.dart';
@@ -24,7 +23,6 @@ import '../helpers/card_world.dart';
 import '../helpers/illust_fixtures.dart';
 import '../helpers/comment_world.dart';
 import '../helpers/download_world.dart';
-import '../helpers/fake_account.dart';
 import '../helpers/history_world.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/watchlist_world.dart';
@@ -120,7 +118,7 @@ void main() {
   }
 
   localeLayoutMatrix('lists: bookmark tags', (tester, locale, profile) async {
-    final repository = RecordingBookmarkRepository()
+    final repository = BookmarkApi()
       ..tagPage = const UserBookmarkTagPage(
         tags: [
           UserBookmarkTag(name: 'procreate', count: 5),
@@ -129,13 +127,11 @@ void main() {
         ],
         nextUrl: null,
       );
+    final container = await bookmarkWorld(repository);
     await tester.pumpWidget(
       localeLayoutApp(
         locale: locale,
-        overrides: [
-          accountStoreProvider.overrideWith(StubAccountStore.new),
-          bookmarkRepositoryProvider.overrideWithValue(repository),
-        ],
+        container: container,
         home: const BookmarkTagsPage(),
       ),
     );

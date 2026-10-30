@@ -1,18 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/app_api_profile_edit_repository.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
+import 'package:parfait/core/user/user_repository.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
 
@@ -23,45 +20,30 @@ class _RecordedMultipart {
   final List<int> body;
 }
 
-Future<(PixivHttpClient, ProviderContainer)> _client({
+/// The repository over [PixivApi]: profile edits are recorded in [sent]
+/// and answered with [status] and [body]; the user detail it reads back is
+/// [UserApi]'s.
+Future<PixivAppApiProfileEditRepository> _repository({
   required List<_RecordedMultipart> sent,
   int status = 200,
   String body = '{}',
 }) async {
-  final transport = MockClient((request) async {
-    sent.add(_RecordedMultipart(request, request.bodyBytes));
-    return http.Response(
-      body,
-      status,
-      headers: {'content-type': 'application/json'},
-    );
+  final api = PixivApi({
+    ...UserApi().routes,
+    '/v1/user/profile/edit': (request) {
+      sent.add(_RecordedMultipart(request, request.bodyBytes));
+      return http.Response(
+        body,
+        status,
+        headers: {'content-type': 'application/json'},
+      );
+    },
   });
-  await seedAccounts(const [testerAccount], currentId: testerAccount.id);
-  final container = ProviderContainer.test(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(
-        FakeCredentialStore()..seed(
-          '100',
-          const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient(
-            (request) async => fail('refresh should not happen in this test'),
-          ),
-        ),
-      ),
-    ],
+  final container = await signedInApiContainer(api.client);
+  return PixivAppApiProfileEditRepository(
+    client: container.read(pixivHttpClientProvider),
+    userRepository: container.read(userRepositoryProvider),
   );
-  final client = PixivHttpClient(
-    client: transport,
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: container.read(credentialStoreProvider),
-    oauthService: container.read(oauthServiceProvider),
-  );
-  await container.read(accountStoreProvider.future);
-  return (client, container);
 }
 
 ProfileSubmitRequest _request(ProfilePatch patch) =>
@@ -78,11 +60,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('capabilities advertise the app-api channel and fields', () async {
-    final (client, container) = await _client(sent: []);
-    final repo = PixivAppApiProfileEditRepository(
-      client: client,
-      userRepository: FakeUserRepository(),
-    );
+    final repo = await _repository(sent: []);
     final capabilities = await repo.loadCapabilities(
       accountId: '100',
       userId: 42,
@@ -98,12 +76,7 @@ void main() {
 
   test('submit posts multipart user_name to v1/user/profile/edit', () async {
     final sent = <_RecordedMultipart>[];
-    final (client, container) = await _client(sent: sent);
-    final users = FakeUserRepository();
-    final repo = PixivAppApiProfileEditRepository(
-      client: client,
-      userRepository: users,
-    );
+    final repo = await _repository(sent: sent);
 
     final outcome = await repo.submit(_request(_textPatch()));
 
@@ -137,21 +110,17 @@ void main() {
       ),
     ]) {
       final sent = <_RecordedMultipart>[];
-      final (client, _) = await _client(sent: sent);
-      final outcome =
-          await PixivAppApiProfileEditRepository(
-            client: client,
-            userRepository: FakeUserRepository(),
-          ).submit(
-            _request(
-              ProfilePatch(
-                accountId: '100',
-                userId: 42,
-                textFields: const {},
-                images: images,
-              ),
-            ),
-          );
+      final repo = await _repository(sent: sent);
+      final outcome = await repo.submit(
+        _request(
+          ProfilePatch(
+            accountId: '100',
+            userId: 42,
+            textFields: const {},
+            images: images,
+          ),
+        ),
+      );
       expect(
         outcome,
         isA<ProfileEditSubmitFailure>().having((f) => f.code, 'code', code),
@@ -164,7 +133,7 @@ void main() {
     'a soft JSON error envelope on HTTP 200 surfaces as a failure',
     () async {
       final sent = <_RecordedMultipart>[];
-      final (client, container) = await _client(
+      final repo = await _repository(
         sent: sent,
         body: jsonEncode({
           'error': {
@@ -174,10 +143,6 @@ void main() {
           },
         }),
       );
-      final repo = PixivAppApiProfileEditRepository(
-        client: client,
-        userRepository: FakeUserRepository(),
-      );
       final outcome = await repo.submit(_request(_textPatch()));
       expect(outcome, isA<ProfileEditSubmitFailure>());
     },
@@ -185,11 +150,7 @@ void main() {
 
   test('avatar patch sends a profile_image file part', () async {
     final sent = <_RecordedMultipart>[];
-    final (client, container) = await _client(sent: sent);
-    final repo = PixivAppApiProfileEditRepository(
-      client: client,
-      userRepository: FakeUserRepository(),
-    );
+    final repo = await _repository(sent: sent);
     final file = await File(
       '${Directory.systemTemp.path}/avatar_test_${DateTime.now().microsecondsSinceEpoch}.jpg',
     ).create();

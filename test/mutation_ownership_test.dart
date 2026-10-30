@@ -7,83 +7,15 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_actions.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/comments/comment_store.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
 import 'package:parfait/core/mutation/mutation_models.dart';
 import 'package:parfait/core/network/api_error.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
+import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
-
-class _BookmarkRepository implements BookmarkRepository {
-  final requests = <String>[];
-  final tokens = <CancelToken?>[];
-  final gate = Completer<void>();
-
-  @override
-  Future<void> addIllust(
-    int id,
-    BookmarkRestrict restrict, {
-    List<String>? tags,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add('add:$id');
-    tokens.add(cancelToken);
-    await gate.future;
-  }
-
-  @override
-  Future<void> deleteIllust(int id, {CancelToken? cancelToken}) async {
-    requests.add('delete:$id');
-    tokens.add(cancelToken);
-    await gate.future;
-  }
-
-  @override
-  Future<void> addNovel(
-    int id,
-    BookmarkRestrict restrict, {
-    List<String>? tags,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add('addNovel:$id');
-    tokens.add(cancelToken);
-    await gate.future;
-  }
-
-  @override
-  Future<void> deleteNovel(int id, {CancelToken? cancelToken}) async {
-    requests.add('deleteNovel:$id');
-    tokens.add(cancelToken);
-    await gate.future;
-  }
-
-  @override
-  Future<BookmarkDetail> fetchDetail(
-    BookmarkKey key, {
-    CancelToken? cancelToken,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<UserBookmarkTagPage> fetchUserTags(
-    int userId, {
-    required BookmarkEntityType entityType,
-    required BookmarkRestrict restrict,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) => throw UnimplementedError();
-
-  @override
-  bool validateUserTagsCursor(
-    int userId, {
-    required BookmarkEntityType entityType,
-    required BookmarkRestrict restrict,
-    required String cursor,
-  }) => false;
-}
 
 void main() {
   test('mutation envelope has explicit owner and non-secret identity', () {
@@ -182,37 +114,26 @@ void main() {
   test(
     'account switch cancels owner and rejects a late bookmark response',
     () async {
-      final repository = _BookmarkRepository();
-      final container = ProviderContainer.test(
-        overrides: [
-          accountStoreProvider.overrideWith(
-            () => StubAccountStore(
-              accounts: const [
-                Account(id: 'a', userId: 10, name: 'A'),
-                Account(id: 'b', userId: 20, name: 'B'),
-              ],
-            ),
-          ),
-          bookmarkRepositoryProvider.overrideWithValue(repository),
-        ],
+      final gate = Completer<void>();
+      final repository = BookmarkApi()..addGate = gate;
+      final container = await bookmarkWorld(
+        repository,
+        others: const [Account(id: 'b', userId: 20, name: 'B')],
       );
-      await container.read(accountStoreProvider.future);
       const key = BookmarkKey(BookmarkEntityType.illust, 42);
       final action = container.read(bookmarkActionsProvider).toggle(key);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       final old = container.read(bookmarkStoreProvider.notifier).entryOf(key)!;
       final operation = old.pending!;
 
-      (container.read(accountStoreProvider.notifier) as StubAccountStore)
-          .switchCurrentTo('b');
-      await Future<void>.delayed(Duration.zero);
-      repository.gate.complete();
+      await container.read(accountStoreProvider.notifier).switchAccount('b');
+      // The switch cancels the request still held at the server.
       await action;
+      gate.complete();
 
       expect(operation.envelope.owner.isCancelled, isTrue);
       expect(container.read(bookmarkStoreProvider), isEmpty);
-      expect(repository.requests, ['add:42']);
-      expect(repository.tokens.single, same(operation.cancelToken));
+      expect([for (final (id, _, _) in repository.adds) id], [42]);
       expect(
         container
             .read(bookmarkStoreProvider.notifier)
