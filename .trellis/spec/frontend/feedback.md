@@ -195,7 +195,9 @@ reviewed: 2026-10-17
   `CommentDrafts.owner`) is still the same object. A save queued behind
   other account writes asks once more before writing
   (`upsertAccount(stillWanted:)`). Independent cleanups each get their
-  own `try` and their own error.
+  own `try` and their own error. A sheet whose opener can go while it is
+  open (a card under a refresh) runs its actions on the opener's
+  Navigator once the opener is gone (`showCardActionSheet`).
 - **Why:** A login left during the token exchange or its queued save
   signed in anyway or touched the gone page; a batch cancel and a
   Doubao sign-out ending after their page closed used a disposed context;
@@ -203,6 +205,8 @@ reviewed: 2026-10-17
   closed sheet stays mounted while it animates out; a comment error was
   lost with the composer, and its draft landed in the next account; a
   failed account removal was lost with its page, and a failed watch-later
-  save with its card. One failed cleanup skipped the next.
+  save with its card. One failed cleanup skipped the next. A card action
+  picked after a refresh had taken the card threw on the card's context
+  and did nothing (10-31).
 - **Check:** `test/login_navigation_test.dart` "leaving during the token exchange drops its outcome", `test/download_tasks_page_test.dart` "a batch cancel ending after the page left is quiet", `test/bookmark_switch_button_test.dart` "a submit outlives its sheet but not its account", `test/comments_replies_test.dart` "a send ending after the detail composer left still lands", `test/settings_test.dart` "signing out of Doubao clears the session and its cookies", `test/account_settings_page_test.dart` "a removal that fails after its page closed is reported", `test/error_details_test.dart` "a settings write that fails after its page closed is reported", `test/card_action_test.dart` "a watch-later save that fails after its card is gone says so", `test/watchlater_page_test.dart` "a removal that fails brings the works back and says so"
-- **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/comment_composer.dart`, `lib/features/settings/pages/account_settings_page.dart`, `lib/app/widgets/settings/persist_settings.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/features/watchlater/watchlater_page.dart`
+- **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/comment_composer.dart`, `lib/features/settings/pages/account_settings_page.dart`, `lib/app/widgets/settings/persist_settings.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/features/watchlater/watchlater_page.dart`
