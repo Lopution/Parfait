@@ -12,9 +12,6 @@ import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
-import 'package:parfait/core/settings/app_settings.dart' hide NetworkMode;
-import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/features/login/login_page.dart';
@@ -22,8 +19,10 @@ import 'package:parfait/features/login/login_webview_error_card.dart';
 import 'package:parfait/features/login/login_webview_page.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/test_preferences.dart';
 
 /// The login page's web view as its platform drives it.
 class _WebView {
@@ -95,26 +94,6 @@ class _HeldExchange extends OAuthService {
 
 /// Settings storage that fails a fixed number of reads, then succeeds.
 /// Retry has to be observable as a real second read, not a rebuild.
-class _FlakySettingsRepository implements SettingsRepository {
-  _FlakySettingsRepository({required this.failures});
-
-  int failures;
-  int loadCount = 0;
-
-  @override
-  Future<AppSettings> load() async {
-    loadCount++;
-    if (failures > 0) {
-      failures--;
-      throw const SettingsRepositoryException('load', 'disk is gone');
-    }
-    return AppSettings.defaults();
-  }
-
-  @override
-  Future<void> save(AppSettings settings) async {}
-}
-
 void main() {
   late FakeInAppWebViewPlatform platform;
 
@@ -128,13 +107,12 @@ void main() {
     OAuthService? service,
     bool create = false,
     PlatformCaps? caps,
-    FakeAccountMetadataRepository? accounts,
   }) async {
     final oauth = service ?? OAuthService(exchangeTimeout: Duration.zero);
     await tester.pumpWidget(
       localizedApp(
         overrides: [
-          ...accountProviderOverrides(metadataRepository: accounts),
+          ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(oauth),
           if (caps != null) platformCapsProvider.overrideWithValue(caps),
         ],
@@ -281,15 +259,12 @@ void main() {
     ]) {
       await tester.pumpWidget(const SizedBox());
       final service = _HeldExchange();
-      final accounts = FakeAccountMetadataRepository();
-      final webView = await pumpLoginPage(
-        tester,
-        service: service,
-        accounts: accounts,
-      );
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      final webView = await pumpLoginPage(tester, service: service);
       final saves = Completer<void>();
       if (queued) {
-        accounts.saveGate = saves.future;
+        preferences.writeGate = saves.future;
         final container = ProviderScope.containerOf(
           tester.element(find.byType(LoginWebViewPage)),
         );
@@ -322,7 +297,7 @@ void main() {
       final reason = 'fails: $fails, queued: $queued';
       expect(tester.takeException(), isNull, reason: reason);
       expect(
-        accounts.accounts.map((account) => account.id),
+        (await storedAccounts().load()).accounts,
         isEmpty,
         reason: 'leaving is a cancel; $reason',
       );
@@ -492,13 +467,12 @@ void main() {
   });
 
   group('C11: settings read failure on the login page', () {
-    Widget wrapWithRepository(SettingsRepository repository) => ProviderScope(
+    Widget wrap() => ProviderScope(
       // Riverpod 3 retries a failed provider build on its own backoff. That
       // is real app behaviour, but it makes the read count here ambiguous —
       // switch it off so every load is one the page actually asked for.
       retry: (retryCount, error) => null,
       overrides: [
-        settingsRepositoryProvider.overrideWithValue(repository),
         ...accountProviderOverrides(),
         oauthServiceProvider.overrideWithValue(
           OAuthService(exchangeTimeout: Duration.zero),
@@ -510,14 +484,17 @@ void main() {
     testWidgets('retry performs a real second read and recovers', (
       tester,
     ) async {
-      final repository = _FlakySettingsRepository(failures: 1);
-      await tester.pumpWidget(wrapWithRepository(repository));
+      final preferences = GatedPreferences(keys: settingsKeys)
+        ..readGate = (Future<void>.error(StateError('disk is gone'))..ignore());
+      installPreferencesForTest(preferences);
+      await tester.pumpWidget(wrap());
       await tester.pumpAndSettle();
 
+      preferences.readGate = null;
       await tester.tap(find.byKey(const Key('settings-load-retry')));
       await tester.pumpAndSettle();
 
-      expect(repository.loadCount, 2, reason: 'retry re-reads storage');
+      expect(preferences.reads, 2, reason: 'retry re-reads storage');
       expect(find.byKey(const Key('settings-load-error')), findsNothing);
       expect(find.byType(ReplicaButton), findsNWidgets(2));
     });

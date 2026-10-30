@@ -74,19 +74,14 @@ Future<_World> _makeWorld({
       '200',
       const Credential(accessToken: 'access-2', refreshToken: 'refresh-2'),
     );
+  await seedAccounts(const [
+    Account(id: '100', userId: 100, name: 'tester'),
+    Account(id: '200', userId: 200, name: 'second'),
+  ], currentId: '100');
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [
-            Account(id: '100', userId: 100, name: 'tester'),
-            Account(id: '200', userId: 200, name: 'second'),
-          ],
-          currentId: '100',
-        ),
-      ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
           client: MockClient((request) async {

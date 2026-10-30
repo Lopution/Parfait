@@ -923,7 +923,7 @@ void main() {
         router,
         overrides: [
           searchRepositoryProvider.overrideWithValue(repository),
-          ...signedInAccountOverrides(),
+          ...await signedInAccountOverrides(),
         ],
       ),
     );

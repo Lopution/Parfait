@@ -5,8 +5,6 @@ import 'package:parfait/app/app.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/external_intent_bridge.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
@@ -34,11 +32,6 @@ class _FixedIntentSource implements AndroidIntentSource {
   Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
 }
 
-const _signedInSnapshot = AccountMetadataSnapshot(
-  accounts: [Account(id: '100', userId: 100, name: 'tester')],
-  currentId: '100',
-);
-
 Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
   final source =
       intentSource ??
@@ -49,18 +42,9 @@ Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
       '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
     },
   );
-  final metadata = FakeAccountMetadataRepository(
-    accounts: _signedInSnapshot.accounts,
-    currentId: _signedInSnapshot.currentId,
-  );
   return localizedRouterApp(
     router,
-    overrides: [
-      ...accountProviderOverrides(
-        credentialStore: credentials,
-        metadataRepository: metadata,
-      ),
-    ],
+    overrides: [...accountProviderOverrides(credentialStore: credentials)],
     locale: locale ?? const Locale('zh', 'CN'),
     builder: (context, child) => promptHostBuilder(
       context,
@@ -77,6 +61,7 @@ Future<void> _pumpHome(
   // Pin a compact surface so the shell renders the bottom navigation bar
   // rather than the wide NavigationRail.
   setViewSize(tester, const Size(390, 844));
+  await seedAccounts(const [testerAccount], currentId: testerAccount.id);
   await tester.pumpWidget(_homeApp(intentSource: intentSource, locale: locale));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));

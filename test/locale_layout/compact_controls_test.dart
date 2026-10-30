@@ -17,7 +17,6 @@ import 'package:parfait/l10n/lookup.dart';
 
 import '../helpers/fake_account.dart';
 import '../helpers/locale_layout.dart';
-import '../helpers/test_preferences.dart';
 
 /// Every top tab row's real labels.
 final _tabGroups = <String, List<String>>{
@@ -146,16 +145,15 @@ void main() {
     localeLayoutMatrix(
       'follow button (${followed ? 'followed' : 'not followed'})',
       (tester, locale, profile) async {
-        installMemoryPreferences();
+        await seedAccounts([
+          const Account(id: '100', userId: 100, name: 'me'),
+        ], currentId: '100');
         final container = ProviderContainer.test(
           overrides: accountProviderOverrides(
             credentialStore: FakeCredentialStore(
               values: const {
                 '100': Credential(accessToken: 'a', refreshToken: 'r'),
               },
-            ),
-            metadataRepository: FakeAccountMetadataRepository.signedIn(
-              const Account(id: '100', userId: 100, name: 'me'),
             ),
           ),
         );

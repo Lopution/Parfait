@@ -23,6 +23,9 @@ import 'helpers/profile_world.dart';
 import 'helpers/localized_app.dart';
 
 Future<ProviderContainer> _world({FollowRepository? follows}) async {
+  await seedAccounts([
+    const Account(id: '100', userId: 100, name: 'me'),
+  ], currentId: '100');
   final container = ProviderContainer.test(
     overrides: [
       if (follows != null) followRepositoryProvider.overrideWithValue(follows),
@@ -34,9 +37,6 @@ Future<ProviderContainer> _world({FollowRepository? follows}) async {
               refreshToken: 'refresh-1',
             ),
           },
-        ),
-        metadataRepository: FakeAccountMetadataRepository.signedIn(
-          const Account(id: '100', userId: 100, name: 'me'),
         ),
       ),
     ],

@@ -18,7 +18,6 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 
 import 'helpers/image_network.dart';
@@ -282,6 +281,10 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
     (call) async => false,
   );
 
+  await seedAccounts([
+    const Account(id: '100', userId: 100, name: 't'),
+  ], currentId: '100');
+  await seedSettings(settings);
   final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
@@ -290,12 +293,6 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
             '100': Credential(accessToken: 'a', refreshToken: 'r'),
           },
         ),
-        metadataRepository: FakeAccountMetadataRepository.signedIn(
-          const Account(id: '100', userId: 100, name: 't'),
-        ),
-      ),
-      settingsRepositoryProvider.overrideWithValue(
-        FakeSettingsRepository(settings),
       ),
       // The app's isolate worker answers outside fake time.
       dataWorkerProvider.overrideWithValue(const InlineDataWorker()),

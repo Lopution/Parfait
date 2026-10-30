@@ -56,7 +56,7 @@ Future<GoRouter> _pumpHome(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        ...signedInAccountOverrides(),
+        ...await signedInAccountOverrides(),
         touchExplorationProvider.overrideWith((ref) => touchExploration),
       ],
       child: app,

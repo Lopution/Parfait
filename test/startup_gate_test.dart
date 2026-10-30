@@ -10,6 +10,7 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/features/home/home_page.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/app/startup_gate.dart';
@@ -19,35 +20,11 @@ import 'package:parfait/features/onboarding/welcome_page.dart';
 import 'dart:async';
 
 import 'helpers/fake_account.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
-
-class _StaticMetadataRepository implements AccountMetadataRepository {
-  const _StaticMetadataRepository(this.snapshot, {this.corrupt = false});
-
-  final AccountMetadataSnapshot snapshot;
-  final bool corrupt;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async {
-    if (corrupt) throw AccountDataException('corrupt entry');
-    return snapshot;
-  }
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
-
-class _PendingMetadataRepository implements AccountMetadataRepository {
-  final _completer = Completer<AccountMetadataSnapshot>();
-
-  @override
-  Future<AccountMetadataSnapshot> load() => _completer.future;
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/test_preferences.dart';
 
 const _guided = AppSettings(
   guideCompleted: true,
@@ -60,7 +37,8 @@ const _signedIn = AccountMetadataSnapshot(
   currentId: '100',
 );
 
-Widget _wrap({
+/// The gate over [snapshot] stored, or over metadata no build can parse.
+Future<Widget> _wrap({
   AppSettings settings = _guided,
   AccountMetadataSnapshot snapshot = const AccountMetadataSnapshot(
     accounts: [],
@@ -69,9 +47,13 @@ Widget _wrap({
   bool corruptMetadata = false,
   String? initialLocation,
   bool settingsPending = false,
-  AccountMetadataRepository? metadataRepository,
   GoRouter? router,
-}) {
+}) async {
+  if (corruptMetadata) {
+    await seedCorruptAccounts();
+  } else {
+    await seedAccounts(snapshot.accounts, currentId: snapshot.currentId);
+  }
   router ??= pixivRouter(
     initialLocation ?? (settings.guideCompleted ? '/recommended' : '/welcome'),
   );
@@ -90,15 +72,6 @@ Widget _wrap({
                     ),
                 },
               ),
-      ),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        metadataRepository ??
-            (corruptMetadata
-                ? _StaticMetadataRepository(snapshot, corrupt: corruptMetadata)
-                : FakeAccountMetadataRepository(
-                    accounts: snapshot.accounts,
-                    currentId: snapshot.currentId,
-                  )),
       ),
     ],
     builder: (context, child) => StartupGate(
@@ -126,7 +99,7 @@ class _FailingCredentialStore implements CredentialStore {
 
 void main() {
   testWidgets('guide not completed shows the welcome shell', (tester) async {
-    await tester.pumpWidget(_wrap(settings: AppSettings.defaults()));
+    await tester.pumpWidget(await _wrap(settings: AppSettings.defaults()));
 
     expect(find.byType(WelcomePage), findsOneWidget);
     expect(find.text('感谢使用 Parfait'), findsOneWidget);
@@ -136,7 +109,7 @@ void main() {
   testWidgets('guide completed without an account shows the login page', (
     tester,
   ) async {
-    await tester.pumpWidget(_wrap());
+    await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginPage), findsOneWidget);
@@ -145,17 +118,22 @@ void main() {
   testWidgets(
     'login remains visible while first account hydration is pending',
     (tester) async {
-      await tester.pumpWidget(
-        _wrap(
-          initialLocation: '/login',
-          metadataRepository: _PendingMetadataRepository(),
-        ),
+      final preferences = GatedPreferences(
+        keys: {PreferenceKeys.accounts, PreferenceKeys.accountsCurrent},
       );
-      await tester.pump();
+      installPreferencesForTest(preferences);
+      await seedSettings(_guided);
+      final wrapped = await _wrap(initialLocation: '/login');
+      preferences
+        ..reads = 0
+        ..readGate = Completer<void>().future;
+      await tester.pumpWidget(wrapped);
+      await tester.pumpAndSettle();
 
       // A slow secure/metadata read must not replace the actionable login
       // surface with StartupGate's full-screen spinner.
-      expect(find.byType(LoginPage), findsOneWidget);
+      expect(preferences.reads, isPositive, reason: 'accounts are loading');
+      expect(find.widgetWithText(ReplicaButton, '登录'), findsOneWidget);
     },
   );
 
@@ -163,7 +141,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _wrap(snapshot: _signedIn, initialLocation: '/splash'),
+      await _wrap(snapshot: _signedIn, initialLocation: '/splash'),
     );
     // The pending surface is the neutral splash — never WelcomePage.
     expect(find.byType(SplashPage), findsOneWidget);
@@ -177,7 +155,7 @@ void main() {
   testWidgets('guide completed with a usable account shows home', (
     tester,
   ) async {
-    await tester.pumpWidget(_wrap(snapshot: _signedIn));
+    await tester.pumpWidget(await _wrap(snapshot: _signedIn));
     await tester.pumpAndSettle();
 
     expect(find.byType(HomePage), findsOneWidget);
@@ -189,7 +167,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _wrap(
+      await _wrap(
         snapshot: const AccountMetadataSnapshot(
           accounts: [
             Account(
@@ -211,7 +189,9 @@ void main() {
   testWidgets('unreadable credentials fall back to the re-auth flow', (
     tester,
   ) async {
-    await tester.pumpWidget(_wrap(snapshot: _signedIn, brokenStore: true));
+    await tester.pumpWidget(
+      await _wrap(snapshot: _signedIn, brokenStore: true),
+    );
     await tester.pumpAndSettle();
 
     // Keystore failure degrades the account to re-auth required; the gate
@@ -230,9 +210,6 @@ void main() {
         overrides: [
           credentialStoreProvider.overrideWithValue(
             FakeCredentialStore(values: const {}),
-          ),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(),
           ),
         ],
         builder: (context, child) =>
@@ -263,7 +240,7 @@ void main() {
     tester,
   ) async {
     final router = pixivRouter('/recommended');
-    await tester.pumpWidget(_wrap(snapshot: _signedIn, router: router));
+    await tester.pumpWidget(await _wrap(snapshot: _signedIn, router: router));
     await tester.pumpAndSettle();
     unawaited(router.push<void>('/login'));
     await tester.pumpAndSettle();
@@ -295,15 +272,17 @@ void main() {
   ) async {
     // Android pushes the share over the splash before the account loads.
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
-    final metadata = _PendingMetadataRepository();
+    final preferences = GatedPreferences();
+    installPreferencesForTest(preferences);
     final router = pixivRouter('/splash');
-    await tester.pumpWidget(
-      _wrap(snapshot: _signedIn, router: router, metadataRepository: metadata),
-    );
+    final wrapped = await _wrap(snapshot: _signedIn, router: router);
+    final reading = Completer<void>();
+    preferences.readGate = reading.future;
+    await tester.pumpWidget(wrapped);
     await tester.pump();
     unawaited(router.push<void>('/reverse-image'));
     await tester.pump();
-    metadata._completer.complete(_signedIn);
+    reading.complete();
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/reverse-image');
 
@@ -314,7 +293,7 @@ void main() {
   });
 
   testWidgets('corrupt metadata surfaces a retryable error', (tester) async {
-    await tester.pumpWidget(_wrap(corruptMetadata: true));
+    await tester.pumpWidget(await _wrap(corruptMetadata: true));
     await tester.pumpAndSettle();
 
     expect(find.text('读取账号状态失败'), findsOneWidget);

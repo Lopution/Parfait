@@ -183,8 +183,8 @@ class ReviewWorld {
         ),
       );
     }
-    final metadata = FakeAccountMetadataRepository(
-      accounts: signedInAccounts,
+    await seedAccounts(
+      signedInAccounts,
       currentId: signedInAccounts.firstOrNull?.id,
     );
     final pixivisionArticle = await File(
@@ -195,10 +195,7 @@ class ReviewWorld {
 
     final container = ProviderContainer(
       overrides: [
-        ...accountProviderOverrides(
-          credentialStore: credentials,
-          metadataRepository: metadata,
-        ),
+        ...accountProviderOverrides(credentialStore: credentials),
         oauthServiceProvider.overrideWithValue(
           OAuthService(
             client: MockClient(

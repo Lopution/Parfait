@@ -6,8 +6,6 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/external_intent_bridge.dart';
 import 'package:parfait/app/navigation/routes.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
@@ -34,29 +32,15 @@ class _ScriptedIntentSource implements AndroidIntentSource {
   Future<void> dispose() => controller.close();
 }
 
-const _signedInSnapshot = AccountMetadataSnapshot(
-  accounts: [Account(id: '100', userId: 100, name: 'tester')],
-  currentId: '100',
-);
-
 Widget _app(GoRouter router, _ScriptedIntentSource source) {
   final credentials = FakeCredentialStore(
     values: const {
       '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
     },
   );
-  final metadata = FakeAccountMetadataRepository(
-    accounts: _signedInSnapshot.accounts,
-    currentId: _signedInSnapshot.currentId,
-  );
   return localizedRouterApp(
     router,
-    overrides: [
-      ...accountProviderOverrides(
-        credentialStore: credentials,
-        metadataRepository: metadata,
-      ),
-    ],
+    overrides: [...accountProviderOverrides(credentialStore: credentials)],
     builder: (context, child) => promptHostBuilder(
       context,
       ExternalIntentBridge(router: router, intentSource: source, child: child!),
@@ -73,6 +57,7 @@ Future<({GoRouter router, _ScriptedIntentSource source})> _pump(
   final router = createPixivRouter(initialLocation: initialLocation);
   addTearDown(source.dispose);
   addTearDown(router.dispose);
+  await seedAccounts(const [testerAccount], currentId: testerAccount.id);
   await tester.pumpWidget(_app(router, source));
   await tester.pump();
   return (router: router, source: source);

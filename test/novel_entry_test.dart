@@ -107,7 +107,7 @@ void main() {
     await tester.pumpWidget(
       localizedRouterApp(
         router,
-        overrides: signedInAccountOverrides(
+        overrides: await signedInAccountOverrides(
           const Account(id: '100', userId: 100, name: 't'),
         ),
       ),

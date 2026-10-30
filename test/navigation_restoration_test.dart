@@ -101,9 +101,6 @@ Widget _routerApp(
             ),
           },
         ),
-        metadataRepository: FakeAccountMetadataRepository.signedIn(
-          const Account(id: 'account', userId: 1, name: 'tester'),
-        ),
       ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(client: MockClient((_) async => http.Response('{}', 400))),
@@ -135,6 +132,12 @@ Widget _routerApp(
 http.Response _json(Map<String, dynamic> value) => jsonResponse(value);
 
 void main() {
+  setUp(
+    () => seedAccounts([
+      const Account(id: 'account', userId: 1, name: 'tester'),
+    ], currentId: 'account'),
+  );
+
   testWidgets('restores the active search branch and its nested route', (
     tester,
   ) async {

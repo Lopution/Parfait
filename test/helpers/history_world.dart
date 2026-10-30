@@ -56,6 +56,9 @@ Future<ProviderContainer> makeHistoryWorld(
 }) async {
   final credentials = FakeCredentialStore();
   if (!signedOut) {
+    await seedAccounts([
+      const Account(id: '100', userId: 100, name: 'tester'),
+    ], currentId: '100');
     credentials.seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -65,13 +68,6 @@ Future<ProviderContainer> makeHistoryWorld(
   final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        signedOut
-            ? FakeAccountMetadataRepository()
-            : FakeAccountMetadataRepository.signedIn(
-                const Account(id: '100', userId: 100, name: 'tester'),
-              ),
-      ),
       historyRepositoryProvider.overrideWithValue(repository),
       // The cards' images would otherwise spawn a real worker isolate.
       imageWorkerProvider.overrideWithValue(stalledImageWorker()),
@@ -126,11 +122,14 @@ Future<void> settleHistory(
   }
 });
 
-HistoryRecord historyRecord(int id, {HistoryContentType? type}) =>
-    HistoryRecord(
-      accountId: '100',
-      contentType: type ?? HistoryContentType.illust,
-      contentId: id,
-      lastViewedAt: DateTime.utc(2026, 9, 20, 10),
-      snapshot: HistorySnapshot(title: 'work $id', authorName: 'author $id'),
-    );
+HistoryRecord historyRecord(
+  int id, {
+  HistoryContentType? type,
+  String accountId = '100',
+}) => HistoryRecord(
+  accountId: accountId,
+  contentType: type ?? HistoryContentType.illust,
+  contentId: id,
+  lastViewedAt: DateTime.utc(2026, 9, 20, 10),
+  snapshot: HistorySnapshot(title: 'work $id', authorName: 'author $id'),
+);

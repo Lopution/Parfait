@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
@@ -115,15 +114,11 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
+  await seedAccounts(const [testerAccount], currentId: testerAccount.id);
   final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository.signedIn(
-          const Account(id: '100', userId: 100, name: 'tester'),
-        ),
-      ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
           client: MockClient((request) async {
@@ -174,10 +169,10 @@ void main() {
   });
 
   test('the local block filters New works and novels (R7)', () async {
+    await seedFilterSettings(blockR18: true);
     final (container, repository) = await _makeWorld(
       illustCount: 2,
       novelCount: 2,
-      overrides: [filterSettings(blockR18: true)],
     );
     repository.r18 = {1000, 2000};
     await container.read(settingsProvider.future);

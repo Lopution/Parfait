@@ -121,6 +121,7 @@ Future<ProviderContainer> _container({
   bool hideMuted = false,
   MuteState mutes = const MuteState(),
 }) async {
+  await seedFilterSettings(blockR18: blockR18, hideMuted: hideMuted);
   final container = ProviderContainer.test(
     overrides: [
       accountStoreProvider.overrideWith(
@@ -128,7 +129,6 @@ Future<ProviderContainer> _container({
           accounts: const [Account(id: 'account-a', userId: 1, name: 'tester')],
         ),
       ),
-      filterSettings(blockR18: blockR18, hideMuted: hideMuted),
       muteStoreProvider.overrideWith(() => SeededMuteStore(mutes)),
     ],
   );

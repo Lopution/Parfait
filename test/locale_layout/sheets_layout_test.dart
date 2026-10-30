@@ -14,7 +14,6 @@ import 'package:parfait/core/download/author_works_enumerator.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
 import 'package:parfait/core/search/search_models.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/l10n/context.dart';
 import 'package:parfait/features/profile/author_works_download_dialog.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
@@ -213,16 +212,10 @@ void main() {
     locale,
     profile,
   ) async {
+    await seedSettings(baseTestSettings().copyWith(enableLocalBlockR18: true));
     await tester.pumpWidget(
       localeLayoutApp(
         locale: locale,
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(
-              baseTestSettings().copyWith(enableLocalBlockR18: true),
-            ),
-          ),
-        ],
         home: _Opener(
           (context, ref) =>
               showRankingCategorySheet(context, catalog: illustRankingCatalog),

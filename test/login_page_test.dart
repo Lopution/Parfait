@@ -5,8 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
@@ -47,27 +45,20 @@ void main() {
     VoidCallback? onRegister,
     VoidCallback? onLogin,
     VoidCallback? onClipboardLogin,
-    SettingsRepository? repository,
     Locale? locale,
     List<Override> extraOverrides = const [],
   }) async {
     setViewSize(tester, size);
+    await seedSettings(
+      const AppSettings(
+        guideCompleted: true,
+        languageTag: 'zh-CN',
+        themeCode: AppSettings.systemTheme,
+      ),
+    );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          ...accountProviderOverrides(),
-          settingsRepositoryProvider.overrideWithValue(
-            repository ??
-                FakeSettingsRepository(
-                  const AppSettings(
-                    guideCompleted: true,
-                    languageTag: 'zh-CN',
-                    themeCode: AppSettings.systemTheme,
-                  ),
-                ),
-          ),
-          ...extraOverrides,
-        ],
+        overrides: [...accountProviderOverrides(), ...extraOverrides],
         child: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
           child: localizedApp(

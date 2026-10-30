@@ -18,7 +18,6 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/translation/translation_service.dart'
     show translationCredentialStoreProvider;
 import 'package:parfait/core/network/compat/network_providers.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/settings_catalog.dart';
 import 'package:parfait/features/settings/settings_page.dart';
@@ -51,17 +50,11 @@ final _pages = <SettingsPageRef?, Widget>{
 };
 
 List<Override> _overrides() => [
-  settingsRepositoryProvider.overrideWithValue(
-    FakeSettingsRepository(baseTestSettings(languageTag: 'zh-CN')),
-  ),
   translationCredentialStoreProvider.overrideWithValue(FakeTranslationStore()),
   networkAccessPolicyProvider.overrideWithValue(stubNetworkPolicy()),
   ...accountProviderOverrides(
     credentialStore: FakeCredentialStore(
       values: const {'100': Credential(accessToken: 'a', refreshToken: 'r')},
-    ),
-    metadataRepository: FakeAccountMetadataRepository.signedIn(
-      const Account(id: '100', userId: 100, name: 'tester'),
     ),
   ),
 ];
@@ -122,7 +115,11 @@ bool _isAnchored(Element row) {
 }
 
 void main() {
-  setUp(() {
+  setUp(() async {
+    await seedAccounts([
+      const Account(id: '100', userId: 100, name: 'tester'),
+    ], currentId: '100');
+    await seedSettings(baseTestSettings(languageTag: 'zh-CN'));
     PackageInfo.setMockInitialValues(
       appName: 'Parfait',
       packageName: 'io.github.lopution.parfait',

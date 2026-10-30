@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/account_transfer.dart';
 import 'package:parfait/core/auth/account_transfer_service.dart';
@@ -16,6 +15,7 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/platform/account_transfer_clipboard.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 const _sourceAccount = Account(
   id: '42',
@@ -28,23 +28,6 @@ const _credential = Credential(
   accessToken: 'access-token-for-service-test',
   refreshToken: 'refresh-token-for-service-test',
 );
-
-class _Metadata implements AccountMetadataRepository {
-  List<Account> accounts = [];
-  String? currentId;
-  bool failSave = false;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async =>
-      AccountMetadataSnapshot(accounts: accounts, currentId: currentId);
-
-  @override
-  Future<void> save(List<Account> next, String? nextCurrentId) async {
-    if (failSave) throw AccountDataException('metadata write failed');
-    accounts = List.of(next);
-    currentId = nextCurrentId;
-  }
-}
 
 class _Clipboard implements TransferClipboard {
   String? text;
@@ -103,20 +86,19 @@ class _Verifier implements TransferCredentialVerifier {
   }
 }
 
-(ProviderContainer, AccountStore, FakeCredentialStore, _Metadata) _container() {
+(ProviderContainer, AccountStore, FakeCredentialStore, GatedPreferences)
+_container() {
   final credentials = FakeCredentialStore();
-  final metadata = _Metadata();
+  final preferences = GatedPreferences();
+  installPreferencesForTest(preferences);
   final container = ProviderContainer.test(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(metadata),
-    ],
+    overrides: [credentialStoreProvider.overrideWithValue(credentials)],
   );
   return (
     container,
     container.read(accountStoreProvider.notifier),
     credentials,
-    metadata,
+    preferences,
   );
 }
 
@@ -159,7 +141,7 @@ void main() {
   test(
     'successful import uses server-authoritative metadata and clears owned clipboard',
     () async {
-      final (container, accounts, credentials, metadata) = _container();
+      final (container, accounts, credentials, _) = _container();
       await container.read(accountStoreProvider.future);
       final clipboard = _Clipboard();
       final envelope = TransferEnvelope.create(
@@ -191,7 +173,10 @@ void main() {
       expect(result.clipboardCleared, isTrue);
       expect(clipboard.text, isNull);
       expect(verifier.calls, 1);
-      expect(metadata.accounts.single.name, 'authoritative server name');
+      expect(
+        (await storedAccounts().load()).accounts.single.name,
+        'authoritative server name',
+      );
       expect(await credentials.read('42'), same(_credential));
     },
   );
@@ -214,9 +199,12 @@ void main() {
       (rejecting, false, AccountTransferErrorCode.credentialInvalid),
       (verified, true, AccountTransferErrorCode.storageFailure),
     ]) {
-      final (container, accounts, credentials, metadata) = _container();
+      final (container, accounts, credentials, preferences) = _container();
       await container.read(accountStoreProvider.future);
-      metadata.failSave = failSave;
+      if (failSave) {
+        preferences.writeGate = Future<void>.error(StateError('disk full'))
+          ..ignore();
+      }
       final clipboard = _Clipboard()
         ..text = TransferEnvelope.create(
           account: _sourceAccount,
@@ -234,7 +222,8 @@ void main() {
           isA<AccountTransferException>().having((e) => e.code, 'code', code),
         ),
       );
-      expect(metadata.accounts, isEmpty);
+      preferences.writeGate = null;
+      expect((await storedAccounts().load()).accounts, isEmpty);
       expect(credentials.values, isEmpty);
       expect(clipboard.text, isNull);
     }

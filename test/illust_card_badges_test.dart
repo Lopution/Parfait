@@ -7,7 +7,6 @@ import 'package:http/testing.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
@@ -26,15 +25,11 @@ Future<ProviderContainer> _makeWorld() async {
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
+  await seedAccounts(const [testerAccount], currentId: testerAccount.id);
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository.signedIn(
-          const Account(id: '100', userId: 100, name: 'tester'),
-        ),
-      ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
           client: MockClient((request) async => http.Response('{}', 200)),

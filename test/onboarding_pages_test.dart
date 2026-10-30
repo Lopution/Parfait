@@ -5,8 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/onboarding/language_page.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
@@ -16,35 +14,29 @@ import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 
-/// Settings storage stub: serves a fixed snapshot and records writes so
-/// tests can assert `completeGuide()` really persisted.
+/// Settings a first launch finds: the guide not yet completed.
+const _firstLaunch = AppSettings(
+  guideCompleted: false,
+  languageTag: 'zh-CN',
+  themeCode: AppSettings.systemTheme,
+);
+
 void main() {
   Future<void> pumpPage(
     WidgetTester tester,
     Size size,
     Widget page, {
     double textScale = 1,
-    SettingsRepository? repository,
     Locale? locale,
     ScrollBehavior? scrollBehavior,
   }) async {
     setViewSize(tester, size);
+    await seedSettings(_firstLaunch);
     await tester.pumpWidget(
       MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
         child: localizedApp(
-          overrides: [
-            settingsRepositoryProvider.overrideWithValue(
-              repository ??
-                  FakeSettingsRepository(
-                    const AppSettings(
-                      guideCompleted: false,
-                      languageTag: 'zh-CN',
-                      themeCode: AppSettings.systemTheme,
-                    ),
-                  ),
-            ),
-          ],
+          overrides: const [],
           locale: locale ?? const Locale('zh', 'CN'),
           scrollBehavior: scrollBehavior,
           home: page,
@@ -84,30 +76,14 @@ void main() {
     Future<GoRouter> pumpFlow(
       WidgetTester tester, {
       String initialLocation = '/welcome',
-      SettingsRepository? repository,
     }) async {
       // Comfortable phone viewport — every control on screen without
       // scrolling; the matrix group owns the short-viewport assertions.
       setViewSize(tester, const Size(390, 844));
       final r = router(initialLocation);
       addTearDown(r.dispose);
-      await tester.pumpWidget(
-        localizedRouterApp(
-          r,
-          overrides: [
-            settingsRepositoryProvider.overrideWithValue(
-              repository ??
-                  FakeSettingsRepository(
-                    const AppSettings(
-                      guideCompleted: false,
-                      languageTag: 'zh-CN',
-                      themeCode: AppSettings.systemTheme,
-                    ),
-                  ),
-            ),
-          ],
-        ),
-      );
+      await seedSettings(_firstLaunch);
+      await tester.pumpWidget(localizedRouterApp(r, overrides: const []));
       await tester.pumpAndSettle();
       return r;
     }
@@ -145,24 +121,13 @@ void main() {
     testWidgets('language next completes the guide and opens login', (
       tester,
     ) async {
-      final repository = FakeSettingsRepository(
-        const AppSettings(
-          guideCompleted: false,
-          languageTag: 'zh-CN',
-          themeCode: AppSettings.systemTheme,
-        ),
-      );
-      final r = await pumpFlow(
-        tester,
-        initialLocation: '/welcome/language',
-        repository: repository,
-      );
+      final r = await pumpFlow(tester, initialLocation: '/welcome/language');
       expect(find.byType(LanguagePage), findsOneWidget);
 
       await tester.tap(find.byType(ReplicaButton));
       await tester.pumpAndSettle();
 
-      expect(repository.saved.last.guideCompleted, isTrue);
+      expect((await storedSettings().load()).guideCompleted, isTrue);
       expect(find.text('LOGIN-MARKER'), findsOneWidget);
       expect(r.state.uri.path, '/login');
       expect(r.state.uri.queryParameters['first'], 'true');

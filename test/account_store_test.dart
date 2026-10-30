@@ -10,13 +10,16 @@ import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
-import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
+
+import 'helpers/fake_account.dart';
+import 'helpers/history_world.dart';
+import 'helpers/test_preferences.dart';
 
 class InMemoryCredentialStore implements CredentialStore {
   final Map<String, Credential> _secrets = {};
@@ -54,37 +57,6 @@ class InMemoryCredentialStore implements CredentialStore {
       throw CredentialStoreException('delete', accountId, 'keystore corrupted');
     }
     _secrets.remove(accountId);
-  }
-}
-
-class InMemoryMetadataRepository implements AccountMetadataRepository {
-  List<Account>? stored;
-  String? storedCurrentId;
-  bool failSave = false;
-  Object? corruptOnLoad;
-
-  /// Holds the next save until completed.
-  Completer<void>? holdSave;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async {
-    final error = corruptOnLoad;
-    if (error != null) throw error;
-    final list = stored;
-    if (list == null) return const AccountMetadataSnapshot(accounts: []);
-    return AccountMetadataSnapshot(accounts: list, currentId: storedCurrentId);
-  }
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {
-    if (failSave) {
-      throw AccountDataException('disk full');
-    }
-    final hold = holdSave;
-    holdSave = null;
-    await hold?.future;
-    stored = List.of(accounts);
-    storedCurrentId = currentId;
   }
 }
 
@@ -148,38 +120,30 @@ class _DeleteFailingCredentials extends InMemoryCredentialStore {
   Future<void> delete(String accountId) async => throw StateError('keystore');
 }
 
-class _SpyHistoryRepository extends HistoryRepository {
-  _SpyHistoryRepository() : super(database: HistoryDatabase());
-
-  final clearedOutbox = <String>[];
-  final clearedLocal = <String>[];
-
-  @override
-  Future<void> clearOutbox(String accountId) async {
-    clearedOutbox.add(accountId);
-  }
-
-  @override
-  Future<void> clear(String accountId) async {
-    clearedLocal.add(accountId);
-  }
-}
-
-(ProviderContainer, InMemoryCredentialStore, InMemoryMetadataRepository)
-makeContainer() {
+/// The store over the app's metadata repository on [GatedPreferences],
+/// whose writes a case can hold or fail.
+(ProviderContainer, InMemoryCredentialStore, GatedPreferences) makeContainer() {
   final credentials = InMemoryCredentialStore();
-  final metadata = InMemoryMetadataRepository();
+  final preferences = GatedPreferences();
+  installPreferencesForTest(preferences);
   final container = ProviderContainer.test(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(metadata),
-      // removeAccount reaches the real history database at its shared
-      // default path; a spy keeps parallel test files off the same file.
-      historyRepositoryProvider.overrideWithValue(_SpyHistoryRepository()),
-    ],
+    overrides: [credentialStoreProvider.overrideWithValue(credentials)],
   );
-  return (container, credentials, metadata);
+  return (container, credentials, preferences);
 }
+
+Future<List<String>> storedIds() async => [
+  for (final account in (await storedAccounts().load()).accounts) account.id,
+];
+
+/// A view of [accountId] stored locally and queued for pixiv.
+Future<void> viewOnce(HistoryRepository history, String accountId) =>
+    history.commitView(
+      record: historyRecord(1, accountId: accountId),
+      writeLocal: true,
+      enqueuePixiv: true,
+      unsubmittedPixivDuration: const Duration(seconds: 10),
+    );
 
 void main() {
   test('hydration with no persisted data yields empty ready state', () async {
@@ -214,7 +178,7 @@ void main() {
   });
 
   test('switchAccount changes current and persists across hydration', () async {
-    final (container, credentials, metadata) = makeContainer();
+    final (container, credentials, _) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
 
@@ -223,16 +187,9 @@ void main() {
     await store.switchAccount('100');
     expect(container.read(accountStoreProvider).requireValue.currentId, '100');
 
-    // Simulate an app restart: fresh container over the same repositories.
-    final (restarted, _, _) = (
-      ProviderContainer(
-        overrides: [
-          credentialStoreProvider.overrideWithValue(credentials),
-          accountMetadataRepositoryProvider.overrideWithValue(metadata),
-        ],
-      ),
-      credentials,
-      metadata,
+    // Simulate an app restart: fresh container over the same storage.
+    final restarted = ProviderContainer(
+      overrides: [credentialStoreProvider.overrideWithValue(credentials)],
     );
     addTearDown(restarted.dispose);
     final state = await restarted.read(accountStoreProvider.future);
@@ -271,7 +228,7 @@ void main() {
   });
 
   test('a refresh saved mid-way neither revives nor reselects', () async {
-    final (container, credentials, metadata) = makeContainer();
+    final (container, credentials, preferences) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
     await store.upsertAccount(account('100'), credential('100'));
@@ -291,7 +248,8 @@ void main() {
 
     // Switched while the refreshed metadata is being saved.
     await store.upsertAccount(account('100'), credential('100'));
-    final saving = metadata.holdSave = Completer();
+    final saving = Completer<void>();
+    preferences.writeGate = saving.future;
     final refreshed = store.saveRefreshed(account('100'), credential('100'));
     await pumpEventQueue();
     final switched = store.switchAccount('200');
@@ -304,7 +262,7 @@ void main() {
   test(
     'failed credential write leaves no half-added metadata account',
     () async {
-      final (container, credentials, metadata) = makeContainer();
+      final (container, credentials, _) = makeContainer();
       credentials.failWritesFor('300');
       final store = container.read(accountStoreProvider.notifier);
       await container.read(accountStoreProvider.future);
@@ -315,17 +273,18 @@ void main() {
       final state = container.read(accountStoreProvider).requireValue;
       expect(state.accounts.map((a) => a.id), ['100']);
       expect(state.status, AccountStatus.failure);
-      expect(metadata.stored!.map((a) => a.id), ['100']);
+      expect(await storedIds(), ['100']);
     },
   );
 
   test('failed metadata commit rolls the credential back', () async {
-    final (container, credentials, metadata) = makeContainer();
+    final (container, credentials, preferences) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
 
     await store.upsertAccount(account('100'), credential('100'));
-    metadata.failSave = true;
+    preferences.writeGate = Future<void>.error(StateError('disk full'))
+      ..ignore();
     await store.upsertAccount(account('400'), credential('400'));
 
     final state = container.read(accountStoreProvider).requireValue;
@@ -338,12 +297,13 @@ void main() {
   });
 
   test('failed metadata refresh restores the previous credential', () async {
-    final (container, credentials, metadata) = makeContainer();
+    final (container, credentials, preferences) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
 
     await store.upsertAccount(account('100'), credential('old'));
-    metadata.failSave = true;
+    preferences.writeGate = Future<void>.error(StateError('disk full'))
+      ..ignore();
     await store.upsertAccount(account('100'), credential('new'));
 
     final restored = await credentials.read('100');
@@ -358,22 +318,15 @@ void main() {
   test(
     'unreadable credential on hydration marks reauthRequired, not absent',
     () async {
-      final (container, credentials, metadata) = makeContainer();
+      final (container, credentials, _) = makeContainer();
       final store = container.read(accountStoreProvider.notifier);
       await container.read(accountStoreProvider.future);
       await store.upsertAccount(account('100'), credential('100'));
 
       credentials.breakAccount('100');
 
-      final (restarted, _, _) = (
-        ProviderContainer(
-          overrides: [
-            credentialStoreProvider.overrideWithValue(credentials),
-            accountMetadataRepositoryProvider.overrideWithValue(metadata),
-          ],
-        ),
-        credentials,
-        metadata,
+      final restarted = ProviderContainer(
+        overrides: [credentialStoreProvider.overrideWithValue(credentials)],
       );
       addTearDown(restarted.dispose);
       final state = await restarted.read(accountStoreProvider.future);
@@ -384,8 +337,8 @@ void main() {
   );
 
   test('corrupt metadata surfaces an explicit failure state', () async {
-    final (container, credentials, metadata) = makeContainer();
-    metadata.corruptOnLoad = AccountDataException('corrupt entry');
+    final (container, credentials, _) = makeContainer();
+    await seedCorruptAccounts();
 
     final state = await container.read(accountStoreProvider.future);
     expect(state.status, AccountStatus.failure);
@@ -395,7 +348,7 @@ void main() {
   });
 
   test('markReauthRequired persists the degraded auth state', () async {
-    final (container, _, metadata) = makeContainer();
+    final (container, _, _) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
 
@@ -404,7 +357,10 @@ void main() {
 
     final state = container.read(accountStoreProvider).requireValue;
     expect(state.accounts.single.authState, AccountAuthState.reauthRequired);
-    expect(metadata.stored!.single.authState, AccountAuthState.reauthRequired);
+    expect(
+      (await storedAccounts().load()).accounts.single.authState,
+      AccountAuthState.reauthRequired,
+    );
   });
 
   test('account JSON keeps isPremium and holds no secrets', () {
@@ -430,12 +386,10 @@ void main() {
     'and cached feeds, keeps local history',
     () async {
       final credentials = InMemoryCredentialStore();
-      final metadata = InMemoryMetadataRepository();
-      final history = _SpyHistoryRepository();
+      final history = await openHistoryRepository(const []);
       final container = ProviderContainer.test(
         overrides: [
           credentialStoreProvider.overrideWithValue(credentials),
-          accountMetadataRepositoryProvider.overrideWithValue(metadata),
           historyRepositoryProvider.overrideWithValue(history),
         ],
       );
@@ -461,11 +415,13 @@ void main() {
           ),
         );
         await snapshots.write(id, 'recommended', ids: const [1], entities: {});
+        await viewOnce(history, id);
       }
       await store.removeAccount('200');
 
-      expect(history.clearedOutbox, ['200']);
-      expect(history.clearedLocal, isEmpty);
+      expect(await history.pendingOutbox(accountId: '200'), isEmpty);
+      expect(await history.pendingOutbox(accountId: '100'), hasLength(1));
+      expect(await history.all(accountId: '200'), hasLength(1));
       expect(await credentials.read('200'), isNull);
       expect(await actions.listFor('200'), isEmpty);
       expect(await snapshots.read('200', 'recommended'), isNull);
@@ -482,25 +438,23 @@ void main() {
   );
 
   test('a cleanup that fails leaves the others done and is surfaced', () async {
-    final history = _SpyHistoryRepository();
+    final history = await openHistoryRepository(const []);
     final container = ProviderContainer.test(
       overrides: [
         credentialStoreProvider.overrideWithValue(_DeleteFailingCredentials()),
-        accountMetadataRepositoryProvider.overrideWithValue(
-          InMemoryMetadataRepository(),
-        ),
         historyRepositoryProvider.overrideWithValue(history),
       ],
     );
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
     await store.upsertAccount(account('200'), credential('200'));
+    await viewOnce(history, '200');
     // The last cleanup: the ones between it and the failure ran too.
     final snapshots = container.read(feedSnapshotStoreProvider);
     await snapshots.write('200', 'recommended', ids: const [1], entities: {});
 
     await expectLater(store.removeAccount('200'), throwsStateError);
-    expect(history.clearedOutbox, ['200']);
+    expect(await history.pendingOutbox(accountId: '200'), isEmpty);
     expect(await snapshots.read('200', 'recommended'), isNull);
     expect(
       container.read(accountStoreProvider).requireValue.hasAccounts,

@@ -713,12 +713,12 @@ void main() {
     testWidgets('requests related works only once the section is on screen; '
         'the local block filters them (R7)', (tester) async {
       final log = <int>[];
+      await seedFilterSettings(blockR18: true);
       final (container, _, _) = await makeWorld(
         relatedLog: log,
         relatedOverrides: {
           42: [illustJson(900, xRestrict: 1), illustJson(901, pageCount: 1)],
         },
-        extraOverrides: [filterSettings(blockR18: true)],
       );
       await pumpDetail(tester, container);
       await tester.pump(const Duration(milliseconds: 300));
@@ -749,13 +749,13 @@ void main() {
     testWidgets('related works all filtered: the section offers loading on, '
         'reaching the bottom does not load (FEED-22)', (tester) async {
       final log = <int>[];
+      await seedFilterSettings(blockR18: true);
       final (container, _, _) = await makeWorld(
         relatedLog: log,
         relatedOverrides: {
           42: [illustJson(900, xRestrict: 1)],
         },
         relatedEndless: true,
-        extraOverrides: [filterSettings(blockR18: true)],
       );
       await pumpDetail(tester, container);
       // The first page and its three refills, all filtered out.
