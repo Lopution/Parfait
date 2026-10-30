@@ -74,6 +74,7 @@ class HistoryDatabase {
         onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
         onCreate: (db, version) => _createSchema(db),
         onUpgrade: _upgrade,
+        onDowngrade: _refuseDowngrade,
       ),
     );
   }
@@ -147,9 +148,15 @@ class HistoryDatabase {
         'ADD COLUMN snapshot_version INTEGER NOT NULL DEFAULT 1',
       );
     }
-    if (newVersion > schemaVersion) {
-      throw ArgumentError('unsupported history schema version $newVersion');
-    }
+  }
+
+  /// A newer build's schema is left alone: lowering the version would make
+  /// that build re-run a migration it already ran, and the database would
+  /// stop opening. The feature reports the failed open instead.
+  static Future<void> _refuseDowngrade(Database db, int from, int to) {
+    throw StateError(
+      '$databaseName is schema $from; this build reads up to $to',
+    );
   }
 
   Future<void> close() async {
@@ -157,7 +164,13 @@ class HistoryDatabase {
     _closed = true;
     final future = _databaseFuture;
     if (future == null) return;
-    final db = await future;
+    final Database db;
+    try {
+      db = await future;
+    } on Object {
+      // The open failed (a newer schema): nothing to close.
+      return;
+    }
     if (db.isOpen) await db.close();
   }
 }

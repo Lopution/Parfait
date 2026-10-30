@@ -6,6 +6,8 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../settings/shared_preferences.dart';
 
+import '../actionqueue/action_bootstrap.dart';
+import '../paging/feed_snapshot_store.dart';
 import 'account.dart';
 import 'account_repository.dart';
 import 'credential.dart';
@@ -285,13 +287,28 @@ class AccountStore extends AsyncNotifier<AccountState> {
       ),
     );
     if (current.currentId == accountId) _resetNetworkSession();
-    // The metadata no longer references the secret; cleanup failures are
-    // surfaced but do not roll the removal back.
-    await credentials.delete(accountId);
-    // C21: only this account's unsent remote-history outbox is dropped.
-    // Local history rows stay; a re-added account never replays outbox
-    // entries from a previous lifecycle.
-    await ref.read(historyRepositoryProvider).clearOutbox(accountId);
+    // The metadata no longer references the secret. C21: what the account
+    // left to send (its history outbox, its queued offline actions) and its
+    // cached feeds go, so a re-added account never replays or restores them
+    // from a previous sign-in; local history and watch later stay. Each
+    // cleanup runs even if one before it failed; the first failure is
+    // surfaced, and none rolls the removal back.
+    Object? failure;
+    StackTrace? failureStack;
+    for (final cleanup in <Future<void> Function()>[
+      () => credentials.delete(accountId),
+      () => ref.read(historyRepositoryProvider).clearOutbox(accountId),
+      () => ref.read(actionStoreProvider).clearAccount(accountId),
+      () => ref.read(feedSnapshotStoreProvider).clearAccount(accountId),
+    ]) {
+      try {
+        await cleanup();
+      } on Object catch (error, stack) {
+        failure ??= error;
+        failureStack ??= stack;
+      }
+    }
+    if (failure != null) Error.throwWithStackTrace(failure, failureStack!);
   });
 
   Future<List<Account>> _resolveAuthStates(

@@ -102,7 +102,7 @@ void main() {
       await repository.upsert(_record('b', HistoryContentType.illust, 3));
 
       final page = await repository.page(accountId: 'a', limit: 1);
-      expect(page.total, 2);
+      expect(await repository.count(accountId: 'a'), 2);
       expect(page.records.single.contentId, 2);
       expect(page.hasMore, isTrue);
       expect(await repository.count(accountId: 'b'), 1);
@@ -115,11 +115,35 @@ void main() {
           viewedAt: DateTime.utc(2026, 8, 27, 12, 2),
         ),
       );
-      expect((await repository.page(accountId: 'a')).total, 2);
+      expect(await repository.count(accountId: 'a'), 2);
       expect(
         (await repository.page(accountId: 'a')).records.first.contentId,
         1,
       );
+    });
+
+    test('a delete while a page is read leaves the rest reachable', () async {
+      for (var id = 1; id <= 3; id++) {
+        await repository.upsert(
+          _record(
+            'a',
+            HistoryContentType.illust,
+            id,
+            viewedAt: DateTime.utc(2026, 8, 27, 12, id),
+          ),
+        );
+      }
+      // Started together, the delete lands after the page's first read.
+      final page = repository.page(accountId: 'a', limit: 2);
+      final deleted = repository.delete(
+        accountId: 'a',
+        contentType: HistoryContentType.illust,
+        contentId: 3,
+      );
+      expect(await deleted, 1);
+      final result = await page;
+      expect([for (final r in result.records) r.contentId], [3, 2]);
+      expect(result.hasMore, isTrue);
     });
 
     test('history read plans use indexes instead of table scans', () async {

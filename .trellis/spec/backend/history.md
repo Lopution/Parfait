@@ -3,7 +3,10 @@ prefix: HIST
 applies_to:
   - lib/core/history/**
   - lib/features/history/**
-reviewed: 2026-10-29
+  - lib/core/paging/feed_database.dart
+  - lib/core/watchlater/watch_later_database.dart
+  - lib/core/localnovel/local_novel_database.dart
+reviewed: 2026-10-30
 ---
 
 # Browsing history
@@ -28,6 +31,19 @@ reviewed: 2026-10-29
   or a death mid-way left it empty.
 - **Check:** `test/history_persistence_test.dart` "commits local row and merged outbox duration atomically"; `test/backup_test.dart` "a row overwrite cannot store leaves the old history whole" "rejects structurally malformed fields"
 - **Code:** `lib/core/history/history_database.dart`, `lib/core/history/history_repository.dart`
+
+### HIST-09 A database a newer build left is never opened as older
+- **Rule:** Every database owner sets `onDowngrade`. `feeds.db`, a cache,
+  is dropped and created afresh (`onDatabaseDowngradeDelete`), its queued
+  actions with it. `history.db`, `watchlater.db` and `local_novels.db`
+  refuse to open with a `StateError` naming the database and both
+  versions; their feature shows its load error. `close()` after a failed
+  open completes quietly.
+- **Why:** Without `onDowngrade` sqflite lowers the version and keeps the
+  newer tables, so the newer build, back again, re-ran a migration it had
+  run and the database stopped opening.
+- **Check:** `test/database_downgrade_test.dart` "a database a newer build left behind"
+- **Code:** `lib/core/history/history_database.dart`, `lib/core/paging/feed_database.dart`, `lib/core/watchlater/watch_later_database.dart`, `lib/core/localnovel/local_novel_database.dart`
 
 ### HIST-02 Store a compact snapshot, never payloads
 - **Rule:** A record holds typed content kind and id, UTC time, account,
@@ -100,7 +116,9 @@ reviewed: 2026-10-29
 ### HIST-08 The history feed pages after the last row read
 - **Rule:** The history feed's cursor is the last loaded row's
   (`last_viewed_at`, id); `HistoryRepository.page(after:)` reads past it
-  in `last_viewed_at DESC, id DESC` order, never by offset. A failed
+  in `last_viewed_at DESC, id DESC` order, never by offset, and tells
+  whether another page follows from the same read (one row more), not
+  from a second count. A failed
   first read shows `FeedError` with retry, not the empty view. A reader
   that needs every row (the backup export) reads them in one statement
   (`HistoryRepository.all`), not page by page.
@@ -108,6 +126,7 @@ reviewed: 2026-10-29
   deleted, and a read error said "no history" with no way to retry. An
   export read in pages while views arrived wrote some rows twice and
   dropped others: a view moves its row to the top, behind the reader,
-  whether pages go by offset or by cursor.
-- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
+  whether pages go by offset or by cursor. A delete between a page's read
+  and its count ended the paging early.
+- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/history_persistence_test.dart` "a delete while a page is read leaves the rest reachable"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
 - **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`, `lib/core/backup/backup_service.dart`

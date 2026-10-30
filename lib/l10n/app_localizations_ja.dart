@@ -2688,6 +2688,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get watchLaterLoadFailed => 'あとで見るの読み込みに失敗しました';
 
   @override
+  String get watchLaterSaveFailed => 'あとで見るの保存に失敗しました';
+
+  @override
   String get bookmarkEditTitle => 'ブックマークを編集';
 
   @override

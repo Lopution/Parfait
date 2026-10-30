@@ -75,6 +75,7 @@ class WatchLaterDatabase {
         singleInstance: databasePath != sqflite.inMemoryDatabasePath,
         onCreate: (db, version) => _createSchema(db),
         onUpgrade: _upgrade,
+        onDowngrade: _refuseDowngrade,
       ),
     );
   }
@@ -108,11 +109,16 @@ class WatchLaterDatabase {
   Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _createSchema(db);
-      return;
     }
-    if (newVersion > schemaVersion) {
-      throw ArgumentError('unsupported watch-later schema version $newVersion');
-    }
+  }
+
+  /// A newer build's schema is left alone: lowering the version would make
+  /// that build re-run a migration it already ran, and the database would
+  /// stop opening. The feature reports the failed open instead.
+  static Future<void> _refuseDowngrade(Database db, int from, int to) {
+    throw StateError(
+      '$databaseName is schema $from; this build reads up to $to',
+    );
   }
 
   Future<void> close() async {
@@ -120,9 +126,14 @@ class WatchLaterDatabase {
     _closed = true;
     final future = _databaseFuture;
     _databaseFuture = null;
-    if (future != null) {
-      final database = await future;
-      await database.close();
+    if (future == null) return;
+    final Database database;
+    try {
+      database = await future;
+    } on Object {
+      // The open failed (a newer schema): nothing to close.
+      return;
     }
+    await database.close();
   }
 }

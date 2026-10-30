@@ -2661,6 +2661,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get watchLaterLoadFailed => '稍后再看加载失败';
 
   @override
+  String get watchLaterSaveFailed => '稍后再看保存失败';
+
+  @override
   String get bookmarkEditTitle => '编辑收藏';
 
   @override

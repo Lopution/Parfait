@@ -122,6 +122,21 @@ void main() {
       },
     );
 
+    test('an import whose row fails to store leaves no file', () async {
+      final target = Directory('${dir.path}/novels');
+      final db = await database.database;
+      await db.execute('DROP TABLE ${LocalNovelDatabase.table}');
+      await expectLater(
+        repository.importBytes(
+          fileName: 'lost.txt',
+          bytes: Uint8List.fromList(utf8.encode('正文')),
+          targetDir: target,
+        ),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(target.listSync(), isEmpty);
+    });
+
     test('GBK import stores decoded UTF-8 text on disk', () async {
       final novel = await repository.importBytes(
         fileName: 'legacy.txt',
@@ -132,18 +147,15 @@ void main() {
       expect(await File(novel.path).readAsString(), '古早文本');
     });
 
-    test('same file name imports get unique paths', () async {
-      final first = await repository.importBytes(
+    test('same file name imports get unique paths, even at once', () async {
+      Future<LocalNovel> import(String text) => repository.importBytes(
         fileName: 'dup.txt',
-        bytes: Uint8List.fromList(utf8.encode('一')),
+        bytes: Uint8List.fromList(utf8.encode(text)),
         targetDir: dir,
       );
-      final second = await repository.importBytes(
-        fileName: 'dup.txt',
-        bytes: Uint8List.fromList(utf8.encode('二')),
-        targetDir: dir,
-      );
+      final [first, second] = await Future.wait([import('一'), import('二')]);
       expect(first.path, isNot(second.path));
+      expect(await File(first.path).readAsString(), '一');
       expect(await File(second.path).readAsString(), '二');
     });
 

@@ -60,6 +60,10 @@ class _DownloadAction extends CardAction {
     WidgetRef ref,
     IllustEntity entity,
   ) async {
+    final reportFailure = deferErrorSnackBar(
+      context,
+      action: context.l10n.downloadSubmissionFailed,
+    );
     try {
       final submission = await ref
           .read(illustDownloadControllerProvider)
@@ -70,15 +74,9 @@ class _DownloadAction extends CardAction {
           alreadyQueued: submission.group == null,
         );
       }
-    } catch (error) {
+    } catch (error, stack) {
       AppHaptics.error();
-      if (context.mounted) {
-        showErrorSnackBar(
-          context,
-          action: context.l10n.downloadSubmissionFailed,
-          error: error,
-        );
-      }
+      reportFailure(error, stack);
     }
   }
 }
@@ -109,24 +107,33 @@ class _WatchLaterAction extends CardAction {
     IllustEntity entity,
   ) async {
     final store = ref.read(watchLaterStoreProvider.notifier);
-    if (_saved(ref, entity)) {
-      // The removal keeps the entry's original addedAt and its account:
-      // undo puts it back in place, and only on that account's list.
-      final removal = await store.removeAll([entity.id]);
-      if (removal != null && context.mounted) {
-        showUndoSnackBar(
-          context,
-          context.l10n.watchLaterRemoved,
-          onUndo: (container) => container
-              .read(watchLaterStoreProvider.notifier)
-              .restoreAll(removal),
-        );
+    // The sheet has closed: the card may be gone by the time a write fails.
+    final reportFailure = deferErrorSnackBar(
+      context,
+      action: context.l10n.watchLaterSaveFailed,
+    );
+    try {
+      if (_saved(ref, entity)) {
+        // The removal keeps the entry's original addedAt and its account:
+        // undo puts it back in place, and only on that account's list.
+        final removal = await store.removeAll([entity.id]);
+        if (removal != null && context.mounted) {
+          showUndoSnackBar(
+            context,
+            context.l10n.watchLaterRemoved,
+            onUndo: (container) => container
+                .read(watchLaterStoreProvider.notifier)
+                .restoreAll(removal),
+          );
+        }
+      } else {
+        final added = await store.add(entity);
+        if (added && context.mounted) {
+          showAppSnackBar(context, context.l10n.watchLaterAdded);
+        }
       }
-    } else {
-      final added = await store.add(entity);
-      if (added && context.mounted) {
-        showAppSnackBar(context, context.l10n.watchLaterAdded);
-      }
+    } on Object catch (error, stack) {
+      reportFailure(error, stack);
     }
   }
 
@@ -171,6 +178,10 @@ class _MuteWorkAction extends CardAction {
     // What the list kept for it, so Undo brings that entry back as it was.
     final removed = ref.read(muteStoreProvider).works[entity.id];
     final confirm = muteConfirmation(context);
+    final reportFailure = deferErrorSnackBar(
+      context,
+      action: context.l10n.muteFailed,
+    );
     try {
       if (removed != null) {
         await store.unmuteWork(entity.id);
@@ -183,14 +194,8 @@ class _MuteWorkAction extends CardAction {
           ),
         );
       }
-    } catch (error) {
-      if (context.mounted) {
-        showErrorSnackBar(
-          context,
-          action: context.l10n.muteFailed,
-          error: error,
-        );
-      }
+    } catch (error, stack) {
+      reportFailure(error, stack);
       return;
     }
     if (removed == null) {
