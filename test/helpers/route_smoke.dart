@@ -132,8 +132,9 @@ ReviewDevice smokeDevice(LayoutProfile profile) =>
     ReviewDevice(physicalSize: profile.size, dpr: 1);
 
 /// Opens the whole app at [location] over a world from [setup] and checks
-/// the page: no exception, UI text whole, still at [location]. A [timeout]
-/// scene checks its loading state, then again once the client gives up.
+/// the page: no exception, UI text whole, still at [location], at rest (a
+/// page still moving is still loading). A [timeout] scene checks its
+/// loading state, then again once the client gives up.
 /// [back] then pops and checks the page below: the route's parent. A
 /// page with [content] shows what it opened for, not a message that it has
 /// nothing to show; one without says it has nothing, or why.
@@ -161,7 +162,7 @@ Future<void> smokeScene(
       device: device ?? smokeDevice(profile),
       fontFamilyFallback: layoutFontFallback,
     );
-    await settleReview(tester, settle: !timeout);
+    var rest = await settleReview(tester, settle: !timeout);
     void expectIntact(String at) {
       expectLocaleLayoutIntact(tester, locale: smokeLocale, profile: profile);
       expect(router.state.uri.toString(), at, reason: 'opened $location');
@@ -192,12 +193,18 @@ Future<void> smokeScene(
 
     expectIntact(location);
     if (timeout) {
-      await tester.pump(
-        PixivHttpClient.defaultRequestTimeout + const Duration(seconds: 1),
-      );
-      await settleReview(tester);
+      // Requests sent once the first gave up wait out their own timeout:
+      // the ranking then warms the tabs next to the one on screen.
+      for (var round = 0; round < 3; round++) {
+        await tester.pump(
+          PixivHttpClient.defaultRequestTimeout + const Duration(seconds: 1),
+        );
+        rest = await settleReview(tester);
+        if (rest) break;
+      }
       expectIntact(location);
     }
+    expect(rest, isTrue, reason: '$location never came to rest');
     expectContent();
     if (!back) return;
     final matches = _flatten(
@@ -280,13 +287,22 @@ void smokeMatrix(SmokeGroup group) {
     if (page.reads case final reads?) {
       final (failure, reply) = smokeFailures[index % smokeFailures.length];
       testWidgets('$template failed: $failure', (tester) async {
+        var read = false;
         await smokeScene(
           tester,
           location: location,
-          setup: ReviewSetup(api: {reads: reply}),
+          setup: ReviewSetup(
+            api: {
+              reads: (url) {
+                read = true;
+                return reply(url);
+              },
+            },
+          ),
           timeout: failure == 'timeout',
           content: false,
         );
+        expect(read, isTrue, reason: '$location never read $reads');
       });
     }
   }
