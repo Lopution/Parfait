@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart' show RecordingClient;
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/network/compat/auto_image_source.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_fast_route_store.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
@@ -14,6 +16,7 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
 import 'package:parfait/core/network/compat/route_kind_store.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
+import 'package:parfait/core/network/rhttp_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _HandshakeFailingClient extends http.BaseClient {
@@ -111,6 +114,60 @@ void main() {
       created.map((entry) => entry.route.kind),
       everyElement(NetworkRouteKind.bootstrapNoSni),
     );
+  });
+
+  test('a learned route that fails to save completes quietly', () async {
+    // Each is remembered unawaited after a request it served.
+    installPreferencesForTest(StringWriteFailingPreferences());
+    final preferences = SharedPreferencesAsync();
+
+    await PixivFastRouteStore(
+      preferences: preferences,
+    ).remember('i.pximg.net', InternetAddress('1.2.3.4'));
+    await RouteKindStore(
+      preferences: preferences,
+    ).remember('wifi:home', 'image', NetworkRouteKind.ech.name);
+    await AutoImageSource(
+      preferences: preferences,
+    ).remember('wifi:home', 'i.pixiv.re');
+  });
+
+  test('a route that failed to save is saved when learned again', () async {
+    // The failed value must not look stored to the next remember.
+    installPreferencesForTest(StringWriteFailingPreferences(failures: 2));
+    final preferences = SharedPreferencesAsync();
+    final fast = PixivFastRouteStore(preferences: preferences);
+    final kinds = RouteKindStore(preferences: preferences);
+    final ech = NetworkRouteKind.ech.name;
+
+    for (var learned = 0; learned < 2; learned++) {
+      await fast.remember('i.pximg.net', InternetAddress('1.2.3.4'));
+      await kinds.remember('wifi:home', 'image', ech);
+    }
+
+    final restarted = PixivFastRouteStore(preferences: preferences);
+    expect((await restarted.learned())['i.pximg.net']?.address, '1.2.3.4');
+    expect(
+      await RouteKindStore(preferences: preferences).kindsFor('wifi:home'),
+      {'image': ech},
+    );
+  });
+
+  test('a warm-up the native transport fails completes quietly', () async {
+    // The app starts the warm-up unawaited; requests meet the failure.
+    final ready = RhttpGate.ready;
+    RhttpGate.ready = Future<void>.error(StateError('rhttp did not load'))
+      ..ignore();
+    addTearDown(() => RhttpGate.ready = ready);
+    final policy = NetworkAccessPolicy(
+      fastRouteStore: PixivFastRouteStore(
+        preferences: SharedPreferencesAsync(),
+      ),
+      clientFactory: (_, _, _) => RecordingClient(),
+    );
+    addTearDown(policy.dispose);
+
+    await PixivNetworkFactory(policy).warmUp();
   });
 
   test('a failed fast address is cooled before the next request', () async {

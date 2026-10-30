@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../../log.dart';
 import 'network_contracts.dart';
 import 'network_policy.dart';
 
@@ -174,13 +175,19 @@ class PixivNetworkFactory {
 
   /// Eagerly constructs the shared API/OAuth/image clients and their fast
   /// route pools. It is idempotent so callers can safely trigger it from the
-  /// app lifecycle and from headless widget startup.
+  /// app lifecycle and from headless widget startup. Best effort: a failure
+  /// (the native transport not loading, an unreadable route store) is
+  /// logged, and the requests that need the transport report it.
   Future<void> warmUp() {
     return _warmupFuture ??= () async {
-      client(PixivDestinationPurpose.appApi);
-      client(PixivDestinationPurpose.oauth);
-      client(PixivDestinationPurpose.image);
-      await policy.warmUp();
+      try {
+        client(PixivDestinationPurpose.appApi);
+        client(PixivDestinationPurpose.oauth);
+        client(PixivDestinationPurpose.image);
+        await policy.warmUp();
+      } on Object catch (error) {
+        log('network warm-up failed: $error');
+      }
     }();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../log.dart';
 import '../settings/preference_keys.dart';
 import '../settings/shared_preferences.dart';
 
@@ -24,17 +25,29 @@ class HeroAnomalyLog {
       await _preferences.getStringList(PreferenceKeys.heroAnomalies) ??
       const [];
 
-  Future<void> add(String entry) => _writes = _writes.then((_) async {
-    final entries = await read();
-    await _preferences.setStringList(PreferenceKeys.heroAnomalies, [
-      entry,
-      ...entries.take(capacity - 1),
-    ]);
+  /// Called unawaited from a flight: a failed write is logged.
+  Future<void> add(String entry) => _queue(() async {
+    try {
+      final entries = await read();
+      await _preferences.setStringList(PreferenceKeys.heroAnomalies, [
+        entry,
+        ...entries.take(capacity - 1),
+      ]);
+    } on Object catch (error) {
+      log('hero anomaly not recorded: $error');
+    }
   });
 
-  Future<void> clear() => _writes = _writes.then(
-    (_) => _preferences.remove(PreferenceKeys.heroAnomalies),
-  );
+  Future<void> clear() =>
+      _queue(() => _preferences.remove(PreferenceKeys.heroAnomalies));
+
+  /// Runs [write] after the writes before it; its failure is its caller's
+  /// and the next write still runs.
+  Future<void> _queue(Future<void> Function() write) {
+    final done = _writes.then((_) => write());
+    _writes = done.then((_) {}, onError: (Object _) {});
+    return done;
+  }
 }
 
 final heroAnomalyLogProvider = Provider<HeroAnomalyLog>(

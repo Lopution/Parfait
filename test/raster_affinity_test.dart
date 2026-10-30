@@ -67,5 +67,12 @@ void main() {
     await File('$cpuRoot/cpu7/cpu_capacity').delete();
     await free();
     expect(calls, isEmpty);
+
+    // So does a table the ROM does not let the app read, without an error.
+    await freeRasterThreads(
+      cpuRoot: '${root.path}/denied',
+      taskRoot: taskRoot,
+      setAffinity: (tid, cpus) => fail('no table, no affinity'),
+    );
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../log.dart';
 import '../settings/preference_keys.dart';
 import '../settings/shared_preferences.dart';
 import 'update_providers.dart';
@@ -32,17 +33,27 @@ class UpdateAutoCheck {
   /// Runs the check when the throttle window has passed. Returns the
   /// result (or null when skipped/store-managed) so the caller can
   /// surface [UpdateCheckStatus.available] however it wants.
+  /// The window is stamped right before [UpdateService.check]: a failed
+  /// check, its own platform reads included, consumes it like a failed
+  /// request. A failure before that (the service, its capability, the
+  /// stamp itself) is logged, skips this launch's check and leaves the
+  /// next launch free to try.
   Future<UpdateCheckResult?> checkOnce() async {
-    final last =
-        await _preferences.getInt(PreferenceKeys.updateAutoCheckAt) ?? 0;
-    final now = _clock().millisecondsSinceEpoch;
-    if (now - last < _minInterval.inMilliseconds) return null;
+    try {
+      final last =
+          await _preferences.getInt(PreferenceKeys.updateAutoCheckAt) ?? 0;
+      final now = _clock().millisecondsSinceEpoch;
+      if (now - last < _minInterval.inMilliseconds) return null;
 
-    await _preferences.setInt(PreferenceKeys.updateAutoCheckAt, now);
-    final service = await _service();
-    // Store-managed builds (F-Droid, non-Android) never self-check.
-    if ((await service.capability()).storeManaged) return null;
-    return service.check();
+      final service = await _service();
+      // Store-managed builds (F-Droid, non-Android) never self-check.
+      if ((await service.capability()).storeManaged) return null;
+      await _preferences.setInt(PreferenceKeys.updateAutoCheckAt, now);
+      return await service.check();
+    } on Object catch (error) {
+      log('update auto check skipped: $error');
+      return null;
+    }
   }
 }
 

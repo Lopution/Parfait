@@ -11,29 +11,25 @@ String settingsText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
 }
 
-/// Wraps an immediate settings write: failures surface as a snackbar and the
+/// Wraps an immediate settings write: failures surface as a prompt and the
 /// controller keeps the old value (SettingsController._writeTail rolls back).
-/// [failureMessageKey] selects the failure text; defaults to the generic
-/// `settingsWriteFailed`.
+/// The prompt host is taken before the write, so a failure that lands after
+/// the page closed is still reported (FB-15). [failureMessageKey] selects
+/// the failure text; defaults to the generic `settingsWriteFailed`.
 Future<bool> persistSettings(
   BuildContext context,
   Future<void> Function() action, {
   String? failureMessageKey,
 }) async {
+  final reportFailure = deferErrorSnackBar(
+    context,
+    action: settingsText(context, failureMessageKey ?? 'settingsWriteFailed'),
+  );
   try {
     await action();
     return true;
-  } on Object catch (error) {
-    if (context.mounted) {
-      showErrorSnackBar(
-        context,
-        action: settingsText(
-          context,
-          failureMessageKey ?? 'settingsWriteFailed',
-        ),
-        error: error,
-      );
-    }
+  } on Object catch (error, stack) {
+    reportFailure(error, stack);
     return false;
   }
 }

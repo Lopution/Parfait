@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' show log;
 
 import 'package:flutter/rendering.dart' show PipelineOwner;
 import 'package:flutter/scheduler.dart';
@@ -12,6 +11,7 @@ import 'app/app.dart';
 import 'core/debug/frame_probe.dart';
 import 'core/debug/trace_marks.dart';
 import 'core/image/legacy_image_cache.dart';
+import 'core/log.dart';
 import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
 import 'core/platform/app_root_pipeline_owner.dart';

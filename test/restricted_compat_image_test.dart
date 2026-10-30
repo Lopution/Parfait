@@ -860,6 +860,16 @@ void main() {
       expect(await reloaded.winnerFor('wifi'), 'i.pixiv.re');
     });
 
+    test('the next winner replaces a damaged record', () async {
+      final preferences = SharedPreferencesAsync();
+      await preferences.setString(AutoImageSource.storageKey, '{not json');
+      final source = AutoImageSource(preferences: preferences);
+
+      await source.remember('wifi', 'i.pixiv.re');
+
+      expect(await source.winnerFor('wifi'), 'i.pixiv.re');
+    });
+
     test('race picks the fastest transfer, not the first response', () async {
       final big = List.filled(32 * 1024, 7);
       final policy = autoPolicy(

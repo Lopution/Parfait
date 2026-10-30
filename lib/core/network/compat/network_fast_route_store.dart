@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../log.dart';
 import '../pixiv_client_identity.dart';
 import '../../settings/preference_keys.dart';
 
@@ -52,25 +53,30 @@ class PixivFastRouteStore implements FastRouteMemory {
 
   /// Records a public address after a route has actually served a request.
   /// Writes are serialized because API, OAuth, and image requests can finish
-  /// concurrently during startup.
+  /// concurrently during startup. Callers do not wait: a failed write is
+  /// logged. The cache takes the address only once it is stored, so the
+  /// next success writes it again.
   @override
   Future<void> remember(String host, InternetAddress address) {
     if (!isPublicNetworkAddress(address) || !_bootstrap.containsKey(host)) {
       return Future<void>.value();
     }
-    final operation = _writeTail.then<void>((_) async {
+    return _writeTail = _writeTail.then<void>((_) async {
       final current = await _load();
       if (current[host]?.address == address.address) return;
-      current[host] = address;
-      await _preferences.setString(
-        storageKey,
-        jsonEncode({
-          for (final entry in current.entries) entry.key: entry.value.address,
-        }),
-      );
+      final next = {...current, host: address};
+      try {
+        await _preferences.setString(
+          storageKey,
+          jsonEncode({
+            for (final entry in next.entries) entry.key: entry.value.address,
+          }),
+        );
+        current[host] = address;
+      } on Object catch (error) {
+        log('fast route not remembered: $error');
+      }
     });
-    _writeTail = operation.then<void>((_) {}, onError: (_, _) {});
-    return operation;
   }
 
   /// The persisted addresses, without the bootstrap fallback — the seed of

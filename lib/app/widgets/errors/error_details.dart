@@ -149,3 +149,24 @@ void showErrorSnackBar(
     duration: duration,
   );
 }
+
+/// [showErrorSnackBar] for a failure that may land after the context that
+/// asked is gone: the prompt host and the texts are taken now, one prompt
+/// per error category.
+void Function(Object error, StackTrace stack) deferErrorSnackBar(
+  BuildContext context, {
+  required String action,
+}) {
+  final l10n = context.l10n;
+  final prompts = {
+    for (final category in ErrorCategory.values)
+      category: deferAppSnackBar(
+        context,
+        l10n.errorWithReason(action, errorCategoryTextL10n(l10n, category)),
+      ),
+  };
+  return (error, stack) {
+    CrashLog.report(action, error, stack);
+    prompts[categorizeError(error)]!();
+  };
+}

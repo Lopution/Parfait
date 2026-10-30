@@ -4,7 +4,7 @@
 library;
 
 import 'dart:async';
-import 'dart:developer' show log;
+import '../log.dart';
 import '../network/pixiv_headers.dart';
 import 'dart:io';
 import 'dart:math' show Random;
