@@ -10,6 +10,7 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/features/home/home_page.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/app/startup_gate.dart';
@@ -19,6 +20,7 @@ import 'package:parfait/features/onboarding/welcome_page.dart';
 import 'dart:async';
 
 import 'helpers/fake_account.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
@@ -116,16 +118,22 @@ void main() {
   testWidgets(
     'login remains visible while first account hydration is pending',
     (tester) async {
-      final preferences = GatedPreferences();
+      final preferences = GatedPreferences(
+        keys: {PreferenceKeys.accounts, PreferenceKeys.accountsCurrent},
+      );
       installPreferencesForTest(preferences);
+      await seedSettings(_guided);
       final wrapped = await _wrap(initialLocation: '/login');
-      preferences.readGate = Completer<void>().future;
+      preferences
+        ..reads = 0
+        ..readGate = Completer<void>().future;
       await tester.pumpWidget(wrapped);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       // A slow secure/metadata read must not replace the actionable login
       // surface with StartupGate's full-screen spinner.
-      expect(find.byType(LoginPage), findsOneWidget);
+      expect(preferences.reads, isPositive, reason: 'accounts are loading');
+      expect(find.widgetWithText(ReplicaButton, '登录'), findsOneWidget);
     },
   );
 

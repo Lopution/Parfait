@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/pages/download_destination_page.dart';
 import 'package:parfait/features/settings/pages/download_settings_page.dart';
@@ -144,13 +145,39 @@ void main() {
   });
 
   testWidgets('a field edited during its save stays a draft', (tester) async {
-    // (page, field index, first draft, edit typed while the write runs)
-    for (final (page, field, draft, edit) in [
-      (const DownloadSettingsPage(), 0, '{id}_a', '{id}_b'),
-      (const DownloadDestinationPage(), 0, 'Album', 'Album 2'),
-      (const NetworkAdvancedSettingsPage(), 1, 'a.example', 'b.example'),
-      (const NetworkSettingsPage(), 0, 'https://a.example', 'https://b.x'),
-    ]) {
+    // (page, field index, first draft, edit typed while the write runs,
+    // where the field is stored)
+    for (final (page, field, draft, edit, stored)
+        in <(Widget, int, String, String, String? Function(AppSettings))>[
+          (
+            const DownloadSettingsPage(),
+            0,
+            '{id}_a',
+            '{id}_b',
+            (settings) => settings.namingRule.template,
+          ),
+          (
+            const DownloadDestinationPage(),
+            0,
+            'Album',
+            'Album 2',
+            (settings) => settings.downloadDestination.customAlbumName,
+          ),
+          (
+            const NetworkAdvancedSettingsPage(),
+            1,
+            'a.example',
+            'b.example',
+            (settings) => settings.echFrontHost,
+          ),
+          (
+            const NetworkSettingsPage(),
+            0,
+            'https://a.example',
+            'https://b.x',
+            (settings) => settings.customImageSource,
+          ),
+        ]) {
       final preferences = GatedPreferences(keys: settingsKeys);
       installPreferencesForTest(preferences);
       await seedSettings(
@@ -174,9 +201,7 @@ void main() {
       await tester.enterText(input, draft);
       await tester.pump();
       final saving = Completer<void>();
-      preferences
-        ..writes = 0
-        ..writeGate = saving.future;
+      preferences.writeGate = saving.future;
       await tester.tap(find.widgetWithText(FilledButton, '保存').first);
       await tester.pump();
       await tester.enterText(input, edit);
@@ -184,7 +209,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final reason = '${page.runtimeType}';
-      expect(preferences.writes, isPositive, reason: reason);
+      expect(stored(await storedSettings().load()), draft, reason: reason);
       expect(
         tester.widget<TextField>(input).controller!.text,
         edit,
