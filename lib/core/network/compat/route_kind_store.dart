@@ -39,22 +39,25 @@ class RouteKindStore implements RouteKindMemory {
 
   /// Serialized writes — several tiers can succeed concurrently during
   /// startup, and each success may flip a different group's preference.
-  /// Callers do not wait: a failed write is logged.
+  /// Callers do not wait: a failed write is logged. The cache takes the
+  /// kind only once it is stored, so the next success writes it again.
   @override
   Future<void> remember(String networkIdentity, String group, String kind) {
     return _writeTail = _writeTail.then<void>((_) async {
       final all = await _load();
-      final perIdentity = all.putIfAbsent(
-        networkIdentity,
-        () => <String, String>{},
-      );
-      if (perIdentity[group] == kind) return;
-      perIdentity[group] = kind;
-      while (all.length > _maxIdentities) {
-        all.remove(all.keys.first);
+      if (all[networkIdentity]?[group] == kind) return;
+      final next = {
+        ...all,
+        networkIdentity: {...?all[networkIdentity], group: kind},
+      };
+      while (next.length > _maxIdentities) {
+        next.remove(next.keys.first);
       }
       try {
-        await _preferences.setString(storageKey, jsonEncode(all));
+        await _preferences.setString(storageKey, jsonEncode(next));
+        all
+          ..clear()
+          ..addAll(next);
       } on Object catch (error) {
         log('route kind not remembered: $error');
       }

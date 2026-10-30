@@ -132,6 +132,27 @@ void main() {
     ).remember('wifi:home', 'i.pixiv.re');
   });
 
+  test('a route that failed to save is saved when learned again', () async {
+    // The failed value must not look stored to the next remember.
+    installPreferencesForTest(StringWriteFailingPreferences(failures: 2));
+    final preferences = SharedPreferencesAsync();
+    final fast = PixivFastRouteStore(preferences: preferences);
+    final kinds = RouteKindStore(preferences: preferences);
+    final ech = NetworkRouteKind.ech.name;
+
+    for (var learned = 0; learned < 2; learned++) {
+      await fast.remember('i.pximg.net', InternetAddress('1.2.3.4'));
+      await kinds.remember('wifi:home', 'image', ech);
+    }
+
+    final restarted = PixivFastRouteStore(preferences: preferences);
+    expect((await restarted.learned())['i.pximg.net']?.address, '1.2.3.4');
+    expect(
+      await RouteKindStore(preferences: preferences).kindsFor('wifi:home'),
+      {'image': ech},
+    );
+  });
+
   test('a warm-up the native transport fails completes quietly', () async {
     // The app starts the warm-up unawaited; requests meet the failure.
     final ready = RhttpGate.ready;

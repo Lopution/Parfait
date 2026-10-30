@@ -54,7 +54,8 @@ class PixivFastRouteStore implements FastRouteMemory {
   /// Records a public address after a route has actually served a request.
   /// Writes are serialized because API, OAuth, and image requests can finish
   /// concurrently during startup. Callers do not wait: a failed write is
-  /// logged.
+  /// logged. The cache takes the address only once it is stored, so the
+  /// next success writes it again.
   @override
   Future<void> remember(String host, InternetAddress address) {
     if (!isPublicNetworkAddress(address) || !_bootstrap.containsKey(host)) {
@@ -63,14 +64,15 @@ class PixivFastRouteStore implements FastRouteMemory {
     return _writeTail = _writeTail.then<void>((_) async {
       final current = await _load();
       if (current[host]?.address == address.address) return;
-      current[host] = address;
+      final next = {...current, host: address};
       try {
         await _preferences.setString(
           storageKey,
           jsonEncode({
-            for (final entry in current.entries) entry.key: entry.value.address,
+            for (final entry in next.entries) entry.key: entry.value.address,
           }),
         );
+        current[host] = address;
       } on Object catch (error) {
         log('fast route not remembered: $error');
       }
