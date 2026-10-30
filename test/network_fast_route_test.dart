@@ -14,6 +14,7 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
 import 'package:parfait/core/network/compat/route_kind_store.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
+import 'package:parfait/core/network/rhttp_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _HandshakeFailingClient extends http.BaseClient {
@@ -111,6 +112,23 @@ void main() {
       created.map((entry) => entry.route.kind),
       everyElement(NetworkRouteKind.bootstrapNoSni),
     );
+  });
+
+  test('a warm-up the native transport fails completes quietly', () async {
+    // The app starts the warm-up unawaited; requests meet the failure.
+    final ready = RhttpGate.ready;
+    RhttpGate.ready = Future<void>.error(StateError('rhttp did not load'))
+      ..ignore();
+    addTearDown(() => RhttpGate.ready = ready);
+    final policy = NetworkAccessPolicy(
+      fastRouteStore: PixivFastRouteStore(
+        preferences: SharedPreferencesAsync(),
+      ),
+      clientFactory: (_, _, _) => RecordingClient(),
+    );
+    addTearDown(policy.dispose);
+
+    await PixivNetworkFactory(policy).warmUp();
   });
 
   test('a failed fast address is cooled before the next request', () async {
