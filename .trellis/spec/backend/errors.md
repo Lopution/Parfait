@@ -54,10 +54,8 @@ reviewed: 2026-10-29
   the persisted raw `error` string. Canceled and paused tasks are not
   failures and never get failure styling. A `retryable` task with no kind
   was interrupted by process death and shows `downloadFailureInterrupted`.
-  A host failure is classified by its `<channel>_<reason>` code: a full
-  disk is `noSpace` on every sink (the hosts report `*_no_space`), a SAF
-  folder whose grant or document is gone is `destination` (its copy says to
-  pick the folder again), and other SAF/MediaStore codes are `storage`.
+  A host failure gets its kind from its `<channel>_<reason>` code, not
+  from its message.
 - **Why:** Interrupted tasks showed "unknown error" and cancelled ones
   looked failed. Host storage failures, a full disk among them, also read
   "unknown error", and a lost SAF folder never said to pick it again.
