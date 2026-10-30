@@ -579,7 +579,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       final nextCursor = _validateCursor(page.nextCursor, context);
       final committed = FrameProbe.instance.measure(
         'feed commit ${page.ids.length}',
-        () => _commitLoadMore(context, page, nextCursor),
+        () => _commitLoadMore(context, page, nextCursor, current.ids),
       );
       if (!committed) _restoreLoadMorePhaseIfCurrent(context);
     } on ApiCancelled {
@@ -698,11 +698,14 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   }
 
   /// Commits a fetched next page and publishes the merged list; false when
-  /// the commit gate rejected the page.
+  /// the commit gate rejected the page. The ids [loaded] when the request
+  /// began count as seen: one removed meanwhile stays gone though the page
+  /// repeats it.
   bool _commitLoadMore(
     FeedRequestContext context,
     FeedPage page,
     String? nextCursor,
+    List<int> loaded,
   ) {
     if (!_commitPage(context, page)) return false;
     _recordCursor(nextCursor);
@@ -710,7 +713,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     _page = context.page;
     state = AsyncData(
       PagedFeedState(
-        ids: _dedupe(page.ids, _latest.ids),
+        ids: _dedupe(page.ids, _latest.ids, seen: loaded),
         initialPhase: FeedPhase.idle,
         loadMorePhase: FeedPhase.idle,
         exhausted: _nextCursor == null,
@@ -779,11 +782,15 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     _committedCursors.add(cursor);
   }
 
-  List<int> _dedupe(List<int> incoming, List<int> existing) {
-    final seen = existing.toSet();
+  List<int> _dedupe(
+    List<int> incoming,
+    List<int> existing, {
+    List<int> seen = const [],
+  }) {
+    final known = {...seen, ...existing};
     final result = List<int>.of(existing);
     for (final id in incoming) {
-      if (seen.add(id)) {
+      if (known.add(id)) {
         result.add(id);
       }
     }

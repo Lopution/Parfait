@@ -101,7 +101,9 @@ reviewed: 2026-10-30
   load-more appends only unseen ids in server order. Token refresh does not
   rebuild a feed. A request writes its outcome onto the feed as it is when
   it lands, not as it was when it began: ids removed or inserted meanwhile
-  (`removeRecord`, a comment's `prepend`/`removeId`) stay so.
+  (`removeRecord`, a comment's `prepend`/`removeId`) stay so. An id loaded
+  when a load-more began counts as seen, so one removed meanwhile stays
+  gone even when the page repeats it.
 - **Why:** Late appends mixed generations and left ghost ids. A page that
   landed on the list it read at its start brought back a history record
   deleted while it loaded (10-31).
