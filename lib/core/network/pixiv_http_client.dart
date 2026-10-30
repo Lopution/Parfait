@@ -286,9 +286,9 @@ class PixivHttpClient {
     // The request belongs to the account current as it starts: a refresh
     // and a replay after a switch stay that account's. A queued replay is
     // bound to its owner and is refused under any other account.
-    final (:accountId, accessToken: firstToken) = await _requireContext();
-    final bound = requestAccount();
-    if (bound != null && bound != accountId) throw const ApiCancelled();
+    final (:accountId, accessToken: firstToken) = await _requireContext(
+      owner: requestAccount(),
+    );
     var usedToken = firstToken;
     http.Response response = await _issue(
       uri,
@@ -570,20 +570,21 @@ class PixivHttpClient {
     _ => null,
   };
 
-  Future<({String accountId, String accessToken})> _requireContext() async {
-    final context = await _currentContext();
-    if (context == null) {
-      throw const ApiUnauthorized('no signed-in account');
-    }
-    return context;
-  }
-
-  Future<({String accountId, String accessToken})?> _currentContext() async {
+  /// The usable current account and its token. A request bound to an
+  /// [owner] that is not that account, or with none usable, is cancelled:
+  /// the owner's replay waits for it instead of failing.
+  Future<({String accountId, String accessToken})> _requireContext({
+    String? owner,
+  }) async {
     final state = await _accountStore.resolveState();
     final account = state.usableCurrent;
-    if (account == null) return null;
-    final credential = await _credentialStore.read(account.id);
-    if (credential == null) return null;
+    if (owner != null && account?.id != owner) throw const ApiCancelled();
+    final credential = account == null
+        ? null
+        : await _credentialStore.read(account.id);
+    if (account == null || credential == null) {
+      throw const ApiUnauthorized('no signed-in account');
+    }
     return (accountId: account.id, accessToken: credential.accessToken);
   }
 

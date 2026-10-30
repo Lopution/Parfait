@@ -436,6 +436,17 @@ void main() {
     expect((await store.listFor('100')).single.status, ActionStatus.pending);
     expect(entry(), isNull);
 
+    // So it does when the next account must sign in again: no attempt.
+    await accounts.markReauthRequired('200');
+    store.claimGate = Completer<void>();
+    await accounts.switchAccount('100');
+    await pumpEventQueue();
+    await accounts.switchAccount('200');
+    store.claimGate!.complete();
+    await pumpEventQueue();
+    final row = (await store.listFor('100')).single;
+    expect((row.status, row.attempt), (ActionStatus.pending, 0));
+
     // Back on its owner it replays at once; a switch while it is in flight
     // keeps its result out of the next account's store.
     world.fixture.hold = Completer<void>();
