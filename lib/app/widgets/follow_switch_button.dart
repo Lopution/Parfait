@@ -85,11 +85,10 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
   String _text(BuildContext context, String key) =>
       l10nLookup(context.l10n, key);
 
-  Future<void> _showActionsSheet(BuildContext context, WidgetRef ref) async {
+  Future<void> _showActionsSheet(BuildContext context) async {
     AppHaptics.longPress();
     await showFollowActionsSheet(
       context,
-      ref,
       userId: userId,
       userName: widget.userName,
       userAccount: widget.userAccount,
@@ -131,9 +130,7 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
     // LabelFit.minScale, and past that ellipsize.
     final minSize = widget.compact ? const Size(96, 36) : const Size(116, 42);
     // The sheet acts on a settled state only.
-    final onLongPress = unsettled
-        ? null
-        : () => _showActionsSheet(context, ref);
+    final onLongPress = unsettled ? null : () => _showActionsSheet(context);
     final labelStyle = Theme.of(
       context,
     ).textTheme.labelLarge!.copyWith(fontWeight: FontWeight.w600);
@@ -208,12 +205,15 @@ enum _FollowSheetAction { followPublic, followPrivate, unfollow }
 /// header: direct actions for the current state — follow publicly or
 /// privately; once followed, switch the visibility or unfollow (with Undo).
 Future<void> showFollowActionsSheet(
-  BuildContext context,
-  WidgetRef ref, {
+  BuildContext context, {
   required int userId,
   required String userName,
   String userAccount = '',
 }) async {
+  // A refresh landing under the open sheet can take the button away: the
+  // pick then runs on its Navigator, which outlives it.
+  final navigator = Navigator.of(context).context;
+  final container = ProviderScope.containerOf(context, listen: false);
   final action = await showAppBottomSheet<_FollowSheetAction>(
     context: context,
     backgroundColor: FuncTokens.transparent,
@@ -223,18 +223,19 @@ Future<void> showFollowActionsSheet(
       userAccount: userAccount,
     ),
   );
-  if (action == null || !context.mounted) return;
-  final store = ref.read(followStoreProvider.notifier);
+  final host = context.mounted ? context : navigator;
+  if (action == null || !host.mounted) return;
+  final store = container.read(followStoreProvider.notifier);
   switch (action) {
     case _FollowSheetAction.unfollow:
       // The entry may have changed while the sheet was open; a toggle on
       // an unfollowed user would follow instead.
       if (store.entryOf(userId)?.shown ?? false) {
-        await toggleFollowWithUndo(context, userId);
+        await toggleFollowWithUndo(host, userId);
       }
     case _FollowSheetAction.followPublic || _FollowSheetAction.followPrivate:
       AppHaptics.select();
-      await ref
+      await container
           .read(followActionsProvider)
           .addWithRestrict(
             userId,
