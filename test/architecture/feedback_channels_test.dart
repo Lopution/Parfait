@@ -168,6 +168,26 @@ Map<String, Set<String>> _matches(List<String> roots, RegExp pattern) {
   return hits;
 }
 
+/// Whether [source] logs through `dart:developer`: an import of it that
+/// shows `log`, or one that does not hide it and whose `log(` (prefixed
+/// when the import is) is called.
+bool _usesDeveloperLog(String source) {
+  final imports = RegExp(r"import 'dart:developer'([^;]*);");
+  for (final import in imports.allMatches(source)) {
+    final clause = import.group(1)!;
+    final shown = RegExp(r'\bshow\b(.*)').firstMatch(clause)?.group(1);
+    if (shown != null) {
+      if (RegExp(r'\blog\b').hasMatch(shown)) return true;
+      continue;
+    }
+    if (RegExp(r'\bhide\b.*\blog\b').hasMatch(clause)) continue;
+    final prefix = RegExp(r'\bas\s+(\w+)').firstMatch(clause)?.group(1);
+    final call = prefix == null ? 'log' : '$prefix\\.log';
+    if (RegExp('(?<![\\w.])$call\\(').hasMatch(source)) return true;
+  }
+  return false;
+}
+
 void main() {
   test('prompts have exactly one host', () {
     // material_ui's SnackBar reads the engine's accessibleNavigation flag
@@ -269,12 +289,10 @@ void main() {
           'lib/core/log.dart',
     );
     // dart:developer's log also runs in release builds.
-    final developer = _matches(
-      ['lib'],
-      RegExp(
-        r"import 'dart:developer'[^;]*\bshow\b[^;]*\blog\b|developer\.log\(",
-      ),
-    ).keys;
+    final developer = [
+      for (final file in _dartFiles('lib'))
+        if (_usesDeveloperLog(File(file).readAsStringSync())) file,
+    ];
     expect(
       developer,
       isEmpty,
