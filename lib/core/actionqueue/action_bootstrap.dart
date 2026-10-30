@@ -98,6 +98,7 @@ void _registerMutationHandlers(Ref ref, ActionQueue queue) {
     } else {
       await repository.addIllust(key.id, restrict, tags: tags);
     }
+    if (!_ownerIsCurrent(ref, action)) return;
     ref
         .read(bookmarkStoreProvider.notifier)
         .settleQueued(key, bookmarked: true, restrict: restrict, tags: tags);
@@ -110,6 +111,7 @@ void _registerMutationHandlers(Ref ref, ActionQueue queue) {
     } else {
       await repository.deleteIllust(key.id);
     }
+    if (!_ownerIsCurrent(ref, action)) return;
     ref
         .read(bookmarkStoreProvider.notifier)
         .settleQueued(key, bookmarked: false);
@@ -121,6 +123,7 @@ void _registerMutationHandlers(Ref ref, ActionQueue queue) {
         ? FollowRestrict.private
         : FollowRestrict.public;
     await ref.read(followRepositoryProvider).add(userId, restrict: restrict);
+    if (!_ownerIsCurrent(ref, action)) return;
     ref
         .read(followStoreProvider.notifier)
         .settleQueued(userId, followed: true, restrict: restrict);
@@ -128,6 +131,7 @@ void _registerMutationHandlers(Ref ref, ActionQueue queue) {
   queue.registerHandler(ActionTypes.followDelete, (action) async {
     final userId = action.decodePayload()['user']! as int;
     await ref.read(followRepositoryProvider).delete(userId);
+    if (!_ownerIsCurrent(ref, action)) return;
     ref
         .read(followStoreProvider.notifier)
         .settleQueued(userId, followed: false);
@@ -135,14 +139,22 @@ void _registerMutationHandlers(Ref ref, ActionQueue queue) {
   queue.registerHandler(ActionTypes.watchlistAdd, (action) async {
     final key = _watchlistKey(action.decodePayload());
     await ref.read(watchlistRepositoryProvider).add(key);
+    if (!_ownerIsCurrent(ref, action)) return;
     ref.read(watchlistStoreProvider.notifier).settleQueued(key, added: true);
   });
   queue.registerHandler(ActionTypes.watchlistDelete, (action) async {
     final key = _watchlistKey(action.decodePayload());
     await ref.read(watchlistRepositoryProvider).delete(key);
+    if (!_ownerIsCurrent(ref, action)) return;
     ref.read(watchlistStoreProvider.notifier).settleQueued(key, added: false);
   });
 }
+
+/// The stores hold the current account's state: a replay that finished
+/// after its owner was left settles nothing there. The server applied it,
+/// and the owner's stores reload when it is current again.
+bool _ownerIsCurrent(Ref ref, StoredAction action) =>
+    ref.read(accountStoreProvider).value?.usableCurrent?.id == action.owner;
 
 BookmarkKey _bookmarkKey(Map<String, Object?> payload) {
   final entity = payload['entity'];

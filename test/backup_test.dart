@@ -25,7 +25,6 @@ import 'package:parfait/core/platform/saf_tree.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/pages/backup_settings_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
@@ -136,7 +135,7 @@ Future<_World> _world({
   List<HistoryRecord> seededHistory = const [],
   String? nextTree = 'tree-1',
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences({
+  installMemoryPreferences({
     if (seededSettings != null)
       PreferenceKeys.settings: jsonEncode(seededSettings),
   });

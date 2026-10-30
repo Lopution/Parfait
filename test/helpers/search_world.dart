@@ -13,13 +13,19 @@ import 'illust_fixtures.dart';
 /// The App API's search endpoints. Every search answers [illusts] or
 /// [novels] (App API JSON) as its one page, and no users; [requests] logs
 /// each search from the wire. Trending tags answer [trendingTagCount] tags
-/// (at least two), the first with work 901 as its picture; autocomplete
-/// answers [autocomplete]'s suggestions for the word sent.
+/// (at least two), or [trendingTagNames], the first with work 901 as its
+/// picture; autocomplete answers [autocomplete]'s suggestions for the word
+/// sent.
 class SearchApi {
-  SearchApi({this.autocomplete, this.trendingTagCount = 2});
+  SearchApi({
+    this.autocomplete,
+    this.trendingTagCount = 2,
+    this.trendingTagNames,
+  });
 
   final Future<List<SearchSuggestion>> Function(String word)? autocomplete;
   final int trendingTagCount;
+  final List<String>? trendingTagNames;
   final requests = <http.Request>[];
 
   /// When set, every search answer waits on it — holds a result page's
@@ -44,11 +50,13 @@ class SearchApi {
   ApiRoute _trending(String kind) => (request) async {
     trendingRequests.add(kind);
     await trendingGate?.future;
+    final names =
+        trendingTagNames ??
+        ['风景', '猫', for (var i = 2; i < trendingTagCount; i++) '标签${i + 1}'];
     return jsonResponse({
       'trend_tags': [
-        {'tag': '风景', 'illust': illustJson(901)},
-        {'tag': '猫'},
-        for (var i = 2; i < trendingTagCount; i++) {'tag': '标签${i + 1}'},
+        for (final (i, name) in names.indexed)
+          {'tag': name, if (i == 0) 'illust': illustJson(901)},
       ],
     });
   };

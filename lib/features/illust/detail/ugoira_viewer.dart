@@ -602,13 +602,21 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final result = await job.start();
     await subscription.cancel();
     if (!mounted) return;
+    // A failure says why, as a download row does; "unknown" is no reason.
+    final kind = result.failureKind;
+    final reason = kind == DownloadFailureKind.unknown
+        ? null
+        : downloadFailureReasonText(context.l10n, kind);
     final message = switch (result.status) {
       UgoiraExportStatus.succeeded => context.l10n.ugoiraSaved,
       UgoiraExportStatus.canceled => context.l10n.ugoiraSaveCanceled,
+      _ when reason != null => context.l10n.errorWithReason(
+        context.l10n.ugoiraSaveFailed,
+        reason,
+      ),
       _ => context.l10n.ugoiraSaveFailed,
     };
-    // The export only keeps the failure as text, which categorizes to
-    // nothing useful — the reason goes to the crash log, not the SnackBar.
+    // The raw failure stays in the crash log.
     if (result.status == UgoiraExportStatus.failed) {
       CrashLog.record(StateError('ugoira export failed: ${result.error}'));
     }

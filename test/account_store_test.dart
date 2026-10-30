@@ -14,7 +14,6 @@ import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
 
 import 'helpers/fake_account.dart';
@@ -205,7 +204,7 @@ void main() {
     ]) {
       for (var writes = 0; writes < 3; writes++) {
         final preferences = _DyingPreferences();
-        SharedPreferencesAsyncPlatform.instance = preferences;
+        installPreferencesForTest(preferences);
         final repository = PreferencesAccountMetadataRepository(
           preferences: SharedPreferencesAsync(),
         );

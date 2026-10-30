@@ -25,6 +25,7 @@ import 'compat/network_contracts.dart';
 import 'compat/network_providers.dart';
 import 'data_worker.dart';
 import 'pixiv_headers.dart';
+import 'request_account.dart';
 
 /// Cooperative cancellation signal for Pixiv requests.
 ///
@@ -129,7 +130,8 @@ class PixivHttpClient {
   /// mapping both run on the data worker, so [parse] must be a top-level or
   /// static function (e.g. `IllustEntity.parsePage`) and its result must be
   /// sendable — plain entities are. A [FormatException] from either step
-  /// surfaces as [ApiParseError].
+  /// surfaces as [ApiParseError]; whatever the parse threw, a request
+  /// cancelled by the time it ends is [ApiCancelled].
   Future<T> getParsed<T>(
     Uri uri,
     T Function(Map<String, dynamic> json) parse, {
@@ -144,9 +146,10 @@ class PixivHttpClient {
         bytes,
         label: 'parse ${bytes.length ~/ 1024}KB',
       );
-    } on FormatException catch (error) {
+    } on Object catch (error) {
       if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
-      throw ApiParseError(error);
+      if (error is FormatException) throw ApiParseError(error);
+      rethrow;
     }
     // A request cancelled during the parse (its page closed) ends here,
     // whatever its body held, not in a caller that would go on with a
@@ -281,8 +284,11 @@ class PixivHttpClient {
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
     if (method == 'GET') _throwIfReadsCoolingDown();
     // The request belongs to the account current as it starts: a refresh
-    // and a replay after a switch stay that account's.
-    final (:accountId, accessToken: firstToken) = await _requireContext();
+    // and a replay after a switch stay that account's. A queued replay is
+    // bound to its owner and is refused under any other account.
+    final (:accountId, accessToken: firstToken) = await _requireContext(
+      owner: requestAccount(),
+    );
     var usedToken = firstToken;
     http.Response response = await _issue(
       uri,
@@ -564,20 +570,21 @@ class PixivHttpClient {
     _ => null,
   };
 
-  Future<({String accountId, String accessToken})> _requireContext() async {
-    final context = await _currentContext();
-    if (context == null) {
-      throw const ApiUnauthorized('no signed-in account');
-    }
-    return context;
-  }
-
-  Future<({String accountId, String accessToken})?> _currentContext() async {
+  /// The usable current account and its token. A request bound to an
+  /// [owner] that is not that account, or with none usable, is cancelled:
+  /// the owner's replay waits for it instead of failing.
+  Future<({String accountId, String accessToken})> _requireContext({
+    String? owner,
+  }) async {
     final state = await _accountStore.resolveState();
     final account = state.usableCurrent;
-    if (account == null) return null;
-    final credential = await _credentialStore.read(account.id);
-    if (credential == null) return null;
+    if (owner != null && account?.id != owner) throw const ApiCancelled();
+    final credential = account == null
+        ? null
+        : await _credentialStore.read(account.id);
+    if (account == null || credential == null) {
+      throw const ApiUnauthorized('no signed-in account');
+    }
     return (accountId: account.id, accessToken: credential.accessToken);
   }
 

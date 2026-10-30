@@ -21,8 +21,6 @@ import '../../core/profile/profile_edit_repository.dart';
 import '../../core/profile/profile_edit_store_bridge.dart';
 import '../../core/profile/profile_image.dart';
 import '../../core/reverse_image/reverse_image_platform.dart';
-import '../../core/user/user_entity.dart';
-import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
@@ -41,14 +39,12 @@ class ProfileEditPage extends ConsumerStatefulWidget {
   const ProfileEditPage({
     super.key,
     required this.userId,
-    this.initialUser,
     this.repository,
     this.imagePlatform,
     this.session,
   });
 
   final int userId;
-  final UserEntity? initialUser;
   final ProfileEditRepository? repository;
   final ReverseImageInputPlatform? imagePlatform;
 
@@ -110,17 +106,13 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
           'the current account does not own this profile',
         );
       }
-      final user =
-          widget.initialUser ??
-          ref.read(userStoreProvider)[widget.userId] ??
-          await ref.read(userRepositoryProvider).fetchDetail(widget.userId);
       if (!mounted) return;
       final session = ProfileEditSession(
         repository:
             widget.repository ?? ref.read(profileEditRepositoryProvider),
         owner: _readOwner(),
         readOwner: _readOwner,
-        initialUser: user,
+        userId: widget.userId,
         onConfirmed: (confirmed) => ProfileEditStoreCommitter(
           accountStore: ref.read(accountStoreProvider.notifier),
           userStore: ref.read(userStoreProvider.notifier),
@@ -326,7 +318,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
   late final TextEditingController _displayName;
   late final TextEditingController _comment;
   late final TextEditingController _webpage;
-  late final TextEditingController _password;
   bool _textInitialized = false;
 
   ProfileEditController get _controller =>
@@ -338,7 +329,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
     _displayName = TextEditingController();
     _comment = TextEditingController();
     _webpage = TextEditingController();
-    _password = TextEditingController();
     ref.listenManual(
       profileEditControllerProvider(
         widget.session,
@@ -353,7 +343,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
     _displayName.dispose();
     _comment.dispose();
     _webpage.dispose();
-    _password.dispose();
     super.dispose();
   }
 
@@ -389,12 +378,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
     }
   }
 
-  Future<void> _submit() async {
-    await _controller.submit(
-      currentPassword: _password.text.isEmpty ? null : _password.text,
-    );
-    _password.clear();
-  }
+  Future<void> _submit() => _controller.submit();
 
   @override
   Widget build(BuildContext context) {
@@ -431,16 +415,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
               ),
               null => null,
             },
-          ),
-          Reveal(
-            child: state.status == ProfileEditStatus.verificationPending
-                ? _Notice(
-                    icon: Icons.mark_email_unread_outlined,
-                    text:
-                        state.verificationMessage ??
-                        context.l10n.profileEditPending,
-                  )
-                : null,
           ),
           Reveal(
             child: state.status == ProfileEditStatus.confirmed
@@ -524,18 +498,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             unsupported: !capabilities.supports(ProfileField.background),
             onPick: () => _pickImage(ProfileField.background),
           ),
-          if (capabilities.requiresCurrentPassword) ...[
-            const SizedBox(height: FuncSpacing.sm),
-            TextField(
-              controller: _password,
-              enabled: editingEnabled,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: context.l10n.profileEditCurrentPassword,
-                errorText: state.currentPasswordError,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -796,6 +758,16 @@ class _StatusBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final failure = state.failure;
+    // A failed load: the error view the page shows when it cannot start,
+    // with the error's category and its retry.
+    if (failure != null && failure.retryable) {
+      return FeedError(
+        title: context.l10n.profileEditLoadFailed,
+        error: failure.cause,
+        retryLabel: context.l10n.retry,
+        onRetry: () => unawaited(onRetry()),
+      );
+    }
     final busy =
         state.status == ProfileEditStatus.loading ||
         state.status == ProfileEditStatus.submitting;
@@ -819,10 +791,6 @@ class _StatusBody extends StatelessWidget {
                       : context.l10n.profileEditLoadFailed),
               textAlign: TextAlign.center,
             ),
-            if (failure?.retryable == true) ...[
-              const SizedBox(height: FuncSpacing.lg),
-              FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
-            ],
           ],
         ),
       ),

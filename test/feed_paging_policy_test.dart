@@ -9,11 +9,9 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/fake_account.dart';
 
 /// A feed that never ends. With [r18From] set, every page from that index
@@ -69,7 +67,6 @@ void _withFeed(
   bool blockR18 = false,
 }) {
   fakeAsync((async) {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     if (blockR18) {
       unawaited(seedFilterSettings(blockR18: true));
       async.flushMicrotasks();

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_request.dart';
@@ -9,8 +10,6 @@ import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart'
     show DownloadCancelledException, RawHop;
-
-import 'test_preferences.dart';
 
 /// Scripted transport: each open() pops the next [ScriptedResponse].
 class FakeTransport implements DownloadTransport {
@@ -119,7 +118,6 @@ Future<(ProviderContainer, DownloadManager, FakeTransport)> makeDownloadWorld({
   required List<ScriptedResponse> responses,
   int maxConcurrent = 3,
 }) async {
-  installMemoryPreferences();
   final transport = FakeTransport()..responses.addAll(responses);
   final manager = DownloadManager(
     transport: transport,
@@ -220,4 +218,43 @@ class ScriptedHop implements RawHop {
 
   @override
   void abort() => aborted = true;
+}
+
+/// A sink that keeps the first chunk, then fails the write with [error]:
+/// a disk that fills up, or a destination that goes away, mid-file.
+class ThrowAfterWriteSinkFactory implements DownloadSinkFactory {
+  ThrowAfterWriteSinkFactory([this.error]);
+
+  final Object? error;
+  MemorySink? lastSink;
+
+  @override
+  Future<DownloadSink> begin(
+    DownloadRequest request,
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async {
+    final inner = MemorySink();
+    lastSink = inner;
+    return _ThrowAfterWriteSink(inner, error);
+  }
+}
+
+class _ThrowAfterWriteSink implements DownloadSink {
+  _ThrowAfterWriteSink(this.inner, this.error);
+
+  final MemorySink inner;
+  final Object? error;
+
+  @override
+  Future<void> write(List<int> bytes) async {
+    await inner.write(bytes);
+    throw error ?? Exception('sink write exploded');
+  }
+
+  @override
+  Future<String> finalize() => inner.finalize();
+
+  @override
+  Future<void> abort() => inner.abort();
 }

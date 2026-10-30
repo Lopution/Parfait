@@ -614,10 +614,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'No in-app profile-edit route is available.';
 
   @override
-  String get profileEditPending =>
-      'Changes were submitted and await verification.';
-
-  @override
   String get profileEditConfirmed => 'Profile confirmed and synchronized.';
 
   @override
@@ -634,9 +630,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileEditBackground => 'Background image';
-
-  @override
-  String get profileEditCurrentPassword => 'Current password';
 
   @override
   String get profileEditFieldUnsupported =>

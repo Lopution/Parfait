@@ -19,7 +19,6 @@ import 'package:parfait/app/motion/removal.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/recording_haptics.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/waits.dart';
@@ -73,10 +72,6 @@ Future<LocalNovel?> _readStored(
 
 void main() {
   sqfliteFfiInit();
-  // The shared stage loads reader settings from SharedPreferencesAsync —
-  // back it with the in-memory platform.
-  installMemoryPreferences();
-
   late Directory dir;
   late LocalNovelDatabase database;
   late ProviderContainer container;

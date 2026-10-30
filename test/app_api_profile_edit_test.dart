@@ -77,12 +77,9 @@ void main() {
   test('submit posts multipart user_name to v1/user/profile/edit', () async {
     final sent = <_RecordedMultipart>[];
     final repo = await _repository(sent: sent);
-    final submitted = ProfileSubmitRequest(
-      patch: _textPatch(),
-      currentPassword: 'do-not-log-me',
+    final outcome = await repo.submit(
+      ProfileSubmitRequest(patch: _textPatch()),
     );
-
-    final outcome = await repo.submit(submitted);
 
     if (outcome is ProfileEditSubmitFailure) {
       fail('submit failed: ${outcome.code} ${outcome.message}');
@@ -102,9 +99,6 @@ void main() {
     expect(body, contains('novo nome'));
     // The web wire name must not leak into the app-api contract.
     expect(body, isNot(contains('name="name"')));
-    // The password is never sent, and gone once the submit ends.
-    expect(body, isNot(contains('do-not-log-me')));
-    expect(submitted.currentPassword, isNull);
   });
 
   test('a patch the channel cannot send fails without a request', () async {

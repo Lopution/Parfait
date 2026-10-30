@@ -8,7 +8,6 @@ import 'package:parfait/core/debug/trace_marks.dart';
 
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
-import 'helpers/test_preferences.dart';
 
 void main() {
   late List<String> marks;
@@ -60,8 +59,6 @@ void main() {
   testWidgets('a route change marks the page and the scene it plays', (
     tester,
   ) async {
-    // The other branches build ahead and read their settings.
-    installMemoryPreferences();
     final router = pixivRouter('/recommended');
     await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
     await tester.pump(const Duration(milliseconds: 100));

@@ -17,6 +17,7 @@ import 'package:parfait/core/ugoira/ugoira_metadata.dart';
 import 'package:parfait/core/ugoira/ugoira_repository.dart';
 import 'package:parfait/core/ugoira/ugoira_scheduler.dart';
 import 'package:parfait/core/ugoira/ugoira_zip.dart';
+import 'helpers/download_world.dart';
 import 'helpers/image_headers.dart';
 
 void main() {
@@ -363,21 +364,7 @@ void main() {
     );
 
     test('cancellation aborts only the owned pending output', () async {
-      final metadata = UgoiraMetadata.fromJson(
-        _metadataJson([
-          {'file': '000000.png', 'delay': 80},
-        ]),
-      );
-      final index = SafeZipIndex.fromBytes(
-        _zip({'000000.png': _validOnePixelPng()}),
-        metadata: metadata,
-      );
-      final asset = UgoiraAsset(
-        illustId: 43,
-        metadata: metadata,
-        index: index,
-        file: File('/tmp/parfait-test-ugoira-cancel.zip'),
-      );
+      final asset = _oneFrameAsset(43);
       final sinks = MemorySinkFactory();
       final job = UgoiraExportJob(
         asset: asset,
@@ -397,21 +384,7 @@ void main() {
     });
 
     test('logout provider invalidates the captured export owner', () async {
-      final metadata = UgoiraMetadata.fromJson(
-        _metadataJson([
-          {'file': '000000.png', 'delay': 80},
-        ]),
-      );
-      final index = SafeZipIndex.fromBytes(
-        _zip({'000000.png': _validOnePixelPng()}),
-        metadata: metadata,
-      );
-      final asset = UgoiraAsset(
-        illustId: 44,
-        metadata: metadata,
-        index: index,
-        file: File('/tmp/parfait-test-ugoira-owner.zip'),
-      );
+      final asset = _oneFrameAsset(44);
       final sinks = MemorySinkFactory();
       final job = UgoiraExportJob(
         asset: asset,
@@ -427,7 +400,29 @@ void main() {
 
       expect(result.status, UgoiraExportStatus.failed);
       expect(result.error, contains('UgoiraExportOwnershipException'));
+      expect(result.failureKind, DownloadFailureKind.ownership);
       expect(sinks.sinks, isEmpty);
+      await job.dispose();
+      await asset.dispose();
+    });
+
+    test('a failed export keeps why, as a download does', () async {
+      final asset = _oneFrameAsset(45);
+      const full = FileSystemException(
+        'write failed',
+        '45.gif',
+        OSError('No space left on device', 28),
+      );
+      final job = UgoiraExportJob(
+        asset: asset,
+        sinkFactory: ThrowAfterWriteSinkFactory(full),
+        encoderFactory: (_) => _FakeGifEncoder(),
+      );
+
+      final result = await job.start();
+
+      expect(result.status, UgoiraExportStatus.failed);
+      expect(result.failureKind, DownloadFailureKind.noSpace);
       await job.dispose();
       await asset.dispose();
     });
@@ -520,6 +515,24 @@ List<int> _validOnePixelPng() => base64Decode(
 
 class UgoiraLimitsForTest extends UgoiraLimits {
   const UgoiraLimitsForTest({super.maxCompressionRatio = 200});
+}
+
+/// A one-frame work, as the export cases need it.
+UgoiraAsset _oneFrameAsset(int illustId) {
+  final metadata = UgoiraMetadata.fromJson(
+    _metadataJson([
+      {'file': '000000.png', 'delay': 80},
+    ]),
+  );
+  return UgoiraAsset(
+    illustId: illustId,
+    metadata: metadata,
+    index: SafeZipIndex.fromBytes(
+      _zip({'000000.png': _validOnePixelPng()}),
+      metadata: metadata,
+    ),
+    file: File('/tmp/parfait-test-ugoira-$illustId.zip'),
+  );
 }
 
 class _FakeFrame {

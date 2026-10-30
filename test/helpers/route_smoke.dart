@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/widgets/app_tab_bar.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 
 import '../review/review_support.dart';
@@ -136,8 +139,9 @@ ReviewDevice smokeDevice(LayoutProfile profile) =>
 /// page still moving is still loading). A [timeout] scene checks its
 /// loading state, then again once the client gives up.
 /// [back] then pops and checks the page below: the route's parent. A
-/// page with [content] shows what it opened for, not a message that it has
-/// nothing to show; one without says it has nothing, or why.
+/// page with [content] shows what it opened for past the app's bars, not a
+/// message that it has nothing to show; one without says it has nothing,
+/// or why.
 Future<void> smokeScene(
   WidgetTester tester, {
   required String location,
@@ -186,6 +190,11 @@ Future<void> smokeScene(
           isEmpty,
           reason: reason,
         );
+        expect(
+          _showsPastBars(),
+          isTrue,
+          reason: '$location shows nothing past its bars',
+        );
       } else {
         expect(nothing, isNotEmpty, reason: reason);
       }
@@ -232,6 +241,35 @@ const _sectionHints = {
   'mutedEmpty',
   'followSystemColorsUnavailable',
 };
+
+/// The app's bars: what a page shows inside them is not its own content.
+const _bars = {
+  AppTopBar,
+  AppBar,
+  AppTabBar,
+  TabBar,
+  FuncShellBottomNav,
+  FuncBottomNav,
+  NavigationRail,
+};
+
+/// Whether text or an image a user can see sits outside the app's bars:
+/// a page that opened shows something of its own. A web view, which the
+/// test platform does not draw, counts as one.
+bool _showsPastBars() =>
+    find.byType(InAppWebView).evaluate().isNotEmpty ||
+    find
+        .byWidgetPredicate((widget) => widget is RichText || widget is RawImage)
+        .hitTestable()
+        .evaluate()
+        .any((element) {
+          var inBar = false;
+          element.visitAncestorElements((ancestor) {
+            inBar = _bars.contains(ancestor.widget.runtimeType);
+            return !inBar;
+          });
+          return !inBar;
+        });
 
 List<RouteMatch> _flatten(List<RouteMatchBase> matches) => [
   for (final match in matches)

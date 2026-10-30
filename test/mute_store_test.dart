@@ -11,7 +11,6 @@ import 'package:parfait/core/mute/mute_predicate.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
@@ -61,7 +60,7 @@ Future<World> _makeWorld({
   int listStatus = 200,
   int editStatus = 200,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences({
+  installMemoryPreferences({
     if (legacyBlockedTags.isNotEmpty)
       PreferenceKeys.blockedTags: legacyBlockedTags,
   });

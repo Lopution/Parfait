@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/feed/spotlight_article_card.dart';
@@ -9,8 +8,6 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
 import 'package:parfait/core/search/search_models.dart';
-import 'package:parfait/core/search/search_repository.dart';
-import 'package:parfait/core/search/search_trending_controller.dart';
 import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/user/user_entity.dart';
@@ -214,27 +211,20 @@ void main() {
     locale,
     profile,
   ) async {
-    final (container, _) = await makeSpotlightWorld(
-      fixture: SpotlightFixture()..firstPageSize = 5,
+    final search = SearchApi(
+      trendingTagNames: [
+        for (var i = 1; i <= 6; i++) 'a long trending tag name $i',
+      ],
     );
+    final spotlight = SpotlightFixture()..firstPageSize = 5;
     await _pumpChecked(
       tester,
       locale,
       profile,
-      UncontrolledProviderScope(
-        container: container,
-        child: localeLayoutApp(
-          locale: locale,
-          overrides: [
-            trendingTagsProvider.overrideWith(
-              (ref, _) => [
-                for (var i = 1; i <= 6; i++)
-                  TrendingTag(name: 'a long trending tag name $i'),
-              ],
-            ),
-          ],
-          home: const SearchPage(),
-        ),
+      localeLayoutApp(
+        locale: locale,
+        container: await searchWorld(search, routes: spotlight.routes),
+        home: const SearchPage(),
       ),
     );
     expect(find.byType(SpotlightArticleCard), findsNWidgets(5));

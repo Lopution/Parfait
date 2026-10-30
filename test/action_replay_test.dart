@@ -23,14 +23,17 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_actions.dart';
 import 'package:parfait/core/user/follow_store.dart';
 
+import 'helpers/action_store_faults.dart';
 import 'helpers/fake_account.dart';
 
 /// Records every mutation call; per-path failures simulate the offline
-/// window and per-path statuses simulate business rejections.
+/// window and per-path statuses simulate business rejections. While [hold]
+/// is set, an answer waits for it: the request is in flight.
 class _MutationFixture {
   final requests = <http.Request>[];
   final failures = <String, Object>{};
   final statuses = <String, int>{};
+  Completer<void>? hold;
 
   String _key(Uri url) {
     final path = url.path;
@@ -41,6 +44,7 @@ class _MutationFixture {
 
   http.Client build() => MockClient((request) async {
     requests.add(request);
+    await hold?.future;
     final key = _key(request.url);
     final failure = failures[key];
     if (failure != null) throw failure;
@@ -53,14 +57,14 @@ class _World {
   _World(this.container, this.fixture, this.store);
   final ProviderContainer container;
   final _MutationFixture fixture;
-  final InMemoryActionStore store;
+  final ActionStore store;
 }
 
 /// [coldStartPump] reads the pump before the accounts load, the way
 /// `ParfaitApp.initState` does at process start.
 Future<_World> _makeWorld({
   _MutationFixture? fixture,
-  InMemoryActionStore? store,
+  ActionStore? store,
   bool coldStartPump = false,
 }) async {
   final resolvedFixture = fixture ?? _MutationFixture();
@@ -406,6 +410,58 @@ void main() {
       expect(world.fixture.requests, hasLength(offlineRequests));
       world.container.dispose();
     });
+  });
+
+  test('a replay goes out as its owner, else waits for it', () async {
+    final store = FaultyActionStore(InMemoryActionStore());
+    final world = await _makeWorld(store: store);
+    addTearDown(world.container.dispose);
+    world.container.read(actionQueuePumpProvider);
+    final accounts = world.container.read(accountStoreProvider.notifier);
+    world.fixture.failures['illust'] = http.ClientException('offline');
+    await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
+    world.fixture.failures.remove('illust');
+    final offlineRequests = world.fixture.requests.length;
+    BookmarkEntry? entry() =>
+        world.container.read(bookmarkStoreProvider)[_illustKey];
+
+    // Past the parked check, before its request: the switch lands between.
+    store.claimGate = Completer<void>();
+    final replay = world.container.read(actionQueueProvider).drain('100');
+    await pumpEventQueue();
+    await accounts.switchAccount('200');
+    store.claimGate!.complete();
+    await replay;
+    expect(world.fixture.requests, hasLength(offlineRequests));
+    expect((await store.listFor('100')).single.status, ActionStatus.pending);
+    expect(entry(), isNull);
+
+    // So it does when the next account must sign in again: no attempt.
+    await accounts.markReauthRequired('200');
+    store.claimGate = Completer<void>();
+    await accounts.switchAccount('100');
+    await pumpEventQueue();
+    await accounts.switchAccount('200');
+    store.claimGate!.complete();
+    await pumpEventQueue();
+    final row = (await store.listFor('100')).single;
+    expect((row.status, row.attempt), (ActionStatus.pending, 0));
+
+    // Back on its owner it replays at once; a switch while it is in flight
+    // keeps its result out of the next account's store.
+    world.fixture.hold = Completer<void>();
+    await accounts.switchAccount('100');
+    await pumpEventQueue();
+    expect(world.fixture.requests, hasLength(offlineRequests + 1));
+    expect(
+      world.fixture.requests.last.headers['Authorization'],
+      'Bearer access-1',
+    );
+    await accounts.switchAccount('200');
+    world.fixture.hold!.complete();
+    await pumpEventQueue();
+    expect(await store.listFor('100'), isEmpty);
+    expect(entry(), isNull);
   });
 
   test('queue rows never cross the account boundary', () async {

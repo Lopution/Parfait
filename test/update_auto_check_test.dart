@@ -3,18 +3,11 @@ import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/updater/update_auto_check.dart';
 import 'package:parfait/core/updater/update_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/updater_fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
-  });
 
   test(
     'first call checks once; a repeat inside the window is skipped',
@@ -68,7 +61,7 @@ void main() {
   test('a check that fails before its request stays silent', () async {
     // A full disk fails the throttle stamp.
     final preferences = IntWriteFailingPreferences();
-    SharedPreferencesAsyncPlatform.instance = preferences;
+    installPreferencesForTest(preferences);
     final transport = _CountingTransport();
     final stampFails = UpdateAutoCheck(
       preferences: SharedPreferencesAsync(),
@@ -82,8 +75,7 @@ void main() {
     expect(preferences.intWrites, hasLength(1));
     expect(transport.fetches, 0);
 
-    SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+    installPreferencesForTest(memoryPreferences());
     final lookupFails = UpdateAutoCheck(
       preferences: SharedPreferencesAsync(),
       service: () async => throw StateError('no service'),

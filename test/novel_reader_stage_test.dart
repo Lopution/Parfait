@@ -16,7 +16,6 @@ import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/localized_app.dart';
@@ -24,10 +23,6 @@ import 'helpers/localized_app.dart';
 /// Stage-level test with a recording progress binding: pins the D1 write
 /// gate — only user-committed turns reach `save`.
 void main() {
-  // SharedPreferencesAsync reads through the platform instance — the
-  // in-memory platform keeps reader-settings writes off the real plugin.
-  installMemoryPreferences();
-
   testWidgets('open and sheet toggles never write; a page turn writes once', (
     tester,
   ) async {

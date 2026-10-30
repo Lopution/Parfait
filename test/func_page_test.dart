@@ -718,7 +718,7 @@ void main() {
         repository: api.read(profileEditRepositoryProvider),
         owner: owner,
         readOwner: () => owner,
-        initialUser: user,
+        userId: user.id,
         onConfirmed: (_) async {},
       );
       final container = ProviderContainer.test(

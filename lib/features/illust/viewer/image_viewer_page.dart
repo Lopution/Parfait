@@ -28,6 +28,7 @@ import '../../../core/image/image_demand.dart';
 import '../../../core/image/image_worker_providers.dart';
 import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
+import '../../../app/theme/replica_theme.dart';
 import '../../../l10n/lookup.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/artwork_controls.dart';
@@ -75,6 +76,7 @@ class ImageViewerPage extends ConsumerStatefulWidget {
     this.prefetchUrlForPage,
     this.entity,
     this.loading = false,
+    this.failure,
   }) : assert(initialPage >= 0);
 
   final List<String> urls;
@@ -103,6 +105,10 @@ class ImageViewerPage extends ConsumerStatefulWidget {
   /// the viewer has no pages and shows a spinner, its exits in place; it
   /// then opens on that page.
   final bool loading;
+
+  /// Shown instead of "no images" when the pages could not be loaded: the
+  /// route's failure view, with its retry. The exits stay in place.
+  final Widget? failure;
 
   /// Zoom bounds (PRD R3: strictly 0.9–6.0).
   static const double minScale = 0.9;
@@ -580,6 +586,13 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       (_transformationFor(_activePage).value.getMaxScaleOnAxis()) >
       1.0 + precisionErrorTolerance;
 
+  /// The stage is black whatever the app's theme: under a light one, a
+  /// status view takes the dark theme to stay readable.
+  static Widget _onStage(BuildContext context, Widget child) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? child
+      : Theme(data: replicaTheme(Brightness.dark), child: child);
+
   @override
   Widget build(BuildContext context) {
     String text(String key) => l10nLookup(context.l10n, key);
@@ -638,47 +651,54 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   body: Stack(
                     children: [
                       Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          // Tap toggles chrome; double-tap runs the zoom cycle.
-                          // One detector registers both so the framework arena does
-                          // the ~kDoubleTapTimeout disambiguation (risks R1 — no
-                          // custom timer).
-                          onTap: _toggleChrome,
-                          onDoubleTapDown: (details) =>
-                              _doubleTapFocal = details.localPosition,
-                          onDoubleTap: _onDoubleTap,
-                          child: _pageCount == 0
-                              ? widget.loading
-                                    ? const FeedLoading()
-                                    : Center(
-                                        child: Text(
-                                          text('viewerNoImages'),
-                                          style: TextStyle(
-                                            color: FuncTokens.white,
-                                          ),
+                        // A status has nothing to zoom and keeps its exits:
+                        // outside the stage's taps, its retry answers at
+                        // once instead of after the double-tap timeout.
+                        child: _pageCount == 0
+                            ? widget.loading
+                                  ? const FeedLoading()
+                                  : widget.failure != null
+                                  ? _onStage(context, widget.failure!)
+                                  : Center(
+                                      child: Text(
+                                        text('viewerNoImages'),
+                                        style: TextStyle(
+                                          color: FuncTokens.white,
                                         ),
-                                      )
-                              // The paging slop: a drag leaning towards
-                              // vertical dismisses instead of paging.
-                              : PagingSlop(
-                                  child: PageView.builder(
-                                    controller: _pageController,
-                                    physics: _activeZoomed
-                                        ? const NeverScrollableScrollPhysics()
-                                        : const PageSnapPhysics(),
-                                    itemCount: _pageCount,
-                                    itemBuilder: (context, page) =>
-                                        PagingSlopPage(
-                                          // Unzoomed, the image's pan must
-                                          // not tie with the pager; zoomed,
-                                          // the pager is off.
-                                          restore: _isZoomed(page),
-                                          child: _buildPage(context, page),
-                                        ),
-                                  ),
-                                ),
-                        ),
+                                      ),
+                                    )
+                            : GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                // Tap toggles chrome; double-tap runs the
+                                // zoom cycle. One detector registers both
+                                // so the framework arena does the
+                                // ~kDoubleTapTimeout disambiguation (risks
+                                // R1 — no custom timer).
+                                onTap: _toggleChrome,
+                                onDoubleTapDown: (details) =>
+                                    _doubleTapFocal = details.localPosition,
+                                onDoubleTap: _onDoubleTap,
+                                child:
+                                    // The paging slop: a drag leaning towards
+                                    // vertical dismisses instead of paging.
+                                    PagingSlop(
+                                      child: PageView.builder(
+                                        controller: _pageController,
+                                        physics: _activeZoomed
+                                            ? const NeverScrollableScrollPhysics()
+                                            : const PageSnapPhysics(),
+                                        itemCount: _pageCount,
+                                        itemBuilder: (context, page) =>
+                                            PagingSlopPage(
+                                              // Unzoomed, the image's pan must
+                                              // not tie with the pager; zoomed,
+                                              // the pager is off.
+                                              restore: _isZoomed(page),
+                                              child: _buildPage(context, page),
+                                            ),
+                                      ),
+                                    ),
+                              ),
                       ),
                       _ChromeEdgeBar(
                         visible: _chromeVisible,

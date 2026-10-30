@@ -1,7 +1,8 @@
 // The test rules that a scan can hold: file size (TEST-05), no skipped
-// cases (TEST-04), socket tests tagged (TEST-07), one definition per test
-// double, by name and by body, and none for an app repository (TEST-10)
-// and no real sleeps (TEST-11).
+// cases (TEST-04), socket tests tagged (TEST-07), preferences set only
+// through their helpers (TEST-09), one definition per test double, by name
+// and by body, and none for an app repository (TEST-10) and no real sleeps
+// (TEST-11).
 // Asserted on test/ (repo-relative paths); fixtures are data, not code.
 
 import 'dart:io';
@@ -43,6 +44,14 @@ const _sameBody = 0.8;
 const _minBodyLines = 10;
 final _skip = RegExp(r'(?<![\w.])skip:|@Skip\(');
 final _sleep = RegExp(r'(?<![\w.])sleep\(');
+
+/// Preferences set by hand, or empty ones installed again: each case
+/// already starts with them from its directory's `flutter_test_config.dart`.
+final _ownPreferences = RegExp(
+  r'SharedPreferencesAsyncPlatform\.instance\s*=(?!=)|'
+  r'\binstallMemoryPreferences(?:\(\s*\)|(?!\())',
+);
+const _preferencesHelper = 'test/helpers/test_preferences.dart';
 final _socket = RegExp(
   r'\b(?:HttpServer|(?:Raw)?(?:Secure)?ServerSocket|RawDatagramSocket)'
   r'\.bind|\b(?:Raw)?(?:Secure)?Socket\.(?:connect|startConnect)\(',
@@ -191,6 +200,22 @@ void main() {
       reason:
           'TEST-07 open real sockets in the test file and tag it '
           "@Tags(['socket']) above `library;`",
+    );
+  });
+
+  test('no file sets empty preferences of its own', () {
+    expect(
+      [
+        for (final MapEntry(key: path, value: source) in sources.entries)
+          if (path != _preferencesHelper &&
+              !path.endsWith('/flutter_test_config.dart') &&
+              _ownPreferences.hasMatch(source))
+            path,
+      ],
+      isEmpty,
+      reason:
+          'TEST-09 install values with installMemoryPreferences(data), a '
+          'failing or gated platform with installPreferencesForTest',
     );
   });
 

@@ -37,7 +37,7 @@ ProfileEditSession _session(
   repository: repository,
   owner: _owner(),
   readOwner: readOwner,
-  initialUser: _user(),
+  userId: 42,
   onConfirmed: onConfirmed ?? (_) async {},
 );
 
@@ -213,18 +213,6 @@ void main() {
     expect(controller.state.status, ProfileEditStatus.failure);
     expect(controller.state.failure?.code, ProfileEditFailureCode.staleOwner);
     expect(committed, 0);
-  });
-
-  test('a current password stays off the wire and out of the draft', () async {
-    final api = _ProfileApi();
-    final controller = await _loaded(_session(await _repository(api)));
-
-    controller.updateText(ProfileField.displayName, 'saved');
-    await controller.submit(currentPassword: 'do-not-log-me');
-
-    expect(controller.state.status, ProfileEditStatus.confirmed);
-    expect(api.edits.single.values, isNot(contains('do-not-log-me')));
-    expect(controller.state.draft.toString(), isNot(contains('do-not-log-me')));
   });
 
   test(
@@ -535,7 +523,7 @@ void main() {
         // builds the editing session itself, exactly like production.
         child: localizedApp(
           locale: const Locale('en', 'US'),
-          home: ProfileEditPage(userId: 42, initialUser: _user()),
+          home: const ProfileEditPage(userId: 42),
         ),
       ),
     );
@@ -569,8 +557,8 @@ void main() {
     api.users.detailFailure = null;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    // The page reads the user again, then the editor its draft.
-    expect(api.users.requests, ['detail:42', 'detail:42', 'detail:42']);
+    // Each load reads the user once: the editor's draft is the read.
+    expect(api.users.requests, ['detail:42', 'detail:42']);
     expect(find.text('Display name'), findsOneWidget);
   });
 }

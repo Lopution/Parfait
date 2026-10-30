@@ -83,7 +83,7 @@ reviewed: 2026-10-30
 
 ### TEST-05 The suite stays within its budget
 - **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart code
-  lines (`tool/test_budget.json`, 0.652; blank and comment lines excluded;
+  lines (`tool/test_budget.json`, 0.653; blank and comment lines excluded;
   `test/review/` and `test/fixtures/` not counted, nor the localizations
   `flutter gen-l10n` writes into `lib/l10n/`), so tests grow with the code
   but not faster. Only the user changes the ratio; an agent asks and
@@ -158,17 +158,21 @@ reviewed: 2026-10-30
 - **Rule:** Doubles stand in only for what is outside the app: the network,
   platform channels, the keystore, the clock. The app's repositories run
   real, the App API through `PixivApi` routes (a domain's `…Api` class in
-  `test/helpers/`), stored data as TEST-09 says. Look in `test/helpers/`
-  before writing a double, fixture server, wait loop or harness. One that
-  a second file needs moves there; a small difference becomes a parameter.
-  A double that behaves differently gets a name that says how
-  (`_ThrowAfterWriteSink`, not a second `_FailingSink`) and a body mostly
-  its own: sharing 80% of its lines with a class elsewhere is a copy.
+  `test/helpers/`), stored data as TEST-09 says. The App API fakes check
+  the method too: a path takes the method `appApiTakes` lists, and a
+  request sent with another fails as an unrouted one does. Look in
+  `test/helpers/` before writing a double, fixture server, wait loop or
+  harness. One that a second file needs moves there; a small difference
+  becomes a parameter. A double that behaves differently gets a name that
+  says how (`_ThrowAfterWriteSink`, not a second `_FailingSink`) and a body
+  mostly its own: sharing 80% of its lines with a class elsewhere is a
+  copy.
 - **Why:** Eight copies of one account stub drifted apart; renamed copies
   passed a name-only check. Repository fakes answered what no endpoint
   answers (count-less user details, a refused comment send as "delete only
   your own") and hid the requests pages make (the mute list, the shell's
-  preloaded feeds).
+  preloaded feeds). Fakes routed by path alone, and a field check reads
+  the query and the form alike, so a write sent as a read still passed.
 - **Check:** `test/architecture/test_hygiene_test.dart` "each test double is defined once" "no test double is copied into a second file" "no test double stands in for an app repository"
 - **Code:** `test/helpers`
 
@@ -246,15 +250,17 @@ reviewed: 2026-10-30
   preferences from its directory's `flutter_test_config.dart`; no file
   adds its own empty reset. Accounts and settings go through the app's
   repositories (`seedAccounts`, `seedSettings`, `stored…()`), other values
-  through `installMemoryPreferences(data)`; a slow or full disk is
-  `GatedPreferences`.
+  through `installMemoryPreferences(data)`; a slow or full disk
+  (`GatedPreferences`, a failing platform) goes in with
+  `installPreferencesForTest`. No file sets the platform by hand.
 - **Why:** Each trap made a correct implementation look broken: finders
   matched nothing, fixtures threw on construction, styles were read before
   the frame applied them. The missing preferences plugin was worked around
-  by 146 copies of one reset in `setUp` blocks and world builders.
+  by 146 copies of one reset in `setUp` blocks and world builders, and
+  twenty-odd came back while nothing checked the rule.
   Repository fakes held states no store can hold (a templateless custom
   naming rule, a bare `ja` tag).
-- **Check:** manual
+- **Check:** `test/architecture/test_hygiene_test.dart` "no file sets empty preferences of its own"
 - **Code:** `test/flutter_test_config.dart`, `test/helpers/test_preferences.dart`, `test/helpers/fake_account.dart`, `test/helpers/fake_settings.dart`, `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
 
 ### TEST-11 Waits use fake time

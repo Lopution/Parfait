@@ -21,10 +21,8 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/fake_settings.dart';
 
 const String _apiHost = 'app-api.pixiv.net';
@@ -140,7 +138,6 @@ _makeWorld({
   String languageTag = 'zh-CN',
 }) async {
   final f = fixture ?? _Fixture();
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
 
   final credentials = FakeCredentialStore(
     values: {
@@ -195,6 +192,12 @@ PixivHttpClient _clientOver(
 
 /// Cancels [token] as the parse starts: the response is in, the parse is
 /// not.
+Map<String, dynamic> _asJson(Map<String, dynamic> json) => json;
+
+/// A typed parser refusing a page without works, as related works does.
+Object _rejectsWorks(Map<String, dynamic> json) =>
+    throw ApiParseError(const FormatException('no works'));
+
 class _CancelOnParse implements DataWorker {
   _CancelOnParse(this.token);
 
@@ -809,14 +812,18 @@ void main() {
       await expectLater(request, throwsA(isA<ApiCancelled>()));
 
       // The response is in and its page closes while the body parses: the
-      // request ends cancelled, a malformed body too.
-      for (final body in ['{}', '{']) {
+      // request ends cancelled, a malformed body and a rejecting parser too.
+      for (final (body, parse) in [
+        ('{}', _asJson),
+        ('{', _asJson),
+        ('{}', _rejectsWorks),
+      ]) {
         final parsing = CancelToken();
         final parsed = _clientOver(
           container,
           MockClient((_) async => http.Response(body, 200)),
           dataWorker: _CancelOnParse(parsing),
-        ).getJson(Uri.parse(_api), cancelToken: parsing);
+        ).getParsed(Uri.parse(_api), parse, cancelToken: parsing);
         await expectLater(parsed, throwsA(isA<ApiCancelled>()), reason: body);
       }
     },

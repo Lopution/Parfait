@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/download/download_recovery.dart' show DownloadFailureKind;
 import '../../../core/errors/error_category.dart';
 import '../../../core/logging/crash_log.dart';
 import '../../../l10n/app_localizations.dart';
@@ -33,6 +34,24 @@ String errorCategoryTextL10n(AppLocalizations l10n, ErrorCategory category) {
     ErrorCategory.unknown => l10n.errorUnknown,
   };
 }
+
+/// Localized reason a download or a GIF export failed (C8/D1): the
+/// five kinds with a generic meaning borrow the shared category sentence,
+/// the download-only kinds (noSpace/permission/destination/resource/
+/// ownership) get their own copy, and `unknown` maps through the category
+/// table. `canceled` and `paused` are not errors and have no reason.
+String? downloadFailureReasonText(
+  AppLocalizations l10n,
+  DownloadFailureKind? kind,
+) => switch (kind) {
+  null || DownloadFailureKind.canceled || DownloadFailureKind.paused => null,
+  DownloadFailureKind.noSpace => l10n.downloadFailureNoSpace,
+  DownloadFailureKind.permission => l10n.downloadFailurePermission,
+  DownloadFailureKind.destination => l10n.downloadFailureDestination,
+  DownloadFailureKind.resource => l10n.downloadFailureResource,
+  DownloadFailureKind.ownership => l10n.downloadFailureOwnership,
+  final k => errorCategoryTextL10n(l10n, categorizeDownloadFailure(k)),
+};
 
 /// Collapsible "details" block: collapsed it is a low-emphasis button;
 /// expanded it shows the raw technical text (`error.toString()`, capped)

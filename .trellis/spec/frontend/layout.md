@@ -117,12 +117,15 @@ reviewed: 2026-10-17
   for a page that reads the App API, which it must have sent. Each state
   must raise no exception, keep UI text whole, stay at its location and
   come to rest: a page still moving is still loading. It must show
-  content, or a message that there is none or why. A page that stays
+  content past the app's bars (a text or an image outside the top bar,
+  the tabs and the navigation; a web view page, its view), or a message
+  that there is none or why. A page that stays
   silent by design when its read fails (a best-effort merge,
   suggestions) leaves out `reads`, with a comment saying why.
 - **Why:** Page cases build one page over its own fakes. Nothing opened
   every route through the app's shell, router and stores, and the first
   run found a restored image viewer that said it had no images forever.
+  A page that drew nothing at all still passed as loaded.
 - **Check:** `test/locale_layout/routes_smoke_test.dart` "every page of the router has a smoke entry"
 - **Code:** `test/helpers/route_smoke.dart`
 

@@ -22,6 +22,7 @@ import 'dart:math' as math;
 
 import '../log.dart';
 import '../network/api_error.dart';
+import '../network/request_account.dart';
 import 'action_models.dart';
 import 'action_store.dart';
 
@@ -233,7 +234,9 @@ final class ActionQueue {
     // Dropped between nextReady and here: the user took the intent back.
     if (!await _store.markRunning(action.id)) return;
     try {
-      await handler(action);
+      // Its requests go out as its owner or not at all: an account switch
+      // can land anywhere between the parked check and the send.
+      await runAsAccount(action.owner, () => handler(action));
       await _store.delete(action.id);
       telemetry.replayed++;
     } on Object catch (error) {
@@ -242,6 +245,12 @@ final class ActionQueue {
   }
 
   Future<void> _handleFailure(StoredAction action, Object error) async {
+    // Refused because its owner is no longer current: it waits for the
+    // owner, not for a cooldown that would delay it once the owner is back.
+    if (error is ApiCancelled && _parked.contains(action.owner)) {
+      await _store.markPending(action.id);
+      return;
+    }
     if (_classify(error) == RetryScope.queueCooldown) {
       final hint = error is ApiRateLimited ? error.retryAfter : null;
       _cooldownUntil[action.owner] = _now().add(hint ?? cooldown);

@@ -20,7 +20,6 @@ import 'package:parfait/app/widgets/sliver_surface_list.dart';
 
 import 'helpers/download_world.dart';
 import 'helpers/recording_haptics.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/waits.dart';
@@ -327,7 +326,6 @@ void main() {
   ) async {
     // A running record carries no failure kind; recovery turns it into a
     // kindless retryable task that must not read as 未知错误.
-    installMemoryPreferences();
     final request = downloadRequest(7);
     final snapshot = DownloadSubmissionSnapshot(
       snapshotId: 'submission-7',

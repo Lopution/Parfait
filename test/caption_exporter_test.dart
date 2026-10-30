@@ -12,7 +12,6 @@ import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 
 DownloadSubmissionSnapshot _submission({
   String? accountId = 'acc-1',
@@ -71,10 +70,6 @@ class _RejectingSink implements DownloadSink {
 }
 
 void main() {
-  // Fresh in-memory store per test — the dedupe flags must not leak
-  // between cases (each export key is a real prefs write).
-  setUp(installMemoryPreferences);
-
   group('CaptionExporter', () {
     test('writes <stem>.txt with the info header', () async {
       final sinks = MemorySinkFactory();
