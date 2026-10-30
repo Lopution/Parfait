@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/errors/error_details.dart';
 import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/features/settings/pages/download_task_presentation.dart';

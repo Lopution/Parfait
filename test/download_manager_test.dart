@@ -921,7 +921,7 @@ void main() {
     );
 
     test('sink failures abort the pending item, never finalize', () async {
-      final failingSinkFactory = _ThrowAfterWriteSinkFactory();
+      final failingSinkFactory = ThrowAfterWriteSinkFactory();
       final manager = DownloadManager(
         transport: FakeTransport()
           ..responses.add(
@@ -1026,7 +1026,7 @@ void main() {
         'a.jpg',
         OSError('No space left on device', 28),
       );
-      final task = await failed(_ThrowAfterWriteSinkFactory(full));
+      final task = await failed(ThrowAfterWriteSinkFactory(full));
       expect(task.failureKind, DownloadFailureKind.noSpace);
     });
 
@@ -1250,43 +1250,6 @@ class _ScriptedTransport extends HttpDownloadTransport {
     opened.add(url.toString());
     return _pending.removeAt(0);
   }
-}
-
-class _ThrowAfterWriteSinkFactory implements DownloadSinkFactory {
-  _ThrowAfterWriteSinkFactory([this.error]);
-
-  final Object? error;
-  MemorySink? lastSink;
-
-  @override
-  Future<DownloadSink> begin(
-    DownloadRequest request,
-    String displayName, {
-    DownloadDestination destination = DownloadDestination.builtin,
-  }) async {
-    final inner = MemorySink();
-    lastSink = inner;
-    return _ThrowAfterWriteSink(inner, error);
-  }
-}
-
-class _ThrowAfterWriteSink implements DownloadSink {
-  _ThrowAfterWriteSink(this.inner, this.error);
-
-  final MemorySink inner;
-  final Object? error;
-
-  @override
-  Future<void> write(List<int> bytes) async {
-    await inner.write(bytes);
-    throw error ?? Exception('sink write exploded');
-  }
-
-  @override
-  Future<String> finalize() => inner.finalize();
-
-  @override
-  Future<void> abort() => inner.abort();
 }
 
 class _UnusedSafDocumentSinkFactory implements SafDocumentSinkFactory {

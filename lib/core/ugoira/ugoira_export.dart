@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:image/image.dart' as img;
 
 import '../download/download_destination.dart';
+import '../download/download_manager.dart' show classifyDownloadFailure;
 import '../download/download_request.dart';
 import '../download/download_recovery.dart';
 import '../download/download_sink.dart';
@@ -30,6 +31,7 @@ class UgoiraExportSnapshot {
     required this.totalFrames,
     this.uri,
     this.error,
+    this.failureKind,
   });
 
   const UgoiraExportSnapshot.queued(int totalFrames)
@@ -44,6 +46,9 @@ class UgoiraExportSnapshot {
   final int totalFrames;
   final Uri? uri;
   final String? error;
+
+  /// Why a failed export failed, classified as a download's failure is.
+  final DownloadFailureKind? failureKind;
 
   double get progress => totalFrames == 0 ? 0 : processedFrames / totalFrames;
 }
@@ -538,6 +543,7 @@ class UgoiraExportJob {
           processedFrames: _snapshot.processedFrames,
           totalFrames: _asset.frameCount,
           error: error.toString(),
+          failureKind: classifyDownloadFailure(error),
         ),
       );
       await _persistBestEffort(pendingOutputId: pendingOutputId);
@@ -588,6 +594,7 @@ class UgoiraExportJob {
         pendingMediaStoreId: pendingOutputId,
         finalUri: _snapshot.uri?.toString(),
         error: _snapshot.error,
+        failureKind: _snapshot.failureKind,
       ),
     );
   }

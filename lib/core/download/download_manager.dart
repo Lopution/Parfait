@@ -1127,7 +1127,7 @@ class DownloadManager {
     Future<void> Function() closeResponse,
     Object error,
   ) async {
-    final failureKind = _classifyDownloadFailure(error);
+    final failureKind = classifyDownloadFailure(error);
     // Some transports surface socket teardown as a generic transport
     // error instead of DownloadCancelledException. Once cancellation has
     // been requested before finalization, the user/owner boundary still
@@ -1808,7 +1808,9 @@ class DownloadResourceLimitException implements Exception {
   final String message;
 }
 
-DownloadFailureKind _classifyDownloadFailure(Object error) {
+/// Why a write failed, for the message that says so: a download's, or a
+/// GIF export's.
+DownloadFailureKind classifyDownloadFailure(Object error) {
   if (error is DownloadCancelledException) return DownloadFailureKind.canceled;
   if (error is _DownloadOwnershipException) {
     return DownloadFailureKind.ownership;
