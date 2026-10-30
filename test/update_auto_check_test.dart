@@ -67,12 +67,20 @@ void main() {
 
   test('a check that fails before its request stays silent', () async {
     // A full disk fails the throttle stamp.
-    SharedPreferencesAsyncPlatform.instance = IntWriteFailingPreferences();
+    final preferences = IntWriteFailingPreferences();
+    SharedPreferencesAsyncPlatform.instance = preferences;
+    final transport = _CountingTransport();
     final stampFails = UpdateAutoCheck(
       preferences: SharedPreferencesAsync(),
-      service: () async => throw StateError('unreachable'),
+      service: () async => UpdateService(
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
+        manifestTransport: transport,
+        signatureVerifier: FakeUpdateSignatureVerifier(),
+      ),
     );
     expect(await stampFails.checkOnce(), isNull);
+    expect(preferences.intWrites, hasLength(1));
+    expect(transport.fetches, 0);
 
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();

@@ -33,10 +33,11 @@ class UpdateAutoCheck {
   /// Runs the check when the throttle window has passed. Returns the
   /// result (or null when skipped/store-managed) so the caller can
   /// surface [UpdateCheckStatus.available] however it wants.
-  /// A failure before the request (the service, its capability, the
-  /// throttle stamp) is logged and skips this launch's check; only a
-  /// request about to go out stamps the window, so a local failure leaves
-  /// the next launch free to try.
+  /// The window is stamped right before [UpdateService.check]: a failed
+  /// check, its own platform reads included, consumes it like a failed
+  /// request. A failure before that (the service, its capability, the
+  /// stamp itself) is logged, skips this launch's check and leaves the
+  /// next launch free to try.
   Future<UpdateCheckResult?> checkOnce() async {
     try {
       final last =
