@@ -27,7 +27,6 @@ import 'package:parfait/features/comments/comment_item.dart';
 import 'package:parfait/features/comments/comments_page.dart';
 import 'package:parfait/features/illust/detail/detail_page_activity.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_comment_layer.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/l10n/context.dart';
 import 'package:parfait/app/motion/removal.dart';
 
@@ -120,10 +119,6 @@ Future<void> _pumpCommentsRoute(
 }
 
 void main() {
-  // Stamp cells are PixivImages, which read settings; shards run single
-  // tests, so no test may rely on another having installed preferences.
-  setUp(installMemoryPreferences);
-
   test('comment parsing keeps root, parent and stamp fields distinct', () {
     final root = CommentEntity.fromJson(
       _commentJson(100, replyCount: 2),
@@ -556,7 +551,6 @@ void main() {
       // §5.6/§4.10 form geometry: the shell opts out of Scaffold insets, so
       // a focused field + IME must never translate the page's main
       // controls — the composer reserves the keyboard extent itself.
-      installMemoryPreferences();
       setViewSize(tester, const Size(600, 844));
 
       await _pumpCommentsRoute(tester);
@@ -626,7 +620,8 @@ void main() {
     // A success still clears the draft, a failure is still reported.
     for (final fails in [false, true]) {
       final gate = Completer<void>();
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+      // Each round is a fresh install.
+      installPreferencesForTest(memoryPreferences());
       final container = await signedInApiContainer(
         MockClient((request) async {
           await gate.future;

@@ -9,10 +9,8 @@ import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'fake_account.dart';
-import 'test_preferences.dart';
 
 /// HTTP transport recording bookmark calls so the card menu's bookmark
 /// adapter can be verified against real wire requests.
@@ -67,7 +65,6 @@ class CardApiFixture {
 typedef CardWorld = (ProviderContainer, CardApiFixture, WatchLaterRepository);
 
 Future<CardWorld> makeCardWorld({ShareService? shareService}) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = CardApiFixture();
   final container = await signedInApiContainer(
     fixture.build(),

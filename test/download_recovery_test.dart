@@ -3,10 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'helpers/waits.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_destination.dart';
@@ -229,7 +227,6 @@ void main() {
   test(
     'preferences recovery store round-trips only bounded metadata',
     () async {
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final store = PreferencesDownloadRecoveryStore(preferences: preferences);
       await store.upsert(
@@ -254,7 +251,6 @@ void main() {
   test(
     'recovery store evicts terminal records before active records',
     () async {
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final store = PreferencesDownloadRecoveryStore(preferences: preferences);
 
@@ -283,7 +279,6 @@ void main() {
   test(
     'legacy Pictures/Parfait destination migrates to the builtin owner',
     () async {
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final raw = <String, Object?>{
         'jobId': 'job-legacy-path',

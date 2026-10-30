@@ -32,7 +32,6 @@ import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../helpers/api_responses.dart' show appApiTakes;
 import '../helpers/connectivity_channels.dart';
@@ -102,7 +101,7 @@ class ReviewWorld {
       :touchExploration,
       :searchHistory,
     ) = setup;
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences({
+    installMemoryPreferences({
       if (searchHistory.isNotEmpty) PreferenceKeys.searchHistory: searchHistory,
     });
     PackageInfo.setMockInitialValues(

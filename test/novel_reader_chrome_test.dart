@@ -30,7 +30,6 @@ import 'helpers/localized_app.dart';
 import 'helpers/waits.dart';
 
 Future<ProviderContainer> _apiContainer({
-  Map<String, Object> preferences = const {},
   SharedPreferencesAsyncPlatform? platform,
   bool withSeries = false,
   Future<http.Response> Function(int request)? seriesHandler,
@@ -38,8 +37,7 @@ Future<ProviderContainer> _apiContainer({
   Completer<void>? detailGate,
   bool detailFails = false,
 }) async {
-  SharedPreferencesAsyncPlatform.instance =
-      platform ?? memoryPreferences(preferences);
+  if (platform != null) installPreferencesForTest(platform);
   final container = await signedInApiContainer(
     MockClient((request) async {
       if (request.url.path == '/v2/novel/detail') {
@@ -671,11 +669,11 @@ void main() {
     // R2: the stage's FuncSystemBars is a scoped override — unmounting the
     // route returns the bars to the app-level default without a reset.
     final container = await _apiContainer(
-      preferences: {
+      platform: memoryPreferences({
         'parfait.novel.reader_settings.v1': jsonEncode(
           const NovelReaderSettings(theme: NovelReaderTheme.night).toJson(),
         ),
-      },
+      }),
     );
     await tester.pumpWidget(
       UncontrolledProviderScope(

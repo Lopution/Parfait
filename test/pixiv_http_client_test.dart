@@ -21,10 +21,8 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/fake_settings.dart';
 
 const String _apiHost = 'app-api.pixiv.net';
@@ -140,7 +138,6 @@ _makeWorld({
   String languageTag = 'zh-CN',
 }) async {
   final f = fixture ?? _Fixture();
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
 
   final credentials = FakeCredentialStore(
     values: {

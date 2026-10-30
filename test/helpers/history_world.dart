@@ -52,18 +52,15 @@ Future<HistoryRepository> openHistoryRepository(
 Future<ProviderContainer> makeHistoryWorld(
   HistoryRepository repository, {
   IllustStore? illustStore,
-  bool signedOut = false,
 }) async {
   final credentials = FakeCredentialStore();
-  if (!signedOut) {
-    await seedAccounts([
-      const Account(id: '100', userId: 100, name: 'tester'),
-    ], currentId: '100');
-    credentials.seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  }
+  await seedAccounts([
+    const Account(id: '100', userId: 100, name: 'tester'),
+  ], currentId: '100');
+  credentials.seed(
+    '100',
+    const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
+  );
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer.test(
     overrides: [

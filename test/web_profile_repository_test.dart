@@ -16,7 +16,6 @@ import 'package:parfait/core/user/user_repository.dart';
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
-import 'helpers/test_preferences.dart';
 
 class _FakeSession implements WebProfileSession {
   _FakeSession(this.cookie);
@@ -47,7 +46,6 @@ ProfileSubmitRequest _renameRequest() => ProfileSubmitRequest(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  installMemoryPreferences();
 
   test('a session counts only when one signed-in PHPSESSID names the user', () {
     const cases = <String?, int?>{

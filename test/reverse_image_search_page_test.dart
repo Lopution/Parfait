@@ -14,7 +14,6 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/connectivity_channels.dart';
 import 'helpers/reverse_image_world.dart';
@@ -32,7 +31,6 @@ void main() {
     directory = Directory.systemTemp.createTempSync('reverse-image-page-');
     image = writeTinyPng(directory);
     platform = FakeReverseImagePlatform(image);
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
     answerConnectivityChannels();
   });
@@ -198,7 +196,7 @@ void main() {
   });
 
   testWidgets('an engine choice that fails to save says so', (tester) async {
-    SharedPreferencesAsyncPlatform.instance = StringWriteFailingPreferences();
+    installPreferencesForTest(StringWriteFailingPreferences());
     await _pumpPage(
       tester,
       platform: platform,

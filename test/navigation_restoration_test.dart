@@ -277,6 +277,8 @@ void main() {
     await tester.pumpWidget(
       _routerApp(
         router,
+        // In place before the restore. Through the API the tags land after
+        // it, and the offset springs back to the loading grid's end.
         trendingTags: [
           for (var index = 0; index < 30; index++)
             TrendingTag(name: 'tag-${index + 1}'),

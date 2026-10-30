@@ -11,8 +11,6 @@ import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart'
     show DownloadCancelledException, RawHop;
 
-import 'test_preferences.dart';
-
 /// Scripted transport: each open() pops the next [ScriptedResponse].
 class FakeTransport implements DownloadTransport {
   final responses = <ScriptedResponse>[];
@@ -120,7 +118,6 @@ Future<(ProviderContainer, DownloadManager, FakeTransport)> makeDownloadWorld({
   required List<ScriptedResponse> responses,
   int maxConcurrent = 3,
 }) async {
-  installMemoryPreferences();
   final transport = FakeTransport()..responses.addAll(responses);
   final manager = DownloadManager(
     transport: transport,

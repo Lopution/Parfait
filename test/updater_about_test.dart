@@ -90,7 +90,6 @@ void main() {
   }
 
   testWidgets('seven version taps unlock developer options', (tester) async {
-    installMemoryPreferences();
     final container = await tapVersionSevenTimes(tester);
 
     expect(container.read(developerOptionsProvider), isTrue);

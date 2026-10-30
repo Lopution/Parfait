@@ -4,10 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/network/http_client_providers.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'api_responses.dart';
 import 'fake_account.dart';
-import 'test_preferences.dart';
 
 Map<String, dynamic> spotlightArticleJson(
   int id, {
@@ -26,7 +25,7 @@ Map<String, dynamic> spotlightArticleJson(
 
 /// Mock-HTTP world for `/v1/spotlight/articles`. The system under test
 /// (repository, feed controller, store) runs real; only the network
-/// boundary is faked.
+/// boundary is faked: by [client] alone, or by [routes] beside others.
 class SpotlightFixture {
   final requests = <Uri>[];
 
@@ -38,10 +37,16 @@ class SpotlightFixture {
   int firstPageSize = 2;
 
   http.Client client() => MockClient((request) async {
-    requests.add(request.url);
     if (request.url.path != '/v1/spotlight/articles') {
       fail('unexpected request: ${request.url}');
     }
+    return _articles(request);
+  });
+
+  Map<String, ApiRoute> get routes => {'/v1/spotlight/articles': _articles};
+
+  Future<http.Response> _articles(http.Request request) async {
+    requests.add(request.url);
     final category = request.url.queryParameters['category']!;
     final offset = request.url.queryParameters['offset'];
     if (offset == null) {
@@ -62,7 +67,7 @@ class SpotlightFixture {
       ],
       'next_url': null,
     });
-  });
+  }
 
   http.Response _ok(Map<String, dynamic> body) => jsonResponse(body);
 }
@@ -73,7 +78,6 @@ Future<(ProviderContainer, SpotlightFixture)> makeSpotlightWorld({
   SpotlightFixture? fixture,
   http.Client? webClient,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? SpotlightFixture();
   final container = await signedInApiContainer(
     activeFixture.client(),
