@@ -147,18 +147,15 @@ void main() {
       expect(await File(novel.path).readAsString(), '古早文本');
     });
 
-    test('same file name imports get unique paths', () async {
-      final first = await repository.importBytes(
+    test('same file name imports get unique paths, even at once', () async {
+      Future<LocalNovel> import(String text) => repository.importBytes(
         fileName: 'dup.txt',
-        bytes: Uint8List.fromList(utf8.encode('一')),
+        bytes: Uint8List.fromList(utf8.encode(text)),
         targetDir: dir,
       );
-      final second = await repository.importBytes(
-        fileName: 'dup.txt',
-        bytes: Uint8List.fromList(utf8.encode('二')),
-        targetDir: dir,
-      );
+      final [first, second] = await Future.wait([import('一'), import('二')]);
       expect(first.path, isNot(second.path));
+      expect(await File(first.path).readAsString(), '一');
       expect(await File(second.path).readAsString(), '二');
     });
 

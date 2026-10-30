@@ -95,11 +95,11 @@ class LocalNovelRepository {
     }
     final (text, encoding) = decodeLocalNovelText(bytes);
     await targetDir.create(recursive: true);
-    final file = await _uniqueFile(targetDir, fileName);
-    await file.writeAsString(text, flush: true);
+    final file = await _createUniqueFile(targetDir, fileName);
 
     final int id;
     try {
+      await file.writeAsString(text, flush: true);
       final db = await _database.database;
       id = await db.insert(LocalNovelDatabase.table, {
         'title': _titleOf(fileName),
@@ -152,17 +152,23 @@ class LocalNovelRepository {
     );
   }
 
-  /// Unique, filesystem-safe destination inside [dir]: `name.txt`,
-  /// `name-2.txt`, … Sanitizes separators so a picked file name can never
-  /// escape the library directory.
-  Future<File> _uniqueFile(Directory dir, String fileName) async {
+  /// Creates a unique, filesystem-safe file inside [dir]: `name.txt`,
+  /// `name-1.txt`, … Sanitizes separators so a picked file name can never
+  /// escape the library directory. The exclusive create makes the file this
+  /// import's alone, so two imports of one name never share it and a failed
+  /// import deletes only its own.
+  Future<File> _createUniqueFile(Directory dir, String fileName) async {
     var stem = _titleOf(fileName).replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
     if (stem.isEmpty) stem = 'novel';
     for (var suffix = 0; ; suffix++) {
       final candidate = File(
         path.join(dir.path, suffix == 0 ? '$stem.txt' : '$stem-$suffix.txt'),
       );
-      if (!await candidate.exists()) return candidate;
+      try {
+        return await candidate.create(exclusive: true);
+      } on PathExistsException {
+        continue;
+      }
     }
   }
 
