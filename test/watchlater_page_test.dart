@@ -30,7 +30,7 @@ Future<void> _seed(WatchLaterRepository repository) {
   ]);
 }
 
-Future<List<int>> _ids(MemoryWatchLaterRepository repository) async => [
+Future<List<int>> _ids(WatchLaterRepository repository) async => [
   for (final entry in await repository.list('100')) entry.entity.id,
 ];
 
@@ -45,7 +45,7 @@ Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle();
 
 void main() {
   late ProviderContainer container;
-  late MemoryWatchLaterRepository repository;
+  late WatchLaterRepository repository;
 
   Future<void> pumpPage(WidgetTester tester) async {
     final (world, _, memory) = await makeCardWorld();

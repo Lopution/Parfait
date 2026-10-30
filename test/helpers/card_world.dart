@@ -4,15 +4,12 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
-import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'fake_account.dart';
 import 'test_preferences.dart';
@@ -65,87 +62,21 @@ class CardApiFixture {
   }
 }
 
-/// In-memory repository for widget tests. sqflite_ffi runs sqlite on a
-/// worker isolate, and isolate port events are starved inside the
-/// testWidgets fake-async zone — the real-DB path is already covered by
-/// watch_later_store_test, so the persistence boundary is faked here while
-/// the sheet/dispatch code under test stays real.
-class MemoryWatchLaterRepository extends WatchLaterRepository {
-  MemoryWatchLaterRepository()
-    : super(
-        database: WatchLaterDatabase(
-          factory: databaseFactoryFfi,
-          databasePath: inMemoryDatabasePath,
-        ),
-      );
-
-  final Map<String, List<WatchLaterEntry>> _rows = {};
-
-  List<WatchLaterEntry> _account(String accountId) =>
-      _rows.putIfAbsent(accountId, () => []);
-
-  @override
-  Future<List<WatchLaterEntry>> list(String accountId) async =>
-      List.unmodifiable(_account(accountId));
-
-  @override
-  Future<void> add(String accountId, IllustEntity entity) async {
-    final rows = _account(accountId);
-    rows.removeWhere((entry) => entry.entity.id == entity.id);
-    rows.insert(
-      0,
-      WatchLaterEntry(
-        addedAt: DateTime.now().millisecondsSinceEpoch,
-        entity: entity,
-      ),
-    );
-  }
-
-  @override
-  Future<void> restoreAll(
-    String accountId,
-    Iterable<WatchLaterEntry> entries,
-  ) async {
-    final rows = _account(accountId);
-    for (final entry in entries) {
-      rows
-        ..removeWhere((row) => row.entity.id == entry.entity.id)
-        ..add(entry);
-    }
-    // Newest first, like the database query.
-    rows.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-  }
-
-  @override
-  Future<void> removeAll(String accountId, Iterable<int> illustIds) async {
-    final ids = illustIds.toSet();
-    _account(accountId).removeWhere((entry) => ids.contains(entry.entity.id));
-  }
-
-  @override
-  Future<void> clear(String accountId) async => _account(accountId).clear();
-}
-
-typedef CardWorld = (
-  ProviderContainer,
-  CardApiFixture,
-  MemoryWatchLaterRepository,
-);
+/// The world, its API fixture and the app's watch-later repository (an
+/// in-memory database under `flutter test`).
+typedef CardWorld = (ProviderContainer, CardApiFixture, WatchLaterRepository);
 
 Future<CardWorld> makeCardWorld({ShareService? shareService}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = CardApiFixture();
-  final repository = MemoryWatchLaterRepository();
-
   final container = await signedInApiContainer(
     fixture.build(),
     overrides: [
-      watchLaterRepositoryProvider.overrideWithValue(repository),
       if (shareService != null)
         shareServiceProvider.overrideWithValue(shareService),
     ],
   );
-  return (container, fixture, repository);
+  return (container, fixture, container.read(watchLaterRepositoryProvider));
 }
 
 /// Mutes fixed at [seed], with no account, storage or server behind them.
