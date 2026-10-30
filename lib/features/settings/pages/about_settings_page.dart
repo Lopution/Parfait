@@ -49,15 +49,21 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
 
   /// Android's build-number gesture: the version tile counts presses and
   /// unlocks the developer entries after [_unlockTaps]. The countdown only
-  /// surfaces on the last few taps so casual presses stay silent.
+  /// surfaces on the last few taps so casual presses stay silent. A failed
+  /// write is reported; the entries stay for this session.
   void _onVersionTap() {
     if (ref.read(developerOptionsProvider)) return;
     _versionTaps++;
     final remaining = _unlockTaps - _versionTaps;
     if (remaining <= 0) {
       _versionTaps = 0;
-      unawaited(ref.read(developerOptionsProvider.notifier).unlock());
       showAppSnackBar(context, context.l10n.developerOptionsUnlocked);
+      unawaited(
+        persistSettings(
+          context,
+          () => ref.read(developerOptionsProvider.notifier).unlock(),
+        ),
+      );
     } else if (remaining <= 3) {
       showAppSnackBar(
         context,

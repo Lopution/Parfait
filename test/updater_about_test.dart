@@ -6,6 +6,9 @@ import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/updater/update_providers.dart';
 import 'package:parfait/core/updater/update_service.dart';
 import 'package:parfait/features/settings/settings_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
@@ -60,12 +63,12 @@ void main() {
     expect(find.text('9.9.9'), findsOneWidget);
   });
 
-  testWidgets('seven version taps unlock developer options', (tester) async {
+  /// Taps the version row seven times on a fresh About page.
+  Future<ProviderContainer> tapVersionSevenTimes(WidgetTester tester) async {
     final service = UpdateService(
       manifestTransport: UnusedManifestTransport(),
       platform: _FdroidPlatform(),
     );
-    installMemoryPreferences();
     final container = ProviderContainer.test(
       overrides: [updateServiceProvider.overrideWith((ref) async => service)],
     );
@@ -84,9 +87,29 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     await tester.pump();
+    return container;
+  }
+
+  testWidgets('seven version taps unlock developer options', (tester) async {
+    installMemoryPreferences();
+    final container = await tapVersionSevenTimes(tester);
+
     expect(container.read(developerOptionsProvider), isTrue);
     // The unlock snackbar queues behind the countdown ones — provider state
     // is the assertion that matters; the message itself is l10n-covered.
+  });
+
+  testWidgets('an unlock that fails to save says so', (tester) async {
+    SharedPreferencesAsyncPlatform.instance = _BoolWritesFail();
+    final container = await tapVersionSevenTimes(tester);
+    await tester.pump();
+
+    expect(
+      container.read(developerOptionsProvider),
+      isTrue,
+      reason: 'this session keeps the entries',
+    );
+    expect(find.textContaining('设置保存失败'), findsOneWidget);
   });
 
   testWidgets('About surfaces the remembered check result before any tap', (
@@ -259,4 +282,16 @@ class _FdroidPlatform implements UpdatePlatform {
 
   @override
   Future<bool> deleteApk(String path) => throw StateError('not used');
+}
+
+/// In-memory preferences whose `setBool` fails, as on a full disk.
+final class _BoolWritesFail extends InMemorySharedPreferencesAsync {
+  _BoolWritesFail() : super.empty();
+
+  @override
+  Future<bool> setBool(
+    String key,
+    bool value,
+    SharedPreferencesOptions options,
+  ) => Future.error(StateError('disk full'));
 }
