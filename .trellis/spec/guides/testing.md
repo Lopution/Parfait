@@ -154,22 +154,22 @@ reviewed: 2026-10-30
 - **Check:** manual
 - **Code:** `test/architecture`
 
-### TEST-10 A test double is defined once
-- **Rule:** Look in `test/helpers/` before writing a fake, stub, recorder,
-  fixture server, scripted response, wait loop or widget harness. One that a
-  second file needs moves to `test/helpers/` and both import it; a small
-  difference becomes a parameter of the shared one. A double that behaves
-  differently gets a name that says how (`_ThrowAfterWriteSink`, not a
-  second `_FailingSink`) and a body that is mostly its own: a class sharing
-  80% of its lines with a class in another file is a copy, whatever its
-  name.
-- **Why:** Eight copies of one account stub drifted apart, and a fix to
-  one copy left the others asserting the old behaviour. Renamed copies
-  (`_Resolver`, `_ScriptedResolver`, `StubResolver` beside `FakeResolver`)
-  passed a name-only check; a third of the suite sat outside any case.
-  Inline response scripts, polling loops and app scaffolds made the
-  average case about 31 lines.
-- **Check:** `test/architecture/test_hygiene_test.dart` "each test double is defined once" "no test double is copied into a second file"
+### TEST-10 A test double stands at a boundary and is defined once
+- **Rule:** Doubles stand in only for what is outside the app: the network,
+  platform channels, the keystore, the clock. The app's repositories run
+  real, the App API through `PixivApi` routes (a domain's `…Api` class in
+  `test/helpers/`), stored data as TEST-09 says. Look in `test/helpers/`
+  before writing a double, fixture server, wait loop or harness. One that
+  a second file needs moves there; a small difference becomes a parameter.
+  A double that behaves differently gets a name that says how
+  (`_ThrowAfterWriteSink`, not a second `_FailingSink`) and a body mostly
+  its own: sharing 80% of its lines with a class elsewhere is a copy.
+- **Why:** Eight copies of one account stub drifted apart; renamed copies
+  passed a name-only check. Repository fakes answered what no endpoint
+  answers (count-less user details, a refused comment send as "delete only
+  your own") and hid the requests pages make (the mute list, the shell's
+  preloaded feeds).
+- **Check:** `test/architecture/test_hygiene_test.dart` "each test double is defined once" "no test double is copied into a second file" "no test double stands in for an app repository"
 - **Code:** `test/helpers`
 
 ## Test environment traps
