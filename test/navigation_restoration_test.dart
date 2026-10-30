@@ -364,6 +364,42 @@ void main() {
     expect(find.text('2 / 2'), findsOneWidget);
   });
 
+  testWidgets('a viewer whose work failed to load offers a retry', (
+    tester,
+  ) async {
+    var detailStatus = 503;
+    final router = pixivRouter(
+      '/recommended/illust/42/viewer/1?quality=original',
+    );
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        httpHandler: (request) async {
+          if (request.url.path != '/v1/illust/detail') {
+            return _json({'illusts': <Object?>[], 'next_url': null});
+          }
+          if (detailStatus != 200) {
+            return http.Response('<html>busy</html>', detailStatus);
+          }
+          return _json({
+            'illust': illustJson(42, pageCount: 2, withMetaPages: true),
+          });
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Finder inViewer(Finder finder) =>
+        find.descendant(of: find.byType(ImageViewerPage), matching: finder);
+    expect(inViewer(find.text('作品加载失败')), findsOneWidget);
+    expect(inViewer(find.byType(BackButton)), findsOneWidget);
+
+    detailStatus = 200;
+    await tester.tap(inViewer(find.text('重试')));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2'), findsOneWidget);
+  });
+
   testWidgets('a restored pager opens the work it settled on', (tester) async {
     // Detail pages track visibility; a zero interval avoids a periodic
     // timer outliving the test.

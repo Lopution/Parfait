@@ -79,6 +79,7 @@ import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
 import '../widgets/home_branch_stack.dart';
 import '../widgets/feed/feed_grid.dart';
+import '../widgets/feed/feed_states.dart' show FeedError;
 import '../widgets/func_bottom_nav.dart';
 
 class IllustRouteExtra {
@@ -153,6 +154,18 @@ class _ImageViewerRoute extends ConsumerWidget {
       // A restored viewer has no snapshot and no extra: it waits for the
       // detail's pages.
       loading: detail.isLoading,
+      failure: switch (detail) {
+        AsyncData(value: IllustDetailError(error: final Object error)) ||
+        AsyncError(:final error) => FeedError(
+          title: context.l10n.illustDetailLoadFailed,
+          error: error,
+          retryLabel: context.l10n.retry,
+          onRetry: () => ref
+              .read(illustDetailControllerProvider(illustId).notifier)
+              .reload(),
+        ),
+        _ => null,
+      },
       initialPage: page,
       heroTagForPage: switch (extra) {
         ImageViewerRouteExtra(:final heroScope?, :final entryPage) => (page) {
