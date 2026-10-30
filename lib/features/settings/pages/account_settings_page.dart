@@ -232,19 +232,21 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       ),
     );
     if (remove != true || !mounted) return;
-    // The row leaves first; a failed save brings it back.
+    // The row leaves first; a failed save brings it back. Confirmed is
+    // confirmed: a page closed mid-exit still removes, and its failure
+    // still reaches the prompt host taken here.
     final store = ref.read(accountStoreProvider.notifier);
-    await _removals.playExit([account.id]);
-    // Confirmed is confirmed: a page closed mid-exit still removes.
-    if (!mounted) {
-      unawaited(store.removeAccount(account.id));
-      return;
-    }
-    final saved = await persistSettings(
+    final reportFailure = deferErrorSnackBar(
       context,
-      () => store.removeAccount(account.id),
+      action: context.l10n.settingsWriteFailed,
     );
-    if (!saved) _removals.restore([account.id]);
+    await _removals.playExit([account.id]);
+    try {
+      await store.removeAccount(account.id);
+    } on Object catch (error, stack) {
+      reportFailure(error, stack);
+      if (mounted) _removals.restore([account.id]);
+    }
   }
 
   /// Credential export is destructive-adjacent (plaintext tokens on the
