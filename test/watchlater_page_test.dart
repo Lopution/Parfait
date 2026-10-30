@@ -3,10 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/selectable_tile.dart';
+import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
+import 'package:parfait/core/watchlater/watch_later_store.dart';
 import 'package:parfait/features/watchlater/watchlater_page.dart';
 
 import 'helpers/card_world.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
@@ -20,7 +23,7 @@ Widget _app(ProviderContainer container) {
 }
 
 /// Works 1–3, added in that order: the list shows 3, 2, 1.
-Future<void> _seed(MemoryWatchLaterRepository repository) {
+Future<void> _seed(WatchLaterRepository repository) {
   return repository.restoreAll('100', [
     for (var id = 1; id <= 3; id++)
       WatchLaterEntry(addedAt: id * 1000, entity: parseIllust(illustJson(id))),
@@ -100,6 +103,25 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
     expect(await _ids(repository), [2, 1]);
+  });
+
+  testWidgets('a removal that fails brings the works back and says so', (
+    tester,
+  ) async {
+    container = await signedInApiContainer(CardApiFixture().build());
+    await _seed(container.read(watchLaterRepositoryProvider));
+    await tester.pumpWidget(_app(container));
+    await _settle(tester);
+    final db = await container.read(watchLaterDatabaseProvider).database;
+    await db.execute('DROP TABLE ${WatchLaterDatabase.table}');
+
+    await enterManaging(tester);
+    await tester.tap(_tile(3).first);
+    await tester.pump();
+    await tester.tap(find.byTooltip('从稍后再看移除'));
+    await _settle(tester);
+    expect(find.byType(IllustCard), findsNWidgets(3));
+    expect(find.textContaining('稍后再看保存失败'), findsOneWidget);
   });
 
   testWidgets('select all, and the remove action needs a selection', (

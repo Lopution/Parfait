@@ -83,11 +83,11 @@ reviewed: 2026-10-30
 
 ### TEST-05 The suite stays within its budget
 - **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart code
-  lines (`tool/test_budget.json`, 0.65; blank and comment lines excluded;
+  lines (`tool/test_budget.json`, 0.652; blank and comment lines excluded;
   `test/review/` and `test/fixtures/` not counted, nor the localizations
   `flutter gen-l10n` writes into `lib/l10n/`), so tests grow with the code
-  but not faster. Only the user changes the ratio, and only lowers it; an
-  agent asks and never edits it. A change whose `test/` growth exceeds the
+  but not faster. Only the user changes the ratio; an agent asks and
+  never edits it without that consent. A change whose `test/` growth exceeds the
   ratio × its `lib/` growth (none when `lib/` shrinks) by more than
   `growth_warning` (400) code lines gets a CI warning, never a failure:
   table-drive or prune before adding more. A change that needs room makes

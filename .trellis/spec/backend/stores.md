@@ -249,10 +249,14 @@ reviewed: 2026-10-30
   or death between the writes leaves loadable metadata whose current id is
   the one from before or after: the current id first while the stored
   list holds it, the list first while the new list keeps the stored
-  current id, otherwise cleared first and set last.
+  current id, otherwise cleared first and set last. Removal then drops
+  the account's secret, its history outbox, its queued offline actions
+  and its cached feeds, each even if one before it failed, and rethrows
+  the first failure; local history and watch later stay.
 - **Why:** Removing the current account wrote the list, then the current
   id: a death between them left a store that refused to load. A late
   refresh of account A made A current after the user switched to B, or
-  brought A back after it was removed.
-- **Check:** `test/account_store_test.dart` "metadata cut short at any write still loads" "a refresh saved mid-way neither revives nor reselects"; `test/pixiv_http_client_test.dart` "a request keeps its account through a switch, its refresh too"
+  brought A back after it was removed. A re-added account replayed the
+  offline actions it had queued before its removal.
+- **Check:** `test/account_store_test.dart` "removeAccount reselects, deletes the secret, the outbox, queued actions" "a cleanup that fails leaves the others done and is surfaced" "metadata cut short at any write still loads" "a refresh saved mid-way neither revives nor reselects"; `test/pixiv_http_client_test.dart` "a request keeps its account through a switch, its refresh too"
 - **Code:** `lib/core/auth/account_repository.dart`, `lib/core/auth/account_store.dart`

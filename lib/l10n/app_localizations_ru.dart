@@ -2755,6 +2755,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchLaterLoadFailed => 'Не удалось загрузить «Посмотреть позже»';
 
   @override
+  String get watchLaterSaveFailed => 'Не удалось сохранить «Посмотреть позже»';
+
+  @override
   String get bookmarkEditTitle => 'Изменить закладку';
 
   @override

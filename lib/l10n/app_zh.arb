@@ -1504,6 +1504,7 @@
   "watchLaterTitle": "稍后再看",
   "watchLaterEmpty": "暂无稍后再看的作品",
   "watchLaterLoadFailed": "稍后再看加载失败",
+  "watchLaterSaveFailed": "稍后再看保存失败",
   "bookmarkEditTitle": "编辑收藏",
   "bookmarkTags": "收藏标签",
   "bookmarkTagNewHint": "输入新标签，回车添加",

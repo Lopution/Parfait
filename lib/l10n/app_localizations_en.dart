@@ -2765,6 +2765,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchLaterLoadFailed => 'Watch later failed to load';
 
   @override
+  String get watchLaterSaveFailed => 'Watch later failed to save';
+
+  @override
   String get bookmarkEditTitle => 'Edit bookmark';
 
   @override

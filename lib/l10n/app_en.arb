@@ -1098,6 +1098,7 @@
   "watchLaterTitle": "Watch later",
   "watchLaterEmpty": "Nothing in Watch later yet",
   "watchLaterLoadFailed": "Watch later failed to load",
+  "watchLaterSaveFailed": "Watch later failed to save",
   "bookmarkEditTitle": "Edit bookmark",
   "bookmarkTags": "Bookmark tags",
   "bookmarkTagNewHint": "Type a tag and press enter",

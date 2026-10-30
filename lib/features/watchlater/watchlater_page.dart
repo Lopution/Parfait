@@ -6,6 +6,7 @@ import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/motion/removal.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
@@ -68,15 +69,27 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
 
   /// The tiles leave first, then the rows go in one transaction; Undo puts
   /// them back in place (D5 — no confirmation). A page closed mid-exit
-  /// still removes them.
+  /// still removes them, and a failure is reported either way.
   Future<void> _removeSelected() async {
     final ids = List<int>.of(_selected);
     final store = ref.read(watchLaterStoreProvider.notifier);
+    final reportFailure = deferErrorSnackBar(
+      context,
+      action: context.l10n.watchLaterSaveFailed,
+    );
     _exitManaging();
     await _removals.playExit(ids);
-    final removal = await store.removeAll(ids);
-    if (removal == null) {
-      _removals.restore(ids);
+    final WatchLaterRemoval removal;
+    try {
+      final removed = await store.removeAll(ids);
+      if (removed == null) {
+        if (mounted) _removals.restore(ids);
+        return;
+      }
+      removal = removed;
+    } on Object catch (error, stack) {
+      reportFailure(error, stack);
+      if (mounted) _removals.restore(ids);
       return;
     }
     if (!mounted) return;

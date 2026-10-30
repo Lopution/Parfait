@@ -5141,6 +5141,12 @@ abstract class AppLocalizations {
   /// **'稍后再看加载失败'**
   String get watchLaterLoadFailed;
 
+  /// No description provided for @watchLaterSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后再看保存失败'**
+  String get watchLaterSaveFailed;
+
   /// No description provided for @bookmarkEditTitle.
   ///
   /// In zh, this message translates to:
