@@ -282,6 +282,9 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
     (call) async => false,
   );
 
+  await seedAccounts([
+    const Account(id: '100', userId: 100, name: 't'),
+  ], currentId: '100');
   final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
@@ -289,9 +292,6 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
           values: const {
             '100': Credential(accessToken: 'a', refreshToken: 'r'),
           },
-        ),
-        metadataRepository: FakeAccountMetadataRepository.signedIn(
-          const Account(id: '100', userId: 100, name: 't'),
         ),
       ),
       settingsRepositoryProvider.overrideWithValue(

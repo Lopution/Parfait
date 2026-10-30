@@ -73,15 +73,17 @@ Future<ProfileEditController> _loaded(
 }
 
 /// A container signed in to account 42, as the page finds it in production.
-ProviderContainer _signedInContainer([List<Override> overrides = const []]) {
+Future<ProviderContainer> _signedInContainer([
+  List<Override> overrides = const [],
+]) async {
+  await seedAccounts([
+    const Account(id: '42', userId: 42, name: 'tester'),
+  ], currentId: '42');
   final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
         credentialStore: FakeCredentialStore(
           values: const {'42': Credential(accessToken: 'a', refreshToken: 'r')},
-        ),
-        metadataRepository: FakeAccountMetadataRepository.signedIn(
-          const Account(id: '42', userId: 42, name: 'tester'),
         ),
       ),
       ...overrides,
@@ -288,13 +290,9 @@ void main() {
   test(
     'confirmed metadata updates AccountStore and canonical UserStore',
     () async {
-      final metadata = FakeAccountMetadataRepository();
       final credentials = FakeCredentialStore();
       final container = ProviderContainer.test(
-        overrides: [
-          accountMetadataRepositoryProvider.overrideWithValue(metadata),
-          credentialStoreProvider.overrideWithValue(credentials),
-        ],
+        overrides: [credentialStoreProvider.overrideWithValue(credentials)],
       );
       await container.read(accountStoreProvider.future);
       final accountStore = container.read(accountStoreProvider.notifier);
@@ -551,7 +549,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
-        container: _signedInContainer(),
+        container: await _signedInContainer(),
         // No session: the page resolves the account asynchronously and
         // builds the editing session itself, exactly like production.
         child: localizedApp(
@@ -580,7 +578,7 @@ void main() {
     final users = _FlakyUserRepository(_user());
     await tester.pumpWidget(
       localizedApp(
-        container: _signedInContainer([
+        container: await _signedInContainer([
           userRepositoryProvider.overrideWithValue(users),
         ]),
         locale: const Locale('en', 'US'),

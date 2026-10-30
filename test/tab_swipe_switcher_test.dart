@@ -18,7 +18,10 @@ Future<GoRouter> _pumpHome(
   setViewSize(tester, const Size(390, 844));
   final router = pixivRouter(location);
   await tester.pumpWidget(
-    localizedRouterApp(router, overrides: [...signedInAccountOverrides()]),
+    localizedRouterApp(
+      router,
+      overrides: [...await signedInAccountOverrides()],
+    ),
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));

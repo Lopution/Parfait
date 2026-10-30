@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
@@ -37,17 +36,13 @@ Future<(PixivHttpClient, ProviderContainer)> _client({
       headers: {'content-type': 'application/json'},
     );
   });
+  await seedAccounts(const [testerAccount], currentId: testerAccount.id);
   final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(
         FakeCredentialStore()..seed(
           '100',
           const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-        ),
-      ),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository.signedIn(
-          const Account(id: '100', userId: 100, name: 'tester'),
         ),
       ),
       oauthServiceProvider.overrideWithValue(

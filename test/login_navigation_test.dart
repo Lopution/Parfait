@@ -24,6 +24,7 @@ import 'package:parfait/features/login/login_webview_page.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/test_preferences.dart';
 
 /// The login page's web view as its platform drives it.
 class _WebView {
@@ -128,13 +129,12 @@ void main() {
     OAuthService? service,
     bool create = false,
     PlatformCaps? caps,
-    FakeAccountMetadataRepository? accounts,
   }) async {
     final oauth = service ?? OAuthService(exchangeTimeout: Duration.zero);
     await tester.pumpWidget(
       localizedApp(
         overrides: [
-          ...accountProviderOverrides(metadataRepository: accounts),
+          ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(oauth),
           if (caps != null) platformCapsProvider.overrideWithValue(caps),
         ],
@@ -281,15 +281,12 @@ void main() {
     ]) {
       await tester.pumpWidget(const SizedBox());
       final service = _HeldExchange();
-      final accounts = FakeAccountMetadataRepository();
-      final webView = await pumpLoginPage(
-        tester,
-        service: service,
-        accounts: accounts,
-      );
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      final webView = await pumpLoginPage(tester, service: service);
       final saves = Completer<void>();
       if (queued) {
-        accounts.saveGate = saves.future;
+        preferences.writeGate = saves.future;
         final container = ProviderScope.containerOf(
           tester.element(find.byType(LoginWebViewPage)),
         );
@@ -322,7 +319,7 @@ void main() {
       final reason = 'fails: $fails, queued: $queued';
       expect(tester.takeException(), isNull, reason: reason);
       expect(
-        accounts.accounts.map((account) => account.id),
+        (await storedAccounts().load()).accounts,
         isEmpty,
         reason: 'leaving is a cancel; $reason',
       );

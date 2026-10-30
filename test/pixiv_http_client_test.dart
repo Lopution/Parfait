@@ -152,12 +152,10 @@ _makeWorld({
     },
   );
 
+  await seedAccounts(accounts, currentId: currentId);
   final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(accounts: accounts, currentId: currentId),
-      ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(client: f.buildOauthTransport()),
       ),
@@ -247,9 +245,6 @@ void main() {
       overrides: [
         settingsRepositoryProvider.overrideWithValue(repository),
         credentialStoreProvider.overrideWithValue(credentials),
-        accountMetadataRepositoryProvider.overrideWithValue(
-          FakeAccountMetadataRepository(),
-        ),
         // No sockets: the policy hands out a canned transport.
         pixivNetworkFactoryProvider.overrideWithValue(
           PixivNetworkFactory(

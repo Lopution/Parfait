@@ -31,7 +31,7 @@ Future<GoRouter> _pumpHome(
   await tester.pumpWidget(
     localizedRouterApp(
       router,
-      overrides: [...signedInAccountOverrides()],
+      overrides: [...await signedInAccountOverrides()],
       builder: promptHostBuilder,
     ),
   );

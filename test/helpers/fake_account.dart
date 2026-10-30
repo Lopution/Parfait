@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_repository.dart';
@@ -13,6 +14,7 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 
 /// A JSON answer of [body], the way the pixiv API responds.
 http.Response jsonResponse(Object? body, [int status = 200]) => http.Response(
@@ -47,66 +49,48 @@ class FakeCredentialStore implements CredentialStore {
   }
 }
 
-/// Simple mutable account metadata repository for tests with ordinary
-/// successful load/save behavior.
-class FakeAccountMetadataRepository implements AccountMetadataRepository {
-  FakeAccountMetadataRepository({
-    Iterable<Account> accounts = const [],
-    this.currentId,
-  }) : accounts = List<Account>.of(accounts);
+/// The app's account metadata repository over this case's in-memory
+/// preferences: what a test seeds or reads back.
+AccountMetadataRepository storedAccounts() =>
+    PreferencesAccountMetadataRepository(preferences: SharedPreferencesAsync());
 
-  /// [account] alone, signed in.
-  FakeAccountMetadataRepository.signedIn(Account account)
-    : this(accounts: [account], currentId: account.id);
+/// Stores [accounts] with [currentId] current through [storedAccounts].
+Future<void> seedAccounts(List<Account> accounts, {String? currentId}) =>
+    storedAccounts().save(accounts, currentId);
 
-  List<Account> accounts;
-  String? currentId;
+/// Stores an account entry no build can parse, as a damaged disk leaves it.
+Future<void> seedCorruptAccounts() => SharedPreferencesAsync().setStringList(
+  PreferenceKeys.accounts,
+  const ['{'],
+);
 
-  /// Holds every save until it completes.
-  Future<void>? saveGate;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async => AccountMetadataSnapshot(
-    accounts: List<Account>.of(accounts),
-    currentId: currentId,
-  );
-
-  @override
-  Future<void> save(List<Account> next, String? nextCurrentId) async {
-    await saveGate;
-    accounts = List<Account>.of(next);
-    currentId = nextCurrentId;
-  }
-}
-
-/// Standard overrides for account-backed providers.
 /// The account most widget tests sign in as.
 const testerAccount = Account(id: '100', userId: 100, name: 'tester');
 
-/// [accountProviderOverrides] with [account] alone signed in.
-List<Override> signedInAccountOverrides([Account account = testerAccount]) =>
-    accountProviderOverrides(
-      credentialStore: FakeCredentialStore(
-        values: {
-          account.id: Credential(
-            accessToken: 'a-${account.id}',
-            refreshToken: 'r-${account.id}',
-          ),
-        },
-      ),
-      metadataRepository: FakeAccountMetadataRepository.signedIn(account),
-    );
+/// Stores [account] alone, signed in, and returns its credential override.
+Future<List<Override>> signedInAccountOverrides([
+  Account account = testerAccount,
+]) async {
+  await seedAccounts([account], currentId: account.id);
+  return accountProviderOverrides(
+    credentialStore: FakeCredentialStore(
+      values: {
+        account.id: Credential(
+          accessToken: 'a-${account.id}',
+          refreshToken: 'r-${account.id}',
+        ),
+      },
+    ),
+  );
+}
 
-List<Override> accountProviderOverrides({
-  CredentialStore? credentialStore,
-  AccountMetadataRepository? metadataRepository,
-}) {
+/// The keystore is a platform boundary: credentials live in [credentialStore]
+/// (empty by default). Account metadata is the app's own repository over
+/// the case's preferences; seed it with [seedAccounts].
+List<Override> accountProviderOverrides({CredentialStore? credentialStore}) {
   return [
     credentialStoreProvider.overrideWithValue(
       credentialStore ?? FakeCredentialStore(),
-    ),
-    accountMetadataRepositoryProvider.overrideWithValue(
-      metadataRepository ?? FakeAccountMetadataRepository(),
     ),
   ];
 }
@@ -168,16 +152,11 @@ Future<ProviderContainer> signedInApiContainer(
       ),
     );
   }
+  await seedAccounts([account, ...others], currentId: account.id);
   late final PixivHttpClient client;
   final container = ProviderContainer.test(
     overrides: [
-      ...accountProviderOverrides(
-        credentialStore: credentials,
-        metadataRepository: FakeAccountMetadataRepository(
-          accounts: [account, ...others],
-          currentId: account.id,
-        ),
-      ),
+      ...accountProviderOverrides(credentialStore: credentials),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
           client: MockClient(

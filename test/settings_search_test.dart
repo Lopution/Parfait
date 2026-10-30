@@ -60,9 +60,6 @@ List<Override> _overrides() => [
     credentialStore: FakeCredentialStore(
       values: const {'100': Credential(accessToken: 'a', refreshToken: 'r')},
     ),
-    metadataRepository: FakeAccountMetadataRepository.signedIn(
-      const Account(id: '100', userId: 100, name: 'tester'),
-    ),
   ),
 ];
 
@@ -122,7 +119,10 @@ bool _isAnchored(Element row) {
 }
 
 void main() {
-  setUp(() {
+  setUp(() async {
+    await seedAccounts([
+      const Account(id: '100', userId: 100, name: 'tester'),
+    ], currentId: '100');
     PackageInfo.setMockInitialValues(
       appName: 'Parfait',
       packageName: 'io.github.lopution.parfait',

@@ -12,6 +12,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart';
+import 'helpers/test_preferences.dart';
 
 void main() {
   for (final closed in [false, true]) {
@@ -21,20 +22,18 @@ void main() {
           : 'a removal that fails is reported and its row comes back',
       (tester) async {
         final navigator = GlobalKey<NavigatorState>();
-        final metadata = FakeAccountMetadataRepository(
-          accounts: const [
-            Account(id: '1', userId: 1, name: 'first'),
-            Account(id: '2', userId: 2, name: 'second'),
-          ],
-          currentId: '1',
-        );
+        final preferences = GatedPreferences();
+        installPreferencesForTest(preferences);
+        await seedAccounts(const [
+          Account(id: '1', userId: 1, name: 'first'),
+          Account(id: '2', userId: 2, name: 'second'),
+        ], currentId: '1');
         await tester.pumpWidget(
           localizedApp(
             overrides: [
               settingsRepositoryProvider.overrideWithValue(
                 FakeSettingsRepository(baseTestSettings()),
               ),
-              accountMetadataRepositoryProvider.overrideWithValue(metadata),
               credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
             ],
             builder: promptHostBuilder,
@@ -56,7 +55,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        metadata.saveGate = Future<void>.error(StateError('disk full'))
+        preferences.writeGate = Future<void>.error(StateError('disk full'))
           ..ignore();
 
         await tester.tap(find.text('确定'));
@@ -89,7 +88,8 @@ void main() {
             greaterThan(0),
           );
         }
-        expect(metadata.accounts, hasLength(2));
+        preferences.writeGate = null;
+        expect((await storedAccounts().load()).accounts, hasLength(2));
       },
     );
   }

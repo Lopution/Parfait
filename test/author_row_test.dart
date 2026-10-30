@@ -16,7 +16,7 @@ Future<GoRouter> _pumpOnRouter(WidgetTester tester, Widget row) async {
   await tester.pumpWidget(
     localizedRouterApp(
       router,
-      overrides: signedInAccountOverrides(
+      overrides: await signedInAccountOverrides(
         const Account(id: '100', userId: 100, name: 't'),
       ),
     ),

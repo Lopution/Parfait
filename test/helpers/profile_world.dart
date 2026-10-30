@@ -188,6 +188,10 @@ Future<ProviderContainer> makeProfileWorld({
   ShareService? shareService,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+  await seedAccounts([
+    const Account(id: '100', userId: 100, name: 'first'),
+    if (twoAccounts) const Account(id: '200', userId: 200, name: 'second'),
+  ], currentId: '100');
   // Per-world snapshot store: sqflite singleInstance caches the default
   // ':memory:' feeds.db by path, so one test's committed snapshot would
   // leak into the next world's cold start. An in-memory store keeps the
@@ -203,16 +207,6 @@ Future<ProviderContainer> makeProfileWorld({
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(feedSnapshots),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: [
-            const Account(id: '100', userId: 100, name: 'first'),
-            if (twoAccounts)
-              const Account(id: '200', userId: 200, name: 'second'),
-          ],
-          currentId: '100',
-        ),
-      ),
       followRepositoryProvider.overrideWithValue(
         follows ?? FakeFollowRepository(),
       ),

@@ -19,10 +19,8 @@ import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/settings/server_display_settings.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/features/settings/pages/account_settings_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/localized_app.dart';
@@ -56,13 +54,10 @@ Future<(ProviderContainer, _ApiScript)> _world(
   ],
   String? currentId = '100',
 }) async {
+  await seedAccounts(accounts, currentId: currentId);
   final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
-        metadataRepository: FakeAccountMetadataRepository(
-          accounts: accounts,
-          currentId: currentId,
-        ),
         credentialStore: FakeCredentialStore(
           values: {
             for (final account in accounts)
@@ -212,13 +207,12 @@ void main() {
         'POST /v1/user/ai-show-settings/edit': (_) =>
             http.Response('{"error":"nope"}', 500),
       });
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+      await seedAccounts([
+        const Account(id: '100', userId: 100, name: 'user100'),
+      ], currentId: '100');
       final container = ProviderContainer.test(
         overrides: [
           ...accountProviderOverrides(
-            metadataRepository: FakeAccountMetadataRepository.signedIn(
-              const Account(id: '100', userId: 100, name: 'user100'),
-            ),
             credentialStore: FakeCredentialStore(
               values: const {
                 '100': Credential(

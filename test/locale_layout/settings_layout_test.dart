@@ -68,9 +68,6 @@ List<Override> _overrides(
     credentialStore: FakeCredentialStore(
       values: const {'100': Credential(accessToken: 'a', refreshToken: 'r')},
     ),
-    metadataRepository: FakeAccountMetadataRepository.signedIn(
-      const Account(id: '100', userId: 100, name: 'tester'),
-    ),
   ),
 ];
 
@@ -78,6 +75,10 @@ void main() {
   for (final MapEntry(key: name, value: page) in _pages.entries) {
     localeLayoutMatrix('settings: $name', (tester, locale, profile) async {
       installMemoryPreferences();
+
+      await seedAccounts([
+        const Account(id: '100', userId: 100, name: 'tester'),
+      ], currentId: '100');
       await tester.pumpWidget(
         localeLayoutApp(
           locale: locale,
@@ -97,6 +98,10 @@ void main() {
     profile,
   ) async {
     installMemoryPreferences();
+
+    await seedAccounts([
+      const Account(id: '100', userId: 100, name: 'tester'),
+    ], currentId: '100');
     await tester.pumpWidget(
       localeLayoutApp(
         locale: locale,

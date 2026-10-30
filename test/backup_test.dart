@@ -156,16 +156,11 @@ Future<_World> _world({
     );
   }
 
+  await seedAccounts(accounts, currentId: accountId);
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer.test(
     overrides: [
-      ...accountProviderOverrides(
-        metadataRepository: FakeAccountMetadataRepository(
-          accounts: accounts,
-          currentId: accountId,
-        ),
-        credentialStore: credentials,
-      ),
+      ...accountProviderOverrides(credentialStore: credentials),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
           client: MockClient((_) async => fail('no refresh expected')),

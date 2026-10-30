@@ -64,21 +64,8 @@ import 'package:parfait/app/app.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/test_preferences.dart';
 import 'helpers/waits.dart';
-
-/// Save gate for the switch-busy test: `save` parks on [gate] so the
-/// widget layer's in-flight state is observable mid-switch.
-class _BlockingAccountRepository extends FakeAccountMetadataRepository {
-  _BlockingAccountRepository({required super.accounts, super.currentId});
-
-  final Completer<void> gate = Completer<void>();
-
-  @override
-  Future<void> save(List<Account> next, String? nextCurrentId) async {
-    await gate.future;
-    return super.save(next, nextCurrentId);
-  }
-}
 
 class _TransferClipboard implements TransferClipboard {
   String? text;
@@ -142,6 +129,9 @@ Future<void> _pumpAccountSettings(
   _TransferClipboard clipboard, {
   List<Override> overrides = const [],
 }) async {
+  await seedAccounts([
+    const Account(id: '42', userId: 42, name: 'tester'),
+  ], currentId: '42');
   await tester.pumpWidget(
     localizedApp(
       overrides: [
@@ -149,9 +139,6 @@ Future<void> _pumpAccountSettings(
           FakeSettingsRepository(baseTestSettings()),
         ),
         ...accountProviderOverrides(
-          metadataRepository: FakeAccountMetadataRepository.signedIn(
-            const Account(id: '42', userId: 42, name: 'tester'),
-          ),
           credentialStore: FakeCredentialStore(
             values: const {
               '42': Credential(accessToken: 'access', refreshToken: 'refresh'),
@@ -259,6 +246,7 @@ void main() {
       (MeDashboardPage(), '用户 ID：42'),
       (AccountSettingsPage(), '账号 ID：42'),
     ]) {
+      await seedAccounts(const [account], currentId: account.id);
       await tester.pumpWidget(
         ProviderScope(
           // A fresh scope per page.
@@ -266,12 +254,6 @@ void main() {
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
               FakeSettingsRepository(baseTestSettings()),
-            ),
-            accountMetadataRepositoryProvider.overrideWithValue(
-              FakeAccountMetadataRepository(
-                accounts: const [account],
-                currentId: account.id,
-              ),
             ),
             credentialStoreProvider.overrideWithValue(
               FakeCredentialStore(
@@ -293,20 +275,21 @@ void main() {
   testWidgets(
     'account switch spins the target row and disables the list mid-commit',
     (tester) async {
-      final repository = _BlockingAccountRepository(
-        accounts: const [
-          Account(id: '1', userId: 1, name: 'first'),
-          Account(id: '2', userId: 2, name: 'second'),
-        ],
-        currentId: '1',
-      );
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      await seedAccounts(const [
+        Account(id: '1', userId: 1, name: 'first'),
+        Account(id: '2', userId: 2, name: 'second'),
+      ], currentId: '1');
+      // The metadata commit parks until the disk answers.
+      final writing = Completer<void>();
+      preferences.writeGate = writing.future;
       await tester.pumpWidget(
         localizedApp(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
               FakeSettingsRepository(baseTestSettings()),
             ),
-            accountMetadataRepositoryProvider.overrideWithValue(repository),
             credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           ],
           builder: promptHostBuilder,
@@ -354,13 +337,13 @@ void main() {
         everyElement(isNull),
       );
 
-      repository.gate.complete();
+      writing.complete();
       await tester.pumpAndSettle();
 
       // After the commit the new current row carries the check and the
       // other row is tappable again.
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(repository.currentId, '2');
+      expect((await storedAccounts().load()).currentId, '2');
       expect(
         tester
             .widget<ListTile>(find.widgetWithText(ListTile, 'second'))
@@ -397,9 +380,6 @@ void main() {
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository(baseTestSettings()),
-          ),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(),
           ),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           downloadManagerProvider.overrideWithValue(manager),
@@ -445,17 +425,12 @@ void main() {
       name: 'tester',
       isPremium: true,
     );
+    await seedAccounts(const [account], currentId: account.id);
     final router = pixivRouter('/settings');
     await tester.pumpWidget(
       localizedRouterApp(
         router,
         overrides: [
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(
-              accounts: const [account],
-              currentId: account.id,
-            ),
-          ),
           credentialStoreProvider.overrideWithValue(
             FakeCredentialStore(
               values: const {
@@ -522,9 +497,6 @@ void main() {
       localizedRouterApp(
         router,
         overrides: [
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(),
-          ),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
       ),
@@ -857,9 +829,6 @@ void main() {
               baseTestSettings().copyWith(translateIndex: 2),
             ),
           ),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(),
-          ),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
@@ -1100,9 +1069,6 @@ void main() {
         router,
         overrides: [
           settingsRepositoryProvider.overrideWithValue(repository),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(),
-          ),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         builder: promptHostBuilder,
@@ -1380,6 +1346,9 @@ void main() {
           (call) async => false,
         );
 
+        await seedAccounts([
+          const Account(id: '100', userId: 100, name: 't'),
+        ], currentId: '100');
         final container = ProviderContainer.test(
           overrides: [
             ...accountProviderOverrides(
@@ -1387,9 +1356,6 @@ void main() {
                 values: const {
                   '100': Credential(accessToken: 'a', refreshToken: 'r'),
                 },
-              ),
-              metadataRepository: FakeAccountMetadataRepository.signedIn(
-                const Account(id: '100', userId: 100, name: 't'),
               ),
             ),
             settingsRepositoryProvider.overrideWithValue(

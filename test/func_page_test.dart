@@ -147,7 +147,7 @@ Future<GoRouter> _pumpHome(
     );
   }
   await tester.pumpWidget(
-    ProviderScope(overrides: [...signedInAccountOverrides()], child: app),
+    ProviderScope(overrides: [...await signedInAccountOverrides()], child: app),
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
