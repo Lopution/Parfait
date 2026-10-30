@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/updater/update_auto_check.dart';
 import 'package:parfait/core/updater/update_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,6 +81,11 @@ void main() {
       service: () async => throw StateError('no service'),
     );
     expect(await lookupFails.checkOnce(), isNull);
+    expect(
+      await SharedPreferencesAsync().getInt(PreferenceKeys.updateAutoCheckAt),
+      isNull,
+      reason: 'no request went out: the next launch tries again',
+    );
   });
 }
 

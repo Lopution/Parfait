@@ -33,8 +33,10 @@ class UpdateAutoCheck {
   /// Runs the check when the throttle window has passed. Returns the
   /// result (or null when skipped/store-managed) so the caller can
   /// surface [UpdateCheckStatus.available] however it wants.
-  /// A failure before the request (the throttle stamp, the service, its
-  /// capability) is logged and skips this launch's check.
+  /// A failure before the request (the service, its capability, the
+  /// throttle stamp) is logged and skips this launch's check; only a
+  /// request about to go out stamps the window, so a local failure leaves
+  /// the next launch free to try.
   Future<UpdateCheckResult?> checkOnce() async {
     try {
       final last =
@@ -42,10 +44,10 @@ class UpdateAutoCheck {
       final now = _clock().millisecondsSinceEpoch;
       if (now - last < _minInterval.inMilliseconds) return null;
 
-      await _preferences.setInt(PreferenceKeys.updateAutoCheckAt, now);
       final service = await _service();
       // Store-managed builds (F-Droid, non-Android) never self-check.
       if ((await service.capability()).storeManaged) return null;
+      await _preferences.setInt(PreferenceKeys.updateAutoCheckAt, now);
       return await service.check();
     } on Object catch (error) {
       log('update auto check skipped: $error');
