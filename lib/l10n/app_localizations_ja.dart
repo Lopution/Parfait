@@ -1433,6 +1433,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadFailureResource => 'デバイスのリソース不足またはファイルが大きすぎます';
 
   @override
+  String get downloadFailureNoSpace => 'ストレージの空き容量が不足しています';
+
+  @override
+  String get downloadFailureDestination =>
+      '選択したフォルダーが使用できなくなりました。「保存先」で選び直してください';
+
+  @override
   String get downloadFailureOwnership => 'このタスクは無効になりました。もう一度ダウンロードしてください';
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/download_world.dart';
@@ -22,6 +23,7 @@ import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/illust_download_coordinator.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/core/platform/android_platform_interfaces.dart';
+import 'package:parfait/core/platform/media_store_channel.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
 
 DownloadRequest request({
@@ -940,6 +942,94 @@ void main() {
       expect(failingSinkFactory.lastSink!.finalized, isFalse);
     });
 
+    test('a storage failure says what the user can do about it', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const channels = [
+        MethodChannel('parfait/saf_tree'),
+        MethodChannel('parfait/mediastore'),
+      ];
+      addTearDown(() {
+        for (final channel in channels) {
+          messenger.setMockMethodCallHandler(channel, null);
+        }
+      });
+      const tree = DownloadDestination.safFolder('content://tree/t');
+      const album = DownloadDestination.builtin;
+      // (destination, host method that fails, its code) → kind.
+      final cases = {
+        (tree, 'create', 'saf_not_found'): DownloadFailureKind.destination,
+        (tree, 'create', 'saf_permission'): DownloadFailureKind.destination,
+        (tree, 'write', 'saf_no_space'): DownloadFailureKind.noSpace,
+        (tree, 'finalize', 'saf_finalize_failed'): DownloadFailureKind.storage,
+        (album, 'begin', 'mediastore_permission'):
+            DownloadFailureKind.permission,
+        (album, 'write', 'mediastore_no_space'): DownloadFailureKind.noSpace,
+        (album, 'finalize', 'mediastore_not_found'):
+            DownloadFailureKind.storage,
+      };
+      Future<DownloadTaskSnapshot> failed(
+        DownloadSinkFactory sinks, [
+        DownloadDestination destination = album,
+      ]) async {
+        final manager = DownloadManager(
+          transport: FakeTransport()
+            ..responses.add(
+              ScriptedResponse(
+                contentLength: 1,
+                chunks: [
+                  [1],
+                ],
+              ),
+            ),
+          sinkFactory: sinks,
+          enforceDefaultDestination: false,
+        );
+        addTearDown(manager.dispose);
+        final task = manager.submit(
+          request(),
+          context: DownloadSubmissionContext(
+            accountId: '1',
+            destination: destination,
+          ),
+        );
+        await _untilAllEnded(manager);
+        return manager.taskById(task.id)!;
+      }
+
+      final hosts = DestinationAwareSinkFactory(
+        mediaStore: MediaStoreSinkFactory(
+          const MethodChannelMediaStoreSession(),
+        ),
+        saf: const MethodChannelSafTree(),
+      );
+      for (final MapEntry(key: (destination, method, code), :value)
+          in cases.entries) {
+        for (final channel in channels) {
+          messenger.setMockMethodCallHandler(channel, (call) async {
+            if (call.method == method) throw PlatformException(code: code);
+            return switch (call.method) {
+              'begin' => 1,
+              'create' || 'finalize' => 'content://d/1',
+              _ => null,
+            };
+          });
+        }
+        final task = await failed(hosts, destination);
+        expect(task.status, DownloadStatus.failed, reason: code);
+        expect(task.failureKind, value, reason: code);
+      }
+      // dart:io reports a full disk by its errno.
+      const full = FileSystemException(
+        'write failed',
+        'a.jpg',
+        OSError('No space left on device', 28),
+      );
+      final task = await failed(_ThrowAfterWriteSinkFactory(full));
+      expect(task.failureKind, DownloadFailureKind.noSpace);
+    });
+
     test('MediaStoreSinkFactory drives the session contract', () async {
       final session = _FakeMediaStoreSession();
       final factory = MediaStoreSinkFactory(session);
@@ -1163,6 +1253,9 @@ class _ScriptedTransport extends HttpDownloadTransport {
 }
 
 class _ThrowAfterWriteSinkFactory implements DownloadSinkFactory {
+  _ThrowAfterWriteSinkFactory([this.error]);
+
+  final Object? error;
   MemorySink? lastSink;
 
   @override
@@ -1173,19 +1266,20 @@ class _ThrowAfterWriteSinkFactory implements DownloadSinkFactory {
   }) async {
     final inner = MemorySink();
     lastSink = inner;
-    return _ThrowAfterWriteSink(inner);
+    return _ThrowAfterWriteSink(inner, error);
   }
 }
 
 class _ThrowAfterWriteSink implements DownloadSink {
-  _ThrowAfterWriteSink(this.inner);
+  _ThrowAfterWriteSink(this.inner, this.error);
 
   final MemorySink inner;
+  final Object? error;
 
   @override
   Future<void> write(List<int> bytes) async {
     await inner.write(bytes);
-    throw Exception('sink write exploded');
+    throw error ?? Exception('sink write exploded');
   }
 
   @override

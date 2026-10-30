@@ -1,6 +1,7 @@
 package io.github.lopution.parfait
 
 import io.flutter.plugin.common.MethodCall
+import java.io.FileNotFoundException
 import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -143,6 +144,21 @@ class MediaStoreChannelTest {
         ops.fail("write", IOException("disk full"))
         val result = dispatch("write", mapOf("id" to 1, "bytes" to ByteArray(1)), ops)
         assertEquals("mediastore_write_failed", result.errorCode)
+    }
+
+    @Test
+    fun `a full disk is mediastore_no_space, even when opening`() {
+        val ops = FakeMediaStoreOps()
+        ops.fail("write", IOException("write failed: ENOSPC (No space left on device)"))
+        ops.fail("begin", FileNotFoundException("open failed: ENOSPC (No space left on device)"))
+        val write = dispatch("write", mapOf("id" to 1, "bytes" to ByteArray(1)), ops)
+        assertEquals("mediastore_no_space", write.errorCode)
+        val begin = dispatch(
+            "begin",
+            mapOf("displayName" to "a.png", "mimeType" to "image/png"),
+            ops,
+        )
+        assertEquals("mediastore_no_space", begin.errorCode)
     }
 
     @Test

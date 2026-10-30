@@ -176,15 +176,18 @@ String downloadGroupStatusLine(
 
 /// Localized failure reason for a terminal/retryable row (C8/D1): the
 /// five kinds with a generic meaning borrow the shared category sentence,
-/// the download-only kinds (permission/resource/ownership) get their own
-/// copy, and `unknown` maps through the category table. `canceled` and
-/// `paused` are not errors — the row shows no reason for them.
+/// the download-only kinds (noSpace/permission/destination/resource/
+/// ownership) get their own copy, and `unknown` maps through the category
+/// table. `canceled` and `paused` are not errors — the row shows no reason
+/// for them.
 String? downloadFailureReasonText(
   AppLocalizations l10n,
   DownloadFailureKind? kind,
 ) => switch (kind) {
   null || DownloadFailureKind.canceled || DownloadFailureKind.paused => null,
+  DownloadFailureKind.noSpace => l10n.downloadFailureNoSpace,
   DownloadFailureKind.permission => l10n.downloadFailurePermission,
+  DownloadFailureKind.destination => l10n.downloadFailureDestination,
   DownloadFailureKind.resource => l10n.downloadFailureResource,
   DownloadFailureKind.ownership => l10n.downloadFailureOwnership,
   final k => errorCategoryTextL10n(l10n, categorizeDownloadFailure(k)),

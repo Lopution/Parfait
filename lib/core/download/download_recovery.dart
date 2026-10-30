@@ -35,7 +35,14 @@ enum DownloadFailureKind {
   rateLimit,
   network,
   storage,
+
+  /// The disk is full.
+  noSpace,
   permission,
+
+  /// The chosen folder, or the app's grant to it, is gone: it has to be
+  /// picked again.
+  destination,
   decode,
   resource,
   canceled,

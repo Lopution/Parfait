@@ -136,6 +136,7 @@ object MediaStoreChannel {
     }
 
     internal fun mediastoreErrorCode(method: String, error: Throwable): String {
+        if (isNoSpaceLeft(error)) return "mediastore_no_space"
         if (error is SecurityException) return "mediastore_permission"
         if (error is IllegalArgumentException) return "mediastore_invalid_argument"
         if (error is FileNotFoundException) return "mediastore_not_found"

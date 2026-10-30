@@ -630,6 +630,8 @@
   "downloadSubmissionFailed": "Не удалось скачать",
   "downloadFailurePermission": "Нет разрешения на доступ к хранилищу",
   "downloadFailureResource": "Недостаточно ресурсов устройства или файл слишком большой",
+  "downloadFailureNoSpace": "Недостаточно места в хранилище",
+  "downloadFailureDestination": "Выбранная папка больше недоступна. Выберите её заново в разделе «Место сохранения».",
   "downloadFailureOwnership": "Задача больше недействительна. Скачайте заново.",
   "downloadFailureInterrupted": "Загрузка прервана перезапуском приложения. Нажмите «Повторить».",
   "ugoiraSaveGif": "Сохранить GIF",

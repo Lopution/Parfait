@@ -381,6 +381,20 @@ class SafTreeChannelTest {
     }
 
     @Test
+    fun `a full disk is saf_no_space from any call`() {
+        val ops = FakeSafOps()
+        // libcore's wording; a wrapper keeps it in the cause.
+        ops.fail("write", IOException("write failed: ENOSPC (No space left on device)"))
+        ops.fail("finalize", IOException("rename failed", IOException("No space left on device")))
+        val write = dispatch("write", mapOf("uri" to "content://doc/1", "bytes" to ByteArray(1)), ops)
+        assertEquals("saf_no_space", write.errorCode)
+        assertEquals("saf_no_space", dispatch("finalize", mapOf("uri" to "content://doc/1"), ops).errorCode)
+        ops.fail("write", IOException("write failed: EIO (I/O error)"))
+        val other = dispatch("write", mapOf("uri" to "content://doc/1", "bytes" to ByteArray(1)), ops)
+        assertEquals("saf_write_failed", other.errorCode)
+    }
+
+    @Test
     fun `picker persists only the read and write grants`() {
         val read = Intent.FLAG_GRANT_READ_URI_PERMISSION
         val write = Intent.FLAG_GRANT_WRITE_URI_PERMISSION

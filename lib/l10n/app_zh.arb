@@ -722,6 +722,8 @@
   "downloadSubmissionFailed": "下载失败",
   "downloadFailurePermission": "缺少存储权限",
   "downloadFailureResource": "设备资源不足或文件过大",
+  "downloadFailureNoSpace": "存储空间不足",
+  "downloadFailureDestination": "所选文件夹已不可用，请到「保存位置」重新选择",
   "downloadFailureOwnership": "任务已失效，需重新下载",
   "downloadFailureInterrupted": "应用重启时下载中断，点重试继续",
   "ugoiraSaveGif": "保存 GIF",
