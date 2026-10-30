@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
+import '../log.dart';
 import '../platform/saf_tree.dart';
 import 'local_novel_database.dart';
 import 'local_novel_decoder.dart';
@@ -42,9 +43,9 @@ class LocalNovel {
   File get file => File(path);
 }
 
-/// CRUD + import boundary for the local TXT library. File writes and the
-/// index row commit in order — an orphaned file without a row is collected
-/// by the next [reconcileFiles] pass instead of silently accumulating.
+/// CRUD + import boundary for the local TXT library. The file is written
+/// before its index row; a row that fails to store takes the file with it,
+/// so the library directory holds no file the list cannot show.
 class LocalNovelRepository {
   LocalNovelRepository({required LocalNovelDatabase database})
     : _database = database;
@@ -97,15 +98,25 @@ class LocalNovelRepository {
     final file = await _uniqueFile(targetDir, fileName);
     await file.writeAsString(text, flush: true);
 
-    final db = await _database.database;
-    final id = await db.insert(LocalNovelDatabase.table, {
-      'title': _titleOf(fileName),
-      'author': null,
-      'path': file.path,
-      'char_count': text.length,
-      'imported_at': DateTime.now().millisecondsSinceEpoch,
-      'read_offset': null,
-    });
+    final int id;
+    try {
+      final db = await _database.database;
+      id = await db.insert(LocalNovelDatabase.table, {
+        'title': _titleOf(fileName),
+        'author': null,
+        'path': file.path,
+        'char_count': text.length,
+        'imported_at': DateTime.now().millisecondsSinceEpoch,
+        'read_offset': null,
+      });
+    } on Object {
+      try {
+        await file.delete();
+      } on FileSystemException catch (error) {
+        log('local novel: orphaned file not removed: $error');
+      }
+      rethrow;
+    }
     return LocalNovel(
       id: id,
       title: _titleOf(fileName),
@@ -139,22 +150,6 @@ class LocalNovelRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
-  }
-
-  /// Deletes rows whose backing file vanished and files that lost their
-  /// row — the two halves of an interrupted import or delete.
-  Future<void> reconcileFiles() async {
-    final novels = await list();
-    for (final novel in novels) {
-      if (!await novel.file.exists()) {
-        final db = await _database.database;
-        await db.delete(
-          LocalNovelDatabase.table,
-          where: 'id = ?',
-          whereArgs: [novel.id],
-        );
-      }
-    }
   }
 
   /// Unique, filesystem-safe destination inside [dir]: `name.txt`,

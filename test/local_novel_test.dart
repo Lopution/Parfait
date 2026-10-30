@@ -122,6 +122,21 @@ void main() {
       },
     );
 
+    test('an import whose row fails to store leaves no file', () async {
+      final target = Directory('${dir.path}/novels');
+      final db = await database.database;
+      await db.execute('DROP TABLE ${LocalNovelDatabase.table}');
+      await expectLater(
+        repository.importBytes(
+          fileName: 'lost.txt',
+          bytes: Uint8List.fromList(utf8.encode('正文')),
+          targetDir: target,
+        ),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(target.listSync(), isEmpty);
+    });
+
     test('GBK import stores decoded UTF-8 text on disk', () async {
       final novel = await repository.importBytes(
         fileName: 'legacy.txt',
