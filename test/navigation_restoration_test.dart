@@ -35,58 +35,17 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/pixiv_router.dart';
-
-class _StaticSearchRepository implements SearchRepository {
-  const _StaticSearchRepository();
-
-  @override
-  Future<SearchIllustPage> searchIllust(
-    IllustSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async => const SearchIllustPage(illusts: [], nextUrl: null);
-
-  @override
-  Future<SearchNovelPage> searchNovel(
-    NovelSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async => const SearchNovelPage(novels: [], nextUrl: null);
-
-  @override
-  Future<SearchUserPage> searchUsers(
-    UserSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async => const SearchUserPage(users: [], nextUrl: null);
-
-  @override
-  bool validateCursor(SearchQuery query, {required String cursor}) => true;
-
-  @override
-  Future<List<SearchSuggestion>> autocomplete(
-    String keyword, {
-    CancelToken? cancelToken,
-  }) async => const [];
-
-  @override
-  Future<List<TrendingTag>> trendingTags({
-    SearchResultType type = SearchResultType.illust,
-    CancelToken? cancelToken,
-  }) async => [
-    for (var index = 0; index < 30; index++)
-      TrendingTag(name: 'tag-${index + 1}'),
-  ];
-}
+import 'helpers/search_world.dart';
 
 Widget _routerApp(
   GoRouter router, {
-  SearchRepository? searchRepository,
   List<TrendingTag>? trendingTags,
   Future<http.Response> Function(http.Request)? httpHandler,
+  http.Client? transport,
   HistoryRepository? history,
 }) {
   return ProviderScope(
@@ -105,14 +64,13 @@ Widget _routerApp(
       oauthServiceProvider.overrideWithValue(
         OAuthService(client: MockClient((_) async => http.Response('{}', 400))),
       ),
-      if (searchRepository != null)
-        searchRepositoryProvider.overrideWithValue(searchRepository),
       if (trendingTags != null)
         trendingTagsProvider.overrideWith((ref, _) => trendingTags),
-      if (httpHandler != null)
+      if (httpHandler != null ? MockClient(httpHandler) : transport
+          case final client?)
         pixivHttpClientProvider.overrideWith(
           (ref) => PixivHttpClient(
-            client: MockClient(httpHandler),
+            client: client,
             accountStore: ref.read(accountStoreProvider.notifier),
             credentialStore: ref.read(credentialStoreProvider),
             oauthService: ref.read(oauthServiceProvider),
@@ -144,7 +102,10 @@ void main() {
     final router = pixivRouter('/search/input?q=cat&type=illust');
 
     await tester.pumpWidget(
-      _routerApp(router, searchRepository: const _StaticSearchRepository()),
+      _routerApp(
+        router,
+        transport: PixivApi({...shellRoutes, ...SearchApi().routes}).client,
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

@@ -1,17 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/user/follow_actions.dart';
 import 'package:parfait/core/user/follow_models.dart';
 import 'package:parfait/core/user/follow_store.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/profile_world.dart';
 
 void main() {
   test('a known visibility is its own snapshot — no lookup', () async {
-    final follows = FakeFollowRepository();
+    final follows = FollowApi();
     final container = await makeProfileWorld(follows: follows);
     final actions = container.read(followActionsProvider);
     await actions.addWithRestrict(42, FollowRestrict.private);
@@ -23,8 +23,7 @@ void main() {
   });
 
   test('an unknown visibility is read before the unfollow', () async {
-    final follows = FakeFollowRepository()
-      ..remoteRestrict = FollowRestrict.private;
+    final follows = FollowApi()..remoteRestrict = FollowRestrict.private;
     final container = await makeProfileWorld(follows: follows);
     // A profile payload says "followed" without the visibility.
     container
@@ -40,8 +39,7 @@ void main() {
   test(
     'an unreadable visibility still unfollows, without a snapshot',
     () async {
-      final follows = FakeFollowRepository()
-        ..restrictFailure = const ApiHttpError(500);
+      final follows = FollowApi()..restrictFailure = failing(400);
       final container = await makeProfileWorld(follows: follows);
       container
           .read(followStoreProvider.notifier)
@@ -56,7 +54,7 @@ void main() {
   );
 
   test('a failed unfollow returns no snapshot', () async {
-    final follows = FakeFollowRepository()..failure = const ApiHttpError(500);
+    final follows = FollowApi()..failure = failing(400);
     final container = await makeProfileWorld(follows: follows);
     container
         .read(followStoreProvider.notifier)
@@ -67,7 +65,7 @@ void main() {
   });
 
   test("a work's payload brings its author's follow", () async {
-    final container = await makeProfileWorld(follows: FakeFollowRepository());
+    final container = await makeProfileWorld();
     final store = container.read(illustStoreProvider);
     bool? shown() => container.read(followStoreProvider)[99]?.shown;
     IllustEntity work({bool? followed}) {

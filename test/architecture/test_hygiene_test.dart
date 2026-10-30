@@ -1,6 +1,7 @@
 // The test rules that a scan can hold: file size (TEST-05), no skipped
 // cases (TEST-04), socket tests tagged (TEST-07), one definition per test
-// double, by name and by body (TEST-10) and no real sleeps (TEST-11).
+// double, by name and by body, and none for an app repository (TEST-10)
+// and no real sleeps (TEST-11).
 // Asserted on test/ (repo-relative paths); fixtures are data, not code.
 
 import 'dart:io';
@@ -17,6 +18,13 @@ final _doubleClass = RegExp(
   r'(?:Fake|Stub|Recording|Scripted|Failing|Spy|Counting|Mock|Throwing|'
   r'Unused|Switchable|Memory|InMemory|Static|Blocking|Controlled|Manual|'
   r'Capturing)[A-Z]\w*)',
+  multiLine: true,
+);
+
+/// A class that extends, implements or mixes in a `…Repository`.
+final _repositoryDouble = RegExp(
+  r'^(?:abstract |base |final |sealed |interface )*class (\w+)[^{;]*'
+  r'\b(?:extends|implements|with)\b[^{;]*?\b(\w*Repository)\b',
   multiLine: true,
 );
 
@@ -141,6 +149,21 @@ void main() {
       reason:
           'TEST-10 share one double from test/helpers/ (a parameter covers '
           'a small difference) instead of a near-copy',
+    );
+  });
+
+  test('no test double stands in for an app repository', () {
+    expect(
+      [
+        for (final MapEntry(key: path, value: source) in sources.entries)
+          for (final match in _repositoryDouble.allMatches(source))
+            '$path ${match[1]} (${match[2]})',
+      ],
+      isEmpty,
+      reason:
+          'TEST-10 run the app\'s repository over a fake boundary: PixivApi '
+          'routes for the App API, in-memory preferences or databases for '
+          'stored data',
     );
   });
 

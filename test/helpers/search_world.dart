@@ -1,99 +1,100 @@
 import 'dart:async';
 
-import 'package:parfait/core/network/pixiv_http_client.dart';
-import 'package:parfait/core/search/search_models.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:http/http.dart' as http;
+import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/search/search_repository.dart';
 
+import 'api_responses.dart';
+import 'fake_account.dart';
 import 'illust_fixtures.dart';
 
-class FakeSearchRepository implements SearchRepository {
-  FakeSearchRepository({this.autocompleteHandler, this.trendingTagCount = 2});
+/// The App API's search endpoints. Every search answers [illusts] or
+/// [novels] (App API JSON) as its one page, and no users; [requests] logs
+/// each search from the wire. Trending tags answer [trendingTagCount] tags
+/// (at least two), the first with work 901 as its picture; autocomplete
+/// answers [autocomplete]'s suggestions for the word sent.
+class SearchApi {
+  SearchApi({this.autocomplete, this.trendingTagCount = 2});
 
-  final Future<List<SearchSuggestion>> Function(
-    String keyword,
-    CancelToken? cancelToken,
-  )?
-  autocompleteHandler;
-  final requests = <SearchQuery>[];
+  final Future<List<SearchSuggestion>> Function(String word)? autocomplete;
+  final int trendingTagCount;
+  final requests = <http.Request>[];
 
-  /// When set, every search fetch awaits it — holds a result page's
+  /// When set, every search answer waits on it — holds a result page's
   /// initial load in flight.
   Completer<void>? pendingFetch;
+  List<Map<String, dynamic>> illusts = const [];
+  List<Map<String, dynamic>> novels = const [];
 
-  SearchIllustPage illustPage = const SearchIllustPage(
-    illusts: [],
-    nextUrl: null,
-  );
+  /// Trending tag reads from the wire, by kind: `illust`, `novel`.
+  final trendingRequests = <String>[];
 
-  SearchNovelPage novelPage = const SearchNovelPage(novels: [], nextUrl: null);
-
-  @override
-  Future<SearchIllustPage> searchIllust(
-    IllustSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(query);
-    await pendingFetch?.future;
-    return illustPage;
-  }
-
-  @override
-  Future<SearchNovelPage> searchNovel(
-    NovelSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(query);
-    await pendingFetch?.future;
-    return novelPage;
-  }
-
-  @override
-  Future<SearchUserPage> searchUsers(
-    UserSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(query);
-    await pendingFetch?.future;
-    return const SearchUserPage(users: [], nextUrl: null);
-  }
-
-  @override
-  bool validateCursor(SearchQuery query, {required String cursor}) => true;
-
-  @override
-  Future<List<SearchSuggestion>> autocomplete(
-    String keyword, {
-    CancelToken? cancelToken,
-  }) {
-    return autocompleteHandler?.call(keyword, cancelToken) ??
-        Future.value(const []);
-  }
-
-  int trendingTagsCallCount = 0;
-  SearchResultType? trendingTagsLastType;
-  final int trendingTagCount;
-
-  /// Holds every trendingTags call until completed.
+  /// Holds every trending tag answer until completed.
   Completer<void>? trendingGate;
 
-  @override
-  Future<List<TrendingTag>> trendingTags({
-    SearchResultType type = SearchResultType.illust,
-    CancelToken? cancelToken,
-  }) async {
-    trendingTagsCallCount++;
-    trendingTagsLastType = type;
+  ApiRoute _search(String key, List<Object?> Function() items) =>
+      (request) async {
+        requests.add(request);
+        await pendingFetch?.future;
+        return jsonResponse(pageJson(key, items()));
+      };
+
+  ApiRoute _trending(String kind) => (request) async {
+    trendingRequests.add(kind);
     await trendingGate?.future;
-    final tags = <TrendingTag>[
-      TrendingTag(name: '风景', representative: parseIllust(illustJson(901))),
-      const TrendingTag(name: '猫'),
-    ];
-    for (var i = tags.length; i < trendingTagCount; i++) {
-      tags.add(TrendingTag(name: '标签${i + 1}'));
-    }
-    return tags;
-  }
+    return jsonResponse({
+      'trend_tags': [
+        {'tag': '风景', 'illust': illustJson(901)},
+        {'tag': '猫'},
+        for (var i = 2; i < trendingTagCount; i++) {'tag': '标签${i + 1}'},
+      ],
+    });
+  };
+
+  Map<String, ApiRoute> get routes => {
+    for (final path in [
+      '/v1/search/illust',
+      '/v1/search/popular-preview/illust',
+    ])
+      path: _search('illusts', () => illusts),
+    for (final path in ['/v1/search/novel', '/v1/search/popular-preview/novel'])
+      path: _search('novels', () => novels),
+    '/v1/search/user': _search('user_previews', () => const []),
+    '/v1/trending-tags/illust': _trending('illust'),
+    '/v1/trending-tags/novel': _trending('novel'),
+    '/v2/search/autocomplete': (request) async {
+      final word = request.url.queryParameters['word']!;
+      final suggestions =
+          await autocomplete?.call(word) ?? const <SearchSuggestion>[];
+      return jsonResponse({
+        'tags': [
+          for (final suggestion in suggestions)
+            {
+              'name': suggestion.keyword,
+              'translated_name': ?suggestion.translatedName,
+            },
+        ],
+      });
+    },
+  };
 }
+
+/// Signed in as [account] over [PixivApi] with [search]'s routes, the
+/// shell's ([shellRoutes]) and [routes].
+Future<ProviderContainer> searchWorld(
+  SearchApi search, {
+  Map<String, ApiRoute> routes = const {},
+  Account account = testerAccount,
+  List<Override> overrides = const [],
+}) => signedInApiContainer(
+  PixivApi({
+    ...backgroundRoutes,
+    ...shellRoutes,
+    ...search.routes,
+    ...routes,
+  }).client,
+  account: account,
+  overrides: overrides,
+);

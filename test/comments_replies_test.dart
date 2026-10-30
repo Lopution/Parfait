@@ -31,6 +31,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/l10n/context.dart';
 import 'package:parfait/app/motion/removal.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/image_network.dart';
 import 'helpers/comment_world.dart';
 import 'helpers/illust_fixtures.dart';
@@ -91,19 +92,26 @@ Future<void> _settlePanel(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
 }
 
-/// The signed-in comment world, over [repository] when given.
-List<Override> _signedIn([CommentRepository? repository]) => [
+/// Signed in as the comments' account, for cases that send no request.
+List<Override> _signedIn() => [
   accountStoreProvider.overrideWith(commentsAccountStore),
-  if (repository != null)
-    commentRepositoryProvider.overrideWithValue(repository),
 ];
 
-/// The real comments route of work 1, signed in over a fake repository.
-Future<void> _pumpCommentsRoute(WidgetTester tester) async {
+/// The real comments route of work 1 over [comments].
+Future<void> _pumpCommentsRoute(
+  WidgetTester tester, [
+  CommentApi? comments,
+]) async {
   await tester.pumpWidget(
     localizedRouterApp(
       pixivRouter('/recommended/illust/1/comments'),
-      overrides: _signedIn(FakeCommentRepository()),
+      container: await commentWorld(
+        comments ?? CommentApi(),
+        routes: {
+          ...shellRoutes,
+          '/v1/illust/detail': answer({'illust': illustJson(1)}),
+        },
+      ),
       builder: promptHostBuilder,
     ),
   );
@@ -353,11 +361,7 @@ void main() {
   test(
     'comment feed keeps root and reply page IDs in the shared store',
     () async {
-      final repository = FakeCommentRepository();
-      final container = ProviderContainer.test(
-        overrides: _signedIn(repository),
-      );
-      await container.read(accountStoreProvider.future);
+      final container = await commentWorld(CommentApi());
 
       const root = CommentFeedQuery.root(workId: 1);
       const replies = CommentFeedQuery.replies(workId: 1, rootCommentId: 11);
@@ -408,24 +412,20 @@ void main() {
   test(
     'actions do not publish before API success and enforce owner delete',
     () async {
-      final repository = FakeCommentRepository();
-      final container = ProviderContainer.test(
-        overrides: _signedIn(repository),
-      );
-      await container.read(accountStoreProvider.future);
+      final comments = CommentApi()..addGate = Completer<void>();
+      final container = await commentWorld(comments);
       // Only the detail has counted the work's comments so far.
       container.read(illustStoreProvider).mergeAll([
         parseIllust(illustJson(1)..['total_comments'] = 4),
       ]);
       final action = container.read(commentActionsProvider);
-      final result = sampleComment(20);
-      repository.addCompleter = Completer<CommentEntity>();
+      final result = comments.added;
       final pending = action.send(
         const CommentAddRequest(workId: 1, text: 'pending'),
       );
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       expect(container.read(commentStoreProvider.notifier).get(20), isNull);
-      repository.addCompleter!.complete(result);
+      comments.addGate!.complete();
       await pending;
       expect(
         container.read(commentStoreProvider.notifier).get(20)!.id,
@@ -443,9 +443,9 @@ void main() {
         action.delete(other),
         throwsA(isA<CommentPermissionException>()),
       );
-      expect(repository.deleteCalls, 0);
+      expect(comments.deletes, isEmpty);
       expect(await action.delete(result), isTrue);
-      expect(repository.deleteCalls, 1);
+      expect(comments.deletes, [20]);
     },
   );
 
@@ -544,15 +544,7 @@ void main() {
   testWidgets('a work with comments off shows the notice, no composer', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      localizedRouterApp(
-        pixivRouter('/recommended/illust/1/comments'),
-        overrides: _signedIn(FakeCommentRepository()..commentsClosed = true),
-        builder: promptHostBuilder,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+    await _pumpCommentsRoute(tester, CommentApi()..commentsClosed = true);
     expect(find.text('作者已关闭评论'), findsOneWidget);
     expect(find.text('comment 11'), findsNothing);
     expect(find.byType(CommentComposer), findsNothing);
@@ -1057,11 +1049,11 @@ void main() {
 
   Future<void> pumpCommentsPage(
     WidgetTester tester,
-    FakeCommentRepository repo,
+    CommentApi comments,
   ) async {
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: _signedIn(repo),
+      UncontrolledProviderScope(
+        container: await commentWorld(comments),
         child: composerApp(const CommentsPage(workId: 1)),
       ),
     );
@@ -1070,12 +1062,12 @@ void main() {
 
   Future<void> pumpRepliesPage(
     WidgetTester tester,
-    FakeCommentRepository repo, {
+    CommentApi comments, {
     CommentEntity? root,
   }) async {
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: _signedIn(repo),
+      UncontrolledProviderScope(
+        container: await commentWorld(comments),
         child: composerApp(
           CommentRepliesPage(
             workId: 1,
@@ -1091,7 +1083,7 @@ void main() {
   testWidgets('replies page scrolls the root comment with the reply list', (
     tester,
   ) async {
-    final repo = FakeCommentRepository()
+    final comments = CommentApi()
       ..replies = [
         for (var i = 0; i < 15; i++)
           sampleComment(
@@ -1101,7 +1093,7 @@ void main() {
             userId: 20,
           ),
       ];
-    await pumpRepliesPage(tester, repo);
+    await pumpRepliesPage(tester, comments);
 
     expect(find.text('comment 11'), findsOneWidget);
     final before = tester.getTopLeft(find.text('comment 11')).dy;
@@ -1121,7 +1113,7 @@ void main() {
   ) async {
     await pumpRepliesPage(
       tester,
-      FakeCommentRepository(),
+      CommentApi(),
       root: sampleComment(
         11,
         replyCount: 1,
@@ -1160,13 +1152,7 @@ void main() {
   testWidgets('reply pill pins the target and focuses the composer', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: _signedIn(FakeCommentRepository()),
-        child: composerApp(const CommentsPage(workId: 1)),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpCommentsPage(tester, CommentApi());
 
     EditableText field() =>
         tester.widget<EditableText>(find.byType(EditableText));
@@ -1205,7 +1191,7 @@ void main() {
   testWidgets('send success clears the reply target and the draft, with one '
       'success haptic', (tester) async {
     final haptics = recordHaptics();
-    await pumpCommentsPage(tester, FakeCommentRepository());
+    await pumpCommentsPage(tester, CommentApi());
 
     await tester.tap(_replyButton().first);
     await tester.pump();
@@ -1231,13 +1217,13 @@ void main() {
 
   testWidgets('a mid-flight retarget keeps the spinner and outlives the old '
       'send', (tester) async {
-    final repo = FakeCommentRepository()
+    final comments = CommentApi()
       ..rootComments = [
         sampleComment(11, replyCount: 1),
         sampleComment(12, userId: 21),
       ]
-      ..addCompleter = Completer<CommentEntity>();
-    await pumpCommentsPage(tester, repo);
+      ..addGate = Completer<void>();
+    await pumpCommentsPage(tester, comments);
     Finder inComposer(Finder finder) =>
         find.descendant(of: find.byType(CommentComposer), matching: finder);
 
@@ -1257,7 +1243,7 @@ void main() {
     expect(inComposer(find.textContaining('user 21')), findsOneWidget);
     expect(inComposer(find.byType(CircularProgressIndicator)), findsOneWidget);
 
-    repo.addCompleter!.complete(sampleComment(20));
+    comments.addGate!.complete();
     await tester.pumpAndSettle();
 
     // The completed send must not clear the newer target.
@@ -1266,13 +1252,11 @@ void main() {
   });
 
   testWidgets(
-    'replies send failure keeps the draft and target, flags permission, '
+    'a refused reply send keeps the draft and target, says it failed, '
     'plays no haptic',
     (tester) async {
       final haptics = recordHaptics();
-      final repo = FakeCommentRepository()
-        ..addError = const CommentPermissionException();
-      await pumpRepliesPage(tester, repo);
+      await pumpRepliesPage(tester, CommentApi()..addFailure = failing(400));
 
       // The default target is the root author; a failed send keeps it.
       await tester.enterText(find.byType(TextField), 'keep me');
@@ -1282,7 +1266,7 @@ void main() {
       await tester.pump();
 
       final context = tester.element(find.byType(CommentRepliesPage));
-      expect(find.text(context.l10n.commentPermissionDenied), findsOneWidget);
+      expect(find.text(context.l10n.commentSendFailed), findsOneWidget);
       expect(
         tester.widget<EditableText>(find.byType(EditableText)).controller.text,
         'keep me',
@@ -1302,18 +1286,18 @@ void main() {
   testWidgets('a top-level send plays one success haptic, a failed one none', (
     tester,
   ) async {
-    for (final (error, roles) in [
+    for (final (failure, roles) in [
       (null, [HapticRole.success]),
-      (StateError('offline'), <HapticRole>[]),
+      (offline, <HapticRole>[]),
     ]) {
       final haptics = recordHaptics();
-      await pumpCommentsPage(tester, FakeCommentRepository()..addError = error);
+      await pumpCommentsPage(tester, CommentApi()..addFailure = failure);
 
       await tester.enterText(find.byType(TextField), 'hi');
       await tester.pump();
       await tester.tap(find.byIcon(Icons.send_outlined));
       await tester.pumpAndSettle();
-      expect(haptics.roles, roles, reason: '$error');
+      expect(haptics.roles, roles, reason: 'failed: ${failure != null}');
       await tester.pumpWidget(const SizedBox());
     }
   });

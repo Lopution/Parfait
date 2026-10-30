@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/profile/profile_edit_repository.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
@@ -15,15 +17,16 @@ import 'package:parfait/app/navigation/route_animation.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/core/settings/app_settings.dart' show AnimationSpeed;
 import 'package:parfait/core/profile/profile_edit_controller.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -704,8 +707,15 @@ void main() {
         backgroundImageUrl: 'https://i.pximg.net/background.png',
         hasDetail: true,
       );
+      // The editor's repository as the app builds it: with no pixiv.net
+      // session, the App API's.
+      answerWebProfileSession();
+      final api = await signedInApiContainer(
+        PixivApi(UserApi(detail: user).routes).client,
+        account: const Account(id: '42', userId: 42, name: 'tester'),
+      );
       final session = ProfileEditSession(
-        repository: _StubProfileEditRepository(user),
+        repository: api.read(profileEditRepositoryProvider),
         owner: owner,
         readOwner: () => owner,
         initialUser: user,
@@ -718,9 +728,11 @@ void main() {
           ),
         ],
       );
-      await container
-          .read(profileEditControllerProvider(session).notifier)
-          .load();
+      // Listened as the page does: unlistened, the auto-dispose controller
+      // goes mid-load.
+      final editor = profileEditControllerProvider(session);
+      container.listen(editor, (_, _) {});
+      await container.read(editor.notifier).load();
 
       late BuildContext rootContext;
       await tester.pumpWidget(
@@ -774,41 +786,6 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
-}
-
-/// Minimal repository — the editor only needs capabilities plus the saved
-/// draft to reach its editable state.
-class _StubProfileEditRepository implements ProfileEditRepository {
-  _StubProfileEditRepository(this.user);
-
-  final UserEntity user;
-
-  @override
-  Future<ProfileCapabilities> loadCapabilities({
-    required String accountId,
-    required int userId,
-    CancelToken? cancelToken,
-  }) async => ProfileCapabilities(
-    editableFields: {
-      ProfileField.displayName,
-      ProfileField.comment,
-      ProfileField.webpage,
-    },
-    channel: ProfileEditChannel.appApi,
-  );
-
-  @override
-  Future<UserEntity> loadDraft({
-    required String accountId,
-    required int userId,
-    CancelToken? cancelToken,
-  }) async => user;
-
-  @override
-  Future<ProfileEditOutcome> submit(
-    ProfileSubmitRequest request, {
-    CancelToken? cancelToken,
-  }) async => ProfileEditConfirmed(user);
 }
 
 /// A ticker probe for route-transition tests: drives an animation from the

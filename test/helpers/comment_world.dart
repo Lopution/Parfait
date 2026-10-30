@@ -1,12 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/comments/comment_models.dart';
-import 'package:parfait/core/comments/comment_repository.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/user_entity.dart';
 
+import 'api_responses.dart';
 import 'fake_account.dart';
 
 /// The comments' signed-in account: user 10 owns the sample comments.
@@ -41,84 +40,79 @@ CommentEntity sampleComment(
   replyCount: replyCount,
 );
 
-class FakeCommentRepository implements CommentRepository {
-  final requests = <CommentFeedQuery>[];
-  int deleteCalls = 0;
-  Completer<CommentEntity>? addCompleter;
+/// [comment] as the App API's comment object.
+Map<String, dynamic> commentJson(CommentEntity comment) => {
+  'id': comment.id,
+  'comment': comment.content,
+  'date': comment.createdAt.toIso8601String(),
+  'user': userJson(comment.user),
+  'has_replies': comment.hasReplies,
+  'reply_count': comment.replyCount,
+  'parent_comment_id': ?comment.parentCommentId,
+};
+
+/// The App API's comment endpoints. Root pages answer [rootComments] (by
+/// default root comment 11 with one reply) and reply pages [replies] (by
+/// default reply 12 to the root asked for), each as one page; the root
+/// page carries the author's switch, [commentsClosed]. Adds answer
+/// [added] once [addGate] opens, or [addFailure]; [deletes] logs the ids
+/// deleted.
+class CommentApi {
   List<CommentEntity>? rootComments;
   List<CommentEntity>? replies;
-  Object? addError;
-
-  /// What the root page says of the author's switch (`comment_access_control`).
   bool? commentsClosed;
+  Completer<void>? addGate;
+  CommentEntity added = sampleComment(20);
+  ApiRoute? addFailure;
+  final deletes = <int>[];
 
-  @override
-  Future<CommentPage> fetchComments(
-    int workId, {
-    CommentWorkKind kind = CommentWorkKind.illust,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    final query = CommentFeedQuery.root(workId: workId, kind: kind);
-    requests.add(query);
-    return CommentPage(
-      comments:
-          rootComments ?? [sampleComment(11, workId: workId, replyCount: 1)],
-      nextUrl: null,
-      commentsClosed: commentsClosed,
-    );
-  }
-
-  @override
-  Future<CommentPage> fetchReplies(
-    int rootCommentId, {
-    required int workId,
-    CommentWorkKind kind = CommentWorkKind.illust,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    final query = CommentFeedQuery.replies(
-      workId: workId,
-      kind: kind,
-      rootCommentId: rootCommentId,
-    );
-    requests.add(query);
-    return CommentPage(
-      comments:
-          replies ??
-          [
-            sampleComment(
-              12,
-              workId: workId,
-              parentCommentId: rootCommentId,
-              rootCommentId: rootCommentId,
-            ),
-          ],
-      nextUrl: null,
-    );
-  }
-
-  @override
-  bool validateCursor(CommentFeedQuery query, {required String cursor}) => true;
-
-  @override
-  Future<CommentEntity> addComment(
-    CommentAddRequest request, {
-    CancelToken? cancelToken,
-  }) {
-    final completer = addCompleter;
-    if (completer != null) return completer.future;
-    final error = addError;
-    if (error != null) return Future.error(error);
-    return Future.value(sampleComment(20));
-  }
-
-  @override
-  Future<void> deleteComment(
-    int commentId, {
-    CommentWorkKind kind = CommentWorkKind.illust,
-    CancelToken? cancelToken,
-  }) async {
-    deleteCalls++;
-  }
+  Map<String, ApiRoute> get routes => {
+    for (final kind in CommentWorkKind.values) ...{
+      '/v3/${kind.name}/comments': (request) {
+        final query = request.url.queryParameters;
+        final workId = int.parse(query['${kind.name}_id']!);
+        final comments =
+            rootComments ?? [sampleComment(11, workId: workId, replyCount: 1)];
+        return jsonResponse({
+          'comments': [for (final comment in comments) commentJson(comment)],
+          'next_url': null,
+          'comment_access_control': ?switch (commentsClosed) {
+            true => 1,
+            false => 0,
+            null => null,
+          },
+        });
+      },
+      '/v2/${kind.name}/comment/replies': (request) {
+        final root = int.parse(request.url.queryParameters['comment_id']!);
+        final comments =
+            replies ??
+            [sampleComment(12, parentCommentId: root, rootCommentId: root)];
+        return jsonResponse(
+          pageJson('comments', [
+            for (final comment in comments) commentJson(comment),
+          ]),
+        );
+      },
+      '/v1/${kind.name}/comment/add': (request) async {
+        await addGate?.future;
+        if (addFailure case final fail?) return fail(request);
+        return jsonResponse({'comment': commentJson(added)});
+      },
+      '/v1/${kind.name}/comment/delete': (request) {
+        deletes.add(int.parse(requestFields(request)['comment_id']!));
+        return jsonResponse(const <String, Object?>{});
+      },
+    },
+  };
 }
+
+/// Signed in as user 10, who owns the sample comments, over [PixivApi]
+/// with [comments]' routes and [routes].
+Future<ProviderContainer> commentWorld(
+  CommentApi comments, {
+  Map<String, ApiRoute> routes = const {},
+}) => signedInApiContainer(
+  PixivApi({...backgroundRoutes, ...comments.routes, ...routes}).client,
+  account: const Account(id: 'account', userId: 10, name: 'tester'),
+);

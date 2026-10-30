@@ -2,25 +2,17 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
-import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/new/new_feed_controller.dart';
 import 'package:parfait/core/new/new_feed_models.dart';
-import 'package:parfait/core/new/new_feed_repository.dart';
-import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/new/new_page.dart';
-import 'package:http/testing.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/fake_settings.dart';
@@ -29,109 +21,86 @@ import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
-class _FakeNewFeedRepository implements NewFeedRepository {
-  _FakeNewFeedRepository({this.illustCount = 0, this.novelCount = 0});
+/// The App API's New feeds. Each answers one page: [illustCount] works
+/// from 1000 or [novelCount] novels from 2000, the [r18] ids as R-18.
+/// [requests] logs each read from the wire as its feed.
+class _NewFeeds {
+  _NewFeeds({this.illustCount = 0, this.novelCount = 0});
 
   /// Non-zero makes the illust feed overflow the viewport so scroll-state
   /// assertions (re-tap → top) have something to scroll.
   final int illustCount;
   final int novelCount;
 
-  /// When set, every fetch awaits this completer — holds an initial load
-  /// or a pull-to-refresh in flight until the test completes it.
+  /// When set, every answer waits on it — holds an initial load or a
+  /// pull-to-refresh in flight until the test completes it.
   Completer<void>? pendingFetch;
-
-  /// When true, every fetch throws — drives the feed's error branch.
-  var fails = false;
 
   /// Ids served as R-18.
   var r18 = <int>{};
 
   final requests = <NewFeedKey>[];
 
-  @override
-  Future<NewIllustPage> fetchIllust(
-    NewFeedKey key, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(key);
-    if (fails) throw ApiNetworkError(StateError('offline'));
-    await pendingFetch?.future;
-    return NewIllustPage(
-      illusts: [
-        for (var id = 1000; id < 1000 + illustCount; id++)
-          parseIllust(illustJson(id, xRestrict: r18.contains(id) ? 1 : 0)),
-      ],
-      nextUrl: null,
-    );
-  }
+  static const _feeds = {
+    '/v2/illust/follow': _followingIllust,
+    '/v1/illust/new': NewFeedKey(
+      scope: NewFeedScope.everyone,
+      type: NewFeedType.illust,
+    ),
+    '/v2/illust/mypixiv': NewFeedKey(
+      scope: NewFeedScope.myPixiv,
+      type: NewFeedType.illust,
+    ),
+    '/v1/novel/follow': NewFeedKey(
+      scope: NewFeedScope.following,
+      type: NewFeedType.novel,
+    ),
+    '/v1/novel/new': NewFeedKey(
+      scope: NewFeedScope.everyone,
+      type: NewFeedType.novel,
+    ),
+    '/v1/novel/mypixiv': NewFeedKey(
+      scope: NewFeedScope.myPixiv,
+      type: NewFeedType.novel,
+    ),
+  };
 
-  @override
-  Future<NewNovelPage> fetchNovel(
-    NewFeedKey key, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(key);
-    if (fails) throw ApiNetworkError(StateError('offline'));
-    await pendingFetch?.future;
-    return NewNovelPage(
-      novels: [
-        for (var id = 2000; id < 2000 + novelCount; id++)
-          NovelEntity.fromJson({
-            ...novelJson(id),
-            'x_restrict': r18.contains(id) ? 1 : 0,
-          }),
-      ],
-      nextUrl: null,
-    );
-  }
-
-  @override
-  bool validateIllustCursor(NewFeedKey key, {required String cursor}) => true;
-
-  @override
-  bool validateNovelCursor(NewFeedKey key, {required String cursor}) => true;
+  Map<String, ApiRoute> get routes => {
+    for (final MapEntry(key: path, value: feed) in _feeds.entries)
+      path: (request) async {
+        requests.add(feed);
+        await pendingFetch?.future;
+        int restrict(int id) => r18.contains(id) ? 1 : 0;
+        return jsonResponse(
+          feed.type == NewFeedType.illust
+              ? pageJson('illusts', [
+                  for (var id = 1000; id < 1000 + illustCount; id++)
+                    illustJson(id, xRestrict: restrict(id)),
+                ])
+              : pageJson('novels', [
+                  for (var id = 2000; id < 2000 + novelCount; id++)
+                    {...novelJson(id), 'x_restrict': restrict(id)},
+                ]),
+        );
+      },
+  };
 }
 
-/// `illustStoreProvider` rebuilds when the account store resolves, so the
-/// widget tests need the same credential/metadata overrides the feed tests
-/// use — and the account future must be awaited before pumping or the
-/// feed refetches once on resolution (same pattern as
-/// recommended_home_test's world).
-Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
+/// Signed in over [PixivApi] with the New feeds and what the shell reads.
+/// The account future is awaited before pumping, or the feed refetches
+/// once on resolution.
+Future<(ProviderContainer, _NewFeeds)> _makeWorld({
   int illustCount = 0,
   int novelCount = 0,
-  List<Override> overrides = const [],
 }) async {
-  final repository = _FakeNewFeedRepository(
-    illustCount: illustCount,
-    novelCount: novelCount,
-  );
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  await seedAccounts(const [testerAccount], currentId: testerAccount.id);
-  final container = ProviderContainer.test(
+  final feeds = _NewFeeds(illustCount: illustCount, novelCount: novelCount);
+  final container = await signedInApiContainer(
+    PixivApi({...backgroundRoutes, ...shellRoutes, ...feeds.routes}).client,
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen');
-          }),
-        ),
-      ),
-      newFeedRepositoryProvider.overrideWithValue(repository),
-      ...overrides,
     ],
   );
-  await container.read(accountStoreProvider.future);
-  return (container, repository);
+  return (container, feeds);
 }
 
 Widget _routerApp(ProviderContainer container, GoRouter router) {

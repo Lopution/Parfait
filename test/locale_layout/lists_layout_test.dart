@@ -6,10 +6,7 @@ import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/user/user_entity.dart';
-import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_repository.dart';
-import 'package:parfait/core/comments/comment_repository.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
@@ -24,7 +21,6 @@ import '../helpers/card_world.dart';
 import '../helpers/illust_fixtures.dart';
 import '../helpers/comment_world.dart';
 import '../helpers/download_world.dart';
-import '../helpers/fake_account.dart';
 import '../helpers/history_world.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/watchlist_world.dart';
@@ -39,7 +35,7 @@ Future<void> _expectSettled(
   await expectPageLayoutIntact(tester, locale: locale, profile: profile);
 }
 
-FakeCommentRepository _comments() => FakeCommentRepository()
+CommentApi _comments() => CommentApi()
   ..rootComments = [
     sampleComment(11, replyCount: 3),
     sampleComment(12, userId: 20),
@@ -108,10 +104,7 @@ void main() {
       await tester.pumpWidget(
         localeLayoutApp(
           locale: locale,
-          overrides: [
-            accountStoreProvider.overrideWith(commentsAccountStore),
-            commentRepositoryProvider.overrideWithValue(_comments()),
-          ],
+          container: await commentWorld(_comments()),
           home: page,
         ),
       );
@@ -120,7 +113,7 @@ void main() {
   }
 
   localeLayoutMatrix('lists: bookmark tags', (tester, locale, profile) async {
-    final repository = RecordingBookmarkRepository()
+    final repository = BookmarkApi()
       ..tagPage = const UserBookmarkTagPage(
         tags: [
           UserBookmarkTag(name: 'procreate', count: 5),
@@ -129,13 +122,11 @@ void main() {
         ],
         nextUrl: null,
       );
+    final container = await bookmarkWorld(repository);
     await tester.pumpWidget(
       localeLayoutApp(
         locale: locale,
-        overrides: [
-          accountStoreProvider.overrideWith(StubAccountStore.new),
-          bookmarkRepositoryProvider.overrideWithValue(repository),
-        ],
+        container: container,
         home: const BookmarkTagsPage(),
       ),
     );

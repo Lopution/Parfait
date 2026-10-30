@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/network/api_error.dart';
@@ -14,6 +13,9 @@ import 'package:parfait/core/profile/web_profile_session.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_repository.dart';
 
+import 'helpers/api_responses.dart';
+import 'helpers/fake_account.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
 
 class _FakeSession implements WebProfileSession {
@@ -87,10 +89,8 @@ void main() {
               null,
             ),
       );
-      final container = ProviderContainer.test(
-        overrides: [
-          userRepositoryProvider.overrideWithValue(_StubUserRepository()),
-        ],
+      final container = await signedInApiContainer(
+        PixivApi(UserApi().routes).client,
       );
       final repository = container.read(profileEditRepositoryProvider);
       Future<ProfileEditChannel> channel() async =>
@@ -108,7 +108,7 @@ void main() {
   group('PixivWebProfileEditRepository capabilities', () {
     test('no session -> unavailable with in-app session guidance', () async {
       final repo = PixivWebProfileEditRepository(
-        userRepository: _StubUserRepository(),
+        userRepository: await _users(),
         session: _FakeSession(null),
       );
       final capabilities = await repo.loadCapabilities(
@@ -122,7 +122,7 @@ void main() {
 
     test('with a session -> web channel with the five fields', () async {
       final repo = PixivWebProfileEditRepository(
-        userRepository: _StubUserRepository(),
+        userRepository: await _users(),
         session: _FakeSession(_sessionCookie),
       );
       final capabilities = await repo.loadCapabilities(
@@ -143,7 +143,7 @@ void main() {
       test('$cookie fails as unavailable before any request', () async {
         final client = _RecordingWebClient(const []);
         final repo = PixivWebProfileEditRepository(
-          userRepository: _StubUserRepository(),
+          userRepository: await _users(),
           session: _FakeSession(cookie),
           httpClient: client,
         );
@@ -178,9 +178,8 @@ void main() {
         ),
         const _QueuedWebResponse(200, '{"error":false,"body":{}}'),
       ]);
-      final userRepository = _StubUserRepository();
       final repository = PixivWebProfileEditRepository(
-        userRepository: userRepository,
+        userRepository: await _users(),
         session: _FakeSession(cookie),
         httpClient: client,
       );
@@ -252,7 +251,7 @@ void main() {
           const _QueuedWebResponse(200, '{"error":false,"body":null}'),
         ]);
         final repository = PixivWebProfileEditRepository(
-          userRepository: _StubUserRepository(),
+          userRepository: await _users(),
           session: _FakeSession(_sessionCookie),
           httpClient: client,
         );
@@ -314,7 +313,7 @@ void main() {
           ),
         ]);
         final repository = PixivWebProfileEditRepository(
-          userRepository: _StubUserRepository(),
+          userRepository: await _users(),
           session: _FakeSession(_sessionCookie),
           httpClient: client,
         );
@@ -343,23 +342,22 @@ void main() {
           ),
           const _QueuedWebResponse(200, '{"error":false,"body":{}}'),
         ]);
-        final users = _StubUserRepository(
-          user: const UserEntity(
+        final users = UserApi(
+          detail: const UserEntity(
             id: 1,
             name: 'OldName',
             account: 'test',
             comment: 'kept bio',
             webpage: 'https://old.example',
-            hasDetail: true,
           ),
-          failFetchAfter: 1,
         );
         final repository = PixivWebProfileEditRepository(
-          userRepository: users,
+          userRepository: await _users(users),
           session: _FakeSession(_sessionCookie),
           httpClient: client,
         );
         await repository.loadDraft(accountId: 'a', userId: 1);
+        users.detailFailure = failing(503);
 
         final outcome = await repository.submit(_renameRequest());
 
@@ -368,7 +366,7 @@ void main() {
         expect(confirmed.user.name, 'NewName');
         expect(confirmed.user.comment, 'kept bio');
         expect(confirmed.user.webpage, 'https://old.example');
-        expect(users.fetchCount, 2);
+        expect(users.requests, ['detail:1', 'detail:1']);
       },
     );
   });
@@ -381,7 +379,7 @@ void main() {
         (null, _AbortingWebClient()),
       ]) {
         final repository = PixivWebProfileEditRepository(
-          userRepository: _StubUserRepository(),
+          userRepository: await _users(),
           session: _FakeSession(_sessionCookie),
           httpClient: client,
         );
@@ -493,39 +491,7 @@ class _AbortingWebClient extends http.BaseClient {
   }
 }
 
-class _StubUserRepository implements UserRepository {
-  _StubUserRepository({this.user, this.failFetchAfter});
-
-  final UserEntity? user;
-  final int? failFetchAfter;
-  int fetchCount = 0;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName == #fetchDetail) {
-      fetchCount++;
-      if (failFetchAfter != null && fetchCount > failFetchAfter!) {
-        return Future<UserEntity>.error(Exception('app api down'));
-      }
-      return Future.value(
-        user ??
-            const UserEntity(
-              id: 1,
-              name: 'Test',
-              account: 'test',
-              totalFollowUsers: 0,
-              totalMyPixivUsers: 0,
-              totalIllusts: 0,
-              totalManga: 0,
-              totalNovels: 0,
-              totalIllustBookmarksPublic: 0,
-              totalIllustSeries: 0,
-              totalNovelSeries: 0,
-              visible: true,
-              hasDetail: false,
-            ),
-      );
-    }
-    throw UnimplementedError('${invocation.memberName}');
-  }
-}
+/// The app's user repository over [users]: by default every user's detail
+/// answers [UserApi]'s sample user.
+Future<UserRepository> _users([UserApi? users]) =>
+    userRepositoryOver((users ?? UserApi()).routes);

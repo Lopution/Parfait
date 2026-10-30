@@ -3,15 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
-import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/user/follow_models.dart';
 import 'package:parfait/core/user/follow_store.dart';
 
 import 'helpers/bookmark_world.dart';
-import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
@@ -52,19 +49,13 @@ Finder get _undo => promptAction('撤销');
 void main() {
   testWidgets('a removed bookmark offers no Undo; the heart brings it back '
       'private with its tags', (tester) async {
-    final repository = RecordingBookmarkRepository()
+    final repository = BookmarkApi()
       ..detail = const BookmarkDetail(
         isBookmarked: true,
         restrict: BookmarkRestrict.private,
         tags: [BookmarkTagFacet(name: 'kept', isRegistered: true)],
       );
-    final container = ProviderContainer.test(
-      overrides: [
-        accountStoreProvider.overrideWith(StubAccountStore.new),
-        bookmarkRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
-    await container.read(accountStoreProvider.future);
+    final container = await bookmarkWorld(repository);
     container
         .read(bookmarkStoreProvider.notifier)
         .observeRemote(
@@ -98,8 +89,7 @@ void main() {
   });
 
   testWidgets('a private follow comes back private', (tester) async {
-    final follows = FakeFollowRepository()
-      ..remoteRestrict = FollowRestrict.private;
+    final follows = FollowApi()..remoteRestrict = FollowRestrict.private;
     final container = await makeProfileWorld(follows: follows);
     container
         .read(followStoreProvider.notifier)
@@ -130,7 +120,7 @@ void main() {
   testWidgets('without the original visibility there is no Undo', (
     tester,
   ) async {
-    final follows = FakeFollowRepository()..remoteRestrict = null;
+    final follows = FollowApi()..remoteRestrict = null;
     final container = await makeProfileWorld(follows: follows);
     container
         .read(followStoreProvider.notifier)

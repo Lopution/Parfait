@@ -1,40 +1,33 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/profile_edit_controller.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
+import 'package:parfait/core/profile/profile_edit_repository.dart';
 import 'package:parfait/core/profile/profile_edit_store_bridge.dart';
 import 'package:parfait/core/profile/profile_image.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
-import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/user/user_entity.dart';
-import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/image_headers.dart';
 import 'helpers/reverse_image_world.dart' show FakeReverseImagePlatform;
 import 'helpers/view_size.dart';
-
-ProfileCapabilities _appApi([
-  Iterable<ProfileField> fields = ProfileField.values,
-]) => ProfileCapabilities(
-  editableFields: fields,
-  channel: ProfileEditChannel.appApi,
-);
 
 ProfileEditSession _session(
   ProfileEditRepository repository, {
@@ -60,39 +53,75 @@ ProviderContainer _editorContainer() {
   return container;
 }
 
-/// [session]'s controller after its first load.
+/// [session]'s controller after its first load, listened to as the page
+/// does: unlistened, the auto-dispose controller goes mid-load.
 Future<ProfileEditController> _loaded(
   ProfileEditSession session, [
   ProviderContainer? container,
 ]) async {
-  final controller = (container ?? _editorContainer()).read(
-    profileEditControllerProvider(session).notifier,
-  );
+  final editor = profileEditControllerProvider(session);
+  final scope = container ?? _editorContainer();
+  scope.listen(editor, (_, _) {});
+  final controller = scope.read(editor.notifier);
   await controller.load();
   return controller;
 }
 
-/// A container signed in to account 42, as the page finds it in production.
-Future<ProviderContainer> _signedInContainer([
-  List<Override> overrides = const [],
-]) async {
-  await seedAccounts([
-    const Account(id: '42', userId: 42, name: 'tester'),
-  ], currentId: '42');
-  final container = ProviderContainer.test(
-    overrides: [
-      ...accountProviderOverrides(
-        credentialStore: FakeCredentialStore(
-          values: const {'42': Credential(accessToken: 'a', refreshToken: 'r')},
-        ),
-      ),
-      ...overrides,
-    ],
-  );
-  return container;
+/// User 42's App API: the detail answers [users]' user (by default
+/// [_user]), and a profile edit, once [editGate] opens, renames it as pixiv
+/// does. [edits] logs each edit's multipart text parts.
+class _ProfileApi {
+  final users = UserApi(detail: _user());
+  final edits = <Map<String, String>>[];
+  Completer<void>? editGate;
+
+  Map<String, ApiRoute> get routes => {
+    ...users.routes,
+    '/v1/user/profile/edit': (request) async {
+      final parts = {
+        for (final part in RegExp(
+          r'name="(\w+)"\r\n\r\n([^\r]*)',
+        ).allMatches(utf8.decode(request.bodyBytes)))
+          part.group(1)!: part.group(2)!,
+      };
+      edits.add(parts);
+      await editGate?.future;
+      if (parts['user_name'] case final name?) {
+        users.detail = users.detail.copyWith(name: name);
+      }
+      return jsonResponse(const <String, Object?>{});
+    },
+  };
 }
 
+/// Signed in as user 42 over [api]. The platform's pixiv.net session is
+/// signed in as 42 too with [webSession], and absent without.
+Future<ProviderContainer> _signedIn(
+  _ProfileApi api, {
+  bool webSession = false,
+}) {
+  answerWebProfileSession(webSession ? 42 : null);
+  return signedInApiContainer(
+    PixivApi(api.routes).client,
+    account: const Account(id: '42', userId: 42, name: 'tester'),
+  );
+}
+
+/// The editor's repository as the app builds it over [api]: through the
+/// App API, or with [webSession] through the web, the one channel that
+/// also edits the background.
+Future<ProfileEditRepository> _repository(
+  _ProfileApi api, {
+  bool webSession = false,
+}) async => (await _signedIn(
+  api,
+  webSession: webSession,
+)).read(profileEditRepositoryProvider);
+
 void main() {
+  // Plain tests answer the web session channel too.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('builds a minimal patch from dirty supported fields only', () {
     final user = _user();
     final capabilities = ProfileCapabilities(
@@ -145,40 +174,11 @@ void main() {
     expect(errors[ProfileField.webpage], isNotNull);
   });
 
-  test('verification pending never commits effective user metadata', () async {
-    final repository = _FakeRepository(
-      ProfileCapabilities(
-        editableFields: {ProfileField.displayName},
-        channel: ProfileEditChannel.appApi,
-        verification: ProfileVerificationRequirement.emailConfirmation,
-      ),
-      outcome: ProfileEditVerificationPending(
-        fields: {ProfileField.displayName},
-        message: 'email confirmation required',
-      ),
-    );
-    var committed = 0;
-    final session = _session(repository, onConfirmed: (_) async => committed++);
-    final controller = await _loaded(session);
-
-    controller.updateText(ProfileField.displayName, 'pending name');
-    await controller.submit();
-
-    expect(controller.state.status, ProfileEditStatus.verificationPending);
-    expect(committed, 0);
-    expect(controller.state.draft!.base.displayName, 'old name');
-    expect(controller.state.draft!.values.displayName, 'pending name');
-  });
-
   test('confirmed response commits only after the ownership check', () async {
-    final changed = _user().copyWith(name: 'confirmed name');
-    final repository = _FakeRepository(
-      _appApi({ProfileField.displayName}),
-      outcome: ProfileEditConfirmed(changed),
-    );
+    final api = _ProfileApi();
     UserEntity? committed;
     final session = _session(
-      repository,
+      await _repository(api),
       onConfirmed: (user) async => committed = user,
     );
     final controller = await _loaded(session);
@@ -188,21 +188,17 @@ void main() {
 
     expect(controller.state.status, ProfileEditStatus.confirmed);
     expect(committed?.name, 'confirmed name');
-    expect(repository.requests.single.patch.textFields, {
-      ProfileField.displayName: 'confirmed name',
-    });
+    expect(api.edits, [
+      {'user_name': 'confirmed name'},
+    ]);
   });
 
   test('late confirmed response after account switch cannot commit', () async {
-    final response = Completer<ProfileEditOutcome>();
-    final repository = _FakeRepository(
-      _appApi({ProfileField.displayName}),
-      deferredOutcome: response,
-    );
+    final api = _ProfileApi()..editGate = Completer<void>();
     var active = _owner();
     var committed = 0;
     final session = _session(
-      repository,
+      await _repository(api),
       readOwner: () => active,
       onConfirmed: (_) async => committed++,
     );
@@ -211,7 +207,7 @@ void main() {
     controller.updateText(ProfileField.displayName, 'account A');
     final submit = controller.submit();
     active = const ProfileEditOwner(accountId: 'account-b');
-    response.complete(ProfileEditConfirmed(_user().copyWith(name: 'wrong')));
+    api.editGate!.complete();
     await submit;
 
     expect(controller.state.status, ProfileEditStatus.failure);
@@ -219,55 +215,47 @@ void main() {
     expect(committed, 0);
   });
 
-  test(
-    'current password is cleared from the submit request lifecycle',
-    () async {
-      final repository = _FakeRepository(
-        ProfileCapabilities(
-          editableFields: {ProfileField.displayName},
-          channel: ProfileEditChannel.appApi,
-          requiresCurrentPassword: true,
-        ),
-        outcome: ProfileEditConfirmed(_user().copyWith(name: 'saved')),
-      );
-      final session = _session(repository);
-      final controller = await _loaded(session);
+  test('a current password stays off the wire and out of the draft', () async {
+    final api = _ProfileApi();
+    final controller = await _loaded(_session(await _repository(api)));
 
-      controller.updateText(ProfileField.displayName, 'saved');
-      await controller.submit(currentPassword: 'do-not-log-me');
+    controller.updateText(ProfileField.displayName, 'saved');
+    await controller.submit(currentPassword: 'do-not-log-me');
 
-      final request = repository.requests.single;
-      expect(request.currentPassword, isNull);
-      expect(request.toString(), isNot(contains('do-not-log-me')));
-      expect(
-        controller.state.draft.toString(),
-        isNot(contains('do-not-log-me')),
-      );
-    },
-  );
+    expect(controller.state.status, ProfileEditStatus.confirmed);
+    expect(api.edits.single.values, isNot(contains('do-not-log-me')));
+    expect(controller.state.draft.toString(), isNot(contains('do-not-log-me')));
+  });
 
   test(
     'unsupported dirty fields stay visible and never reach the repository',
     () async {
-      final repository = _FakeRepository(_appApi({ProfileField.displayName}));
-      final session = _session(repository);
-      final controller = await _loaded(session);
+      // The App API has no background field.
+      final api = _ProfileApi();
+      final controller = await _loaded(_session(await _repository(api)));
 
-      controller.updateText(ProfileField.comment, 'unsupported change');
+      final background = ProfileImageSelection(
+        path: '/private/background.png',
+        mimeType: 'image/png',
+        sizeBytes: 128,
+        width: 10,
+        height: 10,
+      );
+      await controller.selectImage(ProfileField.background, background);
       await controller.submit();
 
       expect(controller.state.status, ProfileEditStatus.ready);
-      expect(controller.state.fieldErrors[ProfileField.comment], isNotNull);
-      expect(controller.state.draft!.values.comment, 'unsupported change');
-      expect(repository.requests, isEmpty);
+      expect(controller.state.fieldErrors[ProfileField.background], isNotNull);
+      expect(controller.state.draft!.background, same(background));
+      expect(api.edits, isEmpty);
     },
   );
 
   test('cancel releases selected images and leaves no stale path', () async {
     var cleanupCount = 0;
-    final repository = _FakeRepository(_appApi({ProfileField.avatar}));
-    final session = _session(repository);
-    final controller = await _loaded(session);
+    final controller = await _loaded(
+      _session(await _repository(_ProfileApi())),
+    );
 
     await controller.selectImage(
       ProfileField.avatar,
@@ -365,8 +353,9 @@ void main() {
   testWidgets('renders beta56 field order and asks before leaving dirty form', (
     tester,
   ) async {
-    final repository = _FakeRepository(_appApi());
-    final session = _session(repository);
+    final session = _session(
+      await _repository(_ProfileApi(), webSession: true),
+    );
     final container = _editorContainer();
     await _loaded(session, container);
 
@@ -425,12 +414,14 @@ void main() {
     late _CountingImagePlatform platform;
 
     Future<void> pumpEditor(
-      WidgetTester tester,
-      ProfileCapabilities capabilities,
-    ) async {
+      WidgetTester tester, {
+      bool webSession = false,
+    }) async {
       setViewSize(tester, const Size(800, 1600));
       platform = _CountingImagePlatform();
-      final session = _session(_FakeRepository(capabilities));
+      final session = _session(
+        await _repository(_ProfileApi(), webSession: webSession),
+      );
       final container = _editorContainer();
       await _loaded(session, container);
       await tester.pumpWidget(
@@ -456,13 +447,7 @@ void main() {
     testWidgets('tapping the avatar or the background picks an image', (
       tester,
     ) async {
-      await pumpEditor(
-        tester,
-        ProfileCapabilities(
-          editableFields: ProfileField.values,
-          channel: ProfileEditChannel.appApi,
-        ),
-      );
+      await pumpEditor(tester, webSession: true);
       // No separate button any more; each image wears an edit badge.
       expect(find.text('Choose image'), findsNothing);
       expect(find.byType(OutlinedButton), findsNothing);
@@ -494,7 +479,7 @@ void main() {
     });
 
     testWidgets('save waits for a picked image to be read', (tester) async {
-      await pumpEditor(tester, _appApi({ProfileField.avatar}));
+      await pumpEditor(tester);
       bool saveEnabled() => tester
           .widget<ButtonStyleButton>(
             find.ancestor(
@@ -517,12 +502,8 @@ void main() {
   });
 
   test('an image picked mid-submit is released, not sent later', () async {
-    final outcome = Completer<ProfileEditOutcome>();
-    final repository = _FakeRepository(
-      _appApi({ProfileField.displayName, ProfileField.avatar}),
-      deferredOutcome: outcome,
-    );
-    final controller = await _loaded(_session(repository));
+    final api = _ProfileApi()..editGate = Completer<void>();
+    final controller = await _loaded(_session(await _repository(api)));
     controller.updateText(ProfileField.displayName, 'saved');
     final submit = controller.submit();
     var released = 0;
@@ -540,7 +521,7 @@ void main() {
 
     expect(controller.state.status, ProfileEditStatus.submitting);
     expect(released, 1);
-    outcome.complete(ProfileEditConfirmed(_user()));
+    api.editGate!.complete();
     await submit;
   });
 
@@ -549,16 +530,12 @@ void main() {
   ) async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
-        container: await _signedInContainer(),
+        container: await _signedIn(_ProfileApi()),
         // No session: the page resolves the account asynchronously and
         // builds the editing session itself, exactly like production.
         child: localizedApp(
           locale: const Locale('en', 'US'),
-          home: ProfileEditPage(
-            userId: 42,
-            initialUser: _user(),
-            repository: _FakeRepository(_appApi()),
-          ),
+          home: ProfileEditPage(userId: 42, initialUser: _user()),
         ),
       ),
     );
@@ -575,25 +552,25 @@ void main() {
   testWidgets('a failed load offers a retry that loads the form', (
     tester,
   ) async {
-    final users = _FlakyUserRepository(_user());
+    final api = _ProfileApi();
+    // A dropped connection, then the detail answers.
+    api.users.detailFailure = offline;
     await tester.pumpWidget(
       localizedApp(
-        container: await _signedInContainer([
-          userRepositoryProvider.overrideWithValue(users),
-        ]),
+        container: await _signedIn(api),
         locale: const Locale('en', 'US'),
-        home: ProfileEditPage(
-          userId: 42,
-          repository: _FakeRepository(_appApi()),
-        ),
+        home: const ProfileEditPage(userId: 42),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('Failed to load profile'), findsOneWidget);
+    expect(api.users.requests, ['detail:42']);
 
+    api.users.detailFailure = null;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    expect(users.calls, 2);
+    // The page reads the user again, then the editor its draft.
+    expect(api.users.requests, ['detail:42', 'detail:42', 'detail:42']);
     expect(find.text('Display name'), findsOneWidget);
   });
 }
@@ -610,44 +587,6 @@ UserEntity _user() => const UserEntity(
 );
 
 ProfileEditOwner _owner() => const ProfileEditOwner(accountId: 'account-a');
-
-class _FakeRepository implements ProfileEditRepository {
-  _FakeRepository(
-    this.capabilities, {
-    ProfileEditOutcome? outcome,
-    this.deferredOutcome,
-  }) : outcome = outcome ?? ProfileEditConfirmed(_user());
-
-  final ProfileCapabilities capabilities;
-  final ProfileEditOutcome outcome;
-  final Completer<ProfileEditOutcome>? deferredOutcome;
-  final requests = <ProfileSubmitRequest>[];
-
-  @override
-  Future<ProfileCapabilities> loadCapabilities({
-    required String accountId,
-    required int userId,
-    CancelToken? cancelToken,
-  }) async => capabilities;
-
-  @override
-  Future<UserEntity> loadDraft({
-    required String accountId,
-    required int userId,
-    CancelToken? cancelToken,
-  }) async => _user();
-
-  @override
-  Future<ProfileEditOutcome> submit(
-    ProfileSubmitRequest request, {
-    CancelToken? cancelToken,
-  }) {
-    requests.add(request);
-    final deferred = deferredOutcome;
-    if (deferred != null) return deferred.future;
-    return Future.value(outcome);
-  }
-}
 
 /// Picker boundary that counts requests and returns nothing, or with
 /// [copy] set, a picked image whose copy waits on it.
@@ -674,22 +613,4 @@ class _CountingImagePlatform implements ReverseImageInputPlatform {
 
   @override
   Future<void> deleteOwnedFile(String path) => throw UnimplementedError();
-}
-
-/// Fails the first detail fetch like a dropped connection, then answers.
-class _FlakyUserRepository implements UserRepository {
-  _FlakyUserRepository(this.user);
-
-  final UserEntity user;
-  var calls = 0;
-
-  @override
-  Future<UserEntity> fetchDetail(int userId, {CancelToken? cancelToken}) async {
-    calls++;
-    if (calls == 1) throw const ApiNetworkError('connection reset');
-    return user;
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

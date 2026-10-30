@@ -9,7 +9,6 @@ import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/app/widgets/ranking_category_sheet.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/download/author_works_enumerator.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
@@ -18,6 +17,7 @@ import 'package:parfait/l10n/context.dart';
 import 'package:parfait/features/profile/author_works_download_dialog.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 
+import '../helpers/api_responses.dart';
 import '../helpers/bookmark_world.dart';
 import '../helpers/card_world.dart';
 import '../helpers/download_world.dart';
@@ -64,7 +64,7 @@ Future<void> _expectOpened(
 
 void main() {
   localeLayoutMatrix('sheets: bookmark', (tester, locale, profile) async {
-    final repository = RecordingBookmarkRepository()
+    final repository = BookmarkApi()
       ..tagPage = const UserBookmarkTagPage(
         tags: [
           UserBookmarkTag(name: 'procreate', count: 5),
@@ -72,13 +72,7 @@ void main() {
         ],
         nextUrl: null,
       );
-    final container = ProviderContainer.test(
-      overrides: [
-        accountStoreProvider.overrideWith(StubAccountStore.new),
-        bookmarkRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
-    await container.read(accountStoreProvider.future);
+    final container = await bookmarkWorld(repository);
     // A long title with the keyboard up: the sheet has less than half the
     // screen.
     tester.view.viewInsets = FakeViewPadding(bottom: profile.size.height / 2);
@@ -227,23 +221,25 @@ void main() {
 
   // Each outcome of the author works dialog: still counting, a capped
   // count to confirm, nothing to download, and a failed count.
-  final authorOutcomes = <String, FakeUserRepository Function()>{
-    'counting': () => FakeUserRepository()..worksGate = Completer<void>(),
-    'capped': () => FakeUserRepository(
+  final authorOutcomes = <String, UserApi Function()>{
+    'counting': () => UserApi()..worksGate = Completer<void>(),
+    'capped': () => UserApi(
       works: [
         for (var id = 1; id <= AuthorWorksEnumerator.maxWorks + 1; id++)
-          parseIllust(illustJson(id)),
+          illustJson(id),
       ],
     ),
-    'empty': FakeUserRepository.new,
-    'failed': () => FakeUserRepository(worksFailure: StateError('boom')),
+    'empty': UserApi.new,
+    'failed': () => UserApi(worksFailure: offline),
   };
-  for (final MapEntry(key: name, value: repository) in authorOutcomes.entries) {
+  for (final MapEntry(key: name, value: makeApi) in authorOutcomes.entries) {
     localeLayoutMatrix('sheets: author works download ($name)', (
       tester,
       locale,
       profile,
     ) async {
+      final api = makeApi();
+      final users = await userRepositoryOver(api.routes);
       final (container, _, _) = await makeDownloadWorld(responses: const []);
       await tester.pumpWidget(
         localeLayoutApp(
@@ -251,12 +247,15 @@ void main() {
           container: container,
           home: AuthorWorksDownloadDialog(
             userId: 42,
-            enumerator: AuthorWorksEnumerator(repository()),
+            enumerator: AuthorWorksEnumerator(users),
           ),
         ),
       );
       await settleLayout(tester);
       expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
+      // The held count answers, so no request timeout outlives the case.
+      api.worksGate?.complete();
+      await settleLayout(tester);
     });
   }
 }

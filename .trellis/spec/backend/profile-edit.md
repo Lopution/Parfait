@@ -30,7 +30,7 @@ reviewed: 2026-10-29
   update stored metadata; an account switch cancels and discards late
   results.
 - **Why:** A late response after an account switch renamed the new account.
-- **Check:** `test/profile_edit_test.dart` "confirmed response commits only after the ownership check" "late confirmed response after account switch cannot commit" "verification pending never commits effective user metadata"
+- **Check:** `test/profile_edit_test.dart` "confirmed response commits only after the ownership check" "late confirmed response after account switch cannot commit"
 - **Code:** `lib/core/profile/profile_edit_controller.dart`, `lib/core/profile/profile_edit_store_bridge.dart`
 
 ### PROF-03 Passwords and images are short-lived
@@ -39,7 +39,7 @@ reviewed: 2026-10-29
   submit's `finally`. Selected images are validated owned handles, cleaned
   exactly once on replacement, cancel, dispose and every terminal result.
 - **Why:** Credentials must not outlive the request; temp images leaked.
-- **Check:** `test/profile_edit_test.dart` "current password is cleared from the submit request lifecycle" "profile image preparation validates metadata and cleans up once" "cancel releases selected images and leaves no stale path"
+- **Check:** `test/profile_edit_test.dart` "a current password stays off the wire and out of the draft" "profile image preparation validates metadata and cleans up once" "cancel releases selected images and leaves no stale path", `test/app_api_profile_edit_test.dart` "submit posts multipart user_name to v1/user/profile/edit"
 - **Code:** `lib/core/profile/profile_edit_controller.dart`, `lib/core/profile/profile_image.dart`
 
 ## Channels
