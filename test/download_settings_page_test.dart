@@ -202,13 +202,21 @@ void main() {
       await tester.pump();
       final saving = Completer<void>();
       preferences.writeGate = saving.future;
+      final writes = preferences.writes;
       await tester.tap(find.widgetWithText(FilledButton, '保存').first);
       await tester.pump();
+      final reason = '${page.runtimeType}';
+      // The save is held: its write started and has not landed.
+      expect(preferences.writes, greaterThan(writes), reason: reason);
+      expect(
+        stored(await storedSettings().load()),
+        isNot(draft),
+        reason: reason,
+      );
       await tester.enterText(input, edit);
       saving.complete();
       await tester.pumpAndSettle();
 
-      final reason = '${page.runtimeType}';
       expect(stored(await storedSettings().load()), draft, reason: reason);
       expect(
         tester.widget<TextField>(input).controller!.text,
