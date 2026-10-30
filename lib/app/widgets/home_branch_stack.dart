@@ -280,14 +280,18 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   int get _barPlace => _barBranches.indexOf(_current);
 
   /// A swipe pages the branches on a phone's bar, from a branch at its
-  /// root page, outside touch exploration and a bar tap's switch.
+  /// root page, outside touch exploration and a bar tap's switch. A page
+  /// still leaving no longer counts for `canPop`, but the root stays
+  /// covered, its bar copy on it, until the page has gone.
   bool _swipeAllowed() {
     if (_rail || _touchExploration || _outgoing != null || _barPlace < 0) {
       return false;
     }
     final navigator =
         widget.shell.route.branches[_current].navigatorKey.currentState;
-    return navigator != null && !navigator.canPop();
+    return navigator != null &&
+        !navigator.canPop() &&
+        !ref.read(branchStackCoveredProvider).contains(_current);
   }
 
   /// Whether a page's tabs at their edge hand a swipe to the branches.

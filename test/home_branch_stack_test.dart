@@ -488,9 +488,13 @@ void main() {
       },
     );
 
+    // A page still leaving no longer counts as one the branch can pop,
+    // yet the root draws the bar until it has gone: the bar slid away with
+    // the branch, and the next one came in without it.
     for (final (name, width, height) in [
       ('a pushed page', 390.0, 844.0),
       ('the rail', 896.0, 411.0),
+      ('a page still leaving', 390.0, 844.0),
     ]) {
       testWidgets('$name keeps its destination', (tester) async {
         final router = await _pumpHome(tester, width: width, height: height);
@@ -499,6 +503,16 @@ void main() {
           unawaited(router.push<void>('/recommended/history'));
           await settle(tester);
           page = find.byType(HistoryPage);
+        }
+        if (name == 'a page still leaving') {
+          router.pop();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+          page = find.byType(RecommendedHomePage);
+          final tabs = tester.widget<TabBar>(
+            find.descendant(of: page, matching: find.byType(TabBar)),
+          );
+          tabs.controller!.index = tabs.controller!.length - 1;
         }
         await tester.fling(page, const Offset(-260, 0), 900);
         await settle(tester);

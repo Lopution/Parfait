@@ -207,13 +207,16 @@ reviewed: 2026-10-17
   ends; the bar's selection moves on landing and the bar comes back. A
   page's tabs take a swipe first and hand it over only at their first or
   last tab, when the swipe starts (`SwipePagerScope`). No swipe over a
-  pushed route, on the rail or under touch exploration. Never wrap the
+  pushed route or one still leaving (the root stays covered, NAV-10), on
+  the rail or under touch exploration. Never wrap the
   whole `StatefulNavigationShell` (content and bar) in a transition. A
   tap's outgoing branch is a frozen snapshot and the incoming one stays
   live; under a swipe both stay live.
 - **Why:** User decisions for the slide and for the swipe, the latter
   against Material 3's "Don't swipe between destinations". A transition
-  around the shell flashed the scaffold background white.
+  around the shell flashed the scaffold background white. A leaving page
+  no longer counts for `canPop`: a swipe under it slid the bar away with
+  the branch, and the next one came in without a bar (10-31).
 - **Check:** `test/home_branch_stack_test.dart` "a bar tap slides the new branch in from its side" "the incoming branch stays live while the outgoing one freezes" "takes over from the tabs at their last one" "a page without tabs pages at once; the end of the bar bounces" "keeps its destination"
 - **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/app/motion/swipe_paging.dart`
 
