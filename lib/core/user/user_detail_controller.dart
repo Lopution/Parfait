@@ -88,7 +88,7 @@ class _UserDetailController extends AsyncNotifier<UserDetailState> {
   }
 }
 
-final userDetailControllerProvider =
-    AsyncNotifierProvider.family<_UserDetailController, UserDetailState, int>(
+final userDetailControllerProvider = AsyncNotifierProvider.autoDispose
+    .family<_UserDetailController, UserDetailState, int>(
       _UserDetailController.new,
     );

@@ -46,9 +46,7 @@ class _IllustSeriesContextController
   }
 }
 
-final illustSeriesContextProvider =
-    AsyncNotifierProvider.family<
-      _IllustSeriesContextController,
-      IllustSeriesContext?,
-      int
-    >(_IllustSeriesContextController.new);
+final illustSeriesContextProvider = AsyncNotifierProvider.autoDispose
+    .family<_IllustSeriesContextController, IllustSeriesContext?, int>(
+      _IllustSeriesContextController.new,
+    );

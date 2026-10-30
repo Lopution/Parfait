@@ -61,6 +61,9 @@ class LocalNovelDatabase {
       databasePath,
       options: OpenDatabaseOptions(
         version: schemaVersion,
+        // The factory hands every opener of a path the same database,
+        // `:memory:` included; each in-memory database must be its own.
+        singleInstance: databasePath != sqflite.inMemoryDatabasePath,
         onCreate: (db, version) => _createSchema(db),
         onUpgrade: _upgrade,
       ),

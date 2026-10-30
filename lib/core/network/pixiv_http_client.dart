@@ -137,15 +137,22 @@ class PixivHttpClient {
   }) async {
     final response = await get(uri, cancelToken: cancelToken);
     final bytes = response.bodyBytes;
+    final T parsed;
     try {
-      return await _dataWorker.run(
+      parsed = await _dataWorker.run(
         _decodeThen(parse),
         bytes,
         label: 'parse ${bytes.length ~/ 1024}KB',
       );
     } on FormatException catch (error) {
+      if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
       throw ApiParseError(error);
     }
+    // A request cancelled during the parse (its page closed) ends here,
+    // whatever its body held, not in a caller that would go on with a
+    // disposed owner.
+    if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
+    return parsed;
   }
 
   /// Reads an App API resource with a caller-supplied credential exactly

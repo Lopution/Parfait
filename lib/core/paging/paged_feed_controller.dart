@@ -123,12 +123,11 @@ class PagedFeedState {
 ///   loadMoreError without touching existing content; exhausted stops fetches.
 /// - every next cursor goes through [validateCursor] before being stored.
 abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
-  /// Stable identity of the feed family and all of its selectors.
-  ///
-  /// Feed families should override this with a key that includes their mode,
-  /// query, filter, or profile selector. The key is copied into every request
-  /// context and never inferred from a late response.
-  String get feedKey => runtimeType.toString();
+  /// Stable identity of the feed family and all of its selectors: its mode,
+  /// query, filter or profile. The key is copied into every request context
+  /// and never inferred from a late response, and it names the feed's
+  /// snapshot: two lists that differ never share a key.
+  String get feedKey;
 
   /// Fetches and parses one page without committing shared state.
   ///
@@ -325,7 +324,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   final List<String> _committedCursors = <String>[];
   bool _disposed = false;
   bool _cancelRequested = false;
-  bool _disposeCallbackRegistered = false;
   final FeedCommitGate _commitGate = FeedCommitGate();
 
   /// Current valid cursor (visible for subclass/tests).
@@ -374,13 +372,12 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     _page = 0;
     _resetPaging();
     _committedCursors.clear();
-    if (!_disposeCallbackRegistered) {
-      _disposeCallbackRegistered = true;
-      ref.onDispose(() {
-        _disposed = true;
-        _commitGate.dispose();
-      });
-    }
+    // Every build: a rebuild runs the previous build's callbacks and drops
+    // them, and the final dispose runs only this build's.
+    ref.onDispose(() {
+      _disposed = true;
+      _commitGate.dispose();
+    });
     // The snapshot read must complete before a generation is opened: no
     // request context exists during the read, so nothing can commit over a
     // restored page, and an invalidated build never reaches _beginRequest

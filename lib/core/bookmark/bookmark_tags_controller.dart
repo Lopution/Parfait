@@ -119,8 +119,8 @@ class _UserBookmarkTagsController extends AsyncNotifier<UserBookmarkTagsState> {
   }
 }
 
-final userBookmarkTagsProvider =
-    AsyncNotifierProvider.family<
+final userBookmarkTagsProvider = AsyncNotifierProvider.autoDispose
+    .family<
       _UserBookmarkTagsController,
       UserBookmarkTagsState,
       BookmarkTagQuery

@@ -60,8 +60,8 @@ class _RelatedIllustController extends PagedFeedController {
   }
 }
 
-final relatedIllustControllerProvider =
-    AsyncNotifierProvider.family<_RelatedIllustController, PagedFeedState, int>(
+final relatedIllustControllerProvider = AsyncNotifierProvider.autoDispose
+    .family<_RelatedIllustController, PagedFeedState, int>(
       _RelatedIllustController.new,
     );
 

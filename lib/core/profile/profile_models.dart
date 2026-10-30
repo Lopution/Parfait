@@ -54,9 +54,11 @@ class ProfileFeedKey {
   int get hashCode =>
       Object.hash(userId, kind, workType, restrict, bookmarkTag);
 
+  /// Also the feeds' snapshot key: a tag is quoted, so one named "null"
+  /// never reads the untagged list's snapshot.
   @override
   String toString() =>
       'ProfileFeedKey(user:$userId, kind:${kind.name}, '
       'type:${workType.name}, restrict:${restrict.name}, '
-      'tag:$bookmarkTag)';
+      'tag:${bookmarkTag == null ? 'null' : '"$bookmarkTag"'})';
 }

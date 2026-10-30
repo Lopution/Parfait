@@ -205,7 +205,7 @@ void main() {
   );
 
   test(
-    'a fresh full list payload is Ready with no request; a stale one refreshes behind it',
+    'a fresh full list payload is Ready with no request; reopened stale, it refreshes behind it',
     () async {
       var now = DateTime(2026, 10, 8, 12);
       await withClock(Clock(() => now), () async {
@@ -227,15 +227,18 @@ void main() {
           ),
         ]);
         final provider = illustDetailControllerProvider(7);
-        final sub = container.listen(provider, (_, _) {});
-        addTearDown(sub.close);
+        final visit = container.listen(provider, (_, _) {});
 
         expect(await container.read(provider.future), isA<IllustDetailReady>());
         await Future<void>.delayed(Duration.zero);
         expect(requests, isEmpty);
 
+        // The page closes, and the work is opened again later.
+        visit.close();
+        await Future<void>.delayed(Duration.zero);
         now = now.add(illustDetailFreshness + const Duration(minutes: 1));
-        container.invalidate(provider);
+        final revisit = container.listen(provider, (_, _) {});
+        addTearDown(revisit.close);
         final snapshot = await container.read(provider.future);
         expect((snapshot as IllustDetailReady).entity.totalView, 10);
         await pollUntil(() => requests.isNotEmpty);

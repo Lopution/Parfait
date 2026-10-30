@@ -20,6 +20,7 @@ import 'dart:async';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
+import 'package:parfait/core/profile/profile_feed_controller.dart';
 import 'package:parfait/core/profile/profile_models.dart';
 import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
 import 'package:parfait/features/profile/profile_illust_feed.dart';
@@ -544,6 +545,23 @@ void main() {
       expect(find.text('Blue Sky'), findsOneWidget);
       expect(find.text('Sakura'), findsOneWidget);
       expect(repository.requests, hasLength(1));
+    });
+
+    test('the untagged list and a tag spelled null keep apart snapshots', () {
+      final container = _makeContainer(_RecordingUserRepository());
+      String snapshotKey(String? tag) => container
+          .read(
+            profileIllustFeedProvider(
+              ProfileFeedKey(
+                userId: 100,
+                kind: ProfileFeedKind.bookmarks,
+                bookmarkTag: tag,
+              ),
+            ).notifier,
+          )
+          .feedKey;
+
+      expect(snapshotKey(null), isNot(snapshotKey('null')));
     });
   });
 }

@@ -6,7 +6,7 @@ applies_to:
   - lib/core/network/next_page_parser.dart
   - lib/core/*/*_feed*.dart
   - lib/core/*/*_repository.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-30
 ---
 
 # Paged feeds, commits and the data worker
@@ -85,11 +85,15 @@ reviewed: 2026-10-12
   callback is the only place it merges into shared stores. The controller
   validates the cursor, then runs `FeedCommitGate.commit` with the request
   context; ids, cursor, phase and entity merge happen together without an
-  await in between. The context's `feedKey` includes every selector.
+  await in between. The context's `feedKey` includes every selector;
+  it also names the feed's snapshot, and it has no default.
 - **Why:** A repository merging right after parsing let a stale or
-  other-account response contaminate the shared store.
-- **Check:** `test/feed_generation_commit_test.dart` "refresh wins over a late append and drops its entity/cursor commit" "account switch fences a late response and rebuilds the feed" "dispose fences a response without reading the disposed ref"
-- **Code:** `lib/core/paging/feed_request_context.dart`
+  other-account response contaminate the shared store. A user's novel
+  works kept the default key, the class name, so one user's page showed
+  another user's novels from the snapshot; a bookmark tag named "null"
+  and the untagged list shared one key.
+- **Check:** `test/feed_generation_commit_test.dart` "refresh wins over a late append and drops its entity/cursor commit" "account switch fences a late response and rebuilds the feed" "dispose fences a response without reading the disposed ref", `test/feed_snapshot_cold_start_test.dart` "a user's novel works never restore another user's", `test/bookmark_tags_test.dart` "the untagged list and a tag spelled null keep apart snapshots"
+- **Code:** `lib/core/paging/feed_request_context.dart`, `lib/core/profile/profile_models.dart`
 
 ### PAGING-06 Refresh starts a new generation
 - **Rule:** Refresh increments the generation, clears the committed

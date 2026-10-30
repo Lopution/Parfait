@@ -140,16 +140,12 @@ class _ProfileUserFeedController extends PagedFeedController {
   }
 }
 
-final profileIllustFeedProvider =
-    AsyncNotifierProvider.family<
-      _ProfileIllustFeedController,
-      PagedFeedState,
-      ProfileFeedKey
-    >(_ProfileIllustFeedController.new);
+final profileIllustFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_ProfileIllustFeedController, PagedFeedState, ProfileFeedKey>(
+      _ProfileIllustFeedController.new,
+    );
 
-final profileUserFeedProvider =
-    AsyncNotifierProvider.family<
-      _ProfileUserFeedController,
-      PagedFeedState,
-      ProfileFeedKey
-    >(_ProfileUserFeedController.new);
+final profileUserFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_ProfileUserFeedController, PagedFeedState, ProfileFeedKey>(
+      _ProfileUserFeedController.new,
+    );

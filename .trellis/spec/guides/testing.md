@@ -6,7 +6,7 @@ applies_to:
   - tool/test_budget.py
   - tool/test_budget.json
   - dart_test.yaml
-reviewed: 2026-10-29
+reviewed: 2026-10-30
 ---
 
 # Tests
@@ -191,28 +191,48 @@ reviewed: 2026-10-29
   a three-attempt `tolerant()` helper that resets per-attempt state, with
   a raised timeout, and its file is tagged `@Tags(['socket'])` so
   `flutter test -x socket` can leave it out. `test/flutter_test_config.dart`
-  gives each test file its own default databases directory; a test that
-  reads or writes history still injects `HistoryDatabase` with a per-test
-  `databasePath`.
+  gives each test file its own default databases directory. Under
+  `flutter test` an app database opened at its default path uses the
+  no-isolate FFI factory and an in-memory database of its own; a test that
+  needs the file, as one that reads or writes history does, injects the
+  database with a per-test `databasePath`. A case that owns a database its
+  pages open closes it in its body, after the pages are gone.
 - **Why:** The WSL test VM drops about one in five loopback connections
   under full-suite load. Pages that open an app database at its default
   path shared one FFI directory across parallel files and failed with
   `database is locked` whenever CI sharding put two of them together.
+  Opened by a page inside `testWidgets`, the isolate's replies never
+  reached the case, and the isolate went on creating the file after it:
+  the file's tear-down failed to delete the directory (`Directory not
+  empty`). The sqflite factory hands every opener of `:memory:` the first
+  one's database unless `singleInstance` is off, so the second in-memory
+  database of a case had none of its tables. Awaited in a tear-down, out
+  of the fake-async zone that opened the database, a close never returned.
 - **Check:** `test/oauth_service_test.dart`,
-  `test/architecture/test_hygiene_test.dart` "socket tests carry the socket tag"
+  `test/architecture/test_hygiene_test.dart` "socket tests carry the socket tag",
+  `test/watch_later_store_test.dart` "default watch-later and history databases answer in a widget test",
+  `test/navigation_restoration_test.dart` "a restored pager opens the work it settled on"
 - **Code:** `test/flutter_test_config.dart`,
-  `test/helpers/history_world.dart`, `dart_test.yaml`
+  `test/helpers/history_world.dart`, `dart_test.yaml`,
+  `lib/core/watchlater/watch_later_database.dart`,
+  `lib/core/history/history_database.dart`,
+  `lib/core/paging/feed_database.dart`,
+  `lib/core/localnovel/local_novel_database.dart`
 
 ### TEST-08 Riverpod providers that dispose or retry
 - **Rule:** Before awaiting an `autoDispose` provider's `.future`, hold a
   listener (`container.listen`). The same trap exists in pages: subscribe
   (`ref.watch` or `ref.listenManual`) before `ref.read(...notifier).load()`.
   A failing `AsyncNotifier.build` retries forever, so assert its
-  `AsyncError` state instead of awaiting `.future`.
+  `AsyncError` state instead of awaiting `.future`. A test that pumps a
+  second container keys its `UncontrolledProviderScope` by the container,
+  as the helpers do.
 - **Why:** A zero-listener notifier was disposed mid-load and left a
-  permanent spinner; awaiting a failing build hung until dispose.
+  permanent spinner; awaiting a failing build hung until dispose. A scope
+  registers with its container only at mount: the second container's
+  disposals fell back to a timer still pending when the test ended.
 - **Check:** manual
-- **Code:** `lib/features/profile/profile_edit_page.dart`
+- **Code:** `lib/features/profile/profile_edit_page.dart`, `test/helpers/localized_app.dart`
 
 ### TEST-09 Widget test harness traps
 - **Rule:** Import `package:material_ui/material_ui.dart`, not

@@ -660,6 +660,9 @@ void main() {
       // Sanity: the hint itself still sits inside the bottom inset band
       // it is supposed to live in.
       expect(hint.bottom, lessThanOrEqualTo(600));
+      // The page goes first, as in the app: its last history commit needs
+      // the container's database.
+      await tester.pumpWidget(const SizedBox());
       container.dispose();
     }
   });
