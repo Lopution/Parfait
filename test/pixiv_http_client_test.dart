@@ -195,6 +195,12 @@ PixivHttpClient _clientOver(
 
 /// Cancels [token] as the parse starts: the response is in, the parse is
 /// not.
+Map<String, dynamic> _asJson(Map<String, dynamic> json) => json;
+
+/// A typed parser refusing a page without works, as related works does.
+Object _rejectsWorks(Map<String, dynamic> json) =>
+    throw ApiParseError(const FormatException('no works'));
+
 class _CancelOnParse implements DataWorker {
   _CancelOnParse(this.token);
 
@@ -809,14 +815,18 @@ void main() {
       await expectLater(request, throwsA(isA<ApiCancelled>()));
 
       // The response is in and its page closes while the body parses: the
-      // request ends cancelled, a malformed body too.
-      for (final body in ['{}', '{']) {
+      // request ends cancelled, a malformed body and a rejecting parser too.
+      for (final (body, parse) in [
+        ('{}', _asJson),
+        ('{', _asJson),
+        ('{}', _rejectsWorks),
+      ]) {
         final parsing = CancelToken();
         final parsed = _clientOver(
           container,
           MockClient((_) async => http.Response(body, 200)),
           dataWorker: _CancelOnParse(parsing),
-        ).getJson(Uri.parse(_api), cancelToken: parsing);
+        ).getParsed(Uri.parse(_api), parse, cancelToken: parsing);
         await expectLater(parsed, throwsA(isA<ApiCancelled>()), reason: body);
       }
     },

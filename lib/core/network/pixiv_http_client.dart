@@ -130,7 +130,8 @@ class PixivHttpClient {
   /// mapping both run on the data worker, so [parse] must be a top-level or
   /// static function (e.g. `IllustEntity.parsePage`) and its result must be
   /// sendable — plain entities are. A [FormatException] from either step
-  /// surfaces as [ApiParseError].
+  /// surfaces as [ApiParseError]; whatever the parse threw, a request
+  /// cancelled by the time it ends is [ApiCancelled].
   Future<T> getParsed<T>(
     Uri uri,
     T Function(Map<String, dynamic> json) parse, {
@@ -145,9 +146,10 @@ class PixivHttpClient {
         bytes,
         label: 'parse ${bytes.length ~/ 1024}KB',
       );
-    } on FormatException catch (error) {
+    } on Object catch (error) {
       if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
-      throw ApiParseError(error);
+      if (error is FormatException) throw ApiParseError(error);
+      rethrow;
     }
     // A request cancelled during the parse (its page closed) ends here,
     // whatever its body held, not in a caller that would go on with a
