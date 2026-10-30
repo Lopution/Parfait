@@ -26,20 +26,19 @@ reviewed: 2026-10-29
 ### PROF-02 Commit only a confirmed result for the current owner
 - **Rule:** A confirmed response commits to `AccountStore` first, then to
   `UserStore`, after checking the current account owns the returned user.
-  Verification-pending, field errors, cancellation and failure never
-  update stored metadata; an account switch cancels and discards late
-  results.
+  Field errors, cancellation and failure never update stored metadata;
+  an account switch cancels and discards late results.
 - **Why:** A late response after an account switch renamed the new account.
 - **Check:** `test/profile_edit_test.dart` "confirmed response commits only after the ownership check" "late confirmed response after account switch cannot commit"
 - **Code:** `lib/core/profile/profile_edit_controller.dart`, `lib/core/profile/profile_edit_store_bridge.dart`
 
-### PROF-03 Passwords and images are short-lived
-- **Rule:** The current password is a submit input only: never in the
-  draft, storage, prefilled fields or diagnostics, and cleared in the
-  submit's `finally`. Selected images are validated owned handles, cleaned
-  exactly once on replacement, cancel, dispose and every terminal result.
-- **Why:** Credentials must not outlive the request; temp images leaked.
-- **Check:** `test/profile_edit_test.dart` "a current password stays off the wire and out of the draft" "profile image preparation validates metadata and cleans up once" "cancel releases selected images and leaves no stale path", `test/app_api_profile_edit_test.dart` "submit posts multipart user_name to v1/user/profile/edit"
+### PROF-03 Selected images are short-lived
+- **Rule:** Selected images are validated owned handles, cleaned exactly
+  once on replacement, cancel, dispose and every terminal result. Neither
+  channel asks for the current password, so the editor has no field for
+  it.
+- **Why:** Temp images leaked.
+- **Check:** `test/profile_edit_test.dart` "profile image preparation validates metadata and cleans up once" "cancel releases selected images and leaves no stale path"
 - **Code:** `lib/core/profile/profile_edit_controller.dart`, `lib/core/profile/profile_image.dart`
 
 ## Channels

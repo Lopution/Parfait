@@ -158,15 +158,22 @@ reviewed: 2026-10-30
   does a failed recovery (the next drain retries it). A network
   restore clears the cooldown and drains. Leaving an account parks it:
   the wake is cancelled and a running drain stops after its current row.
-  The pump follows the account with `ref.listen`: the app root only reads
+  A replay runs as its row's owner (`runAsAccount`): a request it starts
+  while another account is current fails as `ApiCancelled` before it is
+  sent, and the row returns to pending with no attempt and no cooldown. A
+  replay that ends after its owner left settles into no store. The pump
+  follows the account with `ref.listen`: the app root only reads
   it, and a provider nobody listens to is never rebuilt.
 - **Why:** A replay cut short by a kill stayed `running` and the intent
   was lost; in the foreground nothing drained after a cooldown, a backoff
   or a restore. A pump that watched the account returned before it had
   loaded and was never rebuilt: no startup drain, and a wake replayed the
   old account's rows under the next one. A recovery that hit a locked
-  database (SQLITE_BUSY, 10-22) left the rows until the next resume.
-- **Check:** `test/action_queue_test.dart` "the first drain replays interrupted rows; newer intents win" "cooldown, backoff and a fresh enqueue wake the queue" "a failed recovery wakes the queue itself one cooldown later" "retryNow skips the cooldown; a parked owner stays asleep" "recoverInterrupted and nextPendingAt through sqlite", `test/action_replay_test.dart` "a network restore replays the queue inside its cooldown" "a cold start drains once the account has loaded" "a switched-away account never replays under the next"
+  database (SQLITE_BUSY, 10-22) left the rows until the next resume. A
+  switch between a row's claim and its request sent the old account's
+  bookmark with the next one's token and settled it into the next one's
+  store.
+- **Check:** `test/action_queue_test.dart` "the first drain replays interrupted rows; newer intents win" "cooldown, backoff and a fresh enqueue wake the queue" "a failed recovery wakes the queue itself one cooldown later" "retryNow skips the cooldown; a parked owner stays asleep" "recoverInterrupted and nextPendingAt through sqlite", `test/action_replay_test.dart` "a network restore replays the queue inside its cooldown" "a cold start drains once the account has loaded" "a switched-away account never replays under the next" "a replay goes out as its owner, else waits for it"
 - **Code:** `lib/core/actionqueue`
 
 ### STORE-09 Remote snapshots never overwrite unsettled entries
