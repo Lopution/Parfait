@@ -14,6 +14,8 @@ import 'package:parfait/features/search/search_keyword_pills.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 
+import 'helpers/api_responses.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/search_world.dart';
 import 'helpers/test_preferences.dart';
@@ -22,7 +24,8 @@ import 'helpers/pixiv_router.dart';
 
 Future<GoRouter> _pumpInput(
   WidgetTester tester, {
-  FakeSearchRepository? repository,
+  SearchApi? search,
+  Map<String, ApiRoute> routes = const {},
   List<String> history = const [],
   String location = '/search/input',
 }) async {
@@ -33,11 +36,7 @@ Future<GoRouter> _pumpInput(
   await tester.pumpWidget(
     localizedRouterApp(
       router,
-      overrides: [
-        searchRepositoryProvider.overrideWithValue(
-          repository ?? FakeSearchRepository(),
-        ),
-      ],
+      container: await searchWorld(search ?? SearchApi(), routes: routes),
       builder: promptHostBuilder,
     ),
   );
@@ -331,16 +330,16 @@ void main() {
 
   testWidgets('suggestions complete the keyword at the caret', (tester) async {
     final asked = <String>[];
-    final repository = FakeSearchRepository(
-      autocompleteHandler: (keyword, _) async {
-        asked.add(keyword);
+    final search = SearchApi(
+      autocomplete: (word) async {
+        asked.add(word);
         return const [
           SearchSuggestion(keyword: '胡桃', translatedName: 'Hu Tao'),
           SearchSuggestion(keyword: '原神'),
         ];
       },
     );
-    final router = await _pumpInput(tester, repository: repository);
+    final router = await _pumpInput(tester, search: search);
     Future<void> type(String text) async {
       await tester.enterText(find.byType(TextField), text);
       await tester.pump(const Duration(milliseconds: 300));
@@ -406,13 +405,17 @@ void main() {
     tester,
   ) async {
     final asked = <String>[];
-    final repository = FakeSearchRepository(
-      autocompleteHandler: (keyword, _) async {
-        asked.add(keyword);
+    final search = SearchApi(
+      autocomplete: (word) async {
+        asked.add(word);
         return const [];
       },
     );
-    final router = await _pumpInput(tester, repository: repository);
+    final router = await _pumpInput(
+      tester,
+      search: search,
+      routes: UserApi().routes,
+    );
     await tester.enterText(
       find.byType(TextField),
       'https://www.pixiv.net/users/77',

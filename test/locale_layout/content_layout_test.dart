@@ -194,20 +194,15 @@ void main() {
           '猫',
         ],
       });
-      final repository = FakeSearchRepository(trendingTagCount: 6)
-        ..illustPage = SearchIllustPage(
-          illusts: [
-            for (var id = 1; id <= 6; id++) parseIllust(illustJson(id)),
-          ],
-          nextUrl: null,
-        );
+      final search = SearchApi(trendingTagCount: 6)
+        ..illusts = [for (var id = 1; id <= 6; id++) illustJson(id)];
       await _pumpChecked(
         tester,
         locale,
         profile,
         localeLayoutApp(
           locale: locale,
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          container: await searchWorld(search),
           home: page,
         ),
       );

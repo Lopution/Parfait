@@ -16,17 +16,16 @@ import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
-import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/search/search_autocomplete_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
-import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 
+import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/recording_haptics.dart';
@@ -61,18 +60,14 @@ void main() {
 
   Future<GoRouter> pumpSearchRouter(
     WidgetTester tester,
-    String location, [
-    FakeSearchRepository? repository,
-  ]) async {
+    String location, {
+    Map<String, ApiRoute> routes = const {},
+  }) async {
     final router = pixivRouter(location);
     await tester.pumpWidget(
       localizedRouterApp(
         router,
-        overrides: [
-          searchRepositoryProvider.overrideWithValue(
-            repository ?? FakeSearchRepository(),
-          ),
-        ],
+        container: await searchWorld(SearchApi(), routes: routes),
       ),
     );
     await tester.pump();
@@ -334,37 +329,33 @@ void main() {
   test(
     'search feed merges typed illust results into the shared store',
     () async {
-      final repository = FakeSearchRepository()
-        ..illustPage = SearchIllustPage(
-          illusts: [parseIllust(illustJson(42))],
-          nextUrl: null,
-        );
-      final container = ProviderContainer.test(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-      );
+      final api = SearchApi()..illusts = [illustJson(42)];
+      final container = await searchWorld(api);
 
       final query = const IllustSearchQuery(keyword: 'cat');
       final state = await container.read(searchFeedProvider(query).future);
       expect(state.ids, [42]);
       expect(container.read(illustStoreProvider).get(42), isNotNull);
-      expect(repository.requests, [query]);
+      expect(
+        [
+          for (final request in api.requests)
+            (request.url.path, request.url.queryParameters['word']),
+        ],
+        [('/v1/search/illust', 'cat')],
+      );
     },
   );
 
   test(
     'search feed applies client-side bookmark and AI-only predicates',
     () async {
-      final repository = FakeSearchRepository()
-        ..illustPage = SearchIllustPage(
-          illusts: [
-            parseIllust(illustJson(1, totalBookmarks: 50)),
-            parseIllust(illustJson(2, totalBookmarks: 500, aiType: 2)),
-            parseIllust(illustJson(3, totalBookmarks: 5000, aiType: 2)),
+      final container = await searchWorld(
+        SearchApi()
+          ..illusts = [
+            illustJson(1, totalBookmarks: 50),
+            illustJson(2, totalBookmarks: 500, aiType: 2),
+            illustJson(3, totalBookmarks: 5000, aiType: 2),
           ],
-          nextUrl: null,
-        );
-      final container = ProviderContainer.test(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
       );
 
       // bookmark_num_min is Premium-only on the wire — the client-side
@@ -406,31 +397,13 @@ void main() {
   );
 
   test('search feed applies the same predicates to novel results', () async {
-    NovelEntity novel(int id, {int totalBookmarks = 0, int novelAiType = 0}) =>
-        NovelEntity(
-          id: id,
-          title: 'novel $id',
-          caption: '',
-          user: const UserEntity(id: 8, name: 'author', account: 'author'),
-          tags: const [],
-          textLength: 1200,
-          contentVersion: 'v$id',
-          paragraphs: const [],
-          totalBookmarks: totalBookmarks,
-          novelAiType: novelAiType,
-        );
-
-    final repository = FakeSearchRepository()
-      ..novelPage = SearchNovelPage(
-        novels: [
-          novel(1, totalBookmarks: 50),
-          novel(2, totalBookmarks: 500, novelAiType: 2),
-          novel(3, totalBookmarks: 5000, novelAiType: 2),
+    final container = await searchWorld(
+      SearchApi()
+        ..novels = [
+          novelJson(1, totalBookmarks: 50),
+          novelJson(2, totalBookmarks: 500, novelAiType: 2),
+          novelJson(3, totalBookmarks: 5000, novelAiType: 2),
         ],
-        nextUrl: null,
-      );
-    final container = ProviderContainer.test(
-      overrides: [searchRepositoryProvider.overrideWithValue(repository)],
     );
 
     // The client-side predicates run against the incoming page entities —
@@ -461,21 +434,17 @@ void main() {
     () async {
       final oldResponse = Completer<List<SearchSuggestion>>();
       final newResponse = Completer<List<SearchSuggestion>>();
-      final repository = FakeSearchRepository(
-        autocompleteHandler: (keyword, _) =>
-            keyword == 'old' ? oldResponse.future : newResponse.future,
-      );
-      final container = ProviderContainer(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+      final container = await searchWorld(
+        SearchApi(
+          autocomplete: (word) =>
+              word == 'old' ? oldResponse.future : newResponse.future,
+        ),
       );
       final subscription = container.listen(
         searchAutocompleteProvider,
         (_, _) {},
       );
-      addTearDown(() {
-        subscription.close();
-        container.dispose();
-      });
+      addTearDown(subscription.close);
       final controller = container.read(searchAutocompleteProvider.notifier);
 
       controller.update('old');
@@ -502,11 +471,8 @@ void main() {
     'autocomplete disposal cancels pending work without publishing state',
     () async {
       final response = Completer<List<SearchSuggestion>>();
-      final repository = FakeSearchRepository(
-        autocompleteHandler: (_, _) => response.future,
-      );
-      final container = ProviderContainer(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+      final container = await searchWorld(
+        SearchApi(autocomplete: (_) => response.future),
       );
       final subscription = container.listen(
         searchAutocompleteProvider,
@@ -729,7 +695,15 @@ void main() {
         () => VisibilityDetectorController.instance.updateInterval = interval,
       );
       final haptics = recordHaptics();
-      final router = await pumpSearchRouter(tester, '/search');
+      final router = await pumpSearchRouter(
+        tester,
+        '/search',
+        routes: {
+          '/v1/illust/detail': answer({'illust': illustJson(901)}),
+          // Not in a series: pixiv answers 404.
+          '/v1/illust-series/illust': failing(404),
+        },
+      );
       await tester.tap(find.widgetWithText(Tab, tab));
       await tester.pumpAndSettle();
       // The tile is an image card: it takes the card press (MOTION-06).
@@ -753,10 +727,9 @@ void main() {
       tester,
     ) async {
       setViewSize(tester, const Size(360, 1600));
-      final repository = FakeSearchRepository(trendingTagCount: count);
       await tester.pumpWidget(
         localizedApp(
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          container: await searchWorld(SearchApi(trendingTagCount: count)),
           home: SearchHomePage(),
         ),
       );
@@ -775,25 +748,20 @@ void main() {
   testWidgets('switching the trending kind re-requests the novel endpoint', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
+    final api = SearchApi();
     await tester.pumpWidget(
-      localizedApp(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        home: SearchHomePage(),
-      ),
+      localizedApp(container: await searchWorld(api), home: SearchHomePage()),
     );
     await tester.pump();
     await tester.pump();
-    expect(repository.trendingTagsLastType, SearchResultType.illust);
-    expect(repository.trendingTagsCallCount, 1);
+    expect(api.trendingRequests, ['illust']);
 
     await tester.tap(find.widgetWithText(Tab, '小说'));
     await tester.pumpAndSettle();
     // Each tab keeps its own list; switching back does not re-request.
     await tester.tap(find.widgetWithText(Tab, '插画 & 漫画'));
     await tester.pumpAndSettle();
-    expect(repository.trendingTagsLastType, SearchResultType.novel);
-    expect(repository.trendingTagsCallCount, 2);
+    expect(api.trendingRequests, ['illust', 'novel']);
   });
 
   testWidgets('U2: tapping a trending tag still searches that tag', (
@@ -811,13 +779,13 @@ void main() {
   testWidgets('U2: re-entering search does not re-request trending tags', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
+    final api = SearchApi();
     final showSearch = ValueNotifier<bool>(true);
     addTearDown(showSearch.dispose);
 
     await tester.pumpWidget(
       localizedApp(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        container: await searchWorld(api),
         home: ValueListenableBuilder<bool>(
           valueListenable: showSearch,
           builder: (context, visible, _) => visible
@@ -828,10 +796,10 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(repository.trendingTagsCallCount, 1);
+    expect(api.trendingRequests, ['illust']);
     // The tab next to it loads its own tags on a still screen.
     await tester.pumpAndSettle();
-    final settled = repository.trendingTagsCallCount;
+    final settled = api.trendingRequests.length;
 
     // Fully unmount the page: with an autoDispose provider this removed the
     // last listener and the next visit re-requested the endpoint.
@@ -839,7 +807,7 @@ void main() {
     await tester.pumpAndSettle();
     showSearch.value = true;
     await tester.pumpAndSettle();
-    expect(repository.trendingTagsCallCount, settled);
+    expect(api.trendingRequests, hasLength(settled));
 
     expect(find.text('#风景').hitTestable(), findsOneWidget);
   });
@@ -913,19 +881,13 @@ void main() {
   testWidgets('re-tapping the search destination scrolls the guide to top', (
     tester,
   ) async {
-    final repository = FakeSearchRepository(trendingTagCount: 30);
+    final api = SearchApi(trendingTagCount: 30);
     final router = pixivRouter('/search');
     // Compact viewport: at ≥600px the shell swaps the bottom bar for a
     // rail and FuncShellBottomNav leaves the tree.
     setViewSize(tester, const Size(390, 844));
     await tester.pumpWidget(
-      localizedRouterApp(
-        router,
-        overrides: [
-          searchRepositoryProvider.overrideWithValue(repository),
-          ...await signedInAccountOverrides(),
-        ],
-      ),
+      localizedRouterApp(router, container: await searchWorld(api)),
     );
     await tester.pump();
     await tester.pump();
@@ -940,7 +902,7 @@ void main() {
 
     // Snapshot rather than a literal: the provider re-fires once when the
     // account id lands asynchronously — that is hydration, not the re-tap.
-    final callsBefore = repository.trendingTagsCallCount;
+    final callsBefore = api.trendingRequests.length;
     await tester.tap(
       find.descendant(
         of: find.byType(FuncShellBottomNav),
@@ -952,7 +914,7 @@ void main() {
 
     expect(controller.offset, 0);
     // Pure scroll — the re-tap itself causes no refresh or re-request.
-    expect(repository.trendingTagsCallCount, callsBefore);
+    expect(api.trendingRequests, hasLength(callsBefore));
   });
 
   testWidgets('the result title reopens the input prefilled with the query', (

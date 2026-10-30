@@ -78,7 +78,12 @@ IllustEntity parseIllust(Map<String, dynamic> json) =>
     IllustEntity.fromJson(jsonDecode(jsonEncode(json)) as Map<String, dynamic>);
 
 /// Canonical feed-list novel JSON.
-Map<String, dynamic> novelJson(int id, {String? title}) => {
+Map<String, dynamic> novelJson(
+  int id, {
+  String? title,
+  int totalBookmarks = 0,
+  int novelAiType = 0,
+}) => {
   'id': id,
   'title': title ?? 'novel $id',
   'caption': '',
@@ -95,6 +100,8 @@ Map<String, dynamic> novelJson(int id, {String? title}) => {
   },
   'is_bookmarked': false,
   'visible': true,
+  'total_bookmarks': totalBookmarks,
+  'novel_ai_type': novelAiType,
 };
 
 /// The novel ranking endpoint: two novels a page, a second page after the

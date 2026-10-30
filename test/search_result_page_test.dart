@@ -2,20 +2,18 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
-import 'package:parfait/core/search/search_models.dart';
-import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_field_button.dart';
 
+import 'helpers/api_responses.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/search_world.dart';
@@ -28,8 +26,7 @@ Future<GoRouter> _pumpRouter(
   WidgetTester tester, {
   required String initialLocation,
   Locale locale = const Locale('zh', 'CN'),
-  FakeSearchRepository? repository,
-  List<Override> overrides = const [],
+  Map<String, ApiRoute> routes = const {},
 }) async {
   final router = pixivRouter(initialLocation);
   // Wide surface: the whole chip row fits, so every chip is on screen.
@@ -37,12 +34,7 @@ Future<GoRouter> _pumpRouter(
   await tester.pumpWidget(
     localizedRouterApp(
       router,
-      overrides: [
-        searchRepositoryProvider.overrideWithValue(
-          repository ?? FakeSearchRepository(),
-        ),
-        ...overrides,
-      ],
+      container: await searchWorld(SearchApi(), routes: routes),
       locale: locale,
       builder: promptHostBuilder,
     ),
@@ -53,25 +45,21 @@ Future<GoRouter> _pumpRouter(
   return router;
 }
 
-/// One work a page under a fresh cursor: R-18 until [visible] is set, then
-/// a visible last page.
-class _FilteredSearch extends FakeSearchRepository {
+/// The illust search: one work a page under a fresh cursor, R-18 until
+/// [visible] is set, then a visible last page. [failure] answers instead
+/// when set.
+class _FilteredSearch {
   var visible = false;
-  Object? failure;
+  ApiRoute? failure;
+  var _pages = 0;
 
-  @override
-  Future<SearchIllustPage> searchIllust(
-    IllustSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(query);
-    if (failure case final error?) throw error;
-    final n = requests.length;
-    return SearchIllustPage(
-      illusts: [parseIllust(illustJson(n, xRestrict: visible ? 0 : 1))],
-      nextUrl: visible ? null : 'https://app-api.pixiv.net/v1/search?p=$n',
-    );
+  FutureOr<http.Response> call(http.Request request) {
+    final n = ++_pages;
+    if (failure case final fail?) return fail(request);
+    return jsonResponse({
+      'illusts': [illustJson(n, xRestrict: visible ? 0 : 1)],
+      'next_url': visible ? null : nextUrl(request, n),
+    });
   }
 }
 
@@ -210,18 +198,18 @@ void main() {
   testWidgets('loaded pages all filtered: a note offers loading more (B9)', (
     tester,
   ) async {
-    final repository = _FilteredSearch();
+    final search = _FilteredSearch();
     await seedFilterSettings(blockR18: true);
     await _pumpRouter(
       tester,
       initialLocation: '/search/results?q=cat&type=illust',
-      repository: repository,
+      routes: {'/v1/search/illust': search.call},
     );
     expect(find.text('已加载的作品都被屏蔽或筛选掉了'), findsOneWidget);
 
     // A failed load scrolls to its buttons and retries by itself once the
     // network is back.
-    repository.failure = const ApiNetworkError('offline');
+    search.failure = offline;
     await tester.tap(find.text('继续加载'));
     await tester.pumpAndSettle();
     final hidden = find.byType(FeedAllHidden);
@@ -229,8 +217,8 @@ void main() {
       find.descendant(of: hidden, matching: find.byType(Scrollable)),
       findsOneWidget,
     );
-    repository.failure = null;
-    repository.visible = true;
+    search.failure = null;
+    search.visible = true;
     ProviderScope.containerOf(
         tester.element(hidden),
       ).read(networkRestoreSignalProvider.notifier)
