@@ -3,7 +3,10 @@ prefix: HIST
 applies_to:
   - lib/core/history/**
   - lib/features/history/**
-reviewed: 2026-10-29
+  - lib/core/paging/feed_database.dart
+  - lib/core/watchlater/watch_later_database.dart
+  - lib/core/localnovel/local_novel_database.dart
+reviewed: 2026-10-30
 ---
 
 # Browsing history
@@ -28,6 +31,19 @@ reviewed: 2026-10-29
   or a death mid-way left it empty.
 - **Check:** `test/history_persistence_test.dart` "commits local row and merged outbox duration atomically"; `test/backup_test.dart` "a row overwrite cannot store leaves the old history whole" "rejects structurally malformed fields"
 - **Code:** `lib/core/history/history_database.dart`, `lib/core/history/history_repository.dart`
+
+### HIST-09 A database a newer build left is never opened as older
+- **Rule:** Every database owner sets `onDowngrade`. `feeds.db`, a cache,
+  is dropped and created afresh (`onDatabaseDowngradeDelete`), its queued
+  actions with it. `history.db`, `watchlater.db` and `local_novels.db`
+  refuse to open with a `StateError` naming the database and both
+  versions; their feature shows its load error. `close()` after a failed
+  open completes quietly.
+- **Why:** Without `onDowngrade` sqflite lowers the version and keeps the
+  newer tables, so the newer build, back again, re-ran a migration it had
+  run and the database stopped opening.
+- **Check:** `test/database_downgrade_test.dart` "a database a newer build left behind"
+- **Code:** `lib/core/history/history_database.dart`, `lib/core/paging/feed_database.dart`, `lib/core/watchlater/watch_later_database.dart`, `lib/core/localnovel/local_novel_database.dart`
 
 ### HIST-02 Store a compact snapshot, never payloads
 - **Rule:** A record holds typed content kind and id, UTC time, account,

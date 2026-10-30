@@ -75,6 +75,9 @@ class FeedDatabase {
         singleInstance: databasePath != sqflite.inMemoryDatabasePath,
         onCreate: (db, version) => _createSchema(db),
         onUpgrade: _upgrade,
+        // A cache: a newer build's schema is dropped and created afresh,
+        // queued actions with it (a downgrade is a deliberate install).
+        onDowngrade: sqflite.onDatabaseDowngradeDelete,
       ),
     );
   }
@@ -134,9 +137,6 @@ class FeedDatabase {
     if (oldVersion < 2) {
       await _createActionSchema(db);
     }
-    if (newVersion > schemaVersion) {
-      throw ArgumentError('unsupported feed schema version $newVersion');
-    }
   }
 
   Future<void> close() async {
@@ -144,7 +144,13 @@ class FeedDatabase {
     _closed = true;
     final future = _databaseFuture;
     if (future == null) return;
-    final db = await future;
+    final Database db;
+    try {
+      db = await future;
+    } on Object {
+      // The open failed (a newer schema): nothing to close.
+      return;
+    }
     if (db.isOpen) await db.close();
   }
 }
