@@ -7,6 +7,7 @@ import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart' show RecordingClient;
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/network/compat/auto_image_source.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_fast_route_store.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
@@ -16,6 +17,20 @@ import 'package:parfait/core/network/compat/route_kind_store.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/network/rhttp_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+/// In-memory preferences whose `setString` fails, as on a full disk.
+final class _StringWritesFail extends InMemorySharedPreferencesAsync {
+  _StringWritesFail() : super.empty();
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) => Future.error(StateError('disk full'));
+}
 
 class _HandshakeFailingClient extends http.BaseClient {
   @override
@@ -112,6 +127,22 @@ void main() {
       created.map((entry) => entry.route.kind),
       everyElement(NetworkRouteKind.bootstrapNoSni),
     );
+  });
+
+  test('a learned route that fails to save completes quietly', () async {
+    // Each is remembered unawaited after a request it served.
+    SharedPreferencesAsyncPlatform.instance = _StringWritesFail();
+    final preferences = SharedPreferencesAsync();
+
+    await PixivFastRouteStore(
+      preferences: preferences,
+    ).remember('i.pximg.net', InternetAddress('1.2.3.4'));
+    await RouteKindStore(
+      preferences: preferences,
+    ).remember('wifi:home', 'image', NetworkRouteKind.ech.name);
+    await AutoImageSource(
+      preferences: preferences,
+    ).remember('wifi:home', 'i.pixiv.re');
   });
 
   test('a warm-up the native transport fails completes quietly', () async {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' show log;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
@@ -79,23 +80,32 @@ class AutoImageSource {
   }
 
   /// Serialized writes — a race completes at the same moment other network
-  /// state is being persisted.
+  /// state is being persisted. Callers do not wait: a failed write is
+  /// logged.
   Future<void> remember(String networkIdentity, String host) {
-    final operation = _writeTail.then<void>((_) async {
+    return _writeTail = _writeTail.then<void>((_) async {
       final winners = await _readWinners();
       winners[networkIdentity] = host;
-      await _preferences.setString(storageKey, jsonEncode(winners));
+      try {
+        await _preferences.setString(storageKey, jsonEncode(winners));
+      } on Object catch (error) {
+        log('auto image source not remembered: $error');
+      }
     });
-    _writeTail = operation.then<void>((_) {}, onError: (_, _) {});
-    return operation;
   }
 
+  /// A damaged or unreadable blob reads as empty; the next winner rewrites
+  /// it.
   Future<Map<String, dynamic>> _readWinners() async {
-    final raw = await _preferences.getString(storageKey);
-    if (raw == null || raw.isEmpty) return <String, dynamic>{};
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map<String, dynamic>) return <String, dynamic>{};
-    return decoded;
+    try {
+      final raw = await _preferences.getString(storageKey);
+      if (raw == null || raw.isEmpty) return <String, dynamic>{};
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return <String, dynamic>{};
+      return decoded;
+    } on Object {
+      return <String, dynamic>{};
+    }
   }
 
   /// Races a bounded image GET to every candidate through the image ladder

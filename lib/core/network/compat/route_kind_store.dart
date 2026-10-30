@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' show log;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,9 +39,10 @@ class RouteKindStore implements RouteKindMemory {
 
   /// Serialized writes — several tiers can succeed concurrently during
   /// startup, and each success may flip a different group's preference.
+  /// Callers do not wait: a failed write is logged.
   @override
   Future<void> remember(String networkIdentity, String group, String kind) {
-    final operation = _writeTail.then<void>((_) async {
+    return _writeTail = _writeTail.then<void>((_) async {
       final all = await _load();
       final perIdentity = all.putIfAbsent(
         networkIdentity,
@@ -51,10 +53,12 @@ class RouteKindStore implements RouteKindMemory {
       while (all.length > _maxIdentities) {
         all.remove(all.keys.first);
       }
-      await _preferences.setString(storageKey, jsonEncode(all));
+      try {
+        await _preferences.setString(storageKey, jsonEncode(all));
+      } on Object catch (error) {
+        log('route kind not remembered: $error');
+      }
     });
-    _writeTail = operation.then<void>((_) {}, onError: (_, _) {});
-    return operation;
   }
 
   Future<Map<String, Map<String, String>>> _load() {

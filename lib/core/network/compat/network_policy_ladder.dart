@@ -634,7 +634,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       );
       // Persist the hint so the next cold start on this network seeds the
       // group preference instead of paying the discovery walk. Writes are
-      // serialized inside the store; a failure is swallowed there.
+      // serialized inside the store; a failure is logged there.
       unawaited(
         routeKindStore?.remember(
           _revision.networkIdentity,
