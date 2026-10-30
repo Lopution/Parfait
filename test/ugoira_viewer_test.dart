@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,10 +8,15 @@ import 'helpers/image_network.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/ugoira/ugoira_providers.dart';
 import 'package:parfait/core/ugoira/ugoira_repository.dart';
-import 'package:parfait/core/ugoira/ugoira_zip.dart';
+import 'package:parfait/core/ugoira/ugoira_limits.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'helpers/api_responses.dart';
+import 'helpers/connectivity_channels.dart';
+import 'helpers/download_world.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 void main() {
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
@@ -115,14 +122,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  Future<void> pumpFailingViewer(WidgetTester tester, Object failure) async {
+  /// The viewer over the app's ugoira pipeline, whose ZIP download says
+  /// it is larger than an archive may be.
+  Future<void> pumpFailingViewer(WidgetTester tester) async {
+    answerConnectivityChannels();
+    final temporary = Directory.systemTemp.createTempSync('ugoira-viewer-');
+    addTearDown(() => temporary.deleteSync(recursive: true));
+    final zip = FakeTransport()
+      ..responses.add(
+        ScriptedResponse(
+          contentLength: const UgoiraLimits().maxArchiveCompressedBytes + 1,
+        ),
+      );
+    final container = await signedInApiContainer(
+      PixivApi({
+        '/v1/ugoira/metadata': answer({
+          'ugoira_metadata': {
+            'frames': [
+              {'file': '0.jpg', 'delay': 100},
+            ],
+            'zip_urls': {'medium': 'https://i.pximg.net/42/ugoira.zip'},
+          },
+        }),
+      }).client,
+      overrides: [
+        // The platform's temporary directory, here one of the test's own.
+        ugoiraRepositoryProvider.overrideWith(
+          (ref) => UgoiraRepository(
+            client: ref.watch(pixivHttpClientProvider),
+            transport: zip,
+            temporaryDirectory: () async => temporary,
+          ),
+        ),
+      ],
+    );
     await tester.pumpWidget(
       localizedApp(
-        overrides: [
-          ugoiraRepositoryProvider.overrideWithValue(
-            _FailingUgoiraRepository(failure),
-          ),
-        ],
+        container: container,
         body: UgoiraViewer(
           illustId: 42,
           previewUrl: 'https://i.pximg.net/42/large.jpg',
@@ -133,46 +169,27 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byType(UgoiraViewer));
-    await tester.pump();
-    await tester.pump();
+    // The load creates and removes its file on real IO.
+    await pumpIoUntil(tester, () => find.text('详情').tryEvaluate());
   }
 
   testWidgets('a specific failure headline keeps its diagnostic in details', (
     tester,
   ) async {
-    await pumpFailingViewer(
-      tester,
-      const UgoiraArchiveException('JPEG marker is malformed'),
-    );
+    await pumpFailingViewer(tester);
 
     // The headline names the problem, so no generic category line rides
     // under it, and the raw reason is not interpolated into the copy.
     expect(find.text('动图压缩包无效'), findsOneWidget);
     expect(find.text('未知错误'), findsNothing);
-    expect(find.textContaining('JPEG marker'), findsNothing);
+    expect(find.textContaining('compressed limit'), findsNothing);
 
     await tester.tap(find.text('详情'));
     await tester.pump();
     expect(
-      find.text('UgoiraArchiveException: JPEG marker is malformed'),
+      find.text('UgoiraArchiveException: archive exceeds compressed limit'),
       findsOneWidget,
     );
     await tester.pump(const Duration(milliseconds: 500));
   });
-}
-
-/// Repository boundary stand-in: the network/ZIP pipeline is replaced, the
-/// viewer's own failure presentation runs for real.
-class _FailingUgoiraRepository implements UgoiraRepository {
-  _FailingUgoiraRepository(this.failure);
-
-  final Object failure;
-
-  @override
-  Future<UgoiraAsset> load(int illustId, {CancelToken? cancelToken}) async {
-    throw failure;
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
