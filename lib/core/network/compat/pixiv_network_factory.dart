@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:developer' show log;
 
 import 'package:http/http.dart' as http;
 
+import '../../log.dart';
 import 'network_contracts.dart';
 import 'network_policy.dart';
 

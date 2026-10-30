@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' show log;
 import 'dart:io';
 
+import '../../log.dart';
 import '../pixiv_client_identity.dart';
 import '../../settings/preference_keys.dart';
 

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' show log;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../log.dart';
 import '../../settings/image_mirror.dart';
 import '../../settings/preference_keys.dart';
 import '../pixiv_headers.dart';

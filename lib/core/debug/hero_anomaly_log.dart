@@ -1,8 +1,7 @@
-import 'dart:developer' show log;
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../log.dart';
 import '../settings/preference_keys.dart';
 import '../settings/shared_preferences.dart';
 

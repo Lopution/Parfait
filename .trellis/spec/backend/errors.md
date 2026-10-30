@@ -73,8 +73,8 @@ reviewed: 2026-10-29
 
 ### ERR-06 Logs carry metadata, never secrets
 - **Rule:** Diagnostics go through `log()` from `lib/core/log.dart` (a
-  no-op in release) with an owner prefix; no new logger and no direct
-  `print`/`debugPrint`. Never log tokens, cookies, secure-storage payloads,
+  no-op in release) with an owner prefix; no new logger, no direct
+  `print`/`debugPrint` and no `log` from `dart:developer`. Never log tokens, cookies, secure-storage payloads,
   translation credentials, request or response bodies, transfer envelopes
   or URLs carrying credentials; log host, status, error type and outcome.
 - **Why:** Debug output is pasted into bug reports.

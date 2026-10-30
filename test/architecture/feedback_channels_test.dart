@@ -268,6 +268,18 @@ void main() {
           'ERR-06 print/debugPrint outside $_logOwner — call log() from '
           'lib/core/log.dart',
     );
+    // dart:developer's log also runs in release builds.
+    final developer = _matches(
+      ['lib'],
+      RegExp(
+        r"import 'dart:developer'[^;]*\bshow\b[^;]*\blog\b|developer\.log\(",
+      ),
+    ).keys;
+    expect(
+      developer,
+      isEmpty,
+      reason: 'ERR-06 dart:developer log — call log() from lib/core/log.dart',
+    );
   });
 
   test('app modal overlays funnel through app_overlays.dart', () {
