@@ -310,10 +310,14 @@ void main() {
     await accounts.switchAccount('200');
     world.container.read(novelStoreProvider);
     reads.complete();
-    await pumpEventQueue();
+    // Both reads go through the database isolate, A's first, and B's load
+    // fetches after its read: once B's state is in, A's read has landed. A
+    // fixed number of event-queue turns could end before the isolate
+    // answered.
+    final state = await world.container.read(provider.future);
 
     expect(world.container.read(novelStoreProvider)[10], isNull);
-    expect(world.container.read(provider).value!.ids, [1, 2]);
+    expect(state.ids, [1, 2]);
     expect(world.fixture.requests, hasLength(1), reason: 'B\'s load only');
   });
 
