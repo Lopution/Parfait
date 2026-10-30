@@ -14,7 +14,9 @@ import '../../core/entity/comment_entity.dart';
 import '../../core/network/api_date.dart';
 import '../../core/entity/illust_entity.dart';
 import '../image_tier_cache.dart';
+import '../widgets/feed/feed_states.dart';
 import '../../core/entity/illust_store.dart';
+import '../../core/illust/illust_detail_controller.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
@@ -140,10 +142,18 @@ class _ImageViewerRoute extends ConsumerWidget {
     // Prefer the store entity over the tap-time snapshot: when the detail
     // payload lands mid-session it carries original-tier URLs the snapshot
     // lacked, and recomputing urls lets PixivImage's gapless URL swap
-    // upgrade to the real tier instead of staying on large forever.
+    // upgrade to the real tier instead of staying on large forever. The
+    // store does not notify: the detail the page below loads does.
+    final detail = ref.watch(illustDetailControllerProvider(illustId));
     final entity =
         ref.watch(illustStoreProvider).get(illustId) ?? extra?.entity;
     final urls = entity?.viewerUrls(quality) ?? extra?.urls ?? const <String>[];
+    if (urls.isEmpty && detail.isLoading) {
+      // A restored viewer has no snapshot and no extra: the stage waits for
+      // the detail, so the viewer opens on its own page once the pages are
+      // known.
+      return const ColoredBox(color: Colors.black, child: FeedLoading());
+    }
     return ImageViewerPage(
       entity: entity,
       urls: urls,
