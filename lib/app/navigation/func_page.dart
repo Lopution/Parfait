@@ -240,8 +240,13 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       transition: (child) => IgnorePointer(
         // Leaving, nothing of the page takes a touch, so the page below
         // answers at once: while the image flies home, and where the
-        // sliding page still is.
-        ignoring: animation.status == AnimationStatus.reverse,
+        // sliding page still is. Opening, a shared-element page takes
+        // none until its content has shown: a second tap on the card
+        // opened the viewer from content still faded out. The route's
+        // barrier takes that tap, so the card below gets none either.
+        ignoring:
+            animation.status == AnimationStatus.reverse ||
+            shared && _contentFade.value < 1,
         // The transition widget, not CupertinoPageTransitionsBuilder: the
         // builder adds an iOS edge-swipe back detector that would take
         // horizontal drags from in-page pagers.
