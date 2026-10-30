@@ -273,12 +273,14 @@ void main() {
     expect(container.read(followStoreProvider)[7]?.followed, isTrue);
 
     // A refresh takes the button away under the open sheet: the pick
-    // still goes out.
+    // still goes out, and its failure still says why.
     await openSheet();
     shown.value = false;
     await tester.pump();
+    follows.failure = failing(400);
     await tester.tap(action('改为私密关注'));
     await tester.pumpAndSettle();
     expect(follows.requests.last, 'add:7:private');
+    expect(find.textContaining('关注操作失败'), findsOneWidget);
   });
 }

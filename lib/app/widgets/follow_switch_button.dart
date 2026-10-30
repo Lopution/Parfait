@@ -23,26 +23,37 @@ import 'undo_snack_bar.dart';
 /// Toggles the follow of [userId]. The button flips on this frame
 /// (optimistic), so the haptic plays now too, as the bookmark's does:
 /// follow → success, unfollow → select. A failure rolls it back with an
-/// error haptic and the button reports the cause. A confirmed unfollow
-/// offers Undo, which follows again with the old visibility.
+/// error haptic and says why, also once the button is gone. A confirmed
+/// unfollow offers Undo, which follows again with the old visibility.
 Future<void> toggleFollowWithUndo(BuildContext context, int userId) async {
   // Read up front: the toggle may outlive the widget that started it.
   final container = ProviderScope.containerOf(context, listen: false);
+  final reportFailure = deferErrorSnackBar(
+    context,
+    action: context.l10n.followFailed,
+  );
   final store = container.read(followStoreProvider.notifier);
   final wish = !(store.entryOf(userId)?.shown ?? false);
   wish ? AppHaptics.success() : AppHaptics.select();
   final removed = await container.read(followActionsProvider).toggle(userId);
-  if (store.entryOf(userId)?.error != null) {
+  if (store.entryOf(userId)?.error case final error?) {
     AppHaptics.error();
+    reportFailure(error);
     return;
   }
   if (removed != null && context.mounted) {
     showUndoSnackBar(
       context,
       context.l10n.followRemoved,
-      onUndo: (container) => container
-          .read(followActionsProvider)
-          .addWithRestrict(removed.userId, removed.restrict),
+      onUndo: (container) async {
+        await container
+            .read(followActionsProvider)
+            .addWithRestrict(removed.userId, removed.restrict);
+        // The store took the failure; the Undo prompt reports what throws.
+        if (store.entryOf(removed.userId)?.error case final error?) {
+          throw error;
+        }
+      },
     );
   }
 }
@@ -110,19 +121,6 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
     final colors = Theme.of(context).colorScheme;
     final tokens = FuncSemanticTokens.of(context);
     final semanticLabel = _text(context, followed ? 'followed' : 'follow');
-    ref.listen<Object?>(
-      followStoreProvider.select((state) => state[userId]?.error),
-      (previous, next) {
-        if (next != null && previous != next) {
-          showErrorSnackBar(
-            context,
-            action: _text(context, 'followFailed'),
-            error: next,
-          );
-        }
-      },
-    );
-
     // Minimum size, not fixed: a long translation (e.g. ru at a large text
     // scale) widens the button instead of truncating the label. Slots that
     // still cannot fit the grown button bound it (e.g. a ListTile trailing
@@ -234,6 +232,10 @@ Future<void> showFollowActionsSheet(
         await toggleFollowWithUndo(host, userId);
       }
     case _FollowSheetAction.followPublic || _FollowSheetAction.followPrivate:
+      final reportFailure = deferErrorSnackBar(
+        host,
+        action: host.l10n.followFailed,
+      );
       AppHaptics.select();
       await container
           .read(followActionsProvider)
@@ -243,7 +245,10 @@ Future<void> showFollowActionsSheet(
                 ? FollowRestrict.private
                 : FollowRestrict.public,
           );
-      if (store.entryOf(userId)?.error != null) AppHaptics.error();
+      if (store.entryOf(userId)?.error case final error?) {
+        AppHaptics.error();
+        reportFailure(error);
+      }
   }
 }
 

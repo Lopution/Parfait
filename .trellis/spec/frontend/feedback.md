@@ -128,10 +128,15 @@ reviewed: 2026-10-17
   through `toggleFollowWithUndo`, never through the action providers
   directly. Both play their haptic on the tap, as the state flips:
   adding plays `success`, removing `select`, a failure adds `error`.
+  The failure's prompt comes from whoever sent the request (the entries,
+  the sheets, Undo), read before it (FB-15); the buttons do not listen
+  for the entry's error.
 - **Why:** Those entries own the undo snapshot, the haptic and the error
   prompt; direct calls skipped them. A follow played `select` while a
-  bookmark played `success` for the same kind of moment.
-- **Check:** `test/follow_switch_button_test.dart` "a follow pops the button with success"
+  bookmark played `success` for the same kind of moment. The buttons'
+  error listeners said nothing once a scroll or a refresh had taken the
+  button, and the bookmark sheet's failure showed twice (10-31).
+- **Check:** `test/follow_switch_button_test.dart` "a follow pops the button with success" "the sheet offers direct actions for each follow state", `test/bookmark_switch_button_test.dart` "a failed add says why, also once its heart is gone" "failed confirm keeps the sheet open and preserves the draft"
 - **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/follow_switch_button.dart`
 
 ## Haptics

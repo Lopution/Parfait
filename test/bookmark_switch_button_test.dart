@@ -125,6 +125,7 @@ void main() {
       HapticRole.success,
       HapticRole.error,
     ]);
+    expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
   });
 
   testWidgets('an unconfirmed add already shows the filled heart', (
@@ -158,19 +159,26 @@ void main() {
     expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
   });
 
-  testWidgets('a failed add rolls the heart back and says why', (tester) async {
-    final (_, repository) = await _pump(tester);
+  testWidgets('a failed add says why, also once its heart is gone', (
+    tester,
+  ) async {
+    final (container, repository) = await _pump(tester);
     final gate = repository.addGate = Completer<void>();
     repository.addFailure = failing(400);
 
     await tester.tap(find.byType(BookmarkSwitchButton));
     await tester.pump();
-    expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
-
+    // A refresh or a scroll takes the card before the answer.
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        builder: promptHostBuilder,
+        body: const SizedBox(),
+      ),
+    );
     gate.complete();
     await tester.pump();
     await tester.pump();
-    expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
     expect(find.textContaining('收藏操作失败'), findsOneWidget);
     await tester.pumpAndSettle();
   });
@@ -468,7 +476,7 @@ void main() {
     // Sheet stays open, the inline error is visible, and the draft is
     // untouched.
     expect(find.text('收藏插画'), findsOneWidget);
-    expect(find.textContaining('收藏操作失败'), findsWidgets);
+    expect(find.textContaining('收藏操作失败'), findsOneWidget);
     expect(repository.adds, hasLength(1));
     expect(_privateSwitch(tester).value, isTrue);
     expect(find.text('新タグ'), findsOneWidget);
