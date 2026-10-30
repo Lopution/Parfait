@@ -4,6 +4,7 @@ import 'package:parfait/core/updater/update_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'helpers/test_preferences.dart';
 import 'helpers/updater_fakes.dart';
 
 void main() {
@@ -61,6 +62,24 @@ void main() {
 
     expect(result, isNull);
     expect(transport.fetches, 0);
+  });
+
+  test('a check that fails before its request stays silent', () async {
+    // A full disk fails the throttle stamp.
+    SharedPreferencesAsyncPlatform.instance = IntWriteFailingPreferences();
+    final stampFails = UpdateAutoCheck(
+      preferences: SharedPreferencesAsync(),
+      service: () async => throw StateError('unreachable'),
+    );
+    expect(await stampFails.checkOnce(), isNull);
+
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    final lookupFails = UpdateAutoCheck(
+      preferences: SharedPreferencesAsync(),
+      service: () async => throw StateError('no service'),
+    );
+    expect(await lookupFails.checkOnce(), isNull);
   });
 }
 
