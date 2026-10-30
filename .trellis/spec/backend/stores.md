@@ -159,8 +159,9 @@ reviewed: 2026-10-30
   restore clears the cooldown and drains. Leaving an account parks it:
   the wake is cancelled and a running drain stops after its current row.
   A replay runs as its row's owner (`runAsAccount`): a request it starts
-  while another account is current fails as `ApiCancelled` before it is
-  sent, and the row returns to pending with no attempt and no cooldown. A
+  while its owner is not the usable current account fails as
+  `ApiCancelled` before any token is read, and the row returns to pending
+  with no attempt and no cooldown. A
   replay that ends after its owner left settles into no store. The pump
   follows the account with `ref.listen`: the app root only reads
   it, and a provider nobody listens to is never rebuilt.
