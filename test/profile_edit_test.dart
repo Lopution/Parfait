@@ -215,18 +215,6 @@ void main() {
     expect(committed, 0);
   });
 
-  test('a current password stays off the wire and out of the draft', () async {
-    final api = _ProfileApi();
-    final controller = await _loaded(_session(await _repository(api)));
-
-    controller.updateText(ProfileField.displayName, 'saved');
-    await controller.submit(currentPassword: 'do-not-log-me');
-
-    expect(controller.state.status, ProfileEditStatus.confirmed);
-    expect(api.edits.single.values, isNot(contains('do-not-log-me')));
-    expect(controller.state.draft.toString(), isNot(contains('do-not-log-me')));
-  });
-
   test(
     'unsupported dirty fields stay visible and never reach the repository',
     () async {

@@ -157,8 +157,6 @@ class PixivAppApiProfileEditRepository implements ProfileEditRepository {
         'Profile update failed: $error',
         retryable: true,
       );
-    } finally {
-      request.clearSecret();
     }
   }
 

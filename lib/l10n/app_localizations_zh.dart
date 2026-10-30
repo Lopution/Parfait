@@ -588,9 +588,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditUnavailable => '当前没有可用的应用内资料编辑通道。';
 
   @override
-  String get profileEditPending => '资料已提交，等待验证后才会生效。';
-
-  @override
   String get profileEditConfirmed => '资料已确认并同步。';
 
   @override
@@ -607,9 +604,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get profileEditBackground => '背景图';
-
-  @override
-  String get profileEditCurrentPassword => '当前密码';
 
   @override
   String get profileEditFieldUnsupported => '当前通道不支持此字段';

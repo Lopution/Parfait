@@ -18,7 +18,6 @@ enum ProfileEditStatus {
   ready,
   submitting,
   confirmed,
-  verificationPending,
   canceled,
   failure,
 }
@@ -46,25 +45,19 @@ class ProfileEditState {
     required this.status,
     this.draft,
     this.fieldErrors = const {},
-    this.currentPasswordError,
     this.failure,
-    this.verificationMessage,
   });
 
   const ProfileEditState.loading()
     : status = ProfileEditStatus.loading,
       draft = null,
       fieldErrors = const {},
-      currentPasswordError = null,
-      failure = null,
-      verificationMessage = null;
+      failure = null;
 
   final ProfileEditStatus status;
   final ProfileDraft? draft;
   final Map<ProfileField, String> fieldErrors;
-  final String? currentPasswordError;
   final ProfileEditFailure? failure;
-  final String? verificationMessage;
 
   bool get hasUnsavedChanges => draft?.hasChanges ?? false;
 }
@@ -269,7 +262,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     }
   }
 
-  Future<void> submit({String? currentPassword}) async {
+  Future<void> submit() async {
     final draft = state.draft;
     if (_closed ||
         draft == null ||
@@ -294,15 +287,13 @@ class ProfileEditController extends Notifier<ProfileEditState> {
       return;
     }
 
-    final validation = _validateDraft(draft, currentPassword);
-    if (validation.fieldErrors.isNotEmpty ||
-        validation.currentPasswordError != null) {
+    final fieldErrors = _validateDraft(draft);
+    if (fieldErrors.isNotEmpty) {
       _setState(
         ProfileEditState(
           status: ProfileEditStatus.ready,
           draft: draft,
-          fieldErrors: validation.fieldErrors,
-          currentPasswordError: validation.currentPasswordError,
+          fieldErrors: fieldErrors,
         ),
       );
       return;
@@ -321,10 +312,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     _cancelToken?.cancel();
     final cancelToken = CancelToken();
     _cancelToken = cancelToken;
-    final request = ProfileSubmitRequest(
-      patch: draft.buildPatch(),
-      currentPassword: validation.password,
-    );
+    final request = ProfileSubmitRequest(patch: draft.buildPatch());
     _setState(
       ProfileEditState(status: ProfileEditStatus.submitting, draft: draft),
     );
@@ -358,34 +346,18 @@ class ProfileEditController extends Notifier<ProfileEditState> {
         );
       }
     } finally {
-      request.clearSecret();
       if (identical(_cancelToken, cancelToken)) _cancelToken = null;
     }
   }
 
-  ({
-    Map<ProfileField, String> fieldErrors,
-    String? currentPasswordError,
-    String? password,
-  })
-  _validateDraft(ProfileDraft draft, String? currentPassword) {
+  Map<ProfileField, String> _validateDraft(ProfileDraft draft) {
     final errors = ProfileTextValidator.validate(draft.values);
     for (final field in draft.dirtyFields) {
       if (!draft.capabilities.supports(field)) {
         errors[field] = 'this profile field is not supported';
       }
     }
-    final password = currentPassword?.trim();
-    final passwordError =
-        draft.capabilities.requiresCurrentPassword &&
-            (password == null || password.isEmpty)
-        ? 'current password is required'
-        : null;
-    return (
-      fieldErrors: errors,
-      currentPasswordError: passwordError,
-      password: password,
-    );
+    return errors;
   }
 
   Future<void> _applySubmitOutcome(
@@ -423,15 +395,6 @@ class ProfileEditController extends Notifier<ProfileEditState> {
           ProfileEditState(
             status: ProfileEditStatus.confirmed,
             draft: confirmedDraft,
-          ),
-        );
-      case ProfileEditVerificationPending(:final message):
-        await _releaseImagesAndClear(draft);
-        _setState(
-          ProfileEditState(
-            status: ProfileEditStatus.verificationPending,
-            draft: draft.copyWith(avatar: null, background: null),
-            verificationMessage: message,
           ),
         );
       case ProfileEditFieldErrors(:final errors):
@@ -564,9 +527,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
       status: state.status,
       draft: draft.copyWith(avatar: null, background: null),
       fieldErrors: state.fieldErrors,
-      currentPasswordError: state.currentPasswordError,
       failure: state.failure,
-      verificationMessage: state.verificationMessage,
     );
   }
 

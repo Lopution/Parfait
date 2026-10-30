@@ -603,9 +603,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileEditUnavailable => 'アプリ内プロフィール編集経路はありません。';
 
   @override
-  String get profileEditPending => '変更を送信しました。確認後に反映されます。';
-
-  @override
   String get profileEditConfirmed => 'プロフィールを確認して同期しました。';
 
   @override
@@ -622,9 +619,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get profileEditBackground => '背景画像';
-
-  @override
-  String get profileEditCurrentPassword => '現在のパスワード';
 
   @override
   String get profileEditFieldUnsupported => '現在の経路ではこの項目に対応していません';

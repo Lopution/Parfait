@@ -28,8 +28,6 @@ extension ProfileFieldContract on ProfileField {
 
 enum ProfileEditChannel { appApi, web, unavailable }
 
-enum ProfileVerificationRequirement { none, emailConfirmation, unknown }
-
 /// Server capability information is kept separate from the draft so the UI
 /// can show an unsupported field instead of silently dropping it.
 @immutable
@@ -37,8 +35,6 @@ class ProfileCapabilities {
   ProfileCapabilities({
     required Iterable<ProfileField> editableFields,
     required this.channel,
-    this.requiresCurrentPassword = false,
-    this.verification = ProfileVerificationRequirement.none,
     this.reason,
   }) : editableFields = Set.unmodifiable(editableFields);
 
@@ -52,8 +48,6 @@ class ProfileCapabilities {
 
   final Set<ProfileField> editableFields;
   final ProfileEditChannel channel;
-  final bool requiresCurrentPassword;
-  final ProfileVerificationRequirement verification;
   final String? reason;
 
   bool supports(ProfileField field) => editableFields.contains(field);
@@ -303,31 +297,14 @@ class ProfilePatch {
       'fields:${fields.map((field) => field.name).toList()})';
 }
 
-/// A submit request owns the password only until the repository future
-/// finishes. It cannot be serialized and its diagnostic representation is
-/// always redacted.
+/// What a save sends to the repository.
 class ProfileSubmitRequest {
-  ProfileSubmitRequest({required this.patch, String? currentPassword})
-    : _secret = _EphemeralSecret(currentPassword);
+  ProfileSubmitRequest({required this.patch});
 
   final ProfilePatch patch;
-  final _EphemeralSecret _secret;
-
-  String? get currentPassword => _secret.value;
-
-  void clearSecret() => _secret.clear();
 
   @override
-  String toString() =>
-      'ProfileSubmitRequest(patch:$patch, currentPassword:[redacted])';
-}
-
-class _EphemeralSecret {
-  _EphemeralSecret(this.value);
-
-  String? value;
-
-  void clear() => value = null;
+  String toString() => 'ProfileSubmitRequest(patch:$patch)';
 }
 
 sealed class ProfileEditOutcome {
@@ -338,13 +315,6 @@ class ProfileEditConfirmed extends ProfileEditOutcome {
   const ProfileEditConfirmed(this.user);
 
   final UserEntity user;
-}
-
-class ProfileEditVerificationPending extends ProfileEditOutcome {
-  const ProfileEditVerificationPending({required this.fields, this.message});
-
-  final Set<ProfileField> fields;
-  final String? message;
 }
 
 class ProfileEditFieldErrors extends ProfileEditOutcome {

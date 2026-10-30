@@ -1212,12 +1212,6 @@ abstract class AppLocalizations {
   /// **'当前没有可用的应用内资料编辑通道。'**
   String get profileEditUnavailable;
 
-  /// No description provided for @profileEditPending.
-  ///
-  /// In zh, this message translates to:
-  /// **'资料已提交，等待验证后才会生效。'**
-  String get profileEditPending;
-
   /// No description provided for @profileEditConfirmed.
   ///
   /// In zh, this message translates to:
@@ -1253,12 +1247,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'背景图'**
   String get profileEditBackground;
-
-  /// No description provided for @profileEditCurrentPassword.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前密码'**
-  String get profileEditCurrentPassword;
 
   /// No description provided for @profileEditFieldUnsupported.
   ///

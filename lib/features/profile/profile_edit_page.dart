@@ -318,7 +318,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
   late final TextEditingController _displayName;
   late final TextEditingController _comment;
   late final TextEditingController _webpage;
-  late final TextEditingController _password;
   bool _textInitialized = false;
 
   ProfileEditController get _controller =>
@@ -330,7 +329,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
     _displayName = TextEditingController();
     _comment = TextEditingController();
     _webpage = TextEditingController();
-    _password = TextEditingController();
     ref.listenManual(
       profileEditControllerProvider(
         widget.session,
@@ -345,7 +343,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
     _displayName.dispose();
     _comment.dispose();
     _webpage.dispose();
-    _password.dispose();
     super.dispose();
   }
 
@@ -381,12 +378,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
     }
   }
 
-  Future<void> _submit() async {
-    await _controller.submit(
-      currentPassword: _password.text.isEmpty ? null : _password.text,
-    );
-    _password.clear();
-  }
+  Future<void> _submit() => _controller.submit();
 
   @override
   Widget build(BuildContext context) {
@@ -423,16 +415,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
               ),
               null => null,
             },
-          ),
-          Reveal(
-            child: state.status == ProfileEditStatus.verificationPending
-                ? _Notice(
-                    icon: Icons.mark_email_unread_outlined,
-                    text:
-                        state.verificationMessage ??
-                        context.l10n.profileEditPending,
-                  )
-                : null,
           ),
           Reveal(
             child: state.status == ProfileEditStatus.confirmed
@@ -516,18 +498,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             unsupported: !capabilities.supports(ProfileField.background),
             onPick: () => _pickImage(ProfileField.background),
           ),
-          if (capabilities.requiresCurrentPassword) ...[
-            const SizedBox(height: FuncSpacing.sm),
-            TextField(
-              controller: _password,
-              enabled: editingEnabled,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: context.l10n.profileEditCurrentPassword,
-                errorText: state.currentPasswordError,
-              ),
-            ),
-          ],
         ],
       ),
     );

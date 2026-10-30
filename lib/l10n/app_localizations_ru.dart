@@ -614,10 +614,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Нет доступного канала редактирования в приложении.';
 
   @override
-  String get profileEditPending =>
-      'Изменения отправлены и ожидают подтверждения.';
-
-  @override
   String get profileEditConfirmed => 'Профиль подтверждён и синхронизирован.';
 
   @override
@@ -634,9 +630,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileEditBackground => 'Фоновое изображение';
-
-  @override
-  String get profileEditCurrentPassword => 'Текущий пароль';
 
   @override
   String get profileEditFieldUnsupported =>

@@ -215,7 +215,6 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
       );
     } finally {
       ownedClient?.close();
-      request.clearSecret();
     }
   }
 
