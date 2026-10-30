@@ -243,15 +243,19 @@ reviewed: 2026-10-30
   `SystemChrome.latestStyle` only after a `pump`. Record haptics with
   `recordHaptics()`, not a platform-channel mock. Wrap motion subjects in
   `MotionScope(reduce:, speed:)`. Every case starts with empty in-memory
-  preferences from `test/flutter_test_config.dart`; a case that needs
-  stored values installs them with `installMemoryPreferences(data)`, and
-  no file adds its own empty reset.
+  preferences from its directory's `flutter_test_config.dart`; no file
+  adds its own empty reset. Accounts and settings go through the app's
+  repositories (`seedAccounts`, `seedSettings`, `stored…()`), other values
+  through `installMemoryPreferences(data)`; a slow or full disk is
+  `GatedPreferences`.
 - **Why:** Each trap made a correct implementation look broken: finders
   matched nothing, fixtures threw on construction, styles were read before
   the frame applied them. The missing preferences plugin was worked around
   by 146 copies of one reset in `setUp` blocks and world builders.
+  Repository fakes held states no store can hold (a templateless custom
+  naming rule, a bare `ja` tag).
 - **Check:** manual
-- **Code:** `test/flutter_test_config.dart`, `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
+- **Code:** `test/flutter_test_config.dart`, `test/helpers/test_preferences.dart`, `test/helpers/fake_account.dart`, `test/helpers/fake_settings.dart`, `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
 
 ### TEST-11 Waits use fake time
 - **Rule:** No `sleep`. Advance time with `fakeAsync` or
