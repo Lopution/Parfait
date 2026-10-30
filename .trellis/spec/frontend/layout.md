@@ -110,6 +110,21 @@ reviewed: 2026-10-17
 - **Check:** `test/locale_layout/harness_test.dart`
 - **Code:** `test/helpers/locale_layout.dart`
 
+### LAYOUT-17 Every page opens whole in each state it can show
+- **Rule:** Every page of the router has an entry in `smokePages`. The
+  matrix opens the whole app at the page in zh-CN: loaded (then back to
+  its parent), compact, empty for a page that shows a list, and failed
+  for a page that reads the App API. Each state must raise no exception,
+  keep UI text whole and stay at its location. It must show content, or
+  a message that there is none or why. A page that stays silent by design
+  when its read fails (a best-effort merge, suggestions) leaves out
+  `reads`, with a comment saying why.
+- **Why:** Page cases build one page over its own fakes. Nothing opened
+  every route through the app's shell, router and stores, and the first
+  run found a restored image viewer that said it had no images forever.
+- **Check:** `test/locale_layout/routes_smoke_test.dart` "every page of the router has a smoke entry"
+- **Code:** `test/helpers/route_smoke.dart`
+
 ## Boxes, headers and keyboards
 
 ### LAYOUT-08 Headers with text measure their extent
