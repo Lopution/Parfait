@@ -98,20 +98,17 @@ class _UnusedTransferVerifier implements TransferCredentialVerifier {
   }
 }
 
-/// The network settings page over [repository] and [overrides], on a tall
-/// surface that builds every lazy row so ensureVisible-based scrolling
+/// The network settings page over the base settings and [overrides], on a
+/// tall surface that builds every lazy row so ensureVisible-based scrolling
 /// stays legal.
 Future<void> _pumpNetworkSettings(
-  WidgetTester tester,
-  FakeSettingsRepository repository, {
+  WidgetTester tester, {
   List<Override> overrides = const [],
 }) async {
+  await seedSettings(baseTestSettings());
   await tester.pumpWidget(
     localizedApp(
-      overrides: [
-        settingsRepositoryProvider.overrideWithValue(repository),
-        ...overrides,
-      ],
+      overrides: overrides,
       builder: promptHostBuilder,
       home: NetworkSettingsPage(),
     ),
@@ -132,12 +129,10 @@ Future<void> _pumpAccountSettings(
   await seedAccounts([
     const Account(id: '42', userId: 42, name: 'tester'),
   ], currentId: '42');
+  await seedSettings(baseTestSettings());
   await tester.pumpWidget(
     localizedApp(
       overrides: [
-        settingsRepositoryProvider.overrideWithValue(
-          FakeSettingsRepository(baseTestSettings()),
-        ),
         ...accountProviderOverrides(
           credentialStore: FakeCredentialStore(
             values: const {
@@ -164,13 +159,14 @@ Future<void> _pumpAccountSettings(
 
 void main() {
   testWidgets('settings read failures expose a retryable UI', (tester) async {
-    final repository = FakeSettingsRepository(
-      baseTestSettings(),
-      failLoad: true,
+    installPreferencesForTest(
+      GatedPreferences(keys: settingsKeys)
+        ..readGate = (Future<void>.error(StateError('settings unavailable'))
+          ..ignore()),
     );
     await tester.pumpWidget(
       localizedApp(
-        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        overrides: const [],
         builder: promptHostBuilder,
         home: ThemeSettingsPage(),
       ),
@@ -201,16 +197,15 @@ void main() {
       );
     }
 
-    Future<FakeSettingsRepository> pumpThemePage(WidgetTester tester) async {
-      final repository = FakeSettingsRepository(baseTestSettings());
+    Future<void> pumpThemePage(WidgetTester tester) async {
+      await seedSettings(baseTestSettings());
       await tester.pumpWidget(
         localizedApp(
-          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          overrides: const [],
           builder: promptHostBuilder,
           home: ThemeSettingsPage(),
         ),
       );
-      return repository;
     }
 
     SwitchListTile followSwitch(WidgetTester tester) => tester
@@ -220,7 +215,7 @@ void main() {
       tester,
     ) async {
       mockAccent(() async => 0xFF3366CC);
-      final repository = await pumpThemePage(tester);
+      await pumpThemePage(tester);
       await tester.pumpAndSettle();
 
       expect(find.text('用壁纸或系统强调色作为主题色'), findsOneWidget);
@@ -228,7 +223,7 @@ void main() {
       await tester.tap(find.text('跟随系统取色'));
       await tester.pumpAndSettle();
 
-      expect(repository.value.followSystemColors, isTrue);
+      expect((await storedSettings().load()).followSystemColors, isTrue);
       expect(followSwitch(tester).value, isTrue);
     });
   });
@@ -247,14 +242,12 @@ void main() {
       (AccountSettingsPage(), '账号 ID：42'),
     ]) {
       await seedAccounts(const [account], currentId: account.id);
+      await seedSettings(baseTestSettings());
       await tester.pumpWidget(
         ProviderScope(
           // A fresh scope per page.
           key: ValueKey(page),
           overrides: [
-            settingsRepositoryProvider.overrideWithValue(
-              FakeSettingsRepository(baseTestSettings()),
-            ),
             credentialStoreProvider.overrideWithValue(
               FakeCredentialStore(
                 values: const {
@@ -281,15 +274,13 @@ void main() {
         Account(id: '1', userId: 1, name: 'first'),
         Account(id: '2', userId: 2, name: 'second'),
       ], currentId: '1');
+      await seedSettings(baseTestSettings());
       // The metadata commit parks until the disk answers.
       final writing = Completer<void>();
       preferences.writeGate = writing.future;
       await tester.pumpWidget(
         localizedApp(
           overrides: [
-            settingsRepositoryProvider.overrideWithValue(
-              FakeSettingsRepository(baseTestSettings()),
-            ),
             credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           ],
           builder: promptHostBuilder,
@@ -375,12 +366,10 @@ void main() {
         ),
       sinkFactory: MemorySinkFactory(),
     );
+    await seedSettings(baseTestSettings());
     await tester.pumpWidget(
       localizedApp(
         overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(baseTestSettings()),
-          ),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           downloadManagerProvider.overrideWithValue(manager),
         ],
@@ -821,14 +810,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
+    await seedSettings(baseTestSettings().copyWith(translateIndex: 2));
     await tester.pumpWidget(
       localizedApp(
         overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(
-              baseTestSettings().copyWith(translateIndex: 2),
-            ),
-          ),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
@@ -857,7 +842,7 @@ void main() {
   ) async {
     // Whatever the credential store does and whether the page stays, the
     // web session goes: the next login would pick it up.
-    final settings = FakeSettingsRepository(
+    await seedSettings(
       baseTestSettings().copyWith(
         translateIndex: TranslationProvider.doubao.code,
       ),
@@ -881,7 +866,6 @@ void main() {
       await tester.pumpWidget(
         localizedApp(
           overrides: [
-            settingsRepositoryProvider.overrideWithValue(settings),
             translationCredentialStoreProvider.overrideWithValue(store),
             doubaoWebCookiesProvider.overrideWithValue(cookies),
           ],
@@ -911,7 +895,7 @@ void main() {
   testWidgets(
     'download custom template disables save while invalid and guards drafts',
     (tester) async {
-      final repository = FakeSettingsRepository(
+      await seedSettings(
         baseTestSettings().copyWith(
           namingRule: const NamingRule(
             preset: NamingPreset.custom,
@@ -924,7 +908,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(
         localizedApp(
-          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          overrides: const [],
           builder: promptHostBuilder,
           home: Builder(
             builder: (context) => Scaffold(
@@ -1062,13 +1046,12 @@ void main() {
     // (1dot1dot1dot1.cloudflare-dns.com) as soon as the user touched the
     // field. Domain endpoints are the production default now. DoH editing
     // lives on the advanced page (D3).
-    final repository = FakeSettingsRepository(baseTestSettings());
+    await seedSettings(baseTestSettings());
     final router = pixivRouter('/settings/network');
     await tester.pumpWidget(
       localizedRouterApp(
         router,
         overrides: [
-          settingsRepositoryProvider.overrideWithValue(repository),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         builder: promptHostBuilder,
@@ -1109,8 +1092,7 @@ void main() {
   testWidgets('network image source selects a preset and a custom proxy', (
     tester,
   ) async {
-    final repository = FakeSettingsRepository(baseTestSettings());
-    await _pumpNetworkSettings(tester, repository);
+    await _pumpNetworkSettings(tester);
 
     expect(find.text('pixiv.nl 镜像'), findsOneWidget);
 
@@ -1121,7 +1103,7 @@ void main() {
     await _scrollCentered(tester, find.text('pixiv.cat 镜像'));
     await tester.tap(find.text('pixiv.cat 镜像'));
     await tester.pumpAndSettle();
-    expect(repository.value.imageSource, 'i.pixiv.cat');
+    expect((await storedSettings().load()).imageSource, 'i.pixiv.cat');
 
     // An insecure custom input is refused; a bare host is normalized.
     await _scrollCentered(tester, find.byType(TextField));
@@ -1129,7 +1111,7 @@ void main() {
     await _scrollCentered(tester, find.text('保存', skipOffstage: false));
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
-    expect(repository.value.imageSource, 'i.pixiv.cat');
+    expect((await storedSettings().load()).imageSource, 'i.pixiv.cat');
     expect(find.textContaining('无效自定义源'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'proxy.example.com/pixiv/');
@@ -1138,12 +1120,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      repository.value.imageSource,
+      (await storedSettings().load()).imageSource,
       'https://proxy.example.com/pixiv',
       reason: 'the bare host input is normalized to a canonical prefix',
     );
     expect(
-      repository.value.customImageSource,
+      (await storedSettings().load()).customImageSource,
       'https://proxy.example.com/pixiv',
     );
 
@@ -1153,7 +1135,7 @@ void main() {
     );
     await tester.tap(find.text('pixiv.re 镜像'));
     await tester.pumpAndSettle();
-    expect(repository.value.imageSource, 'i.pixiv.re');
+    expect((await storedSettings().load()).imageSource, 'i.pixiv.re');
 
     // Reselecting the remembered custom value keeps the stored prefix.
     // widgetWithText avoids the TextField's label, which shares the string.
@@ -1163,7 +1145,10 @@ void main() {
     );
     await tester.tap(find.widgetWithText(ListTile, '自定义反代'));
     await tester.pumpAndSettle();
-    expect(repository.value.imageSource, 'https://proxy.example.com/pixiv');
+    expect(
+      (await storedSettings().load()).imageSource,
+      'https://proxy.example.com/pixiv',
+    );
   });
 
   testWidgets('effective routes list the image worker\'s hosts too', (
@@ -1190,12 +1175,10 @@ void main() {
     tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
 
+    await seedSettings(baseTestSettings());
     await tester.pumpWidget(
       localizedApp(
         overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(baseTestSettings()),
-          ),
           networkAccessPolicyProvider.overrideWithValue(policy),
           imageWorkerProvider.overrideWithValue(worker),
         ],
@@ -1237,7 +1220,6 @@ void main() {
   testWidgets(
     'network image source apply-and-test applies then probes the live pipeline',
     (tester) async {
-      final repository = FakeSettingsRepository(baseTestSettings());
       final backend = RecordingClient();
       final policy = NetworkAccessPolicy(
         registry: PixivDestinationRegistry(
@@ -1248,7 +1230,6 @@ void main() {
       );
       await _pumpNetworkSettings(
         tester,
-        repository,
         overrides: [networkAccessPolicyProvider.overrideWithValue(policy)],
       );
 
@@ -1270,25 +1251,25 @@ void main() {
       expect(backend.requests.map((request) => request.url.host).toSet(), {
         'proxy.example.com',
       });
-      expect(repository.value.imageSource, 'https://proxy.example.com');
+      expect(
+        (await storedSettings().load()).imageSource,
+        'https://proxy.example.com',
+      );
       expect(find.textContaining('镜像可达'), findsOneWidget);
     },
   );
 
   group('haptic strength settings group', () {
-    Future<FakeSettingsRepository> pumpPage(
+    Future<void> pumpPage(
       WidgetTester tester,
       RecordingHapticsDriver driver,
     ) async {
-      final repository = FakeSettingsRepository(baseTestSettings());
+      await seedSettings(baseTestSettings());
       tester.view.physicalSize = const Size(800, 3200);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(
         localizedApp(
-          overrides: [
-            settingsRepositoryProvider.overrideWithValue(repository),
-            hapticsDriverProvider.overrideWithValue(driver),
-          ],
+          overrides: [hapticsDriverProvider.overrideWithValue(driver)],
           builder: promptHostBuilder,
           home: MotionSettingsPage(),
         ),
@@ -1304,14 +1285,13 @@ void main() {
         maxScrolls: 20,
       );
       await tester.pumpAndSettle();
-      return repository;
     }
 
     testWidgets('picking a strength persists it and previews it', (
       tester,
     ) async {
       final driver = recordHaptics();
-      final repository = await pumpPage(tester, driver);
+      await pumpPage(tester, driver);
       Future<void> pick(String label) async {
         await tester.tap(find.byType(SettingsMenuTile<HapticStrength>));
         await tester.pumpAndSettle();
@@ -1325,12 +1305,17 @@ void main() {
       }
 
       await pick('强');
-      expect(repository.value.hapticStrength, HapticStrength.strong);
-      expect(repository.saved.last.hapticStrength, HapticStrength.strong);
+      expect(
+        (await storedSettings().load()).hapticStrength,
+        HapticStrength.strong,
+      );
       expect(driver.played, [(HapticRole.confirm, HapticStrength.strong)]);
 
       await pick('关');
-      expect(repository.value.hapticStrength, HapticStrength.off);
+      expect(
+        (await storedSettings().load()).hapticStrength,
+        HapticStrength.off,
+      );
       // Off has nothing to preview.
       expect(driver.played, hasLength(1));
     });
@@ -1349,6 +1334,9 @@ void main() {
         await seedAccounts([
           const Account(id: '100', userId: 100, name: 't'),
         ], currentId: '100');
+        await seedSettings(
+          AppSettings.defaults().copyWith(guideCompleted: true),
+        );
         final container = ProviderContainer.test(
           overrides: [
             ...accountProviderOverrides(
@@ -1356,11 +1344,6 @@ void main() {
                 values: const {
                   '100': Credential(accessToken: 'a', refreshToken: 'r'),
                 },
-              ),
-            ),
-            settingsRepositoryProvider.overrideWithValue(
-              FakeSettingsRepository(
-                AppSettings.defaults().copyWith(guideCompleted: true),
               ),
             ),
             // The app's isolate worker answers outside fake time.

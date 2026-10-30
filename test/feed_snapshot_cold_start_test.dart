@@ -107,6 +107,7 @@ Future<_World> _makeWorld({
     factory: databaseFactoryFfi,
     databasePath: path.join(directory.path, 'feeds.db'),
   );
+  if (blockR18) await seedFilterSettings(blockR18: true);
   final container = await signedInApiContainer(
     transport ?? fixture.client(),
     others: const [Account(id: '200', userId: 200, name: 'b')],
@@ -115,7 +116,6 @@ Future<_World> _makeWorld({
       // Snapshot writes encode inline so a test can await them; the
       // isolate round trip is data_worker_test's.
       dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
-      if (blockR18) filterSettings(blockR18: true),
     ],
   );
   return _World(container, fixture, database, directory);

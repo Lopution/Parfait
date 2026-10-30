@@ -16,6 +16,7 @@ import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/settings_world.dart';
+import 'helpers/test_preferences.dart';
 
 void main() {
   test('defaults use safe modern values and beta56 setting names', () {
@@ -148,11 +149,10 @@ void main() {
   test(
     'controller serializes writes and exposes the old value on failure',
     () async {
-      final repository = FakeSettingsRepository(baseTestSettings())
-        ..writeDelay = const Duration(milliseconds: 2);
-      final container = ProviderContainer.test(
-        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-      );
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      await seedSettings(baseTestSettings());
+      final container = ProviderContainer.test();
       final controller = container.read(settingsProvider.notifier);
       await container.read(settingsProvider.future);
 
@@ -167,9 +167,15 @@ void main() {
       expect(state.maxDownloadCount, 7);
       expect(state.enableDoh, isFalse);
       expect(state.dohEndpointOverride, 'https://9.9.9.9/dns-query');
-      expect(repository.saved, hasLength(4));
+      // Each write starts from the one before: none is lost on disk.
+      final stored = await storedSettings().load();
+      expect(stored.themeCode, AppSettings.darkTheme);
+      expect(stored.maxDownloadCount, 7);
+      expect(stored.enableDoh, isFalse);
+      expect(stored.dohEndpointOverride, 'https://9.9.9.9/dns-query');
 
-      repository.failWrites = true;
+      preferences.writeGate = Future<void>.error(StateError('disk full'))
+        ..ignore();
       await expectLater(
         controller.setPreviewQuality(PreviewQuality.medium),
         throwsA(isA<SettingsWriteException>()),
@@ -182,10 +188,8 @@ void main() {
   );
 
   test('setSearchFilters persists each type set independently', () async {
-    final repository = FakeSettingsRepository(baseTestSettings());
-    final container = ProviderContainer.test(
-      overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-    );
+    await seedSettings(baseTestSettings());
+    final container = ProviderContainer.test();
     await container.read(settingsProvider.future);
 
     const illust = IllustSearchFilters(
@@ -199,8 +203,9 @@ void main() {
     expect(container.read(searchIllustFiltersProvider), illust);
     expect(container.read(searchNovelFiltersProvider), novel);
     // Each write leaves the other type untouched.
-    expect(repository.saved.last.searchIllustFilters, illust);
-    expect(repository.saved.last.searchNovelFilters, novel);
+    final stored = await storedSettings().load();
+    expect(stored.searchIllustFilters, illust);
+    expect(stored.searchNovelFilters, novel);
   });
 
   test('each option is stored under its key and read back; a damaged or '

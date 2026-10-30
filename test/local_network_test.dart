@@ -104,7 +104,7 @@ void main() {
   test('configured local hosts ask once; denied, none connects', () async {
     final permission = _FakePermission(proxy: '192.168.1.9')
       ..dialog = Completer();
-    final repository = FakeSettingsRepository(
+    await seedSettings(
       baseTestSettings().copyWith(
         imageSource: 'https://nas.home.example',
         dohEndpointOverride: 'https://192.168.1.2/dns-query',
@@ -112,7 +112,6 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
-        settingsRepositoryProvider.overrideWithValue(repository),
         localNetworkGateProvider.overrideWithValue(
           LocalNetworkGate(permission, lookup: _lookup),
         ),

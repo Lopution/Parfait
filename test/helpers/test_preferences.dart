@@ -66,94 +66,121 @@ final class StringWriteFailingPreferences
 /// In-memory preferences whose calls wait on a gate, as a slow disk holds
 /// them: a read waits for [readGate] and a write for [writeGate], and a
 /// gate that fails, fails the call (a full disk). Null lets calls through.
+/// Only calls on [keys] are gated, or every call when [keys] is null.
 final class GatedPreferences extends InMemorySharedPreferencesAsync {
-  GatedPreferences() : super.empty();
+  GatedPreferences({this.keys}) : super.empty();
 
+  final Set<String>? keys;
   Future<void>? readGate;
   Future<void>? writeGate;
 
-  Future<T> _read<T>(Future<T> Function() read) async {
-    await readGate;
+  /// Reads and writes that touched [keys], gated or let through.
+  int reads = 0;
+  int writes = 0;
+
+  bool _gates(Set<String>? touched) =>
+      keys == null || touched == null || touched.any(keys!.contains);
+
+  Future<T> _read<T>(Set<String>? touched, Future<T> Function() read) async {
+    if (_gates(touched)) {
+      reads++;
+      await readGate;
+    }
     return read();
   }
 
-  Future<bool> _write(Future<bool> Function() write) async {
-    await writeGate;
+  Future<bool> _write(
+    Set<String>? touched,
+    Future<bool> Function() write,
+  ) async {
+    if (_gates(touched)) {
+      writes++;
+      await writeGate;
+    }
     return write();
   }
 
   @override
   Future<String?> getString(String key, SharedPreferencesOptions options) =>
-      _read(() => super.getString(key, options));
+      _read({key}, () => super.getString(key, options));
 
   @override
   Future<bool?> getBool(String key, SharedPreferencesOptions options) =>
-      _read(() => super.getBool(key, options));
+      _read({key}, () => super.getBool(key, options));
 
   @override
   Future<double?> getDouble(String key, SharedPreferencesOptions options) =>
-      _read(() => super.getDouble(key, options));
+      _read({key}, () => super.getDouble(key, options));
 
   @override
   Future<int?> getInt(String key, SharedPreferencesOptions options) =>
-      _read(() => super.getInt(key, options));
+      _read({key}, () => super.getInt(key, options));
 
   @override
   Future<List<String>?> getStringList(
     String key,
     SharedPreferencesOptions options,
-  ) => _read(() => super.getStringList(key, options));
+  ) => _read({key}, () => super.getStringList(key, options));
 
   @override
   Future<Map<String, Object>> getPreferences(
     GetPreferencesParameters parameters,
     SharedPreferencesOptions options,
-  ) => _read(() => super.getPreferences(parameters, options));
+  ) => _read(
+    parameters.filter.allowList,
+    () => super.getPreferences(parameters, options),
+  );
 
   @override
   Future<Set<String>> getKeys(
     GetPreferencesParameters parameters,
     SharedPreferencesOptions options,
-  ) => _read(() => super.getKeys(parameters, options));
+  ) => _read(
+    parameters.filter.allowList,
+    () => super.getKeys(parameters, options),
+  );
 
   @override
   Future<bool> setString(
     String key,
     String value,
     SharedPreferencesOptions options,
-  ) => _write(() => super.setString(key, value, options));
+  ) => _write({key}, () => super.setString(key, value, options));
 
   @override
   Future<bool> setBool(
     String key,
     bool value,
     SharedPreferencesOptions options,
-  ) => _write(() => super.setBool(key, value, options));
+  ) => _write({key}, () => super.setBool(key, value, options));
 
   @override
   Future<bool> setDouble(
     String key,
     double value,
     SharedPreferencesOptions options,
-  ) => _write(() => super.setDouble(key, value, options));
+  ) => _write({key}, () => super.setDouble(key, value, options));
 
   @override
   Future<bool> setInt(
     String key,
     int value,
     SharedPreferencesOptions options,
-  ) => _write(() => super.setInt(key, value, options));
+  ) => _write({key}, () => super.setInt(key, value, options));
 
   @override
   Future<bool> setStringList(
     String key,
     List<String> value,
     SharedPreferencesOptions options,
-  ) => _write(() => super.setStringList(key, value, options));
+  ) => _write({key}, () => super.setStringList(key, value, options));
 
   @override
   Future<bool> clear(
     ClearPreferencesParameters parameters,
     SharedPreferencesOptions options,
-  ) => _write(() => super.clear(parameters, options));
+  ) => _write(
+    parameters.filter.allowList,
+    () => super.clear(parameters, options),
+  );
 }

@@ -91,6 +91,7 @@ void main() {
   test(
     'local filtering uses incoming entities before the commit callback',
     () async {
+      await seedFilterSettings(blockR18: true);
       final container = ProviderContainer.test(
         overrides: [
           accountStoreProvider.overrideWith(
@@ -100,7 +101,6 @@ void main() {
               ],
             ),
           ),
-          filterSettings(blockR18: true),
         ],
       );
       await container.read(accountStoreProvider.future);

@@ -9,13 +9,11 @@ import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/illust/illust_detail_controller.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'download_world.dart';
 import 'fake_account.dart';
 import 'illust_fixtures.dart';
 import 'memory_feed_snapshot_store.dart';
-import 'test_preferences.dart';
 
 /// Widget test host: real DownloadManager over a scripted transport +
 /// memory sinks, detail API over a MockClient — no platform channels.
@@ -34,7 +32,6 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Map<int, List<Map<String, dynamic>>>? authorWorksOverrides,
   List<String>? requestLog,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   var relatedPages = 1;
   final transport = FakeTransport();
   for (var i = 0; i < scriptedResponses; i++) {

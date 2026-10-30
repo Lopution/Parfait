@@ -233,17 +233,16 @@ void main() {
   );
 
   test('pixivHttpClientProvider follows settings.languageTag (R6)', () async {
-    final repository = FakeSettingsRepository(
+    await seedSettings(
       const AppSettings(
         guideCompleted: true,
-        languageTag: 'ja',
+        languageTag: 'ja-JP',
         themeCode: AppSettings.systemTheme,
       ),
     );
     final credentials = FakeCredentialStore();
     final container = ProviderContainer.test(
       overrides: [
-        settingsRepositoryProvider.overrideWithValue(repository),
         credentialStoreProvider.overrideWithValue(credentials),
         // No sockets: the policy hands out a canned transport.
         pixivNetworkFactoryProvider.overrideWithValue(
@@ -258,7 +257,7 @@ void main() {
     );
     await container.read(settingsProvider.future);
 
-    expect(container.read(pixivHttpClientProvider).languageTag, 'ja');
+    expect(container.read(pixivHttpClientProvider).languageTag, 'ja-JP');
 
     await container.read(settingsProvider.notifier).selectLanguage('en-US');
 

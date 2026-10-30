@@ -70,6 +70,10 @@ void _withFeed(
 }) {
   fakeAsync((async) {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    if (blockR18) {
+      unawaited(seedFilterSettings(blockR18: true));
+      async.flushMicrotasks();
+    }
     final container = ProviderContainer(
       overrides: [
         accountStoreProvider.overrideWith(
@@ -79,7 +83,6 @@ void _withFeed(
             ],
           ),
         ),
-        if (blockR18) filterSettings(blockR18: true),
       ],
     );
     final target = provider ?? _feed;

@@ -20,7 +20,6 @@ import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/search_world.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -32,8 +31,6 @@ Future<GoRouter> _pumpRouter(
   FakeSearchRepository? repository,
   List<Override> overrides = const [],
 }) async {
-  // The input page reads the search history from preferences.
-  installMemoryPreferences();
   final router = pixivRouter(initialLocation);
   // Wide surface: the whole chip row fits, so every chip is on screen.
   setViewSize(tester, const Size(1400, 800));
@@ -214,11 +211,11 @@ void main() {
     tester,
   ) async {
     final repository = _FilteredSearch();
+    await seedFilterSettings(blockR18: true);
     await _pumpRouter(
       tester,
       initialLocation: '/search/results?q=cat&type=illust',
       repository: repository,
-      overrides: [filterSettings(blockR18: true)],
     );
     expect(find.text('已加载的作品都被屏蔽或筛选掉了'), findsOneWidget);
 

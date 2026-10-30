@@ -169,10 +169,10 @@ void main() {
   });
 
   test('the local block filters New works and novels (R7)', () async {
+    await seedFilterSettings(blockR18: true);
     final (container, repository) = await _makeWorld(
       illustCount: 2,
       novelCount: 2,
-      overrides: [filterSettings(blockR18: true)],
     );
     repository.r18 = {1000, 2000};
     await container.read(settingsProvider.future);

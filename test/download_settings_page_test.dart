@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/pages/download_destination_page.dart';
 import 'package:parfait/features/settings/pages/download_settings_page.dart';
@@ -15,10 +16,8 @@ import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 
 void main() {
-  late FakeSettingsRepository repository;
-
   Future<TextEditingController> pumpCustomTemplate(WidgetTester tester) async {
-    repository = FakeSettingsRepository(
+    await seedSettings(
       baseTestSettings().copyWith(
         namingRule: const NamingRule(
           preset: NamingPreset.custom,
@@ -29,10 +28,7 @@ void main() {
     // Tall surface so the lazily-built template section exists.
     setViewSize(tester, const Size(800, 4000));
     await tester.pumpWidget(
-      localizedApp(
-        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        home: DownloadSettingsPage(),
-      ),
+      localizedApp(overrides: const [], home: DownloadSettingsPage()),
     );
     await tester.pumpAndSettle();
     return tester.widget<TextField>(find.byType(TextField)).controller!;
@@ -99,17 +95,15 @@ void main() {
       (DownloadDestination.safFolder('content://tree/x'), true),
     ]) {
       setViewSize(tester, const Size(800, 4000));
+      await seedSettings(
+        baseTestSettings().copyWith(
+          downloadCaption: true,
+          downloadDestination: destination,
+        ),
+      );
       await tester.pumpWidget(
         localizedApp(
           overrides: [
-            settingsRepositoryProvider.overrideWithValue(
-              FakeSettingsRepository(
-                baseTestSettings().copyWith(
-                  downloadCaption: true,
-                  downloadDestination: destination,
-                ),
-              ),
-            ),
             platformCapsProvider.overrideWithValue(
               const PlatformCaps(isAndroid: true),
             ),
@@ -157,16 +151,20 @@ void main() {
       (const NetworkAdvancedSettingsPage(), 1, 'a.example', 'b.example'),
       (const NetworkSettingsPage(), 0, 'https://a.example', 'https://b.x'),
     ]) {
-      repository = FakeSettingsRepository(
+      final preferences = GatedPreferences(keys: settingsKeys);
+      installPreferencesForTest(preferences);
+      await seedSettings(
         baseTestSettings().copyWith(
-          namingRule: const NamingRule(preset: NamingPreset.custom),
+          namingRule: const NamingRule(
+            preset: NamingPreset.custom,
+            template: '{id}',
+          ),
         ),
-      )..writeDelay = const Duration(seconds: 1);
-      installMemoryPreferences();
+      );
       setViewSize(tester, const Size(800, 4000));
       await tester.pumpWidget(
         localizedApp(
-          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          overrides: const [],
           builder: promptHostBuilder,
           home: page,
         ),
@@ -175,13 +173,18 @@ void main() {
       final input = find.byType(TextField).at(field);
       await tester.enterText(input, draft);
       await tester.pump();
+      final saving = Completer<void>();
+      preferences
+        ..writes = 0
+        ..writeGate = saving.future;
       await tester.tap(find.widgetWithText(FilledButton, '保存').first);
       await tester.pump();
       await tester.enterText(input, edit);
-      await tester.pumpAndSettle(const Duration(seconds: 1));
+      saving.complete();
+      await tester.pumpAndSettle();
 
       final reason = '${page.runtimeType}';
-      expect(repository.saved, isNotEmpty, reason: reason);
+      expect(preferences.writes, isPositive, reason: reason);
       expect(
         tester.widget<TextField>(input).controller!.text,
         edit,

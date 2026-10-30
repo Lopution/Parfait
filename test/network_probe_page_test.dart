@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_probe.dart';
 import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/network_probe_page.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
@@ -72,21 +71,15 @@ void main() {
   testWidgets('before a run the probe page lists its hosts unprobed', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(
-              const AppSettings(
-                guideCompleted: true,
-                languageTag: 'zh-CN',
-                themeCode: AppSettings.systemTheme,
-              ),
-            ),
-          ),
-        ],
-        home: const NetworkProbePage(),
+    await seedSettings(
+      const AppSettings(
+        guideCompleted: true,
+        languageTag: 'zh-CN',
+        themeCode: AppSettings.systemTheme,
       ),
+    );
+    await tester.pumpWidget(
+      localizedApp(overrides: const [], home: const NetworkProbePage()),
     );
     await tester.pump();
 

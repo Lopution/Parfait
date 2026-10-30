@@ -8,7 +8,6 @@ import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/i18n/replica_language.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/features/settings/network_probe_page.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
@@ -18,7 +17,6 @@ import 'package:parfait/features/settings/settings_page.dart';
 import '../helpers/fake_account.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/settings_world.dart';
-import '../helpers/test_preferences.dart';
 
 /// The settings pages, each in the language its own settings select.
 /// The frame probe is a debug page and stays out.
@@ -49,19 +47,24 @@ final _pages = <String, Widget>{
   'network probe': const NetworkProbePage(),
 };
 
-List<Override> _overrides(
+/// Signs in and stores [locale]'s settings, [adjust]ed.
+Future<void> _seed(
   Locale locale, {
   AppSettings Function(AppSettings settings)? adjust,
-}) => [
-  settingsRepositoryProvider.overrideWithValue(
-    FakeSettingsRepository(
-      (adjust ?? (settings) => settings)(
-        baseTestSettings(
-          languageTag: ReplicaLanguage.fromTag(locale.languageCode).tag,
-        ),
+}) async {
+  await seedAccounts([
+    const Account(id: '100', userId: 100, name: 'tester'),
+  ], currentId: '100');
+  await seedSettings(
+    (adjust ?? (settings) => settings)(
+      baseTestSettings(
+        languageTag: ReplicaLanguage.fromTag(locale.languageCode).tag,
       ),
     ),
-  ),
+  );
+}
+
+final List<Override> _overrides = [
   translationCredentialStoreProvider.overrideWithValue(FakeTranslationStore()),
   networkAccessPolicyProvider.overrideWithValue(stubNetworkPolicy()),
   ...accountProviderOverrides(
@@ -74,17 +77,9 @@ List<Override> _overrides(
 void main() {
   for (final MapEntry(key: name, value: page) in _pages.entries) {
     localeLayoutMatrix('settings: $name', (tester, locale, profile) async {
-      installMemoryPreferences();
-
-      await seedAccounts([
-        const Account(id: '100', userId: 100, name: 'tester'),
-      ], currentId: '100');
+      await _seed(locale);
       await tester.pumpWidget(
-        localeLayoutApp(
-          locale: locale,
-          overrides: _overrides(locale),
-          home: page,
-        ),
+        localeLayoutApp(locale: locale, overrides: _overrides, home: page),
       );
       await settleLayout(tester);
       await expectPageLayoutIntact(tester, locale: locale, profile: profile);
@@ -97,23 +92,19 @@ void main() {
     locale,
     profile,
   ) async {
-    installMemoryPreferences();
-
-    await seedAccounts([
-      const Account(id: '100', userId: 100, name: 'tester'),
-    ], currentId: '100');
+    await _seed(
+      locale,
+      adjust: (settings) => settings.copyWith(
+        namingRule: const NamingRule(
+          preset: NamingPreset.custom,
+          template: '{id}_p{page}.{ext}',
+        ),
+      ),
+    );
     await tester.pumpWidget(
       localeLayoutApp(
         locale: locale,
-        overrides: _overrides(
-          locale,
-          adjust: (settings) => settings.copyWith(
-            namingRule: const NamingRule(
-              preset: NamingPreset.custom,
-              template: '{id}_p{page}.{ext}',
-            ),
-          ),
-        ),
+        overrides: _overrides,
         home: const DownloadSettingsPage(),
       ),
     );

@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 
 import 'helpers/fake_account.dart';
@@ -28,12 +27,10 @@ void main() {
           Account(id: '1', userId: 1, name: 'first'),
           Account(id: '2', userId: 2, name: 'second'),
         ], currentId: '1');
+        await seedSettings(baseTestSettings());
         await tester.pumpWidget(
           localizedApp(
             overrides: [
-              settingsRepositoryProvider.overrideWithValue(
-                FakeSettingsRepository(baseTestSettings()),
-              ),
               credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
             ],
             builder: promptHostBuilder,

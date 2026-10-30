@@ -26,8 +26,8 @@ import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/home/home_page.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/arrangement.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/settings_world.dart';
 import 'helpers/view_size.dart';
@@ -557,11 +557,11 @@ void main() {
       HomeDestination.newWorks,
       HomeDestination.me,
     ];
-    late FakeSettingsRepository repository;
+    Future<AppSettings> stored() => storedSettings().load();
 
     Future<GoRouter> pumpBar(WidgetTester tester, String location) async {
       setViewSize(tester, const Size(390, 844));
-      repository = FakeSettingsRepository(
+      await seedSettings(
         baseTestSettings().copyWith(
           homeArrangement: const Arrangement(
             shown: shown,
@@ -575,7 +575,7 @@ void main() {
       await tester.pumpWidget(
         localizedRouterApp(
           router,
-          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          overrides: const [],
           builder: promptHostBuilder,
         ),
       );
@@ -636,7 +636,7 @@ void main() {
       await settle(tester);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       await tester.pump();
-      expect(repository.saved.last.lastHomeDestination, 'ranking');
+      expect((await stored()).lastHomeDestination, 'ranking');
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.binding.handlePopRoute();
       await settle(tester);
@@ -657,7 +657,7 @@ void main() {
       expect(tile(HomeDestination.me).onChanged, isNull, reason: 'locked');
       await tester.tap(row(HomeDestination.ranking));
       await settle(tester);
-      expect(resolveHomeArrangement(repository.value.homeArrangement).shown, [
+      expect(resolveHomeArrangement((await stored()).homeArrangement).shown, [
         HomeDestination.newWorks,
         HomeDestination.me,
       ]);
@@ -666,13 +666,13 @@ void main() {
       await tester.tap(row(HomeDestination.search));
       await tester.pump();
       expect(
-        resolveHomeArrangement(repository.value.homeArrangement).shown.last,
+        resolveHomeArrangement((await stored()).homeArrangement).shown.last,
         HomeDestination.search,
       );
 
       await tester.tap(find.byIcon(Icons.restart_alt));
       await settle(tester);
-      expect(repository.value.homeArrangement, isNull);
+      expect((await stored()).homeArrangement, isNull);
       expect(tile(HomeDestination.recommended).value, isTrue);
     });
   });
