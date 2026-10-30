@@ -67,7 +67,9 @@ Future<T> reviewScene<T>(WidgetTester tester, Future<T> Function() body) async {
 /// its page.
 ///
 /// [semanticsDebugger] draws the semantics overlay: the nodes, groups and
-/// labels a TalkBack traversal walks.
+/// labels a TalkBack traversal walks. [device] replaces the run's
+/// [reviewDevice], and [fontFamilyFallback] goes to the theme, for fonts
+/// other than the review's own.
 Future<GoRouter> pumpReviewApp(
   WidgetTester tester, {
   required ReviewWorld world,
@@ -76,12 +78,15 @@ Future<GoRouter> pumpReviewApp(
   Locale locale = zhCN,
   double textScale = 1.0,
   bool semanticsDebugger = false,
+  ReviewDevice? device,
+  List<String>? fontFamilyFallback,
 }) async {
   applyReviewDevice(
     tester,
     locale: locale,
     textScale: textScale,
     brightness: brightness,
+    device: device,
   );
   // The app language is a setting that a first run seeds from the system
   // locale. AppSettings.defaults reads the engine's dispatcher, which a
@@ -116,6 +121,7 @@ Future<GoRouter> pumpReviewApp(
                 systemColors: brightness == Brightness.dark
                     ? system?.dark
                     : system?.light,
+                fontFamilyFallback: fontFamilyFallback,
               );
               return MaterialApp.router(
                 theme: theme,
