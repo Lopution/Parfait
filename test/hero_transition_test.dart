@@ -15,7 +15,6 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
@@ -32,6 +31,7 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/test_preferences.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 import 'helpers/waits.dart';
@@ -1228,8 +1228,9 @@ void main() {
     expect(_heroPaintClipRect(tester), mid);
     await tester.pumpAndSettle();
   });
+
   test('a failed anomaly write is logged and the next one lands', () async {
-    SharedPreferencesAsyncPlatform.instance = _ListWriteFailsOnce();
+    installPreferencesForTest(_ListWriteFailsOnce());
     final log = HeroAnomalyLog(SharedPreferencesAsync());
 
     await log.add('lost');

@@ -18,7 +18,6 @@ import 'package:parfait/core/network/compat/route_kind_store.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/network/rhttp_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _HandshakeFailingClient extends http.BaseClient {
   @override
@@ -119,7 +118,7 @@ void main() {
 
   test('a learned route that fails to save completes quietly', () async {
     // Each is remembered unawaited after a request it served.
-    SharedPreferencesAsyncPlatform.instance = StringWriteFailingPreferences();
+    installPreferencesForTest(StringWriteFailingPreferences());
     final preferences = SharedPreferencesAsync();
 
     await PixivFastRouteStore(

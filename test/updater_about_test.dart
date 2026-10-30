@@ -8,7 +8,6 @@ import 'package:parfait/core/updater/update_service.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
@@ -100,7 +99,7 @@ void main() {
   });
 
   testWidgets('an unlock that fails to save says so', (tester) async {
-    SharedPreferencesAsyncPlatform.instance = _BoolWritesFail();
+    installPreferencesForTest(_BoolWritesFail());
     final container = await tapVersionSevenTimes(tester);
     await tester.pump();
 
