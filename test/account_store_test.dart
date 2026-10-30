@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/core/actionqueue/action_bootstrap.dart';
+import 'package:parfait/core/actionqueue/action_models.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -10,6 +12,7 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -138,6 +141,12 @@ Credential credential(String id) => Credential(
   refreshToken: 'refresh-token-$id',
   cookie: 'cookie-$id',
 );
+
+/// Secure storage that refuses to delete, as a broken keystore would.
+class _DeleteFailingCredentials extends InMemoryCredentialStore {
+  @override
+  Future<void> delete(String accountId) async => throw StateError('keystore');
+}
 
 class _SpyHistoryRepository extends HistoryRepository {
   _SpyHistoryRepository() : super(database: HistoryDatabase());
@@ -417,8 +426,8 @@ void main() {
   });
 
   test(
-    'removeAccount reselects, deletes the secret and the outbox, keeps local '
-    'history',
+    'removeAccount reselects, deletes the secret, the outbox, queued actions '
+    'and cached feeds, keeps local history',
     () async {
       final credentials = InMemoryCredentialStore();
       final metadata = InMemoryMetadataRepository();
@@ -435,11 +444,33 @@ void main() {
       await container.read(accountStoreProvider.future);
       await store.upsertAccount(account('100'), credential('100'));
       await store.upsertAccount(account('200'), credential('200'));
+      // A re-added account must not replay or restore these.
+      final actions = container.read(actionStoreProvider);
+      final snapshots = container.read(feedSnapshotStoreProvider);
+      for (final id in ['100', '200']) {
+        await actions.enqueue(
+          StoredAction(
+            id: 0,
+            owner: id,
+            type: ActionTypes.bookmarkAdd,
+            dedupeKey: 'illust:1',
+            payload: '{}',
+            status: ActionStatus.pending,
+            attempt: 0,
+            createdAt: 0,
+          ),
+        );
+        await snapshots.write(id, 'recommended', ids: const [1], entities: {});
+      }
       await store.removeAccount('200');
 
       expect(history.clearedOutbox, ['200']);
       expect(history.clearedLocal, isEmpty);
       expect(await credentials.read('200'), isNull);
+      expect(await actions.listFor('200'), isEmpty);
+      expect(await snapshots.read('200', 'recommended'), isNull);
+      expect(await actions.listFor('100'), hasLength(1));
+      expect(await snapshots.read('100', 'recommended'), isNotNull);
       AccountState state() => container.read(accountStoreProvider).requireValue;
       expect(state().accounts.map((a) => a.id), ['100']);
       expect(state().currentId, '100');
@@ -449,4 +480,27 @@ void main() {
       expect(state().currentId, isNull);
     },
   );
+
+  test('a cleanup that fails leaves the others done and is surfaced', () async {
+    final history = _SpyHistoryRepository();
+    final container = ProviderContainer.test(
+      overrides: [
+        credentialStoreProvider.overrideWithValue(_DeleteFailingCredentials()),
+        accountMetadataRepositoryProvider.overrideWithValue(
+          InMemoryMetadataRepository(),
+        ),
+        historyRepositoryProvider.overrideWithValue(history),
+      ],
+    );
+    final store = container.read(accountStoreProvider.notifier);
+    await container.read(accountStoreProvider.future);
+    await store.upsertAccount(account('200'), credential('200'));
+
+    await expectLater(store.removeAccount('200'), throwsStateError);
+    expect(history.clearedOutbox, ['200']);
+    expect(
+      container.read(accountStoreProvider).requireValue.hasAccounts,
+      isFalse,
+    );
+  });
 }
