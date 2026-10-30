@@ -114,11 +114,12 @@ reviewed: 2026-10-17
 - **Rule:** Every page of the router has an entry in `smokePages`. The
   matrix opens the whole app at the page in zh-CN: loaded (then back to
   its parent), compact, empty for a page that shows a list, and failed
-  for a page that reads the App API. Each state must raise no exception,
-  keep UI text whole and stay at its location. It must show content, or
-  a message that there is none or why. A page that stays silent by design
-  when its read fails (a best-effort merge, suggestions) leaves out
-  `reads`, with a comment saying why.
+  for a page that reads the App API, which it must have sent. Each state
+  must raise no exception, keep UI text whole, stay at its location and
+  come to rest: a page still moving is still loading. It must show
+  content, or a message that there is none or why. A page that stays
+  silent by design when its read fails (a best-effort merge,
+  suggestions) leaves out `reads`, with a comment saying why.
 - **Why:** Page cases build one page over its own fakes. Nothing opened
   every route through the app's shell, router and stores, and the first
   run found a restored image viewer that said it had no images forever.
