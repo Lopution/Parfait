@@ -25,6 +25,7 @@ import 'compat/network_contracts.dart';
 import 'compat/network_providers.dart';
 import 'data_worker.dart';
 import 'pixiv_headers.dart';
+import 'request_account.dart';
 
 /// Cooperative cancellation signal for Pixiv requests.
 ///
@@ -281,8 +282,11 @@ class PixivHttpClient {
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
     if (method == 'GET') _throwIfReadsCoolingDown();
     // The request belongs to the account current as it starts: a refresh
-    // and a replay after a switch stay that account's.
+    // and a replay after a switch stay that account's. A queued replay is
+    // bound to its owner and is refused under any other account.
     final (:accountId, accessToken: firstToken) = await _requireContext();
+    final bound = requestAccount();
+    if (bound != null && bound != accountId) throw const ApiCancelled();
     var usedToken = firstToken;
     http.Response response = await _issue(
       uri,

@@ -13,6 +13,8 @@ import 'package:parfait/core/actionqueue/action_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/paging/feed_database.dart';
 
+import 'helpers/action_store_faults.dart';
+
 class _Clock {
   DateTime now = DateTime.utc(2026, 9, 16, 12);
 
@@ -63,49 +65,6 @@ class _Harness {
         dedupeKey: dedupeKey,
         payload: {'target': target},
       );
-}
-
-/// Fails its first recovery, as a locked database did in the field.
-final class _BusyOnceStore implements ActionStore {
-  _BusyOnceStore(this._inner);
-
-  final InMemoryActionStore _inner;
-  var _busy = true;
-
-  @override
-  Future<({int reset, int dropped})> recoverInterrupted() async {
-    if (!_busy) return _inner.recoverInterrupted();
-    _busy = false;
-    throw StateError('database is locked');
-  }
-
-  @override
-  Future<int> enqueue(StoredAction draft) => _inner.enqueue(draft);
-  @override
-  Future<StoredAction?> nextReady(String owner, int nowMs) =>
-      _inner.nextReady(owner, nowMs);
-  @override
-  Future<bool> markRunning(int id) => _inner.markRunning(id);
-  @override
-  Future<void> markPending(int id, {int? attempt, int? nextAttemptAtMs}) =>
-      _inner.markPending(
-        id,
-        attempt: attempt,
-        nextAttemptAtMs: nextAttemptAtMs,
-      );
-  @override
-  Future<void> markFailed(int id) => _inner.markFailed(id);
-  @override
-  Future<void> delete(int id) => _inner.delete(id);
-  @override
-  Future<bool> deletePending(String owner, String dedupeKey) =>
-      _inner.deletePending(owner, dedupeKey);
-  @override
-  Future<int?> nextPendingAt(String owner) => _inner.nextPendingAt(owner);
-  @override
-  Future<List<StoredAction>> listFor(String owner) => _inner.listFor(owner);
-  @override
-  Future<void> clearAccount(String owner) => _inner.clearAccount(owner);
 }
 
 void main() {
@@ -333,7 +292,7 @@ void main() {
       fakeAsync((async) {
         final h = _Harness(
           now: async.getClock(DateTime.utc(2026, 10)).now,
-          wrap: _BusyOnceStore.new,
+          wrap: (store) => FaultyActionStore(store, busyOnce: true),
         )..register('t');
         // A row the last process left running: no enqueue armed a wake for
         // it, and only a recovery makes it ready again.
