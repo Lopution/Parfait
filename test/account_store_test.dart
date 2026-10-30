@@ -495,9 +495,13 @@ void main() {
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
     await store.upsertAccount(account('200'), credential('200'));
+    // The last cleanup: the ones between it and the failure ran too.
+    final snapshots = container.read(feedSnapshotStoreProvider);
+    await snapshots.write('200', 'recommended', ids: const [1], entities: {});
 
     await expectLater(store.removeAccount('200'), throwsStateError);
     expect(history.clearedOutbox, ['200']);
+    expect(await snapshots.read('200', 'recommended'), isNull);
     expect(
       container.read(accountStoreProvider).requireValue.hasAccounts,
       isFalse,
