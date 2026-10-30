@@ -400,6 +400,7 @@ void main() {
 
       expect(result.status, UgoiraExportStatus.failed);
       expect(result.error, contains('UgoiraExportOwnershipException'));
+      expect(result.failureKind, DownloadFailureKind.ownership);
       expect(sinks.sinks, isEmpty);
       await job.dispose();
       await asset.dispose();

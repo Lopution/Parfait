@@ -543,7 +543,9 @@ class UgoiraExportJob {
           processedFrames: _snapshot.processedFrames,
           totalFrames: _asset.frameCount,
           error: error.toString(),
-          failureKind: classifyDownloadFailure(error),
+          failureKind: error is UgoiraExportOwnershipException
+              ? DownloadFailureKind.ownership
+              : classifyDownloadFailure(error),
         ),
       );
       await _persistBestEffort(pendingOutputId: pendingOutputId);
