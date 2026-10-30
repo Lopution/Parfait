@@ -15,10 +15,14 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/history_world.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
 
-Widget _app(ProviderContainer container) =>
-    localizedApp(container: container, home: const HistoryPage());
+Widget _app(ProviderContainer container) => localizedApp(
+  container: container,
+  builder: promptHostBuilder,
+  home: const HistoryPage(),
+);
 
 Future<ProviderContainer> _seedPage(
   WidgetTester tester,

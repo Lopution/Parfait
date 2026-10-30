@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/widgets/errors/error_details.dart';
+import 'package:parfait/app/widgets/settings/persist_settings.dart';
 import 'package:parfait/core/errors/error_category.dart';
 import 'package:parfait/core/logging/crash_log.dart';
 import 'package:parfait/l10n/context.dart';
@@ -148,5 +150,39 @@ void main() {
         reason: 'the snackbar never prints raw exception text',
       );
     });
+  });
+  testWidgets('a settings write that fails after its page closed is reported', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      localizedApp(
+        builder: promptHostBuilder,
+        navigatorKey: navigator,
+        home: const SizedBox(),
+      ),
+    );
+    late BuildContext page;
+    unawaited(
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (context) {
+            page = context;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final write = Completer<void>();
+
+    final saved = persistSettings(page, () => write.future);
+    navigator.currentState!.pop();
+    await tester.pumpAndSettle();
+    write.completeError(StateError('disk full'));
+    expect(await saved, isFalse);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('设置保存失败'), findsOneWidget);
   });
 }

@@ -27,6 +27,7 @@ import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -125,7 +126,8 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
   return (container, activeFixture);
 }
 
-/// The ranking route on a compact phone, settled.
+/// The ranking route on a compact phone, settled, under the app's prompt
+/// host and [builder].
 Future<GoRouter> _pumpRanking(
   WidgetTester tester,
   ProviderContainer container, {
@@ -136,7 +138,12 @@ Future<GoRouter> _pumpRanking(
   setViewSize(tester, const Size(390, 844));
   final router = pixivRouter('/ranking');
   await tester.pumpWidget(
-    localizedRouterApp(router, container: container, builder: builder),
+    localizedRouterApp(
+      router,
+      container: container,
+      builder: (context, child) =>
+          promptHostBuilder(context, builder?.call(context, child) ?? child),
+    ),
   );
   await tester.pump();
   await tester.pump();
@@ -536,7 +543,13 @@ void main() {
       // R-18G is hidden by default: the link shows it first for the visit.
       final router = pixivRouter('/ranking?mode=weekR18G');
       setViewSize(tester, const Size(390, 844));
-      await tester.pumpWidget(localizedRouterApp(router, container: container));
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          container: container,
+          builder: promptHostBuilder,
+        ),
+      );
       await tester.pumpAndSettle();
       expect(tabs(tester).index, 0);
 

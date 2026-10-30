@@ -576,6 +576,7 @@ void main() {
         localizedRouterApp(
           router,
           overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          builder: promptHostBuilder,
         ),
       );
       await tester.pump();
