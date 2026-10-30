@@ -26,18 +26,26 @@ typedef AffinitySetter = int Function(int tid, Set<int> cpus);
 /// The kernel keeps the requested set when the app moves between cpusets
 /// (Linux 6.2 and later; these chips ship with 6.6 or later), so one call
 /// at launch holds. A raster thread started from a freed one inherits its
-/// set.
+/// set. Called unawaited: a ROM that denies the reads leaves the engine's
+/// choice, logged.
 Future<void> freeRasterThreads({
   String cpuRoot = '/sys/devices/system/cpu',
   String taskRoot = '/proc/self/task',
   AffinitySetter setAffinity = _libcSetAffinity,
 }) async {
-  final cores = rasterCores(await readCpuCapacities(cpuRoot));
-  if (cores == null) {
-    log('raster affinity: left to the engine');
+  final Set<int>? cores;
+  final List<int> threads;
+  try {
+    cores = rasterCores(await readCpuCapacities(cpuRoot));
+    if (cores == null) {
+      log('raster affinity: left to the engine');
+      return;
+    }
+    threads = await rasterThreads(taskRoot);
+  } on FileSystemException catch (error) {
+    log('raster affinity: left to the engine, unreadable: $error');
     return;
   }
-  final threads = await rasterThreads(taskRoot);
   if (threads.isEmpty) log('raster affinity: no raster thread found');
   for (final tid in threads) {
     final error = setAffinity(tid, cores);
