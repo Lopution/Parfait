@@ -1466,6 +1466,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Недостаточно ресурсов устройства или файл слишком большой';
 
   @override
+  String get downloadFailureNoSpace => 'Недостаточно места в хранилище';
+
+  @override
+  String get downloadFailureDestination =>
+      'Выбранная папка больше недоступна. Выберите её заново в разделе «Место сохранения».';
+
+  @override
   String get downloadFailureOwnership =>
       'Задача больше недействительна. Скачайте заново.';
 

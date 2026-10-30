@@ -220,6 +220,7 @@ object SafTreeChannel {
 
     internal fun safErrorCode(method: String, error: Throwable): String {
         if (error is DocumentTooLargeException) return "saf_too_large"
+        if (isNoSpaceLeft(error)) return "saf_no_space"
         if (error is SecurityException) return "saf_permission"
         if (error is IllegalArgumentException) return "saf_invalid_argument"
         if (error is FileNotFoundException) return "saf_not_found"

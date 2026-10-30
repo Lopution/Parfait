@@ -105,3 +105,14 @@ internal object ChannelArgs {
 }
 
 internal data class OptionalString(val value: String?, val ok: Boolean)
+
+/**
+ * A full disk. libcore reports ENOSPC as an IOException (a
+ * FileNotFoundException when opening) whose message, or a wrapped cause's,
+ * names it. The bound guards a cause chain that loops.
+ */
+internal fun isNoSpaceLeft(error: Throwable): Boolean =
+    generateSequence(error) { it.cause }.take(8).any {
+        val message = it.message.orEmpty()
+        message.contains("ENOSPC") || message.contains("No space left")
+    }

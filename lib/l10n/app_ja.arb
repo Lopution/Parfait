@@ -630,6 +630,8 @@
   "downloadSubmissionFailed": "ダウンロードに失敗しました",
   "downloadFailurePermission": "ストレージ権限がありません",
   "downloadFailureResource": "デバイスのリソース不足またはファイルが大きすぎます",
+  "downloadFailureNoSpace": "ストレージの空き容量が不足しています",
+  "downloadFailureDestination": "選択したフォルダーが使用できなくなりました。「保存先」で選び直してください",
   "downloadFailureOwnership": "このタスクは無効になりました。もう一度ダウンロードしてください",
   "downloadFailureInterrupted": "アプリの再起動で中断されました。再試行で続行できます",
   "ugoiraSaveGif": "GIFを保存",

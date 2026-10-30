@@ -637,6 +637,8 @@
   "downloadSubmissionFailed": "Download failed",
   "downloadFailurePermission": "Storage permission missing",
   "downloadFailureResource": "Device resources exhausted or the file is too large",
+  "downloadFailureNoSpace": "Not enough storage space",
+  "downloadFailureDestination": "The chosen folder is no longer available. Choose it again under Save location.",
   "downloadFailureOwnership": "This task is no longer valid. Download it again.",
   "downloadFailureInterrupted": "Interrupted when the app restarted. Tap retry to continue.",
   "ugoiraSaveGif": "Save GIF",

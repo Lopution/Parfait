@@ -1473,6 +1473,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Device resources exhausted or the file is too large';
 
   @override
+  String get downloadFailureNoSpace => 'Not enough storage space';
+
+  @override
+  String get downloadFailureDestination =>
+      'The chosen folder is no longer available. Choose it again under Save location.';
+
+  @override
   String get downloadFailureOwnership =>
       'This task is no longer valid. Download it again.';
 

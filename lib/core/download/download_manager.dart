@@ -9,6 +9,8 @@ import '../network/pixiv_headers.dart';
 import 'dart:io';
 import 'dart:math' show Random;
 
+import 'package:flutter/services.dart' show PlatformException;
+
 import '../network/compat/network_contracts.dart';
 import '../network/compat/segmented_fetch.dart';
 import '../platform/android_platform_interfaces.dart';
@@ -1821,6 +1823,12 @@ DownloadFailureKind _classifyDownloadFailure(Object error) {
       _ => DownloadFailureKind.unknown,
     };
   }
+  if (error is PlatformException) {
+    if (_hostFailureKind(error.code) case final kind?) return kind;
+  }
+  if (error is FileSystemException && error.osError?.errorCode == _enospc) {
+    return DownloadFailureKind.noSpace;
+  }
   if (error is DownloadStorageException || error is FileSystemException) {
     return DownloadFailureKind.storage;
   }
@@ -1843,6 +1851,23 @@ DownloadFailureKind _classifyDownloadFailure(Object error) {
   }
   return DownloadFailureKind.unknown;
 }
+
+/// POSIX errno for a full disk (Linux, Android, macOS).
+const _enospc = 28;
+
+/// The SAF and MediaStore hosts' `<channel>_<reason>` codes (DROID-02).
+/// A SAF permission failure means the folder grant is gone, and a missing
+/// SAF document means the folder or the file in it is gone: either way the
+/// folder has to be picked again. MediaStore's permission is the app's
+/// storage permission.
+DownloadFailureKind? _hostFailureKind(String code) => switch (code) {
+  'saf_permission' || 'saf_not_found' => DownloadFailureKind.destination,
+  'mediastore_permission' => DownloadFailureKind.permission,
+  'saf_no_space' || 'mediastore_no_space' => DownloadFailureKind.noSpace,
+  _ when code.startsWith('saf_') || code.startsWith('mediastore_') =>
+    DownloadFailureKind.storage,
+  _ => null,
+};
 
 String _safeError(Object error) {
   if (error is DownloadHttpStatusException) {

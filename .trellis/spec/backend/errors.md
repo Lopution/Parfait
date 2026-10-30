@@ -54,10 +54,15 @@ reviewed: 2026-10-29
   the persisted raw `error` string. Canceled and paused tasks are not
   failures and never get failure styling. A `retryable` task with no kind
   was interrupted by process death and shows `downloadFailureInterrupted`.
+  A host failure is classified by its `<channel>_<reason>` code: a full
+  disk is `noSpace` on every sink (the hosts report `*_no_space`), a SAF
+  folder whose grant or document is gone is `destination` (its copy says to
+  pick the folder again), and other SAF/MediaStore codes are `storage`.
 - **Why:** Interrupted tasks showed "unknown error" and cancelled ones
-  looked failed.
-- **Check:** `test/download_task_presentation_test.dart` "every failureKind maps to its localized reason"
-- **Code:** `lib/features/settings/pages/download_task_presentation.dart`, `lib/features/settings/pages/download_tasks_page.dart`
+  looked failed. Host storage failures, a full disk among them, also read
+  "unknown error", and a lost SAF folder never said to pick it again.
+- **Check:** `test/download_task_presentation_test.dart` "every failureKind maps to its localized reason", `test/download_manager_test.dart` "a storage failure says what the user can do about it", `android/app/src/test/kotlin/io/github/lopution/parfait/SafTreeChannelTest.kt` "a full disk is saf_no_space from any call"
+- **Code:** `lib/features/settings/pages/download_task_presentation.dart`, `lib/features/settings/pages/download_tasks_page.dart`, `lib/core/download/download_manager.dart`
 
 ### ERR-05 Localized copy never interpolates a diagnostic
 - **Rule:** An arb message takes no `{error}`/`{reason}`-style text

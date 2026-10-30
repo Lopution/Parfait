@@ -1409,6 +1409,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadFailureResource => '设备资源不足或文件过大';
 
   @override
+  String get downloadFailureNoSpace => '存储空间不足';
+
+  @override
+  String get downloadFailureDestination => '所选文件夹已不可用，请到「保存位置」重新选择';
+
+  @override
   String get downloadFailureOwnership => '任务已失效，需重新下载';
 
   @override

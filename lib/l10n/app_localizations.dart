@@ -2753,6 +2753,18 @@ abstract class AppLocalizations {
   /// **'设备资源不足或文件过大'**
   String get downloadFailureResource;
 
+  /// No description provided for @downloadFailureNoSpace.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储空间不足'**
+  String get downloadFailureNoSpace;
+
+  /// No description provided for @downloadFailureDestination.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选文件夹已不可用，请到「保存位置」重新选择'**
+  String get downloadFailureDestination;
+
   /// No description provided for @downloadFailureOwnership.
   ///
   /// In zh, this message translates to:

@@ -80,9 +80,9 @@ ErrorCategory categorizeError(Object error) => switch (error) {
 
 /// Classifies a persisted [DownloadFailureKind] the same way the download
 /// page presents it. Kinds that have no generic category
-/// (permission/resource/ownership/unknown) map to [ErrorCategory.unknown];
-/// callers show download-specific copy for those, and `canceled`/`paused`
-/// are not errors at all.
+/// (noSpace/permission/destination/resource/ownership/unknown) map to
+/// [ErrorCategory.unknown]; callers show download-specific copy for those,
+/// and `canceled`/`paused` are not errors at all.
 ErrorCategory categorizeDownloadFailure(DownloadFailureKind kind) =>
     switch (kind) {
       DownloadFailureKind.auth => ErrorCategory.unauthorized,
