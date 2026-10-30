@@ -201,6 +201,10 @@ void main() {
       await pumpViewer(tester, initialPage: 1);
       await tester.pumpAndSettle();
       expect(find.text('2 / 2'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('viewer-page-1')).hitTestable(),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
