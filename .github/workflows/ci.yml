@@ -100,7 +100,7 @@ jobs:
         # Each shard runs whole test files (tool/test_shards.py), so it
         # compiles only its own; --total-shards would split cases inside
         # every file and make each shard compile the whole suite.
-        shard: [0, 1, 2, 3, 4, 5]
+        shard: [0, 1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Pick this shard's test files
