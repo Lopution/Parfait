@@ -37,7 +37,7 @@ ProfileEditSession _session(
   repository: repository,
   owner: _owner(),
   readOwner: readOwner,
-  initialUser: _user(),
+  userId: 42,
   onConfirmed: onConfirmed ?? (_) async {},
 );
 
@@ -535,7 +535,7 @@ void main() {
         // builds the editing session itself, exactly like production.
         child: localizedApp(
           locale: const Locale('en', 'US'),
-          home: ProfileEditPage(userId: 42, initialUser: _user()),
+          home: const ProfileEditPage(userId: 42),
         ),
       ),
     );
@@ -569,8 +569,8 @@ void main() {
     api.users.detailFailure = null;
     await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    // The page reads the user again, then the editor its draft.
-    expect(api.users.requests, ['detail:42', 'detail:42', 'detail:42']);
+    // Each load reads the user once: the editor's draft is the read.
+    expect(api.users.requests, ['detail:42', 'detail:42']);
     expect(find.text('Display name'), findsOneWidget);
   });
 }

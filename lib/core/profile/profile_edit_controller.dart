@@ -29,11 +29,15 @@ class ProfileEditFailure {
     required this.code,
     required this.message,
     this.retryable = false,
+    this.cause,
   });
 
   final ProfileEditFailureCode code;
   final String message;
   final bool retryable;
+
+  /// What the load threw: the error view's category and details.
+  final Object? cause;
 }
 
 @immutable
@@ -72,14 +76,16 @@ class ProfileEditSession {
     required this.repository,
     required this.owner,
     required this.readOwner,
-    required this.initialUser,
+    required this.userId,
     required this.onConfirmed,
   });
 
   final ProfileEditRepository repository;
   final ProfileEditOwner owner;
   final ProfileEditOwner Function() readOwner;
-  final UserEntity initialUser;
+
+  /// The profile being edited; its draft is read by the editor's load.
+  final int userId;
   final Future<void> Function(UserEntity user) onConfirmed;
 }
 
@@ -99,7 +105,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
 
   ProfileEditRepository get repository => session.repository;
   ProfileEditOwner Function() get readOwner => session.readOwner;
-  UserEntity get initialUser => session.initialUser;
+  int get userId => session.userId;
   Future<void> Function(UserEntity user) get onConfirmed => session.onConfirmed;
 
   @override
@@ -142,17 +148,17 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     try {
       final capabilities = await repository.loadCapabilities(
         accountId: _owner.accountId,
-        userId: initialUser.id,
+        userId: userId,
         cancelToken: cancelToken,
       );
       if (!_isActive(generation, cancelToken)) return;
       final loaded = await repository.loadDraft(
         accountId: _owner.accountId,
-        userId: initialUser.id,
+        userId: userId,
         cancelToken: cancelToken,
       );
       if (!_isActive(generation, cancelToken)) return;
-      if (loaded.id != initialUser.id || !_ownsCurrentAccount()) {
+      if (loaded.id != userId || !_ownsCurrentAccount()) {
         _setFailure(
           const ProfileEditFailure(
             code: ProfileEditFailureCode.staleOwner,
@@ -175,13 +181,14 @@ class ProfileEditController extends Notifier<ProfileEditState> {
       if (_isActive(generation, cancelToken)) {
         _setState(const ProfileEditState(status: ProfileEditStatus.canceled));
       }
-    } on Object {
+    } on Object catch (error) {
       if (_isActive(generation, cancelToken)) {
         _setFailure(
-          const ProfileEditFailure(
+          ProfileEditFailure(
             code: ProfileEditFailureCode.repository,
             message: 'profile data could not be loaded',
             retryable: true,
+            cause: error,
           ),
         );
       }
@@ -387,7 +394,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
   ) async {
     switch (outcome) {
       case ProfileEditConfirmed(:final user):
-        if (user.id != initialUser.id) {
+        if (user.id != userId) {
           _setFailure(_staleFailure);
           await _releaseImagesAndClear(draft);
           return;

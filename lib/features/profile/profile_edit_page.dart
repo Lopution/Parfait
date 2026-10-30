@@ -21,8 +21,6 @@ import '../../core/profile/profile_edit_repository.dart';
 import '../../core/profile/profile_edit_store_bridge.dart';
 import '../../core/profile/profile_image.dart';
 import '../../core/reverse_image/reverse_image_platform.dart';
-import '../../core/user/user_entity.dart';
-import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
@@ -41,14 +39,12 @@ class ProfileEditPage extends ConsumerStatefulWidget {
   const ProfileEditPage({
     super.key,
     required this.userId,
-    this.initialUser,
     this.repository,
     this.imagePlatform,
     this.session,
   });
 
   final int userId;
-  final UserEntity? initialUser;
   final ProfileEditRepository? repository;
   final ReverseImageInputPlatform? imagePlatform;
 
@@ -110,17 +106,13 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
           'the current account does not own this profile',
         );
       }
-      final user =
-          widget.initialUser ??
-          ref.read(userStoreProvider)[widget.userId] ??
-          await ref.read(userRepositoryProvider).fetchDetail(widget.userId);
       if (!mounted) return;
       final session = ProfileEditSession(
         repository:
             widget.repository ?? ref.read(profileEditRepositoryProvider),
         owner: _readOwner(),
         readOwner: _readOwner,
-        initialUser: user,
+        userId: widget.userId,
         onConfirmed: (confirmed) => ProfileEditStoreCommitter(
           accountStore: ref.read(accountStoreProvider.notifier),
           userStore: ref.read(userStoreProvider.notifier),
@@ -796,6 +788,16 @@ class _StatusBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final failure = state.failure;
+    // A failed load: the error view the page shows when it cannot start,
+    // with the error's category and its retry.
+    if (failure != null && failure.retryable) {
+      return FeedError(
+        title: context.l10n.profileEditLoadFailed,
+        error: failure.cause,
+        retryLabel: context.l10n.retry,
+        onRetry: () => unawaited(onRetry()),
+      );
+    }
     final busy =
         state.status == ProfileEditStatus.loading ||
         state.status == ProfileEditStatus.submitting;
@@ -819,10 +821,6 @@ class _StatusBody extends StatelessWidget {
                       : context.l10n.profileEditLoadFailed),
               textAlign: TextAlign.center,
             ),
-            if (failure?.retryable == true) ...[
-              const SizedBox(height: FuncSpacing.lg),
-              FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
-            ],
           ],
         ),
       ),
