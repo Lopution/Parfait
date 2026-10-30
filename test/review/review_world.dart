@@ -34,6 +34,7 @@ import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../helpers/api_responses.dart' show appApiTakes;
 import '../helpers/connectivity_channels.dart';
 import '../helpers/download_world.dart';
 import '../helpers/fake_account.dart';
@@ -261,11 +262,20 @@ class ReviewWorld {
         ...setup.overrides,
       ],
     );
+    final wrongMethods = <String>[];
+    addTearDown(
+      () => expect(wrongMethods, isEmpty, reason: 'methods the API refuses'),
+    );
     clientRef[0] = PixivHttpClient(
       client: MockClient((request) async {
-        final responder = responders[request.url.path];
+        final path = request.url.path;
+        if (!appApiTakes(request.method, path)) {
+          wrongMethods.add('${request.method} $path');
+          return http.Response('the App API takes no ${request.method}', 405);
+        }
+        final responder = responders[path];
         if (responder != null) return responder(request.url);
-        return http.Response('review world has no ${request.url.path}', 404);
+        return http.Response('review world has no $path', 404);
       }),
       accountStore: container.read(accountStoreProvider.notifier),
       credentialStore: credentials,

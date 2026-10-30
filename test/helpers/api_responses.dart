@@ -12,11 +12,12 @@ typedef ApiRoute = FutureOr<http.Response> Function(http.Request request);
 
 /// The pixiv App API at the transport, for [signedInApiContainer]: each
 /// request is answered by the route for its path and recorded. A path with
-/// no route is answered 404 and fails the test when it ends.
+/// no route, or a method its path does not take ([appApiTakes]), is
+/// answered 404 or 405 and fails the test when it ends.
 class PixivApi {
   PixivApi([Map<String, ApiRoute> routes = const {}]) : routes = {...routes} {
     addTearDown(
-      () => expect(unrouted, isEmpty, reason: 'App API paths with no route'),
+      () => expect(unrouted, isEmpty, reason: 'App API requests with no route'),
     );
   }
 
@@ -27,9 +28,9 @@ class PixivApi {
   late final http.Client client = MockClient((request) async {
     requests.add(request);
     final route = routes[request.url.path];
-    if (route == null) {
+    if (route == null || !appApiTakes(request.method, request.url.path)) {
       unrouted.add('${request.method} ${request.url}');
-      return http.Response('no route', 404);
+      return http.Response('no route', route == null ? 404 : 405);
     }
     return route(request);
   });
@@ -47,6 +48,39 @@ class PixivApi {
         request,
   ];
 }
+
+/// The App API paths the app writes to, by POST. Every other path is read
+/// by GET; the restricted-mode setting is read and written on one path.
+const _appApiWrites = {
+  '/v2/illust/bookmark/add',
+  '/v1/illust/bookmark/delete',
+  '/v2/novel/bookmark/add',
+  '/v1/novel/bookmark/delete',
+  '/v1/user/follow/add',
+  '/v1/user/follow/delete',
+  '/v1/watchlist/manga/add',
+  '/v1/watchlist/manga/delete',
+  '/v1/watchlist/novel/add',
+  '/v1/watchlist/novel/delete',
+  '/v1/illust/comment/add',
+  '/v1/illust/comment/delete',
+  '/v1/novel/comment/add',
+  '/v1/novel/comment/delete',
+  '/v1/mute/edit',
+  '/v1/user/ai-show-settings/edit',
+  '/v1/user/restricted-mode-settings',
+  '/v2/user/browsing-history/illust/add',
+  '/v1/user/profile/edit',
+};
+const _appApiReadWrites = {'/v1/user/restricted-mode-settings'};
+
+/// Whether the App API takes [method] on [path], as the server does: a
+/// write sent as a read, or a read as a write, is refused.
+bool appApiTakes(String method, String path) => switch (method) {
+  'POST' => _appApiWrites.contains(path),
+  'GET' => !_appApiWrites.contains(path) || _appApiReadWrites.contains(path),
+  _ => false,
+};
 
 /// A request's query parameters and, for a form post, its fields.
 Map<String, String> requestFields(http.Request request) => {
