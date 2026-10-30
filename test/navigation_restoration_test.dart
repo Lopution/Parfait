@@ -359,7 +359,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/recommended/illust/42/viewer/1');
-    expect(find.byType(ImageViewerPage), findsOneWidget);
+    // The restarted app has none of the work in memory and no route
+    // extra: the pages come from the detail the page below loads.
+    expect(find.text('2 / 2'), findsOneWidget);
   });
 
   testWidgets('a restored pager opens the work it settled on', (tester) async {

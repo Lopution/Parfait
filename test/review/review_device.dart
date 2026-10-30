@@ -96,23 +96,27 @@ final reviewOutDir =
     Platform.environment['PARFAIT_REVIEW_OUT'] ??
     '${Platform.environment['HOME']}/parfait-ux4-review';
 
-/// Applies [reviewDevice]: panel size, density, system bar insets, the
-/// [locale] as the system locale, font scale, system [brightness] (the
-/// app's theme setting follows the system by default), and the engine's
-/// `accessibleNavigation` stuck on — the state GKD leaves it in on the
-/// user's phone — and Android as the platform, for the framework and for
-/// the widgets that read [PlatformCaps.system]. Shadows render as on the
-/// device: flutter_test otherwise draws every elevation as a solid black
-/// outline. Whether touch exploration is on is a provider, set by
-/// `ReviewWorld.open`.
+/// Applies [device] (by default [reviewDevice]): panel size, density,
+/// system bar insets, the [locale] as the system locale, font scale,
+/// system [brightness] (the app's theme setting follows the system by
+/// default), and the engine's `accessibleNavigation` stuck on — the state
+/// GKD leaves it in on the user's phone — and Android as the platform, for
+/// the framework and for the widgets that read [PlatformCaps.system].
+/// Shadows render as on the device: flutter_test otherwise draws every
+/// elevation as a solid black outline. Whether touch exploration is on is
+/// a provider, set by `ReviewWorld.open`.
 void applyReviewDevice(
   WidgetTester tester, {
   required Locale locale,
   double textScale = 1.0,
   Brightness brightness = Brightness.light,
+  ReviewDevice? device,
 }) {
   final view = tester.view;
-  final device = reviewDevice;
+  device ??= reviewDevice;
+  // In a tear-down, not [resetReviewDevice]: a view change gives the render
+  // view a new root layer, and one made in the test body outlives it.
+  addTearDown(view.reset);
   view.physicalSize = device.physicalSize;
   view.devicePixelRatio = device.dpr;
   final insets = FakeViewPadding(
@@ -136,12 +140,6 @@ void applyReviewDevice(
 }
 
 void resetReviewDevice(WidgetTester tester) {
-  final view = tester.view;
-  view.resetPhysicalSize();
-  view.resetDevicePixelRatio();
-  view.resetPadding();
-  view.resetViewPadding();
-  view.resetViewInsets();
   final dispatcher = tester.platformDispatcher;
   dispatcher.clearLocalesTestValue();
   dispatcher.clearLocaleTestValue();
