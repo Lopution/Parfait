@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart' show ImageFilterLayer;
 import 'package:material_ui/material_ui.dart';
@@ -12,10 +14,13 @@ import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
+import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
+import 'package:parfait/core/watchlater/watch_later_store.dart';
 
 import 'helpers/recording_haptics.dart';
 import 'helpers/card_world.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/illust_detail_page_support.dart' show RecordingShareService;
 import 'helpers/prompt_host.dart';
@@ -184,6 +189,40 @@ void main() {
     expect(restored.map((e) => e.entity.id), [9]);
     // Undo pins the original timestamp — the row keeps its old position.
     expect(restored.single.addedAt, originalAddedAt);
+  });
+
+  testWidgets('a watch-later save that fails after its card is gone says so', (
+    tester,
+  ) async {
+    final container = await signedInApiContainer(CardApiFixture().build());
+    final shown = ValueNotifier(true);
+    addTearDown(shown.dispose);
+    await tester.pumpWidget(
+      _cardApp(
+        container,
+        ValueListenableBuilder(
+          valueListenable: shown,
+          builder: (_, show, _) => show
+              ? IllustCard(entity: parseIllust(illustJson(9)))
+              : const SizedBox(),
+        ),
+      ),
+    );
+    // The save queues behind this transaction, which then drops its table.
+    final db = await container.read(watchLaterDatabaseProvider).database;
+    final gate = Completer<void>();
+    final broken = db.transaction((txn) async {
+      await gate.future;
+      await txn.execute('DROP TABLE ${WatchLaterDatabase.table}');
+    });
+    await _openSheet(tester);
+    await _tapEntry(tester, '稍后再看');
+    shown.value = false;
+    await tester.pumpAndSettle();
+    gate.complete();
+    await broken;
+    await tester.pumpAndSettle();
+    expect(find.textContaining('稍后再看保存失败'), findsOneWidget);
   });
 
   testWidgets(

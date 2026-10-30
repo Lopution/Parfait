@@ -52,12 +52,14 @@ Future<void> toggleUserMute(BuildContext context, MutedUser user) async {
   final container = ProviderScope.containerOf(context, listen: false);
   final wasMuted = container.read(muteStoreProvider).isUserMuted(user.userId);
   final confirm = muteConfirmation(context);
+  final reportFailure = deferErrorSnackBar(
+    context,
+    action: context.l10n.muteFailed,
+  );
   try {
     await container.read(muteStoreProvider.notifier).toggleUser(user);
-  } catch (error) {
-    if (context.mounted) {
-      showErrorSnackBar(context, action: context.l10n.muteFailed, error: error);
-    }
+  } catch (error, stack) {
+    reportFailure(error, stack);
     return;
   }
   if (!wasMuted) {

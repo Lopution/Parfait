@@ -1089,6 +1089,7 @@
   "watchLaterTitle": "Посмотреть позже",
   "watchLaterEmpty": "В «Посмотреть позже» пока пусто",
   "watchLaterLoadFailed": "Не удалось загрузить «Посмотреть позже»",
+  "watchLaterSaveFailed": "Не удалось сохранить «Посмотреть позже»",
   "bookmarkEditTitle": "Изменить закладку",
   "bookmarkTags": "Теги закладок",
   "bookmarkTagNewHint": "Новый тег, затем Enter",
