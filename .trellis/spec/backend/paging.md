@@ -99,9 +99,13 @@ reviewed: 2026-10-30
 - **Rule:** Refresh increments the generation, clears the committed
   cursor set and cancels old appends. A refresh replaces the ordered list;
   load-more appends only unseen ids in server order. Token refresh does not
-  rebuild a feed.
-- **Why:** Late appends mixed generations and left ghost ids.
-- **Check:** `test/feed_generation_commit_test.dart` "active append commits same-ID updates and keeps server order"
+  rebuild a feed. A request writes its outcome onto the feed as it is when
+  it lands, not as it was when it began: ids removed or inserted meanwhile
+  (`removeRecord`, a comment's `prepend`/`removeId`) stay so.
+- **Why:** Late appends mixed generations and left ghost ids. A page that
+  landed on the list it read at its start brought back a history record
+  deleted while it loaded (10-31).
+- **Check:** `test/feed_generation_commit_test.dart` "active append commits same-ID updates and keeps server order"; `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)"
 - **Code:** `lib/core/paging/paged_feed_controller.dart`
 
 ## Paging pace

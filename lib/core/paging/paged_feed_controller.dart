@@ -487,7 +487,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
           accountId: _accountIdFor(context),
           reason: FeedDiscardReason.cancelled,
         );
-        state = AsyncData(current.copyWith(refreshPhase: FeedPhase.idle));
+        state = AsyncData(_latest.copyWith(refreshPhase: FeedPhase.idle));
       } else {
         _discardContext(context);
         _restoreRefreshPhaseIfCurrent(context);
@@ -502,7 +502,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       // and the phase signals the failure to the UI.
       _stateError = error;
       state = AsyncData(
-        current.copyWith(
+        _latest.copyWith(
           refreshPhase: FeedPhase.error,
           loadMorePhase: FeedPhase.idle,
           loadMoreError: null,
@@ -579,7 +579,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       final nextCursor = _validateCursor(page.nextCursor, context);
       final committed = FrameProbe.instance.measure(
         'feed commit ${page.ids.length}',
-        () => _commitLoadMore(context, page, current, nextCursor),
+        () => _commitLoadMore(context, page, nextCursor),
       );
       if (!committed) _restoreLoadMorePhaseIfCurrent(context);
     } on ApiCancelled {
@@ -589,7 +589,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
           accountId: _accountIdFor(context),
           reason: FeedDiscardReason.cancelled,
         );
-        state = AsyncData(current.copyWith(loadMorePhase: FeedPhase.idle));
+        state = AsyncData(_latest.copyWith(loadMorePhase: FeedPhase.idle));
       } else {
         _discardContext(context);
         _restoreLoadMorePhaseIfCurrent(context);
@@ -602,7 +602,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         return;
       }
       state = AsyncData(
-        current.copyWith(loadMorePhase: FeedPhase.error, loadMoreError: error),
+        _latest.copyWith(loadMorePhase: FeedPhase.error, loadMoreError: error),
       );
     } finally {
       _commitGate.finish(context);
@@ -702,7 +702,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   bool _commitLoadMore(
     FeedRequestContext context,
     FeedPage page,
-    PagedFeedState current,
     String? nextCursor,
   ) {
     if (!_commitPage(context, page)) return false;
@@ -711,7 +710,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     _page = context.page;
     state = AsyncData(
       PagedFeedState(
-        ids: _dedupe(page.ids, current.ids),
+        ids: _dedupe(page.ids, _latest.ids),
         initialPhase: FeedPhase.idle,
         loadMorePhase: FeedPhase.idle,
         exhausted: _nextCursor == null,
@@ -719,6 +718,11 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     );
     return true;
   }
+
+  /// The feed as it is now. A request writes its outcome onto this, not
+  /// onto the feed it read when it started: a record deleted or a comment
+  /// posted meanwhile came back or went with the page.
+  PagedFeedState get _latest => state.requireValue;
 
   bool _isContextActive(FeedRequestContext context) {
     return !_disposed && _commitGate.isActive(context, accountId: _accountId);
