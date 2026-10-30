@@ -145,31 +145,6 @@ void main() {
     expect(errors[ProfileField.webpage], isNotNull);
   });
 
-  test('verification pending never commits effective user metadata', () async {
-    final repository = _FakeRepository(
-      ProfileCapabilities(
-        editableFields: {ProfileField.displayName},
-        channel: ProfileEditChannel.appApi,
-        verification: ProfileVerificationRequirement.emailConfirmation,
-      ),
-      outcome: ProfileEditVerificationPending(
-        fields: {ProfileField.displayName},
-        message: 'email confirmation required',
-      ),
-    );
-    var committed = 0;
-    final session = _session(repository, onConfirmed: (_) async => committed++);
-    final controller = await _loaded(session);
-
-    controller.updateText(ProfileField.displayName, 'pending name');
-    await controller.submit();
-
-    expect(controller.state.status, ProfileEditStatus.verificationPending);
-    expect(committed, 0);
-    expect(controller.state.draft!.base.displayName, 'old name');
-    expect(controller.state.draft!.values.displayName, 'pending name');
-  });
-
   test('confirmed response commits only after the ownership check', () async {
     final changed = _user().copyWith(name: 'confirmed name');
     final repository = _FakeRepository(

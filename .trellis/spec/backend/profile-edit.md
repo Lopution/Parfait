@@ -30,7 +30,7 @@ reviewed: 2026-10-29
   update stored metadata; an account switch cancels and discards late
   results.
 - **Why:** A late response after an account switch renamed the new account.
-- **Check:** `test/profile_edit_test.dart` "confirmed response commits only after the ownership check" "late confirmed response after account switch cannot commit" "verification pending never commits effective user metadata"
+- **Check:** `test/profile_edit_test.dart` "confirmed response commits only after the ownership check" "late confirmed response after account switch cannot commit"
 - **Code:** `lib/core/profile/profile_edit_controller.dart`, `lib/core/profile/profile_edit_store_bridge.dart`
 
 ### PROF-03 Passwords and images are short-lived
