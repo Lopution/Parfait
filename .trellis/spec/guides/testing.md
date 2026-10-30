@@ -83,7 +83,7 @@ reviewed: 2026-10-30
 
 ### TEST-05 The suite stays within its budget
 - **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart code
-  lines (`tool/test_budget.json`, 0.652; blank and comment lines excluded;
+  lines (`tool/test_budget.json`, 0.653; blank and comment lines excluded;
   `test/review/` and `test/fixtures/` not counted, nor the localizations
   `flutter gen-l10n` writes into `lib/l10n/`), so tests grow with the code
   but not faster. Only the user changes the ratio; an agent asks and
