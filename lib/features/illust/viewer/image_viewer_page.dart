@@ -32,6 +32,7 @@ import '../../../l10n/lookup.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/artwork_controls.dart';
 import '../../../app/widgets/entity_row.dart' show EntityBadge;
+import '../../../app/widgets/feed/feed_states.dart' show FeedLoading;
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -73,6 +74,7 @@ class ImageViewerPage extends ConsumerStatefulWidget {
     this.tier,
     this.prefetchUrlForPage,
     this.entity,
+    this.loading = false,
   }) : assert(initialPage >= 0);
 
   final List<String> urls;
@@ -95,6 +97,12 @@ class ImageViewerPage extends ConsumerStatefulWidget {
   /// deep-link or when the store has not loaded the work yet — in that case
   /// the entity-bound actions simply do not render.
   final IllustEntity? entity;
+
+  /// The pages are still on their way: a viewer restored with no work in
+  /// memory gets them from the detail. Until [initialPage] is among [urls]
+  /// the viewer has no pages and shows a spinner, its exits in place; it
+  /// then opens on that page.
+  final bool loading;
 
   /// Zoom bounds (PRD R3: strictly 0.9–6.0).
   static const double minScale = 0.9;
@@ -122,7 +130,7 @@ class ImageViewerPage extends ConsumerStatefulWidget {
 
 class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     with SingleTickerProviderStateMixin {
-  late final PageController _pageController;
+  late PageController _pageController;
   late final AnimationController _zoomController;
   final _transformations = <int, TransformationController>{};
 
@@ -165,7 +173,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// before the dismiss recognizer is offered it and turns it away.
   int? _scrubPointer;
 
-  int get _pageCount => widget.urls.length;
+  int get _pageCount => _pagesOf(widget);
+
+  static int _pagesOf(ImageViewerPage viewer) =>
+      viewer.loading && viewer.initialPage >= viewer.urls.length
+      ? 0
+      : viewer.urls.length;
 
   bool get _chromeVisible => _viewerSessionChromeVisible;
 
@@ -190,6 +203,25 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       (_) => _prefetchNeighbours(_activePage),
     );
     if (!_viewerSessionChromeVisible) _setSystemChrome(visible: false);
+  }
+
+  @override
+  void didUpdateWidget(covariant ImageViewerPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The pages arrived: the pager was never built, so it opens on the
+    // page asked for instead of the one initState clamped to.
+    if (_pagesOf(oldWidget) > 0 || _pageCount == 0) return;
+    _transformationFor(_activePage).removeListener(_onTransformed);
+    _activePage = widget.initialPage.clamp(0, _pageCount - 1);
+    _transformationFor(_activePage).addListener(_onTransformed);
+    _pageController
+      ..removeListener(_onPageChanged)
+      ..dispose();
+    _pageController = PageController(initialPage: _activePage)
+      ..addListener(_onPageChanged);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _prefetchNeighbours(_activePage),
+    );
   }
 
   /// The download manager publishes task changes on a stream rather than
@@ -617,12 +649,16 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                               _doubleTapFocal = details.localPosition,
                           onDoubleTap: _onDoubleTap,
                           child: _pageCount == 0
-                              ? Center(
-                                  child: Text(
-                                    text('viewerNoImages'),
-                                    style: TextStyle(color: FuncTokens.white),
-                                  ),
-                                )
+                              ? widget.loading
+                                    ? const FeedLoading()
+                                    : Center(
+                                        child: Text(
+                                          text('viewerNoImages'),
+                                          style: TextStyle(
+                                            color: FuncTokens.white,
+                                          ),
+                                        ),
+                                      )
                               // The paging slop: a drag leaning towards
                               // vertical dismisses instead of paging.
                               : PagingSlop(

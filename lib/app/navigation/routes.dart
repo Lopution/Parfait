@@ -14,7 +14,6 @@ import '../../core/entity/comment_entity.dart';
 import '../../core/network/api_date.dart';
 import '../../core/entity/illust_entity.dart';
 import '../image_tier_cache.dart';
-import '../widgets/feed/feed_states.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/illust/illust_detail_controller.dart';
 import '../../core/navigation/home_destination.dart';
@@ -148,15 +147,12 @@ class _ImageViewerRoute extends ConsumerWidget {
     final entity =
         ref.watch(illustStoreProvider).get(illustId) ?? extra?.entity;
     final urls = entity?.viewerUrls(quality) ?? extra?.urls ?? const <String>[];
-    if (urls.isEmpty && detail.isLoading) {
-      // A restored viewer has no snapshot and no extra: the stage waits for
-      // the detail, so the viewer opens on its own page once the pages are
-      // known.
-      return const ColoredBox(color: Colors.black, child: FeedLoading());
-    }
     return ImageViewerPage(
       entity: entity,
       urls: urls,
+      // A restored viewer has no snapshot and no extra: it waits for the
+      // detail's pages.
+      loading: detail.isLoading,
       initialPage: page,
       heroTagForPage: switch (extra) {
         ImageViewerRouteExtra(:final heroScope?, :final entryPage) => (page) {

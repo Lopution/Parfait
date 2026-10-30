@@ -8,6 +8,7 @@ import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 
 import 'helpers/image_network.dart';
@@ -57,12 +58,17 @@ void main() {
       WidgetTester tester, {
       List<String> urls = twoPages,
       int initialPage = 0,
+      bool loading = false,
     }) async {
       await tester.pumpWidget(
         withStalledImages(
           localizedApp(
             builder: promptHostBuilder,
-            home: ImageViewerPage(urls: urls, initialPage: initialPage),
+            home: ImageViewerPage(
+              urls: urls,
+              initialPage: initialPage,
+              loading: loading,
+            ),
           ),
         ),
       );
@@ -181,6 +187,21 @@ void main() {
         expect(find.byKey(const ValueKey('viewer-page-2')), findsNothing);
       },
     );
+
+    testWidgets('pages that arrive late open on the page asked for; the '
+        'wait keeps the way out', (tester) async {
+      // A restored viewer has no work in memory: the pages come with the
+      // detail, and a snapshot may hold only the first.
+      for (final urls in [const <String>[], twoPages.sublist(0, 1)]) {
+        await pumpViewer(tester, urls: urls, initialPage: 1, loading: true);
+        expect(find.byType(FeedLoading), findsOneWidget);
+        expect(find.byType(BackButton), findsOneWidget);
+        expect(find.byKey(const Key('viewer-page-counter')), findsNothing);
+      }
+      await pumpViewer(tester, initialPage: 1);
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 2'), findsOneWidget);
+    });
 
     testWidgets(
       'hidden chrome belongs to the session: it survives page turns and '
