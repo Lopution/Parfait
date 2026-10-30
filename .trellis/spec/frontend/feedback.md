@@ -71,7 +71,7 @@ reviewed: 2026-10-17
   `showErrorSnackBar`). `SnackBar`, `SnackBarAction`, `showSnackBar` and
   `ScaffoldMessenger` do not appear in `lib/`; direct `PromptHost` access is
   pinned to a few files. Feedback that lands after an await takes its
-  host first through `deferAppSnackBar`.
+  host first through `deferAppSnackBar` (errors: `deferErrorSnackBar`).
 - **Why:** The Scaffold path anchored to geometry the floating shell bar
   does not have and read the polluted accessibility flag.
 - **Check:** `test/architecture/feedback_channels_test.dart` "prompts have exactly one host"
@@ -189,7 +189,7 @@ reviewed: 2026-10-17
 ### FB-15 A callback that outlives its widget stays inside its owner
 - **Rule:** An async callback reads the stores, actions, prompt host and
   texts it needs before its first await (`deferAppSnackBar`,
-  `deferCommentSendError`). After the await it touches the widget only
+  `deferErrorSnackBar`, `deferCommentSendError`). After the await it touches the widget only
   if `mounted`, pops a sheet only while its route `isCurrent`, and acts
   only while the account boundary it read (`BookmarkStore.boundaryToken`,
   `CommentDrafts.owner`) is still the same object. A save queued behind
@@ -201,7 +201,8 @@ reviewed: 2026-10-17
   Doubao sign-out ending after their page closed used a disposed context;
   a bookmark sheet closed mid-submit popped the page under it, since a
   closed sheet stays mounted while it animates out; a comment error was
-  lost with the composer, and its draft landed in the next account. One
-  failed cleanup skipped the next.
-- **Check:** `test/login_navigation_test.dart` "leaving during the token exchange drops its outcome", `test/download_tasks_page_test.dart` "a batch cancel ending after the page left is quiet", `test/bookmark_switch_button_test.dart` "a submit outlives its sheet but not its account", `test/comments_replies_test.dart` "a send ending after the detail composer left still lands", `test/settings_test.dart` "signing out of Doubao clears the session and its cookies"
-- **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/comment_composer.dart`
+  lost with the composer, and its draft landed in the next account; a
+  failed account removal was lost with its page. One failed cleanup
+  skipped the next.
+- **Check:** `test/login_navigation_test.dart` "leaving during the token exchange drops its outcome", `test/download_tasks_page_test.dart` "a batch cancel ending after the page left is quiet", `test/bookmark_switch_button_test.dart` "a submit outlives its sheet but not its account", `test/comments_replies_test.dart` "a send ending after the detail composer left still lands", `test/settings_test.dart` "signing out of Doubao clears the session and its cookies", `test/account_settings_page_test.dart` "a removal that fails after its page closed is reported"
+- **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/comment_composer.dart`, `lib/features/settings/pages/account_settings_page.dart`

@@ -68,7 +68,10 @@ reviewed: 2026-10-30
 - **Rule:** A future started from synchronous code is awaited, or passed to
   `unawaited` when its errors are handled where it runs (a loader's own
   `catch`, a navigation push); one whose errors nobody handles gets a
-  handler first, and an rhttp cancel calls `.ignore()` (NET-18). Its owner
+  handler first, and an rhttp cancel calls `.ignore()` (NET-18). A method
+  every caller drops handles its errors itself: a store's best-effort
+  write logs, as a chain that only keeps its own tail alive still hands
+  the error to the caller. Its owner
   closes a `StreamController` and cancels a subscription; one left open on
   purpose says why above its `// ignore:` (QUAL-01). The analyzer enforces
   this. Likewise its owner disposes a notifier, controller or animation;
@@ -77,8 +80,9 @@ reviewed: 2026-10-30
   it is handed. Leak tracking (TEST-15) fails a widget test that leaves one.
 - **Why:** A dropped future's error reaches the zone and the crash log with
   no handler, and nothing told a deliberate fire-and-forget from a
-  forgotten `await`.
-- **Check:** `analysis_options.yaml` "discarded_futures" "close_sinks" "cancel_subscriptions" "avoid_void_async"
+  forgotten `await`. The route stores' write chains said they swallowed a
+  failed write, and handed it to callers that dropped it.
+- **Check:** `analysis_options.yaml` "discarded_futures" "close_sinks" "cancel_subscriptions" "avoid_void_async", `test/network_fast_route_test.dart` "a learned route that fails to save completes quietly"
 - **Code:** `analysis_options.yaml`
 
 ### QUAL-07 A `!` rests on what the reader sees
