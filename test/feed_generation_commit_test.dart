@@ -39,6 +39,11 @@ class _DeferredFeedController extends PagedFeedController {
     completions.add(completion);
     return completion.future;
   }
+
+  /// A removal landing while a page is on its way.
+  void drop(int id) => state = AsyncData(
+    state.requireValue.copyWith(ids: [...state.requireValue.ids]..remove(id)),
+  );
 }
 
 final _deferredFeedProvider =
@@ -232,11 +237,13 @@ void main() {
 
       final appendFuture = controller.loadMore();
       await turnUntil(() => controller.requests.length == 2);
+      // Removed meanwhile, 1 stays gone though the page repeats it.
+      controller.drop(1);
       controller.completions
           .removeAt(0)
           .complete(
             FeedPage(
-              ids: [2, 3, 3],
+              ids: [1, 2, 3, 3],
               nextCursor: null,
               commit: (_) => store.mergeAll([
                 _illust(2, title: 'same ID updated'),
@@ -248,8 +255,8 @@ void main() {
       await appendFuture;
 
       var state = container.read(provider).requireValue;
-      expect(state.ids, [1, 2, 3]);
-      expect(state.ids.toSet(), hasLength(3));
+      expect(state.ids, [2, 3]);
+      expect(state.ids.toSet(), hasLength(2));
       expect(state.exhausted, isTrue);
       expect(store.get(2)!.title, 'same ID updated');
       expect(store.get(3)!.title, 'duplicate server item');

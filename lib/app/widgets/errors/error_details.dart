@@ -171,8 +171,8 @@ void showErrorSnackBar(
 
 /// [showErrorSnackBar] for a failure that may land after the context that
 /// asked is gone: the prompt host and the texts are taken now, one prompt
-/// per error category.
-void Function(Object error, StackTrace stack) deferErrorSnackBar(
+/// per error category. A failure a store recorded comes without a stack.
+void Function(Object error, [StackTrace? stack]) deferErrorSnackBar(
   BuildContext context, {
   required String action,
 }) {
@@ -184,7 +184,7 @@ void Function(Object error, StackTrace stack) deferErrorSnackBar(
         l10n.errorWithReason(action, errorCategoryTextL10n(l10n, category)),
       ),
   };
-  return (error, stack) {
+  return (error, [stack]) {
     CrashLog.report(action, error, stack);
     prompts[categorizeError(error)]!();
   };

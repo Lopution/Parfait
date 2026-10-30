@@ -17,6 +17,10 @@ import 'illust_card_actions.dart';
 /// registered [CardAction]s as a modal bottom sheet. Presentation curve and
 /// reduced-motion degrade come from [showAppBottomSheet] / MotionTokens.
 Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
+  // The actions run on the card's context. A refresh landing under the
+  // open sheet can take the card away: they run on its Navigator's then,
+  // which outlives the card and the sheet.
+  final navigator = Navigator.of(context).context;
   return showAppBottomSheet<void>(
     context: context,
     // Sized to its content: the header plus every action stays in view
@@ -50,7 +54,13 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
                       title: Text(action.labelFor(ref, entity, l10n)),
                       onTap: () {
                         Navigator.of(sheetContext).pop();
-                        unawaited(action.run(context, ref, entity));
+                        unawaited(
+                          action.run(
+                            context.mounted ? context : navigator,
+                            ref,
+                            entity,
+                          ),
+                        );
                       },
                     ),
                   ),

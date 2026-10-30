@@ -107,7 +107,6 @@ void main() {
         home: _Opener(
           (context, ref) => showFollowActionsSheet(
             context,
-            ref,
             userId: 42,
             userName: 'sample user',
             userAccount: 'sample',

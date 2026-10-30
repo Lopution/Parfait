@@ -244,9 +244,11 @@ void main() {
     expect(find.text('重试'), findsOneWidget);
   });
 
-  test(
-    'deleting a loaded record never skips one on the next page (B11)',
-    () async {
+  // Overlapping, the page landed on the list read when it was asked for,
+  // and the deleted record came back.
+  for (final overlapping in [false, true]) {
+    test('deleting a loaded record never skips one on the next page (B11)'
+        '${overlapping ? ', nor comes back with that page' : ''}', () async {
       // 31 records a minute apart: the first page holds 31 down to 2.
       final history = await openHistoryRepository([
         for (var id = 1; id <= 31; id++)
@@ -260,15 +262,23 @@ void main() {
       final first = await container.read(provider.future);
       final feed = container.read(provider.notifier);
 
-      await feed.removeRecord(feed.recordFor(first.ids.first)!);
-      await feed.loadMore();
+      final record = feed.recordFor(first.ids.first)!;
+      if (overlapping) {
+        final load = feed.loadMore();
+        await feed.removeRecord(record);
+        expect(container.read(provider).value?.showLoadMoreSpinner, isTrue);
+        await load;
+      } else {
+        await feed.removeRecord(record);
+        await feed.loadMore();
+      }
       final ids = container.read(provider).requireValue.ids;
       expect(
-        [for (final id in ids) feed.recordFor(id)!.contentId],
+        [for (final id in ids) feed.recordFor(id)?.contentId],
         [for (var id = 30; id >= 1; id--) id],
       );
-    },
-  );
+    });
+  }
 
   testWidgets('an empty history with recording off offers to turn it on', (
     tester,

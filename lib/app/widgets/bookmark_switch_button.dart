@@ -31,17 +31,24 @@ String _bookmarkText(BuildContext context, String key) =>
 
 /// Toggles the bookmark of [key]. The heart flips on this frame
 /// (optimistic), so the haptic plays now too: add → success, remove →
-/// select. A failure rolls the heart back with an error haptic; the button
-/// reports the cause. A removal says nothing more, as in Shaft: tapping the
-/// heart again restores the old visibility and tags.
+/// select. A failure rolls the heart back with an error haptic and says
+/// why, also once the heart is gone. A removal says nothing more, as in
+/// Shaft: tapping the heart again restores the old visibility and tags.
 Future<void> toggleBookmark(BuildContext context, BookmarkKey key) async {
   // Read up front: the toggle may outlive the widget that started it.
   final container = ProviderScope.containerOf(context, listen: false);
+  final reportFailure = deferErrorSnackBar(
+    context,
+    action: context.l10n.bookmarkOperationFailed,
+  );
   final store = container.read(bookmarkStoreProvider.notifier);
   final wish = !(store.entryOf(key)?.shown ?? false);
   wish ? AppHaptics.success() : AppHaptics.select();
   await container.read(bookmarkActionsProvider).toggle(key);
-  if (store.entryOf(key)?.error != null) AppHaptics.error();
+  if (store.entryOf(key)?.error case final error?) {
+    AppHaptics.error();
+    reportFailure(error);
+  }
 }
 
 /// Peak overshoot of the heart pop above its rest scale of 1.
@@ -187,21 +194,6 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
       ),
       widget.title,
     );
-
-    // R5: a failure rolls the heart back to the confirmed value and
-    // surfaces an observable error.
-    ref.listen<Object?>(bookmarkStoreProvider.select((s) => s[_key]?.error), (
-      previous,
-      next,
-    ) {
-      if (next != null && previous != next) {
-        showErrorSnackBar(
-          context,
-          action: context.l10n.bookmarkOperationFailed,
-          error: next,
-        );
-      }
-    });
 
     // Long-press opens the sheet in both directions: create for a fresh work,
     // edit (prefilled from bookmark detail) for an already-bookmarked one.
@@ -397,7 +389,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
 
   /// Closing is safe without a prompt when the draft matches the baseline or
   /// a submit is already in flight — the in-flight mutation keeps running
-  /// and the store entry still reports its outcome.
+  /// and still reports its outcome.
   bool get _closableFreely => _submitting || !_isDirty;
 
   Future<void> _attemptClose() async {
@@ -434,6 +426,10 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
     final before = store.entryOf(widget.bookmarkKey)?.bookmarked ?? false;
     final boundary = store.boundaryToken;
     final actions = ref.read(bookmarkActionsProvider);
+    final reportFailure = deferErrorSnackBar(
+      context,
+      action: context.l10n.bookmarkOperationFailed,
+    );
     setState(() {
       _submitting = true;
       _submitError = null;
@@ -463,9 +459,13 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
       entry.error != null ? AppHaptics.error() : AppHaptics.success();
     }
     // A sheet closed during the submit stays mounted while it animates
-    // out; popping then would close the page under it.
-    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
+    // out; popping then would close the page under it. Its failure goes to
+    // the prompt host instead.
     final error = entry?.error;
+    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) {
+      if (error != null) reportFailure(error);
+      return;
+    }
     if (error != null) {
       // Non-connectivity failure: keep the sheet open, keep the draft
       // untouched, show the error inline (D6).

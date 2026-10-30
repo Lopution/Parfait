@@ -332,6 +332,7 @@ void main() {
     late BuildContext rootContext;
     late PageRoute<void> pushed;
     var stillTaps = 0;
+    var detailTaps = 0;
     PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
         FuncPage<void>(
               transitionDuration: const Duration(milliseconds: 400),
@@ -370,7 +371,15 @@ void main() {
                       GestureDetector(
                         onTap: () {
                           pushed = page(
-                            hero('detail', const Offset(300, 500), height: 100),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => detailTaps++,
+                              child: hero(
+                                'detail',
+                                const Offset(300, 500),
+                                height: 100,
+                              ),
+                            ),
                             sharedElement: true,
                           );
                           Navigator.of(context).push(pushed);
@@ -418,14 +427,22 @@ void main() {
     await at(60);
     expect(backdrop(), inExclusiveRange(0, 1));
     expect(Color.getAlphaFromOpacity(content()), 1);
+    // Taps on content not yet shown, a second one on the card first: the
+    // page takes none, and the page below none either.
+    await tester.tapAt(const Offset(25, 25));
     await tester.pump(const Duration(milliseconds: 140));
     expect(backdrop(), 1);
     expect(content(), inExclusiveRange(0, 1));
     expect(tester.getTopLeft(find.text('still')), still);
+    await tester.tapAt(still);
+    expect((detailTaps, stillTaps), (0, 0));
     // Only a landed page has its image lifted off.
     expect(_liftedHoleAt(tester, const Offset(325, 550)), isNull);
     await tester.pumpAndSettle();
     expect([backdrop(), content()], [1, 1]);
+    await tester.tapAt(const Offset(25, 25));
+    expect(detailTaps, 1);
+    expect(find.text('detail'), findsOneWidget);
 
     // Back: the content goes first, then the background; the image flies
     // home out of a hole in the page and the page below takes the touch.

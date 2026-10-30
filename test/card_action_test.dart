@@ -191,39 +191,44 @@ void main() {
     expect(restored.single.addedAt, originalAddedAt);
   });
 
-  testWidgets('a watch-later save that fails after its card is gone says so', (
-    tester,
-  ) async {
-    final container = await signedInApiContainer(CardApiFixture().build());
-    final shown = ValueNotifier(true);
-    addTearDown(shown.dispose);
-    await tester.pumpWidget(
-      _cardApp(
-        container,
-        ValueListenableBuilder(
-          valueListenable: shown,
-          builder: (_, show, _) => show
-              ? IllustCard(entity: parseIllust(illustJson(9)))
-              : const SizedBox(),
+  // Gone under the open sheet too, as when a refresh lands: the action
+  // ran on the dead card's context and threw before it saved.
+  for (final underSheet in [false, true]) {
+    testWidgets('a watch-later save that fails after its card is gone says so'
+        '${underSheet ? ', gone under the open sheet' : ''}', (tester) async {
+      final container = await signedInApiContainer(CardApiFixture().build());
+      final shown = ValueNotifier(true);
+      addTearDown(shown.dispose);
+      await tester.pumpWidget(
+        _cardApp(
+          container,
+          ValueListenableBuilder(
+            valueListenable: shown,
+            builder: (_, show, _) => show
+                ? IllustCard(entity: parseIllust(illustJson(9)))
+                : const SizedBox(),
+          ),
         ),
-      ),
-    );
-    // The save queues behind this transaction, which then drops its table.
-    final db = await container.read(watchLaterDatabaseProvider).database;
-    final gate = Completer<void>();
-    final broken = db.transaction((txn) async {
-      await gate.future;
-      await txn.execute('DROP TABLE ${WatchLaterDatabase.table}');
+      );
+      // The save queues behind this transaction, which then drops its table.
+      final db = await container.read(watchLaterDatabaseProvider).database;
+      final gate = Completer<void>();
+      final broken = db.transaction((txn) async {
+        await gate.future;
+        await txn.execute('DROP TABLE ${WatchLaterDatabase.table}');
+      });
+      await _openSheet(tester);
+      shown.value = !underSheet;
+      await tester.pump();
+      await _tapEntry(tester, '稍后再看');
+      shown.value = false;
+      await tester.pumpAndSettle();
+      gate.complete();
+      await broken;
+      await tester.pumpAndSettle();
+      expect(find.textContaining('稍后再看保存失败'), findsOneWidget);
     });
-    await _openSheet(tester);
-    await _tapEntry(tester, '稍后再看');
-    shown.value = false;
-    await tester.pumpAndSettle();
-    gate.complete();
-    await broken;
-    await tester.pumpAndSettle();
-    expect(find.textContaining('稍后再看保存失败'), findsOneWidget);
-  });
+  }
 
   testWidgets(
     'download action surfaces submission failure for an entity without '

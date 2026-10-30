@@ -640,7 +640,6 @@ class _UserPageState extends ConsumerState<UserPage>
                       : () => unawaited(
                           showFollowActionsSheet(
                             context,
-                            ref,
                             userId: user.id,
                             userName: user.name,
                             userAccount: user.account,

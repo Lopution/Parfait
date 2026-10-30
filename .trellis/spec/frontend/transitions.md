@@ -128,7 +128,7 @@ reviewed: 2026-10-29
 ### TRANS-09 Shared-element pages cover a still page, then show
 - **Rule:** A page opened with a Hero is `FuncPage(sharedElement: true)`
   and does not move: `MotionTokens.sharedElement` (450ms), no slide, no
-  barrier, the page below still and live. With its background
+  barrier colour, the page below still and live. With its background
   (`sharedElementBackdrop`, the detail) two layers run off the
   controller: opening, the background (`scaffoldBackgroundColor`) covers
   the page below over `sharedElementBackdropIn`, then the content fades in
@@ -142,7 +142,9 @@ reviewed: 2026-10-29
   turning with its route, set as `curve` and `reverseCurve` on the ends
   in the page that opens or leaves (a flight reads that end's curve), so
   an image sent back mid-flight goes home from where it is. A leaving page takes
-  no touch, so the page below answers while the image flies. While a
+  no touch, so the page below answers while the image flies. An opening
+  page takes none until its content has shown, and its barrier takes
+  that touch, so the page below gets none either. While a
   landed page leaves, `HeroLiftHole` cuts the flying image's spot out of
   its content, so what is under the content shows there; an opening page
   has none. The viewer's endpoint (`IllustHeroFlightChild.containsImage`)
@@ -175,7 +177,9 @@ reviewed: 2026-10-29
   route below both to a page still leaving when the page under it leaves
   too (`suitableForAnnouncement` keeps popping routes); taking it handed
   the leaving page's slide to the feed under the detail, which slid in
-  from a third of the way across while the image landed (10-26).
+  from a third of the way across while the image landed (10-26). A
+  second tap on the card fell on the opening page's content, still
+  unseen, and opened the viewer over the flying image (10-31).
 - **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background" "two backs in a row leave the page under the shared-element"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight" "an image sent back mid-flight turns where it is"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/routes.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 

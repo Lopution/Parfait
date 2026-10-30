@@ -201,11 +201,20 @@ void main() {
   ) async {
     final follows = FollowApi();
     final container = await _world(follows: follows);
+    final shown = ValueNotifier(true);
+    addTearDown(shown.dispose);
     await _pump(
       tester,
       container,
-      home: const Scaffold(
-        body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
+      home: Scaffold(
+        body: Center(
+          child: ValueListenableBuilder(
+            valueListenable: shown,
+            builder: (_, show, _) => show
+                ? const FollowSwitchButton(userId: 7, userName: 'u')
+                : const SizedBox(),
+          ),
+        ),
       ),
     );
     Future<void> openSheet() async {
@@ -262,5 +271,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(follows.requests.last, 'add:7:public');
     expect(container.read(followStoreProvider)[7]?.followed, isTrue);
+
+    // A refresh takes the button away under the open sheet: the pick
+    // still goes out, and its failure still says why.
+    await openSheet();
+    shown.value = false;
+    await tester.pump();
+    follows.failure = failing(400);
+    await tester.tap(action('改为私密关注'));
+    await tester.pumpAndSettle();
+    expect(follows.requests.last, 'add:7:private');
+    expect(find.textContaining('关注操作失败'), findsOneWidget);
   });
 }
