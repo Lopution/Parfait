@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/history/history_models.dart';
+import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
@@ -194,4 +197,38 @@ void main() {
       expect(await repository.list('200'), isEmpty);
     });
   });
+
+  // A page in a widget test opens both at their default path. Through the
+  // isolate their replies never reached the case's fake-async zone, and the
+  // isolate went on creating the file while its directory was deleted; in
+  // memory, the factory handed the second the first one's database.
+  testWidgets(
+    'default watch-later and history databases answer in a widget test',
+    (tester) async {
+      final container = ProviderContainer.test(
+        overrides: [accountStoreProvider.overrideWith(StubAccountStore.new)],
+      );
+      await container.read(accountStoreProvider.future);
+      var answered = 0;
+      unawaited(
+        container.read(watchLaterStoreProvider.future).then((_) => answered++),
+      );
+      unawaited(
+        container
+            .read(historyRepositoryProvider)
+            .find(
+              accountId: '100',
+              contentType: HistoryContentType.illust,
+              contentId: 1,
+            )
+            .then((_) => answered++),
+      );
+      await tester.pump();
+      expect(answered, 2);
+      final databases = await tester.runAsync(
+        databaseFactoryFfi.getDatabasesPath,
+      );
+      expect(Directory(databases!).listSync(), isEmpty, reason: 'in memory');
+    },
+  );
 }

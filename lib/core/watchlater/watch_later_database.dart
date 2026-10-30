@@ -20,6 +20,12 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 DatabaseFactory watchLaterDatabaseFactory({required bool useMobileSqflite}) {
   if (useMobileSqflite) return sqflite.databaseFactory;
   sqfliteFfiInit();
+  // The isolate-backed factory's port replies never reach the fake-async
+  // zone of `testWidgets`; the no-isolate variant answers through
+  // microtasks that `tester.pump` flushes (same rationale as feeds.db).
+  if (Platform.environment['FLUTTER_TEST'] == 'true') {
+    return databaseFactoryFfiNoIsolate;
+  }
   return databaseFactoryFfi;
 }
 
@@ -59,17 +65,28 @@ class WatchLaterDatabase {
   }
 
   Future<Database> _open() async {
-    final databasePath =
-        _databasePath ??
-        path.join(await _factory.getDatabasesPath(), databaseName);
+    final databasePath = _databasePath ?? await _defaultPath();
     return _factory.openDatabase(
       databasePath,
       options: OpenDatabaseOptions(
         version: schemaVersion,
+        // The factory hands every opener of a path the same database,
+        // `:memory:` included; each in-memory database must be its own.
+        singleInstance: databasePath != sqflite.inMemoryDatabasePath,
         onCreate: (db, version) => _createSchema(db),
         onUpgrade: _upgrade,
       ),
     );
+  }
+
+  /// Under `flutter test` each database is in memory: one a page opens in
+  /// a widget test leaves no file in the test file's databases directory
+  /// and no rows for the next case. Production resolves the real path.
+  Future<String> _defaultPath() async {
+    if (Platform.environment['FLUTTER_TEST'] == 'true') {
+      return sqflite.inMemoryDatabasePath;
+    }
+    return path.join(await _factory.getDatabasesPath(), databaseName);
   }
 
   Future<void> _createSchema(DatabaseExecutor db) async {

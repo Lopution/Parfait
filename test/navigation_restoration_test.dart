@@ -14,6 +14,8 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
+import 'package:parfait/core/history/history_database.dart';
+import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/illust/recommended_repository.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
@@ -85,9 +87,11 @@ Widget _routerApp(
   SearchRepository? searchRepository,
   List<TrendingTag>? trendingTags,
   Future<http.Response> Function(http.Request)? httpHandler,
+  HistoryRepository? history,
 }) {
   return ProviderScope(
     overrides: [
+      if (history != null) historyRepositoryProvider.overrideWithValue(history),
       ...accountProviderOverrides(
         credentialStore: FakeCredentialStore(
           values: const {
@@ -402,10 +406,15 @@ void main() {
       () => VisibilityDetectorController.instance.updateInterval =
           const Duration(milliseconds: 500),
     );
+    // History outlives the restart, as its database outlives the process:
+    // the torn-down pager's last view lands in it, not in a closed one.
+    final historyDatabase = HistoryDatabase();
+    final history = HistoryRepository(database: historyDatabase);
     final router = pixivRouter('/recommended');
     await tester.pumpWidget(
       _routerApp(
         router,
+        history: history,
         httpHandler: (request) async {
           if (request.url.path == '/v1/illust/detail') {
             final id = int.parse(request.url.queryParameters['illust_id']!);
@@ -450,6 +459,13 @@ void main() {
       tester.widget<IllustDetailPage>(find.byType(IllustDetailPage)).illustId,
       43,
     );
+
+    // The page goes first, so its last view lands. The database closes
+    // here: opened in this case's fake-async zone, a close awaited in a
+    // tear-down never returns.
+    await tester.pumpWidget(const SizedBox());
+    history.dispose();
+    await historyDatabase.close();
   });
 
   for (final (path, type) in [
