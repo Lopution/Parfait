@@ -264,7 +264,10 @@ void main() {
 
       final record = feed.recordFor(first.ids.first)!;
       if (overlapping) {
-        await Future.wait([feed.removeRecord(record), feed.loadMore()]);
+        final load = feed.loadMore();
+        await feed.removeRecord(record);
+        expect(container.read(provider).value?.showLoadMoreSpinner, isTrue);
+        await load;
       } else {
         await feed.removeRecord(record);
         await feed.loadMore();
