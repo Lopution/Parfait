@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart' show RecordingClient;
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/auto_image_source.dart';
@@ -17,20 +18,7 @@ import 'package:parfait/core/network/compat/route_kind_store.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/network/rhttp_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-/// In-memory preferences whose `setString` fails, as on a full disk.
-final class _StringWritesFail extends InMemorySharedPreferencesAsync {
-  _StringWritesFail() : super.empty();
-
-  @override
-  Future<bool> setString(
-    String key,
-    String value,
-    SharedPreferencesOptions options,
-  ) => Future.error(StateError('disk full'));
-}
 
 class _HandshakeFailingClient extends http.BaseClient {
   @override
@@ -131,7 +119,7 @@ void main() {
 
   test('a learned route that fails to save completes quietly', () async {
     // Each is remembered unawaited after a request it served.
-    SharedPreferencesAsyncPlatform.instance = _StringWritesFail();
+    SharedPreferencesAsyncPlatform.instance = StringWriteFailingPreferences();
     final preferences = SharedPreferencesAsync();
 
     await PixivFastRouteStore(

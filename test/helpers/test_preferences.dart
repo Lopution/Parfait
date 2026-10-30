@@ -31,3 +31,16 @@ final class IntWriteFailingPreferences extends InMemorySharedPreferencesAsync {
     return Future.error(StateError('disk full'));
   }
 }
+
+/// In-memory preferences whose `setString` fails, as on a full disk.
+final class StringWriteFailingPreferences
+    extends InMemorySharedPreferencesAsync {
+  StringWriteFailingPreferences() : super.empty();
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) => Future.error(StateError('disk full'));
+}

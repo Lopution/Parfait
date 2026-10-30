@@ -29,6 +29,7 @@ import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
+import '../../app/widgets/settings/persist_settings.dart';
 import 'package:parfait/core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
 import '../../app/motion/reveal.dart';
@@ -118,11 +119,17 @@ class _ReverseImageSearchPageState
   Future<void> _search() => _controller.search();
 
   /// Engine choice is durable: the flow switches immediately when an image
-  /// is held, and the selection is persisted either way.
+  /// is held, and the selection is persisted either way. A failed write is
+  /// reported; this visit keeps the choice.
   void _selectEngine(ReverseImageEngine engine) {
     unawaited(_controller.selectEngine(engine));
     unawaited(
-      ref.read(settingsProvider.notifier).selectReverseImageEngine(engine),
+      persistSettings(
+        context,
+        () => ref
+            .read(settingsProvider.notifier)
+            .selectReverseImageEngine(engine),
+      ),
     );
   }
 

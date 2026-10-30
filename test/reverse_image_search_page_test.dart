@@ -21,6 +21,7 @@ import 'helpers/reverse_image_world.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/image_headers.dart';
+import 'helpers/prompt_host.dart';
 
 void main() {
   late Directory directory;
@@ -194,6 +195,33 @@ void main() {
       return raw == null ? null : jsonDecode(raw) as Map<String, dynamic>;
     });
     expect(stored?['reverseImageEngine'], 'iqdb');
+  });
+
+  testWidgets('an engine choice that fails to save says so', (tester) async {
+    SharedPreferencesAsyncPlatform.instance = StringWriteFailingPreferences();
+    await _pumpPage(
+      tester,
+      platform: platform,
+      providers: {
+        ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
+          ReverseImageSearchSuccess(),
+        ),
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'IQDB'));
+    await tester.pump();
+    await tester.pump();
+
+    // This visit keeps the choice; the next one starts from the old default.
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'IQDB'))
+          .selected,
+      isTrue,
+    );
+    expect(find.textContaining('设置保存失败'), findsOneWidget);
   });
 
   testWidgets('an input outside engine constraints disables the search', (
@@ -470,7 +498,7 @@ Future<void> _pumpPage(
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
-
+        builder: promptHostBuilder,
         home: ReverseImageSearchPage(
           // A distinct key forces a fresh State+session — re-pumping the
           // same runtimeType otherwise lands in didUpdateWidget and the
