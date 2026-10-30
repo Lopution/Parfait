@@ -560,7 +560,7 @@ void main() {
         expect(settings.enableLocalBlockR18, isTrue);
 
         final rows = await world.history.page(accountId: '100', limit: 100);
-        expect(rows.total, 3);
+        expect(rows.records, hasLength(3));
         final byId = {for (final r in rows.records) r.contentId: r};
         // Imported rows land under the *current* account.
         expect(byId.values.every((r) => r.accountId == '100'), isTrue);
@@ -611,7 +611,7 @@ void main() {
         );
 
         final rows = await world.history.page(accountId: '100', limit: 100);
-        expect(rows.total, 1);
+        expect(rows.records, hasLength(1));
         expect(rows.records.single.contentId, 9);
         expect(rows.records.single.snapshot.title, 'imported 9');
         expect(container.read(settingsProvider).value!.languageTag, 'ru-RU');
@@ -677,7 +677,7 @@ void main() {
         (await world.container.read(settingsProvider.future)).languageTag,
         'en-US',
       );
-      expect((await world.history.page(accountId: '100')).total, 0);
+      expect(await world.history.count(accountId: '100'), 0);
     });
   });
 

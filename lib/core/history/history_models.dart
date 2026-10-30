@@ -233,17 +233,10 @@ class PixivHistoryOutboxEntry {
 }
 
 class HistoryPageResult {
-  const HistoryPageResult({
-    required this.records,
-    required this.total,
-    required this.limit,
-  });
+  const HistoryPageResult({required this.records, required this.hasMore});
 
   final List<HistoryRecord> records;
-  final int total;
-  final int limit;
-
-  bool get hasMore => records.length < total;
+  final bool hasMore;
 }
 
 class HistorySyncException implements Exception {

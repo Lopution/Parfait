@@ -75,8 +75,9 @@ class HistoryRepository {
 
   /// One page in `last_viewed_at DESC, id DESC` order. With [after] the
   /// page starts past that row (keyset paging: a row deleted or viewed
-  /// again meanwhile never shifts it) and [HistoryPageResult.total] counts
-  /// from there.
+  /// again meanwhile never shifts it). The same read takes one row more to
+  /// tell whether another page follows: a second statement would see
+  /// deletes made in between.
   Future<HistoryPageResult> page({
     required String accountId,
     HistoryContentType? contentType,
@@ -107,18 +108,11 @@ class HistoryRepository {
       where: where.toString(),
       whereArgs: whereArgs,
       orderBy: 'last_viewed_at DESC, id DESC',
-      limit: limit,
+      limit: limit + 1,
     );
-    final countRows = await db.rawQuery(
-      'SELECT COUNT(*) AS count FROM ${HistoryDatabase.historyTable} '
-      'WHERE ${where.toString()}',
-      whereArgs,
-    );
-    final total = (countRows.single['count'] as num).toInt();
     return HistoryPageResult(
-      records: [for (final row in rows) HistoryRecord.fromRow(row)],
-      total: total,
-      limit: limit,
+      records: [for (final row in rows.take(limit)) HistoryRecord.fromRow(row)],
+      hasMore: rows.length > limit,
     );
   }
 
@@ -161,12 +155,14 @@ class HistoryRepository {
     required String accountId,
     HistoryContentType? contentType,
   }) async {
-    final result = await page(
-      accountId: accountId,
-      contentType: contentType,
-      limit: 1,
+    _validateAccount(accountId);
+    final db = await _database.database;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM ${HistoryDatabase.historyTable} '
+      'WHERE account_id = ?${contentType == null ? '' : ' AND content_type = ?'}',
+      [accountId, ?contentType?.storageValue],
     );
-    return result.total;
+    return (rows.single['count'] as num).toInt();
   }
 
   Future<int> delete({

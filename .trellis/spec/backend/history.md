@@ -100,7 +100,9 @@ reviewed: 2026-10-29
 ### HIST-08 The history feed pages after the last row read
 - **Rule:** The history feed's cursor is the last loaded row's
   (`last_viewed_at`, id); `HistoryRepository.page(after:)` reads past it
-  in `last_viewed_at DESC, id DESC` order, never by offset. A failed
+  in `last_viewed_at DESC, id DESC` order, never by offset, and tells
+  whether another page follows from the same read (one row more), not
+  from a second count. A failed
   first read shows `FeedError` with retry, not the empty view. A reader
   that needs every row (the backup export) reads them in one statement
   (`HistoryRepository.all`), not page by page.
@@ -108,6 +110,7 @@ reviewed: 2026-10-29
   deleted, and a read error said "no history" with no way to retry. An
   export read in pages while views arrived wrote some rows twice and
   dropped others: a view moves its row to the top, behind the reader,
-  whether pages go by offset or by cursor.
-- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
+  whether pages go by offset or by cursor. A delete between a page's read
+  and its count ended the paging early.
+- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/history_persistence_test.dart` "a delete while a page is read leaves the rest reachable"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
 - **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`, `lib/core/backup/backup_service.dart`
