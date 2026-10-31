@@ -87,6 +87,11 @@ abstract final class FuncTokens {
     BoxShadow(color: Color(0x4D000000), offset: Offset(0, 1), blurRadius: 3),
   ];
 
+  /// `colorScheme.shadow`, cast by Material elevation (menus, dialogs,
+  /// sheets, prompts): the cocoa ink on light, like [lightLayerLift].
+  static const Color lightShadow = Color(0xFF3A2A2E);
+  static const Color darkShadow = Color(0xFF000000);
+
   /// Scrim/overlay tone for dimming content under floating surfaces.
   static const Color surfaceOverlay = Color(0x52000000);
 

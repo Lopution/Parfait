@@ -8,6 +8,10 @@ import 'func_tokens.dart';
 const _disabledContentAlpha = 0.38;
 const _disabledContainerAlpha = 0.12;
 
+/// How high the layers above a page float: menus, dialogs, modal sheets
+/// and prompts (THEME-20).
+const double _layerElevation = 6;
+
 /// [fontFamilyFallback] is for layout tests only: the locale layout
 /// harness loads its own Latin and CJK stand-ins and names them here.
 /// The app leaves it null and keeps the engine's system fallback chain
@@ -94,6 +98,7 @@ ThemeData replicaTheme(
     outlineVariant: subdued,
     error: dark ? FuncTokens.darkError : FuncTokens.lightError,
     onError: FuncTokens.white,
+    shadow: dark ? FuncTokens.darkShadow : FuncTokens.lightShadow,
   );
 
   // One type scale feeds both TextTheme roles and the semantic token ramp
@@ -168,7 +173,7 @@ ThemeData replicaTheme(
     snackBarTheme:
         const SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          elevation: 0,
+          elevation: _layerElevation,
         ).copyWith(
           backgroundColor: inverseSurface,
           actionTextColor: colorScheme.inversePrimary,
@@ -274,7 +279,9 @@ ThemeData replicaTheme(
     dialogTheme: DialogThemeData(
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: FuncTokens.transparent,
-      elevation: 0,
+      elevation: _layerElevation,
+      // M3's dialog and sheet defaults cast a transparent shadow.
+      shadowColor: colorScheme.shadow,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(28)),
       ),
@@ -284,12 +291,16 @@ ThemeData replicaTheme(
       modalBackgroundColor: colorScheme.surfaceContainer,
       surfaceTintColor: FuncTokens.transparent,
       elevation: 0,
-      modalElevation: 0,
+      modalElevation: _layerElevation,
+      shadowColor: colorScheme.shadow,
       showDragHandle: true,
       dragHandleColor: colorScheme.onSurfaceVariant,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+    ),
+    menuTheme: const MenuThemeData(
+      style: MenuStyle(elevation: WidgetStatePropertyAll(_layerElevation)),
     ),
     // Filled buttons are brand fills; disabled, they take M3's disabled
     // colors like the switch below.
