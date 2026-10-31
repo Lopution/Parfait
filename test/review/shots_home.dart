@@ -24,7 +24,11 @@ void main() {
   }
   testShot('home/recommended-manga', location: '/recommended?type=manga');
   testShot('home/recommended-novel', location: '/recommended?type=novel');
-  testShot('home/ranking', location: '/ranking');
+  testShot(
+    'home/ranking',
+    location: '/ranking',
+    variants: {ShotVariant.dark, ShotVariant.largeText},
+  );
   testShot('home/ranking-week', location: '/ranking?mode=week');
   testShot('home/ranking-male', location: '/ranking?mode=dayMale');
   // The category sheet, browsing and editing.

@@ -38,7 +38,11 @@ void main() {
     },
   );
   testShot('novel/comments', location: '$novel/comments');
-  testShot('novel/ranking', location: '/recommended/novel-ranking');
+  testShot(
+    'novel/ranking',
+    location: '/recommended/novel-ranking',
+    variants: {ShotVariant.dark, ShotVariant.largeText},
+  );
   testShot(
     'novel/ranking-male',
     location: '/recommended/novel-ranking?mode=dayMale',
