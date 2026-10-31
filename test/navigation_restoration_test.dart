@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -20,8 +21,6 @@ import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/illust/recommended_repository.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/search/search_models.dart';
-import 'package:parfait/core/search/search_repository.dart';
-import 'package:parfait/core/search/search_trending_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
@@ -43,7 +42,6 @@ import 'helpers/search_world.dart';
 
 Widget _routerApp(
   GoRouter router, {
-  List<TrendingTag>? trendingTags,
   Future<http.Response> Function(http.Request)? httpHandler,
   http.Client? transport,
   HistoryRepository? history,
@@ -64,8 +62,6 @@ Widget _routerApp(
       oauthServiceProvider.overrideWithValue(
         OAuthService(client: MockClient((_) async => http.Response('{}', 400))),
       ),
-      if (trendingTags != null)
-        trendingTagsProvider.overrideWith((ref, _) => trendingTags),
       if (httpHandler != null ? MockClient(httpHandler) : transport
           case final client?)
         pixivHttpClientProvider.overrideWith(
@@ -273,20 +269,15 @@ void main() {
 
   testWidgets('restores a representative feed offset', (tester) async {
     final router = pixivRouter('/search');
+    final search = SearchApi(trendingTagCount: 30);
 
     await tester.pumpWidget(
       _routerApp(
         router,
-        // In place before the restore. Through the API the tags land after
-        // it, and the offset springs back to the loading grid's end.
-        trendingTags: [
-          for (var index = 0; index < 30; index++)
-            TrendingTag(name: 'tag-${index + 1}'),
-        ],
+        transport: PixivApi({...shellRoutes, ...search.routes}).client,
       ),
     );
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final scrollable = tester.state<ScrollableState>(
       find
@@ -300,18 +291,27 @@ void main() {
     await tester.pump();
     expect(scrollable.position.pixels, 260);
 
+    // The tags answer after the restore: it lands on their skeleton.
+    search.trendingGate = Completer();
     await tester.restartAndRestore();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    final restored = tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byKey(const PageStorageKey('search-home-illust')),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    expect(find.byType(FuncSkeleton), findsOneWidget);
+    expect(restored.pixels, 260);
 
-    final restoredScrollable = tester.state<ScrollableState>(
-      find
-          .descendant(
-            of: find.byKey(const PageStorageKey('search-home-illust')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
-    expect(restoredScrollable.position.pixels, 260);
+    search.trendingGate!.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(FuncSkeleton), findsNothing);
+    expect(restored.pixels, 260);
   });
 
   testWidgets('viewer page replacement survives route restoration', (
