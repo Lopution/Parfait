@@ -340,6 +340,9 @@ void main() {
       await tester.pump();
 
       final reason = '($backgroundUrl, $profileUrl)';
+      // Which image the wash is made from is the contract (TEST-03): the
+      // blur and tone lock are ambient_wash_test's, and the stalled images
+      // paint nothing to compare.
       final washImages = find.descendant(
         of: find.byType(AmbientWash),
         matching: find.byType(PixivImage),
