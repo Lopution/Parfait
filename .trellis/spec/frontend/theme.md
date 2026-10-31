@@ -142,7 +142,8 @@ reviewed: 2026-10-21
 
 ### THEME-10 Prompts are inverted chrome
 - **Rule:** Prompts use `inverseSurface` / `onInverseSurface` with
-  `inversePrimary` actions. Do not restyle them to a container tier.
+  `inversePrimary` actions, and float at the layer elevation like the
+  other layers (THEME-20). Do not restyle them to a container tier.
 - **Why:** A container-tier prompt blends into sheets and cards.
 - **Check:** manual
 - **Code:** `lib/app/widgets/prompt_host.dart`
@@ -248,16 +249,21 @@ reviewed: 2026-10-21
 - **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### THEME-20 A shadow marks a layer, or content under a bar
-- **Rule:** Shadows come from `FuncSemanticTokens` only: `barShadow` and
-  `topBarShadow` where content scrolls under a bar, `layerLift` under a
-  layer resting above the page (the detail capsule), `cardLift` under a
-  card that is an object of its own (the detail author card). Light-theme
-  lifts are on the cocoa ink, not black. A translucent layer frosts what
-  passes under it and draws its lift outside its own shape. Work cards
-  take no shadow and no outline.
+- **Rule:** Shadows come from `FuncSemanticTokens` or the theme's one
+  layer elevation. Lifts and `colorScheme.shadow` are the cocoa ink on the
+  light theme, not black; the bar shadow stays neutral. A translucent
+  layer frosts what passes under it and draws its lift outside its own
+  shape. Work cards take no shadow and no outline. The shadows:
+  - `barShadow` and `topBarShadow` where content scrolls under a bar;
+  - `layerLift` under a layer resting above the page (the detail capsule);
+  - `cardLift` under a card that is an object of its own (the detail
+    author card);
+  - elevation 6 in `colorScheme.shadow` for menus, dialogs, modal sheets
+    and prompts.
 - **Why:** User decision: depth may grow richer, but a shadow says above
   or under and never decorates. Through the unfrosted 85% capsule, passing
   captions and badges smeared; a whole-shape shadow under a translucent
-  surface darkened the surface itself.
-- **Check:** manual (review shots, light and dark)
-- **Code:** `lib/app/theme/func_tokens.dart`, `lib/app/theme/func_semantic_tokens.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`
+  surface darkened the surface itself. Flat menus, dialogs and prompts
+  read as part of the page.
+- **Check:** manual (review shots of the overlays, light and dark)
+- **Code:** `lib/app/theme/func_tokens.dart`, `lib/app/theme/func_semantic_tokens.dart`, `lib/app/theme/replica_theme.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`

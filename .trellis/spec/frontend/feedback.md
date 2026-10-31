@@ -34,10 +34,13 @@ reviewed: 2026-10-17
   never `PopupMenuButton`. A touch outside closes the menu and is consumed;
   back closes the menu before the page. The panel keeps
   `crossAxisUnconstrained: false` so long labels truncate inside the width
-  cap.
+  cap. A menu keeps `FuncSpacing.sm` off the side of the screen it lines
+  up at (a ⋮ at the screen edge); an anchor further in (a settings row)
+  keeps the menu lined up with it.
 - **Why:** The closing touch scrolled or tapped the page below; labels
-  overflowed the cap and were clipped.
-- **Check:** `test/app_menu_button_test.dart` "the closing touch never scrolls the page below" "back closes the menu before the page"
+  overflowed the cap and were clipped; an end-edge menu touched the screen
+  edge.
+- **Check:** `test/app_menu_button_test.dart` "the closing touch never scrolls the page below" "back closes the menu before the page" "an end-edge menu keeps off the screen edge it opens at"
 - **Code:** `lib/app/widgets/app_menu_button.dart`
 
 ### FB-02 Dialogs and sheets go through app_overlays.dart
