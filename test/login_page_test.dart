@@ -123,7 +123,7 @@ void main() {
     ) async {
       await pumpLogin(tester, size: const Size(390, 844));
 
-      final button = find.widgetWithText(OutlinedButton, '使用剪贴板数据登录');
+      final button = find.widgetWithText(TextButton, '使用剪贴板数据登录');
       expect(button, findsOneWidget);
       // Only the risk note stays under it; the how-to line is gone.
       final hint = find.textContaining('粘贴后请自行清空剪贴板');
@@ -153,7 +153,7 @@ void main() {
         ],
       );
 
-      final button = find.widgetWithText(OutlinedButton, '使用剪贴板数据登录');
+      final button = find.widgetWithText(TextButton, '使用剪贴板数据登录');
       await tester.ensureVisible(button);
       await tester.pumpAndSettle();
 
@@ -162,7 +162,7 @@ void main() {
       expect(service.importCalls, 1);
       // Busy: progress indicator in the label area and the action disabled.
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+      expect(tester.widget<TextButton>(button).onPressed, isNull);
 
       // A second tap during the import must not start another one.
       await tester.tap(button, warnIfMissed: false);
@@ -177,7 +177,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(tester.widget<OutlinedButton>(button).onPressed, isNotNull);
+      expect(tester.widget<TextButton>(button).onPressed, isNotNull);
     });
 
     testWidgets('register and login open the proxy notice dialog', (

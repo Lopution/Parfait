@@ -347,9 +347,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ),
         // Clipboard import is an action (idle/busy/success/error): while
         // busy the button is disabled and its label carries a small
-        // progress indicator — ReplicaButton has no loading variant, so
-        // a disabled OutlinedButton is the equivalent secondary form.
-        OutlinedButton(
+        // progress indicator. A quiet text action, so the register/login
+        // pair above stays the main one.
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           onPressed: _clipboardBusy ? null : onClipboardLogin,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

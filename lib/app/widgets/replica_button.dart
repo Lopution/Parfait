@@ -3,7 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/func_semantic_tokens.dart';
 
 /// The large pill action of the onboarding and login pages: a brand fill,
-/// or [outlined] in the accent for the second of two side-by-side actions.
+/// or [outlined] and neutral for the second of two side-by-side actions,
+/// so the accent marks only the first.
 /// Both take their colours from the theme, so they follow dark mode and
 /// system colours.
 class ReplicaButton extends StatelessWidget {
@@ -27,7 +28,7 @@ class ReplicaButton extends StatelessWidget {
       color: outlined ? Colors.transparent : tokens.brand,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
-        side: outlined ? BorderSide(color: scheme.primary) : BorderSide.none,
+        side: outlined ? BorderSide(color: scheme.outline) : BorderSide.none,
       ),
       child: InkWell(
         borderRadius: radius,
@@ -39,7 +40,7 @@ class ReplicaButton extends StatelessWidget {
               label,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: outlined ? scheme.primary : tokens.onBrand,
+                color: outlined ? scheme.onSurface : tokens.onBrand,
                 fontWeight: FontWeight.bold,
               ),
             ),
