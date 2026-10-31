@@ -33,4 +33,10 @@ void main() {
     setup: signedOut,
     variants: variants,
   );
+  // First run: the title is in the body, in front of the icon's glow.
+  testShot(
+    'shell/login-first',
+    location: '/login?first=true',
+    setup: signedOut,
+  );
 }

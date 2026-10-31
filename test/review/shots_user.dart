@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'review_support.dart';
 
@@ -8,6 +9,21 @@ void main() {
 
   testShot('user/profile', location: user, variants: {...ShotVariant.values});
   testShot('user/profile-edit', location: '/recommended/profile/99/edit');
+  // No cover: the header takes the avatar's ambient light (THEME-19),
+  // colourful and neutral, expanded and collapsed.
+  for (final id in reviewCoverlessUsers) {
+    testShot('user/profile-no-cover-$id', location: '/recommended/user/$id');
+    testShot(
+      'user/profile-no-cover-$id-collapsed',
+      location: '/recommended/user/$id',
+      before: (tester, router) async {
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(400);
+      },
+    );
+  }
   // The about tab: the introduction carries the translate button.
   testShot(
     'user/profile-about',

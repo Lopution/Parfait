@@ -133,6 +133,11 @@ Map<String, dynamic> reviewUserPreviewJson(int id) => {
   'is_muted': false,
 };
 
+/// Users without a cover, whose profile header takes their avatar's
+/// ambient light: 701's avatar is colourful, 702's a neutral grey.
+const reviewCoverlessUsers = {701, 702};
+const _neutralAvatarUsers = {702};
+
 Map<String, dynamic> reviewUserDetailJson(int id) => {
   'user': {
     ...reviewUserJson(id),
@@ -163,7 +168,9 @@ Map<String, dynamic> reviewUserDetailJson(int id) => {
     'pawoo_url': '',
     'is_premium': false,
     'is_using_custom_profile_image': true,
-    'background_image_url': 'https://i.pximg.net/u$id/bg.jpg',
+    'background_image_url': reviewCoverlessUsers.contains(id)
+        ? null
+        : 'https://i.pximg.net/u$id/bg.jpg',
   },
   'profile_publicity': {
     'gender': 'public',
@@ -297,16 +304,23 @@ class ReviewImageBytes {
         : (300, 420);
     final seed = picture.hashCode & 0xFFFFFF;
     final hue = seed % 360;
-    final top = img.ColorRgb8(
-      60 + (hue * 2 % 140),
-      80 + (hue * 5 % 120),
-      120 + (hue * 3 % 120),
-    );
-    final bottom = img.ColorRgb8(
-      40 + (hue * 7 % 100),
-      60 + (hue * 4 % 110),
-      90 + (hue * 6 % 130),
-    );
+    final neutral =
+        isAvatar &&
+        _neutralAvatarUsers.contains(int.tryParse(file.substring(1)));
+    final top = neutral
+        ? img.ColorRgb8(225, 225, 225)
+        : img.ColorRgb8(
+            60 + (hue * 2 % 140),
+            80 + (hue * 5 % 120),
+            120 + (hue * 3 % 120),
+          );
+    final bottom = neutral
+        ? img.ColorRgb8(150, 150, 150)
+        : img.ColorRgb8(
+            40 + (hue * 7 % 100),
+            60 + (hue * 4 % 110),
+            90 + (hue * 6 % 130),
+          );
     final image = img.Image(width: w, height: h);
     for (var y = 0; y < h; y++) {
       final t = y / (h - 1);

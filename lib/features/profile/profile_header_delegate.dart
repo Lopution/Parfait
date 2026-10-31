@@ -11,6 +11,7 @@ import '../../app/pixiv_image.dart';
 import '../../app/system_ui.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
+import '../../app/widgets/ambient_wash.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
@@ -531,25 +532,34 @@ class _ProfileBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final backgroundUrl = user.backgroundImageUrl;
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (backgroundUrl == null)
-          // No cover uploaded: a lighter opaque container separates the
-          // banner from the page colour and still hides the feed items
-          // scrolling underneath (the tab strip below is opaque, so that
-          // seam is covered too).
-          ColoredBox(color: colors.surfaceContainerHigh)
-        else
-          PixivImage.detail(
-            backgroundUrl,
+        switch ((user.backgroundImageUrl, user.profileImageUrl)) {
+          (final cover?, _) => PixivImage.detail(
+            cover,
             fit: BoxFit.cover,
             // Background images have widely varying aspect ratios;
             // anchoring to the top keeps the main subject visible when the
             // header crops the lower part of a tall image.
             alignment: Alignment.topCenter,
           ),
+          // No cover uploaded: the avatar's ambient light (THEME-19). It is
+          // opaque, so it still hides the feed items scrolling underneath
+          // (the tab strip below is opaque, so that seam is covered too).
+          (null, final avatar?) => AmbientWash(
+            image: PixivImage.detail(
+              avatar,
+              fit: BoxFit.cover,
+              tierUpgrade: false,
+              decodeWidth: 96,
+              placeholderWidget: const SizedBox.shrink(),
+            ),
+          ),
+          // Nothing to light the band: a lighter opaque container
+          // separates it from the page colour.
+          (null, null) => ColoredBox(color: colors.surfaceContainerHigh),
+        },
         Positioned(
           key: const ValueKey('profile-banner-fade'),
           left: 0,
