@@ -234,19 +234,26 @@ reviewed: 2026-10-21
 
 ## Expression
 
-### THEME-19 Ambient light is the work's tone, around the work
-- **Rule:** Where the frame answers a work (the detail band above a short
-  first image, the wide detail stage), it is an `AmbientWash` of a small
-  decode of an image the page already holds, blurred and tone-locked by
-  `AmbientTone`: the wash takes the page's lightness and a share of the
-  image's colour, so neutral images give plain page. It sits beside or
-  behind the work and fades into the page, never over the work. Page
-  selection keeps the plain stage.
+### THEME-19 Ambient light is the subject's tone, around it
+- **Rule:** Where the frame answers its subject, it is an `AmbientWash` of
+  a small decode of an image the page already holds, blurred and
+  tone-locked by `AmbientTone`: the wash takes the page's lightness and a
+  share of the image's colour, so neutral images give plain page. It sits
+  beside or behind the subject and fades into the page, never over it.
+  The places:
+  - the detail band above a short first image, and the wide detail stage
+    (page selection keeps the plain stage);
+  - a profile header without a cover, from the avatar (with neither, a
+    plain container);
+  - the first-run pages (welcome, login), from the app icon, behind the
+    header (`ScrollableFormShell.brandGlow`). No pixiv artwork decorates
+    them.
 - **Why:** User decision: the frame answers the work, warm and quiet. A
   desaturated mirror at partial alpha turned dark or saturated works into
-  a grey haze on the light page and a muddy band on the dark one.
-- **Check:** `test/ambient_wash_test.dart` "ambient light keeps the page lightness and a share of the colour"; placement manual (review shots, light and dark)
-- **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+  a grey haze on the light page and a muddy band on the dark one. A
+  cover-less profile was a grey band; the welcome page was mostly blank.
+- **Check:** `test/ambient_wash_test.dart` "ambient light keeps the page lightness and a share of the colour", `test/user_profile_test.dart` "a profile without a cover lights its header from the avatar"; placement manual (review shots, light and dark)
+- **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/app/widgets/scrollable_form_shell.dart`
 
 ### THEME-20 A shadow marks a layer, or content under a bar
 - **Rule:** Shadows come from `FuncSemanticTokens` or the theme's one
