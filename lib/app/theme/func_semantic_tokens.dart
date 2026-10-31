@@ -57,6 +57,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     required this.label,
     required this.caption,
     required this.numeric,
+    required this.workTitle,
   });
 
   factory FuncSemanticTokens.fromBrightness(
@@ -102,6 +103,15 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       numeric: textTheme.labelLarge!.copyWith(
         color: text,
         fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      // No ramp role sits above titleLarge (headlineSmall is 18 here): a
+      // work's name plate takes its own step over every section title, as
+      // the large app bar title does.
+      workTitle: textTheme.titleLarge!.copyWith(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+        color: text,
       ),
     );
   }
@@ -153,6 +163,9 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   final TextStyle caption;
   final TextStyle numeric;
 
+  /// A work's title on its detail page.
+  final TextStyle workTitle;
+
   /// Reads the ambient extension; falls back to brightness-derived defaults
   /// so shared widgets also render under test harnesses and plugin subtrees
   /// that do not install `replicaTheme`.
@@ -191,6 +204,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     TextStyle? label,
     TextStyle? caption,
     TextStyle? numeric,
+    TextStyle? workTitle,
   }) {
     return FuncSemanticTokens(
       canvas: canvas ?? this.canvas,
@@ -215,6 +229,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       label: label ?? this.label,
       caption: caption ?? this.caption,
       numeric: numeric ?? this.numeric,
+      workTitle: workTitle ?? this.workTitle,
     );
   }
 
@@ -248,6 +263,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       label: TextStyle.lerp(label, other.label, t)!,
       caption: TextStyle.lerp(caption, other.caption, t)!,
       numeric: TextStyle.lerp(numeric, other.numeric, t)!,
+      workTitle: TextStyle.lerp(workTitle, other.workTitle, t)!,
     );
   }
 }

@@ -528,9 +528,8 @@ class _Title extends StatelessWidget {
 
   final String title;
 
-  static TextStyle? _style(BuildContext context) => Theme.of(
-    context,
-  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600);
+  static TextStyle _style(BuildContext context) =>
+      FuncSemanticTokens.of(context).workTitle;
 
   /// [title] as the [SelectableText] lays it out on the page's Material:
   /// an editable paragraph with a strut taken from its style, in the UI
