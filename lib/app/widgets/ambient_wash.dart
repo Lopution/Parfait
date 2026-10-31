@@ -13,6 +13,8 @@ abstract final class AmbientTone {
   static const double _darkLift = 0.07;
 
   /// How much of the image's colour, its distance from grey, survives.
+  /// Saturated colours clip at the gamut edge and lose some of it: a share
+  /// that never clips (about 0.04 on light, 0.18 on dark) leaves no colour.
   static const double _lightChroma = 0.4;
   static const double _darkChroma = 0.6;
 
