@@ -185,29 +185,39 @@ class _Author extends ConsumerWidget {
       ),
     );
     final author = entity.user;
+    // The author is an object of its own on the page: its card rests on a
+    // faint lift (THEME-20).
     return LayoutBuilder(
-      builder: (context, constraints) => PersonCard(
-        key: const Key('illust-author-row'),
-        onTap: () => openUser(context, author.id),
-        tapHint: context.l10n.openAuthorProfile,
-        trailing: author.id == ownUserId
-            ? null
-            // Capped at half the card so a long localized label leaves
-            // the name a lane; the button scales its label down past it.
-            : ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: constraints.maxWidth / 2),
-                child: FollowSwitchButton(
-                  userId: author.id,
-                  userName: author.name,
-                  userAccount: author.account,
-                  compact: true,
+      builder: (context, constraints) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: FuncShape.card,
+          boxShadow: FuncSemanticTokens.of(context).cardLift,
+        ),
+        child: PersonCard(
+          key: const Key('illust-author-row'),
+          onTap: () => openUser(context, author.id),
+          tapHint: context.l10n.openAuthorProfile,
+          trailing: author.id == ownUserId
+              ? null
+              // Capped at half the card so a long localized label leaves
+              // the name a lane; the button scales its label down past it.
+              : ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth / 2,
+                  ),
+                  child: FollowSwitchButton(
+                    userId: author.id,
+                    userName: author.name,
+                    userAccount: author.account,
+                    compact: true,
+                  ),
                 ),
-              ),
-        child: AuthorSummary(
-          name: author.name,
-          account: _handle(author),
-          imageUrl: author.profileImageUrl,
-          avatarRadius: 20,
+          child: AuthorSummary(
+            name: author.name,
+            account: _handle(author),
+            imageUrl: author.profileImageUrl,
+            avatarRadius: 20,
+          ),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -91,7 +92,37 @@ class _DetailActionBarState extends State<DetailActionBar> {
     // Written during build: the anchor only relayouts on it.
     _publish();
     final colors = Theme.of(context).colorScheme;
-    final toolbar = Material(
+    // A layer over the page (THEME-20): what passes under the capsule is
+    // frosted, so it reads as beneath rather than smeared through, and a
+    // warm lift sets it off. The lift is drawn outside the capsule only:
+    // under a translucent surface a whole-shape shadow would darken it.
+    final frosted = Stack(
+      children: [
+        Positioned.fill(
+          child: ClipPath(
+            clipper: const _OutsideStadium(),
+            child: DecoratedBox(
+              decoration: ShapeDecoration(
+                shape: const StadiumBorder(),
+                shadows: FuncSemanticTokens.of(context).layerLift,
+              ),
+            ),
+          ),
+        ),
+        ClipPath(
+          clipper: const ShapeBorderClipper(shape: StadiumBorder()),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: _toolbar(colors),
+          ),
+        ),
+      ],
+    );
+    return _host(context, bottomInset, frosted);
+  }
+
+  Widget _toolbar(ColorScheme colors) {
+    return Material(
       color: colors.surfaceContainerHigh.withValues(alpha: _surfaceOpacity),
       shape: StadiumBorder(side: BorderSide(color: colors.outlineVariant)),
       child: Padding(
@@ -118,6 +149,9 @@ class _DetailActionBarState extends State<DetailActionBar> {
         ),
       ),
     );
+  }
+
+  Widget _host(BuildContext context, double bottomInset, Widget toolbar) {
     return PromptAnchor(
       extent: _visibleExtent,
       child: FadeTransition(
@@ -149,6 +183,26 @@ class _DetailActionBarState extends State<DetailActionBar> {
       ),
     );
   }
+}
+
+/// Everything around a stadium of the clipped box's size, out to a
+/// shadow's reach.
+class _OutsideStadium extends CustomClipper<Path> {
+  const _OutsideStadium();
+
+  static const double _reach = 48;
+
+  @override
+  Path getClip(Size size) {
+    final box = Offset.zero & size;
+    return Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(box.inflate(_reach))
+      ..addPath(const StadiumBorder().getOuterPath(box), Offset.zero);
+  }
+
+  @override
+  bool shouldReclip(_OutsideStadium oldClipper) => false;
 }
 
 /// Download every page; the icon follows the whole work: a ring while
