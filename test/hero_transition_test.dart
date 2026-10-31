@@ -25,6 +25,7 @@ import 'helpers/connectivity_channels.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
+import 'helpers/illust_detail_page_support.dart' show workImages;
 import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
@@ -682,14 +683,15 @@ void main() {
       return onstage;
     }
 
+    // The band's ambient wash (THEME-19) is the work's blurred tone above
+    // the landing box, not a copy of the artwork.
     final artwork = find
-        .descendant(
-          of: find.byType(IllustDetailPage),
-          matching: find.byWidgetPredicate(
-            (w) => w is PixivImage && w.url == entity.imageUrls.medium,
-          ),
-        )
-        .evaluate();
+        .descendant(of: find.byType(IllustDetailPage), matching: workImages)
+        .evaluate()
+        .where(
+          (element) =>
+              (element.widget as PixivImage).url == entity.imageUrls.medium,
+        );
     expect(
       artwork.where(painted).map((element) => element.widget),
       isEmpty,
@@ -710,10 +712,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(barEntrance(), 1);
     expect(actionBar(), 1);
-    expect(
-      find.descendant(of: page, matching: find.byType(PixivImage)),
-      findsOneWidget,
-    );
+    expect(find.descendant(of: page, matching: workImages), findsOneWidget);
 
     // Leaving, the action bar stays put and goes with the page; the
     // flight back is drawn above it.
