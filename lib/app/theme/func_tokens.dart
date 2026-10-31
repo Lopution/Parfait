@@ -65,6 +65,28 @@ abstract final class FuncTokens {
     BoxShadow(color: Color(0x29000000), offset: Offset(0, -1), blurRadius: 5),
   ];
 
+  /// The soft, diffuse shadow of a layer resting above the page (the
+  /// detail capsule): a close contact edge and a wide spread. On the
+  /// light theme it is the cocoa ink's hue, not black, so it reads warm.
+  static const List<BoxShadow> lightLayerLift = [
+    BoxShadow(color: Color(0x1A3A2A2E), offset: Offset(0, 1), blurRadius: 3),
+    BoxShadow(color: Color(0x2E3A2A2E), offset: Offset(0, 6), blurRadius: 20),
+  ];
+  static const List<BoxShadow> darkLayerLift = [
+    BoxShadow(color: Color(0x66000000), offset: Offset(0, 1), blurRadius: 3),
+    BoxShadow(color: Color(0x8C000000), offset: Offset(0, 8), blurRadius: 24),
+  ];
+
+  /// A card that is an object of its own on the page (the detail author
+  /// card): a fainter lift than a layer's.
+  static const List<BoxShadow> lightCardLift = [
+    BoxShadow(color: Color(0x143A2A2E), offset: Offset(0, 1), blurRadius: 2),
+    BoxShadow(color: Color(0x123A2A2E), offset: Offset(0, 3), blurRadius: 10),
+  ];
+  static const List<BoxShadow> darkCardLift = [
+    BoxShadow(color: Color(0x4D000000), offset: Offset(0, 1), blurRadius: 3),
+  ];
+
   /// Scrim/overlay tone for dimming content under floating surfaces.
   static const Color surfaceOverlay = Color(0x52000000);
 

@@ -41,6 +41,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     required this.surfaceOverlay,
     required this.divider,
     required this.barShadow,
+    required this.layerLift,
+    required this.cardLift,
     required this.contentPrimary,
     required this.contentSecondary,
     required this.contentTertiary,
@@ -77,6 +79,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       surfaceOverlay: FuncTokens.surfaceOverlay,
       divider: dark ? FuncTokens.darkDivider : FuncTokens.lightDivider,
       barShadow: dark ? FuncTokens.darkBarShadow : FuncTokens.lightBarShadow,
+      layerLift: dark ? FuncTokens.darkLayerLift : FuncTokens.lightLayerLift,
+      cardLift: dark ? FuncTokens.darkCardLift : FuncTokens.lightCardLift,
       contentPrimary: text,
       contentSecondary: textSecondary,
       contentTertiary: dark
@@ -123,6 +127,12 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       ),
   ];
 
+  /// Cast by a layer resting above the page (the detail capsule).
+  final List<BoxShadow> layerLift;
+
+  /// Cast by a card that is an object of its own on the page.
+  final List<BoxShadow> cardLift;
+
   // Content ladder.
   final Color contentPrimary;
   final Color contentSecondary;
@@ -165,6 +175,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     Color? surfaceOverlay,
     Color? divider,
     List<BoxShadow>? barShadow,
+    List<BoxShadow>? layerLift,
+    List<BoxShadow>? cardLift,
     Color? contentPrimary,
     Color? contentSecondary,
     Color? contentTertiary,
@@ -187,6 +199,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       surfaceOverlay: surfaceOverlay ?? this.surfaceOverlay,
       divider: divider ?? this.divider,
       barShadow: barShadow ?? this.barShadow,
+      layerLift: layerLift ?? this.layerLift,
+      cardLift: cardLift ?? this.cardLift,
       contentPrimary: contentPrimary ?? this.contentPrimary,
       contentSecondary: contentSecondary ?? this.contentSecondary,
       contentTertiary: contentTertiary ?? this.contentTertiary,
@@ -214,6 +228,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       surfaceOverlay: Color.lerp(surfaceOverlay, other.surfaceOverlay, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
       barShadow: BoxShadow.lerpList(barShadow, other.barShadow, t)!,
+      layerLift: BoxShadow.lerpList(layerLift, other.layerLift, t)!,
+      cardLift: BoxShadow.lerpList(cardLift, other.cardLift, t)!,
       contentPrimary: Color.lerp(contentPrimary, other.contentPrimary, t)!,
       contentSecondary: Color.lerp(
         contentSecondary,
