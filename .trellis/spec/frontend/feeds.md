@@ -351,9 +351,10 @@ reviewed: 2026-10-31
 ### FEED-23 A restored offset lands on content or on a skeleton that reaches it
 - **Rule:** A scroll view with a `restorationId` is built with its content;
   a feed's skeleton stands outside it. A skeleton that shares one with
-  loaded sections (the search home's trending grid) reaches the viewport's
-  end at the offset the list opens at, so an offset restored after process
-  death stays put until the content lands.
+  loaded sections (the search home's trending grid) reaches a window's
+  height past the offset the list opens at, recounted when the window
+  resizes, so an offset restored after process death stays put until the
+  content lands.
 - **Why:** The search home restored its offset over three skeleton rows,
   and the bounce physics sprang it back to their end before the tags
   landed.

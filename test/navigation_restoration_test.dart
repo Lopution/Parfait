@@ -279,23 +279,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final scrollable = tester.state<ScrollableState>(
-      find
-          .descendant(
-            of: find.byKey(const PageStorageKey('search-home-illust')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
-    scrollable.position.jumpTo(260);
-    await tester.pump();
-    expect(scrollable.position.pixels, 260);
-
-    // The tags answer after the restore: it lands on their skeleton.
-    search.trendingGate = Completer();
-    await tester.restartAndRestore();
-    await tester.pump(const Duration(seconds: 1));
-    final restored = tester
+    ScrollPosition home() => tester
         .state<ScrollableState>(
           find
               .descendant(
@@ -305,8 +289,24 @@ void main() {
               .first,
         )
         .position;
+    home().jumpTo(260);
+    await tester.pump();
+    expect(home().pixels, 260);
+
+    // The tags answer after the restore: it lands on their skeleton.
+    search.trendingGate = Completer();
+    await tester.restartAndRestore();
+    await tester.pump(const Duration(seconds: 1));
+    final restored = home();
     expect(find.byType(FuncSkeleton), findsOneWidget);
     expect(restored.pixels, 260);
+    // A window grown taller meanwhile still finds the skeleton reaching.
+    final size = tester.view.physicalSize;
+    tester.view.physicalSize = Size(size.width, size.height * 2);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pump(const Duration(seconds: 1));
+    expect(restored.pixels, 260);
+    tester.view.resetPhysicalSize();
 
     search.trendingGate!.complete();
     await tester.pumpAndSettle();

@@ -576,10 +576,10 @@ class _TrendingGrid extends StatelessWidget {
 
 /// [_TrendingGrid] while the tags load: square tiles on the same columns,
 /// spacing and padding. Three rows, or, when the list opens scrolled (an
-/// offset restored after process death), enough to reach the viewport's end
-/// there: the offset stays put until the tags land rather than springing
-/// back to the third row. Counted when the skeleton lays out, which
-/// scrolling does not redo.
+/// offset restored after process death), enough to reach a window's height
+/// past it: the offset stays put until the tags land rather than springing
+/// back to the third row. Counted when the skeleton lays out and when the
+/// window resizes, not as the list scrolls.
 class _TrendingGridSkeleton extends StatelessWidget {
   const _TrendingGridSkeleton();
 
@@ -599,7 +599,7 @@ class _TrendingGridSkeleton extends StatelessWidget {
                     _TrendingGrid._spacing * (columns - 1)) /
                 columns;
             final position = Scrollable.of(context).position;
-            final reach = position.pixels + position.viewportDimension;
+            final reach = position.pixels + MediaQuery.sizeOf(context).height;
             final rows = position.pixels > 0
                 ? math.max(
                     _rows,
