@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/layout/deferred_cache_scroll_view.dart';
-import '../../../app/motion/press_scale.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/app_snack_bar.dart';
@@ -17,15 +16,6 @@ import '../../../core/navigation/home_destination.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/novel/novel_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
-import '../../../app/pixiv_image.dart';
-import '../../../app/widgets/follow_switch_button.dart';
-import '../../../core/entity/illust_entity.dart';
-import '../../../core/mute/mute_predicate.dart';
-import '../../../core/mute/mute_store.dart';
-import '../../../core/settings/local_block_filter.dart';
-import '../../../core/settings/settings_controller.dart';
-import '../../../core/user/user_entity.dart';
-import '../../../core/user/user_repository.dart';
 import '../../../core/user/user_store.dart';
 import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
@@ -37,6 +27,7 @@ import '../../../app/widgets/func_bottom_nav.dart';
 import '../../../app/widgets/tab_swipe_switcher.dart';
 import '../../../app/widgets/author_summary.dart';
 import '../../../app/widgets/novel_entry.dart';
+import '../../../app/widgets/user_preview_row.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
@@ -530,185 +521,17 @@ class _RecommendedFeedBody extends ConsumerWidget {
           warmTexts: (context, index) => AuthorSummary.warmTexts(
             context,
             name: users[index].name,
-            account: _UserRow.handleOf(users[index]),
+            account: UserPreviewRow.handleOf(users[index]),
           ),
           items: users,
           itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(users[index].id),
-            child: _UserRow(entity: users[index]),
+            child: UserPreviewRow(entity: users[index]),
           ),
         ),
       ),
       ...tail,
     ];
-  }
-}
-
-/// A recommended user: who they are, a follow switch, and up to three of
-/// their works. The thumbnails sit outside the user row's ink so every tap
-/// lands on exactly one target.
-class _UserRow extends ConsumerWidget {
-  const _UserRow({required this.entity});
-
-  final UserEntity entity;
-
-  /// The "@account" line, or null without an account.
-  static String? handleOf(UserEntity user) =>
-      user.account.isEmpty ? null : '@${user.account}';
-
-  /// Preview works that may be shown: local R-18/AI blocks and mute hits
-  /// are skipped outright — a blurred square this small says nothing.
-  List<IllustEntity> _visiblePreviews(WidgetRef ref) {
-    final ids = ref.watch(
-      userPreviewIdsProvider.select((previews) => previews[entity.id]),
-    );
-    if (ids == null || ids.isEmpty) return const [];
-    final settings = ref.watch(settingsProvider).value;
-    final mutes = ref.watch(muteStoreProvider);
-    return [
-      for (final illust in ref.watch(illustStoreProvider).getAll(ids))
-        if (!(settings != null &&
-                isLocallyBlocked(
-                  illust,
-                  blockR18: settings.enableLocalBlockR18,
-                  blockAI: settings.enableLocalBlockAI,
-                )) &&
-            muteHitFor(illust, mutes) == null)
-          illust,
-    ];
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final previews = _visiblePreviews(ref);
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.md,
-        vertical: FuncSpacing.sm,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Semantics(
-            container: true,
-            button: true,
-            child: InkWell(
-              onTap: () => openUser(context, entity.id),
-              child: Padding(
-                padding: const EdgeInsets.all(FuncSpacing.md),
-                child: LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    children: [
-                      Expanded(
-                        child: AuthorSummary(
-                          name: entity.name,
-                          account: handleOf(entity),
-                          imageUrl: entity.profileImageUrl,
-                          avatarRadius: 24,
-                        ),
-                      ),
-                      const SizedBox(width: FuncSpacing.sm),
-                      // Capped at half the row so a long localized label
-                      // leaves the name a lane; the button scales its label
-                      // down past that bound.
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth * 0.5,
-                        ),
-                        child: FollowSwitchButton(
-                          userId: entity.id,
-                          userName: entity.name,
-                          userAccount: entity.account,
-                          compact: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (previews.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.md,
-                0,
-                FuncSpacing.md,
-                FuncSpacing.md,
-              ),
-              child: _UserPreviewStrip(previews: previews),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Three equal square slots; fewer works keep their third of the width and
-/// sit at the start.
-class _UserPreviewStrip extends StatelessWidget {
-  const _UserPreviewStrip({required this.previews});
-
-  final List<IllustEntity> previews;
-
-  static const _gap = FuncSpacing.xs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < UserRelationPage.previewLimit; i++) ...[
-          if (i > 0) const SizedBox(width: _gap),
-          Expanded(
-            child: i < previews.length
-                ? _UserPreviewThumbnail(entity: previews[i])
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _UserPreviewThumbnail extends StatelessWidget {
-  const _UserPreviewThumbnail({required this.entity});
-
-  final IllustEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return PressScale(
-      child: Semantics(
-        container: true,
-        button: true,
-        label: entity.title,
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: ClipRRect(
-            borderRadius: FuncShape.control,
-            child: LayoutBuilder(
-              builder: (context, constraints) => Stack(
-                fit: StackFit.expand,
-                children: [
-                  PixivImage.feed(
-                    entity.imageUrls.squareMedium,
-                    layoutWidth: constraints.maxWidth,
-                  ),
-                  Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      onTap: () =>
-                          openIllust(context, entity.id, initialEntity: entity),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
