@@ -99,7 +99,7 @@ void main() {
         );
         expect(find.text('author'), findsWidgets);
         expect(
-          tester.widget<PixivImage>(find.byType(PixivImage).first).url,
+          tester.widget<PixivImage>(workImages.first).url,
           'https://i.pximg.net/feed/42/medium.jpg',
           reason: 'the Hero target must reuse the exact feed cache key',
         );

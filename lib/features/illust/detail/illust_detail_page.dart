@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/navigation/route_animation.dart';
+import '../../../app/pixiv_image.dart';
+import '../../../app/widgets/ambient_wash.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/bookmark_switch_button.dart'
     show showBookmarkEditSheet;
@@ -1101,21 +1103,40 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       child: twoPane
           ? TwoPane(
               // The stage tints the letterbox around the artwork, so the
-              // page counter sits on the stage rather than on blank page.
-              primary: ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                child: DetailImagePager(
-                  entity: entity,
-                  detailUrlFor: detailUrlFor,
-                  downloadMode: _downloadMode,
-                  selectedPages: _selectedPages ?? const <int>{},
-                  onToggleSelect: _togglePageSelected,
-                  onLongPress: _enterDownloadMode,
-                  heroTag: illustHeroTag(widget.heroScope, entity.id),
-                  heroScope: widget.heroScope,
-                  heroImageUrl: widget.heroImageUrl,
-                  heroImageDecodeWidth: widget.heroImageDecodeWidth,
-                ),
+              // page counter sits on the stage rather than on blank page:
+              // the work's own ambient light (THEME-19), or a plain tier
+              // while pages are being selected.
+              primary: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (!_downloadMode)
+                    AmbientWash(
+                      blur: 40,
+                      image: PixivImage.detail(
+                        widget.heroImageUrl ?? entity.imageUrls.medium,
+                        fit: BoxFit.cover,
+                        tierUpgrade: false,
+                        decodeWidth: 96,
+                        placeholderWidget: const SizedBox.shrink(),
+                      ),
+                    )
+                  else
+                    ColoredBox(
+                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    ),
+                  DetailImagePager(
+                    entity: entity,
+                    detailUrlFor: detailUrlFor,
+                    downloadMode: _downloadMode,
+                    selectedPages: _selectedPages ?? const <int>{},
+                    onToggleSelect: _togglePageSelected,
+                    onLongPress: _enterDownloadMode,
+                    heroTag: illustHeroTag(widget.heroScope, entity.id),
+                    heroScope: widget.heroScope,
+                    heroImageUrl: widget.heroImageUrl,
+                    heroImageDecodeWidth: widget.heroImageDecodeWidth,
+                  ),
+                ],
               ),
               // The meta column owns the window's right edge, so its
               // scrollbar lands where the main scrollbar belongs. The

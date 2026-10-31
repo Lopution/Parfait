@@ -32,12 +32,14 @@ reviewed: 2026-10-17
   the expand button and the title follow right under the image. An
   expanded set drops the band. The Hero, placeholder and error states
   stay inside the ratio box, not the slot. Page 1 always goes through the
-  slot box so expanding a set never remounts it. In selection, every
+  slot box so expanding a set never remounts it. Outside selection the
+  band carries the work's ambient light (THEME-19). In selection, every
   page's badge keeps one inset from its image's top-end corner, moved
   down only by the part of the image the toolbar covers.
 - **Why:** A wide image at the very top was hard to see and to tap; the
   matching band below it only pushed the title down. The flight landed on
-  empty slot space; remounting page 1 lost its decode. On a portrait
+  empty slot space, and the blank band was a third of the first screen;
+  remounting page 1 lost its decode. On a portrait
   tablet the slot only opened a gap. A badge moved down a toolbar's
   height on an image the bar did not reach sat mid-image (user report,
   10-24).
@@ -186,7 +188,8 @@ reviewed: 2026-10-17
 ### DETAIL-09 The action bar is the centered capsule
 - **Rule:** On narrow layouts download and bookmark sit in one floating
   capsule (`DetailActionBar`), the heart on a tonal circle: 56dp high, the
-  surface 85% opaque with an outline and no shadow. Comments are written
+  surface 85% opaque with an outline, frosting what passes under it, on a
+  layer lift (THEME-20). Comments are written
   from the page's comment section (DETAIL-17). The top bar carries only
   the ⋮ menu. Share,
   editing the bookmark, watch later, page selection, work info and the
@@ -194,7 +197,8 @@ reviewed: 2026-10-17
   long press (FB-03).
 - **Why:** User decision. An M3 floating toolbar with a separate bookmark
   FAB was tried and rejected; a comments button repeated the preview's
-  entry, and a larger opaque capsule weighed on the page.
+  entry, and a larger opaque capsule weighed on the page. Without blur,
+  text passing under the capsule smeared through it.
 - **Check:** `test/illust_detail_actions_test.dart` "the ⋮ menu carries the long-press actions too"; the capsule manual
 - **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
 

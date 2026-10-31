@@ -11,6 +11,7 @@ import '../../../../app/motion/state_icon_switcher.dart';
 import '../../../../app/navigation/route_animation.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
+import '../../../../app/widgets/ambient_wash.dart';
 import '../../../../app/widgets/feed/illust_card_layout.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/illust/illust_download_controller.dart';
@@ -349,12 +350,23 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
       context,
       MotionSpring.spatialFast,
     );
-    final framed = Align(
-      alignment: Alignment.bottomCenter,
-      child: AspectRatio(
-        aspectRatio: entity.pageAspectRatioAt(widget.index),
-        child: image,
-      ),
+    final framed = Stack(
+      fit: StackFit.expand,
+      children: [
+        // Selection keeps the plain page around the pages it marks.
+        if (!downloadMode)
+          _AmbientBand(
+            url: widget.heroImageUrl ?? entity.imageUrls.medium,
+            aspectRatio: entity.pageAspectRatioAt(widget.index),
+          ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: AspectRatio(
+            aspectRatio: entity.pageAspectRatioAt(widget.index),
+            child: image,
+          ),
+        ),
+      ],
     );
     return TweenAnimationBuilder<double>(
       tween: Tween(end: slotHeight),
@@ -413,6 +425,71 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
         quality: quality,
         heroScope: widget.heroScope,
       ),
+    );
+  }
+}
+
+/// The band above a short first image (DETAIL-02) in the work's ambient
+/// light (THEME-19): a blurred, tone-locked mirror of the work's top,
+/// fading into the page toward the screen top, so the frame answers the
+/// work and the Hero lands on it. Nothing is drawn over the artwork.
+class _AmbientBand extends StatelessWidget {
+  const _AmbientBand({required this.url, required this.aspectRatio});
+
+  final String url;
+  final double aspectRatio;
+
+  /// The wash needs only the work's colours: the card's file, small.
+  static const int _decodeWidth = 96;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final imageHeight = width / aspectRatio;
+        final band = constraints.maxHeight - imageHeight;
+        if (band <= 0) return const SizedBox.shrink();
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: width,
+            height: band,
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (rect) => const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x00000000),
+                  Color(0x73000000),
+                  Color(0xFF000000),
+                ],
+                stops: [0, 0.55, 1],
+              ).createShader(rect),
+              child: AmbientWash(
+                // The work's top, mirrored up from the image's edge.
+                image: OverflowBox(
+                  alignment: Alignment.bottomCenter,
+                  minHeight: imageHeight,
+                  maxHeight: imageHeight,
+                  child: Transform.flip(
+                    flipY: true,
+                    child: PixivImage.detail(
+                      url,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                      tierUpgrade: false,
+                      decodeWidth: _decodeWidth,
+                      placeholderWidget: const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
