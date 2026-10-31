@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/widgets/app_menu_button.dart';
 import 'helpers/view_size.dart';
 
@@ -192,5 +193,43 @@ void main() {
       (box.localToGlobal(Offset.zero) & box.size).contains(buttonCenter),
       isTrue,
     );
+  });
+
+  testWidgets('an end-edge menu keeps off the screen edge it opens at', (
+    tester,
+  ) async {
+    // The anchor's distance from the screen end, and the menu's after.
+    for (final direction in TextDirection.values) {
+      for (final (inset, gap) in [(0.0, FuncSpacing.sm), (24.0, 24.0)]) {
+        await _pump(
+          tester,
+          Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: Align(
+                alignment: AlignmentDirectional.topEnd,
+                child: Padding(
+                  padding: EdgeInsetsDirectional.only(end: inset),
+                  child: AppMenuButton<String>(
+                    entries: _entries,
+                    onSelected: (_, _) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await _open(tester);
+
+        final menu = tester.getRect(find.byType(MenuItemButton).first);
+        final menuGap = switch (direction) {
+          TextDirection.ltr => 400 - menu.right,
+          TextDirection.rtl => menu.left,
+        };
+        expect(menuGap, closeTo(gap, 0.01), reason: '$direction $inset');
+        await tester.tapAt(const Offset(200, 600));
+        await tester.pumpAndSettle();
+      }
+    }
   });
 }
