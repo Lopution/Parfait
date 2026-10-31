@@ -15,6 +15,7 @@ reviewed: 2026-10-21
 - [Color](#color)
 - [Type and spacing](#type-and-spacing)
 - [Chrome over artwork](#chrome-over-artwork)
+- [Expression](#expression)
 
 ## Sources
 
@@ -229,3 +230,34 @@ reviewed: 2026-10-21
 - **Why:** An icon alone is a guess, and a screen reader read "button".
 - **Check:** `test/architecture/icon_style_test.dart` "every icon button has a tooltip"
 - **Code:** `lib/app/widgets/bookmark_switch_button.dart`
+
+## Expression
+
+### THEME-19 Ambient light is the work's tone, around the work
+- **Rule:** Where the frame answers a work (the detail band above a short
+  first image, the wide detail stage), it is an `AmbientWash` of a small
+  decode of an image the page already holds, blurred and tone-locked by
+  `AmbientTone`: the wash takes the page's lightness and a share of the
+  image's colour, so neutral images give plain page. It sits beside or
+  behind the work and fades into the page, never over the work. Page
+  selection keeps the plain stage.
+- **Why:** User decision: the frame answers the work, warm and quiet. A
+  desaturated mirror at partial alpha turned dark or saturated works into
+  a grey haze on the light page and a muddy band on the dark one.
+- **Check:** `test/ambient_wash_test.dart` "ambient light keeps the page lightness and a share of the colour"; placement manual (review shots, light and dark)
+- **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+
+### THEME-20 A shadow marks a layer, or content under a bar
+- **Rule:** Shadows come from `FuncSemanticTokens` only: `barShadow` and
+  `topBarShadow` where content scrolls under a bar, `layerLift` under a
+  layer resting above the page (the detail capsule), `cardLift` under a
+  card that is an object of its own (the detail author card). Light-theme
+  lifts are on the cocoa ink, not black. A translucent layer frosts what
+  passes under it and draws its lift outside its own shape. Work cards
+  take no shadow and no outline.
+- **Why:** User decision: depth may grow richer, but a shadow says above
+  or under and never decorates. Through the unfrosted 85% capsule, passing
+  captions and badges smeared; a whole-shape shadow under a translucent
+  surface darkened the surface itself.
+- **Check:** manual (review shots, light and dark)
+- **Code:** `lib/app/theme/func_tokens.dart`, `lib/app/theme/func_semantic_tokens.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`
