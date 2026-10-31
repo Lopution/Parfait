@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../motion/motion_tokens.dart';
@@ -92,9 +94,44 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
   bool _open = false;
   BuildContext? _anchorContext;
 
+  /// How far the menu sits in from the anchor edge it lines up with, so it
+  /// keeps [FuncSpacing.sm] off that side of the screen; measured on each
+  /// opening. An anchor further in keeps the menu lined up with it.
+  double _edgeInset = 0;
+
   void _setOpen(bool open) {
     if (!mounted || _open == open) return;
     setState(() => _open = open);
+  }
+
+  /// MenuAnchor lines the menu's start edge up with the anchor's, and the
+  /// menu's width is only known at layout. Laid out in the mirrored
+  /// direction, its start edge is the ambient end edge.
+  TextDirection get _menuDirection {
+    final direction = Directionality.of(context);
+    return switch (widget.edge) {
+      AppMenuEdge.start => direction,
+      AppMenuEdge.end => switch (direction) {
+        TextDirection.ltr => TextDirection.rtl,
+        TextDirection.rtl => TextDirection.ltr,
+      },
+    };
+  }
+
+  void _openMenu() {
+    final anchor = _anchorContext!.findRenderObject()! as RenderBox;
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final rect = MatrixUtils.transformRect(
+      anchor.getTransformTo(overlay),
+      Offset.zero & anchor.size,
+    );
+    final gap = switch (_menuDirection) {
+      TextDirection.ltr => rect.left,
+      TextDirection.rtl => overlay.size.width - rect.right,
+    };
+    setState(() => _edgeInset = math.max(0, FuncSpacing.sm - gap));
+    _controller.open();
   }
 
   Widget _item(AppMenuEntry<T> entry) {
@@ -126,18 +163,9 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
 
   @override
   Widget build(BuildContext context) {
-    // MenuAnchor lines the menu's start edge up with the anchor's, and the
-    // menu's width is only known at layout. Laid out in the mirrored
-    // direction, its start edge is the ambient end edge; the anchor and the
-    // items keep the ambient direction.
+    // The menu is laid out in [_menuDirection]; the anchor and the items
+    // keep the ambient direction.
     final direction = Directionality.of(context);
-    final menuDirection = switch (widget.edge) {
-      AppMenuEdge.start => direction,
-      AppMenuEdge.end => switch (direction) {
-        TextDirection.ltr => TextDirection.rtl,
-        TextDirection.rtl => TextDirection.ltr,
-      },
-    };
     Widget ambient(Widget child) =>
         Directionality(textDirection: direction, child: child);
     return PopScope(
@@ -146,7 +174,7 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
         if (!didPop) _controller.close();
       },
       child: Directionality(
-        textDirection: menuDirection,
+        textDirection: _menuDirection,
         child: _anchor(ambient),
       ),
     );
@@ -160,6 +188,8 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
       // Constrained: the default lets the panel grow past the width cap
       // (and the screen) and clips long labels instead of truncating.
       crossAxisUnconstrained: false,
+      // In the menu's direction, a positive offset moves it inward.
+      alignmentOffset: Offset(_edgeInset, 0),
       style: const MenuStyle(
         maximumSize: WidgetStatePropertyAll(
           Size(kAppMenuMaxWidth, double.infinity),
@@ -173,7 +203,7 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
           builder: (anchorContext) {
             _anchorContext = anchorContext;
             void toggle() =>
-                controller.isOpen ? controller.close() : controller.open();
+                controller.isOpen ? controller.close() : _openMenu();
             return widget.anchorBuilder?.call(anchorContext, toggle) ??
                 IconButton(
                   tooltip:
