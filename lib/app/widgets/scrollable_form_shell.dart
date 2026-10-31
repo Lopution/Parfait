@@ -1,7 +1,11 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
+import 'ambient_wash.dart';
 import 'replica_scaffold.dart';
 import '../theme/func_semantic_tokens.dart';
 
@@ -21,6 +25,8 @@ import '../theme/func_semantic_tokens.dart';
 ///   [ContentWidths]), not a breakpoint.
 /// - On a short, wide window (`AppBreakpoints.useSideBySideForm`) the
 ///   header moves beside the form.
+/// - [brandGlow] lights the page behind the header with the app icon's
+///   own colour.
 ///
 /// Consumers: onboarding welcome/language pages and the login page.
 class ScrollableFormShell extends StatelessWidget {
@@ -33,6 +39,7 @@ class ScrollableFormShell extends StatelessWidget {
     this.contentMaxWidth = ContentWidths.form,
     this.title,
     this.actions,
+    this.brandGlow = false,
   });
 
   /// Top slot — brand lockup or page heading. Scrolls with the content.
@@ -60,16 +67,30 @@ class ScrollableFormShell extends StatelessWidget {
   /// AppBar actions forwarded to [ReplicaScaffold].
   final List<Widget>? actions;
 
+  /// The first-run pages' backdrop (THEME-19): the app icon's ambient
+  /// light glowing behind the header.
+  final bool brandGlow;
+
   @override
   Widget build(BuildContext context) {
     return ReplicaScaffold(
       title: title,
       actions: actions,
       child: LayoutBuilder(
-        builder: (context, constraints) =>
-            AppBreakpoints.useSideBySideForm(constraints.biggest)
-            ? _sideBySide(constraints)
-            : _stacked(constraints),
+        builder: (context, constraints) {
+          final beside = AppBreakpoints.useSideBySideForm(constraints.biggest);
+          final form = beside
+              ? _sideBySide(constraints)
+              : _stacked(constraints);
+          if (!brandGlow) return form;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              _BrandGlow(beside: beside, maxExtent: contentMaxWidth),
+              form,
+            ],
+          );
+        },
       ),
     );
   }
@@ -175,4 +196,78 @@ class ScrollableFormShell extends StatelessWidget {
       const SizedBox(height: FuncSpacing.xl),
     ],
   );
+}
+
+/// The app icon through the ambient tone lock, blurred, fading out
+/// radially into the page from where the header sits, and in from the
+/// body's top edge so the bar above does not cut it. Opaque, like the page
+/// under it.
+class _BrandGlow extends StatelessWidget {
+  const _BrandGlow({required this.beside, required this.maxExtent});
+
+  /// The header's place: beside the form, or above it.
+  final bool beside;
+
+  /// The glow's scale is the shorter side of the page, up to this (the
+  /// form's width), so a tablet's glow stays the size of its form.
+  final double maxExtent;
+
+  /// The stacked header starts under the top padding; the glow centres a
+  /// little into it, whatever the page height.
+  static const _stackedHeadCenter =
+      FuncSpacing.xl + FuncSpacing.xxxl + FuncSpacing.xxxl + FuncSpacing.lg;
+
+  /// The fade in from the top edge: the stacked header's top padding.
+  static const _topFade = FuncSpacing.xl + FuncSpacing.xxxl;
+
+  @override
+  Widget build(BuildContext context) {
+    final direction = Directionality.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final scale = math.min(size.shortestSide, maxExtent);
+        final fromStart = beside ? size.width / 4 : size.width / 2;
+        final center = Offset(switch (direction) {
+          TextDirection.ltr => fromStart,
+          TextDirection.rtl => size.width - fromStart,
+        }, beside ? size.height / 2 : _stackedHeadCenter);
+        final icon = scale * 0.9;
+        return ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => ui.Gradient.linear(
+            Offset.zero,
+            const Offset(0, _topFade),
+            const [Color(0x00000000), Color(0xFF000000)],
+          ),
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (rect) => ui.Gradient.radial(
+              center,
+              scale * 0.95,
+              const [Color(0xFF000000), Color(0x8C000000), Color(0x00000000)],
+              const [0, 0.5, 1],
+            ),
+            child: AmbientWash(
+              blur: 48,
+              image: Stack(
+                children: [
+                  Positioned(
+                    left: center.dx - icon / 2,
+                    top: center.dy - icon / 2,
+                    width: icon,
+                    height: icon,
+                    child: Image.asset(
+                      'assets/branding/parfait_icon.png',
+                      excludeFromSemantics: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

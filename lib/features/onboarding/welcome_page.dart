@@ -21,6 +21,7 @@ class WelcomePage extends StatelessWidget {
     String text(String key) => l10nLookupFor(locale, key);
     final theme = Theme.of(context);
     return ScrollableFormShell(
+      brandGlow: true,
       // Long translations wrap rather than shrink.
       header: Column(
         mainAxisSize: MainAxisSize.min,

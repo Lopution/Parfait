@@ -266,6 +266,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
 
     return ScrollableFormShell(
+      brandGlow: true,
       title: widget.isFirst ? null : title,
       // The first-run variant shows the title inside the scrollable body —
       // same treatment as the onboarding pages sharing this shell.
