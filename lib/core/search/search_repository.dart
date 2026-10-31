@@ -9,6 +9,7 @@ import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../novel/novel_entity.dart';
 import '../user/user_entity.dart';
+import '../user/user_repository.dart';
 import 'search_models.dart';
 import '../entity/json_read.dart';
 
@@ -27,10 +28,17 @@ class SearchNovelPage {
 }
 
 class SearchUserPage {
-  const SearchUserPage({required this.users, required this.nextUrl});
+  const SearchUserPage({
+    required this.users,
+    required this.nextUrl,
+    required this.previewIllusts,
+  });
 
   final List<UserEntity> users;
   final String? nextUrl;
+
+  /// User id → up to [UserRelationPage.previewLimit] of their works.
+  final Map<int, List<IllustEntity>> previewIllusts;
 }
 
 @immutable
@@ -367,17 +375,20 @@ class _PixivSearchRepository implements SearchRepository {
           'user_previews list is missing or malformed',
         );
       }
+      final users = <UserEntity>[];
+      final previews = <int, List<IllustEntity>>{};
+      for (final item in raw) {
+        if (item is! Map<String, dynamic>) {
+          throw const FormatException('user_previews contains a non-object');
+        }
+        final user = UserEntity.fromPreviewJson(item);
+        users.add(user);
+        previews[user.id] = parseUserPreviewIllusts(item);
+      }
       return SearchUserPage(
-        users: [
-          for (final item in raw)
-            if (item is Map<String, dynamic>)
-              UserEntity.fromPreviewJson(item)
-            else
-              throw const FormatException(
-                'user_previews contains a non-object',
-              ),
-        ],
+        users: users,
         nextUrl: readNextUrl(json['next_url']),
+        previewIllusts: previews,
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
