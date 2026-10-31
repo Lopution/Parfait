@@ -8,7 +8,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/features/**/*_page.dart
-reviewed: 2026-10-19
+reviewed: 2026-10-31
 ---
 
 # Feeds: states, grid, pull to refresh, skeletons
@@ -347,3 +347,16 @@ reviewed: 2026-10-19
   could not be left.
 - **Check:** `test/user_profile_test.dart` "a pending profile shows the skeleton and the back button leaves"
 - **Code:** `lib/app/widgets/skeleton/illust_grid_skeleton.dart`, `lib/features/profile/profile_skeleton.dart`
+
+### FEED-23 A restored offset lands on content or on a skeleton that reaches it
+- **Rule:** A scroll view with a `restorationId` is built with its content;
+  a feed's skeleton stands outside it. A skeleton that shares one with
+  loaded sections (the search home's trending grid) reaches a window's
+  height past the offset the list opens at, recounted when the window
+  resizes, so an offset restored after process death stays put until the
+  content lands.
+- **Why:** The search home restored its offset over three skeleton rows,
+  and the bounce physics sprang it back to their end before the tags
+  landed.
+- **Check:** `test/navigation_restoration_test.dart` "restores a representative feed offset"
+- **Code:** `lib/features/search/search_page.dart`
