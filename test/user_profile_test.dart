@@ -17,7 +17,9 @@ import 'package:parfait/core/user/user_detail_controller.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/core/profile/profile_models.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/scroll_behavior.dart';
+import 'package:parfait/app/widgets/ambient_wash.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
@@ -295,6 +297,80 @@ void main() {
       }
     },
   );
+
+  testWidgets('a profile without a cover lights its header from the avatar', (
+    tester,
+  ) async {
+    const avatar = 'https://i.pximg.net/avatar.png';
+    const cover = 'https://i.pximg.net/background.png';
+    // (cover, avatar) → what the ambient wash shows; with neither, the band
+    // is a plain surface.
+    for (final (backgroundUrl, profileUrl, washed) in [
+      (cover, avatar, null),
+      (null, avatar, avatar),
+      (null, null, null),
+    ]) {
+      final user = sampleUser(42).copyWith(
+        profileImageUrl: profileUrl,
+        backgroundImageUrl: backgroundUrl,
+      );
+      await tester.pumpWidget(
+        withStalledImages(
+          localizedApp(
+            body: CustomScrollView(
+              key: ValueKey((backgroundUrl, profileUrl)),
+              slivers: [
+                _MeasuredProfileHeader(
+                  delegateFor: (extent, onMeasured) =>
+                      ReplicaProfileHeaderDelegate(
+                        user: user,
+                        isMe: true,
+                        selectedTabIndex: 0,
+                        onShare: (_) {},
+                        expandedExtent: extent,
+                        onExpandedExtentMeasured: onMeasured,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final reason = '($backgroundUrl, $profileUrl)';
+      final washImages = find.descendant(
+        of: find.byType(AmbientWash),
+        matching: find.byType(PixivImage),
+      );
+      expect(
+        [
+          for (final image in tester.widgetList<PixivImage>(washImages))
+            image.url,
+        ],
+        [?washed],
+        reason: reason,
+      );
+      expect(
+        find.byWidgetPredicate((w) => w is PixivImage && w.url == cover),
+        backgroundUrl == null ? findsNothing : findsOneWidget,
+        reason: reason,
+      );
+      final colors = Theme.of(
+        tester.element(find.byType(CustomScrollView)),
+      ).colorScheme;
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is ColoredBox && w.color == colors.surfaceContainerHigh,
+        ),
+        backgroundUrl == null && profileUrl == null
+            ? findsOneWidget
+            : findsNothing,
+        reason: reason,
+      );
+    }
+  });
 
   testWidgets("someone else's overflow mutes them, then offers the unmute", (
     tester,
