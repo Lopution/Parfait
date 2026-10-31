@@ -294,10 +294,13 @@ void main() {
     expect(home().pixels, 260);
 
     // The tags answer after the restore: it lands on their skeleton.
-    search.trendingGate = Completer();
+    search
+      ..trendingGate = Completer()
+      ..trendingRequests.clear();
     await tester.restartAndRestore();
     await tester.pump(const Duration(seconds: 1));
     final restored = home();
+    expect(search.trendingRequests, contains('illust'));
     expect(find.byType(FuncSkeleton), findsOneWidget);
     expect(restored.pixels, 260);
     // A window grown taller meanwhile still finds the skeleton reaching.
