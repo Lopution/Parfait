@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../layout/card_columns.dart';
 import '../../theme/func_semantic_tokens.dart';
 import 'func_skeleton.dart';
 
@@ -8,8 +9,8 @@ import 'func_skeleton.dart';
 /// row lands where its skeleton was.
 ///
 /// The novel rows mirror the full-bleed `NovelEntry.regular` (68×88 cover,
-/// title, author, length, tags); the user rows mirror the search user card
-/// (52dp avatar, name, account, compact follow button).
+/// title, author, length, tags); the user rows mirror `UserPreviewRow`
+/// (48dp avatar, name, account, compact follow button, three works).
 class NovelListSkeleton extends StatelessWidget {
   const NovelListSkeleton({super.key, required this.label});
 
@@ -97,11 +98,12 @@ const _novelRowPadding = EdgeInsets.symmetric(
 /// Novel row height: the cover plus the row padding.
 const _novelRowExtent = _novelCoverHeight + 2 * FuncSpacing.md;
 
-/// User row height: the two-line ListTile plus the card margin.
-const _userTileHeight = 72.0;
-const _userRowExtent = _userTileHeight + 2 * FuncSpacing.sm;
+/// User row height without its works, plus the card margin; the works
+/// make a real row taller, so this only bounds how many rows to build.
+const _userRowExtent =
+    _avatarDiameter + 2 * FuncSpacing.md + 2 * FuncSpacing.sm;
 
-const _avatarDiameter = 52.0;
+const _avatarDiameter = 48.0;
 const _followButtonWidth = 96.0;
 const _followButtonHeight = 36.0;
 
@@ -114,7 +116,8 @@ class _SkeletonList extends StatelessWidget {
     required this.row,
   });
 
-  /// Whether each row sits on a card, as the user rows do.
+  /// Whether each row sits on a card, as the user rows do. Cards lay out
+  /// in [CardColumns], as the list they stand in for.
   final bool carded;
   final double rowExtent;
   final WidgetBuilder row;
@@ -127,6 +130,7 @@ class _SkeletonList extends StatelessWidget {
       final rows = constraints.hasBoundedHeight
           ? (constraints.maxHeight / rowExtent).ceil()
           : _unboundedRows;
+      final columns = carded ? CardColumns.of(constraints.maxWidth) : 1;
       return ClipRect(
         child: OverflowBox(
           alignment: Alignment.topCenter,
@@ -136,7 +140,15 @@ class _SkeletonList extends StatelessWidget {
             children: [
               for (var i = 0; i < rows; i++)
                 if (carded)
-                  Card(margin: _cardMargin, child: row(context))
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var column = 0; column < columns; column++)
+                        Expanded(
+                          child: Card(margin: _cardMargin, child: row(context)),
+                        ),
+                    ],
+                  )
                 else
                   row(context),
             ],
@@ -219,41 +231,53 @@ class _UserRowBones extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ListTile's own title and subtitle styles.
-    final textTheme = Theme.of(context).textTheme;
-    return SizedBox(
-      height: _userTileHeight,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-        child: Row(
-          children: [
-            const SkeletonBone.circle(diameter: _avatarDiameter),
-            const SizedBox(width: FuncSpacing.lg),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FractionallySizedBox(
-                    widthFactor: 0.5,
-                    child: SkeletonBone.text(style: textTheme.bodyLarge),
-                  ),
-                  const SizedBox(height: FuncSpacing.xs),
-                  FractionallySizedBox(
-                    widthFactor: 0.7,
-                    child: SkeletonBone.text(style: textTheme.bodyMedium),
-                  ),
-                ],
+    final tokens = FuncSemanticTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(FuncSpacing.md),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const SkeletonBone.circle(diameter: _avatarDiameter),
+              const SizedBox(width: FuncSpacing.lg + FuncSpacing.xs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FractionallySizedBox(
+                      widthFactor: 0.5,
+                      child: SkeletonBone.text(style: tokens.title),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: 0.7,
+                      child: SkeletonBone.text(style: tokens.caption),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: FuncSpacing.lg),
-            const SkeletonBone(
-              width: _followButtonWidth,
-              height: _followButtonHeight,
-              borderRadius: FuncShape.pill,
-            ),
-          ],
-        ),
+              const SizedBox(width: FuncSpacing.sm),
+              const SkeletonBone(
+                width: _followButtonWidth,
+                height: _followButtonHeight,
+                borderRadius: FuncShape.pill,
+              ),
+            ],
+          ),
+          const SizedBox(height: FuncSpacing.md),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: FuncSpacing.xs),
+                const Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: SkeletonBone(height: double.infinity),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

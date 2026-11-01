@@ -7,9 +7,8 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/format/content_locale.dart';
-import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_entry.dart';
+import '../../app/widgets/user_preview_row.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/entity/stored_entities.dart';
@@ -19,13 +18,11 @@ import '../../core/paging/paged_feed_controller.dart';
 import '../../core/search/search_feed_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/settings/settings_controller.dart';
-import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
 import '../../app/motion/state_fade.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
-import '../../app/widgets/follow_switch_button.dart';
 import '../../app/widgets/settings/persist_settings.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
@@ -719,53 +716,11 @@ class _UserSearchFeed extends ConsumerWidget {
                   columns: columns,
                   count: users.length,
                   itemBuilder: (context, index) =>
-                      _SearchUserTile(user: users[index]),
+                      UserPreviewRow(entity: users[index]),
                 );
               },
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchUserTile extends StatelessWidget {
-  const _SearchUserTile({required this.user});
-
-  final UserEntity user;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.lg,
-        vertical: FuncSpacing.sm,
-      ),
-      child: ListTile(
-        onTap: () => openUser(context, user.id),
-        leading: PersonAvatar(imageUrl: user.profileImageUrl, radius: 26),
-        title: Text(
-          user.name,
-          locale: contentLocale(context, user.name),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: user.account.isEmpty ? null : Text('@${user.account}'),
-        // ListTile asserts when the trailing widget consumes the entire
-        // tile width, so an oversized localized button is capped at half
-        // the row to leave the title a lane; the button scales its label
-        // down past that bound.
-        trailing: LayoutBuilder(
-          builder: (context, constraints) => ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
-            child: FollowSwitchButton(
-              userId: user.id,
-              userName: user.name,
-              userAccount: user.account,
-              compact: true,
-            ),
-          ),
         ),
       ),
     );

@@ -70,6 +70,12 @@ void main() {
     setup: ReviewSetup(api: {'/v1/search/illust': reviewLoading()}),
   );
   testShot(
+    'search/results-user-loading',
+    location: '/search/results?q=cat&type=user',
+    state: 'loading',
+    setup: ReviewSetup(api: {'/v1/search/user': reviewLoading()}),
+  );
+  testShot(
     'search/results-empty',
     location: illusts,
     state: 'empty',

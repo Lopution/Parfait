@@ -24,6 +24,7 @@ void main() {
   }
   testShot('home/recommended-manga', location: '/recommended?type=manga');
   testShot('home/recommended-novel', location: '/recommended?type=novel');
+  testShot('home/recommended-user', location: '/recommended?type=user');
   testShot(
     'home/ranking',
     location: '/ranking',
