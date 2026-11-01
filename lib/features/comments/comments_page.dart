@@ -244,10 +244,16 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                   // sets it apart from the replies; the top bar names them.
                   header: root == null
                       ? null
-                      : CommentItem(
-                          comment: root,
-                          onReply: () => _replyTo(root),
-                          onDelete: () => _deleteComment(root),
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CommentItem(
+                              comment: root,
+                              onReply: () => _replyTo(root),
+                              onDelete: () => _deleteComment(root),
+                            ),
+                            const Divider(height: 1),
+                          ],
                         ),
                   onReply: _replyTo,
                   onDelete: _deleteComment,
