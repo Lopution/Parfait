@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/app/widgets/ambient_wash.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
@@ -147,13 +146,9 @@ Future<void> pumpDetail(
   await tester.pump(const Duration(milliseconds: 50));
 }
 
-/// The work's images, in page order: the ambient band's wash of the first
-/// page is not the work.
-final Finder workImages = find.byElementPredicate(
-  (element) =>
-      element.widget is PixivImage &&
-      element.findAncestorWidgetOfExactType<AmbientWash>() == null,
-);
+/// The work's images, in page order. The ambient band paints its wash
+/// without an image widget.
+final Finder workImages = find.byType(PixivImage);
 
 Future<void> longPressImage(WidgetTester tester) async {
   final center = tester.getCenter(workImages.first);

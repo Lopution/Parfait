@@ -450,42 +450,52 @@ class _AmbientBand extends StatelessWidget {
         final imageHeight = width / aspectRatio;
         final band = constraints.maxHeight - imageHeight;
         if (band <= 0) return const SizedBox.shrink();
+        final page = Theme.of(context).colorScheme.surface;
         return Align(
           alignment: Alignment.topCenter,
           child: SizedBox(
             width: width,
             height: band,
-            child: ShaderMask(
-              blendMode: BlendMode.dstIn,
-              shaderCallback: (rect) => const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x00000000),
-                  Color(0x73000000),
-                  Color(0xFF000000),
-                ],
-                stops: [0, 0.55, 1],
-              ).createShader(rect),
-              child: AmbientWash(
-                // The work's top, mirrored up from the image's edge.
-                image: OverflowBox(
-                  alignment: Alignment.bottomCenter,
-                  minHeight: imageHeight,
-                  maxHeight: imageHeight,
-                  child: Transform.flip(
-                    flipY: true,
-                    child: PixivImage.detail(
-                      url,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                      tierUpgrade: false,
-                      decodeWidth: _decodeWidth,
-                      placeholderWidget: const SizedBox.shrink(),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRect(
+                  // The work's top, mirrored up from the image's edge.
+                  child: OverflowBox(
+                    alignment: Alignment.bottomCenter,
+                    minHeight: imageHeight,
+                    maxHeight: imageHeight,
+                    child: Transform.flip(
+                      flipY: true,
+                      child: AmbientWash(
+                        alignment: Alignment.topCenter,
+                        image: PixivImage.providerFor(
+                          context,
+                          url,
+                          decodeWidth: _decodeWidth,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                // The fade into the page: the page colour over the opaque
+                // wash, as a mask over it would show, without the layer a
+                // mask takes.
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        page,
+                        page.withValues(alpha: 0x8C / 0xFF),
+                        page.withValues(alpha: 0),
+                      ],
+                      stops: const [0, 0.55, 1],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );

@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -55,5 +58,52 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets('a wash draws its image toned, in the page pass', (tester) async {
+    final theme = replicaTheme(Brightness.light);
+    await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(const Color(0xFFE03050), BlendMode.src);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(32, 32);
+      picture.dispose();
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      await tester.pumpWidget(
+        Theme(
+          data: theme,
+          child: Center(
+            child: SizedBox(
+              width: 200,
+              height: 100,
+              child: AmbientWash(image: MemoryImage(png!.buffer.asUint8List())),
+            ),
+          ),
+        ),
+      );
+      // The blur runs once, off the frame.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(AmbientWash),
+      paints..something((method, arguments) {
+        if (method != #drawImageRect) return false;
+        final paint = arguments[3] as Paint;
+        return paint.colorFilter == AmbientTone.of(theme) && paint.color.a == 1;
+      }),
+    );
+    expect(
+      tester.layers.where(
+        (layer) =>
+            layer is ImageFilterLayer ||
+            layer is ColorFilterLayer ||
+            layer is ShaderMaskLayer ||
+            layer is OpacityLayer,
+      ),
+      isEmpty,
+    );
   });
 }

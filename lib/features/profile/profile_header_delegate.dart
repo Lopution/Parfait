@@ -548,13 +548,7 @@ class _ProfileBackground extends StatelessWidget {
           // opaque, so it still hides the feed items scrolling underneath
           // (the tab strip below is opaque, so that seam is covered too).
           (null, final avatar?) => AmbientWash(
-            image: PixivImage.detail(
-              avatar,
-              fit: BoxFit.cover,
-              tierUpgrade: false,
-              decodeWidth: 96,
-              placeholderWidget: const SizedBox.shrink(),
-            ),
+            image: PixivImage.providerFor(context, avatar, decodeWidth: 96),
           ),
           // Nothing to light the band: a lighter opaque container
           // separates it from the page colour.
