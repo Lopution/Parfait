@@ -82,8 +82,9 @@ Map<String, dynamic> reviewNovelJson(int id, {bool bookmarked = false}) => {
   'series': {'id': 77, 'title': 'series 77'},
 };
 
+/// The reader's novel: a title long enough to wrap in its title block.
 Map<String, dynamic> reviewNovelDetailJson(int id) => {
-  'novel': reviewNovelJson(id),
+  'novel': {...reviewNovelJson(id), 'title': '星の降る街で、きみと過ごした最後の夏の話 $id'},
 };
 
 /// The `/webview/v2/novel` bootstrap page, same shape as
@@ -91,6 +92,7 @@ Map<String, dynamic> reviewNovelDetailJson(int id) => {
 /// `window.pixiv.novel`.
 String reviewNovelWebviewHtml(int id, {int paragraphs = 6}) {
   final text = [
+    '[chapter:第一章　はじまり]',
     for (var i = 0; i < paragraphs; i++) '第${i + 1}段：novel $id 的正文内容。',
   ].join('\n\n');
   final novel = jsonEncode({

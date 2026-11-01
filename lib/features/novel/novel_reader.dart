@@ -257,6 +257,7 @@ class NovelReader extends StatefulWidget {
     this.initialAnchor,
     this.textColor,
     this.translations = const {},
+    this.titleBlock,
     this.onAnchorChanged,
     this.onCenterTap,
     this.onProgressChanged,
@@ -281,6 +282,9 @@ class NovelReader extends StatefulWidget {
   /// Paragraph translations shown under their paragraphs (bilingual
   /// reading), by paragraph id. A new map relayouts, keeping the page.
   final Map<String, String> translations;
+
+  /// Title and byline at the top of the first page; null shows none.
+  final NovelTitleBlock? titleBlock;
 
   /// Fires when the current page's start anchor is reported — either by a
   /// layout commit re-asserting position ([NovelAnchorCause.layoutEcho]) or
@@ -375,6 +379,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       _layoutEngine.cache.clear();
       _scheduleLayout(force: true);
     } else if (oldWidget.settings != widget.settings ||
+        oldWidget.titleBlock != widget.titleBlock ||
         !identical(oldWidget.translations, widget.translations)) {
       _scheduleLayout(force: true);
     }
@@ -595,6 +600,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         textDirection: direction,
         textScaler: _requestedTextScaler ?? TextScaler.noScaling,
         translations: widget.translations,
+        titleBlock: widget.titleBlock,
         cancelToken: layoutContext.cancelToken,
         budget: widget.budget,
       );
@@ -704,17 +710,16 @@ class _NovelPage extends StatelessWidget {
     NovelLayoutStyle style,
     Color color,
   ) {
-    final textStyle = warmStyle(context, style.textStyle(color));
-    final translationStyle = warmStyle(context, style.translationStyle(color));
+    final styles = {
+      for (final kind in NovelLineKind.values)
+        kind: warmStyle(context, style.lineStyle(kind, color)),
+    };
     final locale = Localizations.maybeLocaleOf(context);
     return [
       for (final line in page.lines)
         if (line.text.isNotEmpty)
           (
-            span: TextSpan(
-              text: line.text,
-              style: line.isTranslation ? translationStyle : textStyle,
-            ),
+            span: TextSpan(text: line.text, style: styles[line.kind]),
             locale: locale,
             strutStyle: null,
           ),
@@ -722,8 +727,10 @@ class _NovelPage extends StatelessWidget {
   }
 
   Widget _buildColumn() {
-    final textStyle = style.textStyle(color);
-    final translationStyle = style.translationStyle(color);
+    final styles = {
+      for (final kind in NovelLineKind.values)
+        kind: style.lineStyle(kind, color),
+    };
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: style.horizontalPadding,
@@ -743,7 +750,7 @@ class _NovelPage extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.clip,
-                  style: line.isTranslation ? translationStyle : textStyle,
+                  style: styles[line.kind],
                 ),
               ),
             if (line.spacingAfter > 0) SizedBox(height: line.spacingAfter),

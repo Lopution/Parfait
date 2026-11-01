@@ -3,7 +3,7 @@ prefix: NOVEL
 applies_to:
   - lib/features/novel/**
   - lib/core/novel/**
-reviewed: 2026-10-17
+reviewed: 2026-11-01
 ---
 
 # Novel markup and reader
@@ -62,6 +62,21 @@ reviewed: 2026-10-17
   was turned off.
 - **Check:** `test/novel_reader_test.dart` "a translation lays out under its paragraph and moves no anchor", `test/novel_reader_stage_test.dart` "translate this page: translations under the paragraphs, on with each"
 - **Code:** `lib/features/novel/novel_bilingual.dart`, `lib/features/novel/novel_layout.dart`
+
+### NOVEL-11 A pixiv novel opens on its title block; headings read as headings
+- **Rule:** Every laid-out line has a `NovelLineKind`, and
+  `NovelLayoutStyle.lineStyle` gives the one style it is measured and
+  painted with (LAYOUT-04). A chapter heading takes the heading style.
+  An online novel's first page opens with a title block: the title in the
+  heading style, then a byline (author, and series when there is one),
+  then a blank line's distance to the text. Like translations, the block
+  adds lines, never characters: its lines carry the first paragraph's id
+  at offset 0, and bilingual reading skips them. A chapter at the very
+  start shares page 1 with the block. Local TXT files show none.
+- **Why:** The reader opened straight into the body, and a chapter heading
+  read as one more paragraph (critique, 10-31).
+- **Check:** `test/novel_reader_test.dart` "each line lays out as tall as the style of its kind" "a title block opens page 1 and moves no character"
+- **Code:** `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_page.dart`
 
 ## Reader stage
 

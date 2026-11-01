@@ -33,6 +33,10 @@ class NovelLayoutStyle {
   static const double _translationScale = 0.9;
   static const double _translationAlpha = 0.7;
 
+  /// A heading reads a third larger than the body, bold and set tighter.
+  static const double _headingScale = 1.35;
+  static const double _headingHeight = 1.35;
+
   TextStyle textStyle(Color color) => TextStyle(
     color: color,
     fontFamily: fontFamily,
@@ -48,6 +52,27 @@ class NovelLayoutStyle {
     fontWeight: fontWeight,
     height: lineHeight,
   );
+
+  TextStyle headingStyle(Color color) => TextStyle(
+    color: color,
+    fontFamily: fontFamily,
+    fontSize: fontSize * _headingScale,
+    fontWeight: FontWeight.w700,
+    height: _headingHeight,
+  );
+
+  /// Below the title block: a blank line and the paragraph spacing, the
+  /// break an author makes between passages.
+  double get titleBlockGap => fontSize * lineHeight + paragraphSpacing;
+
+  /// The style a line of [kind] is measured and painted with (LAYOUT-04).
+  TextStyle lineStyle(NovelLineKind kind, Color color) => switch (kind) {
+    NovelLineKind.body => textStyle(color),
+    NovelLineKind.translation => translationStyle(color),
+    NovelLineKind.heading || NovelLineKind.title => headingStyle(color),
+    // A byline reads as a translation does: a step smaller and lighter.
+    NovelLineKind.byline => translationStyle(color),
+  };
 }
 
 /// Hard limits for one layout transaction. They make work proportional to a
@@ -192,6 +217,43 @@ class NovelLayoutKey {
   );
 }
 
+/// What a laid-out line is, which picks the style it paints with.
+enum NovelLineKind {
+  body,
+
+  /// A line of a paragraph's translation (bilingual reading).
+  translation,
+
+  /// A line of a chapter heading.
+  heading,
+
+  /// A line of the title block's title, then of its byline. Both carry the
+  /// first paragraph's id with both offsets 0, so anchors, progress and
+  /// characters never point into the title block.
+  title,
+  byline,
+}
+
+/// A pixiv novel's title and byline, laid out at the top of its first page.
+@immutable
+class NovelTitleBlock {
+  const NovelTitleBlock({required this.title, required this.byline});
+
+  final String title;
+
+  /// The author, and the series when there is one.
+  final String byline;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NovelTitleBlock &&
+      other.title == title &&
+      other.byline == byline;
+
+  @override
+  int get hashCode => Object.hash(title, byline);
+}
+
 class NovelPageLine {
   const NovelPageLine({
     required this.text,
@@ -201,7 +263,7 @@ class NovelPageLine {
     required this.height,
     required this.isParagraphEnd,
     required this.spacingAfter,
-    this.isTranslation = false,
+    this.kind = NovelLineKind.body,
   });
 
   final String text;
@@ -215,10 +277,15 @@ class NovelPageLine {
   /// the translation gap between a paragraph and its translation.
   final double spacingAfter;
 
+  final NovelLineKind kind;
+
   /// A line of a paragraph's translation. It belongs to the paragraph and
   /// sits at its end (both offsets are the paragraph's length), so anchors
   /// and progress never point into a translation.
-  final bool isTranslation;
+  bool get isTranslation => kind == NovelLineKind.translation;
+
+  bool get isTitleBlock =>
+      kind == NovelLineKind.title || kind == NovelLineKind.byline;
 
   NovelAnchor get startAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: startOffset);
@@ -385,7 +452,8 @@ class NovelLayoutEngine {
   }
 
   /// [translations] (paragraph id → translation; an empty one shows
-  /// nothing) lays each translation out under its paragraph.
+  /// nothing) lays each translation out under its paragraph; [titleBlock]
+  /// opens the first page.
   Future<NovelLayout> layoutCancellable({
     required List<NovelParagraph> paragraphs,
     required String contentVersion,
@@ -396,12 +464,13 @@ class NovelLayoutEngine {
     TextDirection textDirection = TextDirection.ltr,
     TextScaler textScaler = TextScaler.noScaling,
     Map<String, String> translations = const {},
+    NovelTitleBlock? titleBlock,
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
   }) async {
     final key = _key(
-      contentVersion: _versionWith(contentVersion, translations),
+      contentVersion: _versionWith(contentVersion, translations, titleBlock),
       viewport: viewport,
       style: style,
       brightness: brightness,
@@ -419,6 +488,7 @@ class NovelLayoutEngine {
       paragraphs: paragraphs,
       contentVersion: contentVersion,
       translations: translations,
+      titleBlock: titleBlock,
       key: key,
       style: style,
       textColor: textColor,
@@ -467,6 +537,7 @@ class NovelLayoutEngine {
     TextDirection textDirection = TextDirection.ltr,
     TextScaler textScaler = TextScaler.noScaling,
     Map<String, String> translations = const {},
+    NovelTitleBlock? titleBlock,
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
@@ -481,6 +552,7 @@ class NovelLayoutEngine {
       textDirection: textDirection,
       textScaler: textScaler,
       translations: translations,
+      titleBlock: titleBlock,
       cancelToken: cancelToken,
       budget: budget,
       onProgress: onProgress,
@@ -598,17 +670,23 @@ class NovelLayoutEngine {
     );
   }
 
-  /// The cache identity of a body laid out with [translations].
+  /// The cache identity of a body laid out with [translations] under
+  /// [titleBlock].
   static String _versionWith(
     String contentVersion,
     Map<String, String> translations,
+    NovelTitleBlock? titleBlock,
   ) {
-    if (translations.isEmpty) return contentVersion;
-    final digest = Object.hashAllUnordered([
-      for (final entry in translations.entries)
-        Object.hash(entry.key, entry.value),
-    ]);
-    return '$contentVersion+${translations.length}:$digest';
+    var version = contentVersion;
+    if (translations.isNotEmpty) {
+      final digest = Object.hashAllUnordered([
+        for (final entry in translations.entries)
+          Object.hash(entry.key, entry.value),
+      ]);
+      version = '$version+${translations.length}:$digest';
+    }
+    if (titleBlock != null) version = '$version+title:${titleBlock.hashCode}';
+    return version;
   }
 
   NovelLayoutKey _key({
@@ -636,6 +714,7 @@ class NovelLayoutEngine {
     required List<NovelParagraph> paragraphs,
     required String contentVersion,
     required Map<String, String> translations,
+    required NovelTitleBlock? titleBlock,
     required NovelLayoutKey key,
     required NovelLayoutStyle style,
     required Color textColor,
@@ -658,6 +737,15 @@ class NovelLayoutEngine {
         textDirection: textDirection,
         textScaler: key.textScaler,
       );
+      if (titleBlock != null) {
+        lines.addAll(
+          _cached(
+            measure,
+            titleBlock,
+            () => _measureTitleBlock(titleBlock, paragraphs.first, measure),
+          ),
+        );
+      }
       for (var index = 0; index < paragraphs.length; index++) {
         if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
         final paragraph = paragraphs[index];
@@ -829,7 +917,14 @@ class NovelLayoutEngine {
   ) {
     final style = measure.style;
     final source = paragraph.text.isEmpty ? ' ' : paragraph.text;
-    final rows = _rows(source, style.textStyle(measure.textColor), measure);
+    final kind = paragraph.isChapterHeading
+        ? NovelLineKind.heading
+        : NovelLineKind.body;
+    final rows = _rows(
+      source,
+      style.lineStyle(kind, measure.textColor),
+      measure,
+    );
     if (rows.isEmpty) {
       return [
         _MeasuredLine(
@@ -842,6 +937,7 @@ class NovelLayoutEngine {
           isParagraphEnd: true,
           pageBreakBefore: paragraph.pageBreakBefore,
           chapterTitle: paragraph.isChapterHeading ? paragraph.text : null,
+          kind: kind,
         ),
       ];
     }
@@ -863,9 +959,46 @@ class NovelLayoutEngine {
             chapterTitle: index == 0 && paragraph.isChapterHeading
                 ? paragraph.text
                 : null,
+            kind: kind,
           );
         }(),
     ];
+  }
+
+  /// [block]'s lines, anchored at the start of [first], the first
+  /// paragraph.
+  List<_MeasuredLine> _measureTitleBlock(
+    NovelTitleBlock block,
+    NovelParagraph first,
+    _Measure measure,
+  ) {
+    final lines = <_MeasuredLine>[];
+    for (final (kind, text) in [
+      (NovelLineKind.title, block.title),
+      (NovelLineKind.byline, block.byline),
+    ]) {
+      if (text.isEmpty) continue;
+      final rows = _rows(
+        text,
+        measure.style.lineStyle(kind, measure.textColor),
+        measure,
+      );
+      for (final (index, row) in rows.indexed) {
+        lines.add(
+          _MeasuredLine(
+            paragraphIndex: 0,
+            paragraphId: first.id,
+            startOffset: 0,
+            endOffset: 0,
+            text: text.substring(row.start, row.end),
+            height: row.height,
+            isParagraphEnd: index == rows.length - 1,
+            kind: kind,
+          ),
+        );
+      }
+    }
+    return lines;
   }
 
   /// [translation]'s lines, anchored at the end of [paragraph].
@@ -877,7 +1010,7 @@ class NovelLayoutEngine {
   ) {
     final rows = _rows(
       translation,
-      measure.style.translationStyle(measure.textColor),
+      measure.style.lineStyle(NovelLineKind.translation, measure.textColor),
       measure,
     );
     final end = paragraph.text.length;
@@ -891,7 +1024,7 @@ class NovelLayoutEngine {
           text: translation.substring(row.start, row.end),
           height: row.height,
           isParagraphEnd: index == rows.length - 1,
-          isTranslation: true,
+          kind: NovelLineKind.translation,
         ),
     ];
   }
@@ -968,11 +1101,17 @@ class NovelLayoutEngine {
             height: line.height,
             isParagraphEnd: line.isParagraphEnd,
             spacingAfter: spacing,
-            isTranslation: line.isTranslation,
+            kind: line.kind,
           ),
       ];
       final first = current.first.line;
       final last = current.last.line;
+      final firstText = current
+          .firstWhere(
+            (entry) => !entry.line.isTitleBlock,
+            orElse: () => current.first,
+          )
+          .line;
       final endCharacter = _characterOffset(
         last,
         paragraphs,
@@ -986,7 +1125,7 @@ class NovelLayoutEngine {
           endAnchor: last.endAnchor,
           startCharacter: startCharacter,
           endCharacter: endCharacter,
-          chapterTitle: first.chapterTitle,
+          chapterTitle: firstText.chapterTitle,
         ),
       );
       current.clear();
@@ -1003,7 +1142,11 @@ class NovelLayoutEngine {
       final next = index + 1 < lines.length ? lines[index + 1] : null;
       final spacing = _spacingAfter(line, next, style);
       final lineHeight = line.height + spacing;
-      if (line.pageBreakBefore && current.isNotEmpty) {
+      // The title block opens the first page with the text, even when the
+      // text opens on a chapter.
+      if (line.pageBreakBefore &&
+          current.isNotEmpty &&
+          !current.last.line.isTitleBlock) {
         flush();
       }
       if (current.isNotEmpty && currentHeight + lineHeight > availableHeight) {
@@ -1050,7 +1193,9 @@ class NovelLayoutEngine {
   }
 
   /// Paragraph spacing after a paragraph — after its translation when it
-  /// has one, with the smaller translation gap between the two.
+  /// has one, with the smaller translation gap between the two. A byline
+  /// follows its title at the same gap; the text keeps its distance from
+  /// the title block.
   static double _spacingAfter(
     _MeasuredLine line,
     _MeasuredLine? next,
@@ -1062,7 +1207,12 @@ class NovelLayoutEngine {
         next != null &&
         next.isTranslation &&
         next.paragraphIndex == line.paragraphIndex;
-    return translationFollows ? style.translationGap : style.paragraphSpacing;
+    final bylineFollows =
+        line.kind == NovelLineKind.title && next?.kind == NovelLineKind.byline;
+    if (line.isTitleBlock && !bylineFollows) return style.titleBlockGap;
+    return translationFollows || bylineFollows
+        ? style.translationGap
+        : style.paragraphSpacing;
   }
 
   int _characterOffset(
@@ -1091,7 +1241,7 @@ class _MeasuredLine {
     required this.isParagraphEnd,
     this.pageBreakBefore = false,
     this.chapterTitle,
-    this.isTranslation = false,
+    this.kind = NovelLineKind.body,
   });
 
   const _MeasuredLine.empty()
@@ -1104,7 +1254,7 @@ class _MeasuredLine {
       isParagraphEnd = true,
       pageBreakBefore = false,
       chapterTitle = null,
-      isTranslation = false;
+      kind = NovelLineKind.body;
 
   final int paragraphIndex;
   final String paragraphId;
@@ -1115,7 +1265,12 @@ class _MeasuredLine {
   final bool isParagraphEnd;
   final bool pageBreakBefore;
   final String? chapterTitle;
-  final bool isTranslation;
+  final NovelLineKind kind;
+
+  bool get isTranslation => kind == NovelLineKind.translation;
+
+  bool get isTitleBlock =>
+      kind == NovelLineKind.title || kind == NovelLineKind.byline;
 
   NovelAnchor get startAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: startOffset);
