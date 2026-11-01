@@ -101,12 +101,21 @@ reviewed: 2026-10-21
   content, 0.12 for containers), never the accent, even when it is on.
   A bookmarked heart and its burst are `FuncTokens.bookmarked` (#FF4060)
   in both themes and under system colors: a state, not the accent.
+  A count badge (`badgeTheme`) is the brand fill (THEME-18), never M3's
+  error red. A selected choice row (`SettingsChoiceTile`) tints its title
+  and check; its description stays `onSurfaceVariant`. The confirm of an
+  irreversible action (removing an account, deleting a comment or a local
+  novel, clearing credentials, cancelling downloads) is a
+  `DangerFilledButton` in `error` / `onError`; a reversible confirm keeps
+  the brand fill.
 - **Why:** User decision: the accent loses its meaning when it decorates.
   A system accent that recolored bookmarks collided with whichever
   category shared its hue. A locked switch drawn in the accent read as
-  tappable.
+  tappable. A red filter count read as an error; a pink description read
+  as a second selected item; removing an account in the same pink as
+  saving a setting gave no pause.
 - **Check:** `test/replica_theme_test.dart` "a disabled switch that is on takes no accent"
-- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/category_colors.dart`, `lib/app/widgets/tag_chips.dart`
+- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/category_colors.dart`, `lib/app/widgets/tag_chips.dart`, `lib/app/widgets/danger_filled_button.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
 
 ### THEME-18 The accent is two colors: text and fill
 - **Rule:** With the default palette, `colorScheme.primary` paints text,
