@@ -1033,7 +1033,12 @@ class NovelMarkupParser {
     int sourceLimit,
     _NovelScanAccumulator accumulator,
   ) {
-    final singleEnd = _singleMarkerEnd(source, cursor, sourceLimit);
+    final singleEnd = _singleMarkerEnd(
+      source,
+      cursor,
+      sourceLimit,
+      accumulator,
+    );
     if (singleEnd != null) {
       return _ScannedNovelToken(
         token: _parseMarker(
@@ -1048,7 +1053,13 @@ class NovelMarkupParser {
     if (!source.startsWith('[[', cursor)) {
       // A text token never passes the chunk, so a marker past it is moot.
       final window = math.min(sourceLimit, cursor + budget.chunkSize);
-      final marker = _nextMarker(source, cursor, window, sourceLimit);
+      final marker = _nextMarker(
+        source,
+        cursor,
+        window,
+        sourceLimit,
+        accumulator,
+      );
       final end = (marker ?? window).clamp(cursor + 1, window);
       return _ScannedNovelToken(
         token: NovelTextToken(
@@ -1393,11 +1404,17 @@ class NovelMarkupParser {
 
   /// The first marker start in `[from, window)`: a `[[` or a single-bracket
   /// marker.
-  int? _nextMarker(String source, int from, int window, int limit) {
+  int? _nextMarker(
+    String source,
+    int from,
+    int window,
+    int limit,
+    _NovelScanAccumulator scan,
+  ) {
     var index = source.indexOf('[', from);
     while (index >= 0 && index < window) {
       if (source.startsWith('[[', index) ||
-          _singleMarkerEnd(source, index, limit) != null) {
+          _singleMarkerEnd(source, index, limit, scan) != null) {
         return index;
       }
       index = source.indexOf('[', index + 1);
@@ -1410,7 +1427,12 @@ class NovelMarkupParser {
   /// `[chapter:title]`, closed on the same line); only those exact names
   /// are markers, so bracketed prose (`[注]`, `[1]`) stays text. Its image
   /// and jump markers stay text until the reader can show them.
-  int? _singleMarkerEnd(String source, int start, int limit) {
+  int? _singleMarkerEnd(
+    String source,
+    int start,
+    int limit,
+    _NovelScanAccumulator scan,
+  ) {
     const newPage = '[newpage]';
     const chapter = '[chapter:';
     if (source.startsWith(newPage, start)) {
@@ -1418,15 +1440,25 @@ class NovelMarkupParser {
       return end <= limit ? end : null;
     }
     if (!source.startsWith(chapter, start)) return null;
+    final from = start + chapter.length;
     final searchEnd = math.min(limit, start + budget.maxMarkerUnits);
-    for (var index = start + chapter.length; index < searchEnd; index++) {
+    // A title inside a stretch an earlier `[chapter:` already read resumes
+    // at its end, so a run of unclosed prefixes reads each unit once.
+    final known = scan.chapterStretch;
+    final resumes = known != null && from >= known.from && from < known.to;
+    final stretchFrom = resumes ? known.from : from;
+    var index = resumes ? known.to : from;
+    for (; index < searchEnd; index++) {
       switch (source.codeUnitAt(index)) {
         case 0x5D: // ]
+          scan.chapterStretch = (from: stretchFrom, to: index);
           return index + 1;
         case 0x0A || 0x0D:
+          scan.chapterStretch = (from: stretchFrom, to: index);
           return null;
       }
     }
+    scan.chapterStretch = (from: stretchFrom, to: index);
     return null;
   }
 
@@ -1594,6 +1626,10 @@ class _NovelScanAccumulator {
 
   final int maxDiagnostics;
   final List<NovelMarkupDiagnostic> diagnostics = [];
+
+  /// The last stretch a chapter title was read across: it holds no `]`
+  /// and no line break.
+  ({int from, int to})? chapterStretch;
 
   void add({
     required NovelMarkupIssueKind kind,
