@@ -117,8 +117,10 @@ void main() {
         ),
       );
       expect(payload.text, contains('[newpage]'));
-      // The reader's size before the original.
-      expect(payload.images['img-1'], 'https://i.pximg.net/img-1-1200.png');
+      expect(payload.images['img-1'], (
+        large: 'https://i.pximg.net/img-1-1200.png',
+        original: 'https://i.pximg.net/img-1.png',
+      ));
       expect(payload.illustThumbs['i-9'], 'https://i.pximg.net/9-m.jpg');
       expect(payload.seriesPrevId, 100);
       expect(payload.seriesNextId, 102);

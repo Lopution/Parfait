@@ -205,15 +205,22 @@ class _NovelImageRoute extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final url = ref
+    final urls = ref
         .watch(novelStoreProvider.select((novels) => novels[novelId]))
-        ?.imageUrlFor(
+        ?.uploadedImage(
           NovelImageLoadRequest(
             source: NovelImageSource.uploaded,
             identifier: imageId,
           ),
         );
-    return ImageViewerPage(urls: [?url]);
+    return ImageViewerPage(
+      urls: [
+        ?switch (ref.watch(viewQualityProvider)) {
+          ViewQuality.original => urls?.original,
+          ViewQuality.medium || ViewQuality.large => urls?.large,
+        },
+      ],
+    );
   }
 }
 

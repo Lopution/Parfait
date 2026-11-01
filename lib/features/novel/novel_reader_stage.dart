@@ -31,10 +31,9 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
 import '../../app/widgets/app_slider.dart';
 
-/// How far the bottom progress hint fades the page's text: no further
-/// than keeps 4.5:1 on every reader palette (the green one is the
-/// closest, about 5:1).
-@visibleForTesting
+/// How far the reader's faint text (the bottom progress hint, an image's
+/// notice) fades the page's text: no further than keeps 4.5:1 on every
+/// reader palette (the green one is the closest, about 5:1).
 const novelReaderHintAlpha = 0.75;
 
 /// How far the progress pill's outline fades the page's text: no further

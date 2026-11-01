@@ -816,6 +816,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get detailQuality => '详情质量';
 
   @override
+  String get novelImageQuality => '小说插图质量';
+
+  @override
   String get feedDensity => '网格密度';
 
   @override
@@ -2798,6 +2801,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelIllustration => '插图';
+
+  @override
+  String get novelIllustrationUnavailable => '插图已删除或不可见';
 
   @override
   String get localNovelFileInfo => '文件信息';

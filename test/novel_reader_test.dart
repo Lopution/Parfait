@@ -14,7 +14,10 @@ import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
 
@@ -65,38 +68,41 @@ void main() {
     );
   });
 
-  test('an image resolves by work page, then work, and fills a page', () async {
-    const style = NovelLayoutStyle();
-    final novel = _illustrated('前文\n[pixivimage:9-2]\n[pixivimage:9-3]\n後文');
-    final layout = await NovelLayoutEngine().layoutDocumentCancellable(
-      document: novel.markup!,
-      contentVersion: novel.contentVersion,
-      viewport: const Size(360, 640),
-      style: style,
-      textColor: Colors.black,
-      brightness: Brightness.light,
-    );
+  test(
+    'a work preview is found by page, then work; an image fills a page',
+    () async {
+      const style = NovelLayoutStyle();
+      final novel = _illustrated('前文\n[pixivimage:9-2]\n[pixivimage:9-3]\n後文');
+      final layout = await NovelLayoutEngine().layoutDocumentCancellable(
+        document: novel.markup!,
+        contentVersion: novel.contentVersion,
+        viewport: const Size(360, 640),
+        style: style,
+        textColor: Colors.black,
+        brightness: Brightness.light,
+      );
 
-    expect(
-      [
-        for (final page in layout.pages)
-          [
-            for (final line in page.lines)
-              line.image == null ? line.text : novel.imageUrlFor(line.image!),
-          ],
-      ],
-      [
-        ['前文'],
-        ['https://i.pximg.net/9-2.jpg'],
-        ['https://i.pximg.net/9.jpg'],
-        ['後文'],
-      ],
-    );
-    expect(
-      layout.pages[1].lines.single.height,
-      640 - style.verticalPadding * 2,
-    );
-  });
+      expect(
+        [
+          for (final page in layout.pages)
+            [
+              for (final line in page.lines)
+                line.image == null ? line.text : novel.illustThumb(line.image!),
+            ],
+        ],
+        [
+          ['前文'],
+          ['https://i.pximg.net/9-2.jpg'],
+          ['https://i.pximg.net/9.jpg'],
+          ['後文'],
+        ],
+      );
+      expect(
+        layout.pages[1].lines.single.height,
+        640 - style.verticalPadding * 2,
+      );
+    },
+  );
 
   test('each line lays out as tall as the style of its kind', () async {
     const style = NovelLayoutStyle();
@@ -362,7 +368,7 @@ void main() {
     expect(handle.currentPage?.call(), 0);
   });
 
-  testWidgets('an image opens on tap; the margins beside it turn the page', (
+  testWidgets('an image shows at its setting, opens on tap; margins turn', (
     tester,
   ) async {
     final opened = <String>[];
@@ -371,6 +377,7 @@ void main() {
       localizedApp(
         overrides: [
           imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+          novelImageQualityProvider.overrideWithValue(DetailQuality.original),
         ],
         body: NovelReader(
           novel: _illustrated('[uploadedimage:5]\n後文'),
@@ -383,6 +390,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.bySemanticsLabel('插图'), findsOneWidget);
+    expect(
+      tester.widget<PixivImage>(find.byType(PixivImage)).url,
+      'https://i.pximg.net/u5-original.png',
+    );
     await tester.tapAt(const Offset(400, 300));
     await tester.pump(const Duration(milliseconds: 250));
     expect(opened, ['5']);
@@ -633,7 +644,12 @@ NovelEntity _novel(String text) => NovelEntity(
 /// A webview body with one uploaded image and one work's pages.
 NovelEntity _illustrated(String text) => _novel('').withWebContent(
   text,
-  embeddedImages: const {'5': 'https://i.pximg.net/u5.png'},
+  embeddedImages: const {
+    '5': (
+      large: 'https://i.pximg.net/u5.png',
+      original: 'https://i.pximg.net/u5-original.png',
+    ),
+  },
   embeddedIllustThumbs: const {
     '9-2': 'https://i.pximg.net/9-2.jpg',
     '9': 'https://i.pximg.net/9.jpg',

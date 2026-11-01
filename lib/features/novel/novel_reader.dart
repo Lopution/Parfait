@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
 import '../../app/motion/motion_tokens.dart';
-import '../../app/pixiv_image.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/feed_text_warmup.dart';
 import '../../app/theme/func_semantic_tokens.dart';
@@ -15,6 +14,7 @@ import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/reader_settings.dart';
 import '../../l10n/context.dart';
+import 'novel_illustration.dart';
 import 'novel_layout.dart';
 
 enum NovelTapZone { previous, center, next }
@@ -498,7 +498,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
                 page: layout.pages[index],
                 style: _style,
                 color: widget.textColor ?? theme.colorScheme.onSurface,
-                imageUrlFor: widget.novel.imageUrlFor,
+                novel: widget.novel,
                 onImageTap: widget.onImageTap,
                 // The layout viewport already carries the line-length cap —
                 // the text column centers inside it while tap zones keep the
@@ -689,7 +689,7 @@ class _NovelPage extends StatelessWidget {
     required this.page,
     required this.style,
     required this.color,
-    required this.imageUrlFor,
+    required this.novel,
     required this.onImageTap,
     required this.maxWidth,
   });
@@ -698,9 +698,8 @@ class _NovelPage extends StatelessWidget {
   final NovelLayoutStyle style;
   final Color color;
 
-  /// The address of an illustration line's image; the document holds an
-  /// illustration only where this resolves.
-  final String? Function(NovelImageLoadRequest image) imageUrlFor;
+  /// The novel whose payload holds the images of its image lines.
+  final NovelEntity novel;
   final ValueChanged<NovelImageLoadRequest>? onImageTap;
 
   /// Width of the layout viewport that measured this page — the text
@@ -758,11 +757,11 @@ class _NovelPage extends StatelessWidget {
             if (line.image case final image?)
               SizedBox(
                 height: line.height,
-                child: _NovelIllustration(
-                  url: imageUrlFor(image)!,
+                child: NovelIllustration(
+                  novel: novel,
+                  image: image,
                   color: color,
-                  label: context.l10n.novelIllustration,
-                  onTap: onImageTap == null ? null : () => onImageTap!(image),
+                  onTap: onImageTap,
                 ),
               )
             else if (line.text.isEmpty)
@@ -859,53 +858,6 @@ class NovelPageSkeleton extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// An illustration filling its page, contained and centred. Only the image
-/// takes the tap: the margins beside it keep the page's turn zones.
-class _NovelIllustration extends StatelessWidget {
-  const _NovelIllustration({
-    required this.url,
-    required this.color,
-    required this.label,
-    required this.onTap,
-  });
-
-  final String url;
-
-  /// The page's text colour; a faint wash of it holds the image's place
-  /// on every reader palette.
-  final Color color;
-  final String label;
-  final VoidCallback? onTap;
-
-  static const _placeholderAlpha = 0.08;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Semantics(
-        button: onTap != null,
-        label: label,
-        onTap: onTap,
-        child: GestureDetector(
-          onTap: onTap,
-          child: PixivImage(
-            url: url,
-            fit: BoxFit.contain,
-            sizeToImage: true,
-            memCacheWidth: PixivImage.screenDecodeWidth,
-            placeholderWidget: AspectRatio(
-              aspectRatio: 1,
-              child: ColoredBox(
-                color: color.withValues(alpha: _placeholderAlpha),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

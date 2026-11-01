@@ -833,6 +833,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailQuality => '詳細画質';
 
   @override
+  String get novelImageQuality => '小説の挿絵の画質';
+
+  @override
   String get feedDensity => 'グリッドの密度';
 
   @override
@@ -2827,6 +2830,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelIllustration => '挿絵';
+
+  @override
+  String get novelIllustrationUnavailable => 'この挿絵は削除されたか、表示できません';
 
   @override
   String get localNovelFileInfo => 'ファイル情報';

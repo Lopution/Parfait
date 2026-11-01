@@ -852,6 +852,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detailQuality => 'Качество картинки в детальной странице';
 
   @override
+  String get novelImageQuality => 'Качество иллюстраций в романах';
+
+  @override
   String get feedDensity => 'Плотность сетки';
 
   @override
@@ -2886,6 +2889,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelIllustration => 'Иллюстрация';
+
+  @override
+  String get novelIllustrationUnavailable =>
+      'Иллюстрация удалена или недоступна';
 
   @override
   String get localNovelFileInfo => 'Информация о файле';

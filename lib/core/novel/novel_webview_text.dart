@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../entity/json_read.dart';
 import '../network/api_error.dart';
+import 'novel_entity.dart';
 
 /// Parsed payload of the `/webview/v2/novel` page's embedded pixiv object.
 ///
@@ -21,7 +22,7 @@ class NovelWebPayload {
   final String? text;
 
   /// `uploadedimage` identifier → resolved URL (prefers `original`).
-  final Map<String, String> images;
+  final Map<String, NovelUploadedImage> images;
 
   /// `pixivimage` identifier → preview URL resolved from the `illusts` map.
   final Map<String, String> illustThumbs;
@@ -225,18 +226,20 @@ NovelWebPayload _payload(Map<String, Object?> novel) {
   );
 }
 
-Map<String, String> _imageUrls(Map<String, Object?> images) {
-  final resolved = <String, String>{};
+Map<String, NovelUploadedImage> _imageUrls(Map<String, Object?> images) {
+  final resolved = <String, NovelUploadedImage>{};
   for (final entry in images.entries) {
     final holder = entry.value;
     if (holder is! Map<String, dynamic>) continue;
-    // The reader's size first: an original can be thousands of pixels on
-    // a side.
+    // An original can be thousands of pixels on a side; the reader's size
+    // is 1200.
     final urls = readMap(holder['urls']);
-    final url =
-        readFirstString(urls, const ['1200x1200', 'original']) ??
-        urls.values.whereType<String>().firstOrNull;
-    if (url != null) resolved[entry.key] = url;
+    final any = urls.values.whereType<String>().firstOrNull;
+    final large = readFirstString(urls, const ['1200x1200', 'original']);
+    final original = readFirstString(urls, const ['original', '1200x1200']);
+    if ((large ?? any, original ?? any) case (final large?, final original?)) {
+      resolved[entry.key] = (large: large, original: original);
+    }
   }
   return resolved;
 }

@@ -174,6 +174,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'detailCollapsePages' => l10n.detailCollapsePages,
   'detailDownloaded' => l10n.detailDownloaded,
   'detailQuality' => l10n.detailQuality,
+  'novelImageQuality' => l10n.novelImageQuality,
   'detailSectionAuthorWorks' => l10n.detailSectionAuthorWorks,
   'detailSectionCaption' => l10n.detailSectionCaption,
   'detailSectionTags' => l10n.detailSectionTags,

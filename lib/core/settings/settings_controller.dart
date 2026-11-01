@@ -81,6 +81,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setDetailQuality(DetailQuality quality) =>
       _update((settings) => settings.copyWith(detailQuality: quality));
 
+  Future<void> setNovelImageQuality(DetailQuality quality) =>
+      _update((settings) => settings.copyWith(novelImageQuality: quality));
+
   Future<void> setNetworkMode(NetworkMode mode) =>
       _update((settings) => settings.copyWith(networkMode: mode));
 
@@ -253,6 +256,14 @@ final viewQualityProvider = Provider<ViewQuality>((ref) {
   return ref.watch(
     settingsProvider.select(
       (async) => async.value?.viewQuality ?? ViewQuality.original,
+    ),
+  );
+});
+
+final novelImageQualityProvider = Provider<DetailQuality>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.novelImageQuality ?? DetailQuality.large,
     ),
   );
 });

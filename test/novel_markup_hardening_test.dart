@@ -109,11 +109,10 @@ void main() {
   });
 
   test('an image takes its marker line and moves no paragraph id', () {
-    const source = 'a\n[uploadedimage:5]\nb\n[pixivimage:9-2]\n[pixivimage:8]';
+    const source = 'a\n[uploadedimage:5]\nb\n[pixivimage:9-2]';
+    // A local file's markers stay text.
     final plain = NovelMarkupParser().parse(source);
-    final images = NovelMarkupParser(
-      resolvesImage: (image) => image.identifier != '8',
-    ).parse(source);
+    final images = NovelMarkupParser(images: true).parse(source);
 
     expect(
       images.blocks.map((block) => block.id),
@@ -126,8 +125,7 @@ void main() {
       ],
       [('p1', '5'), ('p3', '9-2')],
     );
-    // An image the payload does not carry stays its marker.
-    expect(images.blocks.last.plainText, '[pixivimage:8]');
+    expect(plain.plainText, contains('[uploadedimage:5]'));
   });
 
   test('novel parser keeps raw attributes and reports malformed nesting', () {

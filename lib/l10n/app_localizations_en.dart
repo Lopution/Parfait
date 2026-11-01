@@ -851,6 +851,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailQuality => 'Detail quality';
 
   @override
+  String get novelImageQuality => 'Novel image quality';
+
+  @override
   String get feedDensity => 'Grid density';
 
   @override
@@ -2896,6 +2899,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelIllustration => 'Illustration';
+
+  @override
+  String get novelIllustrationUnavailable =>
+      'This image was removed or is not visible';
 
   @override
   String get localNovelFileInfo => 'File info';

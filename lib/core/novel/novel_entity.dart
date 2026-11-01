@@ -162,6 +162,10 @@ class NovelJumpToken extends NovelMarkupToken {
 
 enum NovelImageSource { pixiv, uploaded }
 
+/// An uploaded image's URLs: the reader's size (`1200x1200`) and the file
+/// as uploaded. Either is the other when the payload has only one.
+typedef NovelUploadedImage = ({String large, String original});
+
 /// A validated image identifier, not a URL. Resolving it into a request stays
 /// with the shared Pixiv image/network policy and is deliberately separate
 /// from markup parsing.
@@ -602,8 +606,8 @@ class NovelEntity {
   final String? createDate;
   final bool contentAvailable;
 
-  /// `uploadedimage` identifier → URL resolved from the webview payload.
-  final Map<String, String> embeddedImages;
+  /// `uploadedimage` identifier → its URLs in the webview payload.
+  final Map<String, NovelUploadedImage> embeddedImages;
 
   /// `pixivimage` identifier → preview URL resolved from the webview
   /// payload's `illusts` map.
@@ -616,21 +620,16 @@ class NovelEntity {
 
   UserEntity get author => user;
 
-  /// The URL the webview payload gives [image], or null.
-  String? imageUrlFor(NovelImageLoadRequest image) =>
-      _imageUrl(image, embeddedImages, embeddedIllustThumbs);
+  /// An uploaded image's URLs in the webview payload, or null.
+  NovelUploadedImage? uploadedImage(NovelImageLoadRequest image) =>
+      embeddedImages[image.identifier];
 
-  /// A Pixiv work's page is keyed `id-page`; a marker naming the work
-  /// alone, or a payload keying it so, finds it by `id`.
-  static String? _imageUrl(
-    NovelImageLoadRequest image,
-    Map<String, String> uploaded,
-    Map<String, String> illusts,
-  ) => switch (image.source) {
-    NovelImageSource.uploaded => uploaded[image.identifier],
-    NovelImageSource.pixiv =>
-      illusts[image.identifier] ?? illusts['${image.illustId}'],
-  };
+  /// The payload's preview of a Pixiv work's page, or null. A page is keyed
+  /// `id-page`; a marker naming the work alone, or a payload keying it so,
+  /// finds it by `id`.
+  String? illustThumb(NovelImageLoadRequest image) =>
+      embeddedIllustThumbs[image.identifier] ??
+      embeddedIllustThumbs['${image.illustId}'];
 
   bool get isRestricted => !visible || isXRestricted;
 
@@ -702,7 +701,7 @@ class NovelEntity {
           : contentAvailable as bool,
       embeddedImages: identical(embeddedImages, _unset)
           ? this.embeddedImages
-          : embeddedImages as Map<String, String>,
+          : embeddedImages as Map<String, NovelUploadedImage>,
       embeddedIllustThumbs: identical(embeddedIllustThumbs, _unset)
           ? this.embeddedIllustThumbs
           : embeddedIllustThumbs as Map<String, String>,
@@ -724,14 +723,16 @@ class NovelEntity {
   /// entity metadata-only while still recording navigation/image fields.
   NovelEntity withWebContent(
     String? text, {
-    Map<String, String> embeddedImages = const {},
+    Map<String, NovelUploadedImage> embeddedImages = const {},
     Map<String, String> embeddedIllustThumbs = const {},
     int? seriesPrevId,
     int? seriesNextId,
   }) {
     if (text == null) {
       return copyWith(
-        embeddedImages: Map<String, String>.unmodifiable(embeddedImages),
+        embeddedImages: Map<String, NovelUploadedImage>.unmodifiable(
+          embeddedImages,
+        ),
         embeddedIllustThumbs: Map<String, String>.unmodifiable(
           embeddedIllustThumbs,
         ),
@@ -739,11 +740,7 @@ class NovelEntity {
         seriesNextId: seriesNextId,
       );
     }
-    final markup = NovelContentMapper.parse(
-      text,
-      resolvesImage: (image) =>
-          _imageUrl(image, embeddedImages, embeddedIllustThumbs) != null,
-    );
+    final markup = NovelContentMapper.parse(text, images: true);
     final paragraphs = markup.paragraphs;
     final version = sha256.convert(utf8.encode(jsonEncode(text))).toString();
     return copyWith(
@@ -757,7 +754,9 @@ class NovelEntity {
       paragraphs: List<NovelParagraph>.unmodifiable(paragraphs),
       markup: markup,
       contentAvailable: true,
-      embeddedImages: Map<String, String>.unmodifiable(embeddedImages),
+      embeddedImages: Map<String, NovelUploadedImage>.unmodifiable(
+        embeddedImages,
+      ),
       embeddedIllustThumbs: Map<String, String>.unmodifiable(
         embeddedIllustThumbs,
       ),
@@ -846,12 +845,9 @@ abstract final class NovelContentMapper {
     Object? raw, {
     NovelMarkupBudget budget = const NovelMarkupBudget(),
     NovelMarkupProgressCallback? onProgress,
-    bool Function(NovelImageLoadRequest image)? resolvesImage,
+    bool images = false,
   }) {
-    final parser = NovelMarkupParser(
-      budget: budget,
-      resolvesImage: resolvesImage,
-    );
+    final parser = NovelMarkupParser(budget: budget, images: images);
     if (raw is String) {
       return parser.parse(raw, onProgress: onProgress);
     }
@@ -908,15 +904,15 @@ abstract final class NovelContentMapper {
 class NovelMarkupParser {
   const NovelMarkupParser({
     this.budget = const NovelMarkupBudget(),
-    this.resolvesImage,
+    this.images = false,
   });
 
   final NovelMarkupBudget budget;
 
-  /// Whether the novel's payload holds a URL for an image marker. Only
-  /// those become image blocks; the rest stay visible text, as unknown
-  /// markers do. Null: no image resolves (a body without its payload).
-  final bool Function(NovelImageLoadRequest image)? resolvesImage;
+  /// Whether valid image markers become image blocks: a pixiv body's do,
+  /// whatever its payload holds (one that cannot be shown says so on its
+  /// page). Off, they stay visible text, as in a local file.
+  final bool images;
 
   /// The single-bracket markers that carry a payload, up to their `]`.
   static const _payloadMarkers = [
@@ -1695,7 +1691,7 @@ class NovelMarkupParser {
           );
         case NovelPixivImageToken(:final loadRequest?) ||
                 NovelUploadedImageToken(:final loadRequest?)
-            when resolvesImage?.call(loadRequest) ?? false:
+            when images:
           flushParagraph();
           // The id its marker line had as a paragraph.
           blocks.add(
@@ -1703,7 +1699,7 @@ class NovelMarkupParser {
           );
           imageLineOpen = true;
         case NovelPixivImageToken() || NovelUploadedImageToken():
-          // No URL to show it by: the marker as written.
+          // A malformed marker, or a body without images: as written.
           appendText(token.rawText, token);
         default:
           appendText(token.displayText, token);

@@ -1625,6 +1625,12 @@ abstract class AppLocalizations {
   /// **'详情质量'**
   String get detailQuality;
 
+  /// No description provided for @novelImageQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说插图质量'**
+  String get novelImageQuality;
+
   /// No description provided for @feedDensity.
   ///
   /// In zh, this message translates to:
@@ -5386,6 +5392,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'插图'**
   String get novelIllustration;
+
+  /// No description provided for @novelIllustrationUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'插图已删除或不可见'**
+  String get novelIllustrationUnavailable;
 
   /// No description provided for @localNovelFileInfo.
   ///
