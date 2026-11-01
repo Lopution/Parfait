@@ -45,6 +45,49 @@ void main() {
     expect(document.blocks.whereType<NovelPageBreakBlock>(), hasLength(1));
   });
 
+  test('single brackets mark only page breaks and chapters', () {
+    for (final (source, matcher) in [
+      ('[newpage]', isA<NovelNewPageToken>()),
+      (
+        '[chapter:第10話　オークロード]',
+        isA<NovelChapterToken>().having(
+          (token) => token.title,
+          'title',
+          '第10話　オークロード',
+        ),
+      ),
+      // A known name without a title stays visible as a malformed marker.
+      (
+        '[chapter:]',
+        isA<NovelUnknownToken>().having(
+          (token) => token.isMalformed,
+          'isMalformed',
+          isTrue,
+        ),
+      ),
+    ]) {
+      final document = NovelMarkupParser().parse('a${source}b');
+      expect(document.tokens[1], matcher, reason: source);
+      expect(document.tokens[1].rawText, source);
+    }
+    // Bracketed prose, other names and markers the reader cannot show yet
+    // (images, jumps) stay text.
+    for (final source in [
+      '[注]',
+      '[1]',
+      '[Chapter:x]',
+      '[newpage',
+      '[chapter:a\nb]',
+      '[uploadedimage:26116990]',
+      '[pixivimage:123-2]',
+      '[jump:3]',
+    ]) {
+      final document = NovelMarkupParser().parse(source);
+      expect(document.tokens, everyElement(isA<NovelTextToken>()));
+      expect(document.plainText, source, reason: source);
+    }
+  });
+
   test('novel parser keeps raw attributes and reports malformed nesting', () {
     final document = NovelMarkupParser().parse(
       '[[Future:raw [[nested]] value]] tail',
