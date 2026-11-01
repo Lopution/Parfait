@@ -3,7 +3,7 @@ prefix: NOVEL
 applies_to:
   - lib/features/novel/**
   - lib/core/novel/**
-reviewed: 2026-11-01
+reviewed: 2026-11-02
 ---
 
 # Novel markup and reader
@@ -45,12 +45,14 @@ reviewed: 2026-11-01
 ### NOVEL-03 Layouts commit through the reader gate, anchored by start
 - **Rule:** A layout commits only through `NovelReaderCommitGate` for the
   current content version, chapter and generation. A commit restores the
-  start anchor of the page on screen at commit time, and jumps the
-  `PageController` only when the restored page differs.
+  place on screen at commit time: in page mode the start anchor of the
+  page, jumping the `PageController` only when the restored page
+  differs; in scroll mode the line at the top, jumping the column only
+  when that line's offset differs.
 - **Why:** A late layout overwrote a newer one; restoring by page index
   lost a swipe made while layout ran, and an unconditional jump cut the
   swipe short.
-- **Check:** `test/novel_markup_hardening_test.dart` "reader gate rejects stale chapter and disposed layout results", `test/novel_reader_test.dart` "anchor notifications distinguish echoes from user turns"
+- **Check:** `test/novel_markup_hardening_test.dart` "reader gate rejects stale chapter and disposed layout results", `test/novel_reader_test.dart` "anchor notifications distinguish echoes from user turns" "scroll mode: open restores the line, a settle reports once,"
 - **Code:** `lib/features/novel/novel_reader.dart`
 
 ### NOVEL-04 Translations add lines, never characters
@@ -93,8 +95,8 @@ reviewed: 2026-11-01
   colour and takes no tap. An image is contained and centred, and only
   the image takes a tap: a work opens its viewer at the marker's page,
   an upload opens alone (`novel/:id/image/:imageId`, at the viewer
-  quality). The margins beside it keep the turn zones. Bilingual reading
-  skips it.
+  quality). In page mode the margins beside it keep the turn zones.
+  Bilingual reading skips it.
 - **Why:** Every image showed as a raw `[uploadedimage:…]` line, and the
   payload's work preview is a 540px crop (user report, 11-01).
 - **Check:** `test/novel_markup_hardening_test.dart` "an image takes its marker line and moves no paragraph id"; `test/novel_reader_test.dart` "a work preview is found by page, then work; an image fills a page" "an image shows at its setting, opens on tap; margins turn"; `test/navigation_restoration_test.dart` "a novel image shows and opens its work page; a lost one says so"
@@ -124,17 +126,20 @@ reviewed: 2026-11-01
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
 
 ### NOVEL-07 Opening and toggling never write reading history
-- **Rule:** Opening the reader and toggling sheets write nothing; a page
-  turn writes once; a restored record is not rewritten.
+- **Rule:** Opening the reader, toggling sheets and switching between
+  scrolling and pages write nothing; a page turn, or a scroll that comes
+  to rest on another line, writes once; a restored record is not
+  rewritten.
 - **Why:** Opening a novel overwrote the stored position with page 1.
-- **Check:** `test/novel_reader_stage_test.dart` "open and sheet toggles never write; a page turn writes once" "a stored record restores without being rewritten"
+- **Check:** `test/novel_reader_stage_test.dart` "open and sheet toggles never write; a page turn writes once" "a stored record restores without being rewritten" "scroll mode: open writes nothing, a settle writes once;"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
 
 ### NOVEL-08 The chrome and page turns leave the reader alone
 - **Rule:** The stage keeps one reader widget while the novel, settings,
   initial anchor, text colour, translations and padding hold; the chrome,
   the progress hint and the anchor rebuild around it. The reader does not
-  rebuild when the page changes: nothing it builds reads the page.
+  rebuild when the page changes or the column scrolls: nothing it builds
+  reads the page.
 - **Why:** A tap that showed the chrome took 25 ms, and every page turn
   rebuilt the stage and the reader mid-swipe; each rebuild re-created
   every line of the pages on screen.
@@ -142,7 +147,7 @@ reviewed: 2026-11-01
 - **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader.dart`
 
 ### NOVEL-09 Pages and bars are built while the reader rests
-- **Rule:** The reader's `PageView` has a one-pixel cache
+- **Rule:** In page mode the reader's `PageView` has a one-pixel cache
   (`allowImplicitScrolling` with `ScrollCacheExtent.pixels(1)`): the
   pages beside the one on screen are built at rest, and the page after
   them enters on the frame a turn lands. Once a turn or a relayout comes
@@ -173,3 +178,24 @@ reviewed: 2026-11-01
   10-25).
 - **Check:** `test/novel_reader_settings_test.dart` "the progress hint keeps 4.5:1 and the pill outline 3:1 on every palette"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
+
+### NOVEL-13 Scroll mode is one column over the same pages
+- **Rule:** `NovelReaderSettings.pageTurn` picks scrolling (the default,
+  and what a saved setting without the field opens in) or pages; the
+  reader settings sheet switches it. Scroll mode shows the paginated
+  layout's lines as one `ListView` column (`NovelScrollColumn`), each
+  line at its measured extent, so pages stay the unit of progress,
+  chapters, jumps and bilingual batches. A page that ran on continues
+  the column; a chapter starts after `chapterGap`, an author's
+  `[newpage]` after a short faint rule (`pageBreakGap`); an image keeps
+  its page-tall slot. Lines paint only between the page margins and
+  touches land anywhere. A tap anywhere toggles the chrome or opens the
+  image under it, unless it caught the column moving: then it only
+  stops it. A scroll that settles reports the line at the top and its
+  page; `goToPage` scrolls that page's first line to the top. Switching
+  modes opens the page holding the top line, or the column at the
+  page's first line.
+- **Why:** Pages turned left and right were the only way to read; long
+  novels and phones read by scrolling (user request, 11-01).
+- **Check:** `test/novel_reader_settings_test.dart` "theme falls back to system, page turn to scroll"; `test/novel_reader_test.dart` "the scroll column runs pages on, with a rule at a new page and a gap" "scroll mode: a tap toggles the chrome or opens an image; one"; `test/novel_reader_stage_test.dart` "scroll mode: open writes nothing, a settle writes once;"
+- **Code:** `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`
