@@ -6,6 +6,7 @@ import '../../motion/press_scale.dart';
 import '../../navigation/routes.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
+import '../../theme/func_tokens.dart';
 import 'illust_card.dart';
 
 /// One pixivision article, shaped like a work card: a 16:9 image clipped
@@ -34,6 +35,14 @@ class SpotlightArticleCard extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
+          // The press is PressScale's alone: ink would spill onto the page
+          // around the title (MOTION-06). Focus and hover keep the theme's.
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.pressed)
+                ? FuncTokens.transparent
+                : null,
+          ),
           borderRadius: FuncShape.card,
           onTap: () => openSpotlightArticle(
             context,

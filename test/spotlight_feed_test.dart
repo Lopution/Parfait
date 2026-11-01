@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -136,6 +137,23 @@ void main() {
         tester.getSize(image).aspectRatio,
         closeTo(SpotlightArticleCard.imageAspectRatio, 0.01),
       );
+      // A held press scales the card and spreads no ink around the title.
+      // Material paints its ink in one saved layer, then the card.
+      final press = await tester.startGesture(tester.getCenter(title));
+      await tester.pump(kPressTimeout);
+      var depth = 0;
+      var inInk = true;
+      expect(
+        Material.of(tester.element(title)) as RenderObject,
+        paints..everything((method, args) {
+          if (!inInk) return true;
+          if (method == #save) depth++;
+          if (method == #restore && --depth == 0) inInk = false;
+          return args.whereType<Paint>().every((p) => p.color.a == 0);
+        }),
+      );
+      await press.cancel();
+      await tester.pumpAndSettle();
       expect(find.text('label 101'), findsNothing);
       expect(fixture.requests.first.queryParameters['category'], 'all');
 
