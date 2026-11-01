@@ -73,6 +73,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
     };
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
+    final locale = Localizations.maybeLocaleOf(context);
 
     final row = LayoutBuilder(
       builder: (context, constraints) {
@@ -81,7 +82,13 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
           for (final style in styles) {
             widest = math.max(
               widest,
-              LabelFit.measureLabel(label, style, textScaler, textDirection),
+              LabelFit.measureLabel(
+                label,
+                style,
+                textScaler,
+                textDirection,
+                locale: locale,
+              ),
             );
           }
         }
