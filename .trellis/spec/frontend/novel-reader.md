@@ -18,13 +18,17 @@ reviewed: 2026-10-17
 ### NOVEL-01 Markup becomes typed tokens with visible fallbacks
 - **Rule:** `NovelMarkupParser` scans the body into sealed typed tokens
   (text, newpage, chapter, ruby, jumps, images, unknown, budget exceeded)
-  that keep their raw text and attributes. Malformed or unknown markers
+  that keep their raw text and attributes. Pixiv writes `[newpage]` and
+  `[chapter:title]` in single brackets (ruby and links in double); only
+  those exact names, closed on their line, are single-bracket markers, so
+  bracketed prose stays text. Malformed or unknown markers
   stay visible as raw text. Jumps go only to registry-allowed `pixivWeb`
   URIs or positive pages; image tokens expose only validated ids, never a
   URL or path. Body HTML is never executed.
 - **Why:** Regex stripping dropped content; a foreign jump URI or an image
-  path could have opened arbitrary pages or files.
-- **Check:** `test/novel_markup_hardening_test.dart` "novel markup produces typed tokens and visible fallbacks" "novel parser keeps raw attributes and reports malformed nesting"
+  path could have opened arbitrary pages or files. A parser that read only
+  double brackets showed every real page break and chapter as raw text.
+- **Check:** `test/novel_markup_hardening_test.dart` "novel markup produces typed tokens and visible fallbacks" "single brackets mark only page breaks and chapters" "novel parser keeps raw attributes and reports malformed nesting"; `test/novel_reader_test.dart` "webview text pages and chapters at its single-bracket markers"
 - **Code:** `lib/core/novel/novel_entity.dart`
 
 ### NOVEL-02 Parsing and layout are bounded and cancellable

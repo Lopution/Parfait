@@ -48,6 +48,21 @@ void main() {
     expect(first.contentVersion, isNot(second.contentVersion));
   });
 
+  test('webview text pages and chapters at its single-bracket markers', () {
+    // The webview body as pixiv writes it: only ruby takes double brackets.
+    final novel = _novel(
+      '',
+    ).withWebContent('前文\n[newpage]\n[chapter:第二章　出発]\n本文[[rb:漢字 > かんじ]]');
+    final blocks = novel.markup!.blocks;
+
+    expect(blocks.whereType<NovelPageBreakBlock>(), hasLength(1));
+    expect(blocks.whereType<NovelChapterBlock>().single.title, '第二章　出発');
+    expect(
+      novel.paragraphs.map((paragraph) => paragraph.text),
+      everyElement(isNot(contains('['))),
+    );
+  });
+
   test('layout cache is keyed by content, viewport and typography', () {
     final cache = NovelLayoutCache(maxEntries: 2);
     final engine = NovelLayoutEngine(cache: cache);

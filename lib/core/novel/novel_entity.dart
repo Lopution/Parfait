@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -1032,12 +1033,23 @@ class NovelMarkupParser {
     int sourceLimit,
     _NovelScanAccumulator accumulator,
   ) {
-    if (!source.startsWith('[[', cursor)) {
-      final marker = source.indexOf('[[', cursor);
-      final end = (marker < 0 ? sourceLimit : marker).clamp(
-        cursor + 1,
-        cursor + budget.chunkSize,
+    final singleEnd = _singleMarkerEnd(source, cursor, sourceLimit);
+    if (singleEnd != null) {
+      return _ScannedNovelToken(
+        token: _parseMarker(
+          source.substring(cursor, singleEnd),
+          source.substring(cursor + 1, singleEnd - 1),
+          cursor,
+          accumulator,
+        ),
+        end: singleEnd,
       );
+    }
+    if (!source.startsWith('[[', cursor)) {
+      // A text token never passes the chunk, so a marker past it is moot.
+      final window = math.min(sourceLimit, cursor + budget.chunkSize);
+      final marker = _nextMarker(source, cursor, window, sourceLimit);
+      final end = (marker ?? window).clamp(cursor + 1, window);
       return _ScannedNovelToken(
         token: NovelTextToken(
           source.substring(cursor, end),
@@ -1377,6 +1389,45 @@ class NovelMarkupParser {
       payload.substring(0, separator).trim(),
       payload.substring(separator + 3).trim(),
     );
+  }
+
+  /// The first marker start in `[from, window)`: a `[[` or a single-bracket
+  /// marker.
+  int? _nextMarker(String source, int from, int window, int limit) {
+    var index = source.indexOf('[', from);
+    while (index >= 0 && index < window) {
+      if (source.startsWith('[[', index) ||
+          _singleMarkerEnd(source, index, limit) != null) {
+        return index;
+      }
+      index = source.indexOf('[', index + 1);
+    }
+    return null;
+  }
+
+  /// The end of a single-bracket marker at [start], or null. Pixiv writes
+  /// page breaks and chapters in single brackets (`[newpage]`,
+  /// `[chapter:title]`, closed on the same line); only those exact names
+  /// are markers, so bracketed prose (`[注]`, `[1]`) stays text. Its image
+  /// and jump markers stay text until the reader can show them.
+  int? _singleMarkerEnd(String source, int start, int limit) {
+    const newPage = '[newpage]';
+    const chapter = '[chapter:';
+    if (source.startsWith(newPage, start)) {
+      final end = start + newPage.length;
+      return end <= limit ? end : null;
+    }
+    if (!source.startsWith(chapter, start)) return null;
+    final searchEnd = math.min(limit, start + budget.maxMarkerUnits);
+    for (var index = start + chapter.length; index < searchEnd; index++) {
+      switch (source.codeUnitAt(index)) {
+        case 0x5D: // ]
+          return index + 1;
+        case 0x0A || 0x0D:
+          return null;
+      }
+    }
+    return null;
   }
 
   static int? _findMarkerEnd(String source, int start, int limit) {
