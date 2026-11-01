@@ -123,8 +123,7 @@ class _SkeletonList extends StatelessWidget {
     required this.row,
   });
 
-  /// Whether each row sits on a card, as the user rows do. Cards lay out
-  /// in [CardColumns], as the list they stand in for.
+  /// Whether each row sits on a card, as the user rows do.
   final bool carded;
 
   /// A row's height for a column of the given width.
@@ -136,7 +135,8 @@ class _SkeletonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final columns = carded ? CardColumns.of(constraints.maxWidth) : 1;
+      // Rows lay out in [CardColumns], as the card list they stand in for.
+      final columns = CardColumns.of(constraints.maxWidth);
       final rows = constraints.hasBoundedHeight
           ? (constraints.maxHeight / rowExtent(constraints.maxWidth / columns))
                 .ceil()
@@ -149,18 +149,17 @@ class _SkeletonList extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               for (var i = 0; i < rows; i++)
-                if (carded)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var column = 0; column < columns; column++)
-                        Expanded(
-                          child: Card(margin: _cardMargin, child: row(context)),
-                        ),
-                    ],
-                  )
-                else
-                  row(context),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var column = 0; column < columns; column++)
+                      Expanded(
+                        child: carded
+                            ? Card(margin: _cardMargin, child: row(context))
+                            : row(context),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),
