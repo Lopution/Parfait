@@ -7,6 +7,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/ambient_wash.dart';
 
+import 'helpers/waits.dart';
+
 /// [rgb] (0–1) through the 4×5 [matrix] on 0–255 channels, unclamped.
 List<double> _apply(List<double> matrix, List<double> rgb) => [
   for (var k = 0; k < 3; k++)
@@ -62,29 +64,39 @@ void main() {
 
   testWidgets('a wash draws its image toned, in the page pass', (tester) async {
     final theme = replicaTheme(Brightness.light);
-    await tester.runAsync(() async {
+    final png = await tester.runAsync(() async {
       final recorder = ui.PictureRecorder();
       Canvas(recorder).drawColor(const Color(0xFFE03050), BlendMode.src);
       final picture = recorder.endRecording();
       final image = await picture.toImage(32, 32);
       picture.dispose();
-      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
-      await tester.pumpWidget(
-        Theme(
-          data: theme,
-          child: Center(
-            child: SizedBox(
-              width: 200,
-              height: 100,
-              child: AmbientWash(image: MemoryImage(png!.buffer.asUint8List())),
-            ),
+      return bytes!.buffer.asUint8List();
+    });
+    await tester.pumpWidget(
+      Theme(
+        data: theme,
+        child: Center(
+          child: SizedBox(
+            width: 200,
+            height: 100,
+            child: AmbientWash(image: MemoryImage(png!)),
           ),
         ),
-      );
-      // The blur runs once, off the frame.
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-    });
+      ),
+    );
+    // The decode and the blur run once, off the frame.
+    await pumpIoUntil(
+      tester,
+      () => find
+          .descendant(
+            of: find.byType(AmbientWash),
+            matching: find.byType(CustomPaint),
+          )
+          .evaluate()
+          .isNotEmpty,
+    );
     await tester.pumpAndSettle();
 
     expect(

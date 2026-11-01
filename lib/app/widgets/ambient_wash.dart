@@ -153,9 +153,14 @@ class _WashImageState extends State<_WashImage>
     }
   }
 
-  // The page colour stays: the wash only lights the frame.
-  void _onError(Object error, StackTrace? stack) =>
-      log('AmbientWash: ${widget.image} failed: $error');
+  // The page colour stays: the wash only lights the frame. A wash of the
+  // previous image would light it with another subject.
+  void _onError(Object error, StackTrace? stack) {
+    log('AmbientWash: ${widget.image} failed: $error');
+    if (_info == null) return;
+    _info!.dispose();
+    setState(() => _info = null);
+  }
 
   @override
   void dispose() {
