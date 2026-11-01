@@ -21,7 +21,7 @@ class NovelListSkeleton extends StatelessWidget {
     label: label,
     child: _SkeletonList(
       carded: false,
-      rowExtent: _novelRowExtent,
+      rowExtent: (_) => _novelRowExtent,
       row: (context) => const _CoverRowBones(
         coverWidth: _novelCoverWidth,
         coverHeight: _novelCoverHeight,
@@ -45,7 +45,7 @@ class EpisodeListSkeleton extends StatelessWidget {
     label: label,
     child: _SkeletonList(
       carded: false,
-      rowExtent: episodeCoverSize.height + episodeRowPadding.vertical,
+      rowExtent: (_) => episodeCoverSize.height + episodeRowPadding.vertical,
       row: (context) => _CoverRowBones(
         coverWidth: episodeCoverSize.width,
         coverHeight: episodeCoverSize.height,
@@ -98,10 +98,17 @@ const _novelRowPadding = EdgeInsets.symmetric(
 /// Novel row height: the cover plus the row padding.
 const _novelRowExtent = _novelCoverHeight + 2 * FuncSpacing.md;
 
-/// User row height without its works, plus the card margin; the works
-/// make a real row taller, so this only bounds how many rows to build.
-const _userRowExtent =
-    _avatarDiameter + 2 * FuncSpacing.md + 2 * FuncSpacing.sm;
+/// User row height in a card column [width] wide: the header, the row of
+/// three square works and the padding, plus the card margin.
+double _userRowExtent(double width) {
+  final inner = width - _cardMargin.horizontal - 2 * FuncSpacing.md;
+  final work = (inner - 2 * FuncSpacing.xs) / 3;
+  return _avatarDiameter +
+      FuncSpacing.md +
+      work +
+      2 * FuncSpacing.md +
+      _cardMargin.vertical;
+}
 
 const _avatarDiameter = 48.0;
 const _followButtonWidth = 96.0;
@@ -119,7 +126,9 @@ class _SkeletonList extends StatelessWidget {
   /// Whether each row sits on a card, as the user rows do. Cards lay out
   /// in [CardColumns], as the list they stand in for.
   final bool carded;
-  final double rowExtent;
+
+  /// A row's height for a column of the given width.
+  final double Function(double columnWidth) rowExtent;
   final WidgetBuilder row;
 
   static const _unboundedRows = 3;
@@ -127,10 +136,11 @@ class _SkeletonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final rows = constraints.hasBoundedHeight
-          ? (constraints.maxHeight / rowExtent).ceil()
-          : _unboundedRows;
       final columns = carded ? CardColumns.of(constraints.maxWidth) : 1;
+      final rows = constraints.hasBoundedHeight
+          ? (constraints.maxHeight / rowExtent(constraints.maxWidth / columns))
+                .ceil()
+          : _unboundedRows;
       return ClipRect(
         child: OverflowBox(
           alignment: Alignment.topCenter,
