@@ -26,14 +26,21 @@ class SettingsChoiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onTap = this.onTap;
+    final colorScheme = Theme.of(context).colorScheme;
+    final subtitle = this.subtitle;
     return ListTile(
       contentPadding: contentPadding,
       title: title,
-      subtitle: subtitle,
+      // Selection tints the title and the check; the description stays
+      // secondary text (THEME-07).
+      subtitle: subtitle == null
+          ? null
+          : DefaultTextStyle.merge(
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+              child: subtitle,
+            ),
       selected: selected,
-      trailing: selected
-          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
-          : null,
+      trailing: selected ? Icon(Icons.check, color: colorScheme.primary) : null,
       onTap: onTap == null
           ? null
           : () {

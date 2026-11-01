@@ -6,9 +6,12 @@ import '../../motion/press_scale.dart';
 import '../../navigation/routes.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
+import '../../theme/func_tokens.dart';
+import 'illust_card.dart';
 
-/// One pixivision article: a 16:9 image, the title (two lines at most) and
-/// the publish date under it. The whole card opens the in-app article page.
+/// One pixivision article, shaped like a work card: a 16:9 image clipped
+/// to the card radius, the title (two lines at most) and the publish date
+/// under it on the page. The whole card opens the in-app article page.
 class SpotlightArticleCard extends StatelessWidget {
   const SpotlightArticleCard({
     super.key,
@@ -29,10 +32,18 @@ class SpotlightArticleCard extends StatelessWidget {
     final thumbnailUrl = article.thumbnailUrl;
     final publishDate = article.publishDate;
     return PressScale(
-      child: Card(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
+      child: Material(
+        type: MaterialType.transparency,
         child: InkWell(
+          // The press is PressScale's alone: ink would spill onto the page
+          // around the title (MOTION-06). Focus and hover keep the theme's.
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.pressed)
+                ? FuncTokens.transparent
+                : null,
+          ),
+          borderRadius: FuncShape.card,
           onTap: () => openSpotlightArticle(
             context,
             articleId: article.id,
@@ -42,22 +53,30 @@ class SpotlightArticleCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AspectRatio(
-                aspectRatio: imageAspectRatio,
-                child: thumbnailUrl == null
-                    ? ColoredBox(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        child: Icon(
-                          Icons.newspaper_outlined,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      )
-                    // App API thumbnails live on i.pximg.net, which refuses
-                    // requests without the Pixiv referer.
-                    : PixivImage.feed(thumbnailUrl, layoutWidth: imageWidth),
+              ClipRRect(
+                borderRadius: FuncShape.card,
+                child: AspectRatio(
+                  aspectRatio: imageAspectRatio,
+                  child: thumbnailUrl == null
+                      ? ColoredBox(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            Icons.newspaper_outlined,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      // App API thumbnails live on i.pximg.net, which refuses
+                      // requests without the Pixiv referer.
+                      : PixivImage.feed(thumbnailUrl, layoutWidth: imageWidth),
+                ),
               ),
               Padding(
-                padding: const EdgeInsets.all(FuncSpacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  IllustCard.textIndent,
+                  FuncSpacing.xs,
+                  IllustCard.textIndent,
+                  FuncSpacing.sm,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

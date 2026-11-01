@@ -13,12 +13,16 @@ import 'helpers/view_size.dart';
 Widget _host(
   List<String> labels, {
   double textScale = 1,
+  double? letterSpacing,
   ValueChanged<int>? onTap,
 }) {
   return localizedApp(
     theme: replicaTheme(Brightness.light),
     home: MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      data: MediaQueryData(
+        textScaler: TextScaler.linear(textScale),
+        letterSpacingOverride: letterSpacing,
+      ),
       child: Scaffold(
         appBar: AppBar(
           title: DefaultTabController(
@@ -35,11 +39,19 @@ Future<void> _pumpBar(
   WidgetTester tester,
   List<String> labels, {
   double textScale = 1,
+  double? letterSpacing,
   ValueChanged<int>? onTap,
   double width = 411,
 }) async {
   setViewSize(tester, Size(width, 800));
-  await tester.pumpWidget(_host(labels, textScale: textScale, onTap: onTap));
+  await tester.pumpWidget(
+    _host(
+      labels,
+      textScale: textScale,
+      letterSpacing: letterSpacing,
+      onTap: onTap,
+    ),
+  );
   await tester.pump();
 }
 
@@ -108,13 +120,30 @@ void main() {
   testWidgets('a wide row keeps its tabs together at the start', (
     tester,
   ) async {
-    await _pumpBar(tester, const ['插画', '漫画', '小说', '用户'], width: 1400);
+    const russian = ['Иллюстрации и манга', 'Романы', 'Пользователи', 'Теги'];
+    for (final (labels, capped, letterSpacing) in const [
+      (['插画', '漫画', '小说', '用户'], true, null),
+      // A label wider than the cap widens every slot and is never cut,
+      // also under the system's text spacing (WCAG 1.4.12: 0.12em).
+      (russian, false, null),
+      (russian, false, 1.7),
+    ]) {
+      await _pumpBar(tester, labels, width: 1400, letterSpacing: letterSpacing);
 
-    final row = tester.getRect(find.byType(AppTabBar));
-    final bar = tester.getRect(find.byType(TabBar));
-    expect(bar.width, 4 * AppTabBar.maxSlotWidth);
-    expect(bar.left, row.left);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isFalse);
+      final row = tester.getRect(find.byType(AppTabBar));
+      final bar = tester.getRect(find.byType(TabBar));
+      if (capped) {
+        expect(bar.width, 4 * AppTabBar.maxSlotWidth);
+      } else {
+        expect(bar.width, greaterThan(4 * AppTabBar.maxSlotWidth));
+        expect(bar.width, lessThan(row.width));
+      }
+      expect(bar.left, row.left);
+      for (final label in labels) {
+        final text = tester.renderObject<RenderParagraph>(find.text(label));
+        expect(text.debugHasOverflowShader, isFalse, reason: label);
+      }
+    }
   });
 
   testWidgets(

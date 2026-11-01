@@ -131,7 +131,9 @@ class _CommentItemState extends ConsumerState<CommentItem>
               ),
             ],
           ),
-          const Divider(height: 24),
+          // With the next comment's top padding, space and no line
+          // separates comments, as on the detail page's preview.
+          const SizedBox(height: FuncSpacing.md),
         ],
       ),
     );

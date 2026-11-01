@@ -12,9 +12,9 @@ import 'scroll_edge_fade.dart';
 /// render at the themed size — they are never shrunk to fit. When the
 /// widest label fits every equal slot, the row divides the width evenly —
 /// on a row at least [AppBreakpoints.medium] wide each slot at most
-/// [maxSlotWidth] with the row kept at the start edge; otherwise it
-/// scrolls from the start edge, and an edge with more tabs past it fades
-/// out (H3). Counts in labels use tabular figures.
+/// [maxSlotWidth], or the widest label if that is wider, with the row kept
+/// at the start edge; otherwise it scrolls from the start edge, and an edge
+/// with more tabs past it fades out (H3). Counts in labels use tabular figures.
 class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   const AppTabBar({
     super.key,
@@ -40,8 +40,9 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   static const _labelPadding = EdgeInsets.symmetric(horizontal: FuncSpacing.md);
 
   /// Widest equal slot on a medium or wider row: past it the labels drift
-  /// apart. A phone-wide row is always split in full, however few tabs.
-  static const double maxSlotWidth = 180;
+  /// apart. A longer label widens every slot to its own width, never cut.
+  /// A phone-wide row is always split in full, however few tabs.
+  static const double maxSlotWidth = 120;
 
   /// Merged into the tab bar's own label style, which keeps its colours.
   static const _tabular = TextStyle(
@@ -55,16 +56,24 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Resolve label styles exactly the way TabBar does so the fit check
-    // measures the same glyphs that will be painted.
+    // Resolve label styles exactly the way TabBar does (its titleSmall
+    // default merged with the theme's), then the way Text applies the
+    // system's text settings, so the fit check measures the same glyphs
+    // that will be painted.
     final tabBarTheme = TabBarTheme.of(context);
     final titleSmall = Theme.of(context).textTheme.titleSmall;
-    final styles = <TextStyle?>{
-      tabBarTheme.labelStyle ?? titleSmall,
-      tabBarTheme.unselectedLabelStyle ?? titleSmall,
+    final styles = {
+      for (final style in [
+        titleSmall?.merge(tabBarTheme.labelStyle),
+        titleSmall?.merge(
+          tabBarTheme.unselectedLabelStyle ?? tabBarTheme.labelStyle,
+        ),
+      ])
+        LabelFit.paintedStyle(context, style?.merge(_tabular) ?? _tabular),
     };
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
+    final locale = Localizations.maybeLocaleOf(context);
 
     final row = LayoutBuilder(
       builder: (context, constraints) {
@@ -75,9 +84,10 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
               widest,
               LabelFit.measureLabel(
                 label,
-                style?.merge(_tabular) ?? _tabular,
+                style,
                 textScaler,
                 textDirection,
+                locale: locale,
               ),
             );
           }
@@ -100,7 +110,13 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
           ],
         );
         if (!fits) return ScrollEdgeFade(child: bar);
-        final width = maxSlotWidth * labels.length;
+        // Rounded up: a slot of exactly the measured width can fall a
+        // fraction short of the laid-out label and fade its last glyph.
+        final slot = math.max(
+          maxSlotWidth,
+          (widest + _labelPadding.horizontal).ceilToDouble(),
+        );
+        final width = slot * labels.length;
         if (constraints.maxWidth < AppBreakpoints.medium ||
             constraints.maxWidth <= width) {
           return bar;

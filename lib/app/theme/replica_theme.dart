@@ -97,7 +97,7 @@ ThemeData replicaTheme(
     outline: subdued,
     outlineVariant: subdued,
     error: dark ? FuncTokens.darkError : FuncTokens.lightError,
-    onError: FuncTokens.white,
+    onError: dark ? FuncTokens.darkOnError : FuncTokens.white,
     shadow: dark ? FuncTokens.darkShadow : FuncTokens.lightShadow,
   );
 
@@ -302,6 +302,8 @@ ThemeData replicaTheme(
     menuTheme: const MenuThemeData(
       style: MenuStyle(elevation: WidgetStatePropertyAll(_layerElevation)),
     ),
+    // A count badge is an indicator in the brand fill, not M3's error red.
+    badgeTheme: BadgeThemeData(backgroundColor: brand, textColor: onBrand),
     // Filled buttons are brand fills; disabled, they take M3's disabled
     // colors like the switch below.
     filledButtonTheme: FilledButtonThemeData(

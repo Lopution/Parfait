@@ -46,14 +46,17 @@ final class LabelFit {
 
   /// The single-line width [FitLabel] draws [label] at before scaling.
   /// Remembered: the bottom bar, the tab bars and every follow button
-  /// measure the same few labels in each build.
+  /// measure the same few labels in each build. [locale] is the one the
+  /// text paints in (`Localizations.maybeLocaleOf`): it picks the glyphs
+  /// of characters shared between languages.
   static double measureLabel(
     String label,
     TextStyle style,
     TextScaler textScaler,
-    TextDirection textDirection,
-  ) {
-    final key = (label, style, textScaler, textDirection);
+    TextDirection textDirection, {
+    Locale? locale,
+  }) {
+    final key = (label, style, textScaler, textDirection, locale);
     final known = _widths[key];
     if (known != null) return known;
     _forgetOnFontChange();
@@ -61,6 +64,7 @@ final class LabelFit {
       text: TextSpan(text: label, style: style),
       textDirection: textDirection,
       textScaler: textScaler,
+      locale: locale,
       maxLines: 1,
     )..layout();
     final width = painter.maxIntrinsicWidth;
@@ -69,9 +73,25 @@ final class LabelFit {
     return _widths[key] = width;
   }
 
+  /// [style] as a [Text] paints it under [context]'s [MediaQuery]: bold
+  /// when the system asks for bold text, with the platform's letter and
+  /// word spacing overrides. Measuring without them, a label can paint
+  /// wider than measured.
+  static TextStyle paintedStyle(BuildContext context, TextStyle style) {
+    final bold = MediaQuery.boldTextOf(context);
+    return style
+        .merge(bold ? const TextStyle(fontWeight: FontWeight.bold) : null)
+        .merge(
+          TextStyle(
+            letterSpacing: MediaQuery.maybeLetterSpacingOverrideOf(context),
+            wordSpacing: MediaQuery.maybeWordSpacingOverrideOf(context),
+          ),
+        );
+  }
+
   /// Widths [measureLabel] laid out, oldest first.
   static final _widths =
-      <(String, TextStyle, TextScaler, TextDirection), double>{};
+      <(String, TextStyle, TextScaler, TextDirection, Locale?), double>{};
   static const _maxWidths = 256;
   static bool _watchingFonts = false;
 

@@ -125,7 +125,7 @@ reviewed: 2026-10-26
   an invisible margin looked like a misfire. `PressScale` listens to raw
   pointers, so a press on a button inside a scaled card shrank the card
   too.
-- **Check:** `test/motion_test.dart` "inside a scrollable a swipe never shows the press" "the press-feedback setting turns the scale off"
+- **Check:** `test/motion_test.dart` "inside a scrollable a swipe never shows the press" "the press-feedback setting turns the scale off"; `test/spotlight_feed_test.dart` "spotlight feed page lists articles, switches category, opens article"
 - **Code:** `lib/app/motion/press_scale.dart`
 
 ### MOTION-18 Drags take the device's slop; sideways pagers judge the angle

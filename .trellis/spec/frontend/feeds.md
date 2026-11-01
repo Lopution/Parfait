@@ -27,12 +27,18 @@ reviewed: 2026-10-31
 - **Rule:** Empty, error and tail states use `FeedEmpty`, `FeedError` and
   `FeedTail`; a custom status (restricted, blocked) uses
   `StateActionButton` as its one button. Their user-visible strings are
-  `required` parameters with no English fallback. The first-load, empty
-  and error views centre on the area under the page's toolbar, the
-  bar's extension (tabs, a filter row, a search field) counted in.
+  `required` parameters with no English fallback. Empty and error views
+  carry their icon (40dp, `onSurfaceVariant`) on a `surfaceContainerHigh`
+  disc, then an `lg` gap and the title in `titleSmall`; still no
+  explanation (PAGE-20). The first-load, empty and error views sit at the
+  optical centre, 40% of the free space above them, of the area under
+  the page's toolbar, the bar's extension (tabs, a filter row, a search
+  field) counted in; the extension is read at layout, not at build.
 - **Why:** Hand-drawn status buttons drifted in look; a fallback label
   shipped untranslated UI. Centred under the tabs, an empty state stood
-  half a tab bar lower than on a page without them (user report).
+  half a tab bar lower than on a page without them (user report). A bare
+  outlined icon and one grey line floated in blank space and read as
+  unfinished; at the exact middle a view looks low.
 - **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without"
 - **Code:** `lib/app/widgets/feed/feed_states.dart`
 

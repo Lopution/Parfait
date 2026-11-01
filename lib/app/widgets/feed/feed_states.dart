@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -190,13 +192,12 @@ class FeedEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final column = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
-        const SizedBox(height: FuncSpacing.md),
-        Text(title),
+        _StatusIcon(icon),
+        const SizedBox(height: FuncSpacing.lg),
+        _StatusTitle(title),
         if (error != null) ...[
           const SizedBox(height: FuncSpacing.sm),
           Text(
@@ -322,13 +323,9 @@ class FeedError extends StatelessWidget {
     final column = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.cloud_off,
-          size: 48,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(height: FuncSpacing.md),
-        Text(title),
+        const _StatusIcon(Icons.cloud_off),
+        const SizedBox(height: FuncSpacing.lg),
+        _StatusTitle(title),
         if (error != null) ...[
           const SizedBox(height: FuncSpacing.sm),
           Text(
@@ -363,24 +360,125 @@ class FeedError extends StatelessWidget {
   }
 }
 
-/// Centres a status view on the area under the page's toolbar, the
-/// bar's extension (tabs, a filter row, a search field) counted in: an
-/// empty or failed page shows its status as high whether or not its bar
-/// carries tabs, and a first load and the state after it share the spot.
-class _StatusCenter extends StatelessWidget {
-  const _StatusCenter({required this.child});
+/// The icon of an empty or error state, on a disc so it carries the view
+/// without a line of explanation (PAGE-20).
+class _StatusIcon extends StatelessWidget {
+  const _StatusIcon(this.icon);
 
-  final Widget child;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        shape: BoxShape.circle,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(FuncSpacing.xl),
+        child: Icon(icon, size: 40, color: colorScheme.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+class _StatusTitle extends StatelessWidget {
+  const _StatusTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    title,
+    style: Theme.of(context).textTheme.titleSmall,
+    textAlign: TextAlign.center,
+  );
+}
+
+/// Places a status view on the area under the page's toolbar, the bar's
+/// extension (tabs, a filter row, a search field) counted in: an empty or
+/// failed page shows its status as high whether or not its bar carries
+/// tabs, and a first load and the state after it share the spot. The spot
+/// is the optical centre, a little above the middle.
+class _StatusCenter extends SingleChildRenderObjectWidget {
+  const _StatusCenter({required super.child});
+
+  /// The extension under the page's [AppTopBar], read on each layout: a
+  /// bar that gains or loses one resizes the body, which lays this out
+  /// again, while an unchanged body may never rebuild.
+  static double _extensionOf(BuildContext context) {
     final bar = Scaffold.maybeOf(context)?.widget.appBar;
-    final extension = bar is AppTopBar
-        ? bar.bottom?.preferredSize.height ?? 0.0
-        : 0.0;
-    return Padding(
-      padding: EdgeInsets.only(bottom: extension),
-      child: Center(child: child),
+    return bar is AppTopBar ? bar.bottom?.preferredSize.height ?? 0.0 : 0.0;
+  }
+
+  @override
+  _RenderStatusCenter createRenderObject(BuildContext context) =>
+      _RenderStatusCenter(() => _extensionOf(context));
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderStatusCenter renderObject,
+  ) => renderObject.extension = () => _extensionOf(context);
+}
+
+/// Places its child at the optical centre of its box extended up by the
+/// bar's extension, kept inside the box. Without a height to fill (in a
+/// scrollable) it is the child over the extension's height of space, as
+/// a centred child with that bottom padding would be.
+class _RenderStatusCenter extends RenderShiftedBox {
+  _RenderStatusCenter(this._extension) : super(null);
+
+  ValueGetter<double> _extension;
+  set extension(ValueGetter<double> value) {
+    _extension = value;
+    markNeedsLayout();
+  }
+
+  /// Where the child's top sits in the free space: 0.5 is the middle.
+  static const _freeSpaceAbove = 0.4;
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      (child?.getMinIntrinsicHeight(width) ?? 0) + _extension();
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      (child?.getMaxIntrinsicHeight(width) ?? 0) + _extension();
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final childSize = child?.getDryLayout(constraints.loosen()) ?? Size.zero;
+    return _sizeFor(constraints, childSize);
+  }
+
+  Size _sizeFor(BoxConstraints constraints, Size childSize) =>
+      constraints.constrain(
+        Size(
+          constraints.hasBoundedWidth ? constraints.maxWidth : childSize.width,
+          constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : childSize.height + _extension(),
+        ),
+      );
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(constraints.loosen(), parentUsesSize: true);
+    size = _sizeFor(constraints, child.size);
+    final extension = _extension();
+    final top =
+        (size.height + extension - child.size.height) * _freeSpaceAbove -
+        extension;
+    (child.parentData! as BoxParentData).offset = Offset(
+      (size.width - child.size.width) / 2,
+      top.clamp(0, math.max(0, size.height - child.size.height)),
     );
   }
 }

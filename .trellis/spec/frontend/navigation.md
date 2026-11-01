@@ -238,13 +238,19 @@ reviewed: 2026-10-17
 ### NAV-14 Top tabs are AppTabBar and never shrink
 - **Rule:** Every tab row is `AppTabBar`. Labels stay at the themed size;
   the row divides the width evenly when the widest label fits a share. A
-  row 600dp or wider caps each share at 180dp and keeps to the start
-  edge; a narrower one is always split in full. Otherwise the row scrolls
-  from the start edge with a 48dp `ScrollEdgeFade`.
+  row 600dp or wider caps each share at 120dp, or the widest label plus
+  its padding when that is wider, and keeps to the start edge; a narrower
+  one is always split in full. Otherwise the row scrolls from the start
+  edge with a 48dp `ScrollEdgeFade`. Labels are measured in the style
+  `TabBar` paints: `titleSmall` merged with the theme's label style, under
+  the system's text settings (LAYOUT-04).
 - **Why:** Shrunk labels became unreadable in long languages; on wide
-  windows even shares left the labels far apart. Capped on a phone, two
-  tabs filled 360 of 411dp; a 24dp fade was spent on the sliver of a cut
-  label and read as a hard cut.
+  windows even shares left the labels far apart: at 180dp seven profile
+  tabs spread over about 1300dp. A flat cap faded a Russian label longer
+  than it, and a style without `titleSmall`'s letter spacing measured a
+  label 2dp narrower than painted. Capped on a phone, two tabs filled 360
+  of 411dp; a 24dp fade was spent on the sliver of a cut label and read
+  as a hard cut.
 - **Check:** `test/app_tab_bar_test.dart` "a wide row keeps its tabs together at the start"
 - **Code:** `lib/app/widgets/app_tab_bar.dart`
 

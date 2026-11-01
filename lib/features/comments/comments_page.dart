@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/widgets/danger_filled_button.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/removal.dart';
@@ -159,7 +160,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(context.l10n.cancel),
           ),
-          FilledButton(
+          DangerFilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(context.l10n.confirm),
           ),
@@ -244,10 +245,16 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                   // sets it apart from the replies; the top bar names them.
                   header: root == null
                       ? null
-                      : CommentItem(
-                          comment: root,
-                          onReply: () => _replyTo(root),
-                          onDelete: () => _deleteComment(root),
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CommentItem(
+                              comment: root,
+                              onReply: () => _replyTo(root),
+                              onDelete: () => _deleteComment(root),
+                            ),
+                            const Divider(height: 1),
+                          ],
                         ),
                   onReply: _replyTo,
                   onDelete: _deleteComment,
@@ -317,7 +324,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(context.l10n.cancel),
           ),
-          FilledButton(
+          DangerFilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(context.l10n.confirm),
           ),

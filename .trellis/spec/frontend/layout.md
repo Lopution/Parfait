@@ -58,13 +58,16 @@ reviewed: 2026-10-17
 
 ### LAYOUT-04 Measure text with the style it paints with
 - **Rule:** A widget that measures its own text measures with the exact
-  style and text scaler it paints with. `FitLabel` never measures; its
-  host computes the fit from the slot it lays out.
+  style and text scaler it paints with: the style a `Text` resolves,
+  including the system's bold text and spacing overrides
+  (`LabelFit.paintedStyle`). `FitLabel` never measures; its host computes
+  the fit from the slot it lays out.
 - **Why:** Measured and painted widths disagreed under non-linear text
   scalers, so labels ellipsized that should have fit. The novel reader
   measured its pages unscaled and painted them at the system size, so
-  large text cut the tail off every line.
-- **Check:** `test/fit_label_test.dart` "the painted width is the measured width times the scale" "a non-linear text scaler measures and paints alike"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
+  large text cut the tail off every line. A tab slot sized to the
+  measured label faded its last glyph under the system's letter spacing.
+- **Check:** `test/fit_label_test.dart` "the painted width is the measured width times the scale" "a non-linear text scaler measures and paints alike"; `test/app_tab_bar_test.dart` "a wide row keeps its tabs together at the start"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
 - **Code:** `lib/app/widgets/fit_label.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_tab_bar.dart`
 
 ### LAYOUT-05 The selection bar title is the bare count
