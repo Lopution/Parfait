@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../layout/card_columns.dart';
 import '../../theme/func_semantic_tokens.dart';
 import 'func_skeleton.dart';
 
@@ -8,8 +9,8 @@ import 'func_skeleton.dart';
 /// row lands where its skeleton was.
 ///
 /// The novel rows mirror the full-bleed `NovelEntry.regular` (68×88 cover,
-/// title, author, length, tags); the user rows mirror the search user card
-/// (52dp avatar, name, account, compact follow button).
+/// title, author, length, tags); the user rows mirror `UserPreviewRow`
+/// (48dp avatar, name, account, compact follow button, three works).
 class NovelListSkeleton extends StatelessWidget {
   const NovelListSkeleton({super.key, required this.label});
 
@@ -20,7 +21,7 @@ class NovelListSkeleton extends StatelessWidget {
     label: label,
     child: _SkeletonList(
       carded: false,
-      rowExtent: _novelRowExtent,
+      rowExtent: (_) => _novelRowExtent,
       row: (context) => const _CoverRowBones(
         coverWidth: _novelCoverWidth,
         coverHeight: _novelCoverHeight,
@@ -44,7 +45,7 @@ class EpisodeListSkeleton extends StatelessWidget {
     label: label,
     child: _SkeletonList(
       carded: false,
-      rowExtent: episodeCoverSize.height + episodeRowPadding.vertical,
+      rowExtent: (_) => episodeCoverSize.height + episodeRowPadding.vertical,
       row: (context) => _CoverRowBones(
         coverWidth: episodeCoverSize.width,
         coverHeight: episodeCoverSize.height,
@@ -97,11 +98,19 @@ const _novelRowPadding = EdgeInsets.symmetric(
 /// Novel row height: the cover plus the row padding.
 const _novelRowExtent = _novelCoverHeight + 2 * FuncSpacing.md;
 
-/// User row height: the two-line ListTile plus the card margin.
-const _userTileHeight = 72.0;
-const _userRowExtent = _userTileHeight + 2 * FuncSpacing.sm;
+/// User row height in a card column [width] wide: the header, the row of
+/// three square works and the padding, plus the card margin.
+double _userRowExtent(double width) {
+  final inner = width - _cardMargin.horizontal - 2 * FuncSpacing.md;
+  final work = (inner - 2 * FuncSpacing.xs) / 3;
+  return _avatarDiameter +
+      FuncSpacing.md +
+      work +
+      2 * FuncSpacing.md +
+      _cardMargin.vertical;
+}
 
-const _avatarDiameter = 52.0;
+const _avatarDiameter = 48.0;
 const _followButtonWidth = 96.0;
 const _followButtonHeight = 36.0;
 
@@ -116,7 +125,9 @@ class _SkeletonList extends StatelessWidget {
 
   /// Whether each row sits on a card, as the user rows do.
   final bool carded;
-  final double rowExtent;
+
+  /// A row's height for a column of the given width.
+  final double Function(double columnWidth) rowExtent;
   final WidgetBuilder row;
 
   static const _unboundedRows = 3;
@@ -124,8 +135,11 @@ class _SkeletonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      // Rows lay out in [CardColumns], as the card list they stand in for.
+      final columns = CardColumns.of(constraints.maxWidth);
       final rows = constraints.hasBoundedHeight
-          ? (constraints.maxHeight / rowExtent).ceil()
+          ? (constraints.maxHeight / rowExtent(constraints.maxWidth / columns))
+                .ceil()
           : _unboundedRows;
       return ClipRect(
         child: OverflowBox(
@@ -135,10 +149,17 @@ class _SkeletonList extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               for (var i = 0; i < rows; i++)
-                if (carded)
-                  Card(margin: _cardMargin, child: row(context))
-                else
-                  row(context),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var column = 0; column < columns; column++)
+                      Expanded(
+                        child: carded
+                            ? Card(margin: _cardMargin, child: row(context))
+                            : row(context),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -219,41 +240,53 @@ class _UserRowBones extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ListTile's own title and subtitle styles.
-    final textTheme = Theme.of(context).textTheme;
-    return SizedBox(
-      height: _userTileHeight,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-        child: Row(
-          children: [
-            const SkeletonBone.circle(diameter: _avatarDiameter),
-            const SizedBox(width: FuncSpacing.lg),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FractionallySizedBox(
-                    widthFactor: 0.5,
-                    child: SkeletonBone.text(style: textTheme.bodyLarge),
-                  ),
-                  const SizedBox(height: FuncSpacing.xs),
-                  FractionallySizedBox(
-                    widthFactor: 0.7,
-                    child: SkeletonBone.text(style: textTheme.bodyMedium),
-                  ),
-                ],
+    final tokens = FuncSemanticTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(FuncSpacing.md),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const SkeletonBone.circle(diameter: _avatarDiameter),
+              const SizedBox(width: FuncSpacing.lg + FuncSpacing.xs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FractionallySizedBox(
+                      widthFactor: 0.5,
+                      child: SkeletonBone.text(style: tokens.title),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: 0.7,
+                      child: SkeletonBone.text(style: tokens.caption),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: FuncSpacing.lg),
-            const SkeletonBone(
-              width: _followButtonWidth,
-              height: _followButtonHeight,
-              borderRadius: FuncShape.pill,
-            ),
-          ],
-        ),
+              const SizedBox(width: FuncSpacing.sm),
+              const SkeletonBone(
+                width: _followButtonWidth,
+                height: _followButtonHeight,
+                borderRadius: FuncShape.pill,
+              ),
+            ],
+          ),
+          const SizedBox(height: FuncSpacing.md),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: FuncSpacing.xs),
+                const Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: SkeletonBone(height: double.infinity),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

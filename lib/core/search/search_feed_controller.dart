@@ -223,7 +223,8 @@ class _SearchFeedController extends PagedFeedController {
     FeedRequestContext context,
   ) async {
     final store = ref.read(userStoreProvider.notifier);
-    final followRevision = store.followRevisionNow();
+    final illustStore = ref.read(illustStoreProvider);
+    final revision = illustStore.revisionNow();
     final page = await repository.searchUsers(
       query,
       cursor: context.cursor,
@@ -232,8 +233,19 @@ class _SearchFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.users) item.id],
       nextCursor: page.nextUrl,
-      commit: (_) =>
-          store.mergeAll(page.users, followSnapshotRevision: followRevision),
+      // The same writes as the recommended users: the shared row reads the
+      // works from the illust store through their recorded ids.
+      commit: (_) {
+        store.mergeAll(page.users, followSnapshotRevision: revision.follow);
+        illustStore.mergeAll(
+          page.previewIllusts.values.expand((illusts) => illusts),
+          snapshotRevision: revision,
+        );
+        ref.read(userPreviewIdsProvider.notifier).record({
+          for (final MapEntry(:key, :value) in page.previewIllusts.entries)
+            key: [for (final illust in value) illust.id],
+        });
+      },
     );
   }
 

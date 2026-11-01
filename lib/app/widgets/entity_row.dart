@@ -322,11 +322,11 @@ class EntityMetaText extends StatelessWidget {
   }
 }
 
-/// Ranking position at the start of a title line: plain digits in
-/// `titleSmall`, bold and tabular, `onSurface` — no medal, no top-three
-/// color. `IllustCard(rank:)` and `NovelEntry(ranking:)` both render it so
-/// the marker cannot drift into two look-alikes; the position never sits on
-/// the artwork.
+/// Ranking position leading a title block: plain tabular digits, the top
+/// three larger and in `onSurface`, the rest smaller in `onSurfaceVariant`
+/// — no medal, no colour. `IllustCard(rank:)` and `NovelEntry(ranking:)`
+/// both render it so the marker cannot drift into two look-alikes; the
+/// position never sits on the artwork.
 class EntityRankLabel extends StatelessWidget {
   const EntityRankLabel(this.rank, {super.key});
 
@@ -334,16 +334,8 @@ class EntityRankLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Text(
-      '$rank',
-      style: theme.textTheme.titleSmall!
-          .copyWith(
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-          )
-          .tabular,
-    );
+    final tokens = FuncSemanticTokens.of(context);
+    return Text('$rank', style: rank <= 3 ? tokens.rankPodium : tokens.rank);
   }
 }
 

@@ -58,6 +58,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     required this.caption,
     required this.numeric,
     required this.workTitle,
+    required this.rankPodium,
+    required this.rank,
   });
 
   factory FuncSemanticTokens.fromBrightness(
@@ -113,6 +115,20 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
         height: 1.25,
         color: text,
       ),
+      // A ranking position leads its title block: the top three heavy and
+      // in full contrast, the rest a step down and secondary.
+      rankPodium: textTheme.titleLarge!.copyWith(
+        fontWeight: FontWeight.w800,
+        height: 1.1,
+        color: text,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      rank: textTheme.titleMedium!.copyWith(
+        fontWeight: FontWeight.w700,
+        height: 1.1,
+        color: textSecondary,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
     );
   }
 
@@ -166,6 +182,10 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   /// A work's title on its detail page.
   final TextStyle workTitle;
 
+  /// A ranking position, 1 to 3 ([rankPodium]) and below ([rank]).
+  final TextStyle rankPodium;
+  final TextStyle rank;
+
   /// Reads the ambient extension; falls back to brightness-derived defaults
   /// so shared widgets also render under test harnesses and plugin subtrees
   /// that do not install `replicaTheme`.
@@ -205,6 +225,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     TextStyle? caption,
     TextStyle? numeric,
     TextStyle? workTitle,
+    TextStyle? rankPodium,
+    TextStyle? rank,
   }) {
     return FuncSemanticTokens(
       canvas: canvas ?? this.canvas,
@@ -230,6 +252,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       caption: caption ?? this.caption,
       numeric: numeric ?? this.numeric,
       workTitle: workTitle ?? this.workTitle,
+      rankPodium: rankPodium ?? this.rankPodium,
+      rank: rank ?? this.rank,
     );
   }
 
@@ -264,6 +288,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       caption: TextStyle.lerp(caption, other.caption, t)!,
       numeric: TextStyle.lerp(numeric, other.numeric, t)!,
       workTitle: TextStyle.lerp(workTitle, other.workTitle, t)!,
+      rankPodium: TextStyle.lerp(rankPodium, other.rankPodium, t)!,
+      rank: TextStyle.lerp(rank, other.rank, t)!,
     );
   }
 }

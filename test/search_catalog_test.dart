@@ -225,6 +225,7 @@ void main() {
                   'account': 'result',
                   'profile_image_urls': <String, String>{},
                 },
+                'illusts': [for (var id = 61; id <= 64; id++) illustJson(id)],
               },
             ],
             'next_url': null,
@@ -246,6 +247,10 @@ void main() {
       expect(illust.illusts.single.id, 51);
       expect(novel.novels.single.id, 52);
       expect(users.users.single.id, 53);
+      expect(
+        [for (final work in users.previewIllusts[53]!) work.id],
+        [61, 62, 63],
+      );
       expect(paths, [
         '/v1/search/illust',
         '/v1/search/novel',
@@ -282,6 +287,32 @@ void main() {
       );
     },
   );
+
+  test('a malformed preview fails the user search page (PAGE-05)', () async {
+    final container = await _apiContainer(
+      (request) async => _json({
+        'user_previews': [
+          {
+            'user': {
+              'id': 53,
+              'name': 'user',
+              'account': 'user',
+              'profile_image_urls': <String, String>{},
+            },
+            'illusts': 'not a list',
+          },
+        ],
+        'next_url': null,
+      }),
+    );
+
+    await expectLater(
+      container
+          .read(searchRepositoryProvider)
+          .searchUsers(const UserSearchQuery(keyword: 'cat')),
+      throwsA(isA<ApiParseError>()),
+    );
+  });
 
   test(
     'non-premium popular novel search uses the novel preview endpoint',

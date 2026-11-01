@@ -377,7 +377,7 @@ class _PixivUserRepository implements UserRepository {
         }
         final user = UserEntity.fromPreviewJson(item);
         users.add(user);
-        if (withPreviews) previews[user.id] = _previewIllusts(item);
+        if (withPreviews) previews[user.id] = parseUserPreviewIllusts(item);
       }
       return UserRelationPage(
         users: users,
@@ -390,7 +390,9 @@ class _PixivUserRepository implements UserRepository {
   }
 }
 
-List<IllustEntity> _previewIllusts(Map<String, dynamic> preview) {
+/// Up to [UserRelationPage.previewLimit] of the works in one
+/// `user_previews` entry. Throws [FormatException] on a malformed list.
+List<IllustEntity> parseUserPreviewIllusts(Map<String, dynamic> preview) {
   final raw = preview['illusts'];
   if (raw == null) return const [];
   if (raw is! List) {

@@ -92,16 +92,17 @@ reviewed: 2026-10-17
 - **Code:** `lib/core/search/search_keywords.dart`, `lib/features/search/search_keyword_pills.dart`
 
 ### PAGE-05 Work strips omit hidden works
-- **Rule:** A recommended user's preview strip shows up to three works,
-  and the detail page's author strip the author's other works. Works
+- **Rule:** A user row (`UserPreviewRow`: recommended users, artist
+  search results) shows up to three of the user's works, and the detail
+  page's author strip the author's other works. Works
   hidden by the local R-18/AI blocks or a mute are left out, never shown
   blurred; a user with no visible works shows no strip. A malformed
   preview payload fails the page.
 - **Why:** Blurred previews still exposed hidden content in a strip the
   user did not open; silently dropped payloads hid parser bugs. The
   author strip drew muted works clear and opened them.
-- **Check:** `test/recommended_home_test.dart` "shows previews, skipping blocked and muted works"; `test/illust_detail_actions_test.dart` "the author strip leaves this work and muted ones out and "
-- **Code:** `lib/features/home`, `lib/features/illust/detail/author_works_section.dart`
+- **Check:** `test/recommended_home_test.dart` "shows previews, skipping blocked and muted works"; `test/search_catalog_test.dart` "a malformed preview fails the user search page"; `test/illust_detail_actions_test.dart` "the author strip leaves this work and muted ones out and "
+- **Code:** `lib/app/widgets/user_preview_row.dart`, `lib/features/illust/detail/author_works_section.dart`
 
 ### PAGE-06 The Spotlight cover comes from the list entry
 - **Rule:** The article cover uses the list entry's pximg `thumbnailUrl`;

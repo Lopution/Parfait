@@ -201,8 +201,11 @@ reviewed: 2026-10-21
 ### THEME-15 Badges over artwork are EntityBadge
 - **Rule:** Every marker painted over artwork is an `EntityBadge` on the
   `imageControl` scrim. No badge picks its own color: R-18 and AI differ
-  by text, not fill. A ranking position is a title-line label
-  (`EntityRankLabel`), not a badge.
+  by text, not fill. A ranking position is not a badge but an
+  `EntityRankLabel`: on a work card a column before the title and author
+  lines, on a novel row before the title. Ranks 1–3 take
+  `rankPodium` (heavier, larger, `onSurface`), the rest `rank`
+  (`onSurfaceVariant`), both tabular.
 - **Why:** Colored badges were illegible on some artworks and read as
   warnings.
 - **Check:** `test/illust_card_badges_test.dart`

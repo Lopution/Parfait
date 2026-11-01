@@ -104,7 +104,9 @@ class _ApiFixture {
           'next_url': null,
         });
       }
-      if (path == '/v1/user/recommended' || path == '/v1/user/following') {
+      if (path == '/v1/user/recommended' ||
+          path == '/v1/user/following' ||
+          path == '/v1/search/user') {
         return jsonResponse({
           'user_previews': [
             for (var i = 1; i <= 3; i++)
@@ -240,9 +242,10 @@ void main() {
 
     Future<GoRouter> pumpUsers(
       WidgetTester tester,
-      ProviderContainer container,
-    ) async {
-      final router = pixivRouter('/recommended?type=user');
+      ProviderContainer container, {
+      String location = '/recommended?type=user',
+    }) async {
+      final router = pixivRouter(location);
       setViewSize(tester, const Size(390, 844));
       await tester.pumpWidget(
         localizedRouterApp(
@@ -273,33 +276,39 @@ void main() {
       expect(container.read(illustStoreProvider).get(104), isNull);
     });
 
-    testWidgets('shows previews, skipping blocked and muted works', (
-      tester,
-    ) async {
-      final (container, _) = await _makeWorld();
-      await container.read(settingsProvider.future);
-      await container.read(settingsProvider.notifier).setLocalBlockR18(true);
-      container.read(muteStoreProvider);
-      await container
-          .read(muteStoreProvider.notifier)
-          .muteWork(const MutedWork(illustId: 103));
+    // The recommended users and the artist search results share the row.
+    for (final (page, location) in [
+      ('recommended', '/recommended?type=user'),
+      ('artist search', '/search/results?q=cat&type=user'),
+    ]) {
+      testWidgets('shows previews, skipping blocked and muted works ($page)', (
+        tester,
+      ) async {
+        final (container, _) = await _makeWorld();
+        await container.read(settingsProvider.future);
+        await container.read(settingsProvider.notifier).setLocalBlockR18(true);
+        container.read(muteStoreProvider);
+        await container
+            .read(muteStoreProvider.notifier)
+            .muteWork(const MutedWork(illustId: 103));
 
-      await pumpUsers(tester, container);
+        await pumpUsers(tester, container, location: location);
 
-      expect(thumbnail(101), findsOneWidget);
-      expect(thumbnail(102), findsNothing); // R-18 with the local block on
-      expect(thumbnail(103), findsNothing); // muted
-      expect(thumbnail(301), findsOneWidget);
-      expect(
-        tester.getSemantics(thumbnail(101)),
-        isSemantics(isButton: true, hasTapAction: true, label: 'illust 101'),
-      );
-      // A lone preview keeps its third of the row.
-      final row = tester.getRect(
-        find.ancestor(of: find.text('user 3'), matching: find.byType(Card)),
-      );
-      expect(tester.getRect(thumbnail(301)).width, lessThan(row.width / 3));
-    });
+        expect(thumbnail(101), findsOneWidget);
+        expect(thumbnail(102), findsNothing); // R-18 with the local block on
+        expect(thumbnail(103), findsNothing); // muted
+        expect(thumbnail(301), findsOneWidget);
+        expect(
+          tester.getSemantics(thumbnail(101)),
+          isSemantics(isButton: true, hasTapAction: true, label: 'illust 101'),
+        );
+        // A lone preview keeps its third of the row.
+        final row = tester.getRect(
+          find.ancestor(of: find.text('user 3'), matching: find.byType(Card)),
+        );
+        expect(tester.getRect(thumbnail(301)).width, lessThan(row.width / 3));
+      });
+    }
 
     testWidgets('follow state comes from the follow store', (tester) async {
       final (container, _) = await _makeWorld();

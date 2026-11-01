@@ -52,8 +52,8 @@ class IllustCard extends StatefulWidget {
   final IllustEntity entity;
   final String heroScope;
 
-  /// Ranking position (ranking lists), shown at the start of the title line
-  /// ([EntityRankLabel]) and read as "No. n, title".
+  /// Ranking position (ranking lists), a column before the title and
+  /// author ([EntityRankLabel]), read as "No. n, title".
   final int? rank;
 
   /// Optional meta line under the author (the history page's date row).
@@ -426,21 +426,7 @@ class _IllustCardBody extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Read through the image's label (H2).
-              ExcludeSemantics(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTitleLine(context),
-                    Text(
-                      entity.user.name,
-                      locale: contentLocale(context, entity.user.name),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: IllustCard._authorStyle(context),
-                    ),
-                  ],
-                ),
-              ),
+              ExcludeSemantics(child: _buildTitleBlock(context)),
               ?meta,
             ],
           ),
@@ -450,23 +436,35 @@ class _IllustCardBody extends ConsumerWidget {
     );
   }
 
-  Widget _buildTitleLine(BuildContext context) {
-    final title = Text(
-      entity.title,
-      locale: contentLocale(context, entity.title),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: IllustCard._titleStyle(context),
+  /// The title over the author; a ranking position leads both as a column
+  /// of its own.
+  Widget _buildTitleBlock(BuildContext context) {
+    final lines = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          entity.title,
+          locale: contentLocale(context, entity.title),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: IllustCard._titleStyle(context),
+        ),
+        Text(
+          entity.user.name,
+          locale: contentLocale(context, entity.user.name),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: IllustCard._authorStyle(context),
+        ),
+      ],
     );
     final rank = this.rank;
-    if (rank == null) return title;
+    if (rank == null) return lines;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
       children: [
         EntityRankLabel(rank),
-        const SizedBox(width: FuncSpacing.xs),
-        Expanded(child: title),
+        const SizedBox(width: FuncSpacing.sm),
+        Expanded(child: lines),
       ],
     );
   }
