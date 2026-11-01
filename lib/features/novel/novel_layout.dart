@@ -33,6 +33,10 @@ class NovelLayoutStyle {
   static const double _translationScale = 0.9;
   static const double _translationAlpha = 0.7;
 
+  /// A heading reads a third larger than the body, bold and set tighter.
+  static const double _headingScale = 1.35;
+  static const double _headingHeight = 1.35;
+
   TextStyle textStyle(Color color) => TextStyle(
     color: color,
     fontFamily: fontFamily,
@@ -49,10 +53,19 @@ class NovelLayoutStyle {
     height: lineHeight,
   );
 
+  TextStyle headingStyle(Color color) => TextStyle(
+    color: color,
+    fontFamily: fontFamily,
+    fontSize: fontSize * _headingScale,
+    fontWeight: FontWeight.w700,
+    height: _headingHeight,
+  );
+
   /// The style a line of [kind] is measured and painted with (LAYOUT-04).
   TextStyle lineStyle(NovelLineKind kind, Color color) => switch (kind) {
     NovelLineKind.body => textStyle(color),
     NovelLineKind.translation => translationStyle(color),
+    NovelLineKind.heading => headingStyle(color),
   };
 }
 
@@ -204,6 +217,9 @@ enum NovelLineKind {
 
   /// A line of a paragraph's translation (bilingual reading).
   translation,
+
+  /// A line of a chapter heading.
+  heading,
 }
 
 class NovelPageLine {
@@ -845,9 +861,12 @@ class NovelLayoutEngine {
   ) {
     final style = measure.style;
     final source = paragraph.text.isEmpty ? ' ' : paragraph.text;
+    final kind = paragraph.isChapterHeading
+        ? NovelLineKind.heading
+        : NovelLineKind.body;
     final rows = _rows(
       source,
-      style.lineStyle(NovelLineKind.body, measure.textColor),
+      style.lineStyle(kind, measure.textColor),
       measure,
     );
     if (rows.isEmpty) {
@@ -862,6 +881,7 @@ class NovelLayoutEngine {
           isParagraphEnd: true,
           pageBreakBefore: paragraph.pageBreakBefore,
           chapterTitle: paragraph.isChapterHeading ? paragraph.text : null,
+          kind: kind,
         ),
       ];
     }
@@ -883,6 +903,7 @@ class NovelLayoutEngine {
             chapterTitle: index == 0 && paragraph.isChapterHeading
                 ? paragraph.text
                 : null,
+            kind: kind,
           );
         }(),
     ];

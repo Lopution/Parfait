@@ -63,6 +63,41 @@ void main() {
     );
   });
 
+  test('each line lays out as tall as the style of its kind', () async {
+    const style = NovelLayoutStyle();
+    final novel = _novel('').withWebContent('前文\n[chapter:第二章　出発]\n本文');
+    final layout = await NovelLayoutEngine().layoutDocumentCancellable(
+      document: novel.markup!,
+      contentVersion: novel.contentVersion,
+      viewport: const Size(360, 640),
+      style: style,
+      textColor: Colors.black,
+      brightness: Brightness.light,
+    );
+    final lines = [for (final page in layout.pages) ...page.lines];
+
+    expect(
+      lines.where((line) => line.kind == NovelLineKind.heading).single.text,
+      '第二章　出発',
+    );
+    for (final line in lines) {
+      // An empty paragraph is measured as a space, as layout measures it.
+      final painter = TextPainter(
+        text: TextSpan(
+          text: line.text.isEmpty ? ' ' : line.text,
+          style: style.lineStyle(line.kind, Colors.black),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      expect(
+        line.height,
+        painter.computeLineMetrics().single.height,
+        reason: line.text,
+      );
+      painter.dispose();
+    }
+  });
+
   test('layout cache is keyed by content, viewport and typography', () {
     final cache = NovelLayoutCache(maxEntries: 2);
     final engine = NovelLayoutEngine(cache: cache);
