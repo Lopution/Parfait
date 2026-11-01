@@ -223,6 +223,7 @@ class _BrandGlow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final direction = Directionality.of(context);
+    final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
@@ -248,21 +249,37 @@ class _BrandGlow extends StatelessWidget {
               const [Color(0xFF000000), Color(0x8C000000), Color(0x00000000)],
               const [0, 0.5, 1],
             ),
-            child: AmbientWash(
-              blur: 48,
-              image: Stack(
-                children: [
-                  Positioned(
-                    left: center.dx - icon / 2,
-                    top: center.dy - icon / 2,
-                    width: icon,
-                    height: icon,
-                    child: Image.asset(
-                      'assets/branding/parfait_icon.png',
-                      excludeFromSemantics: true,
+            // The icon is placed on the page rather than covering it, so
+            // it is blurred and toned as a widget (AmbientWash takes a
+            // cover image). The page sits still: no swipe repeats these
+            // layers.
+            child: ClipRect(
+              child: ColoredBox(
+                color: theme.colorScheme.surface,
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: 48,
+                    sigmaY: 48,
+                    tileMode: TileMode.clamp,
+                  ),
+                  child: ColorFiltered(
+                    colorFilter: AmbientTone.of(theme),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: center.dx - icon / 2,
+                          top: center.dy - icon / 2,
+                          width: icon,
+                          height: icon,
+                          child: Image.asset(
+                            'assets/branding/parfait_icon.png',
+                            excludeFromSemantics: true,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

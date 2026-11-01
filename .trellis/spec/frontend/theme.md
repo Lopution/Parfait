@@ -260,11 +260,20 @@ reviewed: 2026-10-21
   - the first-run pages (welcome, login), from the app icon, behind the
     header (`ScrollableFormShell.brandGlow`). No pixiv artwork decorates
     them.
+
+  A wash draws in the page's own pass: `AmbientWash` takes an image
+  provider, blurs it once at decode (`BlurredImage`), and puts the tone and
+  its fade-in on the image's paint. Its fades are page-colour gradients
+  over it, not masks. No filter or mask widget wraps a wash that scrolls
+  or swipes; the still welcome glow is the one widget-blurred wash.
 - **Why:** User decision: the frame answers the work, warm and quiet. A
   desaturated mirror at partial alpha turned dark or saturated works into
   a grey haze on the light page and a muddy band on the dark one. A
   cover-less profile was a grey band; the welcome page was mostly blank.
-- **Check:** `test/ambient_wash_test.dart` "ambient light keeps the page lightness and a share of the colour", `test/user_profile_test.dart` "a profile without a cover lights its header from the avatar"; placement manual (review shots, light and dark)
+  Impeller keeps no raster cache: the band's mask, blur and tone filter
+  were drawn offscreen every frame, eight layers a frame in a side swipe
+  over two pages, and the swipe dropped frames (trace, 11-01).
+- **Check:** `test/ambient_wash_test.dart` "ambient light keeps the page lightness and a share of the colour" "a wash draws its image toned, in the page pass", `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it", `test/user_profile_test.dart` "a profile without a cover lights its header from the avatar"; placement manual (review shots, light and dark)
 - **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/app/widgets/scrollable_form_shell.dart`
 
 ### THEME-20 A shadow marks a layer, or content under a bar

@@ -1,8 +1,13 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/ambient_wash.dart';
+
+import 'helpers/waits.dart';
 
 /// [rgb] (0–1) through the 4×5 [matrix] on 0–255 channels, unclamped.
 List<double> _apply(List<double> matrix, List<double> rgb) => [
@@ -55,5 +60,62 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets('a wash draws its image toned, in the page pass', (tester) async {
+    final theme = replicaTheme(Brightness.light);
+    final png = await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(const Color(0xFFE03050), BlendMode.src);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(32, 32);
+      picture.dispose();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      return bytes!.buffer.asUint8List();
+    });
+    await tester.pumpWidget(
+      Theme(
+        data: theme,
+        child: Center(
+          child: SizedBox(
+            width: 200,
+            height: 100,
+            child: AmbientWash(image: MemoryImage(png!)),
+          ),
+        ),
+      ),
+    );
+    // The decode and the blur run once, off the frame.
+    await pumpIoUntil(
+      tester,
+      () => find
+          .descendant(
+            of: find.byType(AmbientWash),
+            matching: find.byType(CustomPaint),
+          )
+          .evaluate()
+          .isNotEmpty,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(AmbientWash),
+      paints..something((method, arguments) {
+        if (method != #drawImageRect) return false;
+        final paint = arguments[3] as Paint;
+        return paint.colorFilter == AmbientTone.of(theme) && paint.color.a == 1;
+      }),
+    );
+    expect(
+      tester.layers.where(
+        (layer) =>
+            layer is ImageFilterLayer ||
+            layer is ColorFilterLayer ||
+            layer is ShaderMaskLayer ||
+            layer is OpacityLayer,
+      ),
+      isEmpty,
+    );
   });
 }

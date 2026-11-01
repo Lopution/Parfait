@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -459,6 +460,17 @@ void main() {
         expect(tester.getRect(hero).top, closeTo(24 + band, 0.5));
         // No band below: what follows starts right under the image.
         expect(tester.getRect(hero).bottom, closeTo(slot.bottom, 0.5));
+        // The band draws in the page's pass: a side swipe paints two
+        // pages, and each offscreen layer here was drawn twice a frame.
+        expect(
+          tester.layers.where(
+            (layer) =>
+                layer is ShaderMaskLayer ||
+                layer is ImageFilterLayer ||
+                layer is ColorFilterLayer,
+          ),
+          isEmpty,
+        );
         // The pager's stand-in for an unbuilt page draws at the same frame,
         // so a swipe does not land on a jump.
         final frame = detailFirstImageFrame(

@@ -1112,12 +1112,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                   if (!_downloadMode)
                     AmbientWash(
                       blur: 40,
-                      image: PixivImage.detail(
+                      image: PixivImage.providerFor(
+                        context,
                         widget.heroImageUrl ?? entity.imageUrls.medium,
-                        fit: BoxFit.cover,
-                        tierUpgrade: false,
                         decodeWidth: 96,
-                        placeholderWidget: const SizedBox.shrink(),
                       ),
                     )
                   else

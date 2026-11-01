@@ -343,16 +343,18 @@ void main() {
       // Which image the wash is made from is the contract (TEST-03): the
       // blur and tone lock are ambient_wash_test's, and the stalled images
       // paint nothing to compare.
-      final washImages = find.descendant(
-        of: find.byType(AmbientWash),
-        matching: find.byType(PixivImage),
-      );
+      final context = tester.element(find.byType(CustomScrollView));
       expect(
         [
-          for (final image in tester.widgetList<PixivImage>(washImages))
-            image.url,
+          for (final wash in tester.widgetList<AmbientWash>(
+            find.byType(AmbientWash),
+          ))
+            wash.image,
         ],
-        [?washed],
+        [
+          if (washed != null)
+            PixivImage.providerFor(context, washed, decodeWidth: 96),
+        ],
         reason: reason,
       );
       expect(
