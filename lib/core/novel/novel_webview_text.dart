@@ -230,9 +230,11 @@ Map<String, String> _imageUrls(Map<String, Object?> images) {
   for (final entry in images.entries) {
     final holder = entry.value;
     if (holder is! Map<String, dynamic>) continue;
+    // The reader's size first: an original can be thousands of pixels on
+    // a side.
     final urls = readMap(holder['urls']);
     final url =
-        readOptionalString(urls['original']) ??
+        readFirstString(urls, const ['1200x1200', 'original']) ??
         urls.values.whereType<String>().firstOrNull;
     if (url != null) resolved[entry.key] = url;
   }

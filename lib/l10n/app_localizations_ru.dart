@@ -2885,6 +2885,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelChapters => 'Главы';
 
   @override
+  String get novelIllustration => 'Иллюстрация';
+
+  @override
   String get localNovelFileInfo => 'Информация о файле';
 
   @override

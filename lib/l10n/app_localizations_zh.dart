@@ -2797,6 +2797,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelChapters => '目录';
 
   @override
+  String get novelIllustration => '插图';
+
+  @override
   String get localNovelFileInfo => '文件信息';
 
   @override

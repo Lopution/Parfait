@@ -54,6 +54,7 @@ class NovelReaderStageSpec {
     required this.progress,
     this.titleBlock,
     this.topActions = const [],
+    this.onImageTap,
     this.bodyWrapper,
   });
 
@@ -68,6 +69,11 @@ class NovelReaderStageSpec {
   /// Extra actions rendered before the info button in the top bar
   /// (online: share + bookmark; local: none).
   final List<Widget> topActions;
+
+  /// Opens a tapped illustration (online: the image viewer; a TXT file
+  /// has none).
+  final void Function(BuildContext context, NovelImageLoadRequest image)?
+  onImageTap;
 
   /// Tooltip of the top-bar info button (`novelInfoTitle` for a work,
   /// `localNovelFileInfo` for a file).
@@ -522,6 +528,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
           titleBlock: widget.spec.titleBlock,
           handle: _readerHandle,
           onCenterTap: _toggleChrome,
+          onImageTap: switch (widget.spec.onImageTap) {
+            final open? => (image) => open(context, image),
+            null => null,
+          },
           onProgressChanged: _onProgressChanged,
           onAnchorChanged: _onAnchorChanged,
         ),

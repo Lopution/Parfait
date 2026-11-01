@@ -67,7 +67,8 @@ class NovelLayoutStyle {
 
   /// The style a line of [kind] is measured and painted with (LAYOUT-04).
   TextStyle lineStyle(NovelLineKind kind, Color color) => switch (kind) {
-    NovelLineKind.body => textStyle(color),
+    // An image line has no text; it takes the body's.
+    NovelLineKind.body || NovelLineKind.image => textStyle(color),
     NovelLineKind.translation => translationStyle(color),
     NovelLineKind.heading || NovelLineKind.title => headingStyle(color),
     // A byline reads as a translation does: a step smaller and lighter.
@@ -232,6 +233,10 @@ enum NovelLineKind {
   /// characters never point into the title block.
   title,
   byline,
+
+  /// An illustration, alone on its page ([NovelPageLine.image]). It carries
+  /// its block's paragraph id with both offsets 0 and no text.
+  image,
 }
 
 /// A pixiv novel's title and byline, laid out at the top of its first page.
@@ -264,6 +269,7 @@ class NovelPageLine {
     required this.isParagraphEnd,
     required this.spacingAfter,
     this.kind = NovelLineKind.body,
+    this.image,
   });
 
   final String text;
@@ -278,6 +284,10 @@ class NovelPageLine {
   final double spacingAfter;
 
   final NovelLineKind kind;
+
+  /// The illustration of an [NovelLineKind.image] line; its height is the
+  /// page's.
+  final NovelImageLoadRequest? image;
 
   /// A line of a paragraph's translation. It belongs to the paragraph and
   /// sits at its end (both offsets are the paragraph's length), so anchors
@@ -582,6 +592,17 @@ class NovelLayoutEngine {
             paragraphs.add(paragraph);
           }
         case NovelPageBreakBlock():
+          pendingPageBreak = true;
+        case NovelImageBlock():
+          // A page of its own: the text after it starts the next one.
+          paragraphs.add(
+            NovelParagraph(
+              id: block.id,
+              text: '',
+              pageBreakBefore: true,
+              image: block.image,
+            ),
+          );
           pendingPageBreak = true;
         case NovelChapterBlock():
           paragraphs.add(
@@ -916,6 +937,23 @@ class NovelLayoutEngine {
     _Measure measure,
   ) {
     final style = measure.style;
+    if (paragraph.image case final image?) {
+      // Its height is the page's, set when it is paginated.
+      return [
+        _MeasuredLine(
+          paragraphIndex: paragraphIndex,
+          paragraphId: paragraph.id,
+          startOffset: 0,
+          endOffset: 0,
+          text: '',
+          height: 0,
+          isParagraphEnd: true,
+          pageBreakBefore: true,
+          kind: NovelLineKind.image,
+          image: image,
+        ),
+      ];
+    }
     final source = paragraph.text.isEmpty ? ' ' : paragraph.text;
     final kind = paragraph.isChapterHeading
         ? NovelLineKind.heading
@@ -1102,6 +1140,7 @@ class NovelLayoutEngine {
             isParagraphEnd: line.isParagraphEnd,
             spacingAfter: spacing,
             kind: line.kind,
+            image: line.image,
           ),
       ];
       final first = current.first.line;
@@ -1140,6 +1179,14 @@ class NovelLayoutEngine {
         nextParagraph++;
       }
       final next = index + 1 < lines.length ? lines[index + 1] : null;
+      if (line.image != null) {
+        // The illustration fills a page of its own; the title block keeps
+        // its first page.
+        flush();
+        current.add((line: line._withHeight(availableHeight), spacing: 0));
+        flush();
+        continue;
+      }
       final spacing = _spacingAfter(line, next, style);
       final lineHeight = line.height + spacing;
       // The title block opens the first page with the text, even when the
@@ -1242,6 +1289,7 @@ class _MeasuredLine {
     this.pageBreakBefore = false,
     this.chapterTitle,
     this.kind = NovelLineKind.body,
+    this.image,
   });
 
   const _MeasuredLine.empty()
@@ -1254,7 +1302,8 @@ class _MeasuredLine {
       isParagraphEnd = true,
       pageBreakBefore = false,
       chapterTitle = null,
-      kind = NovelLineKind.body;
+      kind = NovelLineKind.body,
+      image = null;
 
   final int paragraphIndex;
   final String paragraphId;
@@ -1266,6 +1315,7 @@ class _MeasuredLine {
   final bool pageBreakBefore;
   final String? chapterTitle;
   final NovelLineKind kind;
+  final NovelImageLoadRequest? image;
 
   bool get isTranslation => kind == NovelLineKind.translation;
 
@@ -1277,6 +1327,20 @@ class _MeasuredLine {
 
   NovelAnchor get endAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: endOffset);
+
+  _MeasuredLine _withHeight(double height) => _MeasuredLine(
+    paragraphIndex: paragraphIndex,
+    paragraphId: paragraphId,
+    startOffset: startOffset,
+    endOffset: endOffset,
+    text: text,
+    height: height,
+    isParagraphEnd: isParagraphEnd,
+    pageBreakBefore: pageBreakBefore,
+    chapterTitle: chapterTitle,
+    kind: kind,
+    image: image,
+  );
 }
 
 /// One layout's measuring inputs.

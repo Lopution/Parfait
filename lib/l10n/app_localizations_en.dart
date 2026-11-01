@@ -2895,6 +2895,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelChapters => 'Chapters';
 
   @override
+  String get novelIllustration => 'Illustration';
+
+  @override
   String get localNovelFileInfo => 'File info';
 
   @override

@@ -37,6 +37,15 @@ void main() {
       await tester.tapAt(tester.getCenter(find.byType(PageView)));
     },
   );
+  // The page after the first holds the novel's image, alone.
+  testShot(
+    'novel/reader-image',
+    location: '/recommended/novel/$reviewIllustratedNovelId',
+    before: (tester, router) async {
+      final page = tester.getRect(find.byType(PageView));
+      await tester.tapAt(page.centerRight - const Offset(8, 0));
+    },
+  );
   testShot('novel/comments', location: '$novel/comments');
   testShot(
     'novel/ranking',

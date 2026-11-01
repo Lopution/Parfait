@@ -5381,6 +5381,12 @@ abstract class AppLocalizations {
   /// **'目录'**
   String get novelChapters;
 
+  /// No description provided for @novelIllustration.
+  ///
+  /// In zh, this message translates to:
+  /// **'插图'**
+  String get novelIllustration;
+
   /// No description provided for @localNovelFileInfo.
   ///
   /// In zh, this message translates to:

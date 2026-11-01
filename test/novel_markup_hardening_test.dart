@@ -45,7 +45,7 @@ void main() {
     expect(document.blocks.whereType<NovelPageBreakBlock>(), hasLength(1));
   });
 
-  test('single brackets mark only page breaks and chapters', () {
+  test('single brackets mark only page breaks, chapters and images', () {
     for (final (source, matcher) in [
       ('[newpage]', isA<NovelNewPageToken>()),
       (
@@ -65,27 +65,69 @@ void main() {
           isTrue,
         ),
       ),
+      (
+        '[uploadedimage:26116990]',
+        isA<NovelUploadedImageToken>().having(
+          (token) => token.loadRequest?.identifier,
+          'identifier',
+          '26116990',
+        ),
+      ),
+      (
+        '[pixivimage:123-2]',
+        isA<NovelPixivImageToken>().having(
+          (token) => (token.loadRequest?.illustId, token.loadRequest?.page),
+          'work page',
+          (123, 2),
+        ),
+      ),
     ]) {
       final document = NovelMarkupParser().parse('a${source}b');
       expect(document.tokens[1], matcher, reason: source);
       expect(document.tokens[1].rawText, source);
     }
     // Bracketed prose, other names and markers the reader cannot show yet
-    // (images, jumps) stay text.
+    // (jumps) stay text.
     for (final source in [
       '[注]',
       '[1]',
       '[Chapter:x]',
       '[newpage',
       '[chapter:a\nb]',
-      '[uploadedimage:26116990]',
-      '[pixivimage:123-2]',
       '[jump:3]',
     ]) {
       final document = NovelMarkupParser().parse(source);
       expect(document.tokens, everyElement(isA<NovelTextToken>()));
       expect(document.plainText, source, reason: source);
     }
+    // A work or page numbered 0 names no image and reads as written.
+    for (final source in ['[pixivimage:0]', '[pixivimage:123-0]']) {
+      final document = NovelMarkupParser().parse(source);
+      expect(document.imageRequests, isEmpty, reason: source);
+      expect(document.plainText, source, reason: source);
+    }
+  });
+
+  test('an image takes its marker line and moves no paragraph id', () {
+    const source = 'a\n[uploadedimage:5]\nb\n[pixivimage:9-2]\n[pixivimage:8]';
+    final plain = NovelMarkupParser().parse(source);
+    final images = NovelMarkupParser(
+      resolvesImage: (image) => image.identifier != '8',
+    ).parse(source);
+
+    expect(
+      images.blocks.map((block) => block.id),
+      plain.blocks.map((block) => block.id),
+    );
+    expect(
+      [
+        for (final block in images.blocks.whereType<NovelImageBlock>())
+          (block.id, block.image.identifier),
+      ],
+      [('p1', '5'), ('p3', '9-2')],
+    );
+    // An image the payload does not carry stays its marker.
+    expect(images.blocks.last.plainText, '[pixivimage:8]');
   });
 
   test('novel parser keeps raw attributes and reports malformed nesting', () {

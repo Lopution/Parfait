@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -369,6 +370,65 @@ void main() {
     expect(find.text('2 / 2'), findsOneWidget);
   });
 
+  testWidgets('a novel image opens a work at its page, an upload alone', (
+    tester,
+  ) async {
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+    addTearDown(
+      () => VisibilityDetectorController.instance.updateInterval =
+          const Duration(milliseconds: 500),
+    );
+    final historyDatabase = HistoryDatabase();
+    final history = HistoryRepository(database: historyDatabase);
+    final router = pixivRouter('/recommended/novel/7');
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        history: history,
+        httpHandler: (request) async => switch (request.url.path) {
+          '/v2/novel/detail' => _json({'novel': novelJson(7)}),
+          '/webview/v2/novel' => http.Response.bytes(
+            utf8.encode(_illustratedNovelHtml),
+            200,
+            headers: {'content-type': 'text/html'},
+          ),
+          '/v1/illust/detail' => _json({
+            'illust': illustJson(42, pageCount: 2, withMetaPages: true),
+          }),
+          _ => _json({'illusts': <Object?>[], 'next_url': null}),
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Page 1 holds the title block; each image has a page of its own.
+    Future<void> openImageOnPage(int turns) async {
+      for (var turn = 0; turn < turns; turn++) {
+        await tester.tapAt(const Offset(790, 300));
+        await tester.pumpAndSettle();
+      }
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+    }
+
+    await openImageOnPage(1);
+    // The viewer loads the work itself: no detail page lies below it.
+    expect(router.state.uri.path, '/recommended/illust/42/viewer/1');
+    expect(find.text('2 / 2'), findsOneWidget);
+
+    router.pop();
+    await tester.pumpAndSettle();
+    await openImageOnPage(1);
+    expect(router.state.uri.path, '/recommended/novel/7/image/5');
+    expect(tester.widget<ImageViewerPage>(find.byType(ImageViewerPage)).urls, [
+      'https://i.pximg.net/u5.png',
+    ]);
+    // The reader's history commit lands before the database closes.
+    await tester.pumpWidget(const SizedBox());
+    history.dispose();
+    await historyDatabase.close();
+  });
+
   testWidgets('a viewer whose work failed to load offers a retry', (
     tester,
   ) async {
@@ -497,3 +557,19 @@ void main() {
     });
   }
 }
+
+/// A webview body with a work's second page, then an uploaded image.
+const _illustratedNovelHtml = '''
+<script>
+Object.defineProperty(window, 'pixiv', {value: {
+  "novel": {
+    "id": "7",
+    "text": "[pixivimage:42-2]\\n[uploadedimage:5]",
+    "images": {"5": {"urls": {"1200x1200": "https://i.pximg.net/u5.png"}}},
+    "illusts": {
+      "42-2": {"illust": {"images": {"medium": "https://i.pximg.net/42-2.jpg"}}}
+    }
+  }
+}, configurable: true, writable: true});
+</script>
+''';

@@ -1169,6 +1169,7 @@
     }
   },
   "novelChapters": "Chapters",
+  "novelIllustration": "Illustration",
   "localNovelFileInfo": "File info",
   "localNovelFileEncoding": "Encoding: {encoding}",
   "@localNovelFileEncoding": {

@@ -14,6 +14,8 @@ import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
+import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
 
 void main() {
@@ -60,6 +62,39 @@ void main() {
     expect(
       novel.paragraphs.map((paragraph) => paragraph.text),
       everyElement(isNot(contains('['))),
+    );
+  });
+
+  test('an image resolves by work page, then work, and fills a page', () async {
+    const style = NovelLayoutStyle();
+    final novel = _illustrated('前文\n[pixivimage:9-2]\n[pixivimage:9-3]\n後文');
+    final layout = await NovelLayoutEngine().layoutDocumentCancellable(
+      document: novel.markup!,
+      contentVersion: novel.contentVersion,
+      viewport: const Size(360, 640),
+      style: style,
+      textColor: Colors.black,
+      brightness: Brightness.light,
+    );
+
+    expect(
+      [
+        for (final page in layout.pages)
+          [
+            for (final line in page.lines)
+              line.image == null ? line.text : novel.imageUrlFor(line.image!),
+          ],
+      ],
+      [
+        ['前文'],
+        ['https://i.pximg.net/9-2.jpg'],
+        ['https://i.pximg.net/9.jpg'],
+        ['後文'],
+      ],
+    );
+    expect(
+      layout.pages[1].lines.single.height,
+      640 - style.verticalPadding * 2,
     );
   });
 
@@ -327,6 +362,38 @@ void main() {
     expect(handle.currentPage?.call(), 0);
   });
 
+  testWidgets('an image opens on tap; the margins beside it turn the page', (
+    tester,
+  ) async {
+    final opened = <String>[];
+    final handle = NovelReaderHandle();
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [
+          imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+        ],
+        body: NovelReader(
+          novel: _illustrated('[uploadedimage:5]\n後文'),
+          handle: handle,
+          onImageTap: (image) => opened.add(image.identifier),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.bySemanticsLabel('插图'), findsOneWidget);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(opened, ['5']);
+    expect(handle.currentPage?.call(), 0);
+
+    await tester.tapAt(const Offset(780, 300));
+    await tester.pumpAndSettle();
+    expect(opened, ['5']);
+    expect(handle.currentPage?.call(), 1);
+  });
+
   testWidgets('large system text is laid out as wide as it paints', (
     tester,
   ) async {
@@ -561,6 +628,16 @@ NovelEntity _novel(String text) => NovelEntity(
   contentVersion: text,
   paragraphs: NovelContentMapper.fromText(text),
   contentAvailable: true,
+);
+
+/// A webview body with one uploaded image and one work's pages.
+NovelEntity _illustrated(String text) => _novel('').withWebContent(
+  text,
+  embeddedImages: const {'5': 'https://i.pximg.net/u5.png'},
+  embeddedIllustThumbs: const {
+    '9-2': 'https://i.pximg.net/9-2.jpg',
+    '9': 'https://i.pximg.net/9.jpg',
+  },
 );
 
 Map<String, dynamic> _novelJson(String content) => {

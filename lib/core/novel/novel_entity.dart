@@ -167,16 +167,42 @@ enum NovelImageSource { pixiv, uploaded }
 /// from markup parsing.
 @immutable
 class NovelImageLoadRequest {
-  const NovelImageLoadRequest({required this.source, required this.identifier});
+  const NovelImageLoadRequest({
+    required this.source,
+    required this.identifier,
+    this.illustId,
+    this.page,
+  });
 
   final NovelImageSource source;
+
+  /// The payload's key: an uploaded image's id; a Pixiv work's `id`, or
+  /// `id-page` for one page of a set.
   final String identifier;
+
+  /// A Pixiv work's id, and the page the marker names (1 for the first),
+  /// null when it names none.
+  final int? illustId;
+  final int? page;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NovelImageLoadRequest &&
+      other.source == source &&
+      other.identifier == identifier;
+
+  @override
+  int get hashCode => Object.hash(source, identifier);
+
+  @override
+  String toString() => 'NovelImageLoadRequest(${source.name}, $identifier)';
 }
 
 class NovelPixivImageToken extends NovelMarkupToken {
   NovelPixivImageToken({
     required this.identifier,
     required this.illustId,
+    this.page,
     required super.rawText,
     required super.sourceOffset,
     this.error,
@@ -185,6 +211,10 @@ class NovelPixivImageToken extends NovelMarkupToken {
 
   final String identifier;
   final int? illustId;
+
+  /// The page of a set the marker names (`[pixivimage:id-page]`, 1 for the
+  /// first), or null.
+  final int? page;
   final String? error;
 
   bool get isValid => illustId != null && error == null;
@@ -193,6 +223,8 @@ class NovelPixivImageToken extends NovelMarkupToken {
       ? NovelImageLoadRequest(
           source: NovelImageSource.pixiv,
           identifier: identifier,
+          illustId: illustId,
+          page: page,
         )
       : null;
 
@@ -364,6 +396,7 @@ class NovelParagraph extends NovelBlock {
     this.tokens = const [],
     this.pageBreakBefore = false,
     this.isChapterHeading = false,
+    this.image,
   });
 
   @override
@@ -373,6 +406,10 @@ class NovelParagraph extends NovelBlock {
   final List<NovelMarkupToken> tokens;
   final bool pageBreakBefore;
   final bool isChapterHeading;
+
+  /// The illustration this empty paragraph stands for in a layout
+  /// ([NovelImageBlock]).
+  final NovelImageLoadRequest? image;
 
   @override
   String get plainText => text;
@@ -384,6 +421,21 @@ class NovelPageBreakBlock extends NovelBlock {
   @override
   final String id;
   final NovelNewPageToken token;
+
+  @override
+  String get plainText => '';
+}
+
+/// An illustration on a page of its own (`[uploadedimage:…]`,
+/// `[pixivimage:…]`) whose URL the novel's payload resolves. Its id is the
+/// paragraph id its marker line had as text, so the paragraphs after it
+/// keep theirs.
+class NovelImageBlock extends NovelBlock {
+  const NovelImageBlock({required this.id, required this.image});
+
+  @override
+  final String id;
+  final NovelImageLoadRequest image;
 
   @override
   String get plainText => '';
@@ -564,6 +616,22 @@ class NovelEntity {
 
   UserEntity get author => user;
 
+  /// The URL the webview payload gives [image], or null.
+  String? imageUrlFor(NovelImageLoadRequest image) =>
+      _imageUrl(image, embeddedImages, embeddedIllustThumbs);
+
+  /// A Pixiv work's page is keyed `id-page`; a marker naming the work
+  /// alone, or a payload keying it so, finds it by `id`.
+  static String? _imageUrl(
+    NovelImageLoadRequest image,
+    Map<String, String> uploaded,
+    Map<String, String> illusts,
+  ) => switch (image.source) {
+    NovelImageSource.uploaded => uploaded[image.identifier],
+    NovelImageSource.pixiv =>
+      illusts[image.identifier] ?? illusts['${image.illustId}'],
+  };
+
   bool get isRestricted => !visible || isXRestricted;
 
   String get plainText =>
@@ -671,7 +739,11 @@ class NovelEntity {
         seriesNextId: seriesNextId,
       );
     }
-    final markup = NovelContentMapper.parse(text);
+    final markup = NovelContentMapper.parse(
+      text,
+      resolvesImage: (image) =>
+          _imageUrl(image, embeddedImages, embeddedIllustThumbs) != null,
+    );
     final paragraphs = markup.paragraphs;
     final version = sha256.convert(utf8.encode(jsonEncode(text))).toString();
     return copyWith(
@@ -774,8 +846,12 @@ abstract final class NovelContentMapper {
     Object? raw, {
     NovelMarkupBudget budget = const NovelMarkupBudget(),
     NovelMarkupProgressCallback? onProgress,
+    bool Function(NovelImageLoadRequest image)? resolvesImage,
   }) {
-    final parser = NovelMarkupParser(budget: budget);
+    final parser = NovelMarkupParser(
+      budget: budget,
+      resolvesImage: resolvesImage,
+    );
     if (raw is String) {
       return parser.parse(raw, onProgress: onProgress);
     }
@@ -830,9 +906,26 @@ abstract final class NovelContentMapper {
 }
 
 class NovelMarkupParser {
-  const NovelMarkupParser({this.budget = const NovelMarkupBudget()});
+  const NovelMarkupParser({
+    this.budget = const NovelMarkupBudget(),
+    this.resolvesImage,
+  });
 
   final NovelMarkupBudget budget;
+
+  /// Whether the novel's payload holds a URL for an image marker. Only
+  /// those become image blocks; the rest stay visible text, as unknown
+  /// markers do. Null: no image resolves (a body without its payload).
+  final bool Function(NovelImageLoadRequest image)? resolvesImage;
+
+  /// The single-bracket markers that carry a payload, up to their `]`.
+  static const _payloadMarkers = [
+    '[chapter:',
+    '[uploadedimage:',
+    '[pixivimage:',
+  ];
+
+  static final _pixivImageIdentifier = RegExp(r'^(\d{1,18})(?:-(\d{1,4}))?$');
 
   NovelMarkupDocument parse(
     String source, {
@@ -1248,12 +1341,15 @@ class NovelMarkupParser {
           allowPage: false,
         );
       case 'pixivimage':
+        // A work, or one page of a set: `id` or `id-page`.
         final identifier = payload.trim();
-        final id = int.tryParse(identifier);
-        if (id == null || id <= 0 || identifier != '$id') {
+        final match = _pixivImageIdentifier.firstMatch(identifier);
+        final id = match == null ? null : int.tryParse(match[1]!);
+        final page = match?[2] == null ? null : int.tryParse(match![2]!);
+        if (id == null || id <= 0 || (page != null && page <= 0)) {
           accumulator.add(
             kind: NovelMarkupIssueKind.invalidImage,
-            message: 'pixivimage requires a positive numeric identifier',
+            message: 'pixivimage requires a work id and an optional page',
             sourceOffset: sourceOffset,
             rawName: rawName,
           );
@@ -1269,6 +1365,7 @@ class NovelMarkupParser {
         return NovelPixivImageToken(
           identifier: identifier,
           illustId: id,
+          page: page,
           rawText: raw,
           sourceOffset: sourceOffset,
           attributes: attributes,
@@ -1423,10 +1520,11 @@ class NovelMarkupParser {
   }
 
   /// The end of a single-bracket marker at [start], or null. Pixiv writes
-  /// page breaks and chapters in single brackets (`[newpage]`,
-  /// `[chapter:title]`, closed on the same line); only those exact names
-  /// are markers, so bracketed prose (`[注]`, `[1]`) stays text. Its image
-  /// and jump markers stay text until the reader can show them.
+  /// page breaks, chapters and images in single brackets (`[newpage]`,
+  /// `[chapter:title]`, `[uploadedimage:id]`, `[pixivimage:id-page]`,
+  /// closed on the same line); only those exact names are markers, so
+  /// bracketed prose (`[注]`, `[1]`) stays text. Its jump markers stay text
+  /// until the reader can follow them.
   int? _singleMarkerEnd(
     String source,
     int start,
@@ -1434,31 +1532,33 @@ class NovelMarkupParser {
     _NovelScanAccumulator scan,
   ) {
     const newPage = '[newpage]';
-    const chapter = '[chapter:';
     if (source.startsWith(newPage, start)) {
       final end = start + newPage.length;
       return end <= limit ? end : null;
     }
-    if (!source.startsWith(chapter, start)) return null;
-    final from = start + chapter.length;
+    final prefix = _payloadMarkers
+        .where((prefix) => source.startsWith(prefix, start))
+        .firstOrNull;
+    if (prefix == null) return null;
+    final from = start + prefix.length;
     final searchEnd = math.min(limit, start + budget.maxMarkerUnits);
-    // A title inside a stretch an earlier `[chapter:` already read resumes
-    // at its end, so a run of unclosed prefixes reads each unit once.
-    final known = scan.chapterStretch;
+    // A payload inside a stretch an earlier marker already read resumes at
+    // its end, so a run of unclosed prefixes reads each unit once.
+    final known = scan.payloadStretch;
     final resumes = known != null && from >= known.from && from < known.to;
     final stretchFrom = resumes ? known.from : from;
     var index = resumes ? known.to : from;
     for (; index < searchEnd; index++) {
       switch (source.codeUnitAt(index)) {
         case 0x5D: // ]
-          scan.chapterStretch = (from: stretchFrom, to: index);
+          scan.payloadStretch = (from: stretchFrom, to: index);
           return index + 1;
         case 0x0A || 0x0D:
-          scan.chapterStretch = (from: stretchFrom, to: index);
+          scan.payloadStretch = (from: stretchFrom, to: index);
           return null;
       }
     }
-    scan.chapterStretch = (from: stretchFrom, to: index);
+    scan.payloadStretch = (from: stretchFrom, to: index);
     return null;
   }
 
@@ -1525,6 +1625,9 @@ class NovelMarkupParser {
     final text = StringBuffer();
     var paragraphIndex = 0;
     var structuralIndex = 0;
+    // An image block took its marker line's paragraph: the break ending
+    // that line closes the image, not another (empty) paragraph.
+    var imageLineOpen = false;
 
     void flushParagraph({bool force = false}) {
       if (!force && currentTokens.isEmpty && text.isEmpty) return;
@@ -1547,6 +1650,7 @@ class NovelMarkupParser {
       final lines = normalized.split('\n');
       for (var index = 0; index < lines.length; index++) {
         if (lines[index].isNotEmpty) {
+          imageLineOpen = false;
           final start = text.length;
           text.write(lines[index]);
           if (token is! NovelTextToken) {
@@ -1556,7 +1660,13 @@ class NovelMarkupParser {
           }
           currentTokens.add(token);
         }
-        if (index + 1 < lines.length) flushParagraph(force: true);
+        if (index + 1 < lines.length) {
+          if (imageLineOpen) {
+            imageLineOpen = false;
+          } else {
+            flushParagraph(force: true);
+          }
+        }
       }
       if (value.isEmpty && token is! NovelTextToken) {
         currentTokens.add(token);
@@ -1583,6 +1693,18 @@ class NovelMarkupParser {
           blocks.add(
             NovelChapterBlock(id: 'chapter-${structuralIndex++}', token: token),
           );
+        case NovelPixivImageToken(:final loadRequest?) ||
+                NovelUploadedImageToken(:final loadRequest?)
+            when resolvesImage?.call(loadRequest) ?? false:
+          flushParagraph();
+          // The id its marker line had as a paragraph.
+          blocks.add(
+            NovelImageBlock(id: 'p${paragraphIndex++}', image: loadRequest),
+          );
+          imageLineOpen = true;
+        case NovelPixivImageToken() || NovelUploadedImageToken():
+          // No URL to show it by: the marker as written.
+          appendText(token.rawText, token);
         default:
           appendText(token.displayText, token);
       }
@@ -1627,9 +1749,9 @@ class _NovelScanAccumulator {
   final int maxDiagnostics;
   final List<NovelMarkupDiagnostic> diagnostics = [];
 
-  /// The last stretch a chapter title was read across: it holds no `]`
-  /// and no line break.
-  ({int from, int to})? chapterStretch;
+  /// The last stretch a single-bracket payload (a chapter title, an image
+  /// id) was read across: it holds no `]` and no line break.
+  ({int from, int to})? payloadStretch;
 
   void add({
     required NovelMarkupIssueKind kind,

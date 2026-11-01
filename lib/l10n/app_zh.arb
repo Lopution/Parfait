@@ -1589,6 +1589,7 @@
     }
   },
   "novelChapters": "目录",
+  "novelIllustration": "插图",
   "localNovelFileInfo": "文件信息",
   "localNovelFileEncoding": "编码：{encoding}",
   "@localNovelFileEncoding": {
