@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/widgets/danger_filled_button.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/removal.dart';
 import '../../../app/navigation/routes.dart' show openLogin;
@@ -224,7 +225,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(context.l10n.cancel),
           ),
-          FilledButton(
+          DangerFilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(context.l10n.confirm),
           ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/widgets/danger_filled_button.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/reveal.dart';
 import '../../../app/widgets/app_top_bar.dart';
@@ -212,7 +213,7 @@ class _TranslationCredentialsPageState
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(context.l10n.cancel),
           ),
-          FilledButton(
+          DangerFilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(context.l10n.translateCredentialsClear),
           ),

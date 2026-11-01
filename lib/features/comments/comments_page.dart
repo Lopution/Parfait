@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/widgets/danger_filled_button.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/removal.dart';
@@ -159,7 +160,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(context.l10n.cancel),
           ),
-          FilledButton(
+          DangerFilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(context.l10n.confirm),
           ),
@@ -323,7 +324,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(context.l10n.cancel),
           ),
-          FilledButton(
+          DangerFilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(context.l10n.confirm),
           ),

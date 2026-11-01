@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/widgets/danger_filled_button.dart';
 import '../../app/format/app_format.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/layout/content_widths.dart';
@@ -213,7 +214,7 @@ class _LocalNovelTile extends ConsumerWidget {
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(context.l10n.cancel),
           ),
-          FilledButton(
+          DangerFilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(context.l10n.localNovelsDelete),
           ),
