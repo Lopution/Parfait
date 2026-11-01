@@ -28,7 +28,12 @@ void main() {
   testShot(
     'home/ranking',
     location: '/ranking',
-    variants: {ShotVariant.dark, ShotVariant.largeText},
+    variants: {
+      ShotVariant.dark,
+      ShotVariant.largeText,
+      ShotVariant.ru,
+      ShotVariant.ja,
+    },
   );
   testShot('home/ranking-week', location: '/ranking?mode=week');
   testShot('home/ranking-male', location: '/ranking?mode=dayMale');
