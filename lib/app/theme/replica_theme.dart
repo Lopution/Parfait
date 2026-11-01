@@ -97,7 +97,7 @@ ThemeData replicaTheme(
     outline: subdued,
     outlineVariant: subdued,
     error: dark ? FuncTokens.darkError : FuncTokens.lightError,
-    onError: FuncTokens.white,
+    onError: dark ? FuncTokens.darkOnError : FuncTokens.white,
     shadow: dark ? FuncTokens.darkShadow : FuncTokens.lightShadow,
   );
 

@@ -37,6 +37,16 @@ void main() {
     }
   });
 
+  test('text on the error fill reads at 4.5:1 in both themes', () {
+    for (final brightness in Brightness.values) {
+      final scheme = replicaTheme(brightness).colorScheme;
+      expect(
+        contrastRatio(scheme.onError, scheme.error),
+        greaterThanOrEqualTo(4.5),
+      );
+    }
+  });
+
   test('the light accent reads at 4.5:1 up to the sheet tier', () {
     final scheme = replicaTheme(Brightness.light).colorScheme;
     // Dialogs and the highest tier fall short: a known trade (THEME-06).

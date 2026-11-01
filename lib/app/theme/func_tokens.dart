@@ -112,6 +112,10 @@ abstract final class FuncTokens {
   static const Color lightSuccess = Color(0xFF106D20);
   static const Color darkSuccess = Color(0xFF82DB7E);
 
+  /// Text on the dark error fill: tone 20 of the same palette. White on
+  /// tone 80 read at 1.7:1.
+  static const Color darkOnError = Color(0xFF690003);
+
   static const Color networkProbeDnsWarning = Color(0xFFEF6C00);
   static const Color networkProbeSuccess = Color(0xFF388E3C);
   static const Color networkProbeWarning = Color(0xFFF57C00);

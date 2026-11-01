@@ -114,7 +114,7 @@ reviewed: 2026-10-21
   tappable. A red filter count read as an error; a pink description read
   as a second selected item; removing an account in the same pink as
   saving a setting gave no pause.
-- **Check:** `test/replica_theme_test.dart` "a disabled switch that is on takes no accent"
+- **Check:** `test/replica_theme_test.dart` "a disabled switch that is on takes no accent", "text on the error fill reads at 4.5:1 in both themes"
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/category_colors.dart`, `lib/app/widgets/tag_chips.dart`, `lib/app/widgets/danger_filled_button.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
 
 ### THEME-18 The accent is two colors: text and fill
