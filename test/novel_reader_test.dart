@@ -104,6 +104,77 @@ void main() {
     },
   );
 
+  test('the scroll column runs pages on, with a rule at a new page and a gap '
+      'before a chapter; lines and anchors map both ways', () async {
+    const style = NovelLayoutStyle();
+    final novel = _illustrated(
+      '前文\n[newpage]\n${'本文' * 400}\n[chapter:第二章]\n章文\n'
+      '[uploadedimage:5]\n後文',
+    );
+    final layout = await NovelLayoutEngine().layoutDocumentCancellable(
+      document: novel.markup!,
+      contentVersion: novel.contentVersion,
+      viewport: const Size(360, 640),
+      style: style,
+      textColor: Colors.black,
+      brightness: Brightness.light,
+    );
+    final column = NovelScrollColumn(layout, style);
+    final chapter = layout.pages.firstWhere(
+      (page) => page.chapterTitle == '第二章',
+    );
+
+    // The long paragraph's pages and the image's run on without a gap.
+    expect(
+      [
+        for (final (index, item) in column.items.indexed)
+          if (item.line == null) (item.gap, item.page, column.extentAt(index)),
+      ],
+      [
+        (NovelPageBreak.newPage, 1, style.pageBreakGap),
+        (NovelPageBreak.chapter, chapter.index, style.chapterGap),
+      ],
+    );
+    expect(
+      column.extent,
+      closeTo(
+        [
+              for (final page in layout.pages)
+                for (final line in page.lines) line.height + line.spacingAfter,
+            ].fold<double>(0, (sum, extent) => sum + extent) +
+            style.pageBreakGap +
+            style.chapterGap,
+        0.001,
+      ),
+    );
+    for (final (index, item) in column.items.indexed) {
+      expect(column.itemAt(column.offsetOf(index)), index);
+      if (item.line == null) {
+        // A gap reads as the line after it.
+        expect(
+          column.anchorAt(index),
+          column.items[index + 1].line!.startAnchor,
+        );
+        continue;
+      }
+      expect(column.itemForAnchor(column.anchorAt(index)), index);
+    }
+    // An anchor inside a line names that line.
+    final wrapped = column.items.indexWhere(
+      (item) => (item.line?.startOffset ?? 0) > 0,
+    );
+    final line = column.items[wrapped].line!;
+    expect(
+      column.itemForAnchor(
+        NovelAnchor(
+          paragraphId: line.paragraphId,
+          offset: line.startOffset + 1,
+        ),
+      ),
+      wrapped,
+    );
+  });
+
   test('each line lays out as tall as the style of its kind', () async {
     const style = NovelLayoutStyle();
     final novel = _novel('').withWebContent('前文\n[chapter:第二章　出発]\n本文');
@@ -330,7 +401,7 @@ void main() {
     },
   );
 
-  testWidgets('NovelReader exposes PageView, center tap and edge paging', (
+  testWidgets('page mode: a PageView, center tap and edge paging', (
     tester,
   ) async {
     var centerTaps = 0;
@@ -340,6 +411,7 @@ void main() {
       localizedApp(
         body: NovelReader(
           novel: _novel('reader ' * 400),
+          settings: _pageMode,
           handle: handle,
           onCenterTap: () => centerTaps += 1,
           onProgressChanged: (page, pageCount) => pages = pageCount,
@@ -381,6 +453,7 @@ void main() {
         ],
         body: NovelReader(
           novel: _illustrated('[uploadedimage:5]\n後文'),
+          settings: _pageMode,
           handle: handle,
           onImageTap: (image) => opened.add(image.identifier),
         ),
@@ -428,7 +501,7 @@ void main() {
 
     final lines = tester.renderObjectList<RenderParagraph>(
       find.descendant(
-        of: find.byType(PageView),
+        of: find.byType(NovelReader),
         matching: find.byType(RichText),
       ),
     );
@@ -448,7 +521,11 @@ void main() {
     final handle = NovelReaderHandle();
     await tester.pumpWidget(
       localizedApp(
-        body: NovelReader(novel: _novel('reader ' * 400), handle: handle),
+        body: NovelReader(
+          novel: _novel('reader ' * 400),
+          settings: _pageMode,
+          handle: handle,
+        ),
       ),
     );
     await tester.pump();
@@ -487,7 +564,7 @@ void main() {
       home: Scaffold(
         body: NovelReader(
           novel: _novel(text),
-          settings: NovelReaderSettings(fontSize: fontSize),
+          settings: _pageMode.copyWith(fontSize: fontSize),
           // A deep restore makes the first commit's programmatic jump
           // observable on PageView.onPageChanged.
           initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
@@ -524,6 +601,131 @@ void main() {
       causes.where((cause) => cause == NovelAnchorCause.userTurn),
       isEmpty,
     );
+  });
+
+  testWidgets('scroll mode: a tap toggles the chrome or opens an image; one '
+      'that stops a fling only stops it', (tester) async {
+    var centerTaps = 0;
+    final opened = <String>[];
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [
+          imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+        ],
+        body: NovelReader(
+          novel: _illustrated('[uploadedimage:5]\n${'本文' * 3000}'),
+          onCenterTap: () => centerTaps += 1,
+          onImageTap: (image) => opened.add(image.identifier),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(PageView), findsNothing);
+
+    // The image takes its tap; the margin beside it shows the chrome
+    // instead of turning a page.
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(opened, ['5']);
+    await tester.tapAt(const Offset(20, 300));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(centerTaps, 1);
+
+    final list = tester.widget<ListView>(find.byType(ListView)).controller!;
+    await tester.fling(find.byType(ListView), const Offset(0, -300), 3000);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump(const Duration(milliseconds: 250));
+    final stopped = list.offset;
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(list.offset, stopped);
+    expect(centerTaps, 1);
+    expect(opened, ['5']);
+  });
+
+  testWidgets('scroll mode: open restores the line, a settle reports once, '
+      'goToPage and a relayout keep a line at the top', (tester) async {
+    final reports = <(NovelAnchor, NovelAnchorCause)>[];
+    final handle = NovelReaderHandle();
+    final text = List.generate(
+      80,
+      (index) => 'paragraph $index body text body text',
+    ).join('\n');
+    Widget app(NovelReaderSettings settings) => MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
+      home: Scaffold(
+        body: NovelReader(
+          novel: _novel(text),
+          settings: settings,
+          initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
+          handle: handle,
+          onAnchorChanged: (anchor, cause) => reports.add((anchor, cause)),
+        ),
+      ),
+    );
+    double top(String paragraphId) {
+      final index = int.parse(paragraphId.substring(1));
+      return tester.getTopLeft(find.textContaining('paragraph $index ')).dy;
+    }
+
+    final verticalPadding = const NovelLayoutStyle().verticalPadding;
+    Iterable<NovelAnchor> turns() => [
+      for (final (anchor, cause) in reports)
+        if (cause == NovelAnchorCause.userTurn) anchor,
+    ];
+
+    await tester.pumpWidget(app(const NovelReaderSettings()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(top('p60'), verticalPadding);
+    expect(turns(), isEmpty);
+
+    await tester.drag(find.byType(ListView), const Offset(0, 200));
+    await tester.pumpAndSettle();
+    expect(turns(), hasLength(1));
+    final read = turns().single;
+    expect(top(read.paragraphId), lessThanOrEqualTo(verticalPadding));
+
+    handle.goToPage!(1, animate: false);
+    await tester.pump();
+    final first = handle.layout!()!.pages[1].startAnchor;
+    expect(handle.currentPage!(), 1);
+    expect(turns().last, first);
+    expect(top(first.paragraphId), verticalPadding);
+
+    reports.clear();
+    await tester.pumpWidget(app(const NovelReaderSettings(fontSize: 20)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // The restore jumps after the frame that built the new layout.
+    await tester.pump();
+    expect(turns(), isEmpty);
+    expect(top(first.paragraphId), verticalPadding);
+
+    // Switching to pages opens the page that holds that line, and back
+    // the page's first line; neither is a turn.
+    final page = handle.layout!()!.pageIndexForAnchor(first);
+    await tester.pumpWidget(
+      app(
+        const NovelReaderSettings(fontSize: 20, pageTurn: NovelPageTurn.pages),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<PageView>(find.byType(PageView)).controller!.page,
+      page,
+    );
+    await tester.pumpWidget(app(const NovelReaderSettings(fontSize: 20)));
+    await tester.pump();
+    expect(
+      top(handle.layout!()!.pages[page].startAnchor.paragraphId),
+      verticalPadding,
+    );
+    expect(turns(), isEmpty);
   });
 
   testWidgets('layout budget overflow renders a retryable error state', (
@@ -628,6 +830,8 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
     );
   }
 }
+
+const _pageMode = NovelReaderSettings(pageTurn: NovelPageTurn.pages);
 
 NovelEntity _novel(String text) => NovelEntity(
   id: 77,

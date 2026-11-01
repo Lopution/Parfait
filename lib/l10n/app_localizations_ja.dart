@@ -2650,6 +2650,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelThemeNight => 'ナイト';
 
   @override
+  String get novelPageTurnScroll => '縦スクロール';
+
+  @override
+  String get novelPageTurnPages => 'ページめくり';
+
+  @override
   String get aboutDisplayRefreshRate => '画面リフレッシュレート';
 
   @override

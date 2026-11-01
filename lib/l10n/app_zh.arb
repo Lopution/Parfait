@@ -1489,6 +1489,8 @@
   "novelThemePaper": "纸张",
   "novelThemeSepia": "护眼",
   "novelThemeNight": "夜间",
+  "novelPageTurnScroll": "上下滚动",
+  "novelPageTurnPages": "左右翻页",
   "aboutDisplayRefreshRate": "显示刷新率",
   "cardActionDownload": "下载",
   "cardActionWatchLater": "稍后再看",

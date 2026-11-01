@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -34,6 +35,7 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/api_responses.dart';
@@ -374,6 +376,13 @@ void main() {
   testWidgets(
     'a novel image shows and opens its work page; a lost one says so',
     (tester) async {
+      // Page by page, each image on a page of its own.
+      await SharedPreferencesAsync().setString(
+        'parfait.novel.reader_settings.v1',
+        jsonEncode(
+          const NovelReaderSettings(pageTurn: NovelPageTurn.pages).toJson(),
+        ),
+      );
       VisibilityDetectorController.instance.updateInterval = Duration.zero;
       addTearDown(
         () => VisibilityDetectorController.instance.updateInterval =

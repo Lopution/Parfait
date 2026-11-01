@@ -2709,6 +2709,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelThemeNight => 'Ночная';
 
   @override
+  String get novelPageTurnScroll => 'Прокрутка';
+
+  @override
+  String get novelPageTurnPages => 'Листание';
+
+  @override
   String get aboutDisplayRefreshRate => 'Частота обновления';
 
   @override

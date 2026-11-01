@@ -926,6 +926,22 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                     Wrap(
                       spacing: 8,
                       children: [
+                        for (final (pageTurn, label) in [
+                          (NovelPageTurn.scroll, l10n.novelPageTurnScroll),
+                          (NovelPageTurn.pages, l10n.novelPageTurnPages),
+                        ])
+                          AppChoiceChip(
+                            label: Text(label),
+                            selected: _settings.pageTurn == pageTurn,
+                            onSelected: () =>
+                                apply(_settings.copyWith(pageTurn: pageTurn)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: FuncSpacing.sm),
+                    Wrap(
+                      spacing: 8,
+                      children: [
                         for (final (theme, label) in [
                           (NovelReaderTheme.system, l10n.novelThemeSystem),
                           (NovelReaderTheme.paper, l10n.novelThemePaper),

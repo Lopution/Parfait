@@ -293,7 +293,7 @@ void main() {
   });
 
   testWidgets(
-    'read_offset stays null until a real page turn, then stores the page start',
+    'read_offset stays null until the text moves, then stores the top line',
     (tester) async {
       await warmDatabase(tester);
       final text = [
@@ -323,7 +323,7 @@ void main() {
       // Push lands on a loading spinner first — pumpUntil waits the real
       // async load out instead of pumpAndSettle, which never settles while
       // the indicator animates.
-      await _pumpUntil(tester, find.byType(PageView));
+      await _pumpUntil(tester, find.byType(ListView));
 
       // Open, reveal the chrome and leave — nothing was read, so the
       // cursor must stay null (W6's "unread" signal).
@@ -340,11 +340,11 @@ void main() {
       stored = await _readStored(tester, container, novel.id);
       expect(stored!.readOffset, isNull);
 
-      // Reopen, turn one page and the cursor lands on that page's first
-      // line — a newline boundary in the stored text.
+      // Reopen, scroll and the cursor lands on the line now at the top —
+      // a newline boundary in the stored text.
       await tester.tap(find.text('open'));
-      await _pumpUntil(tester, find.byType(PageView));
-      await tester.tapAt(const Offset(780, 300));
+      await _pumpUntil(tester, find.byType(ListView));
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pumpAndSettle();
       stored = await _readStored(tester, container, novel.id);
       final offset = stored!.readOffset;

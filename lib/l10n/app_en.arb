@@ -1083,6 +1083,8 @@
   "novelThemePaper": "Paper",
   "novelThemeSepia": "Eye care",
   "novelThemeNight": "Night",
+  "novelPageTurnScroll": "Scroll",
+  "novelPageTurnPages": "Turn pages",
   "aboutDisplayRefreshRate": "Display refresh rate",
   "cardActionDownload": "Download",
   "cardActionWatchLater": "Watch later",

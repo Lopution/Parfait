@@ -92,7 +92,8 @@ const reviewIllustratedNovelId = 2100;
 /// The `/webview/v2/novel` bootstrap page, same shape as
 /// novel_webview_text_test's fixture: `Object.defineProperty` installs
 /// `window.pixiv.novel`.
-/// [reviewIllustratedNovelId] has an image after its first paragraph.
+/// [reviewIllustratedNovelId] has an image after its first paragraph; every
+/// novel turns a page after its second and opens a chapter after its fourth.
 String reviewNovelWebviewHtml(int id, {int paragraphs = 6}) {
   final illustrated = id == reviewIllustratedNovelId;
   final text = [
@@ -100,6 +101,8 @@ String reviewNovelWebviewHtml(int id, {int paragraphs = 6}) {
     for (var i = 0; i < paragraphs; i++) ...[
       '第${i + 1}段：novel $id 的正文内容。',
       if (illustrated && i == 0) '[uploadedimage:1]',
+      if (i == 1) '[newpage]',
+      if (i == 3) '[chapter:第二章　まちかど]',
     ],
   ].join('\n\n');
   final novel = jsonEncode({

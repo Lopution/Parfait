@@ -2719,6 +2719,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelThemeNight => 'Night';
 
   @override
+  String get novelPageTurnScroll => 'Scroll';
+
+  @override
+  String get novelPageTurnPages => 'Turn pages';
+
+  @override
   String get aboutDisplayRefreshRate => 'Display refresh rate';
 
   @override

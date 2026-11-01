@@ -2622,6 +2622,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelThemeNight => '夜间';
 
   @override
+  String get novelPageTurnScroll => '上下滚动';
+
+  @override
+  String get novelPageTurnPages => '左右翻页';
+
+  @override
   String get aboutDisplayRefreshRate => '显示刷新率';
 
   @override

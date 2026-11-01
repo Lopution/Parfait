@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/rendering.dart'
+    show ClipRectLayer, LayerHandle, RenderProxyBox, ScrollCacheExtent;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
@@ -227,9 +228,9 @@ class NovelReaderHandle {
   int Function()? currentPage;
   int Function()? pageCount;
 
-  /// Jump the PageView to [page] (clamped). `animate: false` lands on the
-  /// target in the same frame — far jumps from the progress sheet skip the
-  /// page-turn animation entirely.
+  /// Turn to [page] (clamped), or in scroll mode scroll its first line to
+  /// the top. `animate: false` lands on the target in the same frame — far
+  /// jumps from the progress sheet skip the animation entirely.
   void Function(int page, {bool animate})? goToPage;
 
   /// Chapter entries of the committed layout — `(title, pageIndex)` pairs
@@ -249,7 +250,13 @@ class NovelReaderHandle {
 /// which the first frame of every swipe used to pay.
 const _neighbourPages = ScrollCacheExtent.pixels(1);
 
-/// Horizontal, non-scrolling body reader with a cancellable relayout path.
+/// A short rule where the author wrote `[newpage]` in scroll mode, as wide
+/// as three characters and faint, so it reads as a pause and not as text.
+const _newPageRuleAlpha = 0.3;
+const _newPageRuleCharacters = 3;
+
+/// The body reader with a cancellable relayout path: screenfuls turned
+/// left and right, or one column scrolled up and down, over one layout.
 class NovelReader extends StatefulWidget {
   const NovelReader({
     super.key,
@@ -321,7 +328,8 @@ class NovelReader extends StatefulWidget {
 
 class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   late final NovelReaderController _reader;
-  late final PageController _pageController;
+  late PageController _pageController;
+  _NovelScrollController _scrollController = _NovelScrollController();
   late final NovelLayoutEngine _layoutEngine =
       widget.layoutEngine ?? NovelLayoutEngine();
   final NovelReaderCommitGate _commitGate = NovelReaderCommitGate();
@@ -345,6 +353,15 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   /// turn.
   bool _layoutEchoPending = false;
 
+  /// The scroll mode's column over [_layout], built when first read.
+  NovelScrollColumn? _column;
+
+  /// The anchor the scroll mode last reported, so a scroll that settles on
+  /// the line it started from writes nothing.
+  NovelAnchor? _settledAnchor;
+
+  bool get _scrolls => widget.settings.pageTurn == NovelPageTurn.scroll;
+
   @override
   void initState() {
     super.initState();
@@ -355,10 +372,17 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       handle.currentPage = () => _reader.currentPage;
       handle.pageCount = () => _reader.pageCount;
       handle.goToPage = (page, {animate = true}) {
+        final target = page.clamp(0, _reader.pageCount - 1);
+        final layout = _layout;
+        if (_scrolls) {
+          if (layout == null || !_scrollController.hasClients) return;
+          final column = _columnOf(layout);
+          _scrollTo(_columnOffset(layout, column.itemOfPage(target)), animate);
+          return;
+        }
         // The PageView is unmounted while the layout-error state is shown;
         // driving a detached controller asserts/throws.
         if (!_pageController.hasClients) return;
-        final target = page.clamp(0, _reader.pageCount - 1);
         if (!animate) {
           _pageController.jumpToPage(target);
           return;
@@ -381,10 +405,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant NovelReader oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final pageTurn = widget.settings.pageTurn;
+    if (oldWidget.settings.pageTurn != pageTurn) _switchPageTurn();
     if (oldWidget.novel.contentVersion != widget.novel.contentVersion) {
       _layoutEngine.cache.clear();
       _scheduleLayout(force: true);
-    } else if (oldWidget.settings != widget.settings ||
+    } else if (oldWidget.settings.copyWith(pageTurn: pageTurn) !=
+            widget.settings ||
         oldWidget.titleBlock != widget.titleBlock ||
         !identical(oldWidget.translations, widget.translations)) {
       _scheduleLayout(force: true);
@@ -418,7 +445,35 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     _commitGate.dispose();
     _warmup.dispose();
     _pageController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Opens the view just chosen where the one it replaces was: the page
+  /// that holds the line at the top, or the first line of the page. The
+  /// entering view is not mounted yet, so its controller is made anew,
+  /// starting there.
+  void _switchPageTurn() {
+    _warmup.clear();
+    final layout = _layout;
+    final anchor = _anchorOnScreen(scrolls: !_scrolls);
+    if (layout == null || anchor == null) return;
+    final page = layout.pageIndexForAnchor(anchor);
+    _reader.setPage(page);
+    if (_scrolls) {
+      final column = _columnOf(layout);
+      _settledAnchor = anchor;
+      _scrollController.dispose();
+      _scrollController = _NovelScrollController(
+        initialScrollOffset: _columnOffset(
+          layout,
+          column.itemForAnchor(anchor),
+        ),
+      );
+    } else {
+      _pageController.dispose();
+      _pageController = PageController(initialPage: page, keepPage: false);
+    }
   }
 
   @override
@@ -455,6 +510,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         if (layout == null) {
           return NovelPageSkeleton(style: _style);
         }
+        final color = widget.textColor ?? theme.colorScheme.onSurface;
+        if (_scrolls) return _scrollBody(layout, color);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapUp: (details) {
@@ -497,7 +554,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
               itemBuilder: (context, index) => _NovelPage(
                 page: layout.pages[index],
                 style: _style,
-                color: widget.textColor ?? theme.colorScheme.onSurface,
+                color: color,
                 novel: widget.novel,
                 onImageTap: widget.onImageTap,
                 // The layout viewport already carries the line-length cap —
@@ -510,6 +567,132 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         );
       },
     );
+  }
+
+  /// The scroll mode: the pages' lines in one column, each at its measured
+  /// extent. A tap anywhere toggles the chrome, unless it caught the column
+  /// moving: then it only stops it, as a tap on any list does.
+  Widget _scrollBody(NovelLayout layout, Color color) {
+    final column = _columnOf(layout);
+    final styles = {
+      for (final kind in NovelLineKind.values)
+        kind: _style.lineStyle(kind, color),
+    };
+    final onImageTap = widget.onImageTap;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (_scrollController.caughtScroll) return;
+        widget.onCenterTap?.call();
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onColumnScroll,
+        child: _TextAreaClip(
+          inset: _style.verticalPadding,
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: EdgeInsets.symmetric(vertical: _style.verticalPadding),
+            itemCount: column.items.length,
+            itemExtentBuilder: (index, _) =>
+                index < column.items.length ? column.extentAt(index) : null,
+            itemBuilder: (context, index) {
+              final item = column.items[index];
+              final line = item.line;
+              if (line == null) {
+                // A null child would end the list here.
+                if (item.gap != NovelPageBreak.newPage) {
+                  return const SizedBox.shrink();
+                }
+                return Center(
+                  child: SizedBox(
+                    width: _style.fontSize * _newPageRuleCharacters,
+                    height: 1,
+                    child: ColoredBox(
+                      color: color.withValues(alpha: _newPageRuleAlpha),
+                    ),
+                  ),
+                );
+              }
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  // The layout viewport carries the line-length cap; the
+                  // column centres in the list, which scrolls at full width.
+                  width: layout.key.viewport.width,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: _style.horizontalPadding,
+                    ),
+                    child: _NovelLine(
+                      line: line,
+                      style: styles[line.kind],
+                      color: color,
+                      novel: widget.novel,
+                      onImageTap: onImageTap == null
+                          ? null
+                          : (image) {
+                              if (_scrollController.caughtScroll) return;
+                              onImageTap(image);
+                            },
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A scroll that settles reports the line now at the top and its page.
+  bool _onColumnScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || notification is! ScrollEndNotification) {
+      return false;
+    }
+    // A restore reports itself once it has jumped.
+    if (_layoutEchoPending) return false;
+    final layout = _layout;
+    if (layout == null) return false;
+    final column = _columnOf(layout);
+    final item = column.itemAt(notification.metrics.pixels);
+    final anchor = column.anchorAt(item);
+    if (anchor == _settledAnchor) return false;
+    _settledAnchor = anchor;
+    _reader.setPage(column.items[item].page);
+    _notifyAnchor(NovelAnchorCause.userTurn);
+    _notifyProgress();
+    return false;
+  }
+
+  NovelScrollColumn _columnOf(NovelLayout layout) {
+    final column = _column;
+    if (column != null && identical(column.layout, layout)) return column;
+    return _column = NovelScrollColumn(layout, _style);
+  }
+
+  /// The scroll offset that puts [item] at the top of the text, short of
+  /// the column's end.
+  double _columnOffset(NovelLayout layout, int item) {
+    final column = _columnOf(layout);
+    final end =
+        column.extent + _style.verticalPadding * 2 - layout.key.viewport.height;
+    return math.min(column.offsetOf(item), math.max(0.0, end));
+  }
+
+  void _scrollTo(double offset, bool animate) {
+    final duration = animate
+        ? MotionTokens.resolve(context, MotionTokens.spatial)
+        : Duration.zero;
+    if (duration > Duration.zero) {
+      _scrollController.animateTo(
+        offset,
+        duration: duration,
+        curve: MotionTokens.spatialCurve,
+      );
+    } else {
+      _scrollController.jumpTo(offset);
+    }
   }
 
   bool _onPageScroll(ScrollNotification notification) {
@@ -630,27 +813,58 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           setState(() {
             _reader.updatePageCount(result.pages.length, page: restoredPage);
           });
+          double scrollOffset() {
+            final column = _columnOf(result);
+            return _columnOffset(
+              result,
+              anchor == null
+                  ? column.itemOfPage(restoredPage)
+                  : column.itemForAnchor(anchor),
+            );
+          }
+
           setState(() {
             _layout = result;
             _layoutError = null;
+            // The column's first build starts at the anchor's line, rather
+            // than showing the text's top for a frame first.
+            if (_scrolls && !_scrollController.hasClients) {
+              _scrollController.dispose();
+              _scrollController = _NovelScrollController(
+                initialScrollOffset: scrollOffset(),
+              );
+            }
           });
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted || !_pageController.hasClients) return;
-            if (!_commitGate.isCurrent(layoutContext)) return;
-            // Jump only when the page moved: a jump idles the position,
-            // which would cut short a swipe the user is making while a
-            // relayout (a translation arriving) lands.
-            if (_pageController.page?.round() != restoredPage) {
-              _layoutEchoPending = true;
-              _pageController.jumpToPage(restoredPage);
-              _layoutEchoPending = false;
+            if (!mounted || !_commitGate.isCurrent(layoutContext)) return;
+            if (_scrolls) {
+              if (!_scrollController.hasClients) return;
+              final offset = scrollOffset();
+              // As with pages, a jump cuts short a scroll in progress, so
+              // the column jumps only when the line moved.
+              if (_scrollController.offset != offset) {
+                _layoutEchoPending = true;
+                _scrollController.jumpTo(offset);
+                _layoutEchoPending = false;
+              }
+              _settledAnchor = _liveAnchor;
+            } else {
+              if (!_pageController.hasClients) return;
+              // Jump only when the page moved: a jump idles the position,
+              // which would cut short a swipe the user is making while a
+              // relayout (a translation arriving) lands.
+              if (_pageController.page?.round() != restoredPage) {
+                _layoutEchoPending = true;
+                _pageController.jumpToPage(restoredPage);
+                _layoutEchoPending = false;
+              }
             }
             // The explicit echo also covers the skipped jump where the
             // restored page already equals the current one (no
             // onPageChanged fires then).
             _notifyAnchor(NovelAnchorCause.layoutEcho);
             _notifyProgress();
-            _warmPagesAhead();
+            if (!_scrolls) _warmPagesAhead();
           });
         },
       );
@@ -665,10 +879,18 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     }
   }
 
-  /// Start anchor of the page on screen; null before the first layout.
-  NovelAnchor? get _liveAnchor {
+  NovelAnchor? get _liveAnchor => _anchorOnScreen(scrolls: _scrolls);
+
+  /// Where the reader is: the line at the top of the column in scroll
+  /// mode, the start of the page on screen in page mode; null before the
+  /// first layout.
+  NovelAnchor? _anchorOnScreen({required bool scrolls}) {
     final layout = _layout;
     if (layout == null || layout.pages.isEmpty) return null;
+    if (scrolls && _scrollController.hasClients) {
+      final column = _columnOf(layout);
+      return column.anchorAt(column.itemAt(_scrollController.offset));
+    }
     return layout
         .pages[_reader.currentPage.clamp(0, layout.pages.length - 1)]
         .startAnchor;
@@ -754,33 +976,58 @@ class _NovelPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final line in page.lines) ...[
-            if (line.image case final image?)
-              SizedBox(
-                height: line.height,
-                child: NovelIllustration(
-                  novel: novel,
-                  image: image,
-                  color: color,
-                  onTap: onImageTap,
-                ),
-              )
-            else if (line.text.isEmpty)
-              SizedBox(height: line.height)
-            else
-              SizedBox(
-                height: line.height,
-                child: Text(
-                  line.text,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.clip,
-                  style: styles[line.kind],
-                ),
-              ),
+            _NovelLine(
+              line: line,
+              style: styles[line.kind],
+              color: color,
+              novel: novel,
+              onImageTap: onImageTap,
+            ),
             if (line.spacingAfter > 0) SizedBox(height: line.spacingAfter),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// One line of the text, at its measured height: a row of text, or the
+/// illustration of an image line.
+class _NovelLine extends StatelessWidget {
+  const _NovelLine({
+    required this.line,
+    required this.style,
+    required this.color,
+    required this.novel,
+    required this.onImageTap,
+  });
+
+  final NovelPageLine line;
+  final TextStyle? style;
+  final Color color;
+  final NovelEntity novel;
+  final ValueChanged<NovelImageLoadRequest>? onImageTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: line.height,
+      child: switch (line) {
+        NovelPageLine(:final image?) => NovelIllustration(
+          novel: novel,
+          image: image,
+          color: color,
+          onTap: onImageTap,
+        ),
+        NovelPageLine(text: '') => null,
+        _ => Text(
+          line.text,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.clip,
+          style: style,
+        ),
+      },
     );
   }
 }
@@ -860,5 +1107,104 @@ class NovelPageSkeleton extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Remembers whether a touch caught the column moving, so the tap that
+/// stops a fling does not also toggle the chrome or open an image.
+class _NovelScrollController extends ScrollController {
+  _NovelScrollController({super.initialScrollOffset})
+    : super(keepScrollOffset: false);
+
+  bool get caughtScroll =>
+      hasClients && (position as _NovelScrollPosition).caughtScroll;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _NovelScrollPosition(
+    physics: physics,
+    context: context,
+    initialPixels: initialScrollOffset,
+    keepScrollOffset: keepScrollOffset,
+    oldPosition: oldPosition,
+    debugLabel: debugLabel,
+  );
+}
+
+class _NovelScrollPosition extends ScrollPositionWithSingleContext {
+  _NovelScrollPosition({
+    required super.physics,
+    required super.context,
+    super.initialPixels,
+    super.keepScrollOffset,
+    super.oldPosition,
+    super.debugLabel,
+  });
+
+  /// Whether the last touch found the column moving. A touch holds the
+  /// position the moment it lands, before a tap can be told from a drag.
+  bool caughtScroll = false;
+
+  @override
+  ScrollHoldController hold(VoidCallback holdCancelCallback) {
+    caughtScroll = activity?.isScrolling ?? false;
+    return super.hold(holdCancelCallback);
+  }
+}
+
+/// Paints [child] only between the page's top and bottom margins, as a page
+/// shows its text: lines scroll out of sight there instead of under the
+/// status bar and the progress hint. Touches still land anywhere, so a
+/// drag can start in a margin.
+class _TextAreaClip extends SingleChildRenderObjectWidget {
+  const _TextAreaClip({required this.inset, required super.child});
+
+  final double inset;
+
+  @override
+  _RenderTextAreaClip createRenderObject(BuildContext context) =>
+      _RenderTextAreaClip(inset);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderTextAreaClip renderObject,
+  ) {
+    renderObject.inset = inset;
+  }
+}
+
+class _RenderTextAreaClip extends RenderProxyBox {
+  _RenderTextAreaClip(this._inset);
+
+  double _inset;
+  set inset(double value) {
+    if (value == _inset) return;
+    _inset = value;
+    markNeedsPaint();
+  }
+
+  final _clip = LayerHandle<ClipRectLayer>();
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    _clip.layer = context.pushClipRect(
+      needsCompositing,
+      offset,
+      Rect.fromLTRB(0, _inset, size.width, size.height - _inset),
+      (context, offset) => context.paintChild(child, offset),
+      oldLayer: _clip.layer,
+    );
+  }
+
+  @override
+  void dispose() {
+    _clip.layer = null;
+    super.dispose();
   }
 }

@@ -5051,6 +5051,18 @@ abstract class AppLocalizations {
   /// **'夜间'**
   String get novelThemeNight;
 
+  /// No description provided for @novelPageTurnScroll.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下滚动'**
+  String get novelPageTurnScroll;
+
+  /// No description provided for @novelPageTurnPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'左右翻页'**
+  String get novelPageTurnPages;
+
   /// No description provided for @aboutDisplayRefreshRate.
   ///
   /// In zh, this message translates to:

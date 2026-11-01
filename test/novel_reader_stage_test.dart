@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/user/user_entity.dart';
@@ -19,6 +21,7 @@ import 'package:parfait/app/widgets/prompt_host.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/localized_app.dart';
+import 'helpers/test_preferences.dart';
 
 /// Stage-level test with a recording progress binding: pins the D1 write
 /// gate — only user-committed turns reach `save`.
@@ -48,6 +51,46 @@ void main() {
     // A real page turn writes exactly one anchor.
     await tester.tapAt(const Offset(780, 300));
     await tester.pumpAndSettle();
+    expect(binding.saves, hasLength(1));
+  });
+
+  testWidgets('scroll mode: open writes nothing, a settle writes once; '
+      'turning pages on keeps the place', (tester) async {
+    final text = List.generate(
+      80,
+      (index) => 'paragraph $index body text body text',
+    ).join('\n');
+    final binding = _RecordingBinding(
+      restore: const NovelAnchor(paragraphId: 'p40', offset: 0),
+    );
+    await tester.pumpWidget(
+      _stageApp(binding, text: text, pageTurn: NovelPageTurn.scroll),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(PageView), findsNothing);
+    expect(binding.saves, isEmpty);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(binding.saves, hasLength(1));
+    final read = binding.saves.single;
+    expect(read, isNot(const NovelAnchor(paragraphId: 'p40', offset: 0)));
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.tune_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('左右翻页'));
+    await tester.pumpAndSettle();
+    final layout = tester
+        .widget<NovelReader>(find.byType(NovelReader))
+        .handle!
+        .layout!()!;
+    expect(
+      tester.widget<PageView>(find.byType(PageView)).controller!.page,
+      layout.pageIndexForAnchor(read),
+    );
     expect(binding.saves, hasLength(1));
   });
 
@@ -329,7 +372,15 @@ Widget _stageApp(
   SharedPreferencesAsync? preferences,
   ThemeData? theme,
   TranslationTransport? translation,
+  NovelPageTurn pageTurn = NovelPageTurn.pages,
 }) {
+  installPreferencesForTest(
+    memoryPreferences({
+      'parfait.novel.reader_settings.v1': jsonEncode(
+        NovelReaderSettings(pageTurn: pageTurn).toJson(),
+      ),
+    }),
+  );
   return localizedApp(
     overrides: [
       if (preferences != null)
