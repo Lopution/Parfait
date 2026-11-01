@@ -704,17 +704,16 @@ class _NovelPage extends StatelessWidget {
     NovelLayoutStyle style,
     Color color,
   ) {
-    final textStyle = warmStyle(context, style.textStyle(color));
-    final translationStyle = warmStyle(context, style.translationStyle(color));
+    final styles = {
+      for (final kind in NovelLineKind.values)
+        kind: warmStyle(context, style.lineStyle(kind, color)),
+    };
     final locale = Localizations.maybeLocaleOf(context);
     return [
       for (final line in page.lines)
         if (line.text.isNotEmpty)
           (
-            span: TextSpan(
-              text: line.text,
-              style: line.isTranslation ? translationStyle : textStyle,
-            ),
+            span: TextSpan(text: line.text, style: styles[line.kind]),
             locale: locale,
             strutStyle: null,
           ),
@@ -722,8 +721,10 @@ class _NovelPage extends StatelessWidget {
   }
 
   Widget _buildColumn() {
-    final textStyle = style.textStyle(color);
-    final translationStyle = style.translationStyle(color);
+    final styles = {
+      for (final kind in NovelLineKind.values)
+        kind: style.lineStyle(kind, color),
+    };
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: style.horizontalPadding,
@@ -743,7 +744,7 @@ class _NovelPage extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.clip,
-                  style: line.isTranslation ? translationStyle : textStyle,
+                  style: styles[line.kind],
                 ),
               ),
             if (line.spacingAfter > 0) SizedBox(height: line.spacingAfter),

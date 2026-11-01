@@ -48,6 +48,12 @@ class NovelLayoutStyle {
     fontWeight: fontWeight,
     height: lineHeight,
   );
+
+  /// The style a line of [kind] is measured and painted with (LAYOUT-04).
+  TextStyle lineStyle(NovelLineKind kind, Color color) => switch (kind) {
+    NovelLineKind.body => textStyle(color),
+    NovelLineKind.translation => translationStyle(color),
+  };
 }
 
 /// Hard limits for one layout transaction. They make work proportional to a
@@ -192,6 +198,14 @@ class NovelLayoutKey {
   );
 }
 
+/// What a laid-out line is, which picks the style it paints with.
+enum NovelLineKind {
+  body,
+
+  /// A line of a paragraph's translation (bilingual reading).
+  translation,
+}
+
 class NovelPageLine {
   const NovelPageLine({
     required this.text,
@@ -201,7 +215,7 @@ class NovelPageLine {
     required this.height,
     required this.isParagraphEnd,
     required this.spacingAfter,
-    this.isTranslation = false,
+    this.kind = NovelLineKind.body,
   });
 
   final String text;
@@ -215,10 +229,12 @@ class NovelPageLine {
   /// the translation gap between a paragraph and its translation.
   final double spacingAfter;
 
+  final NovelLineKind kind;
+
   /// A line of a paragraph's translation. It belongs to the paragraph and
   /// sits at its end (both offsets are the paragraph's length), so anchors
   /// and progress never point into a translation.
-  final bool isTranslation;
+  bool get isTranslation => kind == NovelLineKind.translation;
 
   NovelAnchor get startAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: startOffset);
@@ -829,7 +845,11 @@ class NovelLayoutEngine {
   ) {
     final style = measure.style;
     final source = paragraph.text.isEmpty ? ' ' : paragraph.text;
-    final rows = _rows(source, style.textStyle(measure.textColor), measure);
+    final rows = _rows(
+      source,
+      style.lineStyle(NovelLineKind.body, measure.textColor),
+      measure,
+    );
     if (rows.isEmpty) {
       return [
         _MeasuredLine(
@@ -877,7 +897,7 @@ class NovelLayoutEngine {
   ) {
     final rows = _rows(
       translation,
-      measure.style.translationStyle(measure.textColor),
+      measure.style.lineStyle(NovelLineKind.translation, measure.textColor),
       measure,
     );
     final end = paragraph.text.length;
@@ -891,7 +911,7 @@ class NovelLayoutEngine {
           text: translation.substring(row.start, row.end),
           height: row.height,
           isParagraphEnd: index == rows.length - 1,
-          isTranslation: true,
+          kind: NovelLineKind.translation,
         ),
     ];
   }
@@ -968,7 +988,7 @@ class NovelLayoutEngine {
             height: line.height,
             isParagraphEnd: line.isParagraphEnd,
             spacingAfter: spacing,
-            isTranslation: line.isTranslation,
+            kind: line.kind,
           ),
       ];
       final first = current.first.line;
@@ -1091,7 +1111,7 @@ class _MeasuredLine {
     required this.isParagraphEnd,
     this.pageBreakBefore = false,
     this.chapterTitle,
-    this.isTranslation = false,
+    this.kind = NovelLineKind.body,
   });
 
   const _MeasuredLine.empty()
@@ -1104,7 +1124,7 @@ class _MeasuredLine {
       isParagraphEnd = true,
       pageBreakBefore = false,
       chapterTitle = null,
-      isTranslation = false;
+      kind = NovelLineKind.body;
 
   final int paragraphIndex;
   final String paragraphId;
@@ -1115,7 +1135,9 @@ class _MeasuredLine {
   final bool isParagraphEnd;
   final bool pageBreakBefore;
   final String? chapterTitle;
-  final bool isTranslation;
+  final NovelLineKind kind;
+
+  bool get isTranslation => kind == NovelLineKind.translation;
 
   NovelAnchor get startAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: startOffset);
