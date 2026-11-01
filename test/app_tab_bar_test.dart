@@ -108,13 +108,28 @@ void main() {
   testWidgets('a wide row keeps its tabs together at the start', (
     tester,
   ) async {
-    await _pumpBar(tester, const ['插画', '漫画', '小说', '用户'], width: 1400);
+    for (final (labels, capped) in const [
+      (['插画', '漫画', '小说', '用户'], true),
+      // A label wider than the cap widens every slot and is never cut.
+      (['Иллюстрации и манга', 'Романы', 'Пользователи', 'Теги'], false),
+    ]) {
+      await _pumpBar(tester, labels, width: 1400);
 
-    final row = tester.getRect(find.byType(AppTabBar));
-    final bar = tester.getRect(find.byType(TabBar));
-    expect(bar.width, 4 * AppTabBar.maxSlotWidth);
-    expect(bar.left, row.left);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isFalse);
+      final row = tester.getRect(find.byType(AppTabBar));
+      final bar = tester.getRect(find.byType(TabBar));
+      if (capped) {
+        expect(bar.width, 4 * AppTabBar.maxSlotWidth);
+      } else {
+        expect(bar.width, greaterThan(4 * AppTabBar.maxSlotWidth));
+        expect(bar.width, lessThan(row.width));
+      }
+      expect(bar.left, row.left);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isFalse);
+      for (final label in labels) {
+        final text = tester.renderObject<RenderParagraph>(find.text(label));
+        expect(text.debugHasOverflowShader, isFalse, reason: label);
+      }
+    }
   });
 
   testWidgets(
