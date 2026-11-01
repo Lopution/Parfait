@@ -52,6 +52,7 @@ class NovelReaderStageSpec {
     required this.infoTooltip,
     required this.infoSheet,
     required this.progress,
+    this.titleBlock,
     this.topActions = const [],
     this.bodyWrapper,
   });
@@ -59,6 +60,10 @@ class NovelReaderStageSpec {
   /// The document being read — a real detail entity online, a synthetic
   /// one built from the TXT file locally.
   final NovelEntity novel;
+
+  /// Title and byline that open the first page (online only: a file has
+  /// no author, and its name is not a title).
+  final NovelTitleBlock? titleBlock;
 
   /// Extra actions rendered before the info button in the top bar
   /// (online: share + bookmark; local: none).
@@ -498,6 +503,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       _initialAnchor,
       palette.foreground,
       translations,
+      widget.spec.titleBlock,
       padding,
     );
     // The same reader while its inputs hold: the chrome, the progress hint
@@ -513,6 +519,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
           initialAnchor: _initialAnchor,
           textColor: palette.foreground,
           translations: translations,
+          titleBlock: widget.spec.titleBlock,
           handle: _readerHandle,
           onCenterTap: _toggleChrome,
           onProgressChanged: _onProgressChanged,

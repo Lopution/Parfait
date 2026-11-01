@@ -73,6 +73,7 @@ void main() {
       style: style,
       textColor: Colors.black,
       brightness: Brightness.light,
+      titleBlock: const NovelTitleBlock(title: '旅路', byline: 'author'),
     );
     final lines = [for (final page in layout.pages) ...page.lines];
 
@@ -80,6 +81,10 @@ void main() {
       lines.where((line) => line.kind == NovelLineKind.heading).single.text,
       '第二章　出発',
     );
+    expect(lines.map((line) => line.kind).take(2), [
+      NovelLineKind.title,
+      NovelLineKind.byline,
+    ]);
     for (final line in lines) {
       // An empty paragraph is measured as a space, as layout measures it.
       final painter = TextPainter(
@@ -96,6 +101,64 @@ void main() {
       );
       painter.dispose();
     }
+  });
+
+  test('a title block opens page 1 and moves no character', () async {
+    final body = [
+      '[chapter:第一章]',
+      for (var index = 0; index < 60; index++) '第$index段 ${'本文' * 20}',
+    ].join('\n');
+    final novel = _novel('').withWebContent(body);
+    Future<NovelLayout> layout(NovelTitleBlock? titleBlock) =>
+        NovelLayoutEngine().layoutDocumentCancellable(
+          document: novel.markup!,
+          contentVersion: novel.contentVersion,
+          viewport: const Size(360, 640),
+          style: const NovelLayoutStyle(),
+          textColor: Colors.black,
+          brightness: Brightness.light,
+          titleBlock: titleBlock,
+        );
+    List<(String, int, int)> textLines(NovelLayout layout) => [
+      for (final page in layout.pages)
+        for (final line in page.lines)
+          if (!line.isTitleBlock)
+            (line.paragraphId, line.startOffset, line.endOffset),
+    ];
+
+    final plain = await layout(null);
+    final titled = await layout(
+      NovelTitleBlock(title: 'とても長い題名' * 6, byline: 'author · series'),
+    );
+
+    final first = titled.pages.first;
+    final kinds = first.lines.map((line) => line.kind).toSet().toList();
+    // A long title wraps; the chapter opens page 1 under the block.
+    expect(
+      first.lines.where((line) => line.kind == NovelLineKind.title).length,
+      greaterThan(1),
+    );
+    expect(kinds.take(3), [
+      NovelLineKind.title,
+      NovelLineKind.byline,
+      NovelLineKind.heading,
+    ]);
+    expect(first.chapterTitle, '第一章');
+    expect(
+      titled.pages.skip(1).expand((page) => page.lines),
+      everyElement(
+        isA<NovelPageLine>().having(
+          (l) => l.isTitleBlock,
+          'title block',
+          isFalse,
+        ),
+      ),
+    );
+    expect(textLines(titled), textLines(plain));
+    expect(first.startAnchor, plain.pages.first.startAnchor);
+    expect(first.startCharacter, 0);
+    expect(titled.totalCharacters, plain.totalCharacters);
+    expect(titled.pages.last.endCharacter, plain.pages.last.endCharacter);
   });
 
   test('layout cache is keyed by content, viewport and typography', () {
@@ -464,6 +527,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
     TextDirection textDirection = TextDirection.ltr,
     TextScaler textScaler = TextScaler.noScaling,
     Map<String, String> translations = const {},
+    NovelTitleBlock? titleBlock,
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
@@ -479,6 +543,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
       textDirection: textDirection,
       textScaler: textScaler,
       translations: translations,
+      titleBlock: titleBlock,
       cancelToken: cancelToken,
       budget: budget,
       onProgress: onProgress,

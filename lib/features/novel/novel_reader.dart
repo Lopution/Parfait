@@ -257,6 +257,7 @@ class NovelReader extends StatefulWidget {
     this.initialAnchor,
     this.textColor,
     this.translations = const {},
+    this.titleBlock,
     this.onAnchorChanged,
     this.onCenterTap,
     this.onProgressChanged,
@@ -281,6 +282,9 @@ class NovelReader extends StatefulWidget {
   /// Paragraph translations shown under their paragraphs (bilingual
   /// reading), by paragraph id. A new map relayouts, keeping the page.
   final Map<String, String> translations;
+
+  /// Title and byline at the top of the first page; null shows none.
+  final NovelTitleBlock? titleBlock;
 
   /// Fires when the current page's start anchor is reported — either by a
   /// layout commit re-asserting position ([NovelAnchorCause.layoutEcho]) or
@@ -375,6 +379,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       _layoutEngine.cache.clear();
       _scheduleLayout(force: true);
     } else if (oldWidget.settings != widget.settings ||
+        oldWidget.titleBlock != widget.titleBlock ||
         !identical(oldWidget.translations, widget.translations)) {
       _scheduleLayout(force: true);
     }
@@ -595,6 +600,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         textDirection: direction,
         textScaler: _requestedTextScaler ?? TextScaler.noScaling,
         translations: widget.translations,
+        titleBlock: widget.titleBlock,
         cancelToken: layoutContext.cancelToken,
         budget: widget.budget,
       );

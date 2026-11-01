@@ -126,7 +126,8 @@ mixin BilingualReading<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     final ids = <String>{};
     for (final line in layout.pages[page].lines) {
       final id = line.paragraphId;
-      if (line.isTranslation || _translations.containsKey(id)) continue;
+      if (line.isTranslation || line.isTitleBlock) continue;
+      if (_translations.containsKey(id)) continue;
       if ((_sources[id] ?? '').trim().isEmpty) continue;
       ids.add(id);
     }

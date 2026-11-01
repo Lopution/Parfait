@@ -113,6 +113,10 @@ class NovelPage extends ConsumerWidget {
   ) {
     return NovelReaderStageSpec(
       novel: novel,
+      titleBlock: NovelTitleBlock(
+        title: novel.title,
+        byline: [novel.user.name, ?novel.seriesTitle].join(' · '),
+      ),
       topActions: [
         IconButton(
           tooltip: context.l10n.cardActionShare,

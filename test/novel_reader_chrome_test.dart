@@ -189,18 +189,24 @@ void main() {
     final container = await _apiContainer();
     await _mountReader(tester, container);
 
+    // The page's title block names the novel too; these look at the bar.
+    Finder barTitle({bool skipOffstage = true}) => find.descendant(
+      of: find.byType(NavigationToolbar, skipOffstage: skipOffstage),
+      matching: find.text('novel 1', skipOffstage: skipOffstage),
+    );
+
     expect(find.byType(PageView), findsOneWidget);
-    // Chrome is hidden by default: the title lives only in the chrome bar,
-    // so it must not be on screen yet. The passive footer is the only
-    // title-bearing readout in the hidden state.
-    expect(find.text('novel 1'), findsNothing);
+    // Chrome is hidden by default, so the bar's title is not on screen
+    // yet. The passive footer is the only title-bearing readout in the
+    // hidden state.
+    expect(barTitle(), findsNothing);
     expect(find.textContaining('novel 1 ·'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back), findsNothing);
 
     // Center tap reveals the chrome; the title appears exactly once.
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
-    expect(find.text('novel 1'), findsOneWidget);
+    expect(barTitle(), findsOneWidget);
     expect(find.textContaining('novel 1 ·'), findsNothing);
     expect(find.byIcon(Icons.arrow_back), findsOneWidget);
     expect(find.byIcon(Icons.info_outline), findsOneWidget);
@@ -214,20 +220,20 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(PageView), findsOneWidget);
-    expect(find.text('novel 1'), findsNothing);
+    expect(barTitle(), findsNothing);
     expect(find.textContaining('novel 1 ·'), findsOneWidget);
 
     // The dismissed bars stay mounted offstage, out of the semantics tree;
     // the next reveal reuses their laid-out text.
     final semantics = tester.ensureSemantics();
-    final title = find.text('novel 1', skipOffstage: false);
-    final paragraph = tester.renderObject(title);
-    final titleNode = find.semantics.byLabel(RegExp(r'^novel 1(\n|$)'));
-    expect(titleNode, findsNothing);
+    final paragraph = tester.renderObject(barTitle(skipOffstage: false));
+    // The page's title block is the one title node while the bar is gone.
+    final titleNodes = find.semantics.byLabel(RegExp(r'^novel 1(\n|$)'));
+    expect(titleNodes, findsOne);
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
-    expect(tester.renderObject(find.text('novel 1')), same(paragraph));
-    expect(titleNode, findsOne);
+    expect(tester.renderObject(barTitle()), same(paragraph));
+    expect(titleNodes, findsExactly(2));
     semantics.dispose();
   });
 
