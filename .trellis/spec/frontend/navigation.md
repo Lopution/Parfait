@@ -242,7 +242,8 @@ reviewed: 2026-10-17
   its padding when that is wider, and keeps to the start edge; a narrower
   one is always split in full. Otherwise the row scrolls from the start
   edge with a 48dp `ScrollEdgeFade`. Labels are measured in the style
-  `TabBar` paints: `titleSmall` merged with the theme's label style.
+  `TabBar` paints: `titleSmall` merged with the theme's label style, under
+  the system's text settings (LAYOUT-04).
 - **Why:** Shrunk labels became unreadable in long languages; on wide
   windows even shares left the labels far apart: at 180dp seven profile
   tabs spread over about 1300dp. A flat cap faded a Russian label longer

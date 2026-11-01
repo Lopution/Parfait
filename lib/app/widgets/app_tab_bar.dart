@@ -57,15 +57,19 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     // Resolve label styles exactly the way TabBar does (its titleSmall
-    // default merged with the theme's) so the fit check measures the same
-    // glyphs that will be painted.
+    // default merged with the theme's), then the way Text applies the
+    // system's text settings, so the fit check measures the same glyphs
+    // that will be painted.
     final tabBarTheme = TabBarTheme.of(context);
     final titleSmall = Theme.of(context).textTheme.titleSmall;
-    final styles = <TextStyle?>{
-      titleSmall?.merge(tabBarTheme.labelStyle),
-      titleSmall?.merge(
-        tabBarTheme.unselectedLabelStyle ?? tabBarTheme.labelStyle,
-      ),
+    final styles = {
+      for (final style in [
+        titleSmall?.merge(tabBarTheme.labelStyle),
+        titleSmall?.merge(
+          tabBarTheme.unselectedLabelStyle ?? tabBarTheme.labelStyle,
+        ),
+      ])
+        LabelFit.paintedStyle(context, style?.merge(_tabular) ?? _tabular),
     };
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
@@ -77,12 +81,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
           for (final style in styles) {
             widest = math.max(
               widest,
-              LabelFit.measureLabel(
-                label,
-                style?.merge(_tabular) ?? _tabular,
-                textScaler,
-                textDirection,
-              ),
+              LabelFit.measureLabel(label, style, textScaler, textDirection),
             );
           }
         }

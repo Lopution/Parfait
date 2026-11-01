@@ -69,6 +69,22 @@ final class LabelFit {
     return _widths[key] = width;
   }
 
+  /// [style] as a [Text] paints it under [context]'s [MediaQuery]: bold
+  /// when the system asks for bold text, with the platform's letter and
+  /// word spacing overrides. Measuring without them, a label can paint
+  /// wider than measured.
+  static TextStyle paintedStyle(BuildContext context, TextStyle style) {
+    final bold = MediaQuery.boldTextOf(context);
+    return style
+        .merge(bold ? const TextStyle(fontWeight: FontWeight.bold) : null)
+        .merge(
+          TextStyle(
+            letterSpacing: MediaQuery.maybeLetterSpacingOverrideOf(context),
+            wordSpacing: MediaQuery.maybeWordSpacingOverrideOf(context),
+          ),
+        );
+  }
+
   /// Widths [measureLabel] laid out, oldest first.
   static final _widths =
       <(String, TextStyle, TextScaler, TextDirection), double>{};
