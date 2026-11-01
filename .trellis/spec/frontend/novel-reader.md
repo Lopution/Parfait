@@ -79,20 +79,26 @@ reviewed: 2026-11-01
 - **Check:** `test/novel_reader_test.dart` "each line lays out as tall as the style of its kind" "a title block opens page 1 and moves no character"
 - **Code:** `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_page.dart`
 
-### NOVEL-12 An image the payload carries takes a page of its own
-- **Rule:** An image marker becomes a `NovelImageBlock` only when the
-  webview payload carries its address (`NovelEntity.imageUrlFor`: an
-  upload by id, its `1200x1200` before the original; a Pixiv work by
-  `id-page`, then `id`); any other stays its marker, as text. The block
-  keeps its marker line's paragraph id, so anchors and history saved
-  before images showed still land. Layout gives it one line as tall as
-  the page, alone on that page; the image is contained and centred, and
-  only the image takes a tap: a Pixiv work opens its viewer at the
-  marker's page, an upload opens alone (`novel/:id/image/:imageId`). The
-  margins beside it keep the turn zones. Bilingual reading skips it.
-- **Why:** Every image showed as a raw `[uploadedimage:…]` line (user report, 11-01).
-- **Check:** `test/novel_markup_hardening_test.dart` "an image takes its marker line and moves no paragraph id"; `test/novel_reader_test.dart` "an image resolves by work page, then work, and fills a page" "an image opens on tap; the margins beside it turn the page"; `test/navigation_restoration_test.dart` "a novel image opens a work at its page, an upload alone"
-- **Code:** `lib/core/novel/novel_entity.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/app/navigation/routes.dart`
+### NOVEL-12 Every image marker takes a page; one that cannot show says so
+- **Rule:** In a pixiv body every valid image marker becomes a
+  `NovelImageBlock` (a local file's stay text). The block keeps its
+  marker line's paragraph id, so anchors and history saved before images
+  showed still land. Layout gives it one line as tall as the page, alone
+  on that page. `NovelIllustration` draws it at the novel image quality
+  setting (大图/原图): an upload from the payload (`1200x1200` or the
+  original); a Pixiv work's page from the work's detail
+  (`detailUrlAt`), the payload's preview standing in while it loads or
+  when it fails. A work the detail reports gone, restricted or short of
+  the page, or an upload the payload lacks, shows a notice in the hint
+  colour and takes no tap. An image is contained and centred, and only
+  the image takes a tap: a work opens its viewer at the marker's page,
+  an upload opens alone (`novel/:id/image/:imageId`, at the viewer
+  quality). The margins beside it keep the turn zones. Bilingual reading
+  skips it.
+- **Why:** Every image showed as a raw `[uploadedimage:…]` line, and the
+  payload's work preview is a 540px crop (user report, 11-01).
+- **Check:** `test/novel_markup_hardening_test.dart` "an image takes its marker line and moves no paragraph id"; `test/novel_reader_test.dart` "a work preview is found by page, then work; an image fills a page" "an image shows at its setting, opens on tap; margins turn"; `test/navigation_restoration_test.dart` "a novel image shows and opens its work page; a lost one says so"
+- **Code:** `lib/core/novel/novel_entity.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_illustration.dart`, `lib/app/navigation/routes.dart`
 
 ## Reader stage
 
