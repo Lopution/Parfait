@@ -470,6 +470,17 @@ Map<String, ReviewResponder> _defaultResponders() {
     '/v1/user/novels': reviewJson(novelFeed),
     '/v1/user/bookmarks/illust': reviewJson(illustFeed),
     '/v1/user/bookmarks/novel': reviewJson(novelFeed),
+    // The account's novel bookmarks, at a page each.
+    '/v2/novel/markers': reviewJson({
+      'marked_novels': [
+        for (var i = 0; i < 6; i++)
+          {
+            'novel': reviewNovelJson(2000 + i),
+            'novel_marker': {'page': i + 1},
+          },
+      ],
+      'next_url': null,
+    }),
     '/v1/user/mypixiv': reviewJson(illustFeed),
     '/v1/user/following': reviewJson(userFeed),
     '/v1/user/follower': reviewJson(userFeed),
@@ -578,6 +589,8 @@ Map<String, ReviewResponder> _defaultResponders() {
     }),
     '/v2/novel/bookmark/add': reviewJson(const {}),
     '/v1/novel/bookmark/delete': reviewJson(const {}),
+    '/v1/novel/marker/add': reviewJson(const {}),
+    '/v1/novel/marker/delete': reviewJson(const {}),
     '/v2/novel/bookmark/detail': reviewJson({
       'bookmark_detail': {
         'is_bookmarked': true,

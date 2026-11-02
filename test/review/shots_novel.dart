@@ -57,6 +57,17 @@ void main() {
       await tester.tap(find.byIcon(Icons.expand_less));
     },
   );
+  // The info sheet: series, length, counts and date under the author.
+  testShot(
+    'novel/info',
+    location: novel,
+    variants: {ShotVariant.dark, ...overflowVariants},
+    before: (tester, router) async {
+      await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.info_outline));
+    },
+  );
   Future<void> openReaderSettings(WidgetTester tester) async {
     await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
     await tester.pumpAndSettle();
@@ -83,6 +94,15 @@ void main() {
       await tester.tapAt(reader.center);
       await tester.pumpAndSettle();
       await tester.tapAt(reader.centerRight - const Offset(8, 0));
+    },
+  );
+  // The account's novel bookmarks; the second one removed, kept to put back.
+  testShot(
+    'novel/markers',
+    location: '/settings/novel-markers',
+    variants: {ShotVariant.dark, ...overflowVariants},
+    before: (tester, router) async {
+      await tester.tap(find.byIcon(Icons.bookmark).at(1));
     },
   );
   testShot('novel/comments', location: '$novel/comments');

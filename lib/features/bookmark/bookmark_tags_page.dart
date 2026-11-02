@@ -14,15 +14,16 @@ import '../../app/layout/content_widths.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
 
 /// The signed-in user's bookmark tag collection (`/v1/user/bookmark-tags/`)
-/// in two tabs, public and private. Tapping a tag opens the filtered
-/// bookmarks feed. Illust-only for now — the novel twin endpoint is wired in
-/// the repository but has no UI consumer yet.
+/// of one [kind] in two tabs, public and private. Tapping a tag opens the
+/// filtered bookmarks feed of that kind.
 class BookmarkTagsPage extends StatefulWidget {
   const BookmarkTagsPage({
     super.key,
+    this.kind = BookmarkEntityType.illust,
     this.initialRestrict = BookmarkRestrict.public,
   });
 
+  final BookmarkEntityType kind;
   final BookmarkRestrict initialRestrict;
 
   @override
@@ -78,7 +79,7 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
           for (final restrict in _restricts)
             ContentWidthCap(
               maxWidth: ContentWidths.management,
-              child: _RestrictTags(restrict: restrict),
+              child: _RestrictTags(kind: widget.kind, restrict: restrict),
             ),
         ],
       ),
@@ -89,8 +90,9 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
 /// One visibility's tags, refreshable and paged. Kept alive in the tab
 /// view: its list goes with the page, not when the other tab shows.
 class _RestrictTags extends ConsumerStatefulWidget {
-  const _RestrictTags({required this.restrict});
+  const _RestrictTags({required this.kind, required this.restrict});
 
+  final BookmarkEntityType kind;
   final BookmarkRestrict restrict;
 
   @override
@@ -107,7 +109,7 @@ class _RestrictTagsState extends ConsumerState<_RestrictTags>
     super.build(context);
     final l10n = context.l10n;
     final restrict = widget.restrict;
-    final BookmarkTagQuery query = (BookmarkEntityType.illust, restrict);
+    final BookmarkTagQuery query = (widget.kind, restrict);
     final async = ref.watch(userBookmarkTagsProvider(query));
     return PullToRefresh(
       onRefresh: () =>
@@ -197,8 +199,12 @@ class _TagList extends ConsumerWidget {
             leading: const Icon(Icons.label_outline),
             title: Text(tag.name),
             trailing: Text('${tag.count}'),
-            onTap: () =>
-                openBookmarkTagFeed(context, tag: tag.name, restrict: restrict),
+            onTap: () => openBookmarkTagFeed(
+              context,
+              tag: tag.name,
+              kind: query.$1,
+              restrict: restrict,
+            ),
           );
         },
       ),

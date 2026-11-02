@@ -2914,6 +2914,23 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelMarkerFailed => 'Не удалось изменить метку';
 
   @override
+  String get novelMarkers => 'Метки в новеллах';
+
+  @override
+  String novelMarkerAtPage(int page) {
+    return 'Метка · стр. $page';
+  }
+
+  @override
+  String get novelMarkerRestore => 'Вернуть метку';
+
+  @override
+  String get novelMarkersEmpty => 'Пока нет меток в новеллах';
+
+  @override
+  String get novelMarkersLoadFailed => 'Не удалось загрузить метки';
+
+  @override
   String get novelIllustration => 'Иллюстрация';
 
   @override

@@ -8,6 +8,7 @@ import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_tags_controller.dart';
 import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
 
@@ -26,7 +27,8 @@ import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/localized_app.dart';
 
-/// Two bookmarked works with tags, for the bookmark tag feed.
+/// Two bookmarked works with tags, for the bookmark tag feed, as
+/// illustrations and as novels.
 UserApi _users() => UserApi(
   bookmarks: [
     _illust(1, 'Blue Sky', [
@@ -36,6 +38,20 @@ UserApi _users() => UserApi(
       {'name': '花'},
     ]),
   ],
+  novelBookmarks: [
+    {
+      ...novelJson(1, title: 'Blue Sky'),
+      'tags': [
+        {'name': '空', 'translated_name': 'blue'},
+      ],
+    },
+    {
+      ...novelJson(2, title: 'Sakura'),
+      'tags': [
+        {'name': '花'},
+      ],
+    },
+  ],
 );
 
 Map<String, dynamic> _illust(
@@ -44,8 +60,11 @@ Map<String, dynamic> _illust(
   List<Map<String, dynamic>> tags,
 ) => {...illustJson(id, bookmarked: true), 'title': title, 'tags': tags};
 
-Future<ProviderContainer> _makeContainer(UserApi users) => signedInApiContainer(
-  PixivApi({...backgroundRoutes, ...users.routes}).client,
+Future<ProviderContainer> _makeContainer(
+  UserApi users, [
+  Map<String, ApiRoute> routes = const {},
+]) => signedInApiContainer(
+  PixivApi({...backgroundRoutes, ...users.routes, ...routes}).client,
   overrides: [
     feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
     illustStoreProvider.overrideWithValue(IllustStore()),
@@ -251,43 +270,53 @@ void main() {
     expect(query['restrict'], 'private');
   });
 
-  test('validateBookmarksCursor pins the tag alongside restrict', () async {
+  test('a bookmarks cursor pins the tag alongside restrict, for illusts and '
+      'novels', () async {
     final (container, _) = await _makeWorld({});
-    final repository = container.read(userRepositoryProvider);
+    final users = container.read(userRepositoryProvider);
+    final novels = container.read(novelRepositoryProvider);
+    for (final kind in ['illust', 'novel']) {
+      bool valid(String query, {String? tag}) {
+        final cursor =
+            'https://app-api.pixiv.net/v1/user/bookmarks/$kind'
+            '?user_id=100&restrict=private$query&offset=30';
+        return kind == 'illust'
+            ? users.validateBookmarksCursor(
+                100,
+                restrict: UserRestrict.private,
+                tag: tag,
+                cursor: cursor,
+              )
+            : novels.validateUserBookmarksCursor(
+                100,
+                restrict: UserRestrict.private,
+                tag: tag,
+                cursor: cursor,
+              );
+      }
 
+      expect(valid('&tag=procreate', tag: 'procreate'), isTrue, reason: kind);
+      expect(
+        valid('&tag=other', tag: 'procreate'),
+        isFalse,
+        reason: '$kind: a cursor from a different tag must not resume',
+      );
+      expect(
+        valid(''),
+        isTrue,
+        reason: '$kind: untagged feeds keep accepting untagged cursors',
+      );
+    }
+    // Neither list resumes from the other's cursor.
     expect(
-      repository.validateBookmarksCursor(
-        100,
-        restrict: UserRestrict.private,
-        tag: 'procreate',
-        cursor:
-            'https://app-api.pixiv.net/v1/user/bookmarks/illust'
-            '?user_id=100&restrict=private&tag=procreate&offset=30',
-      ),
-      isTrue,
-    );
-    expect(
-      repository.validateBookmarksCursor(
-        100,
-        restrict: UserRestrict.private,
-        tag: 'procreate',
-        cursor:
-            'https://app-api.pixiv.net/v1/user/bookmarks/illust'
-            '?user_id=100&restrict=private&tag=other&offset=30',
-      ),
-      isFalse,
-      reason: 'a cursor from a different tag must not resume this feed',
-    );
-    expect(
-      repository.validateBookmarksCursor(
+      novels.validateUserBookmarksCursor(
         100,
         restrict: UserRestrict.private,
         cursor:
             'https://app-api.pixiv.net/v1/user/bookmarks/illust'
             '?user_id=100&restrict=private&offset=30',
       ),
-      isTrue,
-      reason: 'untagged feeds keep accepting untagged cursors',
+      isFalse,
     );
   });
 
@@ -448,37 +477,95 @@ void main() {
     testWidgets('bookmark tag filter only changes loaded works locally', (
       tester,
     ) async {
-      final repository = _users();
-      final container = await _makeContainer(repository);
+      for (final kind in BookmarkEntityType.values) {
+        final repository = _users();
+        final container = await _makeContainer(repository);
 
+        await tester.pumpWidget(
+          _testApp(
+            container,
+            BookmarkTagFeedPage(
+              tag: 'draw',
+              kind: kind,
+              restrict: BookmarkRestrict.private,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(repository.requests, [
+          if (kind == BookmarkEntityType.novel)
+            'novel-bookmarks:100:private:draw'
+          else
+            'bookmarks:100:private:draw',
+        ]);
+        if (kind == BookmarkEntityType.novel) {
+          expect(find.text('小说 · 私密'), findsOneWidget);
+        }
+
+        final filter = find.byType(TextField);
+        await tester.enterText(filter, 'BLUE');
+        await tester.pump();
+        expect(find.text('Blue Sky'), findsOneWidget, reason: kind.name);
+        expect(find.text('Sakura'), findsNothing, reason: kind.name);
+        expect(repository.requests, hasLength(1));
+
+        await tester.enterText(filter, 'no matching work');
+        await tester.pump();
+        expect(find.text('已加载内容中无匹配'), findsOneWidget, reason: kind.name);
+        expect(repository.requests, hasLength(1));
+
+        await tester.enterText(filter, '');
+        await tester.pump();
+        expect(find.text('Blue Sky'), findsOneWidget, reason: kind.name);
+        expect(find.text('Sakura'), findsOneWidget, reason: kind.name);
+        expect(repository.requests, hasLength(1));
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+
+    testWidgets('a novel filter that matches nothing keeps the list tail', (
+      tester,
+    ) async {
+      var nextPages = 0;
+      final container = await _makeContainer(_users(), {
+        '/v1/user/bookmarks/novel': (request) {
+          if (!request.url.queryParameters.containsKey('offset')) {
+            return jsonResponse({
+              'novels': [novelJson(1, title: 'Blue Sky')],
+              'next_url': nextUrl(request, 30),
+            });
+          }
+          // The next page fails once, then answers.
+          return ++nextPages == 1
+              ? failing(503)(request)
+              : jsonResponse(
+                  pageJson('novels', [novelJson(3, title: 'Blue Lagoon')]),
+                );
+        },
+      });
       await tester.pumpWidget(
         _testApp(
           container,
           const BookmarkTagFeedPage(
             tag: 'draw',
+            kind: BookmarkEntityType.novel,
             restrict: BookmarkRestrict.private,
           ),
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('加载更多失败'), findsOneWidget);
 
-      final filter = find.byType(TextField);
-      await tester.enterText(filter, 'BLUE');
-      await tester.pump();
-      expect(find.text('Blue Sky'), findsOneWidget);
-      expect(find.text('Sakura'), findsNothing);
-      expect(repository.requests, hasLength(1));
-
-      await tester.enterText(filter, 'no matching work');
+      await tester.enterText(find.byType(TextField), 'lagoon');
       await tester.pump();
       expect(find.text('已加载内容中无匹配'), findsOneWidget);
-      expect(repository.requests, hasLength(1));
-
-      await tester.enterText(filter, '');
-      await tester.pump();
-      expect(find.text('Blue Sky'), findsOneWidget);
-      expect(find.text('Sakura'), findsOneWidget);
-      expect(repository.requests, hasLength(1));
+      // The failed tail stays below the centred empty state; scrolling to
+      // it pages on and finds the match.
+      expect(find.text('加载更多失败', skipOffstage: false), findsOneWidget);
+      await tester.drag(find.text('已加载内容中无匹配'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(find.text('Blue Lagoon'), findsOneWidget);
+      expect(nextPages, 2);
     });
 
     test(

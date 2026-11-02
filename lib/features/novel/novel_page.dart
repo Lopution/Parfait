@@ -11,6 +11,7 @@ import '../../app/widgets/bookmark_switch_button.dart';
 import '../../app/widgets/caption_rich_text.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/inline_translation.dart';
+import '../../app/widgets/meta_fact.dart';
 import '../../app/widgets/person_card.dart';
 import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
@@ -56,9 +57,13 @@ final _novelDetailProvider = FutureProvider.autoDispose
     }, retry: noRetry);
 
 class NovelPage extends ConsumerWidget {
-  const NovelPage({super.key, required this.novelId});
+  const NovelPage({super.key, required this.novelId, this.atPixivPage});
 
   final int novelId;
+
+  /// Opens at this Pixiv page (1-based) before the saved place: the
+  /// account's bookmark, from the bookmark list.
+  final int? atPixivPage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -136,6 +141,7 @@ class NovelPage extends ConsumerWidget {
       progress: _NovelProgressBinding(
         ProviderScope.containerOf(context, listen: false),
         novel.id,
+        atPixivPage: atPixivPage,
       ),
       marker: _markerBinding(ref, novel.id),
       bodyWrapper: (context, anchor, child) =>
@@ -318,10 +324,17 @@ class NovelPage extends ConsumerWidget {
 /// `<accountId>:<novelId>`. The account is resolved per call so a switch
 /// mid-session never writes into the previous account's map.
 class _NovelProgressBinding implements ReaderProgressBinding {
-  const _NovelProgressBinding(this._container, this._novelId);
+  const _NovelProgressBinding(
+    this._container,
+    this._novelId, {
+    this.atPixivPage,
+  });
 
   final ProviderContainer _container;
   final int _novelId;
+
+  /// Opened from the bookmark list: this page comes before the saved place.
+  final int? atPixivPage;
 
   String? get _accountId => _container.read(
     accountStoreProvider.select((a) => a.value?.usableCurrent?.id),
@@ -329,6 +342,8 @@ class _NovelProgressBinding implements ReaderProgressBinding {
 
   @override
   Future<NovelAnchor?> load() async {
+    final asked = _pageStart(atPixivPage);
+    if (asked != null) return asked;
     final accountId = _accountId;
     if (accountId == null) return null;
     final saved = await _container
@@ -337,13 +352,23 @@ class _NovelProgressBinding implements ReaderProgressBinding {
     if (saved != null) {
       return NovelAnchor(paragraphId: saved.paragraphId, offset: saved.offset);
     }
-    // No place of this account's own: the account's bookmark, if it has
-    // one on a page the novel still has.
-    final novel = _container.read(novelStoreProvider)[_novelId];
-    final marker = novel?.markerPage;
-    final starts = novel?.markup?.pixivPageStarts ?? const <String>[];
-    if (marker == null || marker > starts.length) return null;
-    return NovelAnchor(paragraphId: starts[marker - 1], offset: 0);
+    // No place of this account's own: the account's bookmark.
+    return _pageStart(
+      _container.read(novelStoreProvider)[_novelId]?.markerPage,
+    );
+  }
+
+  /// The first line of Pixiv [page], if the novel still has that page.
+  NovelAnchor? _pageStart(int? page) {
+    if (page == null || page < 1) return null;
+    final starts =
+        _container
+            .read(novelStoreProvider)[_novelId]
+            ?.markup
+            ?.pixivPageStarts ??
+        const <String>[];
+    if (page > starts.length) return null;
+    return NovelAnchor(paragraphId: starts[page - 1], offset: 0);
   }
 
   @override
@@ -403,7 +428,8 @@ class _NovelHistoryVisibility extends ConsumerWidget {
 }
 
 /// The head of the novel info sheet: title with the translate button,
-/// author, caption, then the translation of title and caption.
+/// author, the facts line, caption, then the translation of title and
+/// caption.
 class _NovelIntro extends ConsumerStatefulWidget {
   const _NovelIntro({required this.novel, required this.author});
 
@@ -446,6 +472,8 @@ class _NovelIntroState extends ConsumerState<_NovelIntro>
         ),
         const SizedBox(height: FuncSpacing.sm),
         widget.author,
+        const SizedBox(height: FuncSpacing.md),
+        _NovelFacts(novel: novel),
         if (novel.caption.isNotEmpty) ...[
           const SizedBox(height: FuncSpacing.md),
           // Caption HTML renders through the shared parser — <br> tags
@@ -459,6 +487,75 @@ class _NovelIntroState extends ConsumerState<_NovelIntro>
           emphasizeFirst: true,
         ),
       ],
+    );
+  }
+}
+
+/// The novel's facts, each behind its glyph, wrapping as whole facts: the
+/// series it belongs to, its length, views, bookmarks and the full posting
+/// time. The reader's series bar steps through the series; here it is
+/// named only. Screen readers hear one node.
+class _NovelFacts extends StatelessWidget {
+  const _NovelFacts({required this.novel});
+
+  final NovelEntity novel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final style = MetaFact.styleOf(context);
+    final series = novel.seriesTitle;
+    final views = AppFormat.count(context, novel.totalView);
+    final bookmarks = AppFormat.count(context, novel.totalBookmarks);
+    final created = DateTime.tryParse(novel.createDate ?? '');
+    final date = created == null
+        ? null
+        : AppFormat.date(context, created, withTime: true);
+    return MergeSemantics(
+      key: const Key('novel-info-facts'),
+      child: Wrap(
+        spacing: FuncSpacing.md,
+        runSpacing: FuncSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (novel.seriesId != null && series != null && series.isNotEmpty)
+            Semantics(
+              label: l10n.novelSeries,
+              child: MetaFact(
+                icon: Icons.library_books_outlined,
+                text: series,
+                style: style,
+              ),
+            ),
+          MetaFact(
+            icon: Icons.notes,
+            text:
+                '${AppFormat.count(context, novel.textLength)} '
+                '${l10n.novelWords}',
+            style: style,
+          ),
+          Semantics(
+            label: date == null
+                ? l10n.detailMetaCountsSemantics(views, bookmarks)
+                : l10n.detailStatsSemantics(views, bookmarks, date),
+            child: ExcludeSemantics(
+              child: MetaFact(
+                icon: Icons.visibility_outlined,
+                text: views,
+                style: style,
+              ),
+            ),
+          ),
+          ExcludeSemantics(
+            child: MetaFact(
+              icon: Icons.favorite_outline,
+              text: bookmarks,
+              style: style,
+            ),
+          ),
+          if (date != null) ExcludeSemantics(child: Text(date, style: style)),
+        ],
+      ),
     );
   }
 }

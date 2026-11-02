@@ -723,6 +723,11 @@ class _ContentShortcuts extends ConsumerWidget {
     final l10n = context.l10n;
     final activeTasks = ref.watch(_activeDownloadCountProvider).value ?? 0;
     final offBar = ref.watch(homeArrangementProvider).hidden;
+    final signedIn = ref.watch(
+      accountStoreProvider.select(
+        (async) => async.value?.usableCurrent != null,
+      ),
+    );
     final List<_Entry> entries = [
       (
         icon: Icons.favorite_border,
@@ -742,6 +747,14 @@ class _ContentShortcuts extends ConsumerWidget {
         onTap: () => unawaited(openWatchlist(context)),
         count: null,
       ),
+      // Pixiv keeps them with the account.
+      if (signedIn)
+        (
+          icon: Icons.bookmarks_outlined,
+          label: l10n.novelMarkers,
+          onTap: () => unawaited(openNovelMarkers(context)),
+          count: null,
+        ),
       (
         icon: Icons.bookmark_border,
         label: l10n.watchLaterTitle,

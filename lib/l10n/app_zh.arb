@@ -1606,6 +1606,19 @@
   "novelMarkerMove": "移到此页",
   "novelMarkerDelete": "删除书签",
   "novelMarkerFailed": "书签操作失败",
+  "novelMarkers": "小说书签",
+  "novelMarkerAtPage": "书签 · 第 {page} 页",
+  "@novelMarkerAtPage": {
+    "description": "Where the account's bookmark of a novel is, above its title in the bookmark list; the page counts the author's page breaks.",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "novelMarkerRestore": "加回书签",
+  "novelMarkersEmpty": "暂无小说书签",
+  "novelMarkersLoadFailed": "小说书签加载失败",
   "novelIllustration": "插图",
   "novelIllustrationUnavailable": "插图已删除或不可见",
   "localNovelFileInfo": "文件信息",

@@ -11,6 +11,7 @@ import '../../../../app/widgets/author_summary.dart';
 import '../../../../app/widgets/edge_icon_buttons.dart';
 import '../../../../app/widgets/feed/feed_text_warmup.dart';
 import '../../../../app/widgets/follow_switch_button.dart';
+import '../../../../app/widgets/meta_fact.dart';
 import '../../../../app/widgets/person_card.dart';
 import '../../../../app/widgets/tag_chips.dart';
 import '../../../../core/auth/account_store.dart';
@@ -343,7 +344,7 @@ class _MarksAndStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final style = _metaStyle(context);
+    final style = MetaFact.styleOf(context);
     final views = AppFormat.count(context, entity.totalView);
     final bookmarks = AppFormat.count(context, entity.totalBookmarks);
     final created = DateTime.tryParse(entity.createDate ?? '');
@@ -373,7 +374,7 @@ class _MarksAndStats extends StatelessWidget {
                 ? l10n.detailMetaCountsSemantics(views, bookmarks)
                 : l10n.detailStatsSemantics(views, bookmarks, date),
             child: ExcludeSemantics(
-              child: _Fact(
+              child: MetaFact(
                 icon: Icons.visibility_outlined,
                 text: views,
                 style: style,
@@ -381,7 +382,7 @@ class _MarksAndStats extends StatelessWidget {
             ),
           ),
           ExcludeSemantics(
-            child: _Fact(
+            child: MetaFact(
               icon: Icons.favorite_outline,
               text: bookmarks,
               style: style,
@@ -414,7 +415,7 @@ class _FactsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _metaStyle(context);
+    final style = MetaFact.styleOf(context);
     Widget boxed(Widget fact) => Padding(padding: inset, child: fact);
     return Wrap(
       key: const Key('illust-detail-facts'),
@@ -423,7 +424,7 @@ class _FactsRow extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         boxed(
-          _Fact(
+          MetaFact(
             icon: Icons.aspect_ratio,
             text: '${entity.width}×${entity.height}',
             style: style,
@@ -431,7 +432,7 @@ class _FactsRow extends StatelessWidget {
         ),
         if (entity.pageCount > 1)
           boxed(
-            _Fact(
+            MetaFact(
               icon: Icons.collections_outlined,
               text: context.l10n.detailPageCount(entity.pageCount),
               style: style,
@@ -441,7 +442,7 @@ class _FactsRow extends StatelessWidget {
           Semantics(
             label: context.l10n.detailTools,
             child: boxed(
-              _Fact(
+              MetaFact(
                 icon: Icons.brush_outlined,
                 text: entity.tools.join(' / '),
                 style: style,
@@ -452,29 +453,6 @@ class _FactsRow extends StatelessWidget {
       ],
     );
   }
-}
-
-/// One fact: a small glyph in the text's colour, then the text.
-class _Fact extends StatelessWidget {
-  const _Fact({required this.icon, required this.text, required this.style});
-
-  final IconData icon;
-  final String text;
-  final TextStyle style;
-
-  /// Sized to the metadata text rather than the 24dp default.
-  static const glyph = 14.0;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: glyph, color: style.color),
-      const SizedBox(width: FuncSpacing.xs),
-      // A long tools list wraps inside its fact.
-      Flexible(child: Text(text, style: style)),
-    ],
-  );
 }
 
 /// "# 123" with a copy glyph. The ink and the target are the fact's box
@@ -501,11 +479,15 @@ class _CopyableId extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.tag, size: _Fact.glyph, color: style.color),
+              Icon(Icons.tag, size: MetaFact.glyph, color: style.color),
               const SizedBox(width: FuncSpacing.xxs),
               Text('$id', style: style),
               const SizedBox(width: FuncSpacing.xs),
-              Icon(Icons.content_copy, size: _Fact.glyph, color: style.color),
+              Icon(
+                Icons.content_copy,
+                size: MetaFact.glyph,
+                color: style.color,
+              ),
             ],
           ),
         ),
@@ -515,13 +497,6 @@ class _CopyableId extends StatelessWidget {
 }
 
 /// The secondary metadata tier: the theme's small body text, tabular.
-TextStyle _metaStyle(BuildContext context) {
-  final theme = Theme.of(context);
-  return theme.textTheme.bodySmall!
-      .copyWith(color: theme.colorScheme.onSurfaceVariant)
-      .tabular;
-}
-
 /// The work title: large, wrapping without a line cap, selectable.
 class _Title extends StatelessWidget {
   const _Title({required this.title});

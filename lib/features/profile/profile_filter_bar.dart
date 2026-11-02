@@ -10,28 +10,42 @@ import '../../core/bookmark/bookmark_tags_controller.dart';
 import '../../core/user/user_repository.dart';
 import '../../l10n/context.dart';
 
-/// Your own bookmarks and follows: the list's filters, visible above it
-/// (D3 list filter) rather than checked items in the overflow menu.
+/// The filters above a bookmarks or follows list, visible (D3 list filter)
+/// rather than checked items in the overflow menu: on bookmarks the kind
+/// (illustrations or novels), then on your own lists the visibility and,
+/// for bookmarks, the tag.
 class ProfileFilterBar extends StatelessWidget {
   const ProfileFilterBar({
     super.key,
-    required this.restrict,
-    required this.onRestrictChanged,
+    this.kind,
+    this.onKindChanged,
+    this.restrict = UserRestrict.public,
+    this.onRestrictChanged,
     this.tag,
     this.onTagChanged,
   });
 
-  final UserRestrict restrict;
-  final ValueChanged<UserRestrict> onRestrictChanged;
+  /// Bookmarks only: illustrations or novels. A null [onKindChanged]
+  /// leaves the kind filter out.
+  final BookmarkEntityType? kind;
+  final ValueChanged<BookmarkEntityType>? onKindChanged;
 
-  /// Bookmarks only: the picked tag, null for every bookmark. A null
-  /// [onTagChanged] leaves the tag filter out.
+  /// Your own lists only. A null [onRestrictChanged] leaves the
+  /// visibility filter out.
+  final UserRestrict restrict;
+  final ValueChanged<UserRestrict>? onRestrictChanged;
+
+  /// Your own bookmarks only: the picked tag, null for every bookmark. A
+  /// null [onTagChanged] leaves the tag filter out.
   final String? tag;
   final ValueChanged<String?>? onTagChanged;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final kind = this.kind ?? BookmarkEntityType.illust;
+    final onKindChanged = this.onKindChanged;
+    final onRestrictChanged = this.onRestrictChanged;
     final onTagChanged = this.onTagChanged;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -46,28 +60,55 @@ class ProfileFilterBar extends StatelessWidget {
           spacing: FuncSpacing.sm,
           runSpacing: FuncSpacing.sm,
           children: [
-            FilterMenuButton<UserRestrict>(
-              key: const ValueKey('profile-filter-restrict'),
-              label: restrict == UserRestrict.private
-                  ? l10n.restrictPrivate
-                  : l10n.restrictPublic,
-              value: restrict,
-              options: [
-                AppMenuEntry(
-                  value: UserRestrict.public,
-                  label: l10n.restrictPublic,
-                  icon: Icons.public,
-                ),
-                AppMenuEntry(
-                  value: UserRestrict.private,
-                  label: l10n.restrictPrivate,
-                  icon: Icons.lock_outline,
-                ),
-              ],
-              onChanged: onRestrictChanged,
-            ),
+            if (onKindChanged != null)
+              FilterMenuButton<BookmarkEntityType>(
+                key: const ValueKey('profile-filter-kind'),
+                label: kind == BookmarkEntityType.novel
+                    ? l10n.profileNovel
+                    : l10n.profileIllust,
+                value: kind,
+                options: [
+                  AppMenuEntry(
+                    value: BookmarkEntityType.illust,
+                    label: l10n.profileIllust,
+                    icon: Icons.image_outlined,
+                  ),
+                  AppMenuEntry(
+                    value: BookmarkEntityType.novel,
+                    label: l10n.profileNovel,
+                    icon: Icons.menu_book_outlined,
+                  ),
+                ],
+                onChanged: onKindChanged,
+              ),
+            if (onRestrictChanged != null)
+              FilterMenuButton<UserRestrict>(
+                key: const ValueKey('profile-filter-restrict'),
+                label: restrict == UserRestrict.private
+                    ? l10n.restrictPrivate
+                    : l10n.restrictPublic,
+                value: restrict,
+                options: [
+                  AppMenuEntry(
+                    value: UserRestrict.public,
+                    label: l10n.restrictPublic,
+                    icon: Icons.public,
+                  ),
+                  AppMenuEntry(
+                    value: UserRestrict.private,
+                    label: l10n.restrictPrivate,
+                    icon: Icons.lock_outline,
+                  ),
+                ],
+                onChanged: onRestrictChanged,
+              ),
             if (onTagChanged != null)
-              _TagFilter(restrict: restrict, tag: tag, onChanged: onTagChanged),
+              _TagFilter(
+                kind: kind,
+                restrict: restrict,
+                tag: tag,
+                onChanged: onTagChanged,
+              ),
           ],
         ),
       ),
@@ -77,6 +118,7 @@ class ProfileFilterBar extends StatelessWidget {
 
 class _TagFilter extends ConsumerWidget {
   const _TagFilter({
+    required this.kind,
     required this.restrict,
     required this.tag,
     required this.onChanged,
@@ -85,6 +127,7 @@ class _TagFilter extends ConsumerWidget {
   /// Tags beyond this many go to the full tag page instead of the menu.
   static const menuLimit = 10;
 
+  final BookmarkEntityType kind;
   final UserRestrict restrict;
   final String? tag;
   final ValueChanged<String?> onChanged;
@@ -96,7 +139,7 @@ class _TagFilter extends ConsumerWidget {
     final loaded = ref
         .watch(
           userBookmarkTagsProvider((
-            BookmarkEntityType.illust,
+            kind,
             restrict == UserRestrict.private
                 ? BookmarkRestrict.private
                 : BookmarkRestrict.public,
@@ -124,7 +167,9 @@ class _TagFilter extends ConsumerWidget {
       ],
       onChanged: onChanged,
       moreLabel: more ? l10n.profileTagMore : null,
-      onMore: more ? () => openBookmarkTags(context, restrict: restrict) : null,
+      onMore: more
+          ? () => openBookmarkTags(context, kind: kind, restrict: restrict)
+          : null,
     );
   }
 }

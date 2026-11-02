@@ -465,6 +465,7 @@ void main() {
     }
 
     await opens(find.text('tester'), '/me');
+    await opens(find.text('小说书签'), '/settings/novel-markers');
     await opens(find.byTooltip('账号管理'), '/settings/account');
     await opens(find.text('关于'), '/settings/about');
     await tester.tap(find.text('设置'));
@@ -492,6 +493,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byTooltip('账号管理'), findsNothing);
+    // Pixiv keeps them with the account.
+    expect(find.text('小说书签'), findsNothing);
     await tester.tap(find.text('未登录'));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/login');

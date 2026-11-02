@@ -433,6 +433,7 @@ final smokePages = <SmokeGroup, Map<String, SmokePage>>{
       setup: ReviewSetup(localNovels: 1),
     ),
     'watchlist': SmokePage.feed('/v1/watchlist/manga', 'series'),
+    'novel-markers': SmokePage.feed('/v2/novel/markers', 'marked_novels'),
   },
   SmokeGroup.lists: {
     'history': SmokePage(

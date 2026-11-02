@@ -2855,6 +2855,23 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelMarkerFailed => 'しおり操作に失敗しました';
 
   @override
+  String get novelMarkers => '小説のしおり';
+
+  @override
+  String novelMarkerAtPage(int page) {
+    return 'しおり · $pageページ';
+  }
+
+  @override
+  String get novelMarkerRestore => 'しおりを戻す';
+
+  @override
+  String get novelMarkersEmpty => 'しおりを挟んだ小説はありません';
+
+  @override
+  String get novelMarkersLoadFailed => 'しおりの読み込みに失敗しました';
+
+  @override
   String get novelIllustration => '挿絵';
 
   @override

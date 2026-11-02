@@ -9,18 +9,22 @@ import '../../core/profile/profile_models.dart';
 import '../../core/user/user_repository.dart';
 import '../../l10n/context.dart';
 import 'profile_illust_feed.dart';
+import 'profile_novel_feed.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
-/// The signed-in user's bookmarks filtered to one tag — the same
-/// `ProfileIllustFeed` pipeline with `ProfileFeedKey.bookmarkTag`.
+/// The signed-in user's bookmarks of one [kind] filtered to one tag — the
+/// profile's own list (`ProfileIllustFeed` or `ProfileNovelFeed`) with
+/// `ProfileFeedKey.bookmarkTag`.
 class BookmarkTagFeedPage extends ConsumerStatefulWidget {
   const BookmarkTagFeedPage({
     super.key,
     required this.tag,
+    this.kind = BookmarkEntityType.illust,
     required this.restrict,
   });
 
   final String tag;
+  final BookmarkEntityType kind;
   final BookmarkRestrict restrict;
 
   @override
@@ -54,9 +58,14 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
           children: [
             Text(widget.tag, maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(
-              widget.restrict == BookmarkRestrict.private
-                  ? l10n.restrictPrivate
-                  : l10n.restrictPublic,
+              // The kind is named for novels only: illustrations are what
+              // this page always showed.
+              [
+                if (widget.kind == BookmarkEntityType.novel) l10n.profileNovel,
+                widget.restrict == BookmarkRestrict.private
+                    ? l10n.restrictPrivate
+                    : l10n.restrictPublic,
+              ].join(' · '),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -84,17 +93,24 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
       ),
       body: userId == null
           ? FeedEmpty(icon: Icons.label_outline, title: l10n.bookmarkTagsEmpty)
-          : ProfileIllustFeed(
-              feedKey: ProfileFeedKey(
-                userId: userId,
-                kind: ProfileFeedKind.bookmarks,
-                restrict: widget.restrict == BookmarkRestrict.private
-                    ? UserRestrict.private
-                    : UserRestrict.public,
-                bookmarkTag: widget.tag,
-              ),
-              localFilter: _filter,
-            ),
+          : _feed(userId),
     );
+  }
+
+  Widget _feed(int userId) {
+    final key = ProfileFeedKey(
+      userId: userId,
+      kind: ProfileFeedKind.bookmarks,
+      workType: widget.kind == BookmarkEntityType.novel
+          ? UserWorkType.novel
+          : UserWorkType.illust,
+      restrict: widget.restrict == BookmarkRestrict.private
+          ? UserRestrict.private
+          : UserRestrict.public,
+      bookmarkTag: widget.tag,
+    );
+    return widget.kind == BookmarkEntityType.novel
+        ? ProfileNovelFeed(feedKey: key, localFilter: _filter)
+        : ProfileIllustFeed(feedKey: key, localFilter: _filter);
   }
 }

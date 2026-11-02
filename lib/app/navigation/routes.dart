@@ -38,6 +38,7 @@ import '../../features/history/history_page.dart';
 import '../../features/novel/local_novel_reader_page.dart';
 import '../../features/localnovel/local_novels_page.dart';
 import '../../features/watchlater/watchlater_page.dart';
+import '../../features/novel/novel_markers_page.dart';
 import '../../features/watchlist/watchlist_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
@@ -106,6 +107,16 @@ class IllustRouteExtra {
   /// work-to-work pager instead of a single detail
   /// page. The object is in-memory only — never serialized into the URL.
   final IllustPagerSource? pagerSource;
+}
+
+/// How a novel opens. In-memory only: a restored reader opens at the
+/// account's own place.
+class NovelRouteExtra {
+  const NovelRouteExtra({required this.atPixivPage});
+
+  /// The Pixiv page (1-based) to open at, before any saved place: the
+  /// account's bookmark, from the bookmark list.
+  final int atPixivPage;
 }
 
 class ImageViewerRouteExtra {
@@ -739,7 +750,13 @@ List<RouteBase> _commonBranchRoutes(
         context,
         state,
         branchObserver,
-        NovelPage(novelId: _pathId(state, 'novelId')),
+        NovelPage(
+          novelId: _pathId(state, 'novelId'),
+          atPixivPage: switch (state.extra) {
+            NovelRouteExtra(:final atPixivPage) => atPixivPage,
+            _ => null,
+          },
+        ),
       ),
       routes: [
         GoRoute(
@@ -828,6 +845,11 @@ List<RouteBase> _commonBranchRoutes(
           _page(context, state, branchObserver, const WatchlistPage()),
     ),
     GoRoute(
+      path: 'novel-markers',
+      pageBuilder: (context, state) =>
+          _page(context, state, branchObserver, const NovelMarkersPage()),
+    ),
+    GoRoute(
       path: 'local-novels',
       pageBuilder: (context, state) =>
           _page(context, state, branchObserver, const LocalNovelsPage()),
@@ -850,6 +872,7 @@ List<RouteBase> _commonBranchRoutes(
         state,
         branchObserver,
         BookmarkTagsPage(
+          kind: _bookmarkKindFromQuery(state.uri.queryParameters['kind']),
           initialRestrict: _bookmarkRestrictFromQuery(
             state.uri.queryParameters['restrict'],
           ),
@@ -864,6 +887,7 @@ List<RouteBase> _commonBranchRoutes(
         branchObserver,
         BookmarkTagFeedPage(
           tag: state.uri.queryParameters['tag'] ?? '',
+          kind: _bookmarkKindFromQuery(state.uri.queryParameters['kind']),
           restrict: _bookmarkRestrictFromQuery(
             state.uri.queryParameters['restrict'],
           ),
@@ -1596,8 +1620,19 @@ Future<void> openSettings(BuildContext context) async {
 /// settings branch below the page that displayed the prompt.
 void goToAbout(GoRouter router) => router.go('/settings/about');
 
-Future<void> openNovel(BuildContext context, int novelId) async {
-  await _push(context, '${_currentStackRoot(context)}/novel/$novelId');
+/// [atPixivPage] opens at that Pixiv page rather than the saved place.
+Future<void> openNovel(
+  BuildContext context,
+  int novelId, {
+  int? atPixivPage,
+}) async {
+  await _push(
+    context,
+    '${_currentStackRoot(context)}/novel/$novelId',
+    extra: atPixivPage == null
+        ? null
+        : NovelRouteExtra(atPixivPage: atPixivPage),
+  );
 }
 
 Future<void> openNovelRanking(BuildContext context) async {
@@ -1659,6 +1694,10 @@ Future<void> openWatchlist(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/watchlist');
 }
 
+Future<void> openNovelMarkers(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/novel-markers');
+}
+
 Future<void> openLocalNovels(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/local-novels');
 }
@@ -1672,6 +1711,13 @@ BookmarkRestrict _bookmarkRestrictFromQuery(String? restrict) =>
     ? BookmarkRestrict.private
     : BookmarkRestrict.public;
 
+/// Illustrations unless the location names novels: older locations carry
+/// no kind.
+BookmarkEntityType _bookmarkKindFromQuery(String? kind) =>
+    kind == BookmarkEntityType.novel.name
+    ? BookmarkEntityType.novel
+    : BookmarkEntityType.illust;
+
 BookmarkRestrict _bookmarkRestrictFromUser(UserRestrict restrict) =>
     switch (restrict) {
       UserRestrict.public => BookmarkRestrict.public,
@@ -1680,11 +1726,15 @@ BookmarkRestrict _bookmarkRestrictFromUser(UserRestrict restrict) =>
 
 Future<void> openBookmarkTags(
   BuildContext context, {
+  required BookmarkEntityType kind,
   required UserRestrict restrict,
 }) async {
   final location = Uri(
     path: '${_currentStackRoot(context)}/bookmarks/tags',
-    queryParameters: {'restrict': _bookmarkRestrictFromUser(restrict).name},
+    queryParameters: {
+      'kind': kind.name,
+      'restrict': _bookmarkRestrictFromUser(restrict).name,
+    },
   ).toString();
   await _push(context, location);
 }
@@ -1692,11 +1742,12 @@ Future<void> openBookmarkTags(
 Future<void> openBookmarkTagFeed(
   BuildContext context, {
   required String tag,
+  required BookmarkEntityType kind,
   required BookmarkRestrict restrict,
 }) async {
   final location = Uri(
     path: '${_currentStackRoot(context)}/bookmarks/tag',
-    queryParameters: {'tag': tag, 'restrict': restrict.name},
+    queryParameters: {'tag': tag, 'kind': kind.name, 'restrict': restrict.name},
   ).toString();
   await _push(context, location);
 }

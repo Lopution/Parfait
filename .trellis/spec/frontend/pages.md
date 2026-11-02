@@ -45,6 +45,22 @@ reviewed: 2026-10-17
 - **Check:** `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its" "a profile without works opens on its first other tab" "a tab that disappears on refresh falls back to the first"
 - **Code:** `lib/features/profile/user_page.dart`
 
+### PAGE-22 Bookmarks list illustrations or novels by a kind menu
+- **Rule:** The profile's bookmarks tab starts its filter row with a kind
+  menu (illustrations or novels); on your own page the visibility and tag
+  menus follow, on someone else's (public bookmarks only) the kind menu
+  stands alone. The novel list is `/v1/user/bookmarks/novel` in the
+  profile's novel list (`ProfileNovelFeed`), unfiltered like the illust
+  bookmarks. Tags are per kind and visibility: a change of either clears
+  the tag, the tag menu lists that kind's tags, and the tag page and the
+  tag's list carry the kind in their location (`kind=novel`; none is
+  illustrations, so older locations still open). Under the tag page's
+  text filter, a novel list that matches nothing keeps its tail (more to
+  load, a failed page and its retry), as the illust list does.
+- **Why:** Novel bookmarks had no place in the app (user request, 11-02).
+- **Check:** `test/profile_bookmarks_test.dart` "your bookmarks switch to novels with their own tags"; `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its"; `test/bookmark_tags_test.dart` "a bookmarks cursor pins the tag alongside restrict, for illusts and " "bookmark tag filter only changes loaded works locally" "a novel filter that matches nothing keeps the list tail"; `test/navigation_router_test.dart` "bookmark tag route restores and writes its kind and restrict "
+- **Code:** `lib/features/profile/profile_filter_bar.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_novel_feed.dart`, `lib/features/profile/bookmark_tag_feed_page.dart`, `lib/features/bookmark/bookmark_tags_page.dart`, `lib/core/novel/novel_feed_controller.dart`
+
 ### PAGE-02 Header controls stay mounted through the collapse
 - **Rule:** Back and overflow sit on the header's topmost layer and stay
   mounted and tappable through the whole collapse, including the hand-off

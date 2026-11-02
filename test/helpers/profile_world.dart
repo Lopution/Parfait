@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:material_ui/material_ui.dart' show MenuItemButton, ValueKey;
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
@@ -60,13 +61,15 @@ class FollowApi {
 
 /// The App API's `/v1/user/*` reads: every user id answers [detail] with
 /// its id (by default one with [works] as its illusts), illust works
-/// [works] and bookmarks [bookmarks] (illust JSON), and empty user lists.
+/// [works] and bookmarks [bookmarks] (illust JSON), novel bookmarks
+/// [novelBookmarks] (novel JSON), and empty user lists.
 /// [requests] logs each read from the wire, like `works:<id>:<type>:first`.
 class UserApi {
   UserApi({
     UserEntity? detail,
     this.works = const [],
     this.bookmarks = const [],
+    this.novelBookmarks = const [],
     this.worksFailure,
     this.detailFailure,
   }) : detail = detail ?? sampleUser(42).copyWith(totalIllusts: works.length);
@@ -75,6 +78,7 @@ class UserApi {
   UserEntity detail;
   final List<Map<String, dynamic>> works;
   final List<Map<String, dynamic>> bookmarks;
+  final List<Map<String, dynamic>> novelBookmarks;
   final ApiRoute? worksFailure;
 
   /// Answers the detail instead; a test may clear it to recover.
@@ -122,6 +126,14 @@ class UserApi {
         'bookmarks:${query['user_id']}:${query['restrict']}:${query['tag'] ?? ''}',
       );
       return jsonResponse(pageJson('illusts', bookmarks));
+    },
+    '/v1/user/bookmarks/novel': (request) {
+      final query = request.url.queryParameters;
+      requests.add(
+        'novel-bookmarks:${query['user_id']}:${query['restrict']}:'
+        '${query['tag'] ?? ''}',
+      );
+      return jsonResponse(pageJson('novels', novelBookmarks));
     },
     '/v1/user/following': _users('following'),
     '/v1/user/follower': _users('fans'),
@@ -203,3 +215,20 @@ void answerWebProfileSession([int? userId]) {
 
 UserEntity sampleUser(int id) =>
     UserEntity(id: id, name: 'sample user', account: 'sample');
+
+/// Opens the profile filter menu [key] and picks [label].
+Future<void> pickFilterMenu(
+  WidgetTester tester,
+  String key,
+  String label,
+) async {
+  await tester.tap(find.byKey(ValueKey(key)));
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.descendant(
+      of: find.byType(MenuItemButton),
+      matching: find.text(label),
+    ),
+  );
+  await tester.pumpAndSettle();
+}

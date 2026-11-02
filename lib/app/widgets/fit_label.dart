@@ -18,20 +18,23 @@ final class LabelFit {
   static const double minScale = 0.8;
 
   /// Fits the widest of [labels] in [slotWidth]. An unbounded slot (a
-  /// horizontally scrolling row) never scales.
+  /// horizontally scrolling row) never scales. [style] and [locale] are the
+  /// ones the labels paint in: [paintedStyle] and
+  /// `Localizations.maybeLocaleOf`, as for [measureLabel].
   static LabelFit group({
     required Iterable<String> labels,
     required TextStyle style,
     required TextScaler textScaler,
     required TextDirection textDirection,
     required double slotWidth,
+    Locale? locale,
   }) {
     if (!slotWidth.isFinite) return none;
     final widest = labels.fold(
       0.0,
       (widest, label) => math.max(
         widest,
-        measureLabel(label, style, textScaler, textDirection),
+        measureLabel(label, style, textScaler, textDirection, locale: locale),
       ),
     );
     if (widest <= slotWidth) return none;

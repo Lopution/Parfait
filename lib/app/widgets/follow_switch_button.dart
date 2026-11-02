@@ -180,10 +180,11 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
                     key: ValueKey(followed),
                     fit: LabelFit.group(
                       labels: [semanticLabel],
-                      style: labelStyle,
+                      style: LabelFit.paintedStyle(context, labelStyle),
                       textScaler: MediaQuery.textScalerOf(context),
                       textDirection: Directionality.of(context),
                       slotWidth: constraints.maxWidth - 2 * _labelPadding,
+                      locale: Localizations.maybeLocaleOf(context),
                     ),
                   ),
                 ),

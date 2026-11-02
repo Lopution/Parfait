@@ -11,6 +11,7 @@ import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../ranking/ranking_category.dart';
 import '../settings/arrangement.dart';
+import '../user/user_repository.dart' show UserRestrict, UserRestrictWire;
 import 'novel_entity.dart';
 import 'novel_webview_text.dart';
 
@@ -29,6 +30,15 @@ class NovelPage {
   const NovelPage({required this.novels, required this.nextUrl});
 
   final List<NovelEntity> novels;
+  final String? nextUrl;
+}
+
+/// One page of the account's bookmarked novels, each with its bookmark's
+/// Pixiv page (1-based).
+class MarkedNovelPage {
+  const MarkedNovelPage({required this.entries, required this.nextUrl});
+
+  final List<({NovelEntity novel, int page})> entries;
   final String? nextUrl;
 }
 
@@ -152,6 +162,22 @@ abstract interface class _NovelRepository {
 
   bool validateUserNovelsCursor(int userId, {required String cursor});
 
+  /// [userId]'s novel bookmarks of [restrict], those tagged [tag] when set.
+  Future<NovelPage> fetchUserBookmarks(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateUserBookmarksCursor(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    required String cursor,
+  });
+
   Future<NovelPage> fetchRecommended({
     String? cursor,
     CancelToken? cancelToken,
@@ -166,6 +192,14 @@ abstract interface class _NovelRepository {
   });
 
   bool validateSeriesCursor(int seriesId, {required String cursor});
+
+  /// The account's bookmarked novels (Pixiv's markers), newest first.
+  Future<MarkedNovelPage> fetchMarkedNovels({
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateMarkedNovelsCursor({required String cursor});
 
   /// Sets the account's bookmark (Pixiv's marker) of [novelId] at Pixiv
   /// page [page], replacing any other.
@@ -183,9 +217,11 @@ class _PixivNovelRepository implements _NovelRepository {
   static const _detailPath = '/v2/novel/detail';
   static const _webviewPath = '/webview/v2/novel';
   static const _userNovelsPath = '/v1/user/novels';
+  static const _userBookmarksPath = '/v1/user/bookmarks/novel';
   static const _recommendedPath = '/v1/novel/recommended';
   static const _rankingPath = '/v1/novel/ranking';
   static const _seriesPath = '/v2/novel/series';
+  static const _markersPath = '/v2/novel/markers';
   static const _markerAddPath = '/v1/novel/marker/add';
   static const _markerDeletePath = '/v1/novel/marker/delete';
 
@@ -224,6 +260,28 @@ class _PixivNovelRepository implements _NovelRepository {
       throw ApiParseError(error);
     }
   }
+
+  @override
+  Future<MarkedNovelPage> fetchMarkedNovels({
+    String? cursor,
+    CancelToken? cancelToken,
+  }) {
+    final request = _pageRequest(
+      path: _markersPath,
+      query: const {},
+      identity: const {},
+      cursor: cursor,
+    );
+    return _client.getParsed(
+      _target(request),
+      _parseMarkedNovelPage,
+      cancelToken: cancelToken,
+    );
+  }
+
+  @override
+  bool validateMarkedNovelsCursor({required String cursor}) =>
+      _isValidCursor(path: _markersPath, identity: const {}, cursor: cursor);
 
   @override
   Future<void> addMarker(int novelId, int page) async {
@@ -295,6 +353,56 @@ class _PixivNovelRepository implements _NovelRepository {
       cursor: cursor,
     );
   }
+
+  @override
+  Future<NovelPage> fetchUserBookmarks(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    _validateId(userId, 'userId');
+    final identity = _bookmarksIdentity(userId, restrict, tag);
+    final request = _pageRequest(
+      path: _userBookmarksPath,
+      query: {
+        for (final MapEntry(:key, :value) in identity.entries) key: ?value,
+      },
+      identity: identity,
+      cursor: cursor,
+    );
+    return _client.getParsed(
+      _target(request),
+      _parseNovelPage,
+      cancelToken: cancelToken,
+    );
+  }
+
+  @override
+  bool validateUserBookmarksCursor(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    required String cursor,
+  }) {
+    _validateId(userId, 'userId');
+    return _isValidCursor(
+      path: _userBookmarksPath,
+      identity: _bookmarksIdentity(userId, restrict, tag),
+      cursor: cursor,
+    );
+  }
+
+  static Map<String, String?> _bookmarksIdentity(
+    int userId,
+    UserRestrict restrict,
+    String? tag,
+  ) => {
+    'user_id': '$userId',
+    'restrict': restrict.wireValue,
+    'tag': tag == null || tag.isEmpty ? null : tag,
+  };
 
   @override
   Future<NovelPage> fetchRecommended({
@@ -490,6 +598,34 @@ class _PixivNovelRepository implements _NovelRepository {
               NovelEntity.fromJson(item)
             else
               throw const FormatException('novels contains a non-object'),
+        ],
+        nextUrl: readNextUrl(json['next_url']),
+      );
+    } on FormatException catch (error) {
+      throw ApiParseError(error);
+    }
+  }
+
+  static MarkedNovelPage _parseMarkedNovelPage(Map<String, dynamic> json) {
+    final raw = json['marked_novels'];
+    if (raw is! List) {
+      throw const ApiParseError('marked_novels list is missing or malformed');
+    }
+    try {
+      return MarkedNovelPage(
+        entries: [
+          for (final item in raw)
+            switch (item) {
+              {
+                'novel': final Map<String, dynamic> novel,
+                'novel_marker': {'page': final int page},
+              }
+                  when page >= 1 =>
+                (novel: NovelEntity.fromJson(novel), page: page),
+              _ => throw const FormatException(
+                'marked_novels contains an entry without a novel or page',
+              ),
+            },
         ],
         nextUrl: readNextUrl(json['next_url']),
       );

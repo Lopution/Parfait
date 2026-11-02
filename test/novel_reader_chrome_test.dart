@@ -63,6 +63,9 @@ Future<ProviderContainer> _apiContainer({
                 'x_restrict': 0,
                 'is_bookmarked': false,
                 'text_length': 4000,
+                'total_view': 1234,
+                'total_bookmarks': 56,
+                'create_date': '2026-10-01T12:34:00+09:00',
                 'visible': true,
                 'user': {
                   'id': 10,
@@ -148,12 +151,15 @@ Future<void> _mountReader(
   WidgetTester tester,
   ProviderContainer container, {
   bool pushed = false,
+  int? atPixivPage,
 }) async {
   await tester.pumpWidget(
     localizedApp(
       container: container,
       builder: promptHostBuilder,
-      home: pushed ? const _Host() : const NovelPage(novelId: 1),
+      home: pushed
+          ? const _Host()
+          : NovelPage(novelId: 1, atPixivPage: atPixivPage),
     ),
   );
   if (pushed) {
@@ -169,9 +175,10 @@ Future<void> _mountReader(
 /// hidden; reveal it with a center tap.
 Future<void> _openReader(
   WidgetTester tester,
-  ProviderContainer container,
-) async {
-  await _mountReader(tester, container);
+  ProviderContainer container, {
+  int? atPixivPage,
+}) async {
+  await _mountReader(tester, container, atPixivPage: atPixivPage);
   await _settleReader(tester);
 }
 
@@ -861,6 +868,14 @@ void main() {
     await _openReader(tester, container);
     expect(line('PAGE1 begins'), findsOneWidget);
     expect(line('PAGE3 begins'), findsNothing);
+
+    // Except from the bookmark list, which asks for the bookmark's page;
+    // the place stays as it was.
+    final place = await places.read('account', 1);
+    await tester.pumpWidget(const SizedBox());
+    await _openReader(tester, container, atPixivPage: 3);
+    expect(tester.getTopLeft(line('PAGE3 begins')).dy, lessThan(100));
+    expect(await places.read('account', 1), place);
   });
 
   testWidgets('a one-page novel without a bookmark offers none', (
@@ -873,6 +888,46 @@ void main() {
     await tester.tap(find.bySemanticsLabel('阅读进度'));
     await tester.pumpAndSettle();
     expect(find.text('在此页加书签'), findsNothing);
+  });
+
+  testWidgets('the info sheet names the series, length, counts and date', (
+    tester,
+  ) async {
+    for (final withSeries in [true, false]) {
+      final container = await _apiContainer(withSeries: withSeries);
+      await tester.pumpWidget(const SizedBox());
+      await _openReader(tester, container);
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.info_outline));
+      await tester.pumpAndSettle();
+
+      expect(find.text('4000 字'), findsOneWidget);
+      expect(find.text('1234'), findsOneWidget);
+      expect(find.text('56'), findsOneWidget);
+      expect(find.textContaining('2026'), findsOneWidget);
+      // The series is named, not linked: the reader's bar steps through it.
+      final series = find.descendant(
+        of: find.byKey(const Key('novel-info-facts')),
+        matching: find.text('series five'),
+      );
+      expect(series, withSeries ? findsOneWidget : findsNothing);
+
+      // One node: the series, the length, then the stats sentence.
+      final semantics = tester.ensureSemantics();
+      final label = tester
+          .getSemantics(find.byKey(const Key('novel-info-facts')))
+          .label;
+      expect(
+        label,
+        stringContainsInOrder([
+          if (withSeries) ...['系列', 'series five'],
+          '4000 字',
+          '1234 次浏览，56 次收藏，发布于 2026',
+        ]),
+      );
+      semantics.dispose();
+    }
   });
 }
 

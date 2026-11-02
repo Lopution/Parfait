@@ -33,8 +33,9 @@ class BookmarkApi {
     nextUrl: null,
   );
 
-  /// Tag list reads from the wire: `tags:<user>:<restrict>`, `:next` for a
-  /// later page, which [tagsNextFailure] answers when set.
+  /// Tag list reads from the wire: `tags:<user>:<restrict>` (`novel-tags:`
+  /// for novels), `:next` for a later page, which [tagsNextFailure] answers
+  /// when set.
   final tagRequests = <String>[];
   ApiRoute? tagsNextFailure;
 
@@ -73,8 +74,10 @@ class BookmarkApi {
   Future<http.Response> _tags(http.Request request) async {
     final query = request.url.queryParameters;
     final next = query.containsKey('offset');
+    final novel = request.url.path.endsWith('/novel');
     tagRequests.add(
-      'tags:${query['user_id']}:${query['restrict']}${next ? ':next' : ''}',
+      '${novel ? 'novel-' : ''}tags:${query['user_id']}:${query['restrict']}'
+      '${next ? ':next' : ''}',
     );
     if (tagsNextFailure case final fail? when next) return fail(request);
     return jsonResponse({
