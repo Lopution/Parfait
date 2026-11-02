@@ -57,9 +57,13 @@ final _novelDetailProvider = FutureProvider.autoDispose
     }, retry: noRetry);
 
 class NovelPage extends ConsumerWidget {
-  const NovelPage({super.key, required this.novelId});
+  const NovelPage({super.key, required this.novelId, this.atPixivPage});
 
   final int novelId;
+
+  /// Opens at this Pixiv page (1-based) before the saved place: the
+  /// account's bookmark, from the bookmark list.
+  final int? atPixivPage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -137,6 +141,7 @@ class NovelPage extends ConsumerWidget {
       progress: _NovelProgressBinding(
         ProviderScope.containerOf(context, listen: false),
         novel.id,
+        atPixivPage: atPixivPage,
       ),
       marker: _markerBinding(ref, novel.id),
       bodyWrapper: (context, anchor, child) =>
@@ -319,10 +324,17 @@ class NovelPage extends ConsumerWidget {
 /// `<accountId>:<novelId>`. The account is resolved per call so a switch
 /// mid-session never writes into the previous account's map.
 class _NovelProgressBinding implements ReaderProgressBinding {
-  const _NovelProgressBinding(this._container, this._novelId);
+  const _NovelProgressBinding(
+    this._container,
+    this._novelId, {
+    this.atPixivPage,
+  });
 
   final ProviderContainer _container;
   final int _novelId;
+
+  /// Opened from the bookmark list: this page comes before the saved place.
+  final int? atPixivPage;
 
   String? get _accountId => _container.read(
     accountStoreProvider.select((a) => a.value?.usableCurrent?.id),
@@ -330,6 +342,8 @@ class _NovelProgressBinding implements ReaderProgressBinding {
 
   @override
   Future<NovelAnchor?> load() async {
+    final asked = _pageStart(atPixivPage);
+    if (asked != null) return asked;
     final accountId = _accountId;
     if (accountId == null) return null;
     final saved = await _container
@@ -338,13 +352,23 @@ class _NovelProgressBinding implements ReaderProgressBinding {
     if (saved != null) {
       return NovelAnchor(paragraphId: saved.paragraphId, offset: saved.offset);
     }
-    // No place of this account's own: the account's bookmark, if it has
-    // one on a page the novel still has.
-    final novel = _container.read(novelStoreProvider)[_novelId];
-    final marker = novel?.markerPage;
-    final starts = novel?.markup?.pixivPageStarts ?? const <String>[];
-    if (marker == null || marker > starts.length) return null;
-    return NovelAnchor(paragraphId: starts[marker - 1], offset: 0);
+    // No place of this account's own: the account's bookmark.
+    return _pageStart(
+      _container.read(novelStoreProvider)[_novelId]?.markerPage,
+    );
+  }
+
+  /// The first line of Pixiv [page], if the novel still has that page.
+  NovelAnchor? _pageStart(int? page) {
+    if (page == null || page < 1) return null;
+    final starts =
+        _container
+            .read(novelStoreProvider)[_novelId]
+            ?.markup
+            ?.pixivPageStarts ??
+        const <String>[];
+    if (page > starts.length) return null;
+    return NovelAnchor(paragraphId: starts[page - 1], offset: 0);
   }
 
   @override

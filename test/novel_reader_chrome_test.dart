@@ -151,12 +151,15 @@ Future<void> _mountReader(
   WidgetTester tester,
   ProviderContainer container, {
   bool pushed = false,
+  int? atPixivPage,
 }) async {
   await tester.pumpWidget(
     localizedApp(
       container: container,
       builder: promptHostBuilder,
-      home: pushed ? const _Host() : const NovelPage(novelId: 1),
+      home: pushed
+          ? const _Host()
+          : NovelPage(novelId: 1, atPixivPage: atPixivPage),
     ),
   );
   if (pushed) {
@@ -172,9 +175,10 @@ Future<void> _mountReader(
 /// hidden; reveal it with a center tap.
 Future<void> _openReader(
   WidgetTester tester,
-  ProviderContainer container,
-) async {
-  await _mountReader(tester, container);
+  ProviderContainer container, {
+  int? atPixivPage,
+}) async {
+  await _mountReader(tester, container, atPixivPage: atPixivPage);
   await _settleReader(tester);
 }
 
@@ -864,6 +868,14 @@ void main() {
     await _openReader(tester, container);
     expect(line('PAGE1 begins'), findsOneWidget);
     expect(line('PAGE3 begins'), findsNothing);
+
+    // Except from the bookmark list, which asks for the bookmark's page;
+    // the place stays as it was.
+    final place = await places.read('account', 1);
+    await tester.pumpWidget(const SizedBox());
+    await _openReader(tester, container, atPixivPage: 3);
+    expect(tester.getTopLeft(line('PAGE3 begins')).dy, lessThan(100));
+    expect(await places.read('account', 1), place);
   });
 
   testWidgets('a one-page novel without a bookmark offers none', (

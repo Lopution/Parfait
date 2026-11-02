@@ -96,6 +96,15 @@ void main() {
       await tester.tapAt(reader.centerRight - const Offset(8, 0));
     },
   );
+  // The account's novel bookmarks; the second one removed, kept to put back.
+  testShot(
+    'novel/markers',
+    location: '/settings/novel-markers',
+    variants: {ShotVariant.dark, ...overflowVariants},
+    before: (tester, router) async {
+      await tester.tap(find.byIcon(Icons.bookmark).at(1));
+    },
+  );
   testShot('novel/comments', location: '$novel/comments');
   testShot(
     'novel/ranking',

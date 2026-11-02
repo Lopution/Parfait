@@ -40,6 +40,7 @@ class NovelEntry extends ConsumerWidget {
     required double coverHeight,
     required double coverRadius,
     this.rank,
+    this.overline,
     this.progress,
     this.trailing,
     this.onTap,
@@ -81,6 +82,7 @@ class NovelEntry extends ConsumerWidget {
   NovelEntry.regular({
     Key? key,
     required NovelEntity entity,
+    String? overline,
     double? progress,
     Widget? trailing,
     VoidCallback? onTap,
@@ -93,6 +95,7 @@ class NovelEntry extends ConsumerWidget {
          coverWidth: 68,
          coverHeight: 88,
          coverRadius: 6,
+         overline: overline,
          progress: progress,
          trailing: trailing,
          onTap: onTap,
@@ -135,6 +138,10 @@ class NovelEntry extends ConsumerWidget {
 
   /// Ranking position — set only by [NovelEntry.ranking].
   final int? rank;
+
+  /// Short label above the title, read first — where the account's
+  /// bookmark is, in the bookmark list.
+  final String? overline;
 
   /// Reading-progress slot (W5 semantics): `null` renders nothing, `0.0`
   /// renders an empty bar — a real "started from the top" record.
@@ -203,6 +210,7 @@ class NovelEntry extends ConsumerWidget {
         ? AppFormat.count(context, entity.totalBookmarks)
         : null;
     final identity = [
+      ?overline,
       if (rank != null) l10n.rankLabel(rank!),
       title,
       entity.user.name,
@@ -216,6 +224,7 @@ class NovelEntry extends ConsumerWidget {
         vertical: FuncSpacing.md,
       ),
       leading: _cover(context, bookmarks, muted: muted),
+      overline: overline,
       title: title,
       titleLeading: rank == null ? null : EntityRankLabel(rank!),
       subtitle: entity.user.name,

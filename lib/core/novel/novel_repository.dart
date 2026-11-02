@@ -33,6 +33,15 @@ class NovelPage {
   final String? nextUrl;
 }
 
+/// One page of the account's bookmarked novels, each with its bookmark's
+/// Pixiv page (1-based).
+class MarkedNovelPage {
+  const MarkedNovelPage({required this.entries, required this.nextUrl});
+
+  final List<({NovelEntity novel, int page})> entries;
+  final String? nextUrl;
+}
+
 class NovelSeriesPage {
   const NovelSeriesPage({
     required this.seriesId,
@@ -184,6 +193,14 @@ abstract interface class _NovelRepository {
 
   bool validateSeriesCursor(int seriesId, {required String cursor});
 
+  /// The account's bookmarked novels (Pixiv's markers), newest first.
+  Future<MarkedNovelPage> fetchMarkedNovels({
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateMarkedNovelsCursor({required String cursor});
+
   /// Sets the account's bookmark (Pixiv's marker) of [novelId] at Pixiv
   /// page [page], replacing any other.
   Future<void> addMarker(int novelId, int page);
@@ -204,6 +221,7 @@ class _PixivNovelRepository implements _NovelRepository {
   static const _recommendedPath = '/v1/novel/recommended';
   static const _rankingPath = '/v1/novel/ranking';
   static const _seriesPath = '/v2/novel/series';
+  static const _markersPath = '/v2/novel/markers';
   static const _markerAddPath = '/v1/novel/marker/add';
   static const _markerDeletePath = '/v1/novel/marker/delete';
 
@@ -242,6 +260,28 @@ class _PixivNovelRepository implements _NovelRepository {
       throw ApiParseError(error);
     }
   }
+
+  @override
+  Future<MarkedNovelPage> fetchMarkedNovels({
+    String? cursor,
+    CancelToken? cancelToken,
+  }) {
+    final request = _pageRequest(
+      path: _markersPath,
+      query: const {},
+      identity: const {},
+      cursor: cursor,
+    );
+    return _client.getParsed(
+      _target(request),
+      _parseMarkedNovelPage,
+      cancelToken: cancelToken,
+    );
+  }
+
+  @override
+  bool validateMarkedNovelsCursor({required String cursor}) =>
+      _isValidCursor(path: _markersPath, identity: const {}, cursor: cursor);
 
   @override
   Future<void> addMarker(int novelId, int page) async {
@@ -558,6 +598,34 @@ class _PixivNovelRepository implements _NovelRepository {
               NovelEntity.fromJson(item)
             else
               throw const FormatException('novels contains a non-object'),
+        ],
+        nextUrl: readNextUrl(json['next_url']),
+      );
+    } on FormatException catch (error) {
+      throw ApiParseError(error);
+    }
+  }
+
+  static MarkedNovelPage _parseMarkedNovelPage(Map<String, dynamic> json) {
+    final raw = json['marked_novels'];
+    if (raw is! List) {
+      throw const ApiParseError('marked_novels list is missing or malformed');
+    }
+    try {
+      return MarkedNovelPage(
+        entries: [
+          for (final item in raw)
+            switch (item) {
+              {
+                'novel': final Map<String, dynamic> novel,
+                'novel_marker': {'page': final int page},
+              }
+                  when page >= 1 =>
+                (novel: NovelEntity.fromJson(novel), page: page),
+              _ => throw const FormatException(
+                'marked_novels contains an entry without a novel or page',
+              ),
+            },
         ],
         nextUrl: readNextUrl(json['next_url']),
       );

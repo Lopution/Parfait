@@ -118,6 +118,10 @@ const Map<String, Set<String>> _kNextPageEndpoints = {
   '/v1/mypixiv/all': {'offset'},
   '/v1/user/bookmarks/illust': {'user_id', 'restrict', 'tag', 'offset'},
   '/v1/user/bookmarks/novel': {'user_id', 'restrict', 'tag', 'offset'},
+  // The account's novel bookmarks (markers). `offset` by the other v2
+  // lists; not yet checked against a live second page, and a different
+  // key fails that page loudly.
+  '/v2/novel/markers': {'offset'},
   '/v1/user/bookmark-tags/illust': {'user_id', 'restrict', 'offset'},
   '/v1/user/bookmark-tags/novel': {'user_id', 'restrict', 'offset'},
   '/v1/user/illusts': {'filter', 'user_id', 'type', 'offset'},

@@ -2826,6 +2826,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelMarkerFailed => '书签操作失败';
 
   @override
+  String get novelMarkers => '小说书签';
+
+  @override
+  String novelMarkerAtPage(int page) {
+    return '书签 · 第 $page 页';
+  }
+
+  @override
+  String get novelMarkerRestore => '加回书签';
+
+  @override
+  String get novelMarkersEmpty => '暂无小说书签';
+
+  @override
+  String get novelMarkersLoadFailed => '小说书签加载失败';
+
+  @override
   String get novelIllustration => '插图';
 
   @override

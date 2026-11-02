@@ -38,6 +38,7 @@ import '../../features/history/history_page.dart';
 import '../../features/novel/local_novel_reader_page.dart';
 import '../../features/localnovel/local_novels_page.dart';
 import '../../features/watchlater/watchlater_page.dart';
+import '../../features/novel/novel_markers_page.dart';
 import '../../features/watchlist/watchlist_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
@@ -106,6 +107,16 @@ class IllustRouteExtra {
   /// work-to-work pager instead of a single detail
   /// page. The object is in-memory only — never serialized into the URL.
   final IllustPagerSource? pagerSource;
+}
+
+/// How a novel opens. In-memory only: a restored reader opens at the
+/// account's own place.
+class NovelRouteExtra {
+  const NovelRouteExtra({required this.atPixivPage});
+
+  /// The Pixiv page (1-based) to open at, before any saved place: the
+  /// account's bookmark, from the bookmark list.
+  final int atPixivPage;
 }
 
 class ImageViewerRouteExtra {
@@ -739,7 +750,13 @@ List<RouteBase> _commonBranchRoutes(
         context,
         state,
         branchObserver,
-        NovelPage(novelId: _pathId(state, 'novelId')),
+        NovelPage(
+          novelId: _pathId(state, 'novelId'),
+          atPixivPage: switch (state.extra) {
+            NovelRouteExtra(:final atPixivPage) => atPixivPage,
+            _ => null,
+          },
+        ),
       ),
       routes: [
         GoRoute(
@@ -826,6 +843,11 @@ List<RouteBase> _commonBranchRoutes(
       path: 'watchlist',
       pageBuilder: (context, state) =>
           _page(context, state, branchObserver, const WatchlistPage()),
+    ),
+    GoRoute(
+      path: 'novel-markers',
+      pageBuilder: (context, state) =>
+          _page(context, state, branchObserver, const NovelMarkersPage()),
     ),
     GoRoute(
       path: 'local-novels',
@@ -1598,8 +1620,19 @@ Future<void> openSettings(BuildContext context) async {
 /// settings branch below the page that displayed the prompt.
 void goToAbout(GoRouter router) => router.go('/settings/about');
 
-Future<void> openNovel(BuildContext context, int novelId) async {
-  await _push(context, '${_currentStackRoot(context)}/novel/$novelId');
+/// [atPixivPage] opens at that Pixiv page rather than the saved place.
+Future<void> openNovel(
+  BuildContext context,
+  int novelId, {
+  int? atPixivPage,
+}) async {
+  await _push(
+    context,
+    '${_currentStackRoot(context)}/novel/$novelId',
+    extra: atPixivPage == null
+        ? null
+        : NovelRouteExtra(atPixivPage: atPixivPage),
+  );
 }
 
 Future<void> openNovelRanking(BuildContext context) async {
@@ -1659,6 +1692,10 @@ Future<void> openWatchLater(BuildContext context) async {
 
 Future<void> openWatchlist(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/watchlist');
+}
+
+Future<void> openNovelMarkers(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/novel-markers');
 }
 
 Future<void> openLocalNovels(BuildContext context) async {

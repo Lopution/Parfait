@@ -2924,6 +2924,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelMarkerFailed => 'Marker operation failed';
 
   @override
+  String get novelMarkers => 'Novel markers';
+
+  @override
+  String novelMarkerAtPage(int page) {
+    return 'Marker · page $page';
+  }
+
+  @override
+  String get novelMarkerRestore => 'Put the marker back';
+
+  @override
+  String get novelMarkersEmpty => 'No novel markers yet';
+
+  @override
+  String get novelMarkersLoadFailed => 'Failed to load novel markers';
+
+  @override
   String get novelIllustration => 'Illustration';
 
   @override

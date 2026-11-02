@@ -5435,6 +5435,36 @@ abstract class AppLocalizations {
   /// **'书签操作失败'**
   String get novelMarkerFailed;
 
+  /// No description provided for @novelMarkers.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说书签'**
+  String get novelMarkers;
+
+  /// Where the account's bookmark of a novel is, above its title in the bookmark list; the page counts the author's page breaks.
+  ///
+  /// In zh, this message translates to:
+  /// **'书签 · 第 {page} 页'**
+  String novelMarkerAtPage(int page);
+
+  /// No description provided for @novelMarkerRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加回书签'**
+  String get novelMarkerRestore;
+
+  /// No description provided for @novelMarkersEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无小说书签'**
+  String get novelMarkersEmpty;
+
+  /// No description provided for @novelMarkersLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说书签加载失败'**
+  String get novelMarkersLoadFailed;
+
   /// No description provided for @novelIllustration.
   ///
   /// In zh, this message translates to:

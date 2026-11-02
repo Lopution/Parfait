@@ -129,3 +129,80 @@ final userNovelBookmarksFeedProvider = AsyncNotifierProvider.autoDispose
     .family<_UserNovelBookmarksFeedController, PagedFeedState, ProfileFeedKey>(
       _UserNovelBookmarksFeedController.new,
     );
+
+/// The account's bookmarked novels (Pixiv's markers). Each novel's
+/// bookmark lands in [novelStoreProvider] (its [NovelEntity.markerPage]),
+/// and its listed page in [markedNovelPagesProvider], which keeps it after
+/// the bookmark is removed so the list can put it back.
+class _MarkedNovelsFeedController extends PagedFeedController {
+  @override
+  String get feedKey => 'novel:markers';
+
+  /// A short list of the account's own: no snapshot to restore from.
+  @override
+  FeedSnapshotCodec? get snapshotCodec => null;
+
+  /// C9: bookmarks are the user's own collection.
+  @override
+  bool get localFilterEnabled => false;
+
+  @override
+  bool get novelIds => true;
+
+  @override
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
+    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    final page = await ref
+        .read(novelRepositoryProvider)
+        .fetchMarkedNovels(
+          cursor: context.cursor,
+          cancelToken: context.cancelToken,
+        );
+    final novels = [for (final entry in page.entries) entry.novel];
+    return FeedPage(
+      ids: [for (final novel in novels) novel.id],
+      nextCursor: page.nextUrl,
+      incomingNovels: {for (final novel in novels) novel.id: novel},
+      commit: (_) {
+        final store = ref.read(novelStoreProvider.notifier)..mergeAll(novels);
+        for (final entry in page.entries) {
+          store.updateMarker(entry.novel.id, entry.page);
+        }
+        ref.read(markedNovelPagesProvider.notifier).add({
+          for (final entry in page.entries) entry.novel.id: entry.page,
+        });
+      },
+    );
+  }
+
+  @override
+  String? validateCursor(String? rawCursor) {
+    if (rawCursor == null) return null;
+    return ref
+            .read(novelRepositoryProvider)
+            .validateMarkedNovelsCursor(cursor: rawCursor)
+        ? rawCursor
+        : null;
+  }
+}
+
+final markedNovelsFeedProvider =
+    AsyncNotifierProvider.autoDispose<
+      _MarkedNovelsFeedController,
+      PagedFeedState
+    >(_MarkedNovelsFeedController.new);
+
+/// The Pixiv page each novel of the bookmark list was listed at, for the
+/// current account.
+class _MarkedNovelPages extends Notifier<Map<int, int>> {
+  @override
+  Map<int, int> build() {
+    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    return const {};
+  }
+
+  void add(Map<int, int> pages) => state = {...state, ...pages};
+}
+
+final markedNovelPagesProvider =
+    NotifierProvider<_MarkedNovelPages, Map<int, int>>(_MarkedNovelPages.new);
