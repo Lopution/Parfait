@@ -345,6 +345,7 @@
   "previewQuality": "Preview quality",
   "viewQuality": "Viewer quality",
   "detailQuality": "Detail quality",
+  "novelImageQuality": "Novel image quality",
   "feedDensity": "Grid density",
   "feedDensityCompact": "Compact",
   "feedDensityStandard": "Standard",
@@ -1082,6 +1083,8 @@
   "novelThemePaper": "Paper",
   "novelThemeSepia": "Eye care",
   "novelThemeNight": "Night",
+  "novelPageTurnScroll": "Scroll",
+  "novelPageTurnPages": "Turn pages",
   "aboutDisplayRefreshRate": "Display refresh rate",
   "cardActionDownload": "Download",
   "cardActionWatchLater": "Watch later",
@@ -1169,6 +1172,8 @@
     }
   },
   "novelChapters": "Chapters",
+  "novelIllustration": "Illustration",
+  "novelIllustrationUnavailable": "This image was removed or is not visible",
   "localNovelFileInfo": "File info",
   "localNovelFileEncoding": "Encoding: {encoding}",
   "@localNovelFileEncoding": {

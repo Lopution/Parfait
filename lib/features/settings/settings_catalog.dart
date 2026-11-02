@@ -151,6 +151,11 @@ enum Setting implements SettingsEntry {
     'viewQuality',
     optionKeys: ['qualityLarge', 'qualityOriginal'],
   ),
+  novelImageQuality(
+    SettingsPageRef.browse,
+    'novelImageQuality',
+    optionKeys: ['qualityLarge', 'qualityOriginal'],
+  ),
   homeStartPage(
     SettingsPageRef.navigation,
     'homeStartPage',

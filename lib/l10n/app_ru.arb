@@ -338,6 +338,7 @@
   "previewQuality": "Качество предпросмотра",
   "viewQuality": "Качество просмотра",
   "detailQuality": "Качество картинки в детальной странице",
+  "novelImageQuality": "Качество иллюстраций в новеллах",
   "feedDensity": "Плотность сетки",
   "feedDensityCompact": "Компактная",
   "feedDensityStandard": "Обычная",
@@ -1075,6 +1076,8 @@
   "novelThemePaper": "Бумага",
   "novelThemeSepia": "Защита глаз",
   "novelThemeNight": "Ночная",
+  "novelPageTurnScroll": "Прокрутка",
+  "novelPageTurnPages": "Листание",
   "aboutDisplayRefreshRate": "Частота обновления",
   "cardActionDownload": "Скачать",
   "cardActionWatchLater": "Посмотреть позже",
@@ -1162,6 +1165,8 @@
     }
   },
   "novelChapters": "Главы",
+  "novelIllustration": "Иллюстрация",
+  "novelIllustrationUnavailable": "Иллюстрация удалена или недоступна",
   "localNovelFileInfo": "Информация о файле",
   "localNovelFileEncoding": "Кодировка: {encoding}",
   "@localNovelFileEncoding": {

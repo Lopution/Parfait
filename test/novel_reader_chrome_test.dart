@@ -16,6 +16,7 @@ import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
+import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_page.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -195,7 +196,7 @@ void main() {
       matching: find.text('novel 1', skipOffstage: skipOffstage),
     );
 
-    expect(find.byType(PageView), findsOneWidget);
+    expect(find.byType(ListView), findsOneWidget);
     // Chrome is hidden by default, so the bar's title is not on screen
     // yet. The passive footer is the only title-bearing readout in the
     // hidden state.
@@ -219,7 +220,7 @@ void main() {
     // System back closes the chrome instead of popping the page.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.byType(PageView), findsOneWidget);
+    expect(find.byType(ListView), findsOneWidget);
     expect(barTitle(), findsNothing);
     expect(find.textContaining('novel 1 ·'), findsOneWidget);
 
@@ -291,7 +292,7 @@ void main() {
     final container = await _apiContainer();
     await _mountReader(tester, container, pushed: true);
 
-    expect(find.byType(PageView), findsOneWidget);
+    expect(find.byType(ListView), findsOneWidget);
     // Chrome starts hidden — the back affordance is not on screen.
     expect(find.byIcon(Icons.arrow_back), findsNothing);
 
@@ -307,7 +308,7 @@ void main() {
     final container = await _apiContainer();
     await _mountReader(tester, container, pushed: true);
 
-    expect(find.byType(PageView), findsOneWidget);
+    expect(find.byType(ListView), findsOneWidget);
 
     // Reveal the chrome, then use the explicit back control: it must leave
     // the page instead of only hiding the bars. The PopScope's chrome-first
@@ -615,8 +616,17 @@ void main() {
     tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
     addTearDown(tester.view.reset);
 
-    for (final scale in [1.0, 2.0]) {
-      final container = await _apiContainer();
+    for (final (pageTurn, scale) in [
+      for (final pageTurn in NovelPageTurn.values)
+        for (final scale in [1.0, 2.0]) (pageTurn, scale),
+    ]) {
+      final container = await _apiContainer(
+        platform: memoryPreferences({
+          'parfait.novel.reader_settings.v1': jsonEncode(
+            NovelReaderSettings(pageTurn: pageTurn).toJson(),
+          ),
+        }),
+      );
       await tester.pumpWidget(
         localizedApp(
           container: container,
@@ -635,6 +645,21 @@ void main() {
       await _settleReader(tester);
 
       final hint = tester.getRect(find.textContaining('novel 1 ·'));
+      if (pageTurn == NovelPageTurn.scroll) {
+        // The column shows its lines only above the bottom margin; the
+        // hint lives in that margin.
+        final text = tester.getRect(find.byType(NovelReader));
+        expect(
+          hint.top,
+          greaterThanOrEqualTo(
+            text.bottom - const NovelLayoutStyle().verticalPadding,
+          ),
+          reason: 'scale $scale: hint $hint must sit below the text area',
+        );
+        await tester.pumpWidget(const SizedBox());
+        container.dispose();
+        continue;
+      }
       var lastLineBottom = 0.0;
       Rect? lastLine;
       for (final line in tester.widgetList<Text>(

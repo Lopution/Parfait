@@ -233,6 +233,7 @@ class AppSettings {
     this.feedDensity = FeedDensity.standard,
     this.viewQuality = ViewQuality.original,
     this.detailQuality = DetailQuality.large,
+    this.novelImageQuality = DetailQuality.large,
     this.networkMode = NetworkMode.automatic,
     this.enableHistory = true,
     this.enablePixivHistory = true,
@@ -322,6 +323,10 @@ class AppSettings {
   final FeedDensity feedDensity;
   final ViewQuality viewQuality;
   final DetailQuality detailQuality;
+
+  /// The images in a novel's body, as the reader shows them; the viewer a
+  /// tap opens follows [viewQuality].
+  final DetailQuality novelImageQuality;
   final NetworkMode networkMode;
   final bool enableHistory;
   final bool enablePixivHistory;
@@ -473,6 +478,9 @@ class AppSettings {
       detailQuality: json['detailQualityCode'] is int
           ? DetailQuality.fromCode(json['detailQualityCode'])
           : base.detailQuality,
+      novelImageQuality: json['novelImageQualityCode'] is int
+          ? DetailQuality.fromCode(json['novelImageQualityCode'])
+          : base.novelImageQuality,
       networkMode:
           NetworkMode.tryFromCode(json['networkModeCode']) ?? base.networkMode,
       enableHistory: _bool(json['enableHistory'], base.enableHistory),
@@ -569,6 +577,7 @@ class AppSettings {
       'feedDensity': feedDensity.name,
       'viewQualityCode': viewQuality.code,
       'detailQualityCode': detailQuality.code,
+      'novelImageQualityCode': novelImageQuality.code,
       'networkModeCode': networkMode.code,
       'enableHistory': enableHistory,
       'enablePixivHistory': enablePixivHistory,
@@ -714,6 +723,7 @@ class AppSettings {
     FeedDensity? feedDensity,
     ViewQuality? viewQuality,
     DetailQuality? detailQuality,
+    DetailQuality? novelImageQuality,
     NetworkMode? networkMode,
     bool? enableHistory,
     bool? enablePixivHistory,
@@ -767,6 +777,7 @@ class AppSettings {
       feedDensity: feedDensity ?? this.feedDensity,
       viewQuality: viewQuality ?? this.viewQuality,
       detailQuality: detailQuality ?? this.detailQuality,
+      novelImageQuality: novelImageQuality ?? this.novelImageQuality,
       networkMode: networkMode ?? this.networkMode,
       enableHistory: enableHistory ?? this.enableHistory,
       enablePixivHistory: enablePixivHistory ?? this.enablePixivHistory,

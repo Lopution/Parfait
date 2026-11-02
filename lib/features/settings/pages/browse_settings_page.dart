@@ -129,6 +129,20 @@ class BrowseSettingsPage extends ConsumerWidget {
                         .setViewQuality(quality),
                   ),
                 ),
+                SettingsMenuTile<DetailQuality>(
+                  setting: Setting.novelImageQuality,
+                  value: settings.novelImageQuality,
+                  options: _qualityOptions(context, const [
+                    DetailQuality.large,
+                    DetailQuality.original,
+                  ]),
+                  onChanged: (quality) => persistSettings(
+                    context,
+                    () => ref
+                        .read(settingsProvider.notifier)
+                        .setNovelImageQuality(quality),
+                  ),
+                ),
               ],
             ),
           ],

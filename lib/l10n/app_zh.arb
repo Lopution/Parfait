@@ -362,6 +362,7 @@
   "previewQuality": "预览质量",
   "viewQuality": "查看质量",
   "detailQuality": "详情质量",
+  "novelImageQuality": "小说插图质量",
   "feedDensity": "网格密度",
   "feedDensityCompact": "紧凑",
   "feedDensityStandard": "标准",
@@ -1488,6 +1489,8 @@
   "novelThemePaper": "纸张",
   "novelThemeSepia": "护眼",
   "novelThemeNight": "夜间",
+  "novelPageTurnScroll": "上下滚动",
+  "novelPageTurnPages": "左右翻页",
   "aboutDisplayRefreshRate": "显示刷新率",
   "cardActionDownload": "下载",
   "cardActionWatchLater": "稍后再看",
@@ -1589,6 +1592,8 @@
     }
   },
   "novelChapters": "目录",
+  "novelIllustration": "插图",
+  "novelIllustrationUnavailable": "插图已删除或不可见",
   "localNovelFileInfo": "文件信息",
   "localNovelFileEncoding": "编码：{encoding}",
   "@localNovelFileEncoding": {

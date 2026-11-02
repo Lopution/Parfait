@@ -338,6 +338,7 @@
   "previewQuality": "プレビュー画質",
   "viewQuality": "ビューア画質",
   "detailQuality": "詳細画質",
+  "novelImageQuality": "小説の挿絵の画質",
   "feedDensity": "グリッドの密度",
   "feedDensityCompact": "コンパクト",
   "feedDensityStandard": "標準",
@@ -1075,6 +1076,8 @@
   "novelThemePaper": "紙",
   "novelThemeSepia": "目に優しい",
   "novelThemeNight": "ナイト",
+  "novelPageTurnScroll": "縦スクロール",
+  "novelPageTurnPages": "ページめくり",
   "aboutDisplayRefreshRate": "画面リフレッシュレート",
   "cardActionDownload": "ダウンロード",
   "cardActionWatchLater": "あとで見る",
@@ -1162,6 +1165,8 @@
     }
   },
   "novelChapters": "目次",
+  "novelIllustration": "挿絵",
+  "novelIllustrationUnavailable": "この挿絵は削除されたか、表示できません",
   "localNovelFileInfo": "ファイル情報",
   "localNovelFileEncoding": "エンコーディング: {encoding}",
   "@localNovelFileEncoding": {

@@ -21,7 +21,9 @@ import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/recommended_repository.dart';
 import '../../core/new/new_feed_models.dart';
+import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart' hide NovelPage;
+import '../../core/novel/novel_store.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
@@ -189,6 +191,35 @@ class _ImageViewerRoute extends ConsumerWidget {
         quality: quality,
         extra: extra,
       ),
+    );
+  }
+}
+
+/// An image the author uploaded into a novel, alone in the viewer. Its
+/// address comes from the body the reader below loaded.
+class _NovelImageRoute extends ConsumerWidget {
+  const _NovelImageRoute({required this.novelId, required this.imageId});
+
+  final int novelId;
+  final String imageId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final urls = ref
+        .watch(novelStoreProvider.select((novels) => novels[novelId]))
+        ?.uploadedImage(
+          NovelImageLoadRequest(
+            source: NovelImageSource.uploaded,
+            identifier: imageId,
+          ),
+        );
+    return ImageViewerPage(
+      urls: [
+        ?switch (ref.watch(viewQualityProvider)) {
+          ViewQuality.original => urls?.original,
+          ViewQuality.medium || ViewQuality.large => urls?.large,
+        },
+      ],
     );
   }
 }
@@ -711,6 +742,19 @@ List<RouteBase> _commonBranchRoutes(
         NovelPage(novelId: _pathId(state, 'novelId')),
       ),
       routes: [
+        GoRoute(
+          path: 'image/:imageId',
+          parentNavigatorKey: rootNavigatorKey,
+          pageBuilder: (context, state) => _page(
+            context,
+            state,
+            rootObserver,
+            _NovelImageRoute(
+              novelId: _pathId(state, 'novelId'),
+              imageId: state.pathParameters['imageId']!,
+            ),
+          ),
+        ),
         GoRoute(
           path: 'comments',
           pageBuilder: (context, state) => _page(
@@ -1861,6 +1905,34 @@ Future<void> openImageViewer(
       heroScope: heroScope,
       entryPage: page,
     ),
+  );
+}
+
+/// A Pixiv work's pages in the viewer, opened from outside its detail page
+/// (a novel's illustration): the viewer loads the work itself.
+Future<void> openIllustViewer(
+  BuildContext context, {
+  required int illustId,
+  required int page,
+  required ViewQuality quality,
+}) async {
+  beginImageViewerSession();
+  await _push(
+    context,
+    '${_currentStackRoot(context)}/illust/$illustId/viewer/$page'
+    '?quality=${quality.code}',
+  );
+}
+
+Future<void> openNovelImage(
+  BuildContext context,
+  int novelId,
+  String imageId,
+) async {
+  beginImageViewerSession();
+  await _push(
+    context,
+    '${_currentStackRoot(context)}/novel/$novelId/image/$imageId',
   );
 }
 

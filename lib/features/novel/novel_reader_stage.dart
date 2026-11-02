@@ -31,10 +31,9 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
 import '../../app/widgets/app_slider.dart';
 
-/// How far the bottom progress hint fades the page's text: no further
-/// than keeps 4.5:1 on every reader palette (the green one is the
-/// closest, about 5:1).
-@visibleForTesting
+/// How far the reader's faint text (the bottom progress hint, an image's
+/// notice) fades the page's text: no further than keeps 4.5:1 on every
+/// reader palette (the green one is the closest, about 5:1).
 const novelReaderHintAlpha = 0.75;
 
 /// How far the progress pill's outline fades the page's text: no further
@@ -54,6 +53,7 @@ class NovelReaderStageSpec {
     required this.progress,
     this.titleBlock,
     this.topActions = const [],
+    this.onImageTap,
     this.bodyWrapper,
   });
 
@@ -68,6 +68,11 @@ class NovelReaderStageSpec {
   /// Extra actions rendered before the info button in the top bar
   /// (online: share + bookmark; local: none).
   final List<Widget> topActions;
+
+  /// Opens a tapped illustration (online: the image viewer; a TXT file
+  /// has none).
+  final void Function(BuildContext context, NovelImageLoadRequest image)?
+  onImageTap;
 
   /// Tooltip of the top-bar info button (`novelInfoTitle` for a work,
   /// `localNovelFileInfo` for a file).
@@ -522,6 +527,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
           titleBlock: widget.spec.titleBlock,
           handle: _readerHandle,
           onCenterTap: _toggleChrome,
+          onImageTap: switch (widget.spec.onImageTap) {
+            final open? => (image) => open(context, image),
+            null => null,
+          },
           onProgressChanged: _onProgressChanged,
           onAnchorChanged: _onAnchorChanged,
         ),
@@ -914,6 +923,22 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                           apply(_settings.copyWith(lineHeight: v)),
                     ),
                     const SizedBox(height: FuncSpacing.md),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final (pageTurn, label) in [
+                          (NovelPageTurn.scroll, l10n.novelPageTurnScroll),
+                          (NovelPageTurn.pages, l10n.novelPageTurnPages),
+                        ])
+                          AppChoiceChip(
+                            label: Text(label),
+                            selected: _settings.pageTurn == pageTurn,
+                            onSelected: () =>
+                                apply(_settings.copyWith(pageTurn: pageTurn)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: FuncSpacing.sm),
                     Wrap(
                       spacing: 8,
                       children: [

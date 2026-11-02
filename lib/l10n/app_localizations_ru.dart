@@ -852,6 +852,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detailQuality => 'Качество картинки в детальной странице';
 
   @override
+  String get novelImageQuality => 'Качество иллюстраций в новеллах';
+
+  @override
   String get feedDensity => 'Плотность сетки';
 
   @override
@@ -2706,6 +2709,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelThemeNight => 'Ночная';
 
   @override
+  String get novelPageTurnScroll => 'Прокрутка';
+
+  @override
+  String get novelPageTurnPages => 'Листание';
+
+  @override
   String get aboutDisplayRefreshRate => 'Частота обновления';
 
   @override
@@ -2883,6 +2892,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelChapters => 'Главы';
+
+  @override
+  String get novelIllustration => 'Иллюстрация';
+
+  @override
+  String get novelIllustrationUnavailable =>
+      'Иллюстрация удалена или недоступна';
 
   @override
   String get localNovelFileInfo => 'Информация о файле';

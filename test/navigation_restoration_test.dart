@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -8,6 +10,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -32,6 +35,7 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/api_responses.dart';
@@ -369,6 +373,102 @@ void main() {
     expect(find.text('2 / 2'), findsOneWidget);
   });
 
+  testWidgets(
+    'a novel image shows and opens its work page; a lost one says so',
+    (tester) async {
+      // Page by page, each image on a page of its own.
+      await SharedPreferencesAsync().setString(
+        'parfait.novel.reader_settings.v1',
+        jsonEncode(
+          const NovelReaderSettings(pageTurn: NovelPageTurn.pages).toJson(),
+        ),
+      );
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+      addTearDown(
+        () => VisibilityDetectorController.instance.updateInterval =
+            const Duration(milliseconds: 500),
+      );
+      final historyDatabase = HistoryDatabase();
+      final history = HistoryRepository(database: historyDatabase);
+      final router = pixivRouter('/recommended/novel/7');
+      await tester.pumpWidget(
+        _routerApp(
+          router,
+          history: history,
+          httpHandler: (request) async => switch (request.url.path) {
+            '/v2/novel/detail' => _json({'novel': novelJson(7)}),
+            '/webview/v2/novel' => http.Response.bytes(
+              utf8.encode(_illustratedNovelHtml),
+              200,
+              headers: {'content-type': 'text/html'},
+            ),
+            // Work 43 was deleted.
+            '/v1/illust/detail'
+                when request.url.queryParameters['illust_id'] == '42' =>
+              _json({
+                'illust': illustJson(42, pageCount: 2, withMetaPages: true),
+              }),
+            '/v1/illust/detail' => http.Response('{}', 404),
+            _ => _json({'illusts': <Object?>[], 'next_url': null}),
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Page 1 holds the title block; each image has a page of its own.
+      Future<void> tap(double x) async {
+        await tester.tapAt(Offset(x, 300));
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> tapImageOnNextPage() async {
+        await tap(790);
+        await tap(400);
+      }
+
+      await tap(790);
+      // The work's page from its detail, at the reader's quality (large).
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is PixivImage &&
+              widget.url == 'https://i.pximg.net/42/p1/l.jpg',
+        ),
+        findsOneWidget,
+      );
+      await tap(400);
+      // The viewer loads the work itself: no detail page lies below it.
+      expect(router.state.uri.path, '/recommended/illust/42/viewer/1');
+      expect(find.text('2 / 2'), findsOneWidget);
+
+      router.pop();
+      await tester.pumpAndSettle();
+      await tapImageOnNextPage();
+      expect(router.state.uri.path, '/recommended/novel/7/image/5');
+      // At the viewer's quality (original).
+      expect(
+        tester.widget<ImageViewerPage>(find.byType(ImageViewerPage)).urls,
+        ['https://i.pximg.net/u5-original.png'],
+      );
+
+      router.pop();
+      await tester.pumpAndSettle();
+      // The deleted work and the upload the payload lacks: a notice each,
+      // which opens nothing.
+      for (var page = 3; page <= 4; page++) {
+        await tapImageOnNextPage();
+        expect(find.text('插图已删除或不可见'), findsOneWidget);
+        expect(router.state.uri.path, '/recommended/novel/7');
+        // The tap showed the chrome; this one hides it again.
+        await tap(400);
+      }
+      // The reader's history commit lands before the database closes.
+      await tester.pumpWidget(const SizedBox());
+      history.dispose();
+      await historyDatabase.close();
+    },
+  );
+
   testWidgets('a viewer whose work failed to load offers a retry', (
     tester,
   ) async {
@@ -497,3 +597,23 @@ void main() {
     });
   }
 }
+
+/// A webview body with a work's second page, an uploaded image, a deleted
+/// work and an upload the payload lacks.
+const _illustratedNovelHtml = '''
+<script>
+Object.defineProperty(window, 'pixiv', {value: {
+  "novel": {
+    "id": "7",
+    "text": "[pixivimage:42-2]\\n[uploadedimage:5]\\n[pixivimage:43]\\n[uploadedimage:6]",
+    "images": {"5": {"urls": {
+      "1200x1200": "https://i.pximg.net/u5.png",
+      "original": "https://i.pximg.net/u5-original.png"
+    }}},
+    "illusts": {
+      "42-2": {"illust": {"images": {"medium": "https://i.pximg.net/42-2.jpg"}}}
+    }
+  }
+}, configurable: true, writable: true});
+</script>
+''';

@@ -87,13 +87,23 @@ Map<String, dynamic> reviewNovelDetailJson(int id) => {
   'novel': {...reviewNovelJson(id), 'title': '星の降る街で、きみと過ごした最後の夏の話 $id'},
 };
 
+const reviewIllustratedNovelId = 2100;
+
 /// The `/webview/v2/novel` bootstrap page, same shape as
 /// novel_webview_text_test's fixture: `Object.defineProperty` installs
 /// `window.pixiv.novel`.
+/// [reviewIllustratedNovelId] has an image after its first paragraph; every
+/// novel turns a page after its second and opens a chapter after its fourth.
 String reviewNovelWebviewHtml(int id, {int paragraphs = 6}) {
+  final illustrated = id == reviewIllustratedNovelId;
   final text = [
     '[chapter:第一章　はじまり]',
-    for (var i = 0; i < paragraphs; i++) '第${i + 1}段：novel $id 的正文内容。',
+    for (var i = 0; i < paragraphs; i++) ...[
+      '第${i + 1}段：novel $id 的正文内容。',
+      if (illustrated && i == 0) '[uploadedimage:1]',
+      if (i == 1) '[newpage]',
+      if (i == 3) '[chapter:第二章　まちかど]',
+    ],
   ].join('\n\n');
   final novel = jsonEncode({
     'id': '$id',
@@ -103,6 +113,12 @@ String reviewNovelWebviewHtml(int id, {int paragraphs = 6}) {
     'coverUrl': 'https://i.pximg.net/n$id/medium.jpg',
     'tags': ['原创', 'fantasy'],
     'caption': 'caption $id',
+    if (illustrated)
+      'images': {
+        '1': {
+          'urls': {'1200x1200': 'https://i.pximg.net/n$id/image-1.png'},
+        },
+      },
     'seriesNavigation': {
       'prev': {'id': '70', 'title': 'novel 70'},
       'next': {'id': '80', 'title': 'novel 80'},

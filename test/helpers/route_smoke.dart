@@ -408,6 +408,10 @@ final smokePages = <SmokeGroup, Map<String, SmokePage>>{
       at: 'novel/2000',
       reads: '/v2/novel/detail',
     ),
+    'novel/:novelId/image/:imageId': const SmokePage(
+      at: 'novel/$reviewIllustratedNovelId/image/1',
+      reads: '/v2/novel/detail',
+    ),
     'novel/:novelId/comments': SmokePage.feed(
       '/v3/novel/comments',
       'comments',

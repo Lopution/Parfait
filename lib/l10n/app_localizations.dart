@@ -1625,6 +1625,12 @@ abstract class AppLocalizations {
   /// **'详情质量'**
   String get detailQuality;
 
+  /// No description provided for @novelImageQuality.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说插图质量'**
+  String get novelImageQuality;
+
   /// No description provided for @feedDensity.
   ///
   /// In zh, this message translates to:
@@ -5045,6 +5051,18 @@ abstract class AppLocalizations {
   /// **'夜间'**
   String get novelThemeNight;
 
+  /// No description provided for @novelPageTurnScroll.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下滚动'**
+  String get novelPageTurnScroll;
+
+  /// No description provided for @novelPageTurnPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'左右翻页'**
+  String get novelPageTurnPages;
+
   /// No description provided for @aboutDisplayRefreshRate.
   ///
   /// In zh, this message translates to:
@@ -5380,6 +5398,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'目录'**
   String get novelChapters;
+
+  /// No description provided for @novelIllustration.
+  ///
+  /// In zh, this message translates to:
+  /// **'插图'**
+  String get novelIllustration;
+
+  /// No description provided for @novelIllustrationUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'插图已删除或不可见'**
+  String get novelIllustrationUnavailable;
 
   /// No description provided for @localNovelFileInfo.
   ///

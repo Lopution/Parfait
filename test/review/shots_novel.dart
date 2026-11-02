@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/translation/translation_service.dart';
+import 'package:parfait/features/novel/novel_reader.dart';
 
 import 'review_support.dart';
 
@@ -15,7 +16,7 @@ void main() {
     overrides: [translationServiceProvider.overrideWithValue(_ReviewEngine())],
   );
   Future<void> translatePage(WidgetTester tester) async {
-    await tester.tapAt(tester.getCenter(find.byType(PageView)));
+    await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.translate));
   }
@@ -34,7 +35,43 @@ void main() {
     before: (tester, router) async {
       await translatePage(tester);
       await tester.pumpAndSettle();
-      await tester.tapAt(tester.getCenter(find.byType(PageView)));
+      await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
+    },
+  );
+  // The image runs in the column, as tall as a page.
+  testShot(
+    'novel/reader-image',
+    location: '/recommended/novel/$reviewIllustratedNovelId',
+    before: (tester, router) async {
+      await tester.drag(find.byType(NovelReader), const Offset(0, -240));
+    },
+  );
+  Future<void> openReaderSettings(WidgetTester tester) async {
+    await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.tune_outlined));
+  }
+
+  testShot(
+    'novel/reader-settings',
+    location: novel,
+    before: (tester, router) => openReaderSettings(tester),
+  );
+  // Page mode: the image's page alone, after the opening page.
+  testShot(
+    'novel/reader-pages-image',
+    location: '/recommended/novel/$reviewIllustratedNovelId',
+    before: (tester, router) async {
+      await openReaderSettings(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('左右翻页'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(200, 60));
+      await tester.pumpAndSettle();
+      final reader = tester.getRect(find.byType(NovelReader));
+      await tester.tapAt(reader.center);
+      await tester.pumpAndSettle();
+      await tester.tapAt(reader.centerRight - const Offset(8, 0));
     },
   );
   testShot('novel/comments', location: '$novel/comments');

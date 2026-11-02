@@ -65,9 +65,16 @@ class NovelLayoutStyle {
   /// break an author makes between passages.
   double get titleBlockGap => fontSize * lineHeight + paragraphSpacing;
 
+  /// In the scroll mode, the space before a chapter, and around the rule
+  /// an author's `[newpage]` becomes; the blank lines authors set around
+  /// the marker add to it.
+  double get chapterGap => titleBlockGap;
+  double get pageBreakGap => titleBlockGap;
+
   /// The style a line of [kind] is measured and painted with (LAYOUT-04).
   TextStyle lineStyle(NovelLineKind kind, Color color) => switch (kind) {
-    NovelLineKind.body => textStyle(color),
+    // An image line has no text; it takes the body's.
+    NovelLineKind.body || NovelLineKind.image => textStyle(color),
     NovelLineKind.translation => translationStyle(color),
     NovelLineKind.heading || NovelLineKind.title => headingStyle(color),
     // A byline reads as a translation does: a step smaller and lighter.
@@ -232,6 +239,10 @@ enum NovelLineKind {
   /// characters never point into the title block.
   title,
   byline,
+
+  /// An illustration, alone on its page ([NovelPageLine.image]). It carries
+  /// its block's paragraph id with both offsets 0 and no text.
+  image,
 }
 
 /// A pixiv novel's title and byline, laid out at the top of its first page.
@@ -264,6 +275,7 @@ class NovelPageLine {
     required this.isParagraphEnd,
     required this.spacingAfter,
     this.kind = NovelLineKind.body,
+    this.image,
   });
 
   final String text;
@@ -278,6 +290,10 @@ class NovelPageLine {
   final double spacingAfter;
 
   final NovelLineKind kind;
+
+  /// The illustration of an [NovelLineKind.image] line; its height is the
+  /// page's.
+  final NovelImageLoadRequest? image;
 
   /// A line of a paragraph's translation. It belongs to the paragraph and
   /// sits at its end (both offsets are the paragraph's length), so anchors
@@ -294,6 +310,18 @@ class NovelPageLine {
       NovelAnchor(paragraphId: paragraphId, offset: endOffset);
 }
 
+/// Why a page begins where it does.
+enum NovelPageBreak {
+  /// The last page ran out, or the page holds an image.
+  none,
+
+  /// The author wrote `[newpage]`.
+  newPage,
+
+  /// A chapter opens it.
+  chapter,
+}
+
 class NovelLayoutPage {
   const NovelLayoutPage({
     required this.index,
@@ -303,6 +331,7 @@ class NovelLayoutPage {
     required this.startCharacter,
     required this.endCharacter,
     this.chapterTitle,
+    this.breakBefore = NovelPageBreak.none,
   });
 
   final int index;
@@ -312,6 +341,7 @@ class NovelLayoutPage {
   final int startCharacter;
   final int endCharacter;
   final String? chapterTitle;
+  final NovelPageBreak breakBefore;
 
   String get text => lines.map((line) => line.text).join('\n');
 }
@@ -366,6 +396,130 @@ class NovelLayout {
     final paragraphComparison = normalizedLeft.compareTo(normalizedRight);
     if (paragraphComparison != 0) return paragraphComparison;
     return left.offset.compareTo(right.offset);
+  }
+}
+
+/// One item of the scroll mode's column: a line, or the gap before a page
+/// a chapter or the author's `[newpage]` begins ([gap] says which).
+typedef NovelScrollItem = ({NovelPageLine? line, NovelPageBreak gap, int page});
+
+/// The pages' lines as one column, for the scroll mode. A page that ran on
+/// from the last continues it; a chapter starts after a gap, a `[newpage]`
+/// after a divider. Every item's extent is known, so offsets, items and
+/// anchors map to each other without measuring.
+class NovelScrollColumn {
+  factory NovelScrollColumn(NovelLayout layout, NovelLayoutStyle style) {
+    final items = <NovelScrollItem>[];
+    final extents = <double>[];
+    final starts = <double>[0];
+    final pageStarts = <int>[];
+    void add(NovelScrollItem item, double extent) {
+      items.add(item);
+      extents.add(extent);
+      starts.add(starts.last + extent);
+    }
+
+    for (final page in layout.pages) {
+      if (page.index > 0) {
+        switch (page.breakBefore) {
+          case NovelPageBreak.newPage:
+            add((
+              line: null,
+              gap: NovelPageBreak.newPage,
+              page: page.index,
+            ), style.pageBreakGap);
+          case NovelPageBreak.chapter:
+            add((
+              line: null,
+              gap: NovelPageBreak.chapter,
+              page: page.index,
+            ), style.chapterGap);
+          case NovelPageBreak.none:
+        }
+      }
+      pageStarts.add(items.length);
+      for (final line in page.lines) {
+        add((
+          line: line,
+          gap: NovelPageBreak.none,
+          page: page.index,
+        ), line.height + line.spacingAfter);
+      }
+    }
+    return NovelScrollColumn._(layout, items, extents, starts, pageStarts);
+  }
+
+  NovelScrollColumn._(
+    this.layout,
+    this.items,
+    this._extents,
+    this._starts,
+    this._pageStarts,
+  );
+
+  final NovelLayout layout;
+  final List<NovelScrollItem> items;
+
+  final List<double> _extents;
+
+  /// Each item's top, then the column's height.
+  final List<double> _starts;
+
+  /// Each page's first line.
+  final List<int> _pageStarts;
+
+  double get extent => _starts.last;
+
+  double extentAt(int index) => _extents[index];
+
+  double offsetOf(int index) => _starts[index];
+
+  /// The first line of [page].
+  int itemOfPage(int page) =>
+      _pageStarts[page.clamp(0, _pageStarts.length - 1)];
+
+  /// The item at [offset] from the column's top.
+  int itemAt(double offset) {
+    var low = 0;
+    var high = items.length - 1;
+    while (low < high) {
+      final mid = (low + high + 1) ~/ 2;
+      if (_starts[mid] <= offset) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return low;
+  }
+
+  /// Where the column reads from [index]: a gap reads as the line after it.
+  NovelAnchor anchorAt(int index) {
+    for (var item = index; item < items.length; item++) {
+      if (items[item].line case final line?) return line.startAnchor;
+    }
+    return layout.pages.last.endAnchor;
+  }
+
+  /// The line [anchor] names: the last of its paragraph's text lines that
+  /// starts at or before it, on the page that holds it. A page's own start
+  /// is its first line, the title block included.
+  int itemForAnchor(NovelAnchor anchor) {
+    final page = layout.pageIndexForAnchor(anchor);
+    var found = itemOfPage(page);
+    if (anchor == layout.pages[page].startAnchor) return found;
+    for (var item = found; item < items.length; item++) {
+      if (items[item].page != page) break;
+      final line = items[item].line;
+      if (line == null ||
+          line.isTranslation ||
+          line.isTitleBlock ||
+          line.paragraphId != anchor.paragraphId) {
+        continue;
+      }
+      if (line.startOffset <= anchor.offset) found = item;
+    }
+    return found;
   }
 }
 
@@ -582,6 +736,17 @@ class NovelLayoutEngine {
             paragraphs.add(paragraph);
           }
         case NovelPageBreakBlock():
+          pendingPageBreak = true;
+        case NovelImageBlock():
+          // A page of its own: the text after it starts the next one.
+          paragraphs.add(
+            NovelParagraph(
+              id: block.id,
+              text: '',
+              pageBreakBefore: true,
+              image: block.image,
+            ),
+          );
           pendingPageBreak = true;
         case NovelChapterBlock():
           paragraphs.add(
@@ -916,6 +1081,23 @@ class NovelLayoutEngine {
     _Measure measure,
   ) {
     final style = measure.style;
+    if (paragraph.image case final image?) {
+      // Its height is the page's, set when it is paginated.
+      return [
+        _MeasuredLine(
+          paragraphIndex: paragraphIndex,
+          paragraphId: paragraph.id,
+          startOffset: 0,
+          endOffset: 0,
+          text: '',
+          height: 0,
+          isParagraphEnd: true,
+          pageBreakBefore: true,
+          kind: NovelLineKind.image,
+          image: image,
+        ),
+      ];
+    }
     final source = paragraph.text.isEmpty ? ' ' : paragraph.text;
     final kind = paragraph.isChapterHeading
         ? NovelLineKind.heading
@@ -1102,6 +1284,7 @@ class NovelLayoutEngine {
             isParagraphEnd: line.isParagraphEnd,
             spacingAfter: spacing,
             kind: line.kind,
+            image: line.image,
           ),
       ];
       final first = current.first.line;
@@ -1126,6 +1309,7 @@ class NovelLayoutEngine {
           startCharacter: startCharacter,
           endCharacter: endCharacter,
           chapterTitle: firstText.chapterTitle,
+          breakBefore: _breakBefore(first, paragraphs),
         ),
       );
       current.clear();
@@ -1140,6 +1324,14 @@ class NovelLayoutEngine {
         nextParagraph++;
       }
       final next = index + 1 < lines.length ? lines[index + 1] : null;
+      if (line.image != null) {
+        // The illustration fills a page of its own; the title block keeps
+        // its first page.
+        flush();
+        current.add((line: line._withHeight(availableHeight), spacing: 0));
+        flush();
+        continue;
+      }
       final spacing = _spacingAfter(line, next, style);
       final lineHeight = line.height + spacing;
       // The title block opens the first page with the text, even when the
@@ -1192,6 +1384,23 @@ class NovelLayoutEngine {
     );
   }
 
+  /// A page break before a body paragraph is the author's `[newpage]`,
+  /// unless an image made it: the text after an image starts a page too.
+  static NovelPageBreak _breakBefore(
+    _MeasuredLine first,
+    List<NovelParagraph> paragraphs,
+  ) {
+    if (!first.pageBreakBefore) return NovelPageBreak.none;
+    return switch (first.kind) {
+      NovelLineKind.heading => NovelPageBreak.chapter,
+      NovelLineKind.body
+          when first.paragraphIndex == 0 ||
+              paragraphs[first.paragraphIndex - 1].image == null =>
+        NovelPageBreak.newPage,
+      _ => NovelPageBreak.none,
+    };
+  }
+
   /// Paragraph spacing after a paragraph — after its translation when it
   /// has one, with the smaller translation gap between the two. A byline
   /// follows its title at the same gap; the text keeps its distance from
@@ -1242,6 +1451,7 @@ class _MeasuredLine {
     this.pageBreakBefore = false,
     this.chapterTitle,
     this.kind = NovelLineKind.body,
+    this.image,
   });
 
   const _MeasuredLine.empty()
@@ -1254,7 +1464,8 @@ class _MeasuredLine {
       isParagraphEnd = true,
       pageBreakBefore = false,
       chapterTitle = null,
-      kind = NovelLineKind.body;
+      kind = NovelLineKind.body,
+      image = null;
 
   final int paragraphIndex;
   final String paragraphId;
@@ -1266,6 +1477,7 @@ class _MeasuredLine {
   final bool pageBreakBefore;
   final String? chapterTitle;
   final NovelLineKind kind;
+  final NovelImageLoadRequest? image;
 
   bool get isTranslation => kind == NovelLineKind.translation;
 
@@ -1277,6 +1489,20 @@ class _MeasuredLine {
 
   NovelAnchor get endAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: endOffset);
+
+  _MeasuredLine _withHeight(double height) => _MeasuredLine(
+    paragraphIndex: paragraphIndex,
+    paragraphId: paragraphId,
+    startOffset: startOffset,
+    endOffset: endOffset,
+    text: text,
+    height: height,
+    isParagraphEnd: isParagraphEnd,
+    pageBreakBefore: pageBreakBefore,
+    chapterTitle: chapterTitle,
+    kind: kind,
+    image: image,
+  );
 }
 
 /// One layout's measuring inputs.

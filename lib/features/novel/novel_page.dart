@@ -129,6 +129,7 @@ class NovelPage extends ConsumerWidget {
           isNovel: true,
         ),
       ],
+      onImageTap: (context, image) => _openIllustration(context, ref, image),
       infoTooltip: context.l10n.novelInfoTitle,
       infoSheet: (sheetContext) => _novelInfoSheet(sheetContext, ref, novel),
       progress: _NovelProgressBinding(
@@ -138,6 +139,28 @@ class NovelPage extends ConsumerWidget {
       bodyWrapper: (context, anchor, child) =>
           _NovelHistoryVisibility(novel: novel, anchor: anchor, child: child),
     );
+  }
+
+  /// A Pixiv work opens in its own viewer at the marker's page; an image
+  /// the author uploaded opens alone.
+  void _openIllustration(
+    BuildContext context,
+    WidgetRef ref,
+    NovelImageLoadRequest image,
+  ) {
+    switch (image.source) {
+      case NovelImageSource.pixiv:
+        unawaited(
+          openIllustViewer(
+            context,
+            illustId: image.illustId!,
+            page: (image.page ?? 1) - 1,
+            quality: ref.read(viewQualityProvider),
+          ),
+        );
+      case NovelImageSource.uploaded:
+        unawaited(openNovelImage(context, novelId, image.identifier));
+    }
   }
 
   Future<void> _shareNovel(
