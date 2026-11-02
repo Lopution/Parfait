@@ -27,6 +27,7 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/illust_fixtures.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
@@ -182,14 +183,12 @@ Future<void> _openReader(
   await _settleReader(tester);
 }
 
-Map<String, Object> _seriesNovel(int id, String title) => {
-  'id': id,
-  'title': title,
-  'visible': true,
+Map<String, dynamic> _seriesNovel(int id, String title) => {
+  ...novelJson(id, title: title),
   'content_order': '$id',
 };
 
-Map<String, Object> _seriesJson(List<Map<String, Object>> novels) => {
+Map<String, Object> _seriesJson(List<Map<String, dynamic>> novels) => {
   'novels': novels,
   'novel_series_detail': {
     'id': 5,
@@ -198,7 +197,7 @@ Map<String, Object> _seriesJson(List<Map<String, Object>> novels) => {
   },
 };
 
-http.Response _seriesResponse(List<Map<String, Object>> novels) =>
+http.Response _seriesResponse(List<Map<String, dynamic>> novels) =>
     http.Response.bytes(
       utf8.encode(jsonEncode(_seriesJson(novels))),
       200,
