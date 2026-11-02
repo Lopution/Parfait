@@ -172,6 +172,8 @@ class _NovelRow extends StatelessWidget {
     return NovelEntry.regular(
       entity: novel,
       overline: order == null ? null : context.l10n.seriesEpisode(order),
+      // The page is the series.
+      showSeries: false,
     );
   }
 }

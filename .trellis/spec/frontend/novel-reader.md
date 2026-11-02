@@ -275,11 +275,12 @@ reviewed: 2026-11-02
   bar title and the watchlist novel entry's contents item. It reads
   `/v2/novel/series`, paged by `last_order`; a malformed entry is a
   parse error, and a restricted entry (`visible: false`) needs only its
-  id, title and order. The header holds the title, the author, the
+  id, title and order, and stays closed whatever the novel store kept. The header holds the title, the author, the
   works count with the completed and original labels, the actions and
   the caption collapsed to three lines; opening it marks the watchlist
   cursor at the latest novel. Rows are novel cards under their
-  「第 n 话」, in series order and not filtered, as the manga series; a
+  「第 n 话」, without the series name in their length line, in series
+  order and not filtered, as the manga series; a
   restricted row shows pixiv's reason, or the generic one, and does not
   open. The primary action continues at the novel this account last
   opened in the series (「继续第 n 话」 once its entry has loaded,

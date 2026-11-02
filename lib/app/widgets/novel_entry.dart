@@ -41,6 +41,7 @@ class NovelEntry extends ConsumerWidget {
     required double coverRadius,
     this.rank,
     this.overline,
+    this.showSeries = true,
     this.progress,
     this.trailing,
     this.onTap,
@@ -83,6 +84,7 @@ class NovelEntry extends ConsumerWidget {
     Key? key,
     required NovelEntity entity,
     String? overline,
+    bool showSeries = true,
     double? progress,
     Widget? trailing,
     VoidCallback? onTap,
@@ -96,6 +98,7 @@ class NovelEntry extends ConsumerWidget {
          coverHeight: 88,
          coverRadius: 6,
          overline: overline,
+         showSeries: showSeries,
          progress: progress,
          trailing: trailing,
          onTap: onTap,
@@ -143,6 +146,10 @@ class NovelEntry extends ConsumerWidget {
   /// bookmark is, in the bookmark list.
   final String? overline;
 
+  /// Whether the length line names the novel's series; off where the list
+  /// is the series.
+  final bool showSeries;
+
   /// Reading-progress slot (W5 semantics): `null` renders nothing, `0.0`
   /// renders an empty bar — a real "started from the top" record.
   final double? progress;
@@ -180,12 +187,16 @@ class NovelEntry extends ConsumerWidget {
         footnote: _footnote(entity),
       );
 
-  /// Series (when any) and word count.
-  static String _meta(BuildContext context, NovelEntity entity) {
+  /// Series (when any and [showSeries]) and word count.
+  static String _meta(
+    BuildContext context,
+    NovelEntity entity, {
+    bool showSeries = true,
+  }) {
     final words =
         '${AppFormat.count(context, entity.textLength)} '
         '${context.l10n.novelWords}';
-    final series = entity.seriesTitle;
+    final series = showSeries ? entity.seriesTitle : null;
     return series == null || series.isEmpty ? words : '$series · $words';
   }
 
@@ -228,7 +239,7 @@ class NovelEntry extends ConsumerWidget {
       title: title,
       titleLeading: rank == null ? null : EntityRankLabel(rank!),
       subtitle: entity.user.name,
-      meta: muted ? null : _meta(context, entity),
+      meta: muted ? null : _meta(context, entity, showSeries: showSeries),
       footnote: muted ? null : _footnote(entity),
       progress: progress,
       trailing: trailing,

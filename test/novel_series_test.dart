@@ -135,6 +135,9 @@ void main() {
     expect(find.text('hidden by its author'), findsOneWidget);
     expect(find.text('第 3 话'), findsOneWidget);
     expect(api.sent(_series, {'last_order': '2'}), hasLength(1));
+    // Rows leave out the series the page is.
+    expect(find.text('1200 字'), findsWidgets);
+    expect(find.textContaining('saga ·'), findsNothing);
     // The latest's number is known once its entry has loaded.
     expect(find.text('阅读最新第 3 话'), findsOneWidget);
     expect(find.textContaining('继续'), findsNothing);
