@@ -852,7 +852,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detailQuality => 'Качество картинки в детальной странице';
 
   @override
-  String get novelImageQuality => 'Качество иллюстраций в романах';
+  String get novelImageQuality => 'Качество иллюстраций в новеллах';
 
   @override
   String get feedDensity => 'Плотность сетки';
