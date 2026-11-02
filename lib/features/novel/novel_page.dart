@@ -311,7 +311,7 @@ class NovelPage extends ConsumerWidget {
           ],
           const SizedBox(height: FuncSpacing.sm),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
               style: startEdgeTextButtonStyle(),
               onPressed: () {
