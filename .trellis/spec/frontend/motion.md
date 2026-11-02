@@ -346,8 +346,8 @@ reviewed: 2026-10-26
   detail pager's neighbours) goes through `StillWork`: one piece per frame
   with the screen visible, no finger down, no tracked scroll, no
   foreground image load in flight (unless the work opts out) and no
-  animation (waited for at most 60 frames); never `transientCallbackCount`
-  alone. The detail pager lays a neighbour's text out a paragraph a
+  animation (waited for at most 60 frames a run, the pieces after the
+  first sharing what is left); never `transientCallbackCount` alone. The detail pager lays a neighbour's text out a paragraph a
   piece before the piece that admits it (FEED-06). A swipe or tap that
   gets there first builds at once. A branch
   built ahead is under `ExcludeFocus` until shown, and a page never shown
@@ -355,5 +355,7 @@ reviewed: 2026-10-26
 - **Why:** Neighbour tabs built in a swipe's first frame and their data
   landed mid-snap (29–38 ms frames, 10-15 trace); a held finger keeps no
   ticker. An off-screen branch Navigator took the search field's focus.
-- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once"
+  A wait per piece kept a detail page's neighbour, a paragraph a piece,
+  seconds behind its spinning image, and swipes landed on its stand-in.
+- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once", `test/motion_test.dart` "work ahead behind a looping indicator waits once a run"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`
