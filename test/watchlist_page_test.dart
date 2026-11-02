@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/app/widgets/watchlist_toggle.dart';
 import 'package:parfait/features/watchlist/watchlist_page.dart';
 
+import 'helpers/fake_account.dart';
 import 'helpers/watchlist_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
@@ -18,7 +20,9 @@ Widget _app(Widget child) =>
 
 void main() {
   testWidgets('watchlist page lists entries under both type tabs; a novel '
-      "series' actions open its contents", (tester) async {
+      "series' actions open its contents and continue where read", (
+    tester,
+  ) async {
     final fixture = WatchlistFixture()
       ..mangaSeries = [
         {
@@ -48,6 +52,11 @@ void main() {
           builder: (_, state) =>
               Text('novel series ${state.pathParameters['seriesId']}'),
         ),
+        GoRoute(
+          path: '/recommended/novel/:novelId',
+          builder: (_, state) =>
+              Text('novel ${state.pathParameters['novelId']}'),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -72,12 +81,25 @@ void main() {
     await tester.tap(find.text('Novel'));
     await tester.pumpAndSettle();
     expect(find.text('Novel Series'), findsOneWidget);
-    // Its actions open the series' contents.
+    // Its actions open the series' contents; nothing read, no continue.
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
+    expect(find.text('Continue reading'), findsNothing);
     await tester.tap(find.text('Open contents'));
     await tester.pumpAndSettle();
     expect(find.text('novel series 21'), findsOneWidget);
+
+    // A novel of it read before, the actions continue there.
+    router.pop();
+    await container
+        .read(novelSeriesLastReadStoreProvider)
+        .write(testerAccount.id, 21, 905);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue reading'));
+    await tester.pumpAndSettle();
+    expect(find.text('novel 905'), findsOneWidget);
   });
 
   testWidgets('unseen series shows the new-content badge; seen hides it', (

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/author_summary.dart';
 import '../../app/widgets/bookmark_switch_button.dart';
@@ -310,8 +311,9 @@ class NovelPage extends ConsumerWidget {
           ],
           const SizedBox(height: FuncSpacing.sm),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
+              style: startEdgeTextButtonStyle(),
               onPressed: () {
                 Navigator.of(sheetContext).pop();
                 unawaited(openNovelComments(context, novel.id));
