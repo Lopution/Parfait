@@ -64,26 +64,63 @@ List<String> _hits(
         '  $file:${src.substring(0, m.start).split('\n').length}',
 ];
 
-/// [src] with the text of its string literals blanked to spaces, so that
-/// what a string says is never read as code; offsets stay the same.
-String _blankStrings(String src) {
+/// [src] with its comments and the text of its string literals blanked to
+/// spaces, read in one pass so that a `//` in a string is not a comment
+/// and a quote in a comment opens no string; offsets and lines stay.
+String _code(String src) {
   final out = StringBuffer();
-  for (var i = 0; i < src.length; i++) {
-    final c = src[i];
-    out.write(c);
-    if (c != "'" && c != '"') continue;
-    for (i++; i < src.length && src[i] != c; i++) {
-      final escaped = src[i] == r'\' && i + 1 < src.length;
-      out.write(src[i] == '\n' ? '\n' : ' ');
-      if (escaped) out.write(src[++i] == '\n' ? '\n' : ' ');
+  void blank(int from, int to) {
+    for (var j = from; j < to; j++) {
+      out.write(src[j] == '\n' ? '\n' : ' ');
     }
-    if (i < src.length) out.write(c);
+  }
+
+  var i = 0;
+  while (i < src.length) {
+    final c = src[i];
+    if (src.startsWith('//', i)) {
+      final end = src.indexOf('\n', i);
+      final to = end < 0 ? src.length : end;
+      blank(i, to);
+      i = to;
+    } else if (src.startsWith('/*', i)) {
+      final end = src.indexOf('*/', i + 2);
+      final to = end < 0 ? src.length : end + 2;
+      blank(i, to);
+      i = to;
+    } else if (c == "'" || c == '"') {
+      final quote = src.startsWith(c * 3, i) ? c * 3 : c;
+      final raw = i > 0 && src[i - 1] == 'r';
+      var j = i + quote.length;
+      while (j < src.length && !src.startsWith(quote, j)) {
+        j += !raw && src[j] == r'\' ? 2 : 1;
+      }
+      final to = j < src.length ? j : src.length;
+      out.write(quote);
+      blank(i + quote.length, to);
+      if (to < src.length) out.write(quote);
+      i = to + (to < src.length ? quote.length : 0);
+    } else {
+      out.write(c);
+      i++;
+    }
   }
   return out.toString();
 }
 
+/// The lines in [src] of the `LabelFit.group` and `LabelFit.measureLabel`
+/// calls not measured as painted ([_measuredAsPainted]).
+List<int> _unpaintedFits(String src) {
+  final code = _code(src);
+  return [
+    for (final m in _labelMeasure.allMatches(code))
+      if (!_measuredAsPainted(code, m))
+        code.substring(0, m.start).split('\n').length,
+  ];
+}
+
 /// The top-level arguments of the call whose `(` is at [open] in [src],
-/// read with its strings blanked ([_blankStrings]).
+/// read with its strings and comments blanked ([_code]).
 List<String> _arguments(String src, int open) {
   final args = <String>[];
   var depth = 0;
@@ -171,12 +208,7 @@ void main() {
   });
 
   test('the fitted-label scan follows bindings and skips strings', () {
-    bool passes(String body) {
-      final src = _blankStrings('void f() {\n$body\n}');
-      return _labelMeasure
-          .allMatches(src)
-          .every((m) => _measuredAsPainted(src, m));
-    }
+    bool passes(String body) => _unpaintedFits('void f() {\n$body\n}').isEmpty;
 
     const locale = 'final locale = Localizations.maybeLocaleOf(context);';
     const painted = 'final s = LabelFit.paintedStyle(context, base);';
@@ -208,18 +240,24 @@ void main() {
       ),
       isFalse,
     );
-    // A call spelled in a string is text, not a call.
+    // A call spelled in a string is text, not a call; a `//` in a string
+    // starts no comment that would hide the code after it.
     expect(passes("final note = 'LabelFit.group(';\n"), isTrue);
+    expect(
+      passes(
+        "$locale\nfinal url = 'https://example.test';\nfinal raw = base;\n"
+        "LabelFit.measureLabel('a', raw, t, d, locale: locale);",
+      ),
+      isFalse,
+    );
   });
 
   test('fitted labels are measured in the style and locale they paint in', () {
     final violations = [
-      for (final MapEntry(key: file, value: src) in sources.entries)
+      for (final file in sources.keys)
         if (file != 'lib/app/widgets/fit_label.dart')
-          for (final code in [_blankStrings(src)])
-            for (final m in _labelMeasure.allMatches(code))
-              if (!_measuredAsPainted(code, m))
-                '  $file:${code.substring(0, m.start).split('\n').length}',
+          for (final line in _unpaintedFits(File(file).readAsStringSync()))
+            '  $file:$line',
     ];
     expect(
       violations,
