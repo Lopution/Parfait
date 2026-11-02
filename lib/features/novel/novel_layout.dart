@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
@@ -10,6 +11,7 @@ import '../../core/novel/novel_entity.dart';
 class NovelLayoutStyle {
   const NovelLayoutStyle({
     this.fontFamily,
+    this.fontFamilyFallback,
     this.fontSize = 17,
     this.lineHeight = 1.7,
     this.fontWeight = FontWeight.w400,
@@ -19,7 +21,10 @@ class NovelLayoutStyle {
     this.translationGap = 4,
   });
 
+  /// The family and fallbacks the lines would take from the ambient style
+  /// (the theme's), named so they are measured as they paint (LAYOUT-04).
   final String? fontFamily;
+  final List<String>? fontFamilyFallback;
   final double fontSize;
   final double lineHeight;
   final FontWeight fontWeight;
@@ -38,28 +43,42 @@ class NovelLayoutStyle {
   static const double _headingScale = 1.35;
   static const double _headingHeight = 1.35;
 
+  /// The lines set their own letter spacing and leading: a measurement
+  /// sees no ambient style, and a painted line would take the theme's
+  /// (Material's dense type for CJK spaces its letters and spreads its
+  /// leading evenly), run wider or taller than it was measured and lose
+  /// its tail or its descenders (LAYOUT-04).
   TextStyle textStyle(Color color) => TextStyle(
     color: color,
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
     fontSize: fontSize,
     fontWeight: fontWeight,
     height: lineHeight,
+    letterSpacing: 0,
+    leadingDistribution: TextLeadingDistribution.even,
   );
 
   TextStyle translationStyle(Color color) => TextStyle(
     color: color.withValues(alpha: _translationAlpha),
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
     fontSize: fontSize * _translationScale,
     fontWeight: fontWeight,
     height: lineHeight,
+    letterSpacing: 0,
+    leadingDistribution: TextLeadingDistribution.even,
   );
 
   TextStyle headingStyle(Color color) => TextStyle(
     color: color,
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
     fontSize: fontSize * _headingScale,
     fontWeight: FontWeight.w700,
     height: _headingHeight,
+    letterSpacing: 0,
+    leadingDistribution: TextLeadingDistribution.even,
   );
 
   /// Below the title block: a blank line and the paragraph spacing, the
@@ -176,6 +195,7 @@ class NovelLayoutKey {
     required this.contentVersion,
     required this.viewport,
     required this.fontFamily,
+    this.fontFamilyFallback,
     required this.fontSize,
     required this.lineHeight,
     required this.fontWeight,
@@ -187,6 +207,7 @@ class NovelLayoutKey {
   final String contentVersion;
   final Size viewport;
   final String? fontFamily;
+  final List<String>? fontFamilyFallback;
   final double fontSize;
   final double lineHeight;
   final FontWeight fontWeight;
@@ -203,6 +224,7 @@ class NovelLayoutKey {
         other.contentVersion == contentVersion &&
         other.viewport == viewport &&
         other.fontFamily == fontFamily &&
+        listEquals(other.fontFamilyFallback, fontFamilyFallback) &&
         other.fontSize == fontSize &&
         other.lineHeight == lineHeight &&
         other.fontWeight == fontWeight &&
@@ -216,6 +238,7 @@ class NovelLayoutKey {
     contentVersion,
     viewport,
     fontFamily,
+    fontFamilyFallback == null ? null : Object.hashAll(fontFamilyFallback!),
     fontSize,
     lineHeight,
     fontWeight,
@@ -969,6 +992,7 @@ class NovelLayoutEngine {
       contentVersion: contentVersion,
       viewport: viewport,
       fontFamily: style.fontFamily,
+      fontFamilyFallback: style.fontFamilyFallback,
       fontSize: style.fontSize,
       lineHeight: style.lineHeight,
       fontWeight: style.fontWeight,
@@ -1139,6 +1163,9 @@ class NovelLayoutEngine {
     contentVersion,
     _maxWidth(key.viewport, style),
     key.fontFamily,
+    key.fontFamilyFallback == null
+        ? null
+        : Object.hashAll(key.fontFamilyFallback!),
     key.fontSize,
     key.lineHeight,
     key.fontWeight,

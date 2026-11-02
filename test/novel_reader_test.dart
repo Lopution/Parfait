@@ -487,9 +487,14 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       await tester.pumpWidget(
         localizedApp(
-          body: NovelReader(
-            novel: _novel('reader ' * 400),
-            onProgressChanged: (_, count) => pageCounts[scale] = count,
+          // The ambient style's letter spacing (Material's dense type for
+          // CJK has some) stays out of the lines: they paint as measured.
+          body: DefaultTextStyle.merge(
+            style: const TextStyle(letterSpacing: 2),
+            child: NovelReader(
+              novel: _novel('reader ' * 400),
+              onProgressChanged: (_, count) => pageCounts[scale] = count,
+            ),
           ),
         ),
       );

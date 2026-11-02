@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/rendering.dart'
     show ClipRectLayer, LayerHandle, RenderProxyBox, ScrollCacheExtent;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
@@ -447,7 +448,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scheduleLayout();
+    final ambient = DefaultTextStyle.of(context).style;
+    final fontsChanged =
+        ambient.fontFamily != _ambientFamily ||
+        !listEquals(ambient.fontFamilyFallback, _ambientFallback);
+    _ambientFamily = ambient.fontFamily;
+    _ambientFallback = ambient.fontFamilyFallback;
+    _scheduleLayout(force: fontsChanged && _layout != null);
   }
 
   @override
@@ -756,7 +763,14 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     }
   }
 
+  /// The family and fallbacks the lines inherit from the theme; the
+  /// layout measures with them (LAYOUT-04).
+  String? _ambientFamily;
+  List<String>? _ambientFallback;
+
   NovelLayoutStyle get _style => NovelLayoutStyle(
+    fontFamily: _ambientFamily,
+    fontFamilyFallback: _ambientFallback,
     fontSize: widget.settings.fontSize,
     lineHeight: widget.settings.lineHeight,
   );
