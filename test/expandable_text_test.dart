@@ -72,6 +72,30 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('short lines in a loose column keep the label at the end of '
+      'the width', (tester) async {
+    await tester.pumpWidget(
+      localizedApp(
+        body: SizedBox(
+          width: 300,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ExpandableText(
+                TextSpan(text: ['one', 'two', 'three', 'four'].join('\n')),
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester.getRect(find.text('展开')).right,
+      tester.getRect(find.byType(Column)).right,
+    );
+  });
+
   testWidgets('a link stays tappable while collapsed', (tester) async {
     var taps = 0;
     final recognizer = TapGestureRecognizer()..onTap = () => taps++;

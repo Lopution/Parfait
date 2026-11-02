@@ -150,11 +150,15 @@ class _ExpandableTextState extends State<ExpandableText> {
       onTapHint: label,
       child: InkWell(
         onTap: _toggle,
+        // The whole width the fold was measured at: lines shorter than it
+        // (a caption's own line breaks) would shrink the block and land
+        // the label on the text under a loose constraint.
         child: Stack(
           // The label keeps its own line height, which may outreach a
           // smaller last line's.
           clipBehavior: Clip.none,
           children: [
+            if (width.isFinite) SizedBox(width: width),
             ClipRect(clipper: _Band(0, fold.lastLineTop), child: lines()),
             ExcludeSemantics(
               child: ClipRect(
