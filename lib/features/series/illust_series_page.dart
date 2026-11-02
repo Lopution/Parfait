@@ -15,6 +15,7 @@ import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/author_row.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/expandable_text.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_entity.dart';
@@ -378,6 +379,7 @@ class _SeriesActions extends ConsumerWidget {
         ),
         if (recent != null && first != null)
           TextButton(
+            style: startEdgeTextButtonStyle(),
             onPressed: () => open(first),
             child: Text(l10n.seriesStartFromFirst),
           ),

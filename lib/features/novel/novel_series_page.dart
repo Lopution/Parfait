@@ -10,6 +10,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/author_row.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/expandable_text.dart';
 import '../../app/widgets/feed/feed_grid.dart';
@@ -370,12 +371,14 @@ class _SeriesActions extends ConsumerWidget {
           children: [
             if (last != null && first != null)
               TextButton(
+                style: startEdgeTextButtonStyle(),
                 onPressed: () => open(first),
                 child: Text(l10n.seriesStartFromFirst),
               ),
             if (latest != null)
               TextButton(
                 key: const ValueKey('novel-series-latest'),
+                style: startEdgeTextButtonStyle(),
                 onPressed: () => open(latest),
                 child: Text(
                   latestOrder == null

@@ -224,8 +224,12 @@ reviewed: 2026-10-17
   wrap the buttons in `EdgeIconButtons`, which moves them into the tile's
   end padding. A custom row ends its padding
   `EdgeIconButtons.glyphInset` short of the margin instead, so the whole
-  target stays inside the row.
+  target stays inside the row. A text button that starts a line under
+  start-aligned content takes `startEdgeTextButtonStyle()`: its label or
+  icon on the content edge, its target reaching inward.
 - **Why:** A button ended 12dp inside the text edge. Moved past a parent's
   bounds by a transform, the outer part of the target stopped taking taps.
-- **Check:** `test/user_profile_test.dart` "profile social links open, report failures, and copy"
-- **Code:** `lib/app/widgets/edge_icon_buttons.dart`, `lib/features/profile/user_page.dart`
+  The series pages' and the novel info sheet's text buttons started 12dp
+  inside it (11-02).
+- **Check:** `test/user_profile_test.dart` "profile social links open, report failures, and copy"; `test/novel_series_test.dart` "a series page: its facts, numbered novels past the first "
+- **Code:** `lib/app/widgets/edge_icon_buttons.dart`, `lib/features/profile/user_page.dart`, `lib/features/novel/novel_series_page.dart`, `lib/features/series/illust_series_page.dart`, `lib/features/novel/novel_page.dart`

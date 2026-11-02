@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../theme/func_semantic_tokens.dart';
+
 /// Icon buttons at the end of a `ListTile`, moved toward the end edge so the
 /// last glyph, not its 48dp target, lines up with the text above and below
 /// (LAYOUT-15). The target then reaches [glyphInset] into the tile's end
@@ -23,3 +25,12 @@ class EdgeIconButtons extends StatelessWidget {
     );
   }
 }
+
+/// A text button that starts a line under start-aligned content: its label
+/// (or icon) on the content edge, its target reaching inward instead
+/// (LAYOUT-15), as `ExpandableText`'s "Show less" ends one.
+ButtonStyle startEdgeTextButtonStyle() => TextButton.styleFrom(
+  padding: const EdgeInsetsDirectional.only(end: FuncSpacing.md),
+  minimumSize: const Size(kMinInteractiveDimension, 40),
+  alignment: AlignmentDirectional.centerStart,
+);
