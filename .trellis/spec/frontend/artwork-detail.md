@@ -187,9 +187,9 @@ reviewed: 2026-10-17
 
 ### DETAIL-09 The action bar is the centered capsule
 - **Rule:** On narrow layouts download and bookmark sit in one floating
-  capsule (`DetailActionBar`), the heart on a tonal circle: 56dp high, the
-  surface 85% opaque with an outline, frosting what passes under it, on a
-  layer lift (THEME-20). Comments are written
+  capsule (`DetailActionBar`), the heart on a tonal circle: 56dp high, an
+  opaque surface with an outline on a layer lift (THEME-20). Comments are
+  written
   from the page's comment section (DETAIL-17). The top bar carries only
   the ⋮ menu. Share,
   editing the bookmark, watch later, page selection, work info and the
@@ -198,7 +198,10 @@ reviewed: 2026-10-17
 - **Why:** User decision. An M3 floating toolbar with a separate bookmark
   FAB was tried and rejected; a comments button repeated the preview's
   entry, and a larger opaque capsule weighed on the page. Without blur,
-  text passing under the capsule smeared through it.
+  text passing under a translucent capsule smeared through it; with blur,
+  each capsule cost a backdrop pass, two a frame in a side swipe. A
+  shared backdrop blurred the incoming page's capsule over a backdrop
+  without its page. The user chose the opaque capsule (11-03).
 - **Check:** `test/illust_detail_actions_test.dart` "the ⋮ menu carries the long-press actions too"; the capsule manual
 - **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
 
