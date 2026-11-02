@@ -2670,6 +2670,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelSeriesUnavailable => 'Series information unavailable';
 
   @override
+  String get novelSeriesConcluded => 'Completed';
+
+  @override
+  String get novelSeriesOriginal => 'Original';
+
+  @override
+  String get novelSeriesReadLatest => 'Read latest';
+
+  @override
+  String novelSeriesReadLatestEpisode(int n) {
+    return 'Read latest (episode $n)';
+  }
+
+  @override
   String get novelInfoTitle => 'Work info';
 
   @override

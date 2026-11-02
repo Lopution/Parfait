@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/account_store.dart';
 import '../paging/paged_feed_controller.dart';
 import '../profile/profile_models.dart';
+import 'novel_entity.dart';
 import 'novel_snapshot_codec.dart';
 import 'novel_repository.dart';
 import 'novel_store.dart';
@@ -206,3 +207,92 @@ class _MarkedNovelPages extends Notifier<Map<int, int>> {
 
 final markedNovelPagesProvider =
     NotifierProvider<_MarkedNovelPages, Map<int, int>>(_MarkedNovelPages.new);
+
+/// A novel series' novels, in series order. Like the manga series, it is
+/// not filtered: its numbering is the series'. Ids include restricted
+/// entries, which have no novel in the store; their rows and each entry's
+/// order come from [novelSeriesInfoProvider], which the commit fills.
+class _NovelSeriesFeedController extends PagedFeedController {
+  _NovelSeriesFeedController(this.seriesId);
+
+  final int seriesId;
+
+  @override
+  String get feedKey => 'novel:series:$seriesId';
+
+  /// Opened on purpose from a name or the watchlist: no snapshot.
+  @override
+  FeedSnapshotCodec? get snapshotCodec => null;
+
+  @override
+  bool get novelIds => true;
+
+  @override
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
+    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    final page = await ref
+        .read(novelRepositoryProvider)
+        .fetchSeries(
+          seriesId,
+          cursor: context.cursor,
+          cancelToken: context.cancelToken,
+        );
+    final novels = [for (final entry in page.entries) ?entry.novel];
+    return FeedPage(
+      ids: [for (final entry in page.entries) entry.id],
+      nextCursor: page.nextUrl,
+      incomingNovels: {for (final novel in novels) novel.id: novel},
+      commit: (_) {
+        ref.read(novelStoreProvider.notifier).mergeAll(novels);
+        ref.read(novelSeriesInfoProvider(seriesId).notifier).add(page);
+      },
+    );
+  }
+
+  @override
+  String? validateCursor(String? rawCursor) {
+    if (rawCursor == null) return null;
+    return ref
+            .read(novelRepositoryProvider)
+            .validateSeriesCursor(seriesId, cursor: rawCursor)
+        ? rawCursor
+        : null;
+  }
+}
+
+final novelSeriesFeedProvider = AsyncNotifierProvider.autoDispose
+    .family<_NovelSeriesFeedController, PagedFeedState, int>(
+      _NovelSeriesFeedController.new,
+    );
+
+/// What a novel series page shows beside its novels: the page that
+/// carried the series' facts, and every loaded entry by id.
+class NovelSeriesInfo {
+  const NovelSeriesInfo({this.header, this.entries = const {}});
+
+  final NovelSeriesPage? header;
+  final Map<int, NovelSeriesEntry> entries;
+}
+
+class _NovelSeriesInfo extends Notifier<NovelSeriesInfo> {
+  _NovelSeriesInfo(this.seriesId);
+
+  final int seriesId;
+
+  @override
+  NovelSeriesInfo build() {
+    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    return const NovelSeriesInfo();
+  }
+
+  void add(NovelSeriesPage page) => state = NovelSeriesInfo(
+    header: page.detail != null ? page : state.header,
+    entries: {
+      ...state.entries,
+      for (final entry in page.entries) entry.id: entry,
+    },
+  );
+}
+
+final novelSeriesInfoProvider = NotifierProvider.autoDispose
+    .family<_NovelSeriesInfo, NovelSeriesInfo, int>(_NovelSeriesInfo.new);

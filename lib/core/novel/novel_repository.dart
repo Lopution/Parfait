@@ -11,6 +11,7 @@ import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../ranking/ranking_category.dart';
 import '../settings/arrangement.dart';
+import '../user/user_entity.dart';
 import '../user/user_repository.dart' show UserRestrict, UserRestrictWire;
 import 'novel_entity.dart';
 import 'novel_webview_text.dart';
@@ -49,6 +50,7 @@ class NovelSeriesPage {
     required this.entries,
     required this.nextUrl,
     this.watchlistAdded,
+    this.detail,
   });
 
   final int seriesId;
@@ -59,6 +61,31 @@ class NovelSeriesPage {
   /// `novel_series_detail.watchlist_added` — only the series payload
   /// carries it; absent on sparse responses.
   final bool? watchlistAdded;
+
+  /// The series' own facts, when the page carries `novel_series_detail`.
+  final NovelSeriesDetail? detail;
+}
+
+/// A novel series' facts for its page: `novel_series_detail` and the ids of
+/// its first and latest novels.
+class NovelSeriesDetail {
+  const NovelSeriesDetail({
+    this.caption = '',
+    this.isOriginal = false,
+    this.isConcluded = false,
+    this.contentCount,
+    this.user,
+    this.firstNovelId,
+    this.latestNovelId,
+  });
+
+  final String caption;
+  final bool isOriginal;
+  final bool isConcluded;
+  final int? contentCount;
+  final UserEntity? user;
+  final int? firstNovelId;
+  final int? latestNovelId;
 }
 
 /// Novel API adapter.
@@ -648,7 +675,8 @@ class _PixivNovelRepository implements _NovelRepository {
     if (raw is! List) {
       throw const ApiParseError('series novels list is missing or malformed');
     }
-    final detail = readMap(json['novel_series_detail']);
+    final detailJson = json['novel_series_detail'];
+    final detail = readMap(detailJson);
     final parsedSeriesId = readPositiveInt(detail['id']) ?? requestedSeriesId;
     final title = readOptionalString(detail['title']);
     try {
@@ -659,6 +687,9 @@ class _PixivNovelRepository implements _NovelRepository {
         nextUrl: readNextUrl(json['next_url']),
         watchlistAdded: detail['watchlist_added'] is bool
             ? detail['watchlist_added'] as bool
+            : null,
+        detail: detailJson is Map<String, dynamic>
+            ? _parseSeriesDetail(json, detail)
             : null,
       );
     } on FormatException catch (error) {
@@ -675,12 +706,34 @@ class _PixivNovelRepository implements _NovelRepository {
     if (id == null || title == null) {
       throw const FormatException('series novel is missing id or title');
     }
+    final viewable = value['visible'] is! bool || value['visible'] == true;
     return NovelSeriesEntry(
       id: id,
       title: title,
-      viewable: value['visible'] is! bool || value['visible'] == true,
-      contentOrder: readOptionalString(value['content_order']),
+      viewable: viewable,
+      contentOrder: readPositiveInt(value['content_order']),
       viewableMessage: readOptionalString(value['viewable_message']),
+      novel: viewable ? NovelEntity.fromJson(value) : null,
+    );
+  }
+
+  static NovelSeriesDetail _parseSeriesDetail(
+    Map<String, dynamic> json,
+    Map<String, dynamic> detail,
+  ) {
+    final user = detail['user'];
+    return NovelSeriesDetail(
+      caption: readOptionalString(detail['caption']) ?? '',
+      isOriginal: detail['is_original'] == true,
+      isConcluded: detail['is_concluded'] == true,
+      contentCount: readPositiveInt(detail['content_count']),
+      user: user is Map<String, dynamic> ? UserEntity.fromUserJson(user) : null,
+      firstNovelId: readPositiveInt(
+        readMap(json['novel_series_first_novel'])['id'],
+      ),
+      latestNovelId: readPositiveInt(
+        readMap(json['novel_series_latest_novel'])['id'],
+      ),
     );
   }
 

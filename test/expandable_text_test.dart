@@ -72,6 +72,30 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('short lines in a loose column keep the label at the end of '
+      'the width', (tester) async {
+    await tester.pumpWidget(
+      localizedApp(
+        body: SizedBox(
+          width: 300,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ExpandableText(
+                TextSpan(text: ['one', 'two', 'three', 'four'].join('\n')),
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final column = tester.getRect(find.byType(Column));
+    expect(tester.getRect(find.text('展开')).right, column.right);
+    // The fade's mask spans the width too, clearing just before the label.
+    expect(tester.getSize(find.byType(ShaderMask)).width, column.width);
+  });
+
   testWidgets('a link stays tappable while collapsed', (tester) async {
     var taps = 0;
     final recognizer = TapGestureRecognizer()..onTap = () => taps++;

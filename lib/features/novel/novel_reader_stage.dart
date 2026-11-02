@@ -1250,11 +1250,16 @@ class _NovelSeriesBarState extends ConsumerState<_NovelSeriesBar> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final async = ref.watch(_novelSeriesProvider(seriesId));
-    Widget seriesTitle(NovelSeriesPage series) => Text(
-      series.title ?? l10n.novelSeries,
-      textAlign: TextAlign.center,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+    // The name opens the series' page.
+    Widget seriesTitle(NovelSeriesPage series) => TextButton(
+      key: const Key('novel-series-bar-title'),
+      onPressed: () => unawaited(openNovelSeries(context, seriesId)),
+      child: Text(
+        series.title ?? l10n.novelSeries,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
     return async.when(
       // Same row skeleton as the data state — disabled chevrons and a

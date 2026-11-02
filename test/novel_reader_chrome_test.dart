@@ -27,6 +27,7 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/illust_fixtures.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
@@ -182,14 +183,12 @@ Future<void> _openReader(
   await _settleReader(tester);
 }
 
-Map<String, Object> _seriesNovel(int id, String title) => {
-  'id': id,
-  'title': title,
-  'visible': true,
+Map<String, dynamic> _seriesNovel(int id, String title) => {
+  ...novelJson(id, title: title),
   'content_order': '$id',
 };
 
-Map<String, Object> _seriesJson(List<Map<String, Object>> novels) => {
+Map<String, Object> _seriesJson(List<Map<String, dynamic>> novels) => {
   'novels': novels,
   'novel_series_detail': {
     'id': 5,
@@ -198,7 +197,7 @@ Map<String, Object> _seriesJson(List<Map<String, Object>> novels) => {
   },
 };
 
-http.Response _seriesResponse(List<Map<String, Object>> novels) =>
+http.Response _seriesResponse(List<Map<String, dynamic>> novels) =>
     http.Response.bytes(
       utf8.encode(jsonEncode(_seriesJson(novels))),
       200,
@@ -890,9 +889,8 @@ void main() {
     expect(find.text('在此页加书签'), findsNothing);
   });
 
-  testWidgets('the info sheet names the series, length, counts and date', (
-    tester,
-  ) async {
+  testWidgets('the info sheet links the series and states length, counts '
+      'and date', (tester) async {
     for (final withSeries in [true, false]) {
       final container = await _apiContainer(withSeries: withSeries);
       await tester.pumpWidget(const SizedBox());
@@ -906,25 +904,22 @@ void main() {
       expect(find.text('1234'), findsOneWidget);
       expect(find.text('56'), findsOneWidget);
       expect(find.textContaining('2026'), findsOneWidget);
-      // The series is named, not linked: the reader's bar steps through it.
+      // The series is a link of its own, under the author (opened in
+      // novel_series_test).
       final series = find.descendant(
-        of: find.byKey(const Key('novel-info-facts')),
+        of: find.byKey(const Key('novel-info-series')),
         matching: find.text('series five'),
       );
       expect(series, withSeries ? findsOneWidget : findsNothing);
 
-      // One node: the series, the length, then the stats sentence.
+      // One node: the length, then the stats sentence.
       final semantics = tester.ensureSemantics();
       final label = tester
           .getSemantics(find.byKey(const Key('novel-info-facts')))
           .label;
       expect(
         label,
-        stringContainsInOrder([
-          if (withSeries) ...['系列', 'series five'],
-          '4000 字',
-          '1234 次浏览，56 次收藏，发布于 2026',
-        ]),
+        stringContainsInOrder(['4000 字', '1234 次浏览，56 次收藏，发布于 2026']),
       );
       semantics.dispose();
     }

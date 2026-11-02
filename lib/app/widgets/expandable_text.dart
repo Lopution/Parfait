@@ -141,8 +141,19 @@ class _ExpandableTextState extends State<ExpandableText> {
     final labelAscent = labelPainter.computeLineMetrics().first.ascent;
     labelPainter.dispose();
 
-    Widget lines() =>
-        Text.rich(widget.text, style: widget.style, maxLines: widget.maxLines);
+    // Laid out at the whole width the fold was measured at: lines shorter
+    // than it (a caption's own line breaks) would shrink the block under a
+    // loose constraint, landing the label on the text and ending the
+    // fade's mask at the text's own end.
+    Widget lines() {
+      final text = Text.rich(
+        widget.text,
+        style: widget.style,
+        maxLines: widget.maxLines,
+      );
+      return width.isFinite ? SizedBox(width: width, child: text) : text;
+    }
+
     final textDirection = Directionality.of(context);
     return Semantics(
       container: true,

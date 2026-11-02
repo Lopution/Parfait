@@ -22,6 +22,7 @@ import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/history/history_snapshot.dart';
 import '../../core/history/history_visibility.dart';
+import '../../core/log.dart';
 import '../../core/mute/mute_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';
@@ -260,6 +261,17 @@ class NovelPage extends ConsumerWidget {
                 avatarRadius: 20,
               ),
             ),
+            series: switch ((novel.seriesId, novel.seriesTitle)) {
+              (final seriesId?, final title?) when title.isNotEmpty =>
+                _SeriesLink(
+                  title: title,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(openNovelSeries(context, seriesId));
+                  },
+                ),
+              _ => null,
+            },
           ),
           if (novel.tags.isNotEmpty) ...[
             const SizedBox(height: FuncSpacing.md),
@@ -342,9 +354,10 @@ class _NovelProgressBinding implements ReaderProgressBinding {
 
   @override
   Future<NovelAnchor?> load() async {
+    final accountId = _accountId;
+    if (accountId != null) _recordSeries(accountId);
     final asked = _pageStart(atPixivPage);
     if (asked != null) return asked;
-    final accountId = _accountId;
     if (accountId == null) return null;
     final saved = await _container
         .read(novelProgressStoreProvider)
@@ -355,6 +368,25 @@ class _NovelProgressBinding implements ReaderProgressBinding {
     // No place of this account's own: the account's bookmark.
     return _pageStart(
       _container.read(novelStoreProvider)[_novelId]?.markerPage,
+    );
+  }
+
+  /// Opening a novel of a series makes it the series' last read, for the
+  /// series page's 「继续」. Fire-and-forget: a lost record only hides the
+  /// button, but a broken store is logged.
+  void _recordSeries(String accountId) {
+    final seriesId = _container.read(novelStoreProvider)[_novelId]?.seriesId;
+    if (seriesId == null) return;
+    unawaited(
+      _container
+          .read(novelSeriesLastReadStoreProvider)
+          .write(accountId, seriesId, _novelId)
+          .then(
+            (_) => _container.invalidate(novelSeriesLastReadProvider(seriesId)),
+          )
+          .catchError((Object error, _) {
+            log('novel series last read not remembered: $error');
+          }),
     );
   }
 
@@ -431,10 +463,13 @@ class _NovelHistoryVisibility extends ConsumerWidget {
 /// author, the facts line, caption, then the translation of title and
 /// caption.
 class _NovelIntro extends ConsumerStatefulWidget {
-  const _NovelIntro({required this.novel, required this.author});
+  const _NovelIntro({required this.novel, required this.author, this.series});
 
   final NovelEntity novel;
   final Widget author;
+
+  /// The link to the novel's series, when it has one.
+  final Widget? series;
 
   @override
   ConsumerState<_NovelIntro> createState() => _NovelIntroState();
@@ -472,7 +507,12 @@ class _NovelIntroState extends ConsumerState<_NovelIntro>
         ),
         const SizedBox(height: FuncSpacing.sm),
         widget.author,
-        const SizedBox(height: FuncSpacing.md),
+        if (widget.series case final series?) ...[
+          const SizedBox(height: FuncSpacing.xs),
+          series,
+          const SizedBox(height: FuncSpacing.xs),
+        ] else
+          const SizedBox(height: FuncSpacing.md),
         _NovelFacts(novel: novel),
         if (novel.caption.isNotEmpty) ...[
           const SizedBox(height: FuncSpacing.md),
@@ -491,10 +531,57 @@ class _NovelIntroState extends ConsumerState<_NovelIntro>
   }
 }
 
-/// The novel's facts, each behind its glyph, wrapping as whole facts: the
-/// series it belongs to, its length, views, bookmarks and the full posting
-/// time. The reader's series bar steps through the series; here it is
-/// named only. Screen readers hear one node.
+/// The novel's series under its author, as the author is: one button with
+/// a chevron, opening the series' page.
+class _SeriesLink extends StatelessWidget {
+  const _SeriesLink({required this.title, required this.onTap});
+
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final variant = theme.colorScheme.onSurfaceVariant;
+    return Semantics(
+      container: true,
+      button: true,
+      label: l10n.labelValue(l10n.novelSeries, title),
+      onTap: onTap,
+      excludeSemantics: true,
+      child: InkWell(
+        key: const Key('novel-info-series'),
+        onTap: onTap,
+        borderRadius: FuncShape.control,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: kMinInteractiveDimension,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.library_books_outlined, size: 20, color: variant),
+              const SizedBox(width: FuncSpacing.sm),
+              Flexible(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 20, color: variant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The novel's facts, each behind its glyph, wrapping as whole facts: its
+/// length, views, bookmarks and the full posting time. Screen readers hear
+/// one node. Its series is a link above them ([_SeriesLink]).
 class _NovelFacts extends StatelessWidget {
   const _NovelFacts({required this.novel});
 
@@ -504,7 +591,6 @@ class _NovelFacts extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final style = MetaFact.styleOf(context);
-    final series = novel.seriesTitle;
     final views = AppFormat.count(context, novel.totalView);
     final bookmarks = AppFormat.count(context, novel.totalBookmarks);
     final created = DateTime.tryParse(novel.createDate ?? '');
@@ -518,15 +604,6 @@ class _NovelFacts extends StatelessWidget {
         runSpacing: FuncSpacing.xs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (novel.seriesId != null && series != null && series.isNotEmpty)
-            Semantics(
-              label: l10n.novelSeries,
-              child: MetaFact(
-                icon: Icons.library_books_outlined,
-                text: series,
-                style: style,
-              ),
-            ),
           MetaFact(
             icon: Icons.notes,
             text:

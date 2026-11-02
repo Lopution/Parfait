@@ -535,7 +535,9 @@ Map<String, ReviewResponder> _defaultResponders() {
       'novel_series_detail': {
         'id': 77,
         'title': 'series 77',
-        'caption': 'series caption',
+        'caption': [
+          for (var i = 1; i <= 6; i++) 'series caption line $i',
+        ].join('\n'),
         'is_original': true,
         'is_concluded': false,
         'content_count': 12,
@@ -549,7 +551,19 @@ Map<String, ReviewResponder> _defaultResponders() {
       },
       'novel_series_first_novel': reviewNovelJson(2000),
       'novel_series_latest_novel': reviewNovelJson(2011),
-      'novels': novels(2000, 12),
+      'novels': [
+        for (final (i, novel) in novels(2000, 12).indexed)
+          // The third is restricted: pixiv sends no author with it.
+          i == 2
+              ? {
+                  'id': novel['id'],
+                  'title': novel['title'],
+                  'visible': false,
+                  'viewable_message': 'restricted by its author',
+                  'content_order': '${i + 1}',
+                }
+              : {...novel, 'content_order': '${i + 1}'},
+      ],
       'next_url': null,
     }),
     '/v1/spotlight/articles': reviewJson({

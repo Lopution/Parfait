@@ -586,13 +586,20 @@ class NovelSeriesEntry {
     required this.viewable,
     this.contentOrder,
     this.viewableMessage,
+    this.novel,
   });
 
   final int id;
   final String title;
   final bool viewable;
-  final String? contentOrder;
+
+  /// The novel's place in the series, from one: its 「第 n 话」.
+  final int? contentOrder;
   final String? viewableMessage;
+
+  /// The whole novel, for a viewable entry; a restricted one carries only
+  /// what the row needs to say why it cannot open.
+  final NovelEntity? novel;
 }
 
 /// Domain representation of a Pixiv novel.

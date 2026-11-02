@@ -12,9 +12,16 @@ import 'func_skeleton.dart';
 /// title, author, length, tags); the user rows mirror `UserPreviewRow`
 /// (48dp avatar, name, account, compact follow button, three works).
 class NovelListSkeleton extends StatelessWidget {
-  const NovelListSkeleton({super.key, required this.label});
+  const NovelListSkeleton({
+    super.key,
+    required this.label,
+    this.overline = false,
+  });
 
   final String label;
+
+  /// Whether the rows carry a label above the title — a series' 「第 n 话」.
+  final bool overline;
 
   @override
   Widget build(BuildContext context) => FuncSkeleton(
@@ -22,12 +29,12 @@ class NovelListSkeleton extends StatelessWidget {
     child: _SkeletonList(
       carded: false,
       rowExtent: (_) => _novelRowExtent,
-      row: (context) => const _CoverRowBones(
+      row: (context) => _CoverRowBones(
         coverWidth: _novelCoverWidth,
         coverHeight: _novelCoverHeight,
         padding: _novelRowPadding,
-        overline: false,
-        captionWidths: [0.4, 0.25, 0.55],
+        overline: overline,
+        captionWidths: const [0.4, 0.25, 0.55],
       ),
     ),
   );

@@ -434,6 +434,11 @@ final smokePages = <SmokeGroup, Map<String, SmokePage>>{
     ),
     'watchlist': SmokePage.feed('/v1/watchlist/manga', 'series'),
     'novel-markers': SmokePage.feed('/v2/novel/markers', 'marked_novels'),
+    'novel-series/:seriesId': SmokePage.feed(
+      '/v2/novel/series',
+      'novels',
+      at: 'novel-series/77',
+    ),
   },
   SmokeGroup.lists: {
     'history': SmokePage(

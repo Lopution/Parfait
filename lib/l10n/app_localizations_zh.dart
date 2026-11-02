@@ -2574,6 +2574,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelSeriesUnavailable => '系列信息暂不可用';
 
   @override
+  String get novelSeriesConcluded => '已完结';
+
+  @override
+  String get novelSeriesOriginal => '原创';
+
+  @override
+  String get novelSeriesReadLatest => '阅读最新话';
+
+  @override
+  String novelSeriesReadLatestEpisode(int n) {
+    return '阅读最新第 $n 话';
+  }
+
+  @override
   String get novelInfoTitle => '作品信息';
 
   @override

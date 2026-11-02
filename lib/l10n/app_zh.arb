@@ -1473,6 +1473,27 @@
   "novelSeries": "系列",
   "novelRanking": "小说排行",
   "novelSeriesUnavailable": "系列信息暂不可用",
+  "novelSeriesConcluded": "已完结",
+  "@novelSeriesConcluded": {
+    "description": "A novel series' fact: the author marked it finished"
+  },
+  "novelSeriesOriginal": "原创",
+  "@novelSeriesOriginal": {
+    "description": "A novel series' fact: an original work, not fan fiction"
+  },
+  "novelSeriesReadLatest": "阅读最新话",
+  "@novelSeriesReadLatest": {
+    "description": "Opens a novel series' newest novel when its episode number is not loaded yet"
+  },
+  "novelSeriesReadLatestEpisode": "阅读最新第 {n} 话",
+  "@novelSeriesReadLatestEpisode": {
+    "description": "Opens a novel series' newest novel, episode n",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "novelInfoTitle": "作品信息",
   "novelPrevious": "上一篇",
   "novelNext": "下一篇",

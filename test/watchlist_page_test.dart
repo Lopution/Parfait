@@ -17,9 +17,8 @@ Widget _app(Widget child) =>
     localizedApp(locale: null, builder: promptHostBuilder, home: child);
 
 void main() {
-  testWidgets('watchlist page lists entries under both type tabs', (
-    tester,
-  ) async {
+  testWidgets('watchlist page lists entries under both type tabs; a novel '
+      "series' actions open its contents", (tester) async {
     final fixture = WatchlistFixture()
       ..mangaSeries = [
         {
@@ -40,11 +39,26 @@ void main() {
         },
       ];
     final (container, _) = await makeWatchlistWorld(fixture: fixture);
-
+    final router = GoRouter(
+      initialLocation: '/recommended',
+      routes: [
+        GoRoute(path: '/recommended', builder: (_, _) => const WatchlistPage()),
+        GoRoute(
+          path: '/recommended/novel-series/:seriesId',
+          builder: (_, state) =>
+              Text('novel series ${state.pathParameters['seriesId']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: _app(const WatchlistPage()),
+        child: localizedRouterApp(
+          router,
+          locale: null,
+          builder: promptHostBuilder,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -58,6 +72,12 @@ void main() {
     await tester.tap(find.text('Novel'));
     await tester.pumpAndSettle();
     expect(find.text('Novel Series'), findsOneWidget);
+    // Its actions open the series' contents.
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open contents'));
+    await tester.pumpAndSettle();
+    expect(find.text('novel series 21'), findsOneWidget);
   });
 
   testWidgets('unseen series shows the new-content badge; seen hides it', (

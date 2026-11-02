@@ -4955,6 +4955,30 @@ abstract class AppLocalizations {
   /// **'系列信息暂不可用'**
   String get novelSeriesUnavailable;
 
+  /// A novel series' fact: the author marked it finished
+  ///
+  /// In zh, this message translates to:
+  /// **'已完结'**
+  String get novelSeriesConcluded;
+
+  /// A novel series' fact: an original work, not fan fiction
+  ///
+  /// In zh, this message translates to:
+  /// **'原创'**
+  String get novelSeriesOriginal;
+
+  /// Opens a novel series' newest novel when its episode number is not loaded yet
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读最新话'**
+  String get novelSeriesReadLatest;
+
+  /// Opens a novel series' newest novel, episode n
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读最新第 {n} 话'**
+  String novelSeriesReadLatestEpisode(int n);
+
   /// No description provided for @novelInfoTitle.
   ///
   /// In zh, this message translates to:
