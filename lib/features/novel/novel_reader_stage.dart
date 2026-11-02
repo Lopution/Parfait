@@ -852,31 +852,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: FuncSpacing.xs),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 240),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          primary: false,
-                          itemCount: chapters.length,
-                          itemBuilder: (context, index) {
-                            final chapter = chapters[index];
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                chapter.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: Text(
-                                '${chapter.pageIndex + 1}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              onTap: () => jumpTo(chapter.pageIndex),
-                            );
-                          },
-                        ),
-                      ),
+                      _chapterList(context, chapters, onTap: jumpTo),
                     ],
                   ],
                 ),
@@ -887,6 +863,24 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       },
     );
   }
+
+  /// The chapters, the one the reader is in marked; up to half the
+  /// screen tall, so a long table shows many at once.
+  Widget _chapterList(
+    BuildContext context,
+    List<({String title, int pageIndex})> chapters, {
+    required ValueChanged<int> onTap,
+  }) => _NovelChapterList(
+    chapters: chapters,
+    current: chapters.lastIndexWhere((chapter) => chapter.pageIndex <= _page),
+    height: math.min(
+      chapters.length * _NovelChapterList.rowExtent,
+      math.max(_chapterListMinHeight, MediaQuery.sizeOf(context).height / 2),
+    ),
+    onTap: onTap,
+  );
+
+  static const _chapterListMinHeight = 240.0;
 
   void _showReaderSettings(BuildContext context) {
     final l10n = context.l10n;
@@ -1299,6 +1293,75 @@ class _NovelSeriesBarState extends ConsumerState<_NovelSeriesBar> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The progress sheet's chapters, the [current] one marked and scrolled
+/// a row below the top when the sheet opens. Rows are of one height, so
+/// its offset is known before layout.
+class _NovelChapterList extends StatefulWidget {
+  const _NovelChapterList({
+    required this.chapters,
+    required this.current,
+    required this.height,
+    required this.onTap,
+  });
+
+  static const rowExtent = 48.0;
+
+  final List<({String title, int pageIndex})> chapters;
+  final int current;
+  final double height;
+  final ValueChanged<int> onTap;
+
+  @override
+  State<_NovelChapterList> createState() => _NovelChapterListState();
+}
+
+class _NovelChapterListState extends State<_NovelChapterList> {
+  late final _controller = ScrollController(
+    initialScrollOffset: ((widget.current - 1) * _NovelChapterList.rowExtent)
+        .clamp(
+          0.0,
+          widget.chapters.length * _NovelChapterList.rowExtent - widget.height,
+        ),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: widget.height,
+      child: ListView.builder(
+        controller: _controller,
+        primary: false,
+        itemExtent: _NovelChapterList.rowExtent,
+        itemCount: widget.chapters.length,
+        itemBuilder: (context, index) {
+          final chapter = widget.chapters[index];
+          return ListTile(
+            dense: true,
+            selected: index == widget.current,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              chapter.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: Text(
+              '${chapter.pageIndex + 1}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            onTap: () => widget.onTap(chapter.pageIndex),
+          );
+        },
+      ),
     );
   }
 }

@@ -172,6 +172,50 @@ void main() {
     expect(find.textContaining('1/'), findsWidgets);
   });
 
+  testWidgets('progress sheet: the chapter you are in is marked and in '
+      'view; a chapter tap goes there', (tester) async {
+    final binding = _RecordingBinding();
+    await tester.pumpWidget(_stageApp(binding, chapters: true));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    Future<void> openSheet() async {
+      if (find.bySemanticsLabel('阅读进度').evaluate().isEmpty) {
+        await tester.tapAt(const Offset(400, 300));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.bySemanticsLabel('阅读进度'));
+      await tester.pumpAndSettle();
+    }
+
+    ListTile row(String title) => tester.widget<ListTile>(
+      find.ancestor(of: find.text(title), matching: find.byType(ListTile)),
+    );
+    final list = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.byType(ListView),
+    );
+
+    await openSheet();
+    expect(row('第 1 章').selected, isTrue);
+    expect(find.text('第 30 章'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('第 30 章'),
+      200,
+      scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
+    );
+    await tester.tap(find.text('第 30 章'));
+    await tester.pumpAndSettle();
+    expect(find.text('第 30 章'), findsOneWidget, reason: 'its heading');
+    expect(binding.saves, hasLength(1));
+
+    await openSheet();
+    expect(row('第 30 章').selected, isTrue);
+    expect(
+      tester.getRect(list).contains(tester.getCenter(find.text('第 30 章').last)),
+      isTrue,
+    );
+  });
+
   testWidgets('arrow keys turn pages with user-turn semantics', (tester) async {
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding));
@@ -430,33 +474,30 @@ NovelEntity _novelOfParagraphs(int count) => NovelEntity(
   ],
 );
 
-/// Two chapter headings embedded in enough body text to span pages — the
-/// layout surfaces them through `handle.chapters`.
-NovelEntity _novelWithChapters() => NovelEntity(
+/// [count] chapter headings, each over a page of body text — the layout
+/// surfaces them through `handle.chapters`.
+NovelEntity _novelWithChapters([int count = 30]) => NovelEntity(
   id: 78,
   title: 'Chaptered novel',
   caption: '',
   user: const UserEntity(id: 8, name: 'author', account: 'author'),
   tags: const [],
   textLength: 1,
-  contentVersion: 'chaptered',
+  contentVersion: 'chaptered-$count',
   contentAvailable: true,
   paragraphs: [
-    const NovelParagraph(
-      id: 'c1',
-      text: '第一章',
-      pageBreakBefore: true,
-      isChapterHeading: true,
-    ),
-    for (var i = 0; i < 120; i++)
-      NovelParagraph(id: 'a$i', text: 'chapter one body line $i ' * 4),
-    const NovelParagraph(
-      id: 'c2',
-      text: '第二章',
-      pageBreakBefore: true,
-      isChapterHeading: true,
-    ),
-    for (var i = 0; i < 120; i++)
-      NovelParagraph(id: 'b$i', text: 'chapter two body line $i ' * 4),
+    for (var chapter = 1; chapter <= count; chapter++) ...[
+      NovelParagraph(
+        id: 'c$chapter',
+        text: '第 $chapter 章',
+        pageBreakBefore: true,
+        isChapterHeading: true,
+      ),
+      for (var i = 0; i < 10; i++)
+        NovelParagraph(
+          id: 'c$chapter-$i',
+          text: 'chapter $chapter body line $i ' * 4,
+        ),
+    ],
   ],
 );
