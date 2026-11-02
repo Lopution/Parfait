@@ -250,3 +250,19 @@ reviewed: 2026-11-02
   the reader (user request, 11-02).
 - **Check:** `test/novel_reader_chrome_test.dart` "the info sheet names the series, length, counts and date"
 - **Code:** `lib/features/novel/novel_page.dart`, `lib/app/widgets/meta_fact.dart`
+
+### NOVEL-17 The account's bookmarks have a list; a row opens at its bookmark
+- **Rule:** A signed-in Me page lists the novels the account has a
+  bookmark in (`/v2/novel/markers`, paged by its `next_url`; an entry
+  without a novel or a page of at least 1 is a parse error). Each row
+  is the novel's card with its bookmark's Pixiv page above the title,
+  and the list seeds `NovelEntity.markerPage` so the reader and the list
+  agree. Tapping a row opens the reader at that page, ahead of a saved
+  place, which it leaves unchanged; the page rides in the route's
+  in-memory `extra`, so a restored route opens as usual. The row's
+  button removes the bookmark and puts it back at the page it was on,
+  through the same writes as the progress sheet (NOVEL-15).
+- **Why:** A bookmark was only reachable from inside the novel it was
+  in (user request, 11-02).
+- **Check:** `test/novel_markers_test.dart` "the bookmark list pages by next_url; each novel lands with its " "an entry without a novel or a page is a parse error" "rows say where the bookmark is; the button removes it and " "an empty list and a failed one say so"; `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your "; `test/navigation_router_test.dart` "a novel opened at a page carries it in memory, not the "; `test/settings_test.dart` "the Me header, manage button and end rows open their pages"
+- **Code:** `lib/features/novel/novel_markers_page.dart`, `lib/core/novel/novel_feed_controller.dart`, `lib/core/novel/novel_repository.dart`, `lib/features/novel/novel_page.dart`, `lib/app/navigation/routes.dart`
