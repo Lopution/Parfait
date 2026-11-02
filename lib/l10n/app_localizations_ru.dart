@@ -2914,7 +2914,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelMarkerFailed => 'Не удалось изменить метку';
 
   @override
-  String get novelMarkers => 'Метки в романах';
+  String get novelMarkers => 'Метки в новеллах';
 
   @override
   String novelMarkerAtPage(int page) {
@@ -2925,7 +2925,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelMarkerRestore => 'Вернуть метку';
 
   @override
-  String get novelMarkersEmpty => 'Пока нет меток в романах';
+  String get novelMarkersEmpty => 'Пока нет меток в новеллах';
 
   @override
   String get novelMarkersLoadFailed => 'Не удалось загрузить метки';
