@@ -67,8 +67,12 @@ reviewed: 2026-10-17
   measured its pages unscaled and painted them at the system size, so
   large text cut the tail off every line. A tab slot sized to the
   measured label faded its last glyph under the system's letter spacing.
+  The reader measured without the ambient style it painted in (the
+  theme's font fallbacks, the letter spacing and even leading of the
+  dense CJK type): full lines ran wider than measured, short mixed-script
+  lines taller.
 - **Check:** `test/fit_label_test.dart` "the painted width is the measured width times the scale" "a non-linear text scaler measures and paints alike"; `test/app_tab_bar_test.dart` "a wide row keeps its tabs together at the start"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
-- **Code:** `lib/app/widgets/fit_label.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_tab_bar.dart`
+- **Code:** `lib/app/widgets/fit_label.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_tab_bar.dart`, `lib/features/novel/novel_layout.dart`
 
 ### LAYOUT-05 The selection bar title is the bare count
 - **Rule:** Lists in selection mode use `selectionAppBar`; its title is
