@@ -8,12 +8,14 @@ import 'package:parfait/core/novel/novel_feed_controller.dart';
 import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/features/novel/novel_markers_page.dart';
+import 'package:parfait/features/novel/novel_page.dart';
 
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
+import 'helpers/pixiv_router.dart';
 import 'helpers/prompt_host.dart';
 
 const _markers = '/v2/novel/markers';
@@ -100,8 +102,8 @@ void main() {
     }
   });
 
-  testWidgets('rows say where the bookmark is; the button removes it and '
-      'puts it back', (tester) async {
+  testWidgets('rows say where the bookmark is and open there; the button '
+      'removes it and puts it back', (tester) async {
     var failWrites = false;
     final writes = <http.Request>[];
     http.Response write(http.Request request) {
@@ -119,15 +121,19 @@ void main() {
           'marked_novels': [_marked(1, 2)],
           'next_url': null,
         }),
+        '/v2/novel/detail': answer({'novel': novelJson(1, title: 'marked 1')}),
+        // The reader opens; its text is not this test's.
+        '/webview/v2/novel': failing(503),
         '/v1/novel/marker/add': write,
         '/v1/novel/marker/delete': write,
       }),
     );
+    final router = pixivRouter('/settings/novel-markers');
     await tester.pumpWidget(
-      localizedApp(
+      localizedRouterApp(
+        router,
         container: container,
         builder: promptHostBuilder,
-        home: const NovelMarkersPage(),
       ),
     );
     await tester.pumpAndSettle();
@@ -157,6 +163,13 @@ void main() {
     expect(requestFields(writes.last), {'novel_id': '1', 'page': '2'});
     expect(find.byTooltip('删除书签'), findsOneWidget);
     expect(container.read(novelStoreProvider)[1]!.markerPage, 2);
+
+    // The row opens the novel at its bookmark.
+    await tester.tap(find.text('marked 1'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/settings/novel/1');
+    expect(tester.widget<NovelPage>(find.byType(NovelPage)).atPixivPage, 2);
   });
 
   testWidgets('an empty list and a failed one say so', (tester) async {
