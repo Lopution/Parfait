@@ -130,9 +130,10 @@ reviewed: 2026-11-02
 - **Rule:** Opening the reader, toggling sheets and switching between
   scrolling and pages write nothing; a page turn, or a scroll that comes
   to rest on another line, writes once; a restored record is not
-  rewritten.
+  rewritten. A Pixiv novel with no record of this account's opens at the
+  account's bookmark (NOVEL-15) and writes nothing either.
 - **Why:** Opening a novel overwrote the stored position with page 1.
-- **Check:** `test/novel_reader_stage_test.dart` "open and sheet toggles never write; a page turn writes once" "a stored record restores without being rewritten" "scroll mode: open writes nothing, a settle writes once;"
+- **Check:** `test/novel_reader_stage_test.dart` "open and sheet toggles never write; a page turn writes once" "a stored record restores without being rewritten" "scroll mode: open writes nothing, a settle writes once;"; `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your "
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
 
 ### NOVEL-08 The chrome and page turns leave the reader alone
@@ -217,3 +218,22 @@ reviewed: 2026-11-02
   as raw text and led nowhere (user request, 11-02).
 - **Check:** `test/novel_markup_hardening_test.dart` "a page jump counts Pixiv pages; one past the last reads as written"; `test/novel_reader_test.dart` "an author's links: a page jump brings its Pixiv page in "
 - **Code:** `lib/core/novel/novel_entity.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/app/widgets/caption_rich_text.dart`
+
+### NOVEL-15 The progress sheet holds the place, the bookmark and the chapters
+- **Rule:** Under the slider, the progress sheet shows the account's
+  bookmark (Pixiv's marker, one per novel at the start of a Pixiv page,
+  `NovelEntity.markerPage` from the webview payload) for a Pixiv novel
+  read with an account, when the novel has more than one Pixiv page or
+  a bookmark already. Without one, a row marks the Pixiv page of the
+  reader's top line; with one, the row names its screen page and goes
+  there, moves it to the reader's Pixiv page when that differs, and
+  removes it. Writes go straight to the account
+  (`novelMarkerWritesProvider`, not the action queue): the row waits
+  for the answer, the novel in `NovelStore` changes only on success, and
+  a failure says so. The chapter list marks the chapter the reader is
+  in, opens scrolled to it, and grows to half the screen.
+- **Why:** Pixiv's bookmark, kept with the account, was unreachable;
+  a long table of contents showed four rows and no place in it (user
+  request, 11-02).
+- **Check:** `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your " "a one-page novel without a bookmark offers none"; `test/novel_reader_stage_test.dart` "progress sheet: the chapter you are in is marked and in "; `test/novel_webview_text_test.dart` "the account's marker: its page, none, or a parse error"
+- **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_page.dart`, `lib/core/novel/novel_store.dart`, `lib/core/novel/novel_webview_text.dart`

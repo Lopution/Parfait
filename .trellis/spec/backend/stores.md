@@ -192,7 +192,10 @@ reviewed: 2026-10-30
   `(accountId, entityType, entityId, operation)`, without the credential
   revision. Only a still-active envelope commits. Account switch, logout
   and owner disposal cancel active owners; a rebuilt ledger never
-  resurrects pending work.
+  resurrects pending work. An idempotent set write with no cancel path
+  (mute edits, a novel's bookmark) may instead keep a pending flag per
+  target that refuses a second write, and publish only under the
+  `AccountClaim` it took before the request (STORE-15).
 - **Why:** Late responses wrote into another account's store; a token
   refresh invalidated in-flight writes.
 - **Check:** `test/mutation_ownership_test.dart` "account switch cancels owner and rejects a late bookmark response" "reopening a rebuilt ledger keeps telemetry but not pending work"
