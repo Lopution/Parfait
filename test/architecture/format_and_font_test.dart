@@ -64,19 +64,33 @@ List<String> _hits(
         '  $file:${src.substring(0, m.start).split('\n').length}',
 ];
 
-/// The top-level arguments of the call whose `(` is at [open] in [src].
+/// [src] with the text of its string literals blanked to spaces, so that
+/// what a string says is never read as code; offsets stay the same.
+String _blankStrings(String src) {
+  final out = StringBuffer();
+  for (var i = 0; i < src.length; i++) {
+    final c = src[i];
+    out.write(c);
+    if (c != "'" && c != '"') continue;
+    for (i++; i < src.length && src[i] != c; i++) {
+      final escaped = src[i] == r'\' && i + 1 < src.length;
+      out.write(src[i] == '\n' ? '\n' : ' ');
+      if (escaped) out.write(src[++i] == '\n' ? '\n' : ' ');
+    }
+    if (i < src.length) out.write(c);
+  }
+  return out.toString();
+}
+
+/// The top-level arguments of the call whose `(` is at [open] in [src],
+/// read with its strings blanked ([_blankStrings]).
 List<String> _arguments(String src, int open) {
   final args = <String>[];
   var depth = 0;
   var start = open + 1;
   for (var i = open; i < src.length; i++) {
     final c = src[i];
-    if (c == "'" || c == '"') {
-      // Skip the string: its commas and brackets are text.
-      for (i++; i < src.length && src[i] != c; i++) {
-        if (src[i] == r'\') i++;
-      }
-    } else if ('([{'.contains(c)) {
+    if ('([{'.contains(c)) {
       depth++;
     } else if (')]}'.contains(c)) {
       depth--;
@@ -158,8 +172,10 @@ void main() {
 
   test('the fitted-label scan follows bindings and skips strings', () {
     bool passes(String body) {
-      final src = 'void f() {\n$body\n}';
-      return _measuredAsPainted(src, _labelMeasure.allMatches(src).last);
+      final src = _blankStrings('void f() {\n$body\n}');
+      return _labelMeasure
+          .allMatches(src)
+          .every((m) => _measuredAsPainted(src, m));
     }
 
     const locale = 'final locale = Localizations.maybeLocaleOf(context);';
@@ -183,15 +199,27 @@ void main() {
       passes("$painted\nLabelFit.measureLabel('a', s, t, d, locale: null);"),
       isFalse,
     );
+    // A member assignment does not rebind the local.
+    expect(
+      passes(
+        '$locale\nfinal s = base;\n'
+        'holder.s = LabelFit.paintedStyle(context, base);\n'
+        "LabelFit.measureLabel('a', s, t, d, locale: locale);",
+      ),
+      isFalse,
+    );
+    // A call spelled in a string is text, not a call.
+    expect(passes("final note = 'LabelFit.group(';\n"), isTrue);
   });
 
   test('fitted labels are measured in the style and locale they paint in', () {
     final violations = [
       for (final MapEntry(key: file, value: src) in sources.entries)
         if (file != 'lib/app/widgets/fit_label.dart')
-          for (final m in _labelMeasure.allMatches(src))
-            if (!_measuredAsPainted(src, m))
-              '  $file:${src.substring(0, m.start).split('\n').length}',
+          for (final code in [_blankStrings(src)])
+            for (final m in _labelMeasure.allMatches(code))
+              if (!_measuredAsPainted(code, m))
+                '  $file:${code.substring(0, m.start).split('\n').length}',
     ];
     expect(
       violations,
@@ -221,7 +249,7 @@ bool _measuredAsPainted(String src, Match call) {
 }
 
 /// Whether [expr], read at [at] in [src], is a call to [source], or a
-/// local bound to one before [at]: by `name = ...`, or as the variable of
+/// local bound to one before [at]: by `name = ...` (not `x.name = ...`), or as the variable of
 /// a `for (final name in ...)` over a collection whose every element is
 /// one. Bounded to a few hops; a binding it cannot read is not traced.
 bool _traces(String src, String expr, int at, String source, [int hops = 3]) {
@@ -236,7 +264,7 @@ bool _traces(String src, String expr, int at, String source, [int hops = 3]) {
   }
   if (!_identifier.hasMatch(expr)) return false;
   final binding = RegExp(
-    '(?:\\b$expr\\s*=(?!=)|\\bfor\\s*\\(\\s*final\\s+$expr\\s+in\\b)\\s*',
+    '(?:(?<![\\w.])$expr\\s*=(?!=)|\\bfor\\s*\\(\\s*final\\s+$expr\\s+in\\b)\\s*',
   ).allMatches(src.substring(0, at)).lastOrNull;
   if (binding == null) return false;
   final value = src.substring(binding.end, _expressionEnd(src, binding.end));
@@ -259,16 +287,12 @@ String _withoutClauses(String element) {
 }
 
 /// Where the expression starting at [from] in [src] ends: the first `;`,
-/// `,` or unbalanced closing bracket outside brackets and strings.
+/// `,` or unbalanced closing bracket outside brackets.
 int _expressionEnd(String src, int from) {
   var depth = 0;
   for (var i = from; i < src.length; i++) {
     final c = src[i];
-    if (c == "'" || c == '"') {
-      for (i++; i < src.length && src[i] != c; i++) {
-        if (src[i] == r'\') i++;
-      }
-    } else if ('([{'.contains(c)) {
+    if ('([{'.contains(c)) {
       depth++;
     } else if (')]}'.contains(c)) {
       if (depth == 0) return i;
