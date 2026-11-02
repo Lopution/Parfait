@@ -289,7 +289,8 @@ reviewed: 2026-11-02
   novel when it opens one that names a series:
   `NovelSeriesLastReadStore`, keyed by account and series, recency
   trimmed to 200, kept across restarts and whatever the history
-  setting.
+  setting. The watchlist novel entry's sheet continues there too
+  (「继续阅读」: the record keeps no episode number).
 - **Why:** The series was named but led nowhere, and a followed novel
   series had no contents; no other client continues a novel series, and
   novels are read over days (user request, 11-02).

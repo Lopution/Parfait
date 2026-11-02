@@ -18,6 +18,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/errors/error_category.dart';
 import '../../core/log.dart';
+import '../../core/novel/reader_settings.dart';
 import '../../core/series/series_recent_open_store.dart';
 import '../../core/watchlist/watchlist_actions.dart';
 import '../../core/watchlist/watchlist_feed_controller.dart';
@@ -277,15 +278,25 @@ class _WatchlistEntryTile extends ConsumerWidget {
 
   Future<void> _openActions(BuildContext context, WidgetRef ref) async {
     final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
-    // 「继续第 n 话」only exists when the session recorded an opened work —
-    // the store keys manga series only; a novel series continues from its
-    // page.
+    // 「继续」 opens the work this account opened last in the series: a
+    // manga series remembers it for the session, with its episode number,
+    // a novel series across restarts, by its novel alone.
     final recent = entry.type == WatchlistType.manga && accountId != null
         ? ref.read(seriesRecentOpenStoreProvider)[SeriesRecentOpenStore.keyFor(
             accountId,
             entry.id,
           )]
         : null;
+    final lastNovelId = entry.type == WatchlistType.novel && accountId != null
+        ? await ref
+              .read(novelSeriesLastReadStoreProvider)
+              .read(accountId, entry.id)
+              .catchError((Object error, _) {
+                log('novel series last read not read: $error');
+                return null;
+              })
+        : null;
+    if (!context.mounted) return;
     await showAppBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
@@ -319,6 +330,15 @@ class _WatchlistEntryTile extends ConsumerWidget {
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     unawaited(openIllust(context, recent.illustId));
+                  },
+                ),
+              if (lastNovelId != null)
+                ListTile(
+                  leading: const Icon(Icons.history),
+                  title: Text(sheetContext.l10n.seriesContinue),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(openNovel(context, lastNovelId));
                   },
                 ),
               ListTile(
