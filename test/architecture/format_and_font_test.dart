@@ -71,7 +71,12 @@ List<String> _arguments(String src, int open) {
   var start = open + 1;
   for (var i = open; i < src.length; i++) {
     final c = src[i];
-    if ('([{'.contains(c)) {
+    if (c == "'" || c == '"') {
+      // Skip the string: its commas and brackets are text.
+      for (i++; i < src.length && src[i] != c; i++) {
+        if (src[i] == r'\') i++;
+      }
+    } else if ('([{'.contains(c)) {
       depth++;
     } else if (')]}'.contains(c)) {
       depth--;
@@ -151,6 +156,35 @@ void main() {
     );
   });
 
+  test('the fitted-label scan follows bindings and skips strings', () {
+    bool passes(String body) {
+      final src = 'void f() {\n$body\n}';
+      return _measuredAsPainted(src, _labelMeasure.allMatches(src).last);
+    }
+
+    const locale = 'final locale = Localizations.maybeLocaleOf(context);';
+    const painted = 'final s = LabelFit.paintedStyle(context, base);';
+    expect(
+      passes(
+        '$locale\n$painted\n'
+        "LabelFit.measureLabel('a,(b', s, t, d, locale: locale);",
+      ),
+      isTrue,
+    );
+    // Another paintedStyle in the file does not vouch for a raw local.
+    expect(
+      passes(
+        '$locale\n$painted\nfinal raw = base;\n'
+        "LabelFit.measureLabel('a', raw, t, d, locale: locale);",
+      ),
+      isFalse,
+    );
+    expect(
+      passes("$painted\nLabelFit.measureLabel('a', s, t, d, locale: null);"),
+      isFalse,
+    );
+  });
+
   test('fitted labels are measured in the style and locale they paint in', () {
     final violations = [
       for (final MapEntry(key: file, value: src) in sources.entries)
@@ -170,14 +204,78 @@ void main() {
 }
 
 /// Whether the [call] to `LabelFit.group` or `LabelFit.measureLabel` in
-/// [src] passes a locale, and a style that is `LabelFit.paintedStyle(...)`
-/// or a local in a file that builds its styles with it.
+/// [src] passes the painted locale and a style built by
+/// `LabelFit.paintedStyle`, directly or through a local bound to it.
 bool _measuredAsPainted(String src, Match call) {
   final args = _arguments(src, call.end - 1);
-  if (!args.any((a) => a.startsWith('locale:'))) return false;
-  final style = call[1] == 'group'
-      ? args.firstWhere((a) => a.startsWith('style:')).substring(6).trim()
-      : args[1];
-  return style.startsWith('LabelFit.paintedStyle(') ||
-      (_identifier.hasMatch(style) && src.contains('LabelFit.paintedStyle('));
+  String? named(String name) => [
+    for (final a in args)
+      if (a.startsWith('$name:')) a.substring(name.length + 1).trim(),
+  ].firstOrNull;
+  final locale = named('locale');
+  final style = call[1] == 'group' ? named('style') : args.elementAtOrNull(1);
+  return locale != null &&
+      style != null &&
+      _traces(src, locale, call.start, 'Localizations.maybeLocaleOf(') &&
+      _traces(src, style, call.start, 'LabelFit.paintedStyle(');
+}
+
+/// Whether [expr], read at [at] in [src], is a call to [source], or a
+/// local bound to one before [at]: by `name = ...`, or as the variable of
+/// a `for (final name in ...)` over a collection whose every element is
+/// one. Bounded to a few hops; a binding it cannot read is not traced.
+bool _traces(String src, String expr, int at, String source, [int hops = 3]) {
+  if (expr.startsWith(source)) return true;
+  if (hops == 0) return false;
+  if (expr.startsWith('{') || expr.startsWith('[')) {
+    final elements = _arguments(expr, 0);
+    return elements.isNotEmpty &&
+        elements.every(
+          (e) => _traces(src, _withoutClauses(e), at, source, hops - 1),
+        );
+  }
+  if (!_identifier.hasMatch(expr)) return false;
+  final binding = RegExp(
+    '(?:\\b$expr\\s*=(?!=)|\\bfor\\s*\\(\\s*final\\s+$expr\\s+in\\b)\\s*',
+  ).allMatches(src.substring(0, at)).lastOrNull;
+  if (binding == null) return false;
+  final value = src.substring(binding.end, _expressionEnd(src, binding.end));
+  return _traces(src, value.trim(), binding.start, source, hops - 1);
+}
+
+final _clause = RegExp(r'^(?:for|if)\s*\(');
+
+/// [element] past its leading collection-for and collection-if clauses.
+String _withoutClauses(String element) {
+  var e = element;
+  for (
+    var clause = _clause.firstMatch(e);
+    clause != null;
+    clause = _clause.firstMatch(e)
+  ) {
+    e = e.substring(_expressionEnd(e, clause.end) + 1).trim();
+  }
+  return e;
+}
+
+/// Where the expression starting at [from] in [src] ends: the first `;`,
+/// `,` or unbalanced closing bracket outside brackets and strings.
+int _expressionEnd(String src, int from) {
+  var depth = 0;
+  for (var i = from; i < src.length; i++) {
+    final c = src[i];
+    if (c == "'" || c == '"') {
+      for (i++; i < src.length && src[i] != c; i++) {
+        if (src[i] == r'\') i++;
+      }
+    } else if ('([{'.contains(c)) {
+      depth++;
+    } else if (')]}'.contains(c)) {
+      if (depth == 0) return i;
+      depth--;
+    } else if (';,'.contains(c) && depth == 0) {
+      return i;
+    }
+  }
+  return src.length;
 }
