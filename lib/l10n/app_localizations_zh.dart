@@ -2811,6 +2811,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelChapters => '目录';
 
   @override
+  String get novelMarker => '书签';
+
+  @override
+  String get novelMarkerAdd => '在此页加书签';
+
+  @override
+  String get novelMarkerMove => '移到此页';
+
+  @override
+  String get novelMarkerDelete => '删除书签';
+
+  @override
+  String get novelMarkerFailed => '书签操作失败';
+
+  @override
   String get novelIllustration => '插图';
 
   @override

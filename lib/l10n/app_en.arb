@@ -1173,6 +1173,11 @@
     }
   },
   "novelChapters": "Chapters",
+  "novelMarker": "Marker",
+  "novelMarkerAdd": "Mark this page",
+  "novelMarkerMove": "Move here",
+  "novelMarkerDelete": "Remove marker",
+  "novelMarkerFailed": "Marker operation failed",
   "novelIllustration": "Illustration",
   "novelIllustrationUnavailable": "This image was removed or is not visible",
   "localNovelFileInfo": "File info",

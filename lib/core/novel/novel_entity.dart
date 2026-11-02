@@ -632,6 +632,7 @@ class NovelEntity {
     this.embeddedIllustThumbs = const {},
     this.seriesPrevId,
     this.seriesNextId,
+    this.markerPage,
   });
 
   final int id;
@@ -673,6 +674,11 @@ class NovelEntity {
   final int? seriesPrevId;
   final int? seriesNextId;
 
+  /// The Pixiv page (1-based) of the account's bookmark (Pixiv's marker)
+  /// of this novel, from the webview payload; null when it has none or
+  /// the body is not loaded.
+  final int? markerPage;
+
   UserEntity get author => user;
 
   /// An uploaded image's URLs in the webview payload, or null.
@@ -710,6 +716,7 @@ class NovelEntity {
     Object? embeddedIllustThumbs = _unset,
     Object? seriesPrevId = _unset,
     Object? seriesNextId = _unset,
+    Object? markerPage = _unset,
   }) {
     return NovelEntity(
       id: id,
@@ -766,6 +773,9 @@ class NovelEntity {
       seriesNextId: identical(seriesNextId, _unset)
           ? this.seriesNextId
           : seriesNextId as int?,
+      markerPage: identical(markerPage, _unset)
+          ? this.markerPage
+          : markerPage as int?,
     );
   }
 
@@ -782,6 +792,7 @@ class NovelEntity {
     Map<String, String> embeddedIllustThumbs = const {},
     int? seriesPrevId,
     int? seriesNextId,
+    int? markerPage,
   }) {
     if (text == null) {
       return copyWith(
@@ -793,6 +804,7 @@ class NovelEntity {
         ),
         seriesPrevId: seriesPrevId,
         seriesNextId: seriesNextId,
+        markerPage: markerPage,
       );
     }
     final markup = NovelContentMapper.parse(text, images: true);
@@ -817,6 +829,7 @@ class NovelEntity {
       ),
       seriesPrevId: seriesPrevId,
       seriesNextId: seriesNextId,
+      markerPage: markerPage,
     );
   }
 

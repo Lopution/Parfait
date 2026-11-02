@@ -696,3 +696,28 @@ class _GetRequestFlightKey {
   @override
   int get hashCode => Object.hash(uri, accessToken);
 }
+
+/// Throws unless [response] answers an App API write as done: a 2xx
+/// status whose body, when there is one, is JSON reporting no failure
+/// (`is_success: false`, or an `error`).
+void ensurePostSuccess(http.Response response) {
+  final statusCode = response.statusCode;
+  if (statusCode < 200 || statusCode >= 300) {
+    throw ApiHttpError(statusCode);
+  }
+  final body = utf8.decode(response.bodyBytes);
+  if (body.isEmpty) return;
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(body);
+  } on FormatException catch (error) {
+    throw ApiParseError(error);
+  }
+  if (decoded is! Map<String, dynamic>) return;
+  if (decoded['is_success'] == false) {
+    throw ApiHttpError(statusCode, decoded['message']?.toString());
+  }
+  if (decoded['error'] case final error?) {
+    throw ApiHttpError(statusCode, '$error');
+  }
+}

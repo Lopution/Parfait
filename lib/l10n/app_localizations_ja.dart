@@ -2840,6 +2840,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelChapters => '目次';
 
   @override
+  String get novelMarker => 'しおり';
+
+  @override
+  String get novelMarkerAdd => 'このページにしおりを挟む';
+
+  @override
+  String get novelMarkerMove => 'このページに移す';
+
+  @override
+  String get novelMarkerDelete => 'しおりを外す';
+
+  @override
+  String get novelMarkerFailed => 'しおり操作に失敗しました';
+
+  @override
   String get novelIllustration => '挿絵';
 
   @override

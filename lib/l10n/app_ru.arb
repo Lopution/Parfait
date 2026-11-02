@@ -1166,6 +1166,11 @@
     }
   },
   "novelChapters": "Главы",
+  "novelMarker": "Метка",
+  "novelMarkerAdd": "Отметить эту страницу",
+  "novelMarkerMove": "Перенести сюда",
+  "novelMarkerDelete": "Удалить метку",
+  "novelMarkerFailed": "Не удалось изменить метку",
   "novelIllustration": "Иллюстрация",
   "novelIllustrationUnavailable": "Иллюстрация удалена или недоступна",
   "localNovelFileInfo": "Информация о файле",

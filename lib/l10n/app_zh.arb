@@ -1601,6 +1601,11 @@
     }
   },
   "novelChapters": "目录",
+  "novelMarker": "书签",
+  "novelMarkerAdd": "在此页加书签",
+  "novelMarkerMove": "移到此页",
+  "novelMarkerDelete": "删除书签",
+  "novelMarkerFailed": "书签操作失败",
   "novelIllustration": "插图",
   "novelIllustrationUnavailable": "插图已删除或不可见",
   "localNovelFileInfo": "文件信息",

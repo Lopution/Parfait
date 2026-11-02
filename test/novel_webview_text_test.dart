@@ -54,6 +54,7 @@ String _webviewHtml({
   Map<String, dynamic>? images,
   Map<String, dynamic>? illusts,
   Map<String, dynamic>? seriesNavigation,
+  (Object?,)? marker,
   bool trailingComma = false,
 }) {
   final novel = <String, dynamic>{
@@ -67,6 +68,7 @@ String _webviewHtml({
     'images': ?images,
     'illusts': ?illusts,
     'seriesNavigation': ?seriesNavigation,
+    if (marker != null) 'marker': marker.$1,
   };
   var novelJson = jsonEncode(novel);
   if (trailingComma) {
@@ -163,6 +165,19 @@ Object.defineProperty(window, 'pixiv', {value: {
         expect(payload.seriesPrevId, isNull);
       },
     );
+
+    test('the account\'s marker: its page, none, or a parse error', () {
+      int? markerOf((Object?,)? marker) => extractNovelWebPayload(
+        _webviewHtml(text: 'body', marker: marker),
+      ).markerPage;
+      expect(markerOf((const {'page': 3},)), 3);
+      expect(markerOf((null,)), isNull);
+      expect(markerOf(null), isNull);
+      expect(
+        () => markerOf((const {'page': 'x'},)),
+        throwsA(isA<ApiParseError>()),
+      );
+    });
 
     test('rejects a page without the pixiv bootstrap script', () {
       expect(

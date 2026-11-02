@@ -2899,6 +2899,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelChapters => 'Главы';
 
   @override
+  String get novelMarker => 'Метка';
+
+  @override
+  String get novelMarkerAdd => 'Отметить эту страницу';
+
+  @override
+  String get novelMarkerMove => 'Перенести сюда';
+
+  @override
+  String get novelMarkerDelete => 'Удалить метку';
+
+  @override
+  String get novelMarkerFailed => 'Не удалось изменить метку';
+
+  @override
   String get novelIllustration => 'Иллюстрация';
 
   @override

@@ -1166,6 +1166,11 @@
     }
   },
   "novelChapters": "目次",
+  "novelMarker": "しおり",
+  "novelMarkerAdd": "このページにしおりを挟む",
+  "novelMarkerMove": "このページに移す",
+  "novelMarkerDelete": "しおりを外す",
+  "novelMarkerFailed": "しおり操作に失敗しました",
   "novelIllustration": "挿絵",
   "novelIllustrationUnavailable": "この挿絵は削除されたか、表示できません",
   "localNovelFileInfo": "ファイル情報",
