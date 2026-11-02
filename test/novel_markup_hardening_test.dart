@@ -114,47 +114,50 @@ void main() {
     }
   });
 
-  test('a page jump counts Pixiv pages; one past the last reads as written', () {
-    final document = NovelMarkupParser().parse(
-      'a[jump:2]b\n[jump:03] [jump:0] [jump:5]\n'
-      '[newpage]\n[chapter:二]\nc\n[newpage][newpage]\nd',
-    );
+  test(
+    'a page jump counts Pixiv pages; one past the last reads as written',
+    () {
+      final document = NovelMarkupParser().parse(
+        'a[jump:2]b\n[jump:03] [jump:0] [jump:5]\n'
+        '[newpage]\n[chapter:二]\nc\n[newpage][newpage]\nd',
+      );
 
-    // The labels are the reader's: a jump leaves no text of its own.
-    expect(document.blocks.first.plainText, 'ab');
-    expect(document.blocks.first, isA<NovelParagraph>());
-    expect(
-      (document.blocks.first as NovelParagraph).inlineMarks.single,
-      isA<NovelInlineMark>()
-          .having((mark) => (mark.kind, mark.start, mark.end), 'at', (
-            'jump',
-            1,
-            1,
-          ))
-          .having((mark) => mark.value, 'page', '2'),
-    );
-    expect(document.plainText, contains('[jump:03] [jump:0] [jump:5]'));
-    expect(
-      document.diagnostics.where(
-        (issue) => issue.kind == NovelMarkupIssueKind.invalidJump,
-      ),
-      hasLength(3),
-    );
-    // A chapter starts no Pixiv page; an empty one starts where the next
-    // does.
-    final starts = document.pixivPageStarts;
-    expect(starts, hasLength(4));
-    expect(starts[0], 'p0');
-    expect(starts[2], starts[3]);
-    expect(document.pixivPageOf(starts[1]), 2);
-    expect(
-      document.pixivPageOf(
-        document.blocks.whereType<NovelChapterBlock>().single.id,
-      ),
-      2,
-    );
-    expect(document.pixivPageOf(starts[3]), 4);
-  });
+      // The labels are the reader's: a jump leaves no text of its own.
+      expect(document.blocks.first.plainText, 'ab');
+      expect(document.blocks.first, isA<NovelParagraph>());
+      expect(
+        (document.blocks.first as NovelParagraph).inlineMarks.single,
+        isA<NovelInlineMark>()
+            .having((mark) => (mark.kind, mark.start, mark.end), 'at', (
+              'jump',
+              1,
+              1,
+            ))
+            .having((mark) => mark.value, 'page', '2'),
+      );
+      expect(document.plainText, contains('[jump:03] [jump:0] [jump:5]'));
+      expect(
+        document.diagnostics.where(
+          (issue) => issue.kind == NovelMarkupIssueKind.invalidJump,
+        ),
+        hasLength(3),
+      );
+      // A chapter starts no Pixiv page; an empty one starts where the next
+      // does.
+      final starts = document.pixivPageStarts;
+      expect(starts, hasLength(4));
+      expect(starts[0], 'p0');
+      expect(starts[2], starts[3]);
+      expect(document.pixivPageOf(starts[1]), 2);
+      expect(
+        document.pixivPageOf(
+          document.blocks.whereType<NovelChapterBlock>().single.id,
+        ),
+        2,
+      );
+      expect(document.pixivPageOf(starts[3]), 4);
+    },
+  );
 
   test('an image takes its marker line and moves no paragraph id', () {
     const source = 'a\n[uploadedimage:5]\nb\n[pixivimage:9-2]';

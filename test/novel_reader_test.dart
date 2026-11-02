@@ -701,9 +701,7 @@ void main() {
 
     // A tap that stops a fling over the jumps only stops it.
     await tester.pumpWidget(
-      localizedApp(
-        body: NovelReader(novel: _novel('').withWebContent(body)),
-      ),
+      localizedApp(body: NovelReader(novel: _novel('').withWebContent(body))),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
