@@ -77,7 +77,8 @@ class NovelSeriesFeedPage extends ConsumerWidget {
           }
           if (feed.showInitialSpinner) return skeleton();
           // A viewable entry reads the store, which the reader and the
-          // bookmark button keep current; a restricted one is its entry.
+          // bookmark button keep current; a restricted one is its entry,
+          // whatever the store kept of it from before.
           final novels = {
             for (final novel
                 in ref
@@ -91,7 +92,12 @@ class NovelSeriesFeedPage extends ConsumerWidget {
           };
           final List<Object> rows = [
             for (final id in feed.ids)
-              if (novels[id] case final novel?) novel else ?info.entries[id],
+              if (info.entries[id] case final entry? when !entry.viewable)
+                entry
+              else if (novels[id] case final novel?)
+                novel
+              else
+                ?info.entries[id],
           ];
           return PullToRefresh(
             onRefresh: controller.refresh,
@@ -239,6 +245,7 @@ class _SeriesHeaderState extends ConsumerState<_SeriesHeader> {
     if (latest != null && accountId != null && !_seenMarked) {
       _seenMarked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         unawaited(
           ref
               .read(watchlistReadCursorProvider)

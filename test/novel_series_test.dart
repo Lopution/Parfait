@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/features/novel/novel_page.dart';
 import 'package:parfait/features/novel/novel_series_page.dart';
@@ -106,6 +108,10 @@ void main() {
       api.client,
       others: const [Account(id: '200', userId: 200, name: 'b')],
     );
+    // The store still holds the restricted novel from when it was not.
+    container.read(novelStoreProvider.notifier).mergeAll([
+      NovelEntity.fromJson(_part(2)),
+    ]);
     final router = pixivRouter('/settings/novel-series/5');
     await tester.pumpWidget(
       localizedRouterApp(
