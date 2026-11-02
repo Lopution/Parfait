@@ -24,8 +24,10 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/waits.dart';
@@ -37,6 +39,10 @@ Future<ProviderContainer> _apiContainer({
   List<Uri>? seriesRequests,
   Completer<void>? detailGate,
   bool detailFails = false,
+  String? text,
+  Map<String, Object>? marker,
+  List<http.Request>? markerWrites,
+  bool Function()? markerWriteFails,
 }) async {
   if (platform != null) installPreferencesForTest(platform);
   final container = await signedInApiContainer(
@@ -76,8 +82,15 @@ Future<ProviderContainer> _apiContainer({
           headers: {'content-type': 'application/json'},
         );
       }
+      if (request.url.path.startsWith('/v1/novel/marker/')) {
+        markerWrites?.add(request);
+        if (markerWriteFails?.call() ?? false) {
+          return http.Response('{"error": {"message": "nope"}}', 400);
+        }
+        return http.Response('{}', 200);
+      }
       if (request.url.path == '/webview/v2/novel') {
-        final body = StringBuffer('chapter ' * 600);
+        final body = jsonEncode(text ?? 'chapter ' * 600);
         return http.Response.bytes(
           utf8.encode('''
 <script>
@@ -86,12 +99,13 @@ Object.defineProperty(window, 'pixiv', {value: {
   "novel": {
     "id": "1",
     "title": "novel 1",
-    "text": "$body",
+    "text": $body,
     "userId": "10",
     "coverUrl": "https://i.pximg.net/c/1.jpg",
     "tags": ["tag1"],
     "caption": "caption 1",
-    "seriesNavigation": {"prevNovel": {"id": 9}, "nextNovel": {"id": 11}}
+    "seriesNavigation": {"prevNovel": {"id": 9}, "nextNovel": {"id": 11}},
+    "marker": ${jsonEncode(marker)}
   },
 }, configurable: true, writable: true});
 </script>
@@ -138,6 +152,7 @@ Future<void> _mountReader(
   await tester.pumpWidget(
     localizedApp(
       container: container,
+      builder: promptHostBuilder,
       home: pushed ? const _Host() : const NovelPage(novelId: 1),
     ),
   );
@@ -182,6 +197,15 @@ http.Response _seriesResponse(List<Map<String, Object>> novels) =>
       200,
       headers: {'content-type': 'application/json'},
     );
+
+/// Three Pixiv pages, each opening with a line that names it.
+final _threePages = [
+  for (var page = 1; page <= 3; page++)
+    [
+      'PAGE$page begins',
+      for (var line = 0; line < 40; line++) 'page $page line $line text',
+    ].join('\n'),
+].join('\n[newpage]\n');
 
 void main() {
   testWidgets('immersive reader: chrome toggles, back closes chrome first', (
@@ -761,6 +785,94 @@ void main() {
       SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
       Brightness.dark,
     );
+  });
+  testWidgets('the account\'s bookmark: opened at without a place of your '
+      'own; marked, moved and removed from the progress sheet', (tester) async {
+    final writes = <http.Request>[];
+    var failWrites = false;
+    final container = await _apiContainer(
+      text: _threePages,
+      marker: const {'page': 3},
+      markerWrites: writes,
+      markerWriteFails: () => failWrites,
+    );
+    final places = container.read(novelProgressStoreProvider);
+    Finder line(String text) => find.textContaining(text, findRichText: true);
+    await _openReader(tester, container);
+
+    // No place of this account's own: the reader opens at page 3's first
+    // line, and opening writes none.
+    expect(tester.getTopLeft(line('PAGE3 begins')).dy, lessThan(100));
+    expect(await places.read('account', 1), isNull);
+
+    Future<void> openSheet() async {
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('阅读进度'));
+      await tester.pumpAndSettle();
+    }
+
+    Map<String, String> fields(http.Request request) =>
+        Uri.splitQueryString(request.body);
+
+    await openSheet();
+    expect(find.text('书签'), findsOneWidget);
+    expect(find.text('移到此页'), findsNothing);
+
+    await tester.tap(find.byTooltip('删除书签'));
+    await tester.pumpAndSettle();
+    expect(writes.single.url.path, '/v1/novel/marker/delete');
+    expect(fields(writes.single), {'novel_id': '1'});
+    expect(container.read(novelStoreProvider)[1]!.markerPage, isNull);
+
+    // A failed write says so and leaves the sheet as the account has it.
+    failWrites = true;
+    await tester.tap(find.text('在此页加书签'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('书签操作失败'), findsOneWidget);
+    expect(find.text('在此页加书签'), findsOneWidget);
+    expect(container.read(novelStoreProvider)[1]!.markerPage, isNull);
+    PromptHost.of(tester.element(find.byType(NovelReader))).hideCurrent();
+    await tester.pumpAndSettle();
+
+    failWrites = false;
+    await tester.tap(find.text('在此页加书签'));
+    await tester.pumpAndSettle();
+    expect(writes.last.url.path, '/v1/novel/marker/add');
+    expect(writes, hasLength(3));
+    expect(fields(writes.last), {'novel_id': '1', 'page': '3'});
+    expect(find.text('书签'), findsOneWidget);
+
+    // Back on page 1 by the reader's own scroll: the marker can move here.
+    await tester.tapAt(const Offset(400, 40));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, 4000));
+    await tester.pumpAndSettle();
+    await openSheet();
+    await tester.tap(find.text('移到此页'));
+    await tester.pumpAndSettle();
+    expect(fields(writes.last), {'novel_id': '1', 'page': '1'});
+    expect(find.text('移到此页'), findsNothing);
+
+    // A place of the account's own wins over the bookmark on the next open.
+    await tester.pumpWidget(const SizedBox());
+    await _openReader(tester, container);
+    expect(line('PAGE1 begins'), findsOneWidget);
+    expect(line('PAGE3 begins'), findsNothing);
+  });
+
+  testWidgets('a one-page novel without a bookmark offers none', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('阅读进度'));
+    await tester.pumpAndSettle();
+    expect(find.text('在此页加书签'), findsNothing);
   });
 }
 

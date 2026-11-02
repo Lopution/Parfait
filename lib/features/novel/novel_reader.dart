@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/rendering.dart'
     show ClipRectLayer, LayerHandle, RenderProxyBox, ScrollCacheExtent;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
@@ -269,6 +271,7 @@ class NovelReader extends StatefulWidget {
     this.onAnchorChanged,
     this.onCenterTap,
     this.onImageTap,
+    this.onLinkTap,
     this.onProgressChanged,
     this.handle,
     this.layoutEngine,
@@ -307,6 +310,10 @@ class NovelReader extends StatefulWidget {
   /// An illustration's tap — the hosting page opens it in a viewer. Null
   /// leaves illustrations to the page's tap zones.
   final ValueChanged<NovelImageLoadRequest>? onImageTap;
+
+  /// A tap on an author's link to a Pixiv address — the hosting page
+  /// opens it. Null leaves those links as text; page jumps always work.
+  final ValueChanged<Uri>? onLinkTap;
 
   /// Fires whenever the visible page or page count settles.
   final void Function(int page, int pageCount)? onProgressChanged;
@@ -371,24 +378,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (handle != null) {
       handle.currentPage = () => _reader.currentPage;
       handle.pageCount = () => _reader.pageCount;
-      handle.goToPage = (page, {animate = true}) {
-        final target = page.clamp(0, _reader.pageCount - 1);
-        final layout = _layout;
-        if (_scrolls) {
-          if (layout == null || !_scrollController.hasClients) return;
-          final column = _columnOf(layout);
-          _scrollTo(_columnOffset(layout, column.itemOfPage(target)), animate);
-          return;
-        }
-        // The PageView is unmounted while the layout-error state is shown;
-        // driving a detached controller asserts/throws.
-        if (!_pageController.hasClients) return;
-        if (!animate) {
-          _pageController.jumpToPage(target);
-          return;
-        }
-        turnPage(context, _pageController, target);
-      };
+      handle.goToPage = _goToPage;
       handle.chapters = () => [
         for (final page in _layout?.pages ?? const <NovelLayoutPage>[])
           if (page.chapterTitle != null)
@@ -400,6 +390,43 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scheduleLayout();
     });
+  }
+
+  void _goToPage(int page, {bool animate = true}) {
+    final target = page.clamp(0, _reader.pageCount - 1);
+    final layout = _layout;
+    if (_scrolls) {
+      if (layout == null || !_scrollController.hasClients) return;
+      final column = _columnOf(layout);
+      _scrollTo(_columnOffset(layout, column.itemOfPage(target)), animate);
+      return;
+    }
+    // The PageView is unmounted while the layout-error state is shown;
+    // driving a detached controller asserts/throws.
+    if (!_pageController.hasClients) return;
+    if (!animate) {
+      _pageController.jumpToPage(target);
+      return;
+    }
+    turnPage(context, _pageController, target);
+  }
+
+  /// An author's link: a page jump brings that Pixiv page's first line,
+  /// as a turn does; an address goes to the hosting page.
+  void _followLink(NovelLinkTarget target) {
+    if (target.uri case final uri?) {
+      widget.onLinkTap?.call(uri);
+      return;
+    }
+    final layout = _layout;
+    final page = target.page;
+    final starts = widget.novel.markup?.pixivPageStarts ?? const <String>[];
+    if (layout == null || page == null || starts.isEmpty) return;
+    final start = starts[math.min(page, starts.length) - 1];
+    _goToPage(
+      layout.pageIndexForAnchor(NovelAnchor(paragraphId: start, offset: 0)),
+      animate: false,
+    );
   }
 
   @override
@@ -421,7 +448,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scheduleLayout();
+    final ambient = DefaultTextStyle.of(context).style;
+    final fontsChanged =
+        ambient.fontFamily != _ambientFamily ||
+        !listEquals(ambient.fontFamilyFallback, _ambientFallback);
+    _ambientFamily = ambient.fontFamily;
+    _ambientFallback = ambient.fontFamilyFallback;
+    _scheduleLayout(force: fontsChanged && _layout != null);
   }
 
   @override
@@ -557,6 +590,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
                 color: color,
                 novel: widget.novel,
                 onImageTap: widget.onImageTap,
+                onLinkTap: _followLink,
+                openAddresses: widget.onLinkTap != null,
                 // The layout viewport already carries the line-length cap —
                 // the text column centers inside it while tap zones keep the
                 // full width.
@@ -634,6 +669,11 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
                               if (_scrollController.caughtScroll) return;
                               onImageTap(image);
                             },
+                      onLinkTap: (target) {
+                        if (_scrollController.caughtScroll) return;
+                        _followLink(target);
+                      },
+                      openAddresses: widget.onLinkTap != null,
                     ),
                   ),
                 ),
@@ -723,7 +763,14 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     }
   }
 
+  /// The family and fallbacks the lines inherit from the theme; the
+  /// layout measures with them (LAYOUT-04).
+  String? _ambientFamily;
+  List<String>? _ambientFallback;
+
   NovelLayoutStyle get _style => NovelLayoutStyle(
+    fontFamily: _ambientFamily,
+    fontFamilyFallback: _ambientFallback,
     fontSize: widget.settings.fontSize,
     lineHeight: widget.settings.lineHeight,
   );
@@ -794,6 +841,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         titleBlock: widget.titleBlock,
         cancelToken: layoutContext.cancelToken,
         budget: widget.budget,
+        jumpLabel: context.l10n.novelJumpToPage,
       );
       _commitGate.commit(
         layoutContext,
@@ -913,6 +961,8 @@ class _NovelPage extends StatelessWidget {
     required this.color,
     required this.novel,
     required this.onImageTap,
+    required this.onLinkTap,
+    required this.openAddresses,
     required this.maxWidth,
   });
 
@@ -923,6 +973,8 @@ class _NovelPage extends StatelessWidget {
   /// The novel whose payload holds the images of its image lines.
   final NovelEntity novel;
   final ValueChanged<NovelImageLoadRequest>? onImageTap;
+  final ValueChanged<NovelLinkTarget> onLinkTap;
+  final bool openAddresses;
 
   /// Width of the layout viewport that measured this page — the text
   /// column centers inside the (possibly wider) page slot.
@@ -982,6 +1034,8 @@ class _NovelPage extends StatelessWidget {
               color: color,
               novel: novel,
               onImageTap: onImageTap,
+              onLinkTap: onLinkTap,
+              openAddresses: openAddresses,
             ),
             if (line.spacingAfter > 0) SizedBox(height: line.spacingAfter),
           ],
@@ -1000,6 +1054,8 @@ class _NovelLine extends StatelessWidget {
     required this.color,
     required this.novel,
     required this.onImageTap,
+    required this.onLinkTap,
+    required this.openAddresses,
   });
 
   final NovelPageLine line;
@@ -1007,9 +1063,17 @@ class _NovelLine extends StatelessWidget {
   final Color color;
   final NovelEntity novel;
   final ValueChanged<NovelImageLoadRequest>? onImageTap;
+  final ValueChanged<NovelLinkTarget> onLinkTap;
+
+  /// Whether links to addresses open; off, they read as text.
+  final bool openAddresses;
 
   @override
   Widget build(BuildContext context) {
+    final links = [
+      for (final link in line.links)
+        if (link.target.page != null || openAddresses) link,
+    ];
     return SizedBox(
       height: line.height,
       child: switch (line) {
@@ -1020,6 +1084,12 @@ class _NovelLine extends StatelessWidget {
           onTap: onImageTap,
         ),
         NovelPageLine(text: '') => null,
+        _ when links.isNotEmpty => _NovelLinkText(
+          text: line.text,
+          links: links,
+          style: style,
+          onTap: onLinkTap,
+        ),
         _ => Text(
           line.text,
           maxLines: 1,
@@ -1028,6 +1098,75 @@ class _NovelLine extends StatelessWidget {
           style: style,
         ),
       },
+    );
+  }
+}
+
+/// A line with an author's links: each in the accent colour, a tap on it
+/// following it. Same font and size, so the line keeps its measure.
+class _NovelLinkText extends StatefulWidget {
+  const _NovelLinkText({
+    required this.text,
+    required this.links,
+    required this.style,
+    required this.onTap,
+  });
+
+  final String text;
+  final List<NovelLineLink> links;
+  final TextStyle? style;
+  final ValueChanged<NovelLinkTarget> onTap;
+
+  @override
+  State<_NovelLinkText> createState() => _NovelLinkTextState();
+}
+
+class _NovelLinkTextState extends State<_NovelLinkText> {
+  final _recognizers = <TapGestureRecognizer>[];
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  void _disposeRecognizers() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _disposeRecognizers();
+    final text = widget.text;
+    final linkStyle = TextStyle(color: Theme.of(context).colorScheme.primary);
+    final spans = <TextSpan>[];
+    var at = 0;
+    for (final link in widget.links) {
+      if (link.start > at) {
+        spans.add(TextSpan(text: text.substring(at, link.start)));
+      }
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => widget.onTap(link.target);
+      _recognizers.add(recognizer);
+      spans.add(
+        TextSpan(
+          text: text.substring(link.start, link.end),
+          style: linkStyle,
+          recognizer: recognizer,
+        ),
+      );
+      at = link.end;
+    }
+    if (at < text.length) spans.add(TextSpan(text: text.substring(at)));
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.clip,
+      style: widget.style,
     );
   }
 }

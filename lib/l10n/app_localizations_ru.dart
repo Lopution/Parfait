@@ -2715,6 +2715,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelPageTurnPages => 'Листание';
 
   @override
+  String novelJumpToPage(int page) {
+    return '→ Страница $page';
+  }
+
+  @override
   String get aboutDisplayRefreshRate => 'Частота обновления';
 
   @override
@@ -2892,6 +2897,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelChapters => 'Главы';
+
+  @override
+  String get novelMarker => 'Метка';
+
+  @override
+  String get novelMarkerAdd => 'Отметить эту страницу';
+
+  @override
+  String get novelMarkerMove => 'Перенести сюда';
+
+  @override
+  String get novelMarkerDelete => 'Удалить метку';
+
+  @override
+  String get novelMarkerFailed => 'Не удалось изменить метку';
 
   @override
   String get novelIllustration => 'Иллюстрация';

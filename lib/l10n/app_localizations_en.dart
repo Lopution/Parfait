@@ -2725,6 +2725,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelPageTurnPages => 'Turn pages';
 
   @override
+  String novelJumpToPage(int page) {
+    return '→ Page $page';
+  }
+
+  @override
   String get aboutDisplayRefreshRate => 'Display refresh rate';
 
   @override
@@ -2902,6 +2907,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelChapters => 'Chapters';
+
+  @override
+  String get novelMarker => 'Marker';
+
+  @override
+  String get novelMarkerAdd => 'Mark this page';
+
+  @override
+  String get novelMarkerMove => 'Move here';
+
+  @override
+  String get novelMarkerDelete => 'Remove marker';
+
+  @override
+  String get novelMarkerFailed => 'Marker operation failed';
 
   @override
   String get novelIllustration => 'Illustration';

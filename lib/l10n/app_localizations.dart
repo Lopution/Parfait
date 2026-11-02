@@ -5063,6 +5063,12 @@ abstract class AppLocalizations {
   /// **'左右翻页'**
   String get novelPageTurnPages;
 
+  /// An author's link to a page of the novel ([jump:N]); the page counts the author's page breaks.
+  ///
+  /// In zh, this message translates to:
+  /// **'→ 第 {page} 页'**
+  String novelJumpToPage(int page);
+
   /// No description provided for @aboutDisplayRefreshRate.
   ///
   /// In zh, this message translates to:
@@ -5398,6 +5404,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'目录'**
   String get novelChapters;
+
+  /// No description provided for @novelMarker.
+  ///
+  /// In zh, this message translates to:
+  /// **'书签'**
+  String get novelMarker;
+
+  /// No description provided for @novelMarkerAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'在此页加书签'**
+  String get novelMarkerAdd;
+
+  /// No description provided for @novelMarkerMove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移到此页'**
+  String get novelMarkerMove;
+
+  /// No description provided for @novelMarkerDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除书签'**
+  String get novelMarkerDelete;
+
+  /// No description provided for @novelMarkerFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'书签操作失败'**
+  String get novelMarkerFailed;
 
   /// No description provided for @novelIllustration.
   ///

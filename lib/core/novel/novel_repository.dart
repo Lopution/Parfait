@@ -166,6 +166,13 @@ abstract interface class _NovelRepository {
   });
 
   bool validateSeriesCursor(int seriesId, {required String cursor});
+
+  /// Sets the account's bookmark (Pixiv's marker) of [novelId] at Pixiv
+  /// page [page], replacing any other.
+  Future<void> addMarker(int novelId, int page);
+
+  /// Removes the account's bookmark of [novelId].
+  Future<void> deleteMarker(int novelId);
 }
 
 class _PixivNovelRepository implements _NovelRepository {
@@ -179,6 +186,8 @@ class _PixivNovelRepository implements _NovelRepository {
   static const _recommendedPath = '/v1/novel/recommended';
   static const _rankingPath = '/v1/novel/ranking';
   static const _seriesPath = '/v2/novel/series';
+  static const _markerAddPath = '/v1/novel/marker/add';
+  static const _markerDeletePath = '/v1/novel/marker/delete';
 
   @override
   Future<NovelEntity> fetchDetail(
@@ -203,6 +212,7 @@ class _PixivNovelRepository implements _NovelRepository {
         embeddedIllustThumbs: payload.illustThumbs,
         seriesPrevId: payload.seriesPrevId,
         seriesNextId: payload.seriesNextId,
+        markerPage: payload.markerPage,
       );
       if (!novel.contentAvailable) {
         throw _NovelContentUnavailableException(novel.id);
@@ -213,6 +223,31 @@ class _PixivNovelRepository implements _NovelRepository {
     } on FormatException catch (error) {
       throw ApiParseError(error);
     }
+  }
+
+  @override
+  Future<void> addMarker(int novelId, int page) async {
+    _validateId(novelId, 'novelId');
+    _validateId(page, 'page');
+    ensurePostSuccess(
+      await _client.post(
+        PixivClientIdentity.appApiBase.replace(path: _markerAddPath),
+        body: {'novel_id': '$novelId', 'page': '$page'},
+        allowAuthReplay: true,
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteMarker(int novelId) async {
+    _validateId(novelId, 'novelId');
+    ensurePostSuccess(
+      await _client.post(
+        PixivClientIdentity.appApiBase.replace(path: _markerDeletePath),
+        body: {'novel_id': '$novelId'},
+        allowAuthReplay: true,
+      ),
+    );
   }
 
   /// Fetches the HTML bootstrap page that carries the novel body. The

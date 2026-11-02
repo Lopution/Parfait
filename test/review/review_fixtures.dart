@@ -88,18 +88,21 @@ Map<String, dynamic> reviewNovelDetailJson(int id) => {
 };
 
 const reviewIllustratedNovelId = 2100;
+const reviewMarkedNovelId = 2101;
 
 /// The `/webview/v2/novel` bootstrap page, same shape as
 /// novel_webview_text_test's fixture: `Object.defineProperty` installs
 /// `window.pixiv.novel`.
 /// [reviewIllustratedNovelId] has an image after its first paragraph; every
-/// novel turns a page after its second and opens a chapter after its fourth.
+/// novel links to its second page at the end of its first paragraph, turns
+/// a page after its second and opens a chapter after its fourth.
+/// [reviewMarkedNovelId] carries the account's bookmark on its second page.
 String reviewNovelWebviewHtml(int id, {int paragraphs = 6}) {
   final illustrated = id == reviewIllustratedNovelId;
   final text = [
     '[chapter:第一章　はじまり]',
     for (var i = 0; i < paragraphs; i++) ...[
-      '第${i + 1}段：novel $id 的正文内容。',
+      '第${i + 1}段：novel $id 的正文内容。${i == 0 ? '[jump:2]' : ''}',
       if (illustrated && i == 0) '[uploadedimage:1]',
       if (i == 1) '[newpage]',
       if (i == 3) '[chapter:第二章　まちかど]',
@@ -119,6 +122,7 @@ String reviewNovelWebviewHtml(int id, {int paragraphs = 6}) {
           'urls': {'1200x1200': 'https://i.pximg.net/n$id/image-1.png'},
         },
       },
+    if (id == reviewMarkedNovelId) 'marker': {'page': 2},
     'seriesNavigation': {
       'prev': {'id': '70', 'title': 'novel 70'},
       'next': {'id': '80', 'title': 'novel 80'},

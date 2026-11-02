@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
@@ -11,6 +12,7 @@ import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/system_ui.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/watchlist_toggle.dart';
 import '../../core/auth/account_store.dart';
@@ -54,6 +56,8 @@ class NovelReaderStageSpec {
     this.titleBlock,
     this.topActions = const [],
     this.onImageTap,
+    this.onLinkTap,
+    this.marker,
     this.bodyWrapper,
   });
 
@@ -74,6 +78,10 @@ class NovelReaderStageSpec {
   final void Function(BuildContext context, NovelImageLoadRequest image)?
   onImageTap;
 
+  /// Opens an author's link to a Pixiv address (online: as a caption link
+  /// opens; a TXT file's read as text).
+  final void Function(BuildContext context, Uri uri)? onLinkTap;
+
   /// Tooltip of the top-bar info button (`novelInfoTitle` for a work,
   /// `localNovelFileInfo` for a file).
   final String infoTooltip;
@@ -84,6 +92,10 @@ class NovelReaderStageSpec {
 
   /// Reading-position persistence adapter for this data source.
   final ReaderProgressBinding progress;
+
+  /// The account's bookmark of the novel in the progress sheet (online
+  /// with an account; a file and a guest have none).
+  final NovelMarkerBinding? marker;
 
   /// Optional wrapper around the reader body. The online page uses it to
   /// attach `HistoryVisibility` (it needs the live anchor for snapshots);
@@ -105,6 +117,21 @@ abstract interface class ReaderProgressBinding {
   /// Persists a user-committed anchor. Called only for
   /// [NovelAnchorCause.userTurn] notifications — layout echoes never write.
   Future<void> save(NovelAnchor anchor);
+}
+
+/// The progress sheet's view of the account's bookmark (Pixiv's marker)
+/// of the novel: the marked Pixiv page and whether a change is on its way,
+/// watched while the sheet is open, and the write (a null page removes it).
+class NovelMarkerBinding {
+  const NovelMarkerBinding({
+    required this.page,
+    required this.pending,
+    required this.write,
+  });
+
+  final ProviderListenable<int?> page;
+  final ProviderListenable<bool> pending;
+  final Future<void> Function(int? page) write;
 }
 
 /// Status pages keep an ordinary scaffold+appbar so back navigation is
@@ -531,6 +558,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
             final open? => (image) => open(context, image),
             null => null,
           },
+          onLinkTap: switch (widget.spec.onLinkTap) {
+            final open? => (uri) => open(context, uri),
+            null => null,
+          },
           onProgressChanged: _onProgressChanged,
           onAnchorChanged: _onAnchorChanged,
         ),
@@ -832,6 +863,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         ),
                       ],
                     ),
+                    ?_markerSection(onJump: jumpTo),
                     // D4: the TOC section only exists when the document
                     // actually has chapters — local TXT files never do.
                     if (chapters.isNotEmpty) ...[
@@ -843,31 +875,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: FuncSpacing.xs),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 240),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          primary: false,
-                          itemCount: chapters.length,
-                          itemBuilder: (context, index) {
-                            final chapter = chapters[index];
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                chapter.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: Text(
-                                '${chapter.pageIndex + 1}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              onTap: () => jumpTo(chapter.pageIndex),
-                            );
-                          },
-                        ),
-                      ),
+                      _chapterList(context, chapters, onTap: jumpTo),
                     ],
                   ],
                 ),
@@ -878,6 +886,50 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       },
     );
   }
+
+  /// The account's bookmark, for a Pixiv novel read with an account. It
+  /// marks the Pixiv page of the reader's place: the paragraph its top
+  /// line belongs to.
+  Widget? _markerSection({required ValueChanged<int> onJump}) {
+    final marker = widget.spec.marker;
+    final document = widget.spec.novel.markup;
+    if (marker == null || document == null) return null;
+    final starts = document.pixivPageStarts;
+    final anchor = _anchor;
+    return _NovelMarkerSection(
+      binding: marker,
+      pixivPages: starts.length,
+      current: switch (anchor) {
+        final anchor? => document.pixivPageOf(anchor.paragraphId) ?? 1,
+        null => 1,
+      },
+      screenPageOf: (page) => _readerHandle.layout?.call()?.pageIndexForAnchor(
+        NovelAnchor(
+          paragraphId: starts[math.min(page, starts.length) - 1],
+          offset: 0,
+        ),
+      ),
+      onJump: onJump,
+    );
+  }
+
+  /// The chapters, the one the reader is in marked; up to half the
+  /// screen tall, so a long table shows many at once.
+  Widget _chapterList(
+    BuildContext context,
+    List<({String title, int pageIndex})> chapters, {
+    required ValueChanged<int> onTap,
+  }) => _NovelChapterList(
+    chapters: chapters,
+    current: chapters.lastIndexWhere((chapter) => chapter.pageIndex <= _page),
+    height: math.min(
+      chapters.length * _NovelChapterList.rowExtent,
+      math.max(_chapterListMinHeight, MediaQuery.sizeOf(context).height / 2),
+    ),
+    onTap: onTap,
+  );
+
+  static const _chapterListMinHeight = 240.0;
 
   void _showReaderSettings(BuildContext context) {
     final l10n = context.l10n;
@@ -1290,6 +1342,174 @@ class _NovelSeriesBarState extends ConsumerState<_NovelSeriesBar> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The progress sheet's chapters, the [current] one marked and scrolled
+/// a row below the top when the sheet opens. Rows are of one height, so
+/// its offset is known before layout.
+class _NovelChapterList extends StatefulWidget {
+  const _NovelChapterList({
+    required this.chapters,
+    required this.current,
+    required this.height,
+    required this.onTap,
+  });
+
+  static const rowExtent = 48.0;
+
+  final List<({String title, int pageIndex})> chapters;
+  final int current;
+  final double height;
+  final ValueChanged<int> onTap;
+
+  @override
+  State<_NovelChapterList> createState() => _NovelChapterListState();
+}
+
+class _NovelChapterListState extends State<_NovelChapterList> {
+  late final _controller = ScrollController(
+    initialScrollOffset: ((widget.current - 1) * _NovelChapterList.rowExtent)
+        .clamp(
+          0.0,
+          widget.chapters.length * _NovelChapterList.rowExtent - widget.height,
+        ),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: widget.height,
+      child: ListView.builder(
+        controller: _controller,
+        primary: false,
+        itemExtent: _NovelChapterList.rowExtent,
+        itemCount: widget.chapters.length,
+        itemBuilder: (context, index) {
+          final chapter = widget.chapters[index];
+          return ListTile(
+            dense: true,
+            selected: index == widget.current,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              chapter.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: Text(
+              '${chapter.pageIndex + 1}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            onTap: () => widget.onTap(chapter.pageIndex),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The progress sheet's bookmark row. Without a marker it offers to mark
+/// the reader's Pixiv page; with one it names the screen page the marker
+/// starts on (a tap goes there), offers to move it to the reader's Pixiv
+/// page and to remove it. A single-page novel without a marker shows
+/// nothing: a marker could only point at its start. A write on its way
+/// disables the row; a failed one says so and changes nothing.
+class _NovelMarkerSection extends ConsumerWidget {
+  const _NovelMarkerSection({
+    required this.binding,
+    required this.pixivPages,
+    required this.current,
+    required this.screenPageOf,
+    required this.onJump,
+  });
+
+  final NovelMarkerBinding binding;
+  final int pixivPages;
+
+  /// The Pixiv page (1-based) the reader is on.
+  final int current;
+  final int? Function(int pixivPage) screenPageOf;
+  final ValueChanged<int> onJump;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final page = ref.watch(binding.page);
+    final pending = ref.watch(binding.pending);
+    if (page == null && pixivPages <= 1) return const SizedBox.shrink();
+    Future<void> write(int? next) async {
+      final failed = deferErrorSnackBar(
+        context,
+        action: l10n.novelMarkerFailed,
+      );
+      try {
+        await binding.write(next);
+      } on Object catch (error, stack) {
+        failed(error, stack);
+      }
+    }
+
+    const progress = SizedBox.square(
+      dimension: 18,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    );
+    final screenPage = page == null ? null : screenPageOf(page);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: FuncSpacing.sm),
+        const Divider(),
+        if (page == null)
+          ListTile(
+            enabled: !pending,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.bookmark_add_outlined),
+            title: Text(l10n.novelMarkerAdd),
+            trailing: pending ? progress : null,
+            onTap: () => unawaited(write(current)),
+          )
+        else
+          ListTile(
+            enabled: !pending,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.bookmark),
+            title: Text(l10n.novelMarker),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (page != current)
+                  TextButton(
+                    onPressed: pending ? null : () => unawaited(write(current)),
+                    child: Text(l10n.novelMarkerMove),
+                  ),
+                if (screenPage != null)
+                  Text(
+                    '${screenPage + 1}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                if (pending)
+                  const SizedBox.square(
+                    dimension: kMinInteractiveDimension,
+                    child: Center(child: progress),
+                  )
+                else
+                  IconButton(
+                    tooltip: l10n.novelMarkerDelete,
+                    onPressed: () => unawaited(write(null)),
+                    icon: const Icon(Icons.bookmark_remove_outlined),
+                  ),
+              ],
+            ),
+            onTap: screenPage == null ? null : () => onJump(screenPage),
+          ),
+      ],
     );
   }
 }

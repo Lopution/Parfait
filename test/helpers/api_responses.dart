@@ -56,6 +56,8 @@ const _appApiWrites = {
   '/v1/illust/bookmark/delete',
   '/v2/novel/bookmark/add',
   '/v1/novel/bookmark/delete',
+  '/v1/novel/marker/add',
+  '/v1/novel/marker/delete',
   '/v1/user/follow/add',
   '/v1/user/follow/delete',
   '/v1/watchlist/manga/add',

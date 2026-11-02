@@ -2628,6 +2628,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelPageTurnPages => '左右翻页';
 
   @override
+  String novelJumpToPage(int page) {
+    return '→ 第 $page 页';
+  }
+
+  @override
   String get aboutDisplayRefreshRate => '显示刷新率';
 
   @override
@@ -2804,6 +2809,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelChapters => '目录';
+
+  @override
+  String get novelMarker => '书签';
+
+  @override
+  String get novelMarkerAdd => '在此页加书签';
+
+  @override
+  String get novelMarkerMove => '移到此页';
+
+  @override
+  String get novelMarkerDelete => '删除书签';
+
+  @override
+  String get novelMarkerFailed => '书签操作失败';
 
   @override
   String get novelIllustration => '插图';

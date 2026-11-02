@@ -130,14 +130,32 @@ class NovelPage extends ConsumerWidget {
         ),
       ],
       onImageTap: (context, image) => _openIllustration(context, ref, image),
+      onLinkTap: (context, uri) => openPixivLink(context, ref, '$uri'),
       infoTooltip: context.l10n.novelInfoTitle,
       infoSheet: (sheetContext) => _novelInfoSheet(sheetContext, ref, novel),
       progress: _NovelProgressBinding(
         ProviderScope.containerOf(context, listen: false),
         novel.id,
       ),
+      marker: _markerBinding(ref, novel.id),
       bodyWrapper: (context, anchor, child) =>
           _NovelHistoryVisibility(novel: novel, anchor: anchor, child: child),
+    );
+  }
+
+  /// The account's bookmark of the novel; a guest has none.
+  NovelMarkerBinding? _markerBinding(WidgetRef ref, int novelId) {
+    final hasAccount = ref.read(
+      accountStoreProvider.select((a) => a.value?.usableCurrent != null),
+    );
+    if (!hasAccount) return null;
+    final writes = ref.read(novelMarkerWritesProvider.notifier);
+    return NovelMarkerBinding(
+      page: novelStoreProvider.select((novels) => novels[novelId]?.markerPage),
+      pending: novelMarkerWritesProvider.select(
+        (pending) => pending.contains(novelId),
+      ),
+      write: (page) => writes.write(novelId, page),
     );
   }
 
@@ -316,8 +334,16 @@ class _NovelProgressBinding implements ReaderProgressBinding {
     final saved = await _container
         .read(novelProgressStoreProvider)
         .read(accountId, _novelId);
-    if (saved == null) return null;
-    return NovelAnchor(paragraphId: saved.paragraphId, offset: saved.offset);
+    if (saved != null) {
+      return NovelAnchor(paragraphId: saved.paragraphId, offset: saved.offset);
+    }
+    // No place of this account's own: the account's bookmark, if it has
+    // one on a page the novel still has.
+    final novel = _container.read(novelStoreProvider)[_novelId];
+    final marker = novel?.markerPage;
+    final starts = novel?.markup?.pixivPageStarts ?? const <String>[];
+    if (marker == null || marker > starts.length) return null;
+    return NovelAnchor(paragraphId: starts[marker - 1], offset: 0);
   }
 
   @override

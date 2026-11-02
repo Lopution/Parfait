@@ -16,6 +16,7 @@ class NovelWebPayload {
     required this.illustThumbs,
     this.seriesPrevId,
     this.seriesNextId,
+    this.markerPage,
   });
 
   /// Raw markup text (`[newpage]`, `[[rb:…]]`, `[pixivimage:…]` …).
@@ -29,6 +30,10 @@ class NovelWebPayload {
 
   final int? seriesPrevId;
   final int? seriesNextId;
+
+  /// The Pixiv page (1-based) the account's bookmark (Pixiv's marker) of
+  /// this novel is on; null when it has none.
+  final int? markerPage;
 }
 
 /// Extracts the embedded `pixiv.novel` object from a `/webview/v2/novel` page.
@@ -63,7 +68,11 @@ NovelWebPayload extractNovelWebPayload(String html) {
   if (novel is! Map) {
     throw const ApiParseError('pixiv bootstrap object has no novel entry');
   }
-  return _payload(readMap(novel));
+  try {
+    return _payload(readMap(novel));
+  } on FormatException catch (error) {
+    throw ApiParseError(error);
+  }
 }
 
 /// Returns the `{…}` balanced-brace substring starting at [start]. Both
@@ -223,6 +232,14 @@ NovelWebPayload _payload(Map<String, Object?> novel) {
     illustThumbs: _illustThumbs(readMap(novel['illusts'])),
     seriesPrevId: readPositiveInt(readMap(navigation['prevNovel'])['id']),
     seriesNextId: readPositiveInt(readMap(navigation['nextNovel'])['id']),
+    markerPage: switch (novel['marker']) {
+      null => null,
+      final Map<String, Object?> marker => requireParsedPositiveInt(
+        marker['page'],
+        'novel.marker.page',
+      ),
+      _ => throw const FormatException('novel.marker must be an object'),
+    },
   );
 }
 

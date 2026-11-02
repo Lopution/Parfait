@@ -46,6 +46,17 @@ void main() {
       await tester.drag(find.byType(NovelReader), const Offset(0, -240));
     },
   );
+  // Opened at the account's bookmark: the progress sheet with its row.
+  testShot(
+    'novel/reader-progress-marker',
+    location: '/recommended/novel/$reviewMarkedNovelId',
+    variants: {ShotVariant.dark, ...overflowVariants},
+    before: (tester, router) async {
+      await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.expand_less));
+    },
+  );
   Future<void> openReaderSettings(WidgetTester tester) async {
     await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
     await tester.pumpAndSettle();
