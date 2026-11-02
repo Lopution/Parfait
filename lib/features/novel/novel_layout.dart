@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
@@ -265,6 +266,17 @@ class NovelTitleBlock {
   int get hashCode => Object.hash(title, byline);
 }
 
+/// Where an author's link goes: a Pixiv page of the novel (`[jump:N]`),
+/// or a Pixiv address (`[[jumpuri:label > URL]]`).
+typedef NovelLinkTarget = ({int? page, Uri? uri});
+
+/// A link on a line: its range in the line's text and its target.
+typedef NovelLineLink = ({int start, int end, NovelLinkTarget target});
+
+/// The label a page jump without one of its own shows, in the reader's
+/// language.
+typedef NovelJumpLabel = String Function(int page);
+
 class NovelPageLine {
   const NovelPageLine({
     required this.text,
@@ -276,6 +288,7 @@ class NovelPageLine {
     required this.spacingAfter,
     this.kind = NovelLineKind.body,
     this.image,
+    this.links = const [],
   });
 
   final String text;
@@ -294,6 +307,9 @@ class NovelPageLine {
   /// The illustration of an [NovelLineKind.image] line; its height is the
   /// page's.
   final NovelImageLoadRequest? image;
+
+  /// The author's links on this line, in order.
+  final List<NovelLineLink> links;
 
   /// A line of a paragraph's translation. It belongs to the paragraph and
   /// sits at its end (both offsets are the paragraph's length), so anchors
@@ -666,10 +682,11 @@ class NovelLayoutEngine {
     TextScaler textScaler = TextScaler.noScaling,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
+    NovelJumpLabel? jumpLabel,
   }) {
     return layout(
-      paragraphs: _paragraphsForDocument(document),
-      contentVersion: contentVersion,
+      paragraphs: _paragraphsForDocument(document, jumpLabel),
+      contentVersion: _versionWithLabel(contentVersion, jumpLabel),
       viewport: viewport,
       style: style,
       textColor: textColor,
@@ -695,10 +712,11 @@ class NovelLayoutEngine {
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
+    NovelJumpLabel? jumpLabel,
   }) {
     return layoutCancellable(
-      paragraphs: _paragraphsForDocument(document),
-      contentVersion: contentVersion,
+      paragraphs: _paragraphsForDocument(document, jumpLabel),
+      contentVersion: _versionWithLabel(contentVersion, jumpLabel),
       viewport: viewport,
       style: style,
       textColor: textColor,
@@ -713,13 +731,98 @@ class NovelLayoutEngine {
     );
   }
 
-  List<NovelParagraph> _paragraphsForDocument(NovelMarkupDocument document) {
+  /// Where an author's link [mark] goes, or null for any other mark.
+  static NovelLinkTarget? _linkTarget(NovelInlineMark mark) {
+    final value = mark.value;
+    if (value == null) return null;
+    return switch (mark.kind) {
+      'jump' || 'jumpuri' || 'jumpurl' => switch (int.tryParse(value)) {
+        final page? => (page: page, uri: null),
+        null => (page: null, uri: Uri.tryParse(value)),
+      },
+      _ => null,
+    };
+  }
+
+  /// [paragraph] with [jumpLabel]'s label where a page jump has none of
+  /// its own, its mark spanning the label so the line links it.
+  static NovelParagraph _withJumpLabels(
+    NovelParagraph paragraph,
+    NovelJumpLabel? jumpLabel,
+  ) {
+    if (jumpLabel == null ||
+        !paragraph.inlineMarks.any(
+          (mark) => mark.kind == 'jump' && mark.start == mark.end,
+        )) {
+      return paragraph;
+    }
+    final text = StringBuffer();
+    final marks = <NovelInlineMark>[];
+    var copied = 0;
+    var shift = 0;
+    for (final mark in paragraph.inlineMarks) {
+      final page = mark.kind == 'jump' && mark.start == mark.end
+          ? int.tryParse(mark.value ?? '')
+          : null;
+      if (page == null) {
+        marks.add(
+          NovelInlineMark(
+            kind: mark.kind,
+            start: mark.start + shift,
+            end: mark.end + shift,
+            value: mark.value,
+            raw: mark.raw,
+          ),
+        );
+        continue;
+      }
+      final label = jumpLabel(page);
+      text
+        ..write(paragraph.text.substring(copied, mark.start))
+        ..write(label);
+      copied = mark.start;
+      marks.add(
+        NovelInlineMark(
+          kind: mark.kind,
+          start: mark.start + shift,
+          end: mark.start + shift + label.length,
+          value: mark.value,
+          raw: mark.raw,
+        ),
+      );
+      shift += label.length;
+    }
+    text.write(paragraph.text.substring(copied));
+    return NovelParagraph(
+      id: paragraph.id,
+      text: text.toString(),
+      inlineMarks: List.unmodifiable(marks),
+      tokens: paragraph.tokens,
+      pageBreakBefore: paragraph.pageBreakBefore,
+      isChapterHeading: paragraph.isChapterHeading,
+      image: paragraph.image,
+    );
+  }
+
+  /// [contentVersion] with the jump label, which changes the laid-out text
+  /// with the reader's language.
+  static String _versionWithLabel(
+    String contentVersion,
+    NovelJumpLabel? jumpLabel,
+  ) => jumpLabel == null
+      ? contentVersion
+      : '$contentVersion+jump:${jumpLabel(1)}';
+
+  List<NovelParagraph> _paragraphsForDocument(
+    NovelMarkupDocument document,
+    NovelJumpLabel? jumpLabel,
+  ) {
     final paragraphs = <NovelParagraph>[];
     var pendingPageBreak = false;
     for (final block in document.blocks) {
       switch (block) {
         case NovelParagraph():
-          final paragraph = block;
+          final paragraph = _withJumpLabels(block, jumpLabel);
           if (pendingPageBreak) {
             paragraphs.add(
               NovelParagraph(
@@ -1124,6 +1227,11 @@ class NovelLayoutEngine {
       ];
     }
     final length = paragraph.text.length;
+    final links = [
+      for (final mark in paragraph.inlineMarks)
+        if (_linkTarget(mark) case final target? when mark.end > mark.start)
+          (mark: mark, target: target),
+    ];
     return [
       for (final (index, row) in rows.indexed)
         () {
@@ -1142,6 +1250,15 @@ class NovelLayoutEngine {
                 ? paragraph.text
                 : null,
             kind: kind,
+            links: [
+              for (final (:mark, :target) in links)
+                if (mark.start < end && mark.end > start)
+                  (
+                    start: math.max(mark.start, start) - start,
+                    end: math.min(mark.end, end) - start,
+                    target: target,
+                  ),
+            ],
           );
         }(),
     ];
@@ -1285,6 +1402,7 @@ class NovelLayoutEngine {
             spacingAfter: spacing,
             kind: line.kind,
             image: line.image,
+            links: line.links,
           ),
       ];
       final first = current.first.line;
@@ -1452,6 +1570,7 @@ class _MeasuredLine {
     this.chapterTitle,
     this.kind = NovelLineKind.body,
     this.image,
+    this.links = const [],
   });
 
   const _MeasuredLine.empty()
@@ -1465,7 +1584,8 @@ class _MeasuredLine {
       pageBreakBefore = false,
       chapterTitle = null,
       kind = NovelLineKind.body,
-      image = null;
+      image = null,
+      links = const [];
 
   final int paragraphIndex;
   final String paragraphId;
@@ -1478,6 +1598,7 @@ class _MeasuredLine {
   final String? chapterTitle;
   final NovelLineKind kind;
   final NovelImageLoadRequest? image;
+  final List<NovelLineLink> links;
 
   bool get isTranslation => kind == NovelLineKind.translation;
 
@@ -1502,6 +1623,7 @@ class _MeasuredLine {
     chapterTitle: chapterTitle,
     kind: kind,
     image: image,
+    links: links,
   );
 }
 

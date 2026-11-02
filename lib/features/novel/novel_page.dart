@@ -130,6 +130,7 @@ class NovelPage extends ConsumerWidget {
         ),
       ],
       onImageTap: (context, image) => _openIllustration(context, ref, image),
+      onLinkTap: (context, uri) => openPixivLink(context, ref, '$uri'),
       infoTooltip: context.l10n.novelInfoTitle,
       infoSheet: (sheetContext) => _novelInfoSheet(sheetContext, ref, novel),
       progress: _NovelProgressBinding(

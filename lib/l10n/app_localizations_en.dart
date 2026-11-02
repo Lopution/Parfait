@@ -2725,6 +2725,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelPageTurnPages => 'Turn pages';
 
   @override
+  String novelJumpToPage(int page) {
+    return '→ Page $page';
+  }
+
+  @override
   String get aboutDisplayRefreshRate => 'Display refresh rate';
 
   @override

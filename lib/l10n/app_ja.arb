@@ -1078,6 +1078,7 @@
   "novelThemeNight": "ナイト",
   "novelPageTurnScroll": "縦スクロール",
   "novelPageTurnPages": "ページめくり",
+  "novelJumpToPage": "→ {page}ページへ",
   "aboutDisplayRefreshRate": "画面リフレッシュレート",
   "cardActionDownload": "ダウンロード",
   "cardActionWatchLater": "あとで見る",

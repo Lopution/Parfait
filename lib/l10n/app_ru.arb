@@ -1078,6 +1078,7 @@
   "novelThemeNight": "Ночная",
   "novelPageTurnScroll": "Прокрутка",
   "novelPageTurnPages": "Листание",
+  "novelJumpToPage": "→ Страница {page}",
   "aboutDisplayRefreshRate": "Частота обновления",
   "cardActionDownload": "Скачать",
   "cardActionWatchLater": "Посмотреть позже",

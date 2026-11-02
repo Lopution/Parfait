@@ -1085,6 +1085,7 @@
   "novelThemeNight": "Night",
   "novelPageTurnScroll": "Scroll",
   "novelPageTurnPages": "Turn pages",
+  "novelJumpToPage": "→ Page {page}",
   "aboutDisplayRefreshRate": "Display refresh rate",
   "cardActionDownload": "Download",
   "cardActionWatchLater": "Watch later",

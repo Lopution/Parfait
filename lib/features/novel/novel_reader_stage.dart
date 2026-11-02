@@ -54,6 +54,7 @@ class NovelReaderStageSpec {
     this.titleBlock,
     this.topActions = const [],
     this.onImageTap,
+    this.onLinkTap,
     this.bodyWrapper,
   });
 
@@ -73,6 +74,10 @@ class NovelReaderStageSpec {
   /// has none).
   final void Function(BuildContext context, NovelImageLoadRequest image)?
   onImageTap;
+
+  /// Opens an author's link to a Pixiv address (online: as a caption link
+  /// opens; a TXT file's read as text).
+  final void Function(BuildContext context, Uri uri)? onLinkTap;
 
   /// Tooltip of the top-bar info button (`novelInfoTitle` for a work,
   /// `localNovelFileInfo` for a file).
@@ -529,6 +534,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
           onCenterTap: _toggleChrome,
           onImageTap: switch (widget.spec.onImageTap) {
             final open? => (image) => open(context, image),
+            null => null,
+          },
+          onLinkTap: switch (widget.spec.onLinkTap) {
+            final open? => (uri) => open(context, uri),
             null => null,
           },
           onProgressChanged: _onProgressChanged,

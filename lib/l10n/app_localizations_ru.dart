@@ -2715,6 +2715,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelPageTurnPages => 'Листание';
 
   @override
+  String novelJumpToPage(int page) {
+    return '→ Страница $page';
+  }
+
+  @override
   String get aboutDisplayRefreshRate => 'Частота обновления';
 
   @override

@@ -2628,6 +2628,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelPageTurnPages => '左右翻页';
 
   @override
+  String novelJumpToPage(int page) {
+    return '→ 第 $page 页';
+  }
+
+  @override
   String get aboutDisplayRefreshRate => '显示刷新率';
 
   @override

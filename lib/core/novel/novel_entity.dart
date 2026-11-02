@@ -152,9 +152,27 @@ class NovelJumpToken extends NovelMarkupToken {
 
   bool get isValid => target != null && error == null;
 
+  /// A page jump without a label shows nothing of its own: the reader
+  /// lays out a label in the reader's language at its place.
   @override
-  String get displayText =>
-      isValid ? (label.isEmpty ? targetText : label) : rawText;
+  String get displayText => switch (target) {
+    _ when !isValid => rawText,
+    _ when label.isNotEmpty => label,
+    NovelPageJumpTarget() => '',
+    _ => targetText,
+  };
+
+  /// This jump, now invalid with [error]: it reads as written.
+  NovelJumpToken invalidated(String error) => NovelJumpToken(
+    label: label,
+    targetText: targetText,
+    target: null,
+    rawName: rawName,
+    rawText: rawText,
+    sourceOffset: sourceOffset,
+    error: error,
+    attributes: attributes,
+  );
 
   @override
   bool get isUnsupported => !isValid;
@@ -496,6 +514,43 @@ class NovelMarkupDocument {
   bool get hasUnsupportedTokens => unsupportedTokens.isNotEmpty;
 
   String get plainText => blocks.map((block) => block.plainText).join('\n');
+
+  /// The id of each Pixiv page's first block, page 1 first. The author's
+  /// `[newpage]` markers split a body into Pixiv pages, which page jumps
+  /// and the account's bookmark count in; a chapter does not start one.
+  /// A page left empty between two markers starts where the next does.
+  late final List<String> pixivPageStarts = pixivPageStartsOf(blocks);
+
+  late final Map<String, int> _pixivPages = () {
+    final pages = <String, int>{};
+    var page = 1;
+    for (final block in blocks) {
+      if (block is NovelPageBreakBlock) {
+        page++;
+      } else {
+        pages[block.id] = page;
+      }
+    }
+    return pages;
+  }();
+
+  /// The Pixiv page (1-based) of the block with [blockId], or null.
+  int? pixivPageOf(String blockId) => _pixivPages[blockId];
+
+  static List<String> pixivPageStartsOf(List<NovelBlock> blocks) {
+    final starts = <String>[];
+    var open = 1;
+    for (final block in blocks) {
+      if (block is NovelPageBreakBlock) {
+        open++;
+        continue;
+      }
+      while (starts.length < open) {
+        starts.add(block.id);
+      }
+    }
+    return List.unmodifiable(starts);
+  }
 
   factory NovelMarkupDocument.fromParagraphs(List<NovelParagraph> paragraphs) {
     return NovelMarkupDocument(
@@ -917,6 +972,7 @@ class NovelMarkupParser {
   /// The single-bracket markers that carry a payload, up to their `]`.
   static const _payloadMarkers = [
     '[chapter:',
+    '[jump:',
     '[uploadedimage:',
     '[pixivimage:',
   ];
@@ -1516,11 +1572,10 @@ class NovelMarkupParser {
   }
 
   /// The end of a single-bracket marker at [start], or null. Pixiv writes
-  /// page breaks, chapters and images in single brackets (`[newpage]`,
-  /// `[chapter:title]`, `[uploadedimage:id]`, `[pixivimage:id-page]`,
-  /// closed on the same line); only those exact names are markers, so
-  /// bracketed prose (`[注]`, `[1]`) stays text. Its jump markers stay text
-  /// until the reader can follow them.
+  /// page breaks, chapters, page jumps and images in single brackets
+  /// (`[newpage]`, `[chapter:title]`, `[jump:page]`, `[uploadedimage:id]`,
+  /// `[pixivimage:id-page]`, closed on the same line); only those exact
+  /// names are markers, so bracketed prose (`[注]`, `[1]`) stays text.
   int? _singleMarkerEnd(
     String source,
     int start,
@@ -1672,7 +1727,34 @@ class NovelMarkupParser {
       }
     }
 
-    for (final token in scanned.tokens) {
+    // A page jump past the body's last Pixiv page goes nowhere: it reads
+    // as written, as an invalid marker does.
+    final pixivPages = 1 + scanned.tokens.whereType<NovelNewPageToken>().length;
+    final diagnostics = [...scanned.diagnostics];
+    final tokens = [
+      for (final token in scanned.tokens)
+        switch (token) {
+          NovelJumpToken(target: NovelPageJumpTarget(:final page))
+              when page > pixivPages =>
+            () {
+              const error = 'jump target is past the last page';
+              if (diagnostics.length < budget.maxDiagnostics) {
+                diagnostics.add(
+                  NovelMarkupDiagnostic(
+                    kind: NovelMarkupIssueKind.invalidJump,
+                    message: error,
+                    sourceOffset: token.sourceOffset,
+                    rawName: token.rawName,
+                  ),
+                );
+              }
+              return token.invalidated(error);
+            }(),
+          _ => token,
+        },
+    ];
+
+    for (final token in tokens) {
       switch (token) {
         case NovelTextToken():
           appendText(token.text, token);
@@ -1709,9 +1791,9 @@ class NovelMarkupParser {
       force: blocks.isEmpty || currentTokens.isNotEmpty || text.isNotEmpty,
     );
     return NovelMarkupDocument(
-      tokens: scanned.tokens,
+      tokens: tokens,
       blocks: blocks,
-      diagnostics: scanned.diagnostics,
+      diagnostics: diagnostics,
       sourceLength: sourceLength,
       budgetExceeded: scanned.budgetExceeded,
     );
@@ -1724,6 +1806,8 @@ class NovelMarkupParser {
   }) {
     final value = switch (token) {
       NovelRubyToken(:final annotation) => annotation,
+      NovelJumpToken(target: NovelPageJumpTarget(:final page)) => '$page',
+      NovelJumpToken(target: NovelUriJumpTarget(:final uri)) => '$uri',
       NovelJumpToken(:final targetText) => targetText,
       NovelPixivImageToken(:final identifier) => identifier,
       NovelUploadedImageToken(:final identifier) => identifier,

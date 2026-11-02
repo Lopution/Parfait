@@ -5063,6 +5063,12 @@ abstract class AppLocalizations {
   /// **'左右翻页'**
   String get novelPageTurnPages;
 
+  /// An author's link to a page of the novel ([jump:N]); the page counts the author's page breaks.
+  ///
+  /// In zh, this message translates to:
+  /// **'→ 第 {page} 页'**
+  String novelJumpToPage(int page);
+
   /// No description provided for @aboutDisplayRefreshRate.
   ///
   /// In zh, this message translates to:

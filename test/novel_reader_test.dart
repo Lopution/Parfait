@@ -645,6 +645,76 @@ void main() {
     expect(opened, ['5']);
   });
 
+  testWidgets('an author\'s links: a page jump brings its Pixiv page in '
+      'both modes, an address opens through the host', (tester) async {
+    // Every line of page 1 starts with a jump to page 3.
+    final body = [
+      '[[jumpuri:作品 > https://www.pixiv.net/artworks/88]]',
+      for (var i = 0; i < 60; i++) '[jump:3]本文本文本文',
+      '[newpage]',
+      '二頁目',
+      '[newpage]',
+      'TARGET',
+      for (var i = 0; i < 60; i++) '後文',
+    ].join('\n');
+    for (final settings in [const NovelReaderSettings(), _pageMode]) {
+      final opened = <Uri>[];
+      final reports = <NovelAnchorCause>[];
+      await tester.pumpWidget(
+        localizedApp(
+          body: NovelReader(
+            key: ValueKey(settings),
+            novel: _novel('').withWebContent(body),
+            settings: settings,
+            onLinkTap: opened.add,
+            onAnchorChanged: (_, cause) => reports.add(cause),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final mode = settings.pageTurn.name;
+
+      final address = find.textContaining('作品', findRichText: true);
+      await tester.tapAt(tester.getTopLeft(address) + const Offset(8, 8));
+      await tester.pump();
+      expect(opened, [Uri.parse('https://www.pixiv.net/artworks/88')]);
+
+      final jump = find.textContaining('→ 第 3 页', findRichText: true);
+      expect(jump, findsWidgets, reason: mode);
+      await tester.tapAt(tester.getTopLeft(jump.first) + const Offset(8, 8));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // At the top, under the page's rule in scroll mode.
+      expect(
+        tester.getTopLeft(find.text('TARGET')).dy,
+        lessThan(100),
+        reason: mode,
+      );
+      expect(reports.last, NovelAnchorCause.userTurn, reason: mode);
+    }
+
+    // A tap that stops a fling over the jumps only stops it.
+    await tester.pumpWidget(
+      localizedApp(
+        body: NovelReader(novel: _novel('').withWebContent(body)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final list = tester.widget<ListView>(find.byType(ListView)).controller!;
+    await tester.fling(find.byType(ListView), const Offset(0, -200), 2000);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    final jump = find.textContaining('→ 第 3 页', findRichText: true);
+    await tester.tapAt(tester.getTopLeft(jump.at(4)) + const Offset(8, 8));
+    await tester.pump(const Duration(milliseconds: 250));
+    final stopped = list.offset;
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(list.offset, stopped);
+    expect(find.text('TARGET'), findsNothing);
+  });
+
   testWidgets('scroll mode: open restores the line, a settle reports once, '
       'goToPage and a relayout keep a line at the top', (tester) async {
     final reports = <(NovelAnchor, NovelAnchorCause)>[];
@@ -811,6 +881,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
+    NovelJumpLabel? jumpLabel,
   }) {
     calls += 1;
     return super.layoutDocumentCancellable(
@@ -827,6 +898,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
       cancelToken: cancelToken,
       budget: budget,
       onProgress: onProgress,
+      jumpLabel: jumpLabel,
     );
   }
 }

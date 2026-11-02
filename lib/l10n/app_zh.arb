@@ -1491,6 +1491,15 @@
   "novelThemeNight": "夜间",
   "novelPageTurnScroll": "上下滚动",
   "novelPageTurnPages": "左右翻页",
+  "novelJumpToPage": "→ 第 {page} 页",
+  "@novelJumpToPage": {
+    "description": "An author's link to a page of the novel ([jump:N]); the page counts the author's page breaks.",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
   "aboutDisplayRefreshRate": "显示刷新率",
   "cardActionDownload": "下载",
   "cardActionWatchLater": "稍后再看",
