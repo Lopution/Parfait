@@ -60,8 +60,11 @@ Map<String, dynamic> _illust(
   List<Map<String, dynamic>> tags,
 ) => {...illustJson(id, bookmarked: true), 'title': title, 'tags': tags};
 
-Future<ProviderContainer> _makeContainer(UserApi users) => signedInApiContainer(
-  PixivApi({...backgroundRoutes, ...users.routes}).client,
+Future<ProviderContainer> _makeContainer(
+  UserApi users, [
+  Map<String, ApiRoute> routes = const {},
+]) => signedInApiContainer(
+  PixivApi({...backgroundRoutes, ...users.routes, ...routes}).client,
   overrides: [
     feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
     illustStoreProvider.overrideWithValue(IllustStore()),
@@ -518,6 +521,38 @@ void main() {
         expect(repository.requests, hasLength(1));
         await tester.pumpWidget(const SizedBox());
       }
+    });
+
+    testWidgets('a novel filter that matches nothing keeps the list tail', (
+      tester,
+    ) async {
+      final container = await _makeContainer(_users(), {
+        '/v1/user/bookmarks/novel': (request) =>
+            request.url.queryParameters.containsKey('offset')
+            ? failing(503)(request)
+            : jsonResponse({
+                'novels': [novelJson(1, title: 'Blue Sky')],
+                'next_url': nextUrl(request, 30),
+              }),
+      });
+      await tester.pumpWidget(
+        _testApp(
+          container,
+          const BookmarkTagFeedPage(
+            tag: 'draw',
+            kind: BookmarkEntityType.novel,
+            restrict: BookmarkRestrict.private,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('加载更多失败'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'no matching work');
+      await tester.pump();
+      expect(find.text('已加载内容中无匹配'), findsOneWidget);
+      // Below the centred empty state, a scroll away.
+      expect(find.text('加载更多失败', skipOffstage: false), findsOneWidget);
     });
 
     test(

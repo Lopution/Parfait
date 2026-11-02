@@ -104,7 +104,7 @@ class ProfileNovelFeed extends ConsumerWidget {
                                 : context.l10n.bookmarkTagFilterEmpty,
                           ),
                   )
-                else ...[
+                else
                   SliverCardList(
                     itemCount: novels.length,
                     firstId: novels.first.id,
@@ -114,15 +114,16 @@ class ProfileNovelFeed extends ConsumerWidget {
                     itemBuilder: (context, index) =>
                         NovelEntry.regular(entity: novels[index]),
                   ),
-                  SliverToBoxAdapter(
-                    child: FeedTail(
-                      feed: feed,
-                      onRetry: () => controller().retryLoadMore(),
-                      errorTitle: context.l10n.profileLoadMoreFailed,
-                      retryLabel: context.l10n.profileRetry,
-                    ),
+                // Under a filter that matches nothing too: the pages not
+                // loaded yet may hold a match.
+                SliverToBoxAdapter(
+                  child: FeedTail(
+                    feed: feed,
+                    onRetry: () => controller().retryLoadMore(),
+                    errorTitle: context.l10n.profileLoadMoreFailed,
+                    retryLabel: context.l10n.profileRetry,
                   ),
-                ],
+                ),
               ],
             ),
           ),
