@@ -850,6 +850,7 @@ List<RouteBase> _commonBranchRoutes(
         state,
         branchObserver,
         BookmarkTagsPage(
+          kind: _bookmarkKindFromQuery(state.uri.queryParameters['kind']),
           initialRestrict: _bookmarkRestrictFromQuery(
             state.uri.queryParameters['restrict'],
           ),
@@ -864,6 +865,7 @@ List<RouteBase> _commonBranchRoutes(
         branchObserver,
         BookmarkTagFeedPage(
           tag: state.uri.queryParameters['tag'] ?? '',
+          kind: _bookmarkKindFromQuery(state.uri.queryParameters['kind']),
           restrict: _bookmarkRestrictFromQuery(
             state.uri.queryParameters['restrict'],
           ),
@@ -1672,6 +1674,13 @@ BookmarkRestrict _bookmarkRestrictFromQuery(String? restrict) =>
     ? BookmarkRestrict.private
     : BookmarkRestrict.public;
 
+/// Illustrations unless the location names novels: older locations carry
+/// no kind.
+BookmarkEntityType _bookmarkKindFromQuery(String? kind) =>
+    kind == BookmarkEntityType.novel.name
+    ? BookmarkEntityType.novel
+    : BookmarkEntityType.illust;
+
 BookmarkRestrict _bookmarkRestrictFromUser(UserRestrict restrict) =>
     switch (restrict) {
       UserRestrict.public => BookmarkRestrict.public,
@@ -1680,11 +1689,15 @@ BookmarkRestrict _bookmarkRestrictFromUser(UserRestrict restrict) =>
 
 Future<void> openBookmarkTags(
   BuildContext context, {
+  required BookmarkEntityType kind,
   required UserRestrict restrict,
 }) async {
   final location = Uri(
     path: '${_currentStackRoot(context)}/bookmarks/tags',
-    queryParameters: {'restrict': _bookmarkRestrictFromUser(restrict).name},
+    queryParameters: {
+      'kind': kind.name,
+      'restrict': _bookmarkRestrictFromUser(restrict).name,
+    },
   ).toString();
   await _push(context, location);
 }
@@ -1692,11 +1705,12 @@ Future<void> openBookmarkTags(
 Future<void> openBookmarkTagFeed(
   BuildContext context, {
   required String tag,
+  required BookmarkEntityType kind,
   required BookmarkRestrict restrict,
 }) async {
   final location = Uri(
     path: '${_currentStackRoot(context)}/bookmarks/tag',
-    queryParameters: {'tag': tag, 'restrict': restrict.name},
+    queryParameters: {'tag': tag, 'kind': kind.name, 'restrict': restrict.name},
   ).toString();
   await _push(context, location);
 }

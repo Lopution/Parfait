@@ -39,6 +39,7 @@ import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
 import 'profile_statistics.dart';
 import 'user_series_feed.dart';
+import '../../core/bookmark/bookmark_models.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/share/share_service.dart';
 import '../../core/user/user_detail_controller.dart';
@@ -151,8 +152,11 @@ class _UserPageState extends ConsumerState<UserPage>
   final _bodyKeys = <_ProfileTab, GlobalKey<_ProfileTabBodyState>>{};
   UserRestrict _restrict = UserRestrict.public;
 
+  /// The bookmarks tab's kind: illustrations or novels.
+  BookmarkEntityType _bookmarkKind = BookmarkEntityType.illust;
+
   /// Own bookmarks only: the tag filter, null for every bookmark. Tags are
-  /// per visibility, so a visibility change clears it.
+  /// per kind and visibility, so a change of either clears it.
   String? _bookmarkTag;
   int _selectedIndex = 0;
   bool _staleBannerVisible = true;
@@ -342,6 +346,9 @@ class _UserPageState extends ConsumerState<UserPage>
       _ProfileTab.bookmarks => ProfileFeedKey(
         userId: userId,
         kind: ProfileFeedKind.bookmarks,
+        workType: _bookmarkKind == BookmarkEntityType.novel
+            ? UserWorkType.novel
+            : UserWorkType.illust,
         restrict: _restrict,
         bookmarkTag: _bookmarkTag,
       ),
@@ -369,11 +376,28 @@ class _UserPageState extends ConsumerState<UserPage>
     });
   }
 
-  /// Own profile: the filters above the bookmarks and follows lists.
+  void _onBookmarkKindChanged(BookmarkEntityType kind) {
+    setState(() {
+      _bookmarkKind = kind;
+      _bookmarkTag = null;
+    });
+  }
+
+  /// The filters above the bookmarks and follows lists: on someone else's
+  /// bookmarks (public ones only) the kind alone.
   Widget? _filterBarFor(_ProfileTab tab) {
-    if (!widget.isMe) return null;
+    if (!widget.isMe) {
+      return tab == _ProfileTab.bookmarks
+          ? ProfileFilterBar(
+              kind: _bookmarkKind,
+              onKindChanged: _onBookmarkKindChanged,
+            )
+          : null;
+    }
     return switch (tab) {
       _ProfileTab.bookmarks => ProfileFilterBar(
+        kind: _bookmarkKind,
+        onKindChanged: _onBookmarkKindChanged,
         restrict: _restrict,
         onRestrictChanged: _onRestrictChanged,
         tag: _bookmarkTag,
@@ -865,7 +889,7 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
       // TabController.indexIsChanging is false during a drag gesture. Keep
       // the page mounted for both tap and swipe transitions so the destination
       // never becomes a zero-size blank child mid-flight.
-      return ProfileNovelFeed(userId: feedKey.userId);
+      return ProfileNovelFeed(feedKey: feedKey);
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||

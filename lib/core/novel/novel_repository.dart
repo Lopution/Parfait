@@ -11,6 +11,7 @@ import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../ranking/ranking_category.dart';
 import '../settings/arrangement.dart';
+import '../user/user_repository.dart' show UserRestrict, UserRestrictWire;
 import 'novel_entity.dart';
 import 'novel_webview_text.dart';
 
@@ -152,6 +153,22 @@ abstract interface class _NovelRepository {
 
   bool validateUserNovelsCursor(int userId, {required String cursor});
 
+  /// [userId]'s novel bookmarks of [restrict], those tagged [tag] when set.
+  Future<NovelPage> fetchUserBookmarks(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateUserBookmarksCursor(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    required String cursor,
+  });
+
   Future<NovelPage> fetchRecommended({
     String? cursor,
     CancelToken? cancelToken,
@@ -183,6 +200,7 @@ class _PixivNovelRepository implements _NovelRepository {
   static const _detailPath = '/v2/novel/detail';
   static const _webviewPath = '/webview/v2/novel';
   static const _userNovelsPath = '/v1/user/novels';
+  static const _userBookmarksPath = '/v1/user/bookmarks/novel';
   static const _recommendedPath = '/v1/novel/recommended';
   static const _rankingPath = '/v1/novel/ranking';
   static const _seriesPath = '/v2/novel/series';
@@ -295,6 +313,56 @@ class _PixivNovelRepository implements _NovelRepository {
       cursor: cursor,
     );
   }
+
+  @override
+  Future<NovelPage> fetchUserBookmarks(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    _validateId(userId, 'userId');
+    final identity = _bookmarksIdentity(userId, restrict, tag);
+    final request = _pageRequest(
+      path: _userBookmarksPath,
+      query: {
+        for (final MapEntry(:key, :value) in identity.entries) key: ?value,
+      },
+      identity: identity,
+      cursor: cursor,
+    );
+    return _client.getParsed(
+      _target(request),
+      _parseNovelPage,
+      cancelToken: cancelToken,
+    );
+  }
+
+  @override
+  bool validateUserBookmarksCursor(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    required String cursor,
+  }) {
+    _validateId(userId, 'userId');
+    return _isValidCursor(
+      path: _userBookmarksPath,
+      identity: _bookmarksIdentity(userId, restrict, tag),
+      cursor: cursor,
+    );
+  }
+
+  static Map<String, String?> _bookmarksIdentity(
+    int userId,
+    UserRestrict restrict,
+    String? tag,
+  ) => {
+    'user_id': '$userId',
+    'restrict': restrict.wireValue,
+    'tag': tag == null || tag.isEmpty ? null : tag,
+  };
 
   @override
   Future<NovelPage> fetchRecommended({

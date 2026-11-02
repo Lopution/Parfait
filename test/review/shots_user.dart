@@ -38,6 +38,40 @@ void main() {
     variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
   );
 
+  // Bookmarks by kind: your novel bookmarks under the kind, visibility and
+  // tag menus; someone else's bookmarks with the kind menu alone.
+  Future<void> pickNovels(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('profile-filter-kind')));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.tap(
+      find.descendant(
+        of: find.byType(MenuItemButton),
+        matching: find.byIcon(Icons.menu_book_outlined),
+      ),
+    );
+  }
+
+  testShot(
+    'user/me-novel-bookmarks',
+    location: '/me',
+    variants: {ShotVariant.dark, ...overflowVariants},
+    before: (tester, router) => pickNovels(tester),
+  );
+  testShot(
+    'user/profile-bookmarks',
+    location: user,
+    before: (tester, router) async {
+      await tester.tap(find.text('收藏'));
+      // The illust grid's placeholders keep animating: frames until the tab
+      // has slid in.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await pickNovels(tester);
+    },
+  );
   testShot(
     'user/profile-loading',
     location: user,

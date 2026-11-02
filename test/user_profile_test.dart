@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/user/follow_actions.dart';
@@ -32,7 +31,6 @@ import 'package:parfait/features/profile/user_series_feed.dart';
 import 'helpers/api_responses.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
-import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
@@ -685,7 +683,12 @@ void main() {
     await tester.tap(find.text('收藏'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('profile-filter-restrict')), findsNothing);
+    expect(find.byKey(const ValueKey('profile-filter-tag')), findsNothing);
     expect(find.textContaining('共 '), findsNothing);
+    // Except the kind: their public novel bookmarks.
+    await pickFilterMenu(tester, 'profile-filter-kind', '小说');
+    expect(repository.requests, contains('novel-bookmarks:42:public:'));
+    expect(find.byType(ProfileNovelFeed), findsOneWidget);
     await tester.tap(find.text('插画'));
     await tester.pumpAndSettle();
     expect(find.byType(ChoiceChip), findsNothing);
@@ -713,38 +716,6 @@ void main() {
     await tester.tap(find.text('收藏'));
     await tester.pumpAndSettle();
     expect(_selectedTabIndex(tester), 2);
-  });
-
-  testWidgets('a long tag list sends the rest to the tag page', (tester) async {
-    final bookmarks = BookmarkApi()
-      ..tagPage = UserBookmarkTagPage(
-        tags: [
-          for (var i = 0; i < 11; i++)
-            UserBookmarkTag(name: 'tag $i', count: 1),
-        ],
-        nextUrl: null,
-      );
-    final container = await makeProfileWorld(
-      users: UserApi(detail: sampleUser(100).copyWith(hasDetail: true)),
-      bookmarks: bookmarks,
-    );
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        builder: promptHostBuilder,
-        home: MePage(onEditProfile: () {}),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('profile-filter-tag')));
-    await tester.pumpAndSettle();
-    Finder menuItem(String label) => find.descendant(
-      of: find.byType(MenuItemButton),
-      matching: find.text(label),
-    );
-    expect(menuItem('tag 9'), findsOneWidget);
-    expect(menuItem('tag 10'), findsNothing);
-    expect(menuItem('更多标签…'), findsOneWidget);
   });
 
   testWidgets('a profile without works opens on its first other tab', (

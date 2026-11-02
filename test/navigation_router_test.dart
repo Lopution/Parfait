@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
@@ -493,15 +494,17 @@ void main() {
     }
   });
 
-  testWidgets('bookmark tag route restores and writes its restrict query', (
-    tester,
-  ) async {
+  testWidgets('bookmark tag route restores and writes its kind and restrict '
+      'query', (tester) async {
+    // An older location names no kind: illustrations.
     final router = await pumpRouter(
       tester,
       '/recommended/bookmarks/tags?restrict=private',
     );
     expect(router.state.uri.queryParameters['restrict'], 'private');
     expect(find.byType(BookmarkTagsPage), findsOneWidget);
+    BookmarkTagsPage page() => tester.widget(find.byType(BookmarkTagsPage));
+    expect(page().kind, BookmarkEntityType.illust);
     int selectedTab() => tester
         .widget<TabBar>(
           find.descendant(
@@ -517,12 +520,15 @@ void main() {
     unawaited(
       openBookmarkTags(
         tester.element(find.byType(BookmarkTagsPage)),
+        kind: BookmarkEntityType.novel,
         restrict: UserRestrict.public,
       ),
     );
     await tester.pumpAndSettle();
     expect(router.state.uri.queryParameters['restrict'], 'public');
+    expect(router.state.uri.queryParameters['kind'], 'novel');
     expect(selectedTab(), 0);
+    expect(page().kind, BookmarkEntityType.novel);
   });
 
   testWidgets('detail pushed from the reverse-image page does not stack a '
