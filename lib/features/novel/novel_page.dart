@@ -11,6 +11,7 @@ import '../../app/widgets/bookmark_switch_button.dart';
 import '../../app/widgets/caption_rich_text.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/inline_translation.dart';
+import '../../app/widgets/meta_fact.dart';
 import '../../app/widgets/person_card.dart';
 import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
@@ -403,7 +404,8 @@ class _NovelHistoryVisibility extends ConsumerWidget {
 }
 
 /// The head of the novel info sheet: title with the translate button,
-/// author, caption, then the translation of title and caption.
+/// author, the facts line, caption, then the translation of title and
+/// caption.
 class _NovelIntro extends ConsumerStatefulWidget {
   const _NovelIntro({required this.novel, required this.author});
 
@@ -446,6 +448,8 @@ class _NovelIntroState extends ConsumerState<_NovelIntro>
         ),
         const SizedBox(height: FuncSpacing.sm),
         widget.author,
+        const SizedBox(height: FuncSpacing.md),
+        _NovelFacts(novel: novel),
         if (novel.caption.isNotEmpty) ...[
           const SizedBox(height: FuncSpacing.md),
           // Caption HTML renders through the shared parser — <br> tags
@@ -459,6 +463,75 @@ class _NovelIntroState extends ConsumerState<_NovelIntro>
           emphasizeFirst: true,
         ),
       ],
+    );
+  }
+}
+
+/// The novel's facts, each behind its glyph, wrapping as whole facts: the
+/// series it belongs to, its length, views, bookmarks and the full posting
+/// time. The reader's series bar steps through the series; here it is
+/// named only. Screen readers hear one node.
+class _NovelFacts extends StatelessWidget {
+  const _NovelFacts({required this.novel});
+
+  final NovelEntity novel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final style = MetaFact.styleOf(context);
+    final series = novel.seriesTitle;
+    final views = AppFormat.count(context, novel.totalView);
+    final bookmarks = AppFormat.count(context, novel.totalBookmarks);
+    final created = DateTime.tryParse(novel.createDate ?? '');
+    final date = created == null
+        ? null
+        : AppFormat.date(context, created, withTime: true);
+    return MergeSemantics(
+      key: const Key('novel-info-facts'),
+      child: Wrap(
+        spacing: FuncSpacing.md,
+        runSpacing: FuncSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (novel.seriesId != null && series != null && series.isNotEmpty)
+            Semantics(
+              label: l10n.novelSeries,
+              child: MetaFact(
+                icon: Icons.library_books_outlined,
+                text: series,
+                style: style,
+              ),
+            ),
+          MetaFact(
+            icon: Icons.notes,
+            text:
+                '${AppFormat.count(context, novel.textLength)} '
+                '${l10n.novelWords}',
+            style: style,
+          ),
+          Semantics(
+            label: date == null
+                ? l10n.detailMetaCountsSemantics(views, bookmarks)
+                : l10n.detailStatsSemantics(views, bookmarks, date),
+            child: ExcludeSemantics(
+              child: MetaFact(
+                icon: Icons.visibility_outlined,
+                text: views,
+                style: style,
+              ),
+            ),
+          ),
+          ExcludeSemantics(
+            child: MetaFact(
+              icon: Icons.favorite_outline,
+              text: bookmarks,
+              style: style,
+            ),
+          ),
+          if (date != null) ExcludeSemantics(child: Text(date, style: style)),
+        ],
+      ),
     );
   }
 }

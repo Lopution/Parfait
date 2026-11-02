@@ -63,6 +63,9 @@ Future<ProviderContainer> _apiContainer({
                 'x_restrict': 0,
                 'is_bookmarked': false,
                 'text_length': 4000,
+                'total_view': 1234,
+                'total_bookmarks': 56,
+                'create_date': '2026-10-01T12:34:00+09:00',
                 'visible': true,
                 'user': {
                   'id': 10,
@@ -873,6 +876,46 @@ void main() {
     await tester.tap(find.bySemanticsLabel('阅读进度'));
     await tester.pumpAndSettle();
     expect(find.text('在此页加书签'), findsNothing);
+  });
+
+  testWidgets('the info sheet names the series, length, counts and date', (
+    tester,
+  ) async {
+    for (final withSeries in [true, false]) {
+      final container = await _apiContainer(withSeries: withSeries);
+      await tester.pumpWidget(const SizedBox());
+      await _openReader(tester, container);
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.info_outline));
+      await tester.pumpAndSettle();
+
+      expect(find.text('4000 字'), findsOneWidget);
+      expect(find.text('1234'), findsOneWidget);
+      expect(find.text('56'), findsOneWidget);
+      expect(find.textContaining('2026'), findsOneWidget);
+      // The series is named, not linked: the reader's bar steps through it.
+      final series = find.descendant(
+        of: find.byKey(const Key('novel-info-facts')),
+        matching: find.text('series five'),
+      );
+      expect(series, withSeries ? findsOneWidget : findsNothing);
+
+      // One node: the series, the length, then the stats sentence.
+      final semantics = tester.ensureSemantics();
+      final label = tester
+          .getSemantics(find.byKey(const Key('novel-info-facts')))
+          .label;
+      expect(
+        label,
+        stringContainsInOrder([
+          if (withSeries) ...['系列', 'series five'],
+          '4000 字',
+          '1234 次浏览，56 次收藏，发布于 2026',
+        ]),
+      );
+      semantics.dispose();
+    }
   });
 }
 
