@@ -136,10 +136,11 @@ class FuncBottomNav extends StatelessWidget {
                     // ellipsize.
                     final fit = LabelFit.group(
                       labels: [for (final d in destinations) d.label],
-                      style: measureStyle,
+                      style: LabelFit.paintedStyle(context, measureStyle),
                       textScaler: MediaQuery.textScalerOf(context),
                       textDirection: Directionality.of(context),
                       slotWidth: _labelSlot(itemWidth),
+                      locale: Localizations.maybeLocaleOf(context),
                     );
                     return Row(
                       children: [

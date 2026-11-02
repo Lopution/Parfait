@@ -40,6 +40,8 @@ final _dateFormat = RegExp(r'\bDateFormat\b');
 final _dateInterpolation = RegExp(r'\$\{[^}]*\.(?:year|month|day)\}');
 final _numberFormat = RegExp(r'\bNumberFormat\b');
 final _brandPrimary = RegExp(r'\bFuncTokens\.(primary|lightAccent)\b');
+final _labelMeasure = RegExp(r'\bLabelFit\.(group|measureLabel)\(');
+final _identifier = RegExp(r'^[A-Za-z_]\w*$');
 
 /// Every Dart source under lib/ with its comments stripped.
 Map<String, String> _sources() => {
@@ -61,6 +63,32 @@ List<String> _hits(
       for (final m in pattern.allMatches(src))
         '  $file:${src.substring(0, m.start).split('\n').length}',
 ];
+
+/// The top-level arguments of the call whose `(` is at [open] in [src].
+List<String> _arguments(String src, int open) {
+  final args = <String>[];
+  var depth = 0;
+  var start = open + 1;
+  for (var i = open; i < src.length; i++) {
+    final c = src[i];
+    if ('([{'.contains(c)) {
+      depth++;
+    } else if (')]}'.contains(c)) {
+      depth--;
+      if (depth == 0) {
+        args.add(src.substring(start, i).trim());
+        break;
+      }
+    } else if (c == ',' && depth == 1) {
+      args.add(src.substring(start, i).trim());
+      start = i + 1;
+    }
+  }
+  return [
+    for (final a in args)
+      if (a.isNotEmpty) a,
+  ];
+}
 
 void main() {
   final sources = _sources();
@@ -122,4 +150,34 @@ void main() {
           'apply:\n${violations.join('\n')}',
     );
   });
+
+  test('fitted labels are measured in the style and locale they paint in', () {
+    final violations = [
+      for (final MapEntry(key: file, value: src) in sources.entries)
+        if (file != 'lib/app/widgets/fit_label.dart')
+          for (final m in _labelMeasure.allMatches(src))
+            if (!_measuredAsPainted(src, m))
+              '  $file:${src.substring(0, m.start).split('\n').length}',
+    ];
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'LAYOUT-04 measure with LabelFit.paintedStyle and the painted '
+          'locale (Localizations.maybeLocaleOf):\n${violations.join('\n')}',
+    );
+  });
+}
+
+/// Whether the [call] to `LabelFit.group` or `LabelFit.measureLabel` in
+/// [src] passes a locale, and a style that is `LabelFit.paintedStyle(...)`
+/// or a local in a file that builds its styles with it.
+bool _measuredAsPainted(String src, Match call) {
+  final args = _arguments(src, call.end - 1);
+  if (!args.any((a) => a.startsWith('locale:'))) return false;
+  final style = call[1] == 'group'
+      ? args.firstWhere((a) => a.startsWith('style:')).substring(6).trim()
+      : args[1];
+  return style.startsWith('LabelFit.paintedStyle(') ||
+      (_identifier.hasMatch(style) && src.contains('LabelFit.paintedStyle('));
 }

@@ -530,9 +530,13 @@ class _ActionBar extends StatelessWidget {
         final half = (constraints.maxWidth - FuncSpacing.md) / 2;
         final label = LabelFit.measureLabel(
           setDefaultLabel,
-          Theme.of(context).textTheme.labelLarge!,
+          LabelFit.paintedStyle(
+            context,
+            Theme.of(context).textTheme.labelLarge!,
+          ),
           MediaQuery.textScalerOf(context),
           Directionality.of(context),
+          locale: Localizations.maybeLocaleOf(context),
         );
         if (label + _buttonPadding <= half) {
           return Row(
