@@ -127,6 +127,10 @@ DeepLinkRoute _linkRoute(Uri uri) {
   if (route is! UnknownRoute || !const {'http', 'https'}.contains(uri.scheme)) {
     return route;
   }
+  // A user name or a port is no page's address: the router refuses them,
+  // and the rebuilt address below must not drop them. A fragment
+  // (`#manga`) is part of the page, as the query is.
+  if (uri.userInfo.isNotEmpty || uri.hasPort) return route;
   // Raw segments: the router decodes them and refuses what is not UTF-8.
   final segments = uri.path.split('/').where((s) => s.isNotEmpty);
   final kept = segments.firstOrNull?.length == 2 ? 3 : 2;

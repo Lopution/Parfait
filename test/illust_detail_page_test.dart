@@ -166,6 +166,8 @@ void main() {
       ('https://www.pixiv.net/en/users/7/illustrations?p=1', true),
       // An id that is not UTF-8 goes outside, and the tap never throws.
       ('https://www.pixiv.net/users/%FF/illustrations', false),
+      // So does an address with a user name, which the router refuses.
+      ('https://user@www.pixiv.net/users/7/illustrations', false),
     ]) {
       testWidgets(
         'U6: caption renders as rich clickable text, not literal HTML ($href)',
