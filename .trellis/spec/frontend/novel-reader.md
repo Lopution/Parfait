@@ -237,3 +237,16 @@ reviewed: 2026-11-02
   request, 11-02).
 - **Check:** `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your " "a one-page novel without a bookmark offers none"; `test/novel_reader_stage_test.dart` "progress sheet: the chapter you are in is marked and in "; `test/novel_webview_text_test.dart` "the account's marker: its page, none, or a parse error"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_page.dart`, `lib/core/novel/novel_store.dart`, `lib/core/novel/novel_webview_text.dart`
+
+### NOVEL-16 The info sheet states the novel's facts
+- **Rule:** Under the author, the info sheet lists the novel's facts as
+  the illust detail lists a work's (`MetaFact`, wrapping as whole facts,
+  one semantics node): its series, its length (`AppFormat.count` and
+  `novelWords`, as its card), views, bookmarks and the full posting time
+  (`AppFormat.date(withTime: true)`); a fact the payload lacks is left
+  out. The series is named only: the reader's series bar steps through
+  it, and there is no novel series page.
+- **Why:** Length, date and series were in the payload but nowhere in
+  the reader (user request, 11-02).
+- **Check:** `test/novel_reader_chrome_test.dart` "the info sheet names the series, length, counts and date"
+- **Code:** `lib/features/novel/novel_page.dart`, `lib/app/widgets/meta_fact.dart`
