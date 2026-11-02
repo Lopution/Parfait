@@ -57,7 +57,8 @@ void main() {
       await tester.tap(find.byIcon(Icons.expand_less));
     },
   );
-  // The info sheet: series, length, counts and date under the author.
+  // The info sheet: the series link, length, counts and date under the
+  // author.
   testShot(
     'novel/info',
     location: novel,
@@ -104,6 +105,12 @@ void main() {
     before: (tester, router) async {
       await tester.tap(find.byIcon(Icons.bookmark).at(1));
     },
+  );
+  // A novel series: facts, actions, numbered rows, a restricted one.
+  testShot(
+    'novel/series',
+    location: '/recommended/novel-series/77',
+    variants: {ShotVariant.dark, ...overflowVariants},
   );
   testShot('novel/comments', location: '$novel/comments');
   testShot(

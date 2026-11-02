@@ -2660,6 +2660,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelSeriesUnavailable => 'Информация о серии недоступна';
 
   @override
+  String get novelSeriesConcluded => 'Завершена';
+
+  @override
+  String get novelSeriesOriginal => 'Оригинальная';
+
+  @override
+  String get novelSeriesReadLatest => 'Читать последний эпизод';
+
+  @override
+  String novelSeriesReadLatestEpisode(int n) {
+    return 'Читать последний: эпизод $n';
+  }
+
+  @override
   String get novelInfoTitle => 'О произведении';
 
   @override

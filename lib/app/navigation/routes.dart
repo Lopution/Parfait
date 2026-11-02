@@ -50,6 +50,7 @@ import '../../features/login/login_page.dart';
 import '../../features/login/login_webview_page.dart';
 import '../../features/new/new_page.dart';
 import '../../features/novel/novel_page.dart';
+import '../../features/novel/novel_series_page.dart';
 import '../../features/onboarding/language_page.dart';
 import '../../features/onboarding/user_agreement_page.dart';
 import '../../features/onboarding/welcome_page.dart';
@@ -716,6 +717,15 @@ List<RouteBase> _commonBranchRoutes(
         state,
         branchObserver,
         IllustSeriesPage(seriesId: _pathId(state, 'seriesId')),
+      ),
+    ),
+    GoRoute(
+      path: 'novel-series/:seriesId',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        NovelSeriesFeedPage(seriesId: _pathId(state, 'seriesId')),
       ),
     ),
     GoRoute(
@@ -1576,6 +1586,10 @@ Future<void> openUser(BuildContext context, int userId) async {
 
 Future<void> openIllustSeries(BuildContext context, int seriesId) async {
   await _push(context, '${_currentStackRoot(context)}/series/$seriesId');
+}
+
+Future<void> openNovelSeries(BuildContext context, int seriesId) async {
+  await _push(context, '${_currentStackRoot(context)}/novel-series/$seriesId');
 }
 
 Future<void> openSpotlight(BuildContext context) async {

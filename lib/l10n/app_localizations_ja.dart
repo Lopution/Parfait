@@ -2602,6 +2602,20 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelSeriesUnavailable => 'シリーズ情報を利用できません';
 
   @override
+  String get novelSeriesConcluded => '完結';
+
+  @override
+  String get novelSeriesOriginal => 'オリジナル';
+
+  @override
+  String get novelSeriesReadLatest => '最新話を読む';
+
+  @override
+  String novelSeriesReadLatestEpisode(int n) {
+    return '最新話（第$n話）を読む';
+  }
+
+  @override
   String get novelInfoTitle => '作品情報';
 
   @override

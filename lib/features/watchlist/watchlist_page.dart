@@ -278,8 +278,8 @@ class _WatchlistEntryTile extends ConsumerWidget {
   Future<void> _openActions(BuildContext context, WidgetRef ref) async {
     final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
     // 「继续第 n 话」only exists when the session recorded an opened work —
-    // novels never have a record (the store keys manga series only), so the
-    // item simply does not render for them.
+    // the store keys manga series only; a novel series continues from its
+    // page.
     final recent = entry.type == WatchlistType.manga && accountId != null
         ? ref.read(seriesRecentOpenStoreProvider)[SeriesRecentOpenStore.keyFor(
             accountId,
@@ -294,17 +294,18 @@ class _WatchlistEntryTile extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Contents only exist for manga series — D3: no novel series
-              // catalog route this round.
-              if (entry.type == WatchlistType.manga)
-                ListTile(
-                  leading: const Icon(Icons.collections_bookmark_outlined),
-                  title: Text(sheetContext.l10n.watchlistOpenContents),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(openIllustSeries(context, entry.id));
-                  },
-                ),
+              ListTile(
+                leading: const Icon(Icons.collections_bookmark_outlined),
+                title: Text(sheetContext.l10n.watchlistOpenContents),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(
+                    entry.type == WatchlistType.novel
+                        ? openNovelSeries(context, entry.id)
+                        : openIllustSeries(context, entry.id),
+                  );
+                },
+              ),
               if (recent != null)
                 ListTile(
                   leading: const Icon(Icons.history),

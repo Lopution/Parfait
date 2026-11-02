@@ -239,16 +239,18 @@ reviewed: 2026-11-02
 - **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_page.dart`, `lib/core/novel/novel_store.dart`, `lib/core/novel/novel_webview_text.dart`
 
 ### NOVEL-16 The info sheet states the novel's facts
-- **Rule:** Under the author, the info sheet lists the novel's facts as
-  the illust detail lists a work's (`MetaFact`, wrapping as whole facts,
-  one semantics node): its series, its length (`AppFormat.count` and
-  `novelWords`, as its card), views, bookmarks and the full posting time
+- **Rule:** Under the author, the info sheet links the novel's series
+  (one button with a chevron, as the author's row, opening the series
+  page of NOVEL-18), then lists the novel's facts as the illust detail
+  lists a work's (`MetaFact`, wrapping as whole facts, one semantics
+  node): its length (`AppFormat.count` and `novelWords`, as its card),
+  views, bookmarks and the full posting time
   (`AppFormat.date(withTime: true)`); a fact the payload lacks is left
-  out. The series is named only: the reader's series bar steps through
-  it, and there is no novel series page.
+  out.
 - **Why:** Length, date and series were in the payload but nowhere in
-  the reader (user request, 11-02).
-- **Check:** `test/novel_reader_chrome_test.dart` "the info sheet names the series, length, counts and date"
+  the reader (user request, 11-02); the series had nowhere to lead until
+  it had a page.
+- **Check:** `test/novel_reader_chrome_test.dart` "the info sheet links the series and states length, counts "
 - **Code:** `lib/features/novel/novel_page.dart`, `lib/app/widgets/meta_fact.dart`
 
 ### NOVEL-17 The account's bookmarks have a list; a row opens at its bookmark
@@ -266,3 +268,30 @@ reviewed: 2026-11-02
   in (user request, 11-02).
 - **Check:** `test/novel_markers_test.dart` "the bookmark list pages by next_url; each novel lands with its " "an entry without a novel or a page is a parse error" "rows say where the bookmark is and open there; the button " "an empty list and a failed one say so"; `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your "; `test/navigation_router_test.dart` "a novel opened at a page carries it in memory, not the "; `test/settings_test.dart` "the Me header, manage button and end rows open their pages"
 - **Code:** `lib/features/novel/novel_markers_page.dart`, `lib/core/novel/novel_feed_controller.dart`, `lib/core/novel/novel_repository.dart`, `lib/features/novel/novel_page.dart`, `lib/app/navigation/routes.dart`
+
+### NOVEL-18 A novel series has a page that continues where you left
+- **Rule:** `novel-series/:seriesId` opens on the current stack
+  (`openNovelSeries`) from the info sheet's series, the reader's series
+  bar title and the watchlist novel entry's contents item. It reads
+  `/v2/novel/series`, paged by `last_order`; a malformed entry is a
+  parse error, and a restricted entry (`visible: false`) needs only its
+  id, title and order. The header holds the title, the author, the
+  works count with the completed and original labels, the actions and
+  the caption collapsed to three lines; opening it marks the watchlist
+  cursor at the latest novel. Rows are novel cards under their
+  「第 n 话」, in series order and not filtered, as the manga series; a
+  restricted row shows pixiv's reason, or the generic one, and does not
+  open. The primary action continues at the novel this account last
+  opened in the series (「继续第 n 话」 once its entry has loaded,
+  「继续阅读」 before), else starts at the first; starting from the
+  first and reading the latest are text buttons below, and a novel
+  opens at its saved place. The reader records the series' last-opened
+  novel when it opens one that names a series:
+  `NovelSeriesLastReadStore`, keyed by account and series, recency
+  trimmed to 200, kept across restarts and whatever the history
+  setting.
+- **Why:** The series was named but led nowhere, and a followed novel
+  series had no contents; no other client continues a novel series, and
+  novels are read over days (user request, 11-02).
+- **Check:** `test/novel_series_test.dart` "a series page: its facts, numbered novels past the first "; `test/watchlist_page_test.dart` "watchlist page lists entries under both type tabs; a novel "
+- **Code:** `lib/features/novel/novel_series_page.dart`, `lib/core/novel/novel_feed_controller.dart`, `lib/core/novel/novel_repository.dart`, `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_page.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/features/watchlist/watchlist_page.dart`, `lib/app/navigation/routes.dart`
