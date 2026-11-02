@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/account_store.dart';
 import '../settings/shared_preferences.dart';
 
 /// Reader surface preset. `system` follows the app theme; the
@@ -173,17 +174,7 @@ class NovelProgressStore {
 
   String _entryKey(String accountId, int novelId) => '$accountId:$novelId';
 
-  Future<Map<String, Object?>> _readAll() async {
-    final raw = await _preferences.getString(_key);
-    if (raw == null) return {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map<String, Object?>) return decoded;
-    } on FormatException {
-      // Corrupt state: start clean instead of failing every reader open.
-    }
-    return {};
-  }
+  Future<Map<String, Object?>> _readAll() => _readMap(_preferences, _key);
 
   /// Returns the saved `NovelAnchor` payload as primitives — the typed
   /// `NovelAnchor` lives in the features layer (novel_layout), so the store
@@ -216,11 +207,72 @@ class NovelProgressStore {
     // genuinely drop the stalest.
     all.remove(key);
     all[key] = {'p': paragraphId, 'o': offset};
-    while (all.length > _maxEntries) {
-      all.remove(all.keys.first);
-    }
-    await _preferences.setString(_key, jsonEncode(all));
+    await _writeRecent(_preferences, _key, all, _maxEntries);
   }
+}
+
+/// The novel of each series an account opened last, for the series page's
+/// 「继续」: `<accountId>:<seriesId>` to a novel id. Kept across restarts and
+/// bounded like [NovelProgressStore], and, like it, written whatever the
+/// history setting.
+class NovelSeriesLastReadStore {
+  NovelSeriesLastReadStore(this._preferences);
+
+  static const _key = 'parfait.novel.series-last.v1';
+  static const _maxEntries = 200;
+
+  final SharedPreferencesAsync _preferences;
+
+  String _entryKey(String accountId, int seriesId) => '$accountId:$seriesId';
+
+  Future<int?> read(String accountId, int seriesId) async {
+    final novelId = (await _readMap(
+      _preferences,
+      _key,
+    ))[_entryKey(accountId, seriesId)];
+    return novelId is int && novelId > 0 ? novelId : null;
+  }
+
+  Future<void> write(String accountId, int seriesId, int novelId) async {
+    final all = await _readMap(_preferences, _key);
+    final key = _entryKey(accountId, seriesId);
+    if (all[key] == novelId) return;
+    // Reinserted at the end, so trimming from the front drops the stalest.
+    all.remove(key);
+    all[key] = novelId;
+    await _writeRecent(_preferences, _key, all, _maxEntries);
+  }
+}
+
+/// The JSON map saved under [key]; a corrupt one reads as empty instead of
+/// failing every reader open.
+Future<Map<String, Object?>> _readMap(
+  SharedPreferencesAsync preferences,
+  String key,
+) async {
+  final raw = await preferences.getString(key);
+  if (raw == null) return {};
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is Map<String, Object?>) return decoded;
+  } on FormatException {
+    // Corrupt state: start clean.
+  }
+  return {};
+}
+
+/// Saves [all], insertion order being recency, trimmed from the front to
+/// [maxEntries].
+Future<void> _writeRecent(
+  SharedPreferencesAsync preferences,
+  String key,
+  Map<String, Object?> all,
+  int maxEntries,
+) {
+  while (all.length > maxEntries) {
+    all.remove(all.keys.first);
+  }
+  return preferences.setString(key, jsonEncode(all));
 }
 
 final novelReaderSettingsStoreProvider = Provider<NovelReaderSettingsStore>(
@@ -230,3 +282,20 @@ final novelReaderSettingsStoreProvider = Provider<NovelReaderSettingsStore>(
 final novelProgressStoreProvider = Provider<NovelProgressStore>(
   (ref) => NovelProgressStore(ref.watch(sharedPreferencesProvider)),
 );
+
+final novelSeriesLastReadStoreProvider = Provider<NovelSeriesLastReadStore>(
+  (ref) => NovelSeriesLastReadStore(ref.watch(sharedPreferencesProvider)),
+);
+
+/// The current account's last-opened novel of a series; the reader
+/// invalidates it when it records one.
+final novelSeriesLastReadProvider = FutureProvider.autoDispose
+    .family<int?, int>((ref, seriesId) async {
+      final accountId = ref.watch(
+        accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
+      );
+      if (accountId == null) return null;
+      return ref
+          .read(novelSeriesLastReadStoreProvider)
+          .read(accountId, seriesId);
+    });

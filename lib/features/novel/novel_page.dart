@@ -22,6 +22,7 @@ import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/history/history_snapshot.dart';
 import '../../core/history/history_visibility.dart';
+import '../../core/log.dart';
 import '../../core/mute/mute_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';
@@ -342,9 +343,10 @@ class _NovelProgressBinding implements ReaderProgressBinding {
 
   @override
   Future<NovelAnchor?> load() async {
+    final accountId = _accountId;
+    if (accountId != null) _recordSeries(accountId);
     final asked = _pageStart(atPixivPage);
     if (asked != null) return asked;
-    final accountId = _accountId;
     if (accountId == null) return null;
     final saved = await _container
         .read(novelProgressStoreProvider)
@@ -355,6 +357,25 @@ class _NovelProgressBinding implements ReaderProgressBinding {
     // No place of this account's own: the account's bookmark.
     return _pageStart(
       _container.read(novelStoreProvider)[_novelId]?.markerPage,
+    );
+  }
+
+  /// Opening a novel of a series makes it the series' last read, for the
+  /// series page's 「继续」. Fire-and-forget: a lost record only hides the
+  /// button, but a broken store is logged.
+  void _recordSeries(String accountId) {
+    final seriesId = _container.read(novelStoreProvider)[_novelId]?.seriesId;
+    if (seriesId == null) return;
+    unawaited(
+      _container
+          .read(novelSeriesLastReadStoreProvider)
+          .write(accountId, seriesId, _novelId)
+          .then(
+            (_) => _container.invalidate(novelSeriesLastReadProvider(seriesId)),
+          )
+          .catchError((Object error, _) {
+            log('novel series last read not remembered: $error');
+          }),
     );
   }
 
