@@ -84,8 +84,19 @@ String _code(String src) {
       blank(i, to);
       i = to;
     } else if (src.startsWith('/*', i)) {
-      final end = src.indexOf('*/', i + 2);
-      final to = end < 0 ? src.length : end + 2;
+      // Block comments nest.
+      var to = i + 2;
+      for (var depth = 1; depth > 0 && to < src.length;) {
+        if (src.startsWith('/*', to)) {
+          depth++;
+          to += 2;
+        } else if (src.startsWith('*/', to)) {
+          depth--;
+          to += 2;
+        } else {
+          to++;
+        }
+      }
       blank(i, to);
       i = to;
     } else if (c == "'" || c == '"') {
@@ -243,6 +254,7 @@ void main() {
     // A call spelled in a string is text, not a call; a `//` in a string
     // starts no comment that would hide the code after it.
     expect(passes("final note = 'LabelFit.group(';\n"), isTrue);
+    expect(passes('/* a /* nested */ LabelFit.group( */\n'), isTrue);
     expect(
       passes(
         "$locale\nfinal url = 'https://example.test';\nfinal raw = base;\n"
