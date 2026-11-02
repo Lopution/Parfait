@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/entity/illust_store.dart';
@@ -29,11 +30,13 @@ Future<void> _pumpPager(
   required IllustPagerSource source,
   required int initialId,
   Size surface = const Size(390, 844),
+  TransitionBuilder? builder,
 }) async {
   setViewSize(tester, surface);
   await tester.pumpWidget(
     localizedApp(
       container: container,
+      builder: builder,
       home: IllustDetailPagerPage(source: source, initialIllustId: initialId),
     ),
   );
@@ -99,6 +102,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(_page(tester), 0);
   });
+
+  for (final reduce in [false, true]) {
+    testWidgets('a page built where a swipe settles fades in around its '
+        'image${reduce ? ', at once under reduced motion' : ''}', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      container.read(illustStoreProvider).mergeAll([
+        for (final id in [42, 43, 44, 45]) parseIllust(illustJson(id)),
+      ]);
+      final source = IllustPagerSource()..update(const [42, 43, 44, 45]);
+      await _pumpPager(
+        tester,
+        container,
+        source: source,
+        initialId: 42,
+        builder: (context, child) => MotionScope(reduce: reduce, child: child!),
+      );
+      Finder standIn(int id) =>
+          find.byKey(ValueKey('pager-stand-in-$id'), skipOffstage: false);
+      double opacity(int id) =>
+          tester.widget<FadeTransition>(standIn(id)).opacity.value;
+      // The route's own page shows at once.
+      expect(standIn(42), findsNothing);
+      expect(_detail(44), findsNothing);
+
+      // One scroll past the built neighbour lands on a page not built.
+      final controller = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      unawaited(
+        controller.animateToPage(
+          2,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.linear,
+        ),
+      );
+      await _pumpUntil(tester, () => _detail(44).evaluate().isNotEmpty);
+      final detail = tester.state(_detail(44));
+      if (reduce) {
+        expect(standIn(44), findsNothing);
+      } else {
+        // The stand-in covers the frame that builds the page, then fades.
+        expect(opacity(44), 1);
+        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(opacity(44), inExclusiveRange(0, 1));
+      }
+
+      await tester.pumpAndSettle();
+      expect(standIn(44), findsNothing);
+      expect(tester.state(_detail(44)), same(detail));
+      // A neighbour joins off screen, without a fade.
+      expect(_detail(45), findsOneWidget);
+      expect(standIn(45), findsNothing);
+    });
+  }
 
   // Android's ViewPager turns a page only on a drag at least twice as
   // horizontal as vertical; a swipe leaning further scrolls the detail.
