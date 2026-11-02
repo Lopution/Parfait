@@ -90,10 +90,10 @@ void main() {
         ),
       ),
     );
-    expect(
-      tester.getRect(find.text('展开')).right,
-      tester.getRect(find.byType(Column)).right,
-    );
+    final column = tester.getRect(find.byType(Column));
+    expect(tester.getRect(find.text('展开')).right, column.right);
+    // The fade's mask spans the width too, clearing just before the label.
+    expect(tester.getSize(find.byType(ShaderMask)).width, column.width);
   });
 
   testWidgets('a link stays tappable while collapsed', (tester) async {
