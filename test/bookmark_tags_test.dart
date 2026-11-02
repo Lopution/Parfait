@@ -526,14 +526,22 @@ void main() {
     testWidgets('a novel filter that matches nothing keeps the list tail', (
       tester,
     ) async {
+      var nextPages = 0;
       final container = await _makeContainer(_users(), {
-        '/v1/user/bookmarks/novel': (request) =>
-            request.url.queryParameters.containsKey('offset')
-            ? failing(503)(request)
-            : jsonResponse({
-                'novels': [novelJson(1, title: 'Blue Sky')],
-                'next_url': nextUrl(request, 30),
-              }),
+        '/v1/user/bookmarks/novel': (request) {
+          if (!request.url.queryParameters.containsKey('offset')) {
+            return jsonResponse({
+              'novels': [novelJson(1, title: 'Blue Sky')],
+              'next_url': nextUrl(request, 30),
+            });
+          }
+          // The next page fails once, then answers.
+          return ++nextPages == 1
+              ? failing(503)(request)
+              : jsonResponse(
+                  pageJson('novels', [novelJson(3, title: 'Blue Lagoon')]),
+                );
+        },
       });
       await tester.pumpWidget(
         _testApp(
@@ -548,11 +556,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('加载更多失败'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'no matching work');
+      await tester.enterText(find.byType(TextField), 'lagoon');
       await tester.pump();
       expect(find.text('已加载内容中无匹配'), findsOneWidget);
-      // Below the centred empty state, a scroll away.
+      // The failed tail stays below the centred empty state; scrolling to
+      // it pages on and finds the match.
       expect(find.text('加载更多失败', skipOffstage: false), findsOneWidget);
+      await tester.drag(find.text('已加载内容中无匹配'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(find.text('Blue Lagoon'), findsOneWidget);
+      expect(nextPages, 2);
     });
 
     test(
