@@ -109,14 +109,15 @@ void main() {
     ),
   ]) {
     group(pipeline().name, () {
-      testWidgets('a transient failure retries after 1 s and 3 s and then '
-          'shows the image', (tester) async {
+      // A stall the retry fixed flashed a broken icon first.
+      testWidgets('a transient failure retries after 1 s and 3 s, looking '
+          'like it loads, then shows the image', (tester) async {
         final network = pipeline()
           ..script = (attempt) =>
               attempt < 3 ? _Outcome.transient : _Outcome.image;
         await _pump(tester, network);
         expect(network.requests, 1);
-        expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
         expect(find.byIcon(Icons.refresh), findsNothing);
 
         await tester.pump(const Duration(milliseconds: 900));
@@ -124,6 +125,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         await _settle(tester);
         expect(network.requests, 2);
+        expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
 
         await tester.pump(const Duration(seconds: 3));
         await _settle(tester);
@@ -146,15 +148,13 @@ void main() {
             _ => _Outcome.image,
           };
         await _pump(tester, network);
-        bool failed(int attempt) =>
-            network.requests == attempt &&
-            find.byIcon(Icons.broken_image_outlined).evaluate().isNotEmpty;
-        expect(failed(1), isTrue);
-
-        await tester.pump(const Duration(seconds: 1));
-        await pumpIoUntil(tester, () => failed(2));
-        await tester.pump(const Duration(seconds: 3));
-        await pumpIoUntil(tester, () => _painted(tester));
+        // Frames of 100 ms carry the 1 s and 3 s backoffs.
+        await pumpIoUntil(
+          tester,
+          () => _painted(tester),
+          step: const Duration(milliseconds: 100),
+          rounds: 120,
+        );
         expect(network.requests, 3, reason: 'not answered from the disk');
       });
 
