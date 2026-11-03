@@ -332,10 +332,19 @@ void main() {
   });
 
   group('stream idle guard', () {
-    test('send() surfaces a headers timeout for image clients', () async {
+    // rhttp's transfer, and its socket, outlive an abandoned exchange until
+    // the server sends again; only the request's abort ends them.
+    Future<void> aborted(http.BaseRequest request) =>
+        (request as http.Abortable).abortTrigger!.timeout(
+          const Duration(seconds: 5),
+        );
+
+    test('send() surfaces a headers timeout for image clients, aborting '
+        'the request', () async {
+      final inner = NeverSendClient();
       final policy = NetworkAccessPolicy(
         imageHeadersTimeout: const Duration(milliseconds: 50),
-        clientFactory: (_, _, _) => NeverSendClient(),
+        clientFactory: (_, _, _) => inner,
       );
       addTearDown(policy.dispose);
       final client = policy.clientFor(
@@ -348,6 +357,7 @@ void main() {
         client.get(Uri.parse('https://i.pximg.net/a.jpg')),
         throwsA(isA<TimeoutException>()),
       );
+      await aborted(inner.requests.single);
     });
 
     // An image body from [inner], behind a 50 ms idle timeout.
@@ -381,6 +391,47 @@ void main() {
           read(await stalledBody()),
           throwsA(isA<TimeoutException>()),
         );
+      });
+    }
+
+    // rhttp's cancel waits for Rust's next event, and a `.map` under
+    // `await for` (the worker's cache write) handed the idle timeout on
+    // only once that cancel ended: stalled images failed 15–30 s late.
+    test(
+      'a mapped body errors after an idle gap though its cancel waits',
+      () async {
+        final rust = RustBodyClient();
+        final body = (await guardedBody(rust)).map((chunk) => chunk);
+        rust.port.add([1]);
+        await expectLater(
+          Future(() async {
+            await for (final _ in body) {}
+          }).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw StateError('the idle timeout was held'),
+          ),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
+    for (final (name, abandon) in [
+      (
+        'it idles',
+        (Stream<List<int>> body) =>
+            body.drain<void>().then((_) {}, onError: (Object _) {}),
+      ),
+      (
+        'its reader cancels',
+        (Stream<List<int>> body) => body.listen(null).cancel(),
+      ),
+    ]) {
+      test('an abandoned body aborts its request: $name', () async {
+        final rust = RustBodyClient();
+        final body = await guardedBody(rust);
+        rust.port.add([1]);
+        await abandon(body);
+        await aborted(rust.requests.single);
       });
     }
 

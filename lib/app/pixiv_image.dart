@@ -21,6 +21,7 @@ import '../core/image/jpeg_edge_safe_resize_image.dart';
 import '../core/image/lane_permit_gate.dart';
 import '../core/image/worker_image_provider.dart';
 import '../core/log.dart';
+import '../core/network/network_restore_signal.dart';
 import '../l10n/app_localizations.dart';
 import 'widgets/image_load_progress.dart';
 
@@ -658,11 +659,16 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   Timer? _retryTimer;
   var _retryScheduled = false;
 
+  /// The entry on screen as a failure a retry can fix, for a regained
+  /// network to reload; null once a reload starts.
+  _HistoryEntry? _fixableFailure;
+
   void _resetRetry() {
     _retryTimer?.cancel();
     _retryTimer = null;
     _retryScheduled = false;
     _attempt = 0;
+    _fixableFailure = null;
   }
 
   @override
@@ -752,28 +758,33 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     _progressListener = null;
   }
 
-  /// A transient failure retries on its own up to [_retryBackoff].length
-  /// times; a permanent or exhausted one offers a manual retry when the box
-  /// is large enough for a button.
-  Widget _errorView(Object error, _HistoryEntry entry, ImageWorker worker) {
-    const broken = Icon(Icons.broken_image_outlined);
+  /// Notes a failure and schedules its automatic retry: a transient one
+  /// retries on its own up to [_retryBackoff].length times. False when it
+  /// is permanent or the retries are spent.
+  bool _retrying(Object error, _HistoryEntry entry, ImageWorker worker) {
     final status = error is FetchFailure ? error.statusCode : null;
-    final permanent = _permanentStatuses.contains(status);
-    if (!permanent && _attempt < _retryBackoff.length) {
-      if (!_retryScheduled) {
-        _retryScheduled = true;
-        final delay = _retryBackoff[_attempt];
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          // A URL change in the meantime reset the schedule.
-          if (!mounted || !_retryScheduled) return;
-          _retryTimer = Timer(delay, () {
-            _retryTimer = null;
-            _reload(entry, worker, automatic: true);
-          });
+    if (_permanentStatuses.contains(status)) return false;
+    _fixableFailure = entry;
+    if (_attempt >= _retryBackoff.length) return false;
+    if (!_retryScheduled) {
+      _retryScheduled = true;
+      final delay = _retryBackoff[_attempt];
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // A URL change in the meantime reset the schedule.
+        if (!mounted || !_retryScheduled) return;
+        _retryTimer = Timer(delay, () {
+          _retryTimer = null;
+          _reload(entry, worker, automatic: true);
         });
-      }
-      return broken;
+      });
     }
+    return true;
+  }
+
+  /// A permanent or exhausted failure offers a manual retry when the box is
+  /// large enough for a button.
+  Widget _errorView(_HistoryEntry entry, ImageWorker worker) {
+    const broken = Icon(Icons.broken_image_outlined);
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < _retryButtonMinSize ||
@@ -815,6 +826,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         setState(() {
           _attempt = automatic ? _attempt + 1 : 0;
           _retryScheduled = false;
+          _fixableFailure = null;
           _load++;
         });
       }),
@@ -944,10 +956,23 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         : Duration.zero;
     Widget placeholder(BuildContext _) =>
         transitionPlaceholder ?? ColoredBox(color: placeholderColor);
-    Widget failed(Object error) => ColoredBox(
-      color: placeholderColor,
-      child: _errorView(error, current, worker),
-    );
+    // An image waiting for its retry still reads as loading: a stall the
+    // retry fixes never flashes the broken icon.
+    Widget failed(BuildContext context, Object error) =>
+        _retrying(error, current, worker)
+        ? placeholder(context)
+        : ColoredBox(
+            color: placeholderColor,
+            child: _errorView(current, worker),
+          );
+    // A regained network reloads a failure it may have caused at once,
+    // spent retries included (HCI 9, as the feeds do).
+    ref.listen(networkRestoreSignalProvider, (_, _) {
+      final failure = _fixableFailure;
+      if (failure == null) return;
+      _resetRetry();
+      _reload(failure, worker, automatic: false);
+    });
     final image = LayoutBuilder(
       builder: (context, constraints) {
         // Under loose constraints (the detail page's unbounded-height
@@ -984,7 +1009,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
             );
           },
           placeholderBuilder: placeholder,
-          errorBuilder: (_, error, _) => failed(error),
+          errorBuilder: (context, error, _) => failed(context, error),
           // Keeps the last frame while a different URL or tier resolves: a
           // hand-off never flashes the placeholder.
           gaplessPlayback: true,

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -7,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/network/network_restore_signal.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
@@ -109,14 +111,15 @@ void main() {
     ),
   ]) {
     group(pipeline().name, () {
-      testWidgets('a transient failure retries after 1 s and 3 s and then '
-          'shows the image', (tester) async {
+      // A stall the retry fixed flashed a broken icon first.
+      testWidgets('a transient failure retries after 1 s and 3 s, looking '
+          'like it loads, then shows the image', (tester) async {
         final network = pipeline()
           ..script = (attempt) =>
               attempt < 3 ? _Outcome.transient : _Outcome.image;
         await _pump(tester, network);
         expect(network.requests, 1);
-        expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
         expect(find.byIcon(Icons.refresh), findsNothing);
 
         await tester.pump(const Duration(milliseconds: 900));
@@ -124,6 +127,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         await _settle(tester);
         expect(network.requests, 2);
+        expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
 
         await tester.pump(const Duration(seconds: 3));
         await _settle(tester);
@@ -146,15 +150,13 @@ void main() {
             _ => _Outcome.image,
           };
         await _pump(tester, network);
-        bool failed(int attempt) =>
-            network.requests == attempt &&
-            find.byIcon(Icons.broken_image_outlined).evaluate().isNotEmpty;
-        expect(failed(1), isTrue);
-
-        await tester.pump(const Duration(seconds: 1));
-        await pumpIoUntil(tester, () => failed(2));
-        await tester.pump(const Duration(seconds: 3));
-        await pumpIoUntil(tester, () => _painted(tester));
+        // Frames of 100 ms carry the 1 s and 3 s backoffs.
+        await pumpIoUntil(
+          tester,
+          () => _painted(tester),
+          step: const Duration(milliseconds: 100),
+          rounds: 120,
+        );
         expect(network.requests, 3, reason: 'not answered from the disk');
       });
 
@@ -194,6 +196,45 @@ void main() {
         // flutter_test fails the test if the backoff timer is still pending.
         expect(network.requests, 1);
       });
+    });
+  }
+
+  // HCI 9: a regained network may fix what losing it broke; a missing
+  // image stays missing.
+  for (final (outcome, reloads) in [
+    (_Outcome.transient, true),
+    (_Outcome.notFound, false),
+  ]) {
+    testWidgets('a regained network reloads a failed image: ${outcome.name}', (
+      tester,
+    ) async {
+      final network =
+          _Pipeline(
+              'capped',
+              const PixivImage(url: _cappedUrl, memCacheWidth: 200),
+            )
+            ..script = (attempt) => switch (outcome) {
+              _Outcome.transient when attempt > 5 => _Outcome.image,
+              _ => outcome,
+            };
+      await _pump(tester, network);
+      for (final wait in const [1, 3, 8]) {
+        await tester.pump(Duration(seconds: wait));
+        await _settle(tester);
+      }
+      final asked = network.requests;
+      ProviderScope.containerOf(
+          tester.element(find.byType(PixivImage)),
+        ).read(networkRestoreSignalProvider.notifier)
+        ..observe(offlineNetworkIdentity)
+        ..observe('wifi');
+      await _settle(tester);
+      expect(network.requests, asked + (reloads ? 1 : 0));
+      if (!reloads) return;
+      // The retries start over: the failed reload tries again on its own.
+      await tester.pump(const Duration(seconds: 1));
+      await pumpIoUntil(tester, () => _painted(tester));
+      expect(network.requests, 6);
     });
   }
 }

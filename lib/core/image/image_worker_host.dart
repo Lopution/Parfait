@@ -136,6 +136,10 @@ class ImageWorkerHost {
   final _segmentedFetches = <SegmentedFetch>{};
 
   NetworkAccessPolicy? _policy;
+
+  /// Bumped when the policy is rebuilt or moves to a new network identity:
+  /// either closes the route pools that requests in flight are using.
+  var _network = 0;
   http.Client? _imageClient;
   ImageMirror _mirror = ImageMirror.direct;
   Set<String> _allowlist = const {};
@@ -298,8 +302,10 @@ class ImageWorkerHost {
       _policy = _buildPolicy(next, allowlist);
       _policy!.onImageHostExhausted = (host) =>
           _send(RouteExhaustedEvent(host));
+      _network++;
     } else if (next.networkIdentity != previous.networkIdentity) {
       _policy!.advanceNetworkRevision(networkIdentity: next.networkIdentity);
+      _network++;
       _routeMemoryState.reseed(
         learnedFastRoutes: next.learnedFastRoutes,
         routeKinds: next.routeKinds,
@@ -337,11 +343,27 @@ class ImageWorkerHost {
   static bool _isOriginal(String url) =>
       Uri.parse(url).path.contains(_segmentedPath);
 
-  /// The single admitted-flight body: one policy GET (an original: its
-  /// ranges), then an atomic commit into the cache. Called by the scheduler
-  /// only after the fetch holds its lane permit; [cancel] ends every
-  /// request of the transfer, and the partial file is deleted.
+  /// The admitted-flight body: [_download], sent once more when the
+  /// network changed under it. The change closed the pools it was using,
+  /// a failure the visible image should not spend a retry on; whatever
+  /// the second attempt meets surfaces. Called by the scheduler only after
+  /// the fetch holds its lane permit.
   Future<(File, int)> _fetch(String url, NetworkCancelSignal cancel) async {
+    final network = _network;
+    try {
+      return await _download(url, cancel);
+    } on ImageHttpStatus {
+      rethrow;
+    } on Object {
+      if (cancel.isCancelled || network == _network) rethrow;
+      return _download(url, cancel);
+    }
+  }
+
+  /// One policy GET (an original: its ranges), then an atomic commit into
+  /// the cache. [cancel] ends every request of the transfer, and the
+  /// partial file is deleted.
+  Future<(File, int)> _download(String url, NetworkCancelSignal cancel) async {
     // A flight for the URL may have committed between this request's own
     // lookup and its submit; the re-check is a stat, the miss a download.
     final cached = await _cache.lookup(url);

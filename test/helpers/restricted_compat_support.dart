@@ -106,9 +106,13 @@ class GateFailureClient extends http.BaseClient {
 
 /// send() never resolves — simulates a socket that stalls before headers.
 class NeverSendClient extends http.BaseClient {
+  final requests = <http.BaseRequest>[];
+
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) =>
-      Completer<http.StreamedResponse>().future;
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    requests.add(request);
+    return Completer<http.StreamedResponse>().future;
+  }
 }
 
 /// Emits [bytes] of body then stalls forever — a mid-body connection stall.
@@ -142,10 +146,13 @@ class RustBodyClient extends http.BaseClient {
   // through a cancel, as rhttp's does.
   // ignore: close_sinks
   final port = StreamController<Object>();
+  final requests = <http.BaseRequest>[];
 
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
-      http.StreamedResponse(_body(), 200, request: request);
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    return http.StreamedResponse(_body(), 200, request: request);
+  }
 
   Stream<List<int>> _body() async* {
     await for (final message in port.stream) {

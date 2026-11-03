@@ -135,8 +135,14 @@ reviewed: 2026-10-26
 ### IMG-08 Retry belongs to the visible image
 - **Rule:** A failed preload is not retried and never reported through
   `FlutterError.onError`. The visible `PixivImage` retries a transient
-  failure after 1 s, 3 s and 8 s, then shows a retry button; 403, 404 and
-  410 are permanent. A retry evicts the key the widget resolves: the
+  failure after 1 s, 3 s and 8 s, showing what it shows while loading
+  until then, and then a retry button; 403, 404 and 410 are permanent and
+  show the button at once. A regained network
+  (`networkRestoreSignalProvider`) reloads a transient failure at once,
+  spent retries included, with the count reset. A fetch the worker's
+  network changed under (a new identity or a rebuilt policy closes the
+  pools in use) is sent once more inside the worker, so the change costs
+  the widget no retry. A retry evicts the key the widget resolves: the
   `ResizeImage` wrapping, or the `BlurredImage` around it. A file whose
   header or any frame fails to decode is dropped from the worker's disk
   cache (`ImageFetcher.discard`) before the error surfaces, so the retry
@@ -144,9 +150,12 @@ reviewed: 2026-10-26
 - **Why:** Preload failures flooded the crash log; evicting the bare
   provider key missed the cached error, so retry did nothing. An error
   page served with 200, or a body cut short, was cached under the image
-  URL and answered every retry; a cut body fails only at its frame.
-- **Check:** `test/pixiv_image_retry_test.dart` "three failed retries end in a manual retry button" "a missing image is asked for once; the button asks again" "bytes that do not decode are downloaded again", `test/pixiv_image_preload_test.dart`
-- **Code:** `lib/app/pixiv_image.dart`, `lib/core/image/worker_image_provider.dart`
+  URL and answered every retry; a cut body fails only at its frame. A
+  stall that the first retry fixed flashed a broken icon first, and
+  images that failed while the device was offline stayed broken after it
+  came back. A network switch failed every image in flight at once.
+- **Check:** `test/pixiv_image_retry_test.dart` "a transient failure retries after 1 s and 3 s, looking" "three failed retries end in a manual retry button" "a missing image is asked for once; the button asks again" "bytes that do not decode are downloaded again" "a regained network reloads a failed image", `test/pixiv_image_preload_test.dart`, `test/image_worker_host_test.dart` "a fetch the network changed under is sent once more" "a fetch failing on the same network fails at once"
+- **Code:** `lib/app/pixiv_image.dart`, `lib/core/image/worker_image_provider.dart`, `lib/core/image/image_worker_host.dart`
 
 ## Tests
 
