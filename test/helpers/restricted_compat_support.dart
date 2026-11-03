@@ -12,7 +12,9 @@ class FakeClient extends http.BaseClient {
   FakeClient({this.failure, this.statusCode = 200, this.body = '{}'});
 
   final Object? failure;
-  final int statusCode;
+
+  /// The status of every answer from here on.
+  int statusCode;
   final String body;
   final requests = <http.BaseRequest>[];
 

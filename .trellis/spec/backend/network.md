@@ -269,8 +269,9 @@ reviewed: 2026-10-29
   hosts every range of a transfer shares one `ImageRoutePin`: the first
   range sets its route, the others go there alone, and a failure there is
   the range's own (NET-16). A candidate that answered a `Range` with the
-  whole file is marked per network; a resumed download tries marked
-  candidates last, a range from byte 0 ignores the mark. Extra connections
+  whole file is marked per network until it serves a range; a resumed
+  download tries marked candidates last, a range from byte 0 ignores the
+  mark. Extra connections
   come from the isolate's `SegmentBudget` (main isolate one provider,
   limit 6; image worker its own, limit 3).
 - **Why:** Stitching a mismatched range mixed two files; per-factory

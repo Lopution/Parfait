@@ -901,15 +901,15 @@ void main() {
       );
 
       test('a resumed transfer tries last a route that sent a whole file '
-          'for a range', () async {
+          'for a range, until it serves one', () async {
         final sent = <String>[];
+        final upstream = FakeClient();
         final policy = NetworkAccessPolicy(
           resolver: FakeEchResolver(
             [InternetAddress('1.2.3.80')],
             frontAddresses: [InternetAddress('1.2.3.81')],
           ),
-          clientFactory: (route, _, _) =>
-              RouteLogClient(route, sent, FakeClient()),
+          clientFactory: (route, _, _) => RouteLogClient(route, sent, upstream),
         );
         final client = _imageClient(policy);
         final uri = Uri.parse('https://i.pximg.net/img-original/img/x_p0.png');
@@ -923,10 +923,13 @@ void main() {
         }
 
         await get('bytes=0-99');
+        upstream.statusCode = 206;
         await get('bytes=100-199', resuming: true);
-        // From the first byte, a whole file is as good as a range.
+        // From the first byte, a whole file is as good as a range; this
+        // time the route serves one, and a resume goes there again.
         await get('bytes=0-99');
-        expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81']);
+        await get('bytes=100-199', resuming: true);
+        expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81', '1.2.3.81']);
       });
 
       test('a network starts on the route that served it last time', () async {
