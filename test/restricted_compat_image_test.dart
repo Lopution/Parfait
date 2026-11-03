@@ -10,6 +10,7 @@ import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/auto_image_source.dart';
 import 'package:parfait/core/network/compat/image_route_score_store.dart';
+import 'package:parfait/core/network/compat/image_route_scores.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
@@ -855,6 +856,77 @@ void main() {
         await get(background: true);
         await get();
         expect(sent, ['162.159.152.4', '1.2.3.81']);
+      });
+
+      test(
+        'every range of a transfer keeps to the route of its first',
+        () async {
+          final sent = <String>[];
+          final front = ScriptedClient([
+            null,
+            null,
+            const SocketException('refused'),
+          ]);
+          final policy = NetworkAccessPolicy(
+            resolver: FakeEchResolver(
+              [InternetAddress('1.2.3.80')],
+              frontAddresses: [InternetAddress('1.2.3.81')],
+            ),
+            clientFactory: (route, _, _) => RouteLogClient(
+              route,
+              sent,
+              route.address?.address == '1.2.3.81' ? front : FakeClient(),
+            ),
+          );
+          final client = _imageClient(policy);
+          final uri = Uri.parse(
+            'https://i.pximg.net/img-original/img/x_p0.png',
+          );
+          final pin = ImageRoutePin();
+          Future<void> get([ImageRoutePin? pin]) =>
+              client.send(ImageRequest('GET', uri, pin: pin));
+
+          await get(pin);
+          // The route turns bad: other loads leave it, the transfer stays,
+          // and a failure there is the transfer's own.
+          policy.recordImageRouteSample(
+            'initial',
+            ImageRouteSample.failure('ech:1.2.3.81', at: DateTime.now()),
+          );
+          await get();
+          await get(pin);
+          await expectLater(get(pin), throwsA(isA<SocketException>()));
+          expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81', '1.2.3.81']);
+        },
+      );
+
+      test('a resumed transfer tries last a route that sent a whole file '
+          'for a range', () async {
+        final sent = <String>[];
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          clientFactory: (route, _, _) =>
+              RouteLogClient(route, sent, FakeClient()),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-original/img/x_p0.png');
+        Future<void> get(String range, {bool resuming = false}) async {
+          final request = ImageRequest(
+            'GET',
+            uri,
+            pin: ImageRoutePin(resuming: resuming),
+          )..headers['range'] = range;
+          await (await client.send(request)).stream.drain<void>();
+        }
+
+        await get('bytes=0-99');
+        await get('bytes=100-199', resuming: true);
+        // From the first byte, a whole file is as good as a range.
+        await get('bytes=0-99');
+        expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81']);
       });
 
       test('a network starts on the route that served it last time', () async {

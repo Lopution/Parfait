@@ -12,7 +12,10 @@ import 'network_policy.dart';
 /// download exit shares the exact same decision and pool identity as the
 /// API/image exits.
 class PolicyDownloadTransport
-    implements DownloadTransport, DisposableDownloadTransport {
+    implements
+        DownloadTransport,
+        RoutedDownloadTransport,
+        DisposableDownloadTransport {
   PolicyDownloadTransport({
     required this.policy,
     this.imageMirror = ImageMirror.direct,
@@ -29,7 +32,22 @@ class PolicyDownloadTransport
     Uri url, {
     required Map<String, String> headers,
     required DownloadCancelToken cancelToken,
-  }) async {
+  }) => _open(url, headers, cancelToken, null);
+
+  @override
+  Future<DownloadResponse> openOn(
+    Uri url, {
+    required Map<String, String> headers,
+    required DownloadCancelToken cancelToken,
+    required ImageRoutePin pin,
+  }) => _open(url, headers, cancelToken, pin);
+
+  Future<DownloadResponse> _open(
+    Uri url,
+    Map<String, String> headers,
+    DownloadCancelToken cancelToken,
+    ImageRoutePin? pin,
+  ) async {
     final destination = policy.registry.require(
       imageMirror.rewrite(url),
       PixivDestinationPurpose.image,
@@ -40,6 +58,7 @@ class PolicyDownloadTransport
       // A download is a streamed GET with no body; a repeat is safe. The
       // ladder itself enforces eligibility (transport failures only).
       canReplay: true,
+      pin: pin,
       attempt: (route, routeUrl) async {
         try {
           return await _transportFor(

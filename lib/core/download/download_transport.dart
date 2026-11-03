@@ -51,6 +51,18 @@ abstract class DownloadTransport {
   });
 }
 
+/// Optional for transports that route pixiv's images: every range of one
+/// transfer opened with the same [ImageRoutePin] takes the route its first
+/// range took. Fakes do not need to implement it.
+abstract interface class RoutedDownloadTransport {
+  Future<DownloadResponse> openOn(
+    Uri url, {
+    required Map<String, String> headers,
+    required DownloadCancelToken cancelToken,
+    required ImageRoutePin pin,
+  });
+}
+
 /// Optional lifecycle contract for transports that own sockets or other
 /// native resources. Fakes do not need to implement it.
 abstract interface class DisposableDownloadTransport {

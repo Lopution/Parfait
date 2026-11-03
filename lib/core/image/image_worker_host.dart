@@ -419,19 +419,22 @@ class ImageWorkerHost {
   }
 
   /// An original file: its first range, then the rest in parallel ranges
-  /// when the server answers a sized 206 from byte 0. A 200 (`Range`
-  /// ignored) is the whole file; anything else fails like any image. The
-  /// worker sends no conditional headers, so every range asks the same.
+  /// when the server answers a sized 206 from byte 0, all on the route of
+  /// the first. A 200 (`Range` ignored) is the whole file; anything else
+  /// fails like any image. The worker sends no conditional headers, so
+  /// every range asks the same.
   Future<(_Body, SegmentedFetch?)> _openInRanges(
     Uri uri,
     NetworkCancelSignal cancel, {
     required bool background,
   }) async {
+    final pin = ImageRoutePin();
     final first = await _request(
       uri,
       range: (0, SegmentedFetch.defaultSegmentBytes - 1),
       cancel: cancel,
       background: background,
+      pin: pin,
     );
     final range = parseContentRange(first.headers['content-range']);
     final total = range?.total;
@@ -453,6 +456,7 @@ class ImageWorkerHost {
               ifRange: ifRange,
               cancel: cancel,
               background: background,
+              pin: pin,
             ),
           ),
       budget: _segmentBudget,
@@ -470,12 +474,14 @@ class ImageWorkerHost {
     String? ifRange,
     NetworkCancelSignal? cancel,
     required bool background,
+    ImageRoutePin? pin,
   }) {
     final request = ImageRequest(
       'GET',
       uri,
       abortTrigger: cancel?.whenCancel,
       background: background,
+      pin: pin,
     )..headers.addAll(PixivHeaders.image());
     if (range case (final start, final end)) {
       request.headers['range'] = 'bytes=$start-$end';

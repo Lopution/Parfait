@@ -42,7 +42,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// TLS handshake), so a request that may have reached the server (HTTP
   /// response, timeout after send) is never repeated. A [background]
   /// request (a prefetch) to pixiv's image hosts may explore a candidate
-  /// route no recent load has tried.
+  /// route no recent load has tried; a [pin] keeps the ranges of one of
+  /// their transfers on one route.
   Future<T> runLadder<T>({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
@@ -50,6 +51,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
     bool raceWhenCold = false,
     bool background = false,
+    ImageRoutePin? pin,
   }) async {
     _checkUsable();
     final host = destination.canonicalHost;
@@ -68,6 +70,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         attempt: attempt,
         raceWhenCold: raceWhenCold,
         background: background,
+        pin: _isPixivImage(destination) ? pin : null,
       );
     } on Object {
       // A mirror/auto-source host that exhausted every tier is reported so
@@ -95,8 +98,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
     required bool raceWhenCold,
     required bool background,
+    required ImageRoutePin? pin,
   }) async {
     final host = destination.canonicalHost;
+    final pinned = pin?.route != null;
     final attemptedKeys = <String>{};
     final attemptedKinds = <NetworkRouteKind>{};
     // Shared by every tier and selection of this request, failure
@@ -140,6 +145,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           resolveHost: resolveHost,
           useMemory: useMemory,
           explore: explore,
+          pin: pin,
         );
       } on Object catch (error, stackTrace) {
         Error.throwWithStackTrace(error, stackTrace);
@@ -155,6 +161,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           attempt,
           cancelSignal,
         );
+        if (pin != null && !pinned) {
+          pin.route =
+              _imageCandidateKey(route.kind, route.address) ?? route.kind.name;
+        }
         return result;
       } on Object catch (error, stackTrace) {
         policyRecord(destination, route, error, businessTimer.elapsed);
@@ -167,7 +177,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         }
         if (_mode == NetworkMode.directOnly ||
             (cancelSignal?.isCancelled ?? false) ||
-            !eligible) {
+            !eligible ||
+            pinned) {
           Error.throwWithStackTrace(error, stackTrace);
         }
         // Advance to the next candidate. [attemptedKinds] already contains
@@ -211,6 +222,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     bool useMemory = true,
     bool remember = true,
     bool explore = false,
+    ImageRoutePin? pin,
   }) async {
     final host = destination.canonicalHost;
     final now = clock();
@@ -236,6 +248,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         attemptedKinds: attemptedKinds,
         resolveHost: resolveHost,
         explore: explore,
+        pin: pin,
       );
     }
 
@@ -339,6 +352,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// [_imageScores], then `dohRealSni` and `direct`; each candidate and
   /// tier once per request. A candidate that cannot be built (no ECH
   /// config) is left out. Only a request's first selection may [explore].
+  /// A set [pin] allows its route alone; a resuming one tries last the
+  /// candidates that answered a `Range` with the whole file.
   Future<NetworkRoute> _selectImageRoute({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
@@ -346,12 +361,22 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required Set<NetworkRouteKind> attemptedKinds,
     required Future<ResolvedHost> Function() resolveHost,
     required bool explore,
+    required ImageRoutePin? pin,
   }) async {
+    final pinned = pin?.route;
     final candidates = await _imageCandidates(destination, cancelSignal);
-    final order = _imageScores.order(
-      candidates.keys.toList(growable: false),
-      background: explore,
-    );
+    var order = pinned != null
+        ? [if (candidates.containsKey(pinned)) pinned]
+        : _imageScores.order(
+            candidates.keys.toList(growable: false),
+            background: explore,
+          );
+    if (pin != null && pin.resuming && pinned == null) {
+      order = [
+        ...order.where(_imageScores.servesRanges),
+        ...order.where((candidate) => !_imageScores.servesRanges(candidate)),
+      ];
+    }
     for (final candidate in order) {
       if (attemptedKeys.add('candidate:$candidate')) {
         return candidates[candidate]!;
@@ -363,6 +388,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       NetworkRouteKind.dohRealSni,
       NetworkRouteKind.direct,
     ]) {
+      if (pinned != null && pinned != kind.name) continue;
       if (!attemptedKinds.add(kind)) continue;
       try {
         final route = kind == NetworkRouteKind.direct

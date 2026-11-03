@@ -14,6 +14,7 @@ import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/segmented_fetch.dart';
 import 'package:parfait/core/platform/android_platform_interfaces.dart';
 
@@ -36,7 +37,7 @@ Uint8List _bytes(int size) =>
 /// `Content-Range`, anything else (or every request when [honorRange] is
 /// false) the whole file. Body chunks from [holdFrom] on wait for
 /// [release].
-class _RangeTransport implements DownloadTransport {
+class _RangeTransport implements DownloadTransport, RoutedDownloadTransport {
   _RangeTransport(
     this.data, {
     this.honorRange = true,
@@ -55,6 +56,9 @@ class _RangeTransport implements DownloadTransport {
   /// Misreports the served range's start by this many bytes.
   final int shiftStart;
   final opens = <Map<String, String>>[];
+
+  /// The route pin of each [openOn].
+  final pins = <ImageRoutePin>[];
   int? holdFrom;
   var _hold = Completer<void>();
   var live = 0;
@@ -66,6 +70,17 @@ class _RangeTransport implements DownloadTransport {
     holdFrom = null;
     _hold.complete();
     _hold = Completer<void>();
+  }
+
+  @override
+  Future<DownloadResponse> openOn(
+    Uri url, {
+    required Map<String, String> headers,
+    required DownloadCancelToken cancelToken,
+    required ImageRoutePin pin,
+  }) {
+    pins.add(pin);
+    return open(url, headers: headers, cancelToken: cancelToken);
   }
 
   @override
@@ -729,6 +744,9 @@ void main() {
         everyElement('"v1"'),
       );
       expect(transport.peakLive, SegmentedFetch.defaultParallel);
+      // Every range keeps to the first one's route.
+      expect(transport.pins, hasLength(6));
+      expect(transport.pins.toSet().single.resuming, isFalse);
       // Progress counts bytes fetched ahead of the sink and never goes back.
       expect(aheadOfSink, isTrue);
       expect(shown, orderedEquals([...shown]..sort()));
@@ -769,6 +787,7 @@ void main() {
 
         transport
           ..opens.clear()
+          ..pins.clear()
           ..peakLive = 0
           ..release();
         final retried = manager.retry(task.id)!;
@@ -777,6 +796,7 @@ void main() {
         expect(stored(), transport.data);
         expect(transport.ranges, hasLength(3));
         expect(transport.ranges.first, 'bytes=${3 * _mib}-${4 * _mib - 1}');
+        expect(transport.pins.toSet().single.resuming, isTrue);
         expect(transport.peakLive, greaterThan(1));
         expect(
           manager.taskById(retried.id)!.receivedBytes,

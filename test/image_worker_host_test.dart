@@ -483,10 +483,15 @@ void main() {
       expect(client.ranges.first, 'bytes=0-${segment - 1}');
       expect(client.ranges, hasLength(4));
       expect(client.ranges, everyElement(isNotNull));
-      // Every range is a pixiv image request, not only the first.
+      // Every range is a pixiv image request, not only the first, and
+      // keeps to the first one's route.
       expect(
         client.requests.map((r) => r.headers['referer']),
         everyElement(PixivHeaders.image()['Referer']),
+      );
+      expect(
+        {for (final r in client.requests) (r as ImageRequest).pin},
+        [isNotNull],
       );
       final progress = harness.takeProgress();
       expect(progress, isNotEmpty);
