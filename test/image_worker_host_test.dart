@@ -142,6 +142,38 @@ class _Harness {
   }
 }
 
+/// [testImageWorkerConfig] on another network.
+const _otherNetwork = ImageWorkerConfig(
+  imageSource: 'i.pximg.net',
+  mode: 'directOnly',
+  networkIdentity: 'other-net',
+  echFrontHost: 'cloudflare-ech.com',
+  dohEndpoints: [],
+  bootstrapNoSniEnabled: true,
+);
+
+/// Its first answer's body breaks on [breakFirst], as when the route pool
+/// under it closes; every later request gets the image.
+class _FirstBodyBreaksClient extends http.BaseClient {
+  final _firstBody = StreamController<List<int>>();
+  var requests = 0;
+
+  void breakFirst() {
+    _firstBody.addError(http.ClientException('connection closed'));
+    unawaited(_firstBody.close());
+  }
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests++;
+    return http.StreamedResponse(
+      requests == 1 ? _firstBody.stream : Stream.value(onePixelPng),
+      200,
+      request: request,
+    );
+  }
+}
+
 /// A started harness whose worker fetches from a live local [PngServer].
 Future<_Harness> _served() async {
   final harness = _Harness();
@@ -258,6 +290,34 @@ void main() {
     final failure = event as FailureEvent;
     expect(failure.statusCode, 403);
   });
+
+  // A network change closes the route pools under every image in flight;
+  // each spent one of its visible image's retries on it.
+  for (final (name, change) in [
+    ('a fetch the network changed under is sent once more', true),
+    ('a fetch failing on the same network fails at once', false),
+  ]) {
+    test(name, () async {
+      final client = _FirstBodyBreaksClient();
+      final harness = _Harness();
+      addTearDown(harness.stop);
+      await harness.start(fetchClient: () => client);
+
+      harness.fetch(1, 'https://i.pximg.net/img-master/switch.jpg');
+      await pollUntil(() => client.requests == 1);
+      if (change) harness.worker.send(encodeConfig(_otherNetwork));
+      // Messages are handled in order: once this answers, the config is in
+      // force.
+      harness.worker.send(encodeRoutesRequest(9));
+      await harness.eventFor(9);
+      client.breakFirst();
+      expect(
+        await harness.eventFor(1),
+        change ? isA<ResultEvent>() : isA<FailureEvent>(),
+      );
+      expect(client.requests, change ? 2 : 1);
+    });
+  }
 
   test('a cancelled queued fetch never reaches the network', () async {
     final harness = await _served();
