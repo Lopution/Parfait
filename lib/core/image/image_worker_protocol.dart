@@ -10,6 +10,7 @@ library;
 import 'dart:io' show File;
 import 'dart:isolate' show SendPort;
 
+import '../network/compat/image_route_scores.dart';
 import 'lane_permit_gate.dart';
 
 /// Every knob the worker needs to rebuild the same `NetworkAccessPolicy`
@@ -27,6 +28,7 @@ class ImageWorkerConfig {
     this.localNetworkBlockedHosts = const {},
     this.learnedFastRoutes = const {},
     this.routeKinds = const {},
+    this.routeScores = const {},
   });
 
   /// Persisted `imageSource` setting (`i.pximg.net`, `auto`, a preset host
@@ -70,6 +72,10 @@ class ImageWorkerConfig {
   /// [networkIdentity].
   final Map<String, String> routeKinds;
 
+  /// What pixiv's image route candidates scored on [networkIdentity], from
+  /// the main isolate's store; it seeds the worker's board.
+  final Map<String, ImageRouteScore> routeScores;
+
   Map<String, Object?> toJson() => {
     'imageSource': imageSource,
     'autoWinnerHost': autoWinnerHost,
@@ -81,6 +87,10 @@ class ImageWorkerConfig {
     'localNetworkBlockedHosts': localNetworkBlockedHosts.toList(),
     'learnedFastRoutes': learnedFastRoutes,
     'routeKinds': routeKinds,
+    'routeScores': {
+      for (final MapEntry(:key, :value) in routeScores.entries)
+        key: value.toJson(),
+    },
   };
 
   static ImageWorkerConfig fromJson(Map<String, Object?> json) {
@@ -97,6 +107,11 @@ class ImageWorkerConfig {
       },
       learnedFastRoutes: (json['learnedFastRoutes'] as Map? ?? const {}).cast(),
       routeKinds: (json['routeKinds'] as Map? ?? const {}).cast(),
+      routeScores: {
+        for (final MapEntry(:key, :value)
+            in (json['routeScores'] as Map? ?? const {}).entries)
+          key as String: ?ImageRouteScore.fromJson(value),
+      },
     );
   }
 }
@@ -389,6 +404,27 @@ class RouteKindLearnedEvent extends WorkerEvent {
   final String kind;
 }
 
+/// A sample the worker's policy took of an image route candidate on
+/// [networkIdentity].
+class ImageRouteSampleEvent extends WorkerEvent {
+  const ImageRouteSampleEvent(this.networkIdentity, this.sample);
+  final String networkIdentity;
+  final ImageRouteSample sample;
+}
+
+/// [candidate] answered one of the worker's `Range` requests on
+/// [networkIdentity] with a range ([served]) or with the whole file.
+class ImageRouteRangesEvent extends WorkerEvent {
+  const ImageRouteRangesEvent(
+    this.networkIdentity,
+    this.candidate, {
+    required this.served,
+  });
+  final String networkIdentity;
+  final String candidate;
+  final bool served;
+}
+
 /// Every ladder tier on [host] was exhausted — forwarded from
 /// `NetworkAccessPolicy.onImageHostExhausted` so the main isolate can drop
 /// the auto-source winner and re-race, as it does for API traffic.
@@ -429,6 +465,22 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'group': group,
     'kind': kind,
   },
+  ImageRouteSampleEvent(:final networkIdentity, :final sample) => {
+    'type': 'imageRouteSample',
+    'networkIdentity': networkIdentity,
+    'sample': sample.toJson(),
+  },
+  ImageRouteRangesEvent(
+    :final networkIdentity,
+    :final candidate,
+    :final served,
+  ) =>
+    {
+      'type': 'imageRouteRanges',
+      'networkIdentity': networkIdentity,
+      'candidate': candidate,
+      'served': served,
+    },
   RouteExhaustedEvent(:final host) => {'type': 'routeExhausted', 'host': host},
   WorkerErrorEvent(:final message, :final stack) => {
     'type': 'workerError',
@@ -516,6 +568,15 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
       raw['networkIdentity'] as String,
       raw['group'] as String,
       raw['kind'] as String,
+    ),
+    'imageRouteSample' => ImageRouteSampleEvent(
+      raw['networkIdentity'] as String,
+      ImageRouteSample.fromJson((raw['sample'] as Map).cast()),
+    ),
+    'imageRouteRanges' => ImageRouteRangesEvent(
+      raw['networkIdentity'] as String,
+      raw['candidate'] as String,
+      served: raw['served'] as bool,
     ),
     'routeExhausted' => RouteExhaustedEvent(raw['host'] as String),
     'workerError' => WorkerErrorEvent(

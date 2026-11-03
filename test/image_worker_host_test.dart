@@ -11,6 +11,8 @@ import 'package:http/io_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
+import 'package:parfait/core/network/compat/image_route_scores.dart';
+import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/segmented_fetch.dart';
 import 'package:parfait/core/network/pixiv_headers.dart';
@@ -33,7 +35,9 @@ class _Harness {
   PngServer? server;
 
   Future<void> start({
+    ImageWorkerConfig config = testImageWorkerConfig,
     http.Client Function()? fetchClient,
+    NetworkClientFactory? clientFactory,
     DateTime Function()? clock,
   }) async {
     dir = Directory.systemTemp.createTempSync('parfait-worker-');
@@ -41,10 +45,11 @@ class _Harness {
     mainPort.listen((m) => _events.add(decodeWorkerEvent(m)));
     host = ImageWorkerHost(
       mainSendPort: mainPort.sendPort,
-      config: testImageWorkerConfig,
+      config: config,
       cacheDir: dir.path,
       transportInit: () async {},
       fetchClient: fetchClient,
+      clientFactory: clientFactory,
       clock: clock,
     );
     unawaited(host.run());
@@ -153,8 +158,17 @@ const _otherNetwork = ImageWorkerConfig(
   bootstrapNoSniEnabled: true,
 );
 
-/// Its first answer's body breaks on [breakFirst], as when the route pool
-/// under it closes; every later request gets the image.
+/// [testImageWorkerConfig] with pixiv's image routes on [network]: the
+/// origin only, as no ECH config is to be had.
+ImageWorkerConfig _routedOn(String network) => ImageWorkerConfig(
+  imageSource: 'i.pximg.net',
+  mode: 'automatic',
+  networkIdentity: network,
+  echFrontHost: 'cloudflare-ech.com',
+  dohEndpoints: const [],
+  bootstrapNoSniEnabled: true,
+);
+
 /// Answers every image GET with one byte, keeping the requests.
 class _RecordingImageClient extends http.BaseClient {
   final requests = <http.BaseRequest>[];
@@ -166,6 +180,8 @@ class _RecordingImageClient extends http.BaseClient {
   }
 }
 
+/// Its first answer's body breaks on [breakFirst], as when the route pool
+/// under it closes; every later request gets the image.
 class _FirstBodyBreaksClient extends http.BaseClient {
   final _firstBody = StreamController<List<int>>();
   var requests = 0;
@@ -350,6 +366,30 @@ void main() {
       [true, false],
     );
   });
+
+  test(
+    'route samples go back to the main isolate under their network',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.stop);
+      await harness.start(
+        config: _routedOn('home'),
+        clientFactory: (_, _, _) => _RecordingImageClient(),
+      );
+
+      harness.fetch(1, 'https://i.pximg.net/img-master/img/a_p0.jpg');
+      await harness.eventFor(1);
+      harness.worker.send(encodeConfig(_routedOn('cafe')));
+      harness.fetch(2, 'https://i.pximg.net/img-master/img/b_p0.jpg');
+      await harness.eventFor(2);
+      expect(
+        harness._received.whereType<ImageRouteSampleEvent>().map(
+          (e) => (e.networkIdentity, e.sample.candidate, e.sample.failed),
+        ),
+        [('home', 'origin', false), ('cafe', 'origin', false)],
+      );
+    },
+  );
 
   test('a cancelled queued fetch never reaches the network', () async {
     final harness = await _served();
@@ -568,7 +608,8 @@ void main() {
     expect((await harness.eventFor(4) as RoutesEvent).routes, isEmpty);
   });
 
-  test('watch, progress, lookup and route messages survive the wire', () {
+  test('watch, progress, lookup, route and config messages survive the '
+      'wire', () {
     for (final watching in [true, false]) {
       expect(
         decodeWorkerMessage(encodeWatch('u', watching: watching)),
@@ -595,6 +636,38 @@ void main() {
         {'h': 'ech'},
       ),
     );
+    expect(
+      decodeWorkerEvent(
+        encodeWorkerEvent(
+          const ImageRouteRangesEvent('home', 'origin', served: false),
+        ),
+      ),
+      isA<ImageRouteRangesEvent>().having(
+        (e) => (e.networkIdentity, e.candidate, e.served),
+        'fields',
+        ('home', 'origin', false),
+      ),
+    );
+    final score = ImageRouteScore(
+      cost: 0.5,
+      weight: 3,
+      failureShare: 0,
+      at: DateTime(2026, 11, 4),
+      servesRanges: false,
+    );
+    final config = ImageWorkerConfig.fromJson(
+      ImageWorkerConfig(
+        imageSource: 'i.pximg.net',
+        mode: 'automatic',
+        networkIdentity: 'home',
+        echFrontHost: 'cloudflare-ech.com',
+        dohEndpoints: const [],
+        bootstrapNoSniEnabled: true,
+        routeScores: {'origin': score},
+      ).toJson(),
+    );
+    expect(config.routeScores.keys, ['origin']);
+    expect(config.routeScores['origin']!.toJson(), score.toJson());
     for (final path in ['/cache/a', null]) {
       expect(
         decodeWorkerEvent(encodeWorkerEvent(CachedEvent(7, path))),

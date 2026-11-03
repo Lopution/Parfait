@@ -9,14 +9,19 @@ import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/auto_image_source.dart';
+import 'package:parfait/core/network/compat/image_route_score_store.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
 import 'package:parfait/core/network/compat/route_kind_store.dart';
+import 'package:parfait/core/network/compat/route_memory.dart';
 import 'package:parfait/core/settings/image_mirror.dart';
 
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+
 import 'helpers/restricted_compat_support.dart';
+import 'helpers/test_preferences.dart';
 
 /// An image client over [policy], which the test disposes.
 PixivPolicyHttpClient _imageClient(NetworkAccessPolicy policy) {
@@ -799,10 +804,18 @@ void main() {
     group('pixiv image route scores', () {
       // An image body behind a 50 ms idle timeout on the front 1.2.3.81 or
       // the seed front; [sent] logs which one each GET went to.
-      Future<Stream<List<int>>> Function({bool background}) imageGets(
-        List<String> sent,
-      ) {
+      ({
+        NetworkAccessPolicy policy,
+        Future<Stream<List<int>>> Function({bool background}) get,
+      })
+      imageGets(
+        List<String> sent, {
+        ImageRouteScoreMemory? scores,
+        String network = 'initial',
+      }) {
         final policy = NetworkAccessPolicy(
+          revision: NetworkRevision(0, networkIdentity: network),
+          imageRouteScoreStore: scores,
           resolver: FakeEchResolver(
             [InternetAddress('1.2.3.80')],
             frontAddresses: [InternetAddress('1.2.3.81')],
@@ -813,15 +826,18 @@ void main() {
         );
         final client = _imageClient(policy);
         final uri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
-        return ({bool background = false}) async => (await client.send(
-          ImageRequest('GET', uri, background: background),
-        )).stream;
+        return (
+          policy: policy,
+          get: ({bool background = false}) async => (await client.send(
+            ImageRequest('GET', uri, background: background),
+          )).stream,
+        );
       }
 
       test('a stalled body counts against its route; one given up does '
           'not', () async {
         final sent = <String>[];
-        final get = imageGets(sent);
+        final get = imageGets(sent).get;
 
         await (await get()).listen(null).cancel();
         await expectLater(
@@ -834,11 +850,48 @@ void main() {
 
       test('a prefetch may try another route; a visible load never', () async {
         final sent = <String>[];
-        final get = imageGets(sent);
+        final get = imageGets(sent).get;
 
         await get(background: true);
         await get();
         expect(sent, ['162.159.152.4', '1.2.3.81']);
+      });
+
+      test('a network starts on the route that served it last time', () async {
+        installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
+        final sent = <String>[];
+        final store = ImageRouteScoreStore(
+          preferences: SharedPreferencesAsync(),
+        );
+        await expectLater(
+          (await imageGets(
+            sent,
+            scores: store,
+            network: 'home',
+          ).get()).drain<void>(),
+          throwsA(isA<TimeoutException>()),
+        );
+        await store.flush();
+
+        // The next start, at home and elsewhere; then elsewhere turns
+        // into home.
+        final restarted = ImageRouteScoreStore(
+          preferences: SharedPreferencesAsync(),
+        );
+        final home = imageGets(sent, scores: restarted, network: 'home');
+        final elsewhere = imageGets(sent, scores: restarted, network: 'cafe');
+        await pumpEventQueue();
+        await home.get();
+        await elsewhere.get();
+        elsewhere.policy.advanceNetworkRevision(networkIdentity: 'home');
+        await pumpEventQueue();
+        await elsewhere.get();
+        expect(sent, [
+          '1.2.3.81',
+          '162.159.152.4',
+          '1.2.3.81',
+          '162.159.152.4',
+        ]);
       });
     });
 

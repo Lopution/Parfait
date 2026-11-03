@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart';
 
@@ -97,9 +98,11 @@ class ImageWorkerHost {
     required this.cacheDir,
     Future<void> Function()? transportInit,
     http.Client Function()? fetchClient,
+    @visibleForTesting NetworkClientFactory? clientFactory,
     DateTime Function()? clock,
   }) : _transportInit = transportInit ?? Rhttp.init,
        _fetchClient = fetchClient,
+       _clientFactory = clientFactory,
        _clock = clock ?? DateTime.now;
 
   final SendPort mainSendPort;
@@ -107,12 +110,16 @@ class ImageWorkerHost {
   final String cacheDir;
   final Future<void> Function() _transportInit;
   final http.Client Function()? _fetchClient;
+
+  /// The policy's transport per route, in place of rhttp.
+  final NetworkClientFactory? _clientFactory;
   final DateTime Function() _clock;
 
   final _inbox = ReceivePort();
   late final WorkerRouteMemoryState _routeMemoryState;
   late final WorkerFastRouteMemory _fastRoutes;
   late final WorkerRouteKindMemory _routeKinds;
+  late final WorkerImageRouteScoreMemory _routeScores;
   late final DiskImageCache _cache;
   late final ImageFetchScheduler<(File, int)> _scheduler;
 
@@ -265,6 +272,12 @@ class ImageWorkerHost {
       onRouteKindLearned: (identity, group, kind) =>
           _send(RouteKindLearnedEvent(identity, group, kind)),
     );
+    _routeScores = WorkerImageRouteScoreMemory(
+      onSample: (identity, sample) =>
+          _send(ImageRouteSampleEvent(identity, sample)),
+      onRanges: (identity, candidate, served) =>
+          _send(ImageRouteRangesEvent(identity, candidate, served: served)),
+    );
     return state;
   }
 
@@ -273,7 +286,8 @@ class ImageWorkerHost {
   /// - `networkIdentity` → `advanceNetworkRevision` on the live policy plus
   ///   a route-kind reseed (the new identity may have its own remembered
   ///   kinds); learned fast routes survive — they are bootstrap addresses,
-  ///   not per-network.
+  ///   not per-network. The image route scores of every config are
+  ///   current, and seed the board of a new policy or a new network.
   /// - resolver/policy inputs (mode, DoH endpoints, ECH host, allowlist)
   ///   → full policy rebuild, same as a provider rebuild on the main side.
   /// - `imageSource`/`autoWinnerHost` → mirror + client rewrite only; the
@@ -282,6 +296,7 @@ class ImageWorkerHost {
   void _applyConfig(ImageWorkerConfig next, {bool initial = false}) {
     final previous = config;
     config = next;
+    _routeScores.reseed(next.networkIdentity, next.routeScores);
     _mirror = next.imageSource == 'auto'
         ? ImageMirror.auto(next.autoWinnerHost)
         : ImageMirror.of(next.imageSource);
@@ -333,7 +348,9 @@ class ImageWorkerHost {
       localNetworkBlockedHosts: config.localNetworkBlockedHosts,
       fastRouteStore: _fastRoutes,
       routeKindStore: _routeKinds,
+      imageRouteScoreStore: _routeScores,
       dohEndpoints: config.dohEndpoints,
+      clientFactory: _clientFactory,
     );
   }
 

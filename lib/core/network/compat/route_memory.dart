@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'image_route_scores.dart';
+
 /// Read/write contract for the compatibility-tier host-address memory.
 ///
 /// The interface exists so the image worker isolate can run the same
@@ -22,4 +24,23 @@ abstract interface class RouteKindMemory {
 
   /// Remembers that [kind] won for [group] on [networkIdentity].
   Future<void> remember(String networkIdentity, String group, String kind);
+}
+
+/// Read/write contract for what pixiv's image route candidates scored per
+/// network identity.
+abstract interface class ImageRouteScoreMemory {
+  /// What [networkIdentity] taught about each candidate; empty when it
+  /// taught nothing yet.
+  Future<Map<String, ImageRouteScore>> scoresFor(String networkIdentity);
+
+  /// [sample] was taken on [networkIdentity].
+  void record(String networkIdentity, ImageRouteSample sample);
+
+  /// [candidate] answered a `Range` request on [networkIdentity] with a
+  /// range, or with the whole file.
+  void noteRanges(
+    String networkIdentity,
+    String candidate, {
+    required bool served,
+  });
 }

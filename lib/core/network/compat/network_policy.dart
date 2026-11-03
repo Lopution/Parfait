@@ -45,6 +45,7 @@ class NetworkAccessPolicy {
     NetworkClientFactory? clientFactory,
     this.fastRouteStore,
     this.routeKindStore,
+    this.imageRouteScoreStore,
     this.echFrontHost = 'cloudflare-ech.com',
     this.bootstrapNoSniEnabled = false,
     this.localNetworkBlockedHosts = const {},
@@ -93,7 +94,9 @@ class NetworkAccessPolicy {
            imageHeadersTimeout ?? _StreamIdleGuardClient.defaultHeadersTimeout,
        _imageIdleTimeout =
            imageIdleTimeout ?? _StreamIdleGuardClient.defaultIdleTimeout,
-       _clientFactory = clientFactory ?? RhttpClientFactory.create;
+       _clientFactory = clientFactory ?? RhttpClientFactory.create {
+    unawaited(_seedImageRouteScores());
+  }
 
   /// ECH front host used to fetch the ECH config (Cloudflare serves the
   /// ECH config for pixiv domains via this host; configurable in settings).
@@ -118,6 +121,10 @@ class NetworkAccessPolicy {
   /// cold start on the same network seeds the group preference instead of
   /// paying the discovery walk again.
   final RouteKindMemory? routeKindStore;
+
+  /// What pixiv's image route candidates scored per network identity: it
+  /// seeds each new board and is told every sample.
+  final ImageRouteScoreMemory? imageRouteScoreStore;
 
   /// Cloudflare DoH endpoints' anycast IPs (the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is
@@ -391,7 +398,49 @@ class NetworkAccessPolicy {
     ImageRouteSample Function(String candidate, DateTime at) sample,
   ) {
     final candidate = _currentCandidate(route);
-    if (candidate != null) _imageScores.record(sample(candidate, clock()));
+    if (candidate != null) {
+      recordImageRouteSample(
+        route.revision.networkIdentity,
+        sample(candidate, clock()),
+      );
+    }
+  }
+
+  /// [sample] was taken on [networkIdentity], here or in the image worker:
+  /// the board learns it while that network is current, the store always.
+  void recordImageRouteSample(String networkIdentity, ImageRouteSample sample) {
+    if (!_disposed && networkIdentity == _revision.networkIdentity) {
+      _imageScores.record(sample);
+    }
+    imageRouteScoreStore?.record(networkIdentity, sample);
+  }
+
+  /// [candidate] answered a `Range` request on [networkIdentity], here or
+  /// in the image worker; see [recordImageRouteSample].
+  void noteImageRouteRanges(
+    String networkIdentity,
+    String candidate, {
+    required bool served,
+  }) {
+    if (!_disposed && networkIdentity == _revision.networkIdentity) {
+      _imageScores.noteRanges(candidate, served: served);
+    }
+    imageRouteScoreStore?.noteRanges(
+      networkIdentity,
+      candidate,
+      served: served,
+    );
+  }
+
+  /// Seeds the current board with what its network taught before. Each
+  /// board is seeded once, when it starts; samples it takes meanwhile add
+  /// up with the seed.
+  Future<void> _seedImageRouteScores() async {
+    final store = imageRouteScoreStore;
+    if (store == null) return;
+    final board = _imageScores;
+    final scores = await store.scoresFor(_revision.networkIdentity);
+    if (!_disposed && identical(board, _imageScores)) board.seed(scores);
   }
 
   /// A failure before the body, a stall in it or a server error: the
@@ -419,10 +468,10 @@ class NetworkAccessPolicy {
 
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
     final identity = networkIdentity ?? _revision.networkIdentity;
-    if (identity != _revision.networkIdentity) {
-      _imageScores = ImageRouteScores(clock: clock);
-    }
+    final newNetwork = identity != _revision.networkIdentity;
+    if (newNetwork) _imageScores = ImageRouteScores(clock: clock);
     _revision = NetworkRevision(_revision.value + 1, networkIdentity: identity);
+    if (newNetwork) unawaited(_seedImageRouteScores());
     _forgetRoutes();
     // Re-seed group preferences for the *new* identity — the same store
     // that accelerates a cold restart accelerates a Wi-Fi↔cellular flip.
@@ -929,7 +978,11 @@ class _CandidateObserver {
   void answeredRange({required bool served}) {
     final candidate = _policy._currentCandidate(_route);
     if (candidate != null) {
-      _policy._imageScores.noteRanges(candidate, served: served);
+      _policy.noteImageRouteRanges(
+        _route.revision.networkIdentity,
+        candidate,
+        served: served,
+      );
     }
   }
 }

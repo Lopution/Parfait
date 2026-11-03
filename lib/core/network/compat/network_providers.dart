@@ -15,6 +15,7 @@ import 'auto_image_source.dart';
 import 'pixiv_network_factory.dart';
 import 'network_policy.dart';
 import 'network_fast_route_store.dart';
+import 'image_route_score_store.dart';
 import 'route_kind_store.dart';
 import 'segmented_fetch.dart';
 
@@ -45,6 +46,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     localNetworkBlockedHosts: localNetworkBlockedHosts,
     fastRouteStore: ref.watch(fastRouteStoreProvider),
     routeKindStore: ref.watch(routeKindStoreProvider),
+    imageRouteScoreStore: ref.watch(imageRouteScoreStoreProvider),
     mode: switch (mode) {
       NetworkMode.automatic => contracts.NetworkMode.automatic,
       NetworkMode.directOnly => contracts.NetworkMode.directOnly,
@@ -179,6 +181,13 @@ final fastRouteStoreProvider = Provider<PixivFastRouteStore>(
 final routeKindStoreProvider = Provider<RouteKindStore>(
   (ref) => RouteKindStore(preferences: ref.watch(sharedPreferencesProvider)),
 );
+final imageRouteScoreStoreProvider = Provider<ImageRouteScoreStore>((ref) {
+  final store = ImageRouteScoreStore(
+    preferences: ref.watch(sharedPreferencesProvider),
+  );
+  ref.onDispose(() => unawaited(store.flush()));
+  return store;
+});
 
 /// Extra connections for the main isolate's segmented transfers, which are
 /// downloads (the image worker keeps its own). Outlives download manager

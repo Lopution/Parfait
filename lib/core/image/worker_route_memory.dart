@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_fast_route_store.dart';
 import '../network/compat/route_memory.dart';
 import '../network/compat/secure_resolver.dart';
@@ -62,6 +63,42 @@ class WorkerRouteKindMemory implements RouteKindMemory {
     _state.routeKinds[group] = kind;
     onRouteKindLearned?.call(networkIdentity, group, kind);
   }
+}
+
+/// What pixiv's image routes scored on the worker's network, as the main
+/// isolate's store had it when the config came. Samples and range marks
+/// go back through [onSample] and [onRanges]: the main isolate's policy
+/// learns them and its store persists them.
+class WorkerImageRouteScoreMemory implements ImageRouteScoreMemory {
+  WorkerImageRouteScoreMemory({this.onSample, this.onRanges});
+
+  final void Function(String identity, ImageRouteSample sample)? onSample;
+  final void Function(String identity, String candidate, bool served)? onRanges;
+
+  var _identity = '';
+  Map<String, ImageRouteScore> _scores = const {};
+
+  /// Takes a config's scores, which are [networkIdentity]'s.
+  void reseed(String networkIdentity, Map<String, ImageRouteScore> scores) {
+    _identity = networkIdentity;
+    _scores = scores;
+  }
+
+  @override
+  Future<Map<String, ImageRouteScore>> scoresFor(
+    String networkIdentity,
+  ) async => networkIdentity == _identity ? _scores : const {};
+
+  @override
+  void record(String networkIdentity, ImageRouteSample sample) =>
+      onSample?.call(networkIdentity, sample);
+
+  @override
+  void noteRanges(
+    String networkIdentity,
+    String candidate, {
+    required bool served,
+  }) => onRanges?.call(networkIdentity, candidate, served);
 }
 
 /// Shared state behind the two worker memory adapters.

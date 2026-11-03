@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../logging/crash_log.dart';
 import 'image_demand.dart';
+import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_contracts.dart';
 import 'image_worker_host.dart';
 import 'image_worker_protocol.dart';
@@ -58,6 +59,12 @@ class ImageWorkerClient implements ImageFetcher {
   void Function(String host, String address)? onFastRouteLearned;
   void Function(String identity, String group, String kind)? onRouteKindLearned;
   void Function(String host)? onRouteExhausted;
+
+  /// What the worker learned about pixiv's image routes; the main
+  /// isolate's policy learns it too, and its store persists it.
+  void Function(String identity, ImageRouteSample sample)? onImageRouteSample;
+  void Function(String identity, String candidate, bool served)?
+  onImageRouteRanges;
 
   /// Download progress of a URL [watchProgress] turned on.
   void Function(String url, int received, int? total)? onProgress;
@@ -312,6 +319,14 @@ class ImageWorkerClient implements ImageFetcher {
         :final kind,
       ):
         onRouteKindLearned?.call(networkIdentity, group, kind);
+      case ImageRouteSampleEvent(:final networkIdentity, :final sample):
+        onImageRouteSample?.call(networkIdentity, sample);
+      case ImageRouteRangesEvent(
+        :final networkIdentity,
+        :final candidate,
+        :final served,
+      ):
+        onImageRouteRanges?.call(networkIdentity, candidate, served);
       case RouteExhaustedEvent(:final host):
         onRouteExhausted?.call(host);
       case WorkerErrorEvent(:final message, :final stack):
