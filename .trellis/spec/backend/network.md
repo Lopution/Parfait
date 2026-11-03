@@ -6,6 +6,7 @@ applies_to:
   - lib/core/download/*transport*.dart
   - lib/core/image/image_worker_host.dart
   - lib/core/platform/local_network.dart
+  - lib/core/platform/network_identity.dart
   - lib/core/settings/image_mirror.dart
 reviewed: 2026-10-29
 ---
@@ -50,15 +51,13 @@ reviewed: 2026-10-29
   | Group | Order |
   |---|---|
   | API, OAuth, web (Cloudflare) | `ech`, `dohRealSni`, `direct` |
-  | `i.pximg.net`, `s.pximg.net` | `ech`, `noSni`, `dohRealSni`, `direct`, `bootstrapNoSni` |
+  | `i.pximg.net`, `s.pximg.net` | route candidates by score (NET-04), `dohRealSni`, `direct` |
   | image mirrors (every mode) | `direct`, `noSni`, `dohRealSni` |
 
-  `bootstrapNoSni` serves the pixiv image hosts only, is always last cold
-  and never becomes a group preference; a failed fast address cools for
-  30 s. Its address is the built-in one or the last one a `noSni` request
-  was served from; a DoH answer is never stored unproven. Memory promotes
-  the last successful kind per host and group, persisted per network
-  identity as a kind, never an address. Only cold mirror image requests
+  `bootstrapNoSni` serves the pixiv image hosts only, as their `origin`
+  candidate. Memory promotes the last successful kind per host and group
+  except on pixiv's image hosts, persisted per network identity as a kind,
+  never an address. Only cold mirror image requests
   race two tiers; a raced tier that answers before the other is even
   selected wins without waiting. One request looks its host up once per
   network revision: a failed lookup is not repeated by later tiers or
@@ -66,27 +65,53 @@ reviewed: 2026-10-29
   direct tier gets an 8 s connect budget (the fourth SYN), not the
   fast-fail 3 s.
 - **Why:** Plain DNS and SNI are blocked or poisoned on the user's
-  networks; a failed bootstrap address without a cooldown delayed every
-  request. Pixiv's origin answers API, OAuth and web traffic that bypasses
+  networks. Pixiv's origin answers API, OAuth and web traffic that bypasses
   Cloudflare with 403, which the ladder took for a working route, and a
   DoH refresh stored Cloudflare addresses that reject a handshake without
   SNI. Mirrors went `noSni` first: the preset mirrors sit behind
   Cloudflare (no SNI, no handshake) and both other tiers waited on DoH,
   which the mainland could not reach, so an image took 24–40 s and hit
   the 15 s headers timeout; pixiv.re and pixiv.nl connect directly.
-- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct", `test/network_fast_route_test.dart` "a failed fast address is cooled before the next request" "API, OAuth and web never reach the bootstrap tier" "only a noSni success teaches the bootstrap tier an address", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only" "a cold mirror answers from direct while DoH hangs", `test/restricted_compat_network_test.dart` "policy rejects private addresses from an injected resolver"
+- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct", `test/network_fast_route_test.dart` "API, OAuth and web never reach the bootstrap tier", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only" "a cold mirror answers from direct while DoH hangs", `test/restricted_compat_network_test.dart` "policy rejects private addresses from an injected resolver"
 - **Code:** `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/network/compat/rhttp_client_factory.dart`
 
-### NET-04 Pixiv image hosts stay on ECH
-- **Rule:** Pixiv image hosts start on ECH alone. One ECH failure moves
-  only that request; two in a row cool ECH for 1 minute, doubling per
-  failed retry up to 10. While cooling, a remembered stand-in tier goes
-  first and ECH last. One ECH success or a network change clears the
-  cooldown. Origin-tier successes are neither shared nor persisted.
-- **Why:** Origin addresses answer faster but are throttled to tens of
-  KB/s inside the wall.
-- **Check:** `test/restricted_compat_image_test.dart` "a cold GET goes to ECH alone instead of racing" "the cooldown doubles after every failed retry, capped" "origin-tier successes are neither shared nor persisted"
-- **Code:** `lib/core/network/compat/network_policy_ladder.dart`
+### NET-04 Pixiv image routes follow per-network scores
+- **Rule:** Pixiv's image hosts have route candidates: `ech:<front>` for
+  up to three public fronts the ECH config names and the seed front
+  162.159.152.4, and `origin`, pixiv's image origin at the host's current
+  address (ten built in; a failed one gives way to the next, a served one
+  is persisted). A request tries each once, cheapest expected cost first,
+  then `dohRealSni` and `direct`. Costs come from the image bodies:
+  seconds per 100 KB; 12 s for a stall, a failure or a 5xx; nothing for a
+  body given up while healthy. Samples halve in weight every 10 min and
+  weigh at most 6 together; another candidate takes over only when 15 %
+  cheaper. A prefetch may go first to one candidate without a sample in
+  10 min, one at a time; a visible load never does. Each network identity
+  has its own board, seeded from what that network scored before (the
+  last 16 networks, 8 candidates each). The network page lists the
+  worker's candidates as "Cloudflare n" or the origin, with cost, failure
+  share and the one in use; never an address (NET-13).
+- **Why:** On one carrier the fronts the ECH config names stalled half the
+  bodies while the seed front and the origin served; on another the
+  origin crawled at 25 KB/s while every front served. Each fixed order
+  was wrong on one of them, and a first-byte race says nothing of the
+  body.
+- **Check:** `test/image_route_scores_test.dart` "visible loads settle on a good route within six and stay there" "a route that turns slow loses the choice within minutes" "another route takes over only when 15 % cheaper" "prefetches explore one stale route at a time, visible loads never" "a snapshot seeds the next visit to the network", `test/restricted_compat_image_test.dart` "pixiv images walk their candidates, then dohRealSni and direct, " "a stalled body counts against its route; one given up does " "a prefetch may try another route; a visible load never" "a network starts on the route that served it last time", `test/settings_test.dart` "effective routes list the image worker's hosts and route ", `test/network_fast_route_test.dart` "a failed origin address gives way to the next, where the next "
+- **Code:** `lib/core/network/compat/image_route_scores.dart`, `lib/core/network/compat/image_route_score_store.dart`, `lib/core/network/compat/network_policy_ladder.dart`
+
+### NET-19 A network is its carrier or its link
+- **Rule:** The network identity keys route memory, image route scores
+  and the auto source. On Android it follows the default network's
+  callback on the main looper: `mobile:<MCC+MNC>` of the default data
+  SIM; `wifi:<hash>` over the first four bytes of the link's global IPv6
+  address, else over its gateways and DNS servers; `vpn`; `none`; plain
+  `wifi` or `mobile` when the facts are missing. Elsewhere it is the
+  `connectivity_plus` kinds. Every new identity advances the network
+  revision, a data-SIM switch included.
+- **Why:** `connectivity_plus` named every cellular network `mobile`, so
+  two carriers whose best image routes are opposite shared one memory.
+- **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/NetworkIdentityChannelTest.kt` "the kind and the data SIM's operator name the network" "a local link is named by its provider's IPv6 block, else by its router", `test/restricted_compat_network_test.dart` "on Android a data-SIM switch is a network change"
+- **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait/NetworkIdentityChannel.kt`, `lib/core/platform/network_identity.dart`, `lib/core/network/compat/network_providers.dart`
 
 ### NET-05 Image and download exits use HTTP/1.1
 - **Rule:** Image and download exits run HTTP/1.1, one connection per
@@ -205,11 +230,17 @@ reviewed: 2026-10-29
 
 ### NET-12 The image worker never persists routes
 - **Rule:** The worker's own policy learns routes but sends them back to
-  the main isolate's fast-route and route-kind stores, the only writers of
-  those preferences.
+  the main isolate's fast-route, route-kind and image route score stores,
+  the only writers of those preferences. Image route samples and range
+  marks go back with their network identity: the main isolate's policy
+  learns them while that network is current, and the score store keeps
+  them. Each config carries the store's scores for its network, which
+  seed the worker's board when its policy or network is new.
 - **Why:** Two isolates writing the same preferences overwrote each other.
-- **Check:** manual
-- **Code:** `lib/core/image/image_worker_host.dart`, `lib/core/network/compat/route_kind_store.dart`
+  Downloads run on the main isolate and choose their route from the
+  images the worker loaded.
+- **Check:** `test/image_worker_host_test.dart` "route samples go back to the main isolate under their network"
+- **Code:** `lib/core/image/image_worker_host.dart`, `lib/core/image/image_worker_providers.dart`, `lib/core/network/compat/route_kind_store.dart`, `lib/core/network/compat/image_route_score_store.dart`
 
 ### NET-13 Diagnostics and errors carry no secrets
 - **Rule:** Route diagnostics hold host, purpose, route, DNS source, IP
@@ -234,13 +265,21 @@ reviewed: 2026-10-29
 - **Rule:** Large originals and downloads continue in parallel ranges only
   from a first 206 carrying the total. Every later range sends `If-Range`
   with the first ETag; a range that is not exactly its 206 fails the whole
-  transfer with `SegmentedFetchMismatch`, never retried. Extra connections
+  transfer with `SegmentedFetchMismatch`, never retried. On pixiv's image
+  hosts every range of a transfer shares one `ImageRoutePin`: the first
+  range sets its route, the others go there alone, and a failure there is
+  the range's own (NET-16). A candidate that answered a `Range` with the
+  whole file is marked per network; a resumed download tries marked
+  candidates last, a range from byte 0 ignores the mark. Extra connections
   come from the isolate's `SegmentBudget` (main isolate one provider,
   limit 6; image worker its own, limit 3).
 - **Why:** Stitching a mismatched range mixed two files; per-factory
-  budgets multiplied connections per host.
-- **Check:** `test/segmented_fetch_test.dart` "every segment asks If-Range with the first ETag" "a budget of 2 caps the transfer at 3 connections" "cancelling closes every connection and returns the budget"
-- **Code:** `lib/core/network/compat/segmented_fetch.dart`
+  budgets multiplied connections per host. Image routes change with their
+  scores mid-transfer, and another route may serve another copy. A whole
+  file for a resume's range discards the bytes kept, while from byte 0 it
+  only loses the parallel ranges.
+- **Check:** `test/segmented_fetch_test.dart` "every segment asks If-Range with the first ETag" "a budget of 2 caps the transfer at 3 connections" "cancelling closes every connection and returns the budget", `test/restricted_compat_image_test.dart` "every range of a transfer keeps to the route of its first" "a resumed transfer tries last a route that sent a whole file ", `test/download_resume_test.dart` "a large file arrives in parallel ranges, in order" "a retry after pause starts at the anchor and still segments"
+- **Code:** `lib/core/network/compat/segmented_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/download/download_manager.dart`, `lib/core/image/image_worker_host.dart`
 
 ### NET-16 Slow ranges restart a bounded number of times
 - **Rule:** A range restarts from the byte it reached after 5 s without
