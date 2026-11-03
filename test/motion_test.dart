@@ -633,7 +633,8 @@ void main() {
   testWidgets('work ahead waits for a running animation to end', (
     tester,
   ) async {
-    var done = 0;
+    var ended = false;
+    bool? endedAtWork;
     await tester.pumpWidget(
       MaterialApp(
         home: Column(
@@ -641,18 +642,17 @@ void main() {
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 300),
+              onEnd: () => ended = true,
               builder: (_, value, _) =>
                   Opacity(opacity: value, child: const Text('in')),
             ),
-            _StillPieces(pieces: 1, onPiece: () => done++),
+            _StillPieces(pieces: 1, onPiece: () => endedAtWork = ended),
           ],
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(done, 0);
     await tester.pumpAndSettle();
-    expect(done, 1);
+    expect(endedAtWork, isTrue);
   });
 
   testWidgets('work ahead behind a looping indicator waits once a run, '
