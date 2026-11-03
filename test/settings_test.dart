@@ -16,9 +16,7 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/translation/translation_credentials.dart';
 import 'package:parfait/features/settings/pages/doubao_login_page.dart';
-import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/core/network/compat/image_route_scores.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart'
     show PixivDestinationPurpose, PixivDestinationRegistry;
 import 'package:parfait/core/network/compat/network_policy.dart';
@@ -1161,31 +1159,13 @@ void main() {
     // a second answer, marked as image loading next to the main ones.
     final policy = stubNetworkPolicy();
     addTearDown(policy.dispose);
-    final worker = ImageWorker(
-      start: (_, demand) => scriptedImageWorkerClient(
-        demand,
-        routes: {'i.pixiv.re': 'noSni'},
-        images: const [
-          ImageRouteStanding(
-            cloudflare: 2,
-            cost: 0.84,
-            failureShare: 0.1,
-            inUse: true,
-          ),
-          ImageRouteStanding(cost: 3, failureShare: 0.5, inUse: false),
-        ],
-      ),
-      config: () async => testImageWorkerConfig,
-    );
-    await tester.runAsync(() async {
-      await PixivPolicyHttpClient(
+    final worker = await routedImageWorker(tester);
+    await tester.runAsync(
+      () => PixivPolicyHttpClient(
         policy: policy,
         purpose: PixivDestinationPurpose.appApi,
-      ).get(Uri.parse('https://app-api.pixiv.net/v1/walkthrough'));
-      // Only a running worker is asked; the page never starts one.
-      await worker.cachedFile('https://i.pximg.net/img-master/a.jpg');
-    });
-    addTearDown(() => tester.runAsync(worker.dispose));
+      ).get(Uri.parse('https://app-api.pixiv.net/v1/walkthrough')),
+    );
     tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
 

@@ -268,6 +268,35 @@ Future<ImageWorkerClient> scriptedImageWorkerClient(
   return ImageWorkerClient.attach(inbox, demand: demand);
 }
 
+/// The image route candidates [routedImageWorker] reports: a Cloudflare
+/// front in use, and the origin.
+const testImageRouteStandings = [
+  ImageRouteStanding(cloudflare: 2, cost: 0.84, failureShare: 0.1, inUse: true),
+  ImageRouteStanding(cost: 3, failureShare: 0.5, inUse: false),
+];
+
+/// A running worker whose policy reports [routes] by host and
+/// [testImageRouteStandings], for the network page: the page asks only a
+/// running worker and never starts one. Disposed when the test ends.
+Future<ImageWorker> routedImageWorker(
+  WidgetTester tester, {
+  Map<String, String> routes = const {'i.pixiv.re': 'noSni'},
+}) async {
+  final worker = ImageWorker(
+    start: (_, demand) => scriptedImageWorkerClient(
+      demand,
+      routes: routes,
+      images: testImageRouteStandings,
+    ),
+    config: () async => testImageWorkerConfig,
+  );
+  await tester.runAsync(
+    () => worker.cachedFile('https://i.pximg.net/img-master/a.jpg'),
+  );
+  addTearDown(() => tester.runAsync(worker.dispose));
+  return worker;
+}
+
 /// A worker whose isolate never comes up: every image on it stays a
 /// placeholder. For tests about how an image is set up, not loaded.
 /// Disposed when the test ends: an override's value is never disposed by
