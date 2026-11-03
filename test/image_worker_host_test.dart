@@ -160,13 +160,17 @@ const _otherNetwork = ImageWorkerConfig(
 
 /// [testImageWorkerConfig] with pixiv's image routes on [network]: the
 /// origin only, as no ECH config is to be had.
-ImageWorkerConfig _routedOn(String network) => ImageWorkerConfig(
+ImageWorkerConfig _routedOn(
+  String network, {
+  Map<String, ImageRouteScore> scores = const {},
+}) => ImageWorkerConfig(
   imageSource: 'i.pximg.net',
   mode: 'automatic',
   networkIdentity: network,
   echFrontHost: 'cloudflare-ech.com',
   dohEndpoints: const [],
   bootstrapNoSniEnabled: true,
+  routeScores: scores,
 );
 
 /// Answers every image GET with one byte, keeping the requests.
@@ -611,6 +615,35 @@ void main() {
 
     harness.worker.send(encodeRoutesRequest(4));
     expect((await harness.eventFor(4) as RoutesEvent).routes, isEmpty);
+  });
+
+  test('a worker scores its image routes from its config, network by '
+      'network', () async {
+    ImageWorkerConfig scored(String network, double cost) => _routedOn(
+      network,
+      scores: {
+        'origin': ImageRouteScore(
+          cost: cost,
+          weight: ImageRouteScores.maxWeight,
+          failureShare: 0.5,
+          at: DateTime.now(),
+        ),
+      },
+    );
+    final harness = _Harness();
+    addTearDown(harness.stop);
+    await harness.start(config: scored('home', 0.5));
+    Future<ImageRouteStanding> origin(int id) async {
+      harness.worker.send(encodeRoutesRequest(id));
+      return (await harness.eventFor(id) as RoutesEvent).images.single;
+    }
+
+    final home = await origin(1);
+    expect(home.cloudflare, isNull);
+    expect(home.cost, closeTo(0.5, 0.01));
+    expect(home.failureShare, closeTo(0.5, 0.01));
+    harness.worker.send(encodeConfig(scored('cafe', 4)));
+    expect((await origin(2)).cost, closeTo(4, 0.01));
   });
 
   test('watch, progress, lookup, route and config messages survive the '

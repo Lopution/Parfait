@@ -83,14 +83,14 @@ reviewed: 2026-10-17
 - **Check:** `test/locale_layout/lists_layout_test.dart`
 - **Code:** `lib/app/widgets/selection_app_bar.dart`
 
-### LAYOUT-06 Dates and counts go through AppFormat
+### LAYOUT-06 Dates and numbers go through AppFormat
 - **Rule:** User-facing dates use `AppFormat.date`/`relative`, counts
-  `AppFormat.count`; a number that changes in place also takes
-  `.tabular`. Data formats (route query dates, file names) stay out and
+  `AppFormat.count`, decimals `AppFormat.decimal`; a number that changes
+  in place also takes `.tabular`. Data formats (route query dates, file names) stay out and
   are allow-listed with a reason in the architecture test.
 - **Why:** Hand-formatted dates and `'${n}k'` ignored the locale
   (zh 1.2万, en 12K); changing digits shifted their neighbours.
-- **Check:** `test/architecture/format_and_font_test.dart` "user-facing dates go through AppFormat" "counts go through AppFormat"
+- **Check:** `test/architecture/format_and_font_test.dart` "user-facing dates go through AppFormat" "counts go through AppFormat", `test/app_format_test.dart` "decimal keeps one digit in the locale separator"
 - **Code:** `lib/app/format`
 
 ### LAYOUT-16 Framework strings ship in the app's languages only

@@ -245,13 +245,17 @@ class ImageWorkerClient implements ImageFetcher {
   Future<ImageWorkerStatus> status() async =>
       (await _ask(encodeStatusRequest) as StatusEvent).status;
 
-  /// The routes the worker's policy currently uses, by host.
-  Future<Map<String, NetworkRouteKind>> routeSnapshot() async {
+  /// The routes the worker's policy currently uses, by host, and how it
+  /// scores pixiv's image route candidates.
+  Future<ImageWorkerRoutes> routeSnapshot() async {
     final reply = await _ask(encodeRoutesRequest) as RoutesEvent;
-    return {
-      for (final MapEntry(:key, :value) in reply.routes.entries)
-        key: NetworkRouteKind.values.byName(value),
-    };
+    return (
+      hosts: {
+        for (final MapEntry(:key, :value) in reply.routes.entries)
+          key: NetworkRouteKind.values.byName(value),
+      },
+      images: reply.images,
+    );
   }
 
   /// [url]'s file in the disk cache, or null on a miss; never fetches.

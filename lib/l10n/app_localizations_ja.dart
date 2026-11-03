@@ -189,7 +189,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agreementNetworkBody =>
-      '既定の「自動」ネットワークモードでは、Pixiv公式ドメイン（API、ログイン、Webページ、画像）に接続する際、次の方法のうち使えるものを選び、成功した方法を記憶して以後優先します。\n• Cloudflare経由のECH暗号化ハンドシェイク\n• 暗号化DNS（既定はCloudflare、Google）で解決したアドレスへの接続（ECH設定の取得にはAlibaba DNSを使用）\n• SNIなしでのPixiv画像サーバーへの接続\n• システムの直接接続\n• 以上がすべて失敗した場合、画像リクエストに限り、内蔵または前回使えたPixiv画像サーバーのアドレスへのSNIなしでの接続\nこれらはすべて証明書を検証します。\n\nシステムの直接接続だけを使いたい場合は「設定 → ネットワーク → ネットワークモード」で「直結のみ」を選んでください。上記の互換接続がすべて無効になります。\n\n画像ソースの既定は「自動」で、公式の画像サーバーとサードパーティのミラー（i.pixiv.re、i.pixiv.nl、i.pixiv.cat）の速度を計測し、最も速いものを使います。ミラーを経由する場合、ミラーの運営者はリクエストした画像のアドレスとあなたのIPアドレスを知ることができます。「設定 → ネットワーク → 画像ソース」で公式に固定できます。\n\n本アプリはその他の通信をプロキシしません。ネットワークの可用性、APIの変更、サービスの中断については保証しません。';
+      '既定の「自動」ネットワークモードでは、Pixiv公式ドメイン（API、ログイン、Webページ、画像）に接続する際、次の方法のうち使えるものを選び、成功した方法を記憶して以後優先します。\n• Cloudflare経由のECH暗号化ハンドシェイク\n• 暗号化DNS（既定はCloudflare、Google）で解決したアドレスへの接続（ECH設定の取得にはAlibaba DNSを使用）\n• 画像に限り、内蔵または前回使えたPixiv画像サーバーのアドレスへのSNIなしでの接続\n• システムの直接接続\nこれらはすべて証明書を検証します。画像は記憶した方法に従わず、ネットワークごとに各方法での読み込みの速さと失敗を記録して最も速い方法を使い、先読みの際にほかの方法を試すこともあります。ネットワークはモバイル事業者のコード、またはWi-Fiルーターのアドレスから求めたダイジェストで見分け、これらの記録は端末内にのみ保存されます。\n\nシステムの直接接続だけを使いたい場合は「設定 → ネットワーク → ネットワークモード」で「直結のみ」を選んでください。上記の互換接続がすべて無効になります。\n\n画像ソースの既定は「自動」で、公式の画像サーバーとサードパーティのミラー（i.pixiv.re、i.pixiv.nl、i.pixiv.cat）の速度を計測し、最も速いものを使います。ミラーを経由する場合、ミラーの運営者はリクエストした画像のアドレスとあなたのIPアドレスを知ることができます。「設定 → ネットワーク → 画像ソース」で公式に固定できます。\n\n本アプリはその他の通信をプロキシしません。ネットワークの可用性、APIの変更、サービスの中断については保証しません。';
 
   @override
   String get agreementThirdPartyTitle => 'サードパーティのサービス';
@@ -295,10 +295,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkRouteForImages => '画像の読み込み';
 
   @override
-  String get networkRouteKindDirect => '直连';
+  String get networkRouteKindDirect => '直結';
 
   @override
   String get networkRouteKindCompat => '互換ルート';
+
+  @override
+  String get networkImageRouteOrigin => 'Pixivオリジン';
+
+  @override
+  String networkImageRouteCloudflare(int number) {
+    return 'Cloudflare $number';
+  }
+
+  @override
+  String networkImageRouteScore(String seconds, int percent) {
+    return '画像の読み込み · 100 KBあたり約$seconds秒 · 失敗 $percent%';
+  }
+
+  @override
+  String get networkImageRouteInUse => '使用中';
 
   @override
   String get networkThirdParty => 'サードパーティ到達性';

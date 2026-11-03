@@ -16,6 +16,7 @@ import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/image/image_demand.dart';
+import 'package:parfait/core/network/compat/image_route_scores.dart';
 
 /// Fake image transport. Every send is recorded. Unless [respond] returns
 /// a canned response, the body stays open until the test closes it, so a
@@ -241,11 +242,12 @@ ImageWorker inProcessImageWorker(http.Client Function() fetchClient) {
 
 /// A client whose worker is a script on the far side of the protocol, for
 /// answers no in-process host can give (a policy with settled routes):
-/// every route request gets [routes], every lookup a miss, and anything
-/// else no answer.
+/// every route request gets [routes] and [images], every lookup a miss,
+/// and anything else no answer.
 Future<ImageWorkerClient> scriptedImageWorkerClient(
   ImageDemand demand, {
   Map<String, String> routes = const {},
+  List<ImageRouteStanding> images = const [],
 }) {
   final inbox = ReceivePort();
   final peer = ReceivePort();
@@ -254,7 +256,7 @@ Future<ImageWorkerClient> scriptedImageWorkerClient(
   peer.listen((raw) {
     switch (decodeWorkerMessage(raw)) {
       case RoutesMessage(:final id):
-        reply(RoutesEvent(id, routes));
+        reply(RoutesEvent(id, routes, images: images));
       case LookupMessage(:final id):
         reply(CachedEvent(id, null));
       case _:

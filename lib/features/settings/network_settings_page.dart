@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
@@ -19,7 +20,10 @@ import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/network/compat/network_contracts.dart'
     show NetworkRouteKind, NetworkRedirectException, PixivDestinationPurpose;
+import '../../core/image/image_worker_protocol.dart' show ImageWorkerRoutes;
 import '../../core/image/image_worker_providers.dart';
+import '../../core/network/compat/image_route_scores.dart'
+    show ImageRouteStanding;
 import '../../core/log.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
@@ -607,8 +611,9 @@ class _NetworkAdvancedSettingsPageState
 }
 
 /// Per-host route kinds the ladder has settled on for this network
-/// identity. Not reactive — route memory changes mid-request — so the
-/// section snapshots on build and refreshes on demand.
+/// identity, and how pixiv's image route candidates score on it. Not
+/// reactive — route memory changes mid-request — so the section snapshots
+/// on build and refreshes on demand.
 class _EffectiveRoutesSection extends ConsumerStatefulWidget {
   const _EffectiveRoutesSection();
 
@@ -623,7 +628,7 @@ class _EffectiveRoutesSectionState
 
   /// Images load through the worker isolate's own policy, so its routes
   /// are a separate answer that arrives later.
-  Map<String, NetworkRouteKind> _imageRoutes = const {};
+  ImageWorkerRoutes _imageRoutes = (hosts: const {}, images: const []);
   var _refreshes = 0;
 
   @override
@@ -641,12 +646,12 @@ class _EffectiveRoutesSectionState
 
   Future<void> _refreshImageRoutes(int refresh) async {
     final worker = ref.read(imageWorkerProvider);
-    Map<String, NetworkRouteKind> routes;
+    ImageWorkerRoutes routes;
     try {
       routes = await worker.routeSnapshot();
     } on Object catch (error) {
       log('image worker routes unavailable: $error');
-      routes = const {};
+      routes = (hosts: const {}, images: const []);
     }
     if (!mounted || refresh != _refreshes) return;
     setState(() => _imageRoutes = routes);
@@ -662,23 +667,55 @@ class _EffectiveRoutesSectionState
     };
   }
 
+  Widget _routeRow(
+    BuildContext context, {
+    required String title,
+    String? subtitle,
+    String? trailing,
+  }) => ListTile(
+    dense: true,
+    title: Text(title),
+    subtitle: subtitle == null ? null : Text(subtitle),
+    trailing: trailing == null
+        ? null
+        : Text(trailing, style: Theme.of(context).textTheme.bodySmall),
+  );
+
   Widget _routeTile(
     BuildContext context,
     MapEntry<String, NetworkRouteKind> route, {
     bool images = false,
-  }) => ListTile(
-    dense: true,
-    title: Text(route.key),
-    subtitle: images ? Text(context.l10n.networkRouteForImages) : null,
-    trailing: Text(
-      _kindLabel(context, route.value),
-      style: Theme.of(context).textTheme.bodySmall,
-    ),
+  }) => _routeRow(
+    context,
+    title: route.key,
+    subtitle: images ? context.l10n.networkRouteForImages : null,
+    trailing: _kindLabel(context, route.value),
   );
+
+  /// A pixiv image route candidate: its cost per 100 KB and its share of
+  /// failures, and whether visible images load through it now.
+  Widget _candidateTile(BuildContext context, ImageRouteStanding standing) {
+    final l10n = context.l10n;
+    return _routeRow(
+      context,
+      title: switch (standing.cloudflare) {
+        final number? => l10n.networkImageRouteCloudflare(number),
+        null => l10n.networkImageRouteOrigin,
+      },
+      subtitle: l10n.networkImageRouteScore(
+        AppFormat.decimal(context, standing.cost),
+        (standing.failureShare * 100).round(),
+      ),
+      trailing: standing.inUse ? l10n.networkImageRouteInUse : null,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final empty = _routes.isEmpty && _imageRoutes.isEmpty;
+    final empty =
+        _routes.isEmpty &&
+        _imageRoutes.hosts.isEmpty &&
+        _imageRoutes.images.isEmpty;
     return SettingsGroup(
       setting: Setting.networkEffectiveRoutes,
       title: Row(
@@ -695,8 +732,10 @@ class _EffectiveRoutesSectionState
       footer: empty ? Text(context.l10n.networkEffectiveRoutesEmpty) : null,
       children: [
         for (final route in _routes.entries) _routeTile(context, route),
-        for (final route in _imageRoutes.entries)
+        for (final route in _imageRoutes.hosts.entries)
           _routeTile(context, route, images: true),
+        for (final standing in _imageRoutes.images)
+          _candidateTile(context, standing),
       ],
     );
   }

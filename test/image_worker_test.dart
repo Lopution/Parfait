@@ -227,19 +227,21 @@ void main() {
 
   test('route snapshots never start a worker', () async {
     final worker = _worker((_, _) => fail('the network page started a worker'));
-    expect(await worker.routeSnapshot(), isEmpty);
+    final routes = await worker.routeSnapshot();
+    expect(routes.hosts, isEmpty);
+    expect(routes.images, isEmpty);
     expect(worker.starts, 0);
   });
 
   test('a route snapshot comes from the running worker', () async {
     final worker = _worker(
       (_, demand) =>
-          scriptedImageWorkerClient(demand, routes: {'i.pximg.net': 'noSni'}),
+          scriptedImageWorkerClient(demand, routes: {'i.pixiv.re': 'noSni'}),
     );
     await worker.cachedFile(_url);
 
-    expect(await worker.routeSnapshot(), {
-      'i.pximg.net': NetworkRouteKind.noSni,
+    expect((await worker.routeSnapshot()).hosts, {
+      'i.pixiv.re': NetworkRouteKind.noSni,
     });
   });
 

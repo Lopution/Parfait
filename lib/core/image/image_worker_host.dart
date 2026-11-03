@@ -202,7 +202,7 @@ class ImageWorkerHost {
             RoutesEvent(id, {
               for (final MapEntry(:key, :value) in routes.entries)
                 key: value.name,
-            }),
+            }, images: _policy?.imageRouteStandings() ?? const []),
           );
         case StatusMessage(:final id):
           _send(

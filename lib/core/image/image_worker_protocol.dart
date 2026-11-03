@@ -11,6 +11,7 @@ import 'dart:io' show File;
 import 'dart:isolate' show SendPort;
 
 import '../network/compat/image_route_scores.dart';
+import '../network/compat/network_contracts.dart' show NetworkRouteKind;
 import 'lane_permit_gate.dart';
 
 /// Every knob the worker needs to rebuild the same `NetworkAccessPolicy`
@@ -115,6 +116,13 @@ class ImageWorkerConfig {
     );
   }
 }
+
+/// What the worker's policy routes by: the route kind by host, and pixiv's
+/// image route candidates.
+typedef ImageWorkerRoutes = ({
+  Map<String, NetworkRouteKind> hosts,
+  List<ImageRouteStanding> images,
+});
 
 /// Main→worker: fetch [url] (the canonical, pre-rewrite URL) on [priority].
 /// The worker coalesces by URL; [id] identifies this caller.
@@ -492,10 +500,11 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'id': id,
     'path': path,
   },
-  RoutesEvent(:final id, :final routes) => {
+  RoutesEvent(:final id, :final routes, :final images) => {
     'type': 'routes',
     'id': id,
     'routes': routes,
+    'images': [for (final standing in images) standing.toJson()],
   },
   StatusEvent(:final id, :final status) => {
     'type': 'status',
@@ -526,9 +535,12 @@ class StatusEvent extends WorkerEvent {
 /// The answer to a [RoutesMessage]: `NetworkRouteKind.name` by host, the
 /// hosts whose remembered route is usable now.
 class RoutesEvent extends WorkerEvent {
-  const RoutesEvent(this.id, this.routes);
+  const RoutesEvent(this.id, this.routes, {this.images = const []});
   final int id;
   final Map<String, String> routes;
+
+  /// Pixiv's image route candidates as the worker's policy scores them.
+  final List<ImageRouteStanding> images;
 }
 
 /// The answer to a [LookupMessage]: the cached file's [path], or null on
@@ -587,6 +599,10 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
     'routes' => RoutesEvent(
       raw['id'] as int,
       (raw['routes'] as Map).cast<String, String>(),
+      images: [
+        for (final standing in raw['images'] as List)
+          ImageRouteStanding.fromJson((standing as Map).cast()),
+      ],
     ),
     'status' => StatusEvent(
       raw['id'] as int,

@@ -104,6 +104,8 @@ Rust is there because Dart's standard library cannot control the TLS handshake (
    - **No-SNI handshake**: for pixiv's image servers only (such as `i.pximg.net`), a handshake without the plain-text SNI;
    - **Plain system connection**: the only method when **Me → Settings → Network → Network mode** is **Direct only** (in mainland China you will then usually need your own proxy).
 
+   Pixiv's image servers are chosen differently: for each network (a carrier or a Wi-Fi), the app records how fast and how often each route loads images, uses the fastest, and now and then tries another while preloading, so each carrier settles on the route that serves it best. These records stay on the device.
+
    **Security**: every method has `rustls` verify the full certificate chain and the domain, and no route can turn that off; if the server is not pixiv's, the handshake fails.
 
 2. **Layered connectivity probe**

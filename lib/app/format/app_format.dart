@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../l10n/context.dart';
 
-/// Locale-aware display formats. Every user-visible date and count goes
+/// Locale-aware display formats. Every user-visible date and number goes
 /// through here; data formats (search parameters, file names) do not.
 abstract final class AppFormat {
   /// `DateFormat.yMMMd` in the app locale: zh「2026年10月4日」,
@@ -50,8 +50,19 @@ abstract final class AppFormat {
     return format.format(value);
   }
 
+  /// [value] to one decimal in the locale's separator: en "0.8", ru "0,8".
+  static String decimal(BuildContext context, double value) {
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final format = _decimals[locale] ??= NumberFormat.decimalPatternDigits(
+      locale: locale,
+      decimalDigits: 1,
+    );
+    return format.format(value);
+  }
+
   // Formats by locale: building one parses the locale's patterns, and
   // feed rows format counts in every build.
   static final _dates = <(String, bool), DateFormat>{};
   static final _counts = <String, NumberFormat>{};
+  static final _decimals = <String, NumberFormat>{};
 }

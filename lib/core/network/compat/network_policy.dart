@@ -260,6 +260,29 @@ class NetworkAccessPolicy {
     return snapshot;
   }
 
+  /// The pixiv image route candidates the current network has samples
+  /// of, cheapest first, for the network settings page. The Cloudflare
+  /// fronts are numbered in the order of their addresses.
+  List<ImageRouteStanding> imageRouteStandings() {
+    final scores = {
+      for (final MapEntry(:key, :value) in _imageScores.snapshot().entries)
+        if (value.weight > 0) key: value,
+    };
+    final fronts = scores.keys.where((key) => key != _originCandidate).toList()
+      ..sort();
+    return [
+      for (final MapEntry(key: candidate, value: score) in scores.entries)
+        ImageRouteStanding(
+          cloudflare: candidate == _originCandidate
+              ? null
+              : fronts.indexOf(candidate) + 1,
+          cost: score.cost,
+          failureShare: score.failureShare,
+          inUse: candidate == _imageScores.chosen,
+        ),
+    ]..sort((a, b) => a.cost.compareTo(b.cost));
+  }
+
   @visibleForTesting
   NetworkRouteKind? rememberedGroupRouteKind(
     PixivDestinationPurpose purpose,
@@ -987,13 +1010,16 @@ class _CandidateObserver {
   }
 }
 
-/// The candidate a pixiv image route is: `origin`, or `ech:<front>`.
+/// The candidate a pixiv image route is: [_originCandidate], or
+/// `ech:<front>`.
 String? _imageCandidateKey(NetworkRouteKind kind, InternetAddress? address) =>
     switch (kind) {
-      NetworkRouteKind.bootstrapNoSni => 'origin',
+      NetworkRouteKind.bootstrapNoSni => _originCandidate,
       NetworkRouteKind.ech when address != null => 'ech:${address.address}',
       _ => null,
     };
+
+const _originCandidate = 'origin';
 
 enum _RouteGroup { cloudflare, image, imageMirror }
 

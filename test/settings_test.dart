@@ -18,6 +18,7 @@ import 'package:parfait/core/translation/translation_credentials.dart';
 import 'package:parfait/features/settings/pages/doubao_login_page.dart';
 import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/network/compat/image_route_scores.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart'
     show PixivDestinationPurpose, PixivDestinationRegistry;
 import 'package:parfait/core/network/compat/network_policy.dart';
@@ -1154,16 +1155,26 @@ void main() {
     );
   });
 
-  testWidgets('effective routes list the image worker\'s hosts too', (
-    tester,
-  ) async {
+  testWidgets('effective routes list the image worker\'s hosts and route '
+      'candidates too', (tester) async {
     // Images load through the worker isolate's own policy: its routes are
     // a second answer, marked as image loading next to the main ones.
     final policy = stubNetworkPolicy();
     addTearDown(policy.dispose);
     final worker = ImageWorker(
-      start: (_, demand) =>
-          scriptedImageWorkerClient(demand, routes: {'i.pximg.net': 'ech'}),
+      start: (_, demand) => scriptedImageWorkerClient(
+        demand,
+        routes: {'i.pixiv.re': 'noSni'},
+        images: const [
+          ImageRouteStanding(
+            cloudflare: 2,
+            cost: 0.84,
+            failureShare: 0.1,
+            inUse: true,
+          ),
+          ImageRouteStanding(cost: 3, failureShare: 0.5, inUse: false),
+        ],
+      ),
       config: () async => testImageWorkerConfig,
     );
     await tester.runAsync(() async {
@@ -1191,12 +1202,9 @@ void main() {
     );
     await pumpIoUntil(
       tester,
-      () => find.text('i.pximg.net', skipOffstage: false).evaluate().isNotEmpty,
+      () => find.text('i.pixiv.re', skipOffstage: false).evaluate().isNotEmpty,
     );
-    await _scrollCentered(
-      tester,
-      find.text('i.pximg.net', skipOffstage: false),
-    );
+    await _scrollCentered(tester, find.text('i.pixiv.re', skipOffstage: false));
 
     final apiRoute = find.widgetWithText(ListTile, 'app-api.pixiv.net');
     expect(apiRoute, findsOneWidget);
@@ -1204,14 +1212,32 @@ void main() {
       find.descendant(of: apiRoute, matching: find.text('图片加载')),
       findsNothing,
     );
-    final imageRoute = find.widgetWithText(ListTile, 'i.pximg.net');
+    final imageRoute = find.widgetWithText(ListTile, 'i.pixiv.re');
     expect(
       find.descendant(of: imageRoute, matching: find.text('图片加载')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: imageRoute, matching: find.text('ECH')),
+      find.descendant(of: imageRoute, matching: find.text('空 SNI')),
       findsOneWidget,
+    );
+    // The candidates go by number, never by address.
+    final front = find.widgetWithText(ListTile, 'Cloudflare 2');
+    expect(
+      find.descendant(
+        of: front,
+        matching: find.text('图片加载 · 每 100 KB 约 0.8 秒 · 失败 10%'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: front, matching: find.text('使用中')),
+      findsOneWidget,
+    );
+    final origin = find.widgetWithText(ListTile, 'Pixiv 源站');
+    expect(
+      find.descendant(of: origin, matching: find.text('使用中')),
+      findsNothing,
     );
     expect(find.textContaining('暂无路由记录'), findsNothing);
 

@@ -113,6 +113,42 @@ class ImageRouteScore {
   };
 }
 
+/// One image route candidate as the network page shows it, without its
+/// address.
+class ImageRouteStanding {
+  const ImageRouteStanding({
+    this.cloudflare,
+    required this.cost,
+    required this.failureShare,
+    required this.inUse,
+  });
+
+  factory ImageRouteStanding.fromJson(Map<String, Object?> json) =>
+      ImageRouteStanding(
+        cloudflare: json['cloudflare'] as int?,
+        cost: (json['cost']! as num).toDouble(),
+        failureShare: (json['failureShare']! as num).toDouble(),
+        inUse: json['inUse']! as bool,
+      );
+
+  /// The Cloudflare front's number, from 1; null for pixiv's origin.
+  final int? cloudflare;
+
+  /// Expected seconds for a 100 KB image.
+  final double cost;
+  final double failureShare;
+
+  /// Whether visible loads go to it now.
+  final bool inUse;
+
+  Map<String, Object?> toJson() => {
+    'cloudflare': cloudflare,
+    'cost': cost,
+    'failureShare': failureShare,
+    'inUse': inUse,
+  };
+}
+
 /// Learns which route loads pixiv's images best on one network, from the
 /// images themselves.
 ///
