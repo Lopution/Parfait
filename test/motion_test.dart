@@ -630,6 +630,31 @@ void main() {
     expect(card.value.enabled, isFalse);
   });
 
+  testWidgets('work ahead waits for a running animation to end', (
+    tester,
+  ) async {
+    var done = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Column(
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 300),
+              builder: (_, value, _) =>
+                  Opacity(opacity: value, child: const Text('in')),
+            ),
+            _StillPieces(pieces: 1, onPiece: () => done++),
+          ],
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(done, 0);
+    await tester.pumpAndSettle();
+    expect(done, 1);
+  });
+
   testWidgets('work ahead behind a looping indicator waits once a run, '
       'not once a piece', (tester) async {
     var done = 0;
