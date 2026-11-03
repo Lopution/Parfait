@@ -95,10 +95,13 @@ reviewed: 2026-10-29
   handlers set after `listen`, so `drain()` on a stalled body ends; an
   error that does not end the body keeps its idle budget, and an error
   without a handler goes to the listener's zone. A raced loser's body is
-  drained with its errors ignored.
+  drained with its errors ignored. A headers timeout, an idle timeout or a
+  reader cancelling the body fires the request's abort trigger.
 - **Why:** One shared HTTP/2 connection let a throttled flow stall every
-  image. `drain()` once waited forever on a stalled body.
-- **Check:** `test/rhttp_client_factory_test.dart` "image exits use HTTP/1.1, every other exit negotiates" "streaming exits carry no total timeout", `test/restricted_compat_image_test.dart` "the response body errors after an idle gap" "a body that errs and goes on still times out" "an idle timeout nobody handles reaches the zone"
+  image. `drain()` once waited forever on a stalled body. rhttp ends a
+  transfer only on its abort, an error or the server's next bytes: a
+  dropped stalled body kept its socket after its lane was freed.
+- **Check:** `test/rhttp_client_factory_test.dart` "image exits use HTTP/1.1, every other exit negotiates" "streaming exits carry no total timeout", `test/restricted_compat_image_test.dart` "send() surfaces a headers timeout for image clients, aborting" "the response body errors after an idle gap" "a body that errs and goes on still times out" "an idle timeout nobody handles reaches the zone" "an abandoned body aborts its request"
 - **Code:** `lib/core/network/compat/rhttp_client_factory.dart`
 
 ## Failures and replay

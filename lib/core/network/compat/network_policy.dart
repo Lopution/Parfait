@@ -527,9 +527,9 @@ class _HostRouteMemory {
 /// A headers deadline miss surfaces from `send()` as a `timeout`, so the
 /// ladder can advance for idempotent GETs. A body stall surfaces on the
 /// stream as a `TimeoutException`: the image cache shows a visible error
-/// and the download manager retries through its resume anchor. The
-/// abandoned inner request is not aborted (`http.Client` exposes no
-/// abort); reqwest reclaims the socket when the future/stream dies.
+/// and the download manager retries through its resume anchor. Either
+/// way, and whenever a reader gives the body up, the request's abort
+/// trigger fires: rhttp keeps the transfer and its socket otherwise.
 class _StreamIdleGuardClient extends http.BaseClient {
   _StreamIdleGuardClient(
     this._inner, {
@@ -550,9 +550,27 @@ class _StreamIdleGuardClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final response = await _inner.send(request).timeout(headersTimeout);
+    // rhttp's transfer, and its socket, outlive a dropped body or a
+    // timed-out send until the server sends again; aborting the request
+    // ends them, so a lane freed by a timeout never leaves one behind.
+    final abandoned = Completer<void>();
+    void abandon() {
+      if (!abandoned.isCompleted) abandoned.complete();
+    }
+
+    final http.StreamedResponse response;
+    try {
+      response = await _inner
+          .send(_abortable(request, abandoned.future))
+          .timeout(headersTimeout);
+    } on TimeoutException {
+      abandon();
+      rethrow;
+    }
     return http.StreamedResponse(
-      http.ByteStream(_IdleGuardStream(response.stream, idleTimeout)),
+      http.ByteStream(
+        _IdleGuardStream(response.stream, idleTimeout, onAbandon: abandon),
+      ),
       response.statusCode,
       contentLength: response.contentLength,
       request: response.request,
@@ -565,6 +583,32 @@ class _StreamIdleGuardClient extends http.BaseClient {
 
   @override
   void close() => _inner.close();
+
+  /// [request] whose abort trigger also fires on [abandoned]. Image and
+  /// download exits send plain [http.Request]s; any other shape goes out
+  /// as it is.
+  static http.BaseRequest _abortable(
+    http.BaseRequest request,
+    Future<void> abandoned,
+  ) {
+    if (request is! http.Request) return request;
+    final trigger = switch (request) {
+      http.Abortable(:final abortTrigger) => abortTrigger,
+      _ => null,
+    };
+    return http.AbortableRequest(
+        request.method,
+        request.url,
+        abortTrigger: trigger == null
+            ? abandoned
+            : Future.any([trigger, abandoned]),
+      )
+      ..headers.addAll(request.headers)
+      ..followRedirects = request.followRedirects
+      ..maxRedirects = request.maxRedirects
+      ..persistentConnection = request.persistentConnection
+      ..bodyBytes = request.bodyBytes;
+  }
 }
 
 /// Per-chunk idle deadline for a response body. Implemented as a `Stream`
@@ -578,10 +622,13 @@ class _StreamIdleGuardClient extends http.BaseClient {
 /// On an idle gap the listener's error handler gets a `TimeoutException`
 /// and the source subscription is cancelled, releasing the socket.
 class _IdleGuardStream extends Stream<List<int>> {
-  _IdleGuardStream(this._source, this.idle);
+  _IdleGuardStream(this._source, this.idle, {required this.onAbandon});
 
   final Stream<List<int>> _source;
   final Duration idle;
+
+  /// Aborts the request once its body is given up.
+  final void Function() onAbandon;
 
   @override
   StreamSubscription<List<int>> listen(
@@ -592,6 +639,7 @@ class _IdleGuardStream extends Stream<List<int>> {
   }) => _IdleGuardSubscription(
     _source,
     idle,
+    onAbandon: onAbandon,
     onData: onData,
     onError: onError,
     onDone: onDone,
@@ -606,11 +654,13 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   _IdleGuardSubscription(
     Stream<List<int>> source,
     this._idle, {
+    required void Function() onAbandon,
     required void Function(List<int> event)? onData,
     required Function? onError,
     required void Function()? onDone,
     required bool cancelOnError,
-  }) : _onData = onData,
+  }) : _onAbandon = onAbandon,
+       _onData = onData,
        _onError = onError,
        _onDone = onDone,
        _cancelOnError = cancelOnError {
@@ -621,6 +671,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   /// The listener's zone: the idle timer runs in the root zone.
   final Zone _zone = Zone.current;
   final Duration _idle;
+  final void Function() _onAbandon;
   final bool _cancelOnError;
   late final StreamSubscription<List<int>> _source;
   void Function(List<int> event)? _onData;
@@ -694,8 +745,12 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   /// it waits for Rust, it goes on waiting, and a body error Rust reports
   /// next fails the cancel future instead of reaching any handler. The
   /// listener gave the body up, so that error is dropped; unhandled, it
-  /// ended the image worker isolate.
-  Future<void> _cancelSource() => _source.cancel().catchError((Object _) {});
+  /// ended the image worker isolate. The request's abort ends the transfer
+  /// on the Rust side.
+  Future<void> _cancelSource() {
+    _onAbandon();
+    return _source.cancel().catchError((Object _) {});
+  }
 
   @override
   void onData(void Function(List<int> event)? handleData) =>
