@@ -213,6 +213,21 @@ class KindClient extends http.BaseClient {
   }
 }
 
+/// Logs [route]'s address for each send, then sends through [inner].
+class RouteLogClient extends http.BaseClient {
+  RouteLogClient(this.route, this.log, this.inner);
+
+  final NetworkRoute route;
+  final List<String> log;
+  final http.Client inner;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    log.add(route.address?.address ?? route.kind.name);
+    return inner.send(request);
+  }
+}
+
 /// Delays the inner send so race tests can pick the winner deterministically.
 class DelayedClient extends http.BaseClient {
   DelayedClient(this.inner, this.delay);

@@ -18,27 +18,13 @@ const Set<NetworkFailureKind> _unsentEligibleKinds = {
   NetworkFailureKind.tlsHandshake,
 };
 
-const _kFastRouteCooldown = Duration(seconds: 30);
+/// A Cloudflare address that served the ECH front from Hong Kong where the
+/// fronts the ECH config names were routed to Los Angeles (Unicom,
+/// 2026-11-03): pixiv's image hosts always have it as a candidate.
+final _kSeedEchFront = InternetAddress('162.159.152.4');
 
-/// ECH on a pixiv image host steps back for [_kEchImageCooldown] once it
-/// fails [_kEchImageFailureThreshold] times in a row; every further failure
-/// after a cooldown doubles it, up to [_kEchImageMaxCooldown]. One failure
-/// (a lost handshake) only moves that single request to the next tier.
-const _kEchImageFailureThreshold = 2;
-const _kEchImageCooldown = Duration(minutes: 1);
-const _kEchImageMaxCooldown = Duration(minutes: 10);
-
-Duration _echImageCooldownAfter(int failures) {
-  var cooldown = _kEchImageCooldown;
-  for (
-    var n = failures - _kEchImageFailureThreshold;
-    n > 0 && cooldown < _kEchImageMaxCooldown;
-    n--
-  ) {
-    cooldown *= 2;
-  }
-  return cooldown < _kEchImageMaxCooldown ? cooldown : _kEchImageMaxCooldown;
-}
+/// ECH candidates per image host: the config's fronts, then the seed.
+const _kMaxEchCandidates = 4;
 
 extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// The single route ladder shared by the API, OAuth, image and download
@@ -48,19 +34,22 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// attempt, so no credential-free probe round trip is paid before data. If
   /// the attempt fails with a transport-level error that proves the request
   /// was never delivered, the ladder walks the remaining unused kinds (ECH
-  /// first on a cold start; `bootstrapNoSni` always last) and sends each
+  /// first on a cold start; pixiv's image hosts by score) and sends each
   /// unused kind at most once.
   /// [canReplay] selects the retry set: idempotent GET/HEAD/downloads also
   /// retry on timeout (a repeat is safe), while POST-family and the token
   /// exchange retry only on delivery-proven failures (DNS, connect, reset,
   /// TLS handshake), so a request that may have reached the server (HTTP
-  /// response, timeout after send) is never repeated.
+  /// response, timeout after send) is never repeated. A [background]
+  /// request (a prefetch) to pixiv's image hosts may explore a candidate
+  /// route no recent load has tried.
   Future<T> runLadder<T>({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
     required bool canReplay,
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
     bool raceWhenCold = false,
+    bool background = false,
   }) async {
     _checkUsable();
     final host = destination.canonicalHost;
@@ -78,6 +67,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         canReplay: canReplay,
         attempt: attempt,
         raceWhenCold: raceWhenCold,
+        background: background,
       );
     } on Object {
       // A mirror/auto-source host that exhausted every tier is reported so
@@ -103,7 +93,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required NetworkCancelSignal? cancelSignal,
     required bool canReplay,
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
-    bool raceWhenCold = false,
+    required bool raceWhenCold,
+    required bool background,
   }) async {
     final host = destination.canonicalHost;
     final attemptedKeys = <String>{};
@@ -122,9 +113,11 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     }
 
     var useMemory = true;
-    // Pixiv's own image hosts never race: their origin tier wins a
-    // first-byte race and then throttles every image (see [_prefersEch]).
-    if (canReplay && raceWhenCold && !_prefersEch(destination)) {
+    var explore = background;
+    // Pixiv's own image hosts never race: a first-byte race says nothing
+    // of the body, which is where their routes differ (see
+    // [ImageRouteScores]).
+    if (canReplay && raceWhenCold && !_isPixivImage(destination)) {
       final (raced, value) = await _raceColdTiers<T>(
         destination: destination,
         cancelSignal: cancelSignal,
@@ -146,11 +139,13 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           attemptedKinds: attemptedKinds,
           resolveHost: resolveHost,
           useMemory: useMemory,
+          explore: explore,
         );
       } on Object catch (error, stackTrace) {
         Error.throwWithStackTrace(error, stackTrace);
       }
       useMemory = false;
+      explore = false;
 
       final businessTimer = Stopwatch()..start();
       try {
@@ -160,19 +155,14 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           attempt,
           cancelSignal,
         );
-        _clearFastRouteCooldown(host, route);
-        if (route.kind == NetworkRouteKind.ech) {
-          _clearEchImageCooldown(host);
-        }
         return result;
       } on Object catch (error, stackTrace) {
         policyRecord(destination, route, error, businessTimer.elapsed);
         final eligible = _retryEligible(canReplay, error, route);
         if (eligible) {
           _invalidateRouteMemory(host, route, purpose: destination.purpose);
-          _coolFastRoute(host, route);
-          if (route.kind == NetworkRouteKind.ech) {
-            _recordEchImageFailure(destination);
+          if (_isPixivImage(destination)) {
+            _imageRouteFailed(host, route);
           }
         }
         if (_mode == NetworkMode.directOnly ||
@@ -194,8 +184,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // default vhost, which simply may not carry this hostname (a mirror on
     // shared hosting). Falling through to the real-SNI tier is the correct
     // answer — verification stays ON everywhere. Real-SNI mismatches and
-    // the bootstrap tier keep their terminal semantics: Pixiv's origin
-    // always presents its own certificate there, so a mismatch is suspect.
+    // pixiv's origin keep their terminal semantics: the origin always
+    // presents its own certificate, so a mismatch is suspect.
     if (kind == NetworkFailureKind.certificateMismatch &&
         route.kind == NetworkRouteKind.noSni) {
       return true;
@@ -211,6 +201,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// resolved address). [resolveHost] is shared by every selection of one
   /// request, so a DoH lookup that cannot connect costs its timeouts once.
   /// [remember] is off while racing, where only the winner is remembered.
+  /// Pixiv's image hosts choose by score instead ([_selectImageRoute]).
   Future<NetworkRoute> _selectRoute({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
@@ -219,6 +210,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required Future<ResolvedHost> Function() resolveHost,
     bool useMemory = true,
     bool remember = true,
+    bool explore = false,
   }) async {
     final host = destination.canonicalHost;
     final now = clock();
@@ -236,21 +228,23 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       _rememberRoute(host, direct, purpose: destination.purpose);
       return direct;
     }
+    if (_isPixivImage(destination)) {
+      return _selectImageRoute(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        attemptedKeys: attemptedKeys,
+        attemptedKinds: attemptedKinds,
+        resolveHost: resolveHost,
+        explore: explore,
+      );
+    }
 
-    final echCooling =
-        _prefersEch(destination) && _isEchImageCooling(host, now);
     if (useMemory) {
       final remembered = _routeMemory[host];
       if (remembered != null &&
-          _isSupersededByEch(destination.purpose, host, remembered.kind, now)) {
-        _routeMemory.remove(host);
-      } else if (remembered != null &&
           remembered.isUsable(now, _revision.networkIdentity)) {
         final route = remembered.routeFor(_revision);
-        if ((!_isFastRouteCooling(host, now) ||
-                route.kind != NetworkRouteKind.bootstrapNoSni) &&
-            !(echCooling && route.kind == NetworkRouteKind.ech) &&
-            !attemptedKinds.contains(route.kind) &&
+        if (!attemptedKinds.contains(route.kind) &&
             attemptedKeys.add(route.key)) {
           attemptedKinds.add(route.kind);
           return route;
@@ -266,39 +260,17 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       destination.canonicalHost,
       now: now,
     );
-    final fallbackTiers = _fallbackTiersFor(destination);
     // Verified-fast-first ordering, driven by real-device probe data:
     // Cloudflare hosts (API/OAuth) reach the ECH tier inside the wall while
-    // plain SNI is RST; pixiv image hosts take ECH too, with their origin
-    // addresses as the throttled stand-in. Mirrors go direct first, in
-    // every mode (see [_fallbackTiersFor]). The bootstrap tier (bootstrapNoSni, image hosts only) stays as
-    // the very last fallback: if it happens to work on this network its host
-    // remembers it after one success, but an unproven address can never
-    // again cost the first N requests of a screen.
-    final hasBootstrapFallback = fallbackTiers.contains(
-      NetworkRouteKind.bootstrapNoSni,
-    );
-    final compatPrefer = _mode == NetworkMode.compatPrefer;
-    final bootstrapEligible =
-        hasBootstrapFallback && !_isFastRouteCooling(host, now);
+    // plain SNI is RST. Mirrors go direct first, in every mode (see
+    // [_fallbackTiersFor]).
+    final fallbackTiers = _fallbackTiersFor(destination);
     final kinds = <NetworkRouteKind>[
       ?preferredKind,
-      ...fallbackTiers.where((kind) => kind != NetworkRouteKind.bootstrapNoSni),
-      // compatPrefer walks every compatibility tier before touching direct —
-      // the user already knows plain direct is blocked on this network.
-      if (compatPrefer && bootstrapEligible) NetworkRouteKind.bootstrapNoSni,
+      ...fallbackTiers,
       if (!fallbackTiers.contains(NetworkRouteKind.direct))
         NetworkRouteKind.direct,
-      if (!compatPrefer && bootstrapEligible) NetworkRouteKind.bootstrapNoSni,
     ];
-    // A cooling ECH tier goes last rather than away: the stand-in tiers
-    // carry the request, but a network that blocks all of them still
-    // reaches ECH — and one ECH success ends the cooldown.
-    if (echCooling) {
-      kinds
-        ..removeWhere((kind) => kind == NetworkRouteKind.ech)
-        ..add(NetworkRouteKind.ech);
-    }
     for (final kind in kinds) {
       if (attemptedKinds.contains(kind)) continue;
       NetworkRoute? route;
@@ -357,6 +329,122 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       Error.throwWithStackTrace(lastError, lastStack ?? StackTrace.current);
     }
     throw const NetworkFailureException(NetworkFailureKind.connect);
+  }
+
+  bool _isPixivImage(PixivDestination destination) =>
+      _routeGroupFor(destination.purpose, destination.canonicalHost) ==
+      _RouteGroup.image;
+
+  /// Pixiv's image hosts try their route candidates in the order of
+  /// [_imageScores], then `dohRealSni` and `direct`; each candidate and
+  /// tier once per request. A candidate that cannot be built (no ECH
+  /// config) is left out. Only a request's first selection may [explore].
+  Future<NetworkRoute> _selectImageRoute({
+    required PixivDestination destination,
+    required NetworkCancelSignal? cancelSignal,
+    required Set<String> attemptedKeys,
+    required Set<NetworkRouteKind> attemptedKinds,
+    required Future<ResolvedHost> Function() resolveHost,
+    required bool explore,
+  }) async {
+    final candidates = await _imageCandidates(destination, cancelSignal);
+    final order = _imageScores.order(
+      candidates.keys.toList(growable: false),
+      background: explore,
+    );
+    for (final candidate in order) {
+      if (attemptedKeys.add('candidate:$candidate')) {
+        return candidates[candidate]!;
+      }
+    }
+    Object? lastError;
+    StackTrace? lastStack;
+    for (final kind in const [
+      NetworkRouteKind.dohRealSni,
+      NetworkRouteKind.direct,
+    ]) {
+      if (!attemptedKinds.add(kind)) continue;
+      try {
+        final route = kind == NetworkRouteKind.direct
+            ? NetworkRoute.direct(_revision)
+            : await _routeForTier(
+                kind,
+                destination,
+                resolveHost: resolveHost,
+                cancelSignal: cancelSignal,
+              );
+        if (route != null && attemptedKeys.add(route.key)) return route;
+      } on Object catch (error, stackTrace) {
+        if (_isCancellation(error, cancelSignal)) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+        lastError = error;
+        lastStack = stackTrace;
+      }
+    }
+    if (lastError != null) {
+      Error.throwWithStackTrace(lastError, lastStack ?? StackTrace.current);
+    }
+    throw const NetworkFailureException(NetworkFailureKind.connect);
+  }
+
+  /// A pixiv image host's route candidates by key, in their default order:
+  /// ECH through each front the ECH config names, then through the seed
+  /// front, then pixiv's origin.
+  Future<Map<String, NetworkRoute>> _imageCandidates(
+    PixivDestination destination,
+    NetworkCancelSignal? cancelSignal,
+  ) async {
+    final candidates = <String, NetworkRoute>{};
+    final ech = await _lookupEchConfig(cancelSignal: cancelSignal);
+    if (ech != null && ech.echConfig.isNotEmpty) {
+      final fronts = [
+        ...ech.frontAddresses
+            .where(isPublicNetworkAddress)
+            .take(_kMaxEchCandidates - 1),
+        _kSeedEchFront,
+      ];
+      for (final front in fronts) {
+        candidates.putIfAbsent(
+          _imageCandidateKey(NetworkRouteKind.ech, front)!,
+          () => NetworkRoute.ech(
+            _revision,
+            front,
+            ech.echConfig,
+            dnsSource: DnsSource.doh,
+            ttl: ech.ttl,
+          ),
+        );
+      }
+    }
+    if (bootstrapNoSniEnabled) {
+      final origin = await _originRoute(destination.canonicalHost);
+      candidates[_imageCandidateKey(origin.kind, origin.address)!] = origin;
+    }
+    return candidates;
+  }
+
+  /// The origin candidate on the address [host]'s book has in use: the one
+  /// it last loaded from, then pixiv's other origin addresses.
+  Future<NetworkRoute> _originRoute(String host) async {
+    var book = _originBooks[host];
+    if (book == null) {
+      final first =
+          await fastRouteStore?.addressFor(host) ??
+          PixivFastRouteStore.bootstrap[host];
+      book = _originBooks[host] ??= _OriginBook([
+        ?first,
+        ...PixivFastRouteStore.originAddresses.where(
+          (address) => address.address != first?.address,
+        ),
+      ]);
+    }
+    return NetworkRoute.bootstrapNoSni(
+      _revision,
+      book.current,
+      dnsSource: DnsSource.doh,
+      ttl: _kRouteMemoryTtl,
+    );
   }
 
   /// Cold-start racing: when neither the host nor its route group has any
@@ -450,8 +538,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
     }
     _rememberRoute(host, winner.route, purpose: destination.purpose);
-    _clearFastRouteCooldown(host, winner.route);
-    _learnFastRoute(host, winner.route);
     // The loser keeps no memory and never reports back; drain its body so
     // the socket is reclaimed promptly, or record a late failure so the
     // diagnostics stay truthful.
@@ -486,7 +572,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     _discardRaceOutcome(destination, second);
     for (final failure in [first, second]) {
       _invalidateRouteMemory(host, failure.route, purpose: destination.purpose);
-      _coolFastRoute(host, failure.route);
     }
     // Racing must not weaken terminal semantics: a failure the serial
     // ladder would have called final (e.g. a real-SNI certificate mismatch)
@@ -540,7 +625,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           route,
           purpose: destination.purpose,
         );
-        _coolFastRoute(destination.canonicalHost, route);
     }
   }
 
@@ -566,18 +650,14 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     return result;
   }
 
-  /// A `noSni` success proves its resolved address completes an empty-SNI
-  /// handshake with a certificate for [host], the bootstrap tier's own
-  /// condition, so the store learns it (the store ignores hosts outside its
-  /// map). A bootstrap success teaches nothing new: its address is already
-  /// stored or built in, and storing a built-in one would outlive a release
-  /// that changes it.
+  /// An origin success teaches the store its address, where the next start
+  /// on [host] begins (the store keeps pixiv's image hosts only).
   void _learnFastRoute(String host, NetworkRoute route) {
     final store = fastRouteStore;
     final address = route.address;
     if (store == null ||
         address == null ||
-        route.kind != NetworkRouteKind.noSni) {
+        route.kind != NetworkRouteKind.bootstrapNoSni) {
       return;
     }
     // An acceleration layer: the request has already completed and must not
@@ -594,6 +674,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     NetworkRoute route, {
     required PixivDestinationPurpose purpose,
   }) {
+    // Pixiv's image hosts remember through their scores.
+    if (_routeGroupFor(purpose, host) == _RouteGroup.image) return;
     final address = route.address;
     if (route.kind != NetworkRouteKind.direct && address == null) {
       // A strict route without a connect address is not usable and must never
@@ -669,79 +751,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     }
   }
 
-  bool _isFastRouteCooling(String host, DateTime now) {
-    final until = _fastRouteCooldownUntil[host];
-    if (until == null) return false;
-    if (now.isBefore(until)) return true;
-    _fastRouteCooldownUntil.remove(host);
-    return false;
-  }
-
-  void _coolFastRoute(String host, NetworkRoute route) {
-    if (route.kind != NetworkRouteKind.bootstrapNoSni ||
-        !_fastCompatibilityEnabled) {
-      return;
-    }
-    _fastRouteCooldownUntil[host] = clock().add(_kFastRouteCooldown);
-  }
-
-  void _clearFastRouteCooldown(String host, NetworkRoute route) {
-    if (route.kind == NetworkRouteKind.bootstrapNoSni) {
-      _fastRouteCooldownUntil.remove(host);
-    }
-  }
-
-  /// Pixiv's own image hosts stay on ECH. Their origin addresses (the noSni
-  /// tier) often answer first but are throttled to tens of KB/s inside the
-  /// wall (measured 2026-10-03: 28–66 KB/s against ~1.2 MB/s through the
-  /// ECH front), so a first-byte race or a sticky memory would pin every
-  /// image to the slowest exit. The other tiers only stand in while ECH
-  /// cools down after repeated failures.
-  bool _prefersEch(PixivDestination destination) =>
-      _routeGroupFor(destination.purpose, destination.canonicalHost) ==
-      _RouteGroup.image;
-
-  /// Whether a remembered [kind] on [host] has to give way to ECH: on a
-  /// pixiv image host a non-ECH route is only a stand-in for the cooldown.
-  bool _isSupersededByEch(
-    PixivDestinationPurpose purpose,
-    String host,
-    NetworkRouteKind kind,
-    DateTime now,
-  ) =>
-      kind != NetworkRouteKind.ech &&
-      _routeGroupFor(purpose, host) == _RouteGroup.image &&
-      !_isEchImageCooling(host, now);
-
-  bool _isEchImageCooling(String host, DateTime now) {
-    final until = _echImageCooldownUntil[host];
-    return until != null && now.isBefore(until);
-  }
-
-  /// Counts one ECH failure on a pixiv image host — a fallback-eligible
-  /// transport error, or an ECH tier that could not be built (no config, no
-  /// front address). Failures while the host is already cooling are the
-  /// in-flight siblings of the burst that started the cooldown: one outage,
-  /// not more evidence, so they do not escalate the backoff.
-  void _recordEchImageFailure(PixivDestination destination) {
-    if (!_prefersEch(destination)) return;
-    final host = destination.canonicalHost;
-    final now = clock();
-    if (_isEchImageCooling(host, now)) return;
-    final failures = (_echImageFailures[host] ?? 0) + 1;
-    _echImageFailures[host] = failures;
-    if (failures < _kEchImageFailureThreshold) return;
-    _echImageCooldownUntil[host] = now.add(_echImageCooldownAfter(failures));
-  }
-
-  void _clearEchImageCooldown(String host) {
-    _echImageFailures.remove(host);
-    _echImageCooldownUntil.remove(host);
-  }
-
   /// A tier that could not be built drops the group preference that pointed
-  /// at it; an unbuildable ECH tier also counts as an ECH failure, so a
-  /// failing config lookup is not repeated on every image request.
+  /// at it.
   void _onTierUnavailable(
     PixivDestination destination,
     NetworkRouteKind kind,
@@ -754,7 +765,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         destination.canonicalHost,
       );
     }
-    if (kind == NetworkRouteKind.ech) _recordEchImageFailure(destination);
   }
 
   bool _isCancellation(Object error, NetworkCancelSignal? signal) =>
@@ -762,14 +772,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       TransportFailureClassifier.classify(error).kind ==
           NetworkFailureKind.cancelled;
 
-  /// Ordered fallback tiers after the group preference, per destination
-  /// group. Cloudflare hosts (API/OAuth) reach ECH inside the wall (real
-  /// SNI is RST) and ECH gives HTTP/2 multiplexing on one connection; pixiv
-  /// image hosts are served in full by the ECH front too, and the plain
-  /// empty-SNI tier on their origin addresses is only the throttled second
-  /// choice (see [_prefersEch]). The bootstrap tier (bootstrapNoSni, image
-  /// hosts only) is always last: its address is unproven on a cold network
-  /// and costs a connect timeout when it cannot be reached.
+  /// Ordered fallback tiers after the group preference, for the groups
+  /// other than pixiv's image hosts. Cloudflare hosts (API/OAuth) reach ECH
+  /// inside the wall (real SNI is RST) and ECH gives HTTP/2 multiplexing on
+  /// one connection.
   List<NetworkRouteKind> _fallbackTiersFor(PixivDestination destination) {
     final purpose = destination.purpose;
     // Third-party image mirrors (preset/custom reverse proxies) are not
@@ -792,38 +798,22 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         NetworkRouteKind.dohRealSni,
       ];
     }
-    final isCloudflareHost = switch (purpose) {
-      PixivDestinationPurpose.appApi ||
-      PixivDestinationPurpose.oauth ||
-      PixivDestinationPurpose.accountsWeb ||
-      PixivDestinationPurpose.pixivWeb => true,
-      PixivDestinationPurpose.image => false,
-    };
-    if (isCloudflareHost) {
-      // No bootstrap tier: pixiv's origin answers API, OAuth and web traffic
-      // that bypasses Cloudflare with 403, which this ladder would take for
-      // a working route.
-      return [NetworkRouteKind.ech, NetworkRouteKind.dohRealSni];
-    }
-    return [
-      NetworkRouteKind.ech,
-      NetworkRouteKind.noSni,
-      NetworkRouteKind.dohRealSni,
-      if (bootstrapNoSniEnabled) NetworkRouteKind.bootstrapNoSni,
-    ];
+    // No origin tier: pixiv's origin answers API, OAuth and web traffic
+    // that bypasses Cloudflare with 403, which this ladder would take for a
+    // working route.
+    return [NetworkRouteKind.ech, NetworkRouteKind.dohRealSni];
   }
 
   /// Whether a success on [kind] may become [group]'s shared (and
-  /// persisted) preference. Pixiv's image group only ever prefers ECH: an
-  /// origin-tier success is a cooldown stand-in (see [_prefersEch]) and
-  /// must not outlive it, let alone a restart.
+  /// persisted) preference. Pixiv's image group has none: its scores choose
+  /// (see [ImageRouteScores]).
   bool _isGroupPreference(_RouteGroup group, NetworkRouteKind kind) {
-    if (group == _RouteGroup.image) return kind == NetworkRouteKind.ech;
+    if (group == _RouteGroup.image) return false;
     return switch (kind) {
       NetworkRouteKind.ech ||
       NetworkRouteKind.dohRealSni ||
       NetworkRouteKind.noSni => true,
-      // The bootstrap tier serves image hosts only. Older versions persisted
+      // The bootstrap kind is pixiv's image origin. Older versions persisted
       // it as the API group's preference after pixiv's origin answered 403;
       // seeding drops those entries here.
       NetworkRouteKind.bootstrapNoSni || NetworkRouteKind.direct => false,
@@ -892,27 +882,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           dnsSource: resolved.dnsSource,
           ttl: resolved.ttl,
         );
-      case NetworkRouteKind.bootstrapNoSni:
-        final store = fastRouteStore;
-        if (store != null) {
-          final fastAddress = await store.addressFor(destination.canonicalHost);
-          if (fastAddress == null) return null;
-          return NetworkRoute.bootstrapNoSni(
-            _revision,
-            fastAddress,
-            dnsSource: DnsSource.doh,
-            ttl: _kRouteMemoryTtl,
-          );
-        }
-        final resolved = await resolveHost();
-        return NetworkRoute.bootstrapNoSni(
-          _revision,
-          resolved.addresses.first,
-          dnsSource: resolved.dnsSource,
-          ttl: resolved.ttl,
-        );
-      case NetworkRouteKind.direct:
-        throw StateError('direct is not a fallback tier');
+      case NetworkRouteKind.bootstrapNoSni || NetworkRouteKind.direct:
+        throw StateError('${kind.name} is not a fallback tier');
     }
   }
 

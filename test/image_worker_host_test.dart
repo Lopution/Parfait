@@ -11,6 +11,7 @@ import 'package:http/io_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
+import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/segmented_fetch.dart';
 import 'package:parfait/core/network/pixiv_headers.dart';
 
@@ -154,6 +155,17 @@ const _otherNetwork = ImageWorkerConfig(
 
 /// Its first answer's body breaks on [breakFirst], as when the route pool
 /// under it closes; every later request gets the image.
+/// Answers every image GET with one byte, keeping the requests.
+class _RecordingImageClient extends http.BaseClient {
+  final requests = <http.BaseRequest>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    return http.StreamedResponse(Stream.value([1]), 200, request: request);
+  }
+}
+
 class _FirstBodyBreaksClient extends http.BaseClient {
   final _firstBody = StreamController<List<int>>();
   var requests = 0;
@@ -318,6 +330,26 @@ void main() {
       expect(client.requests, change ? 2 : 1);
     });
   }
+
+  test('a prefetch reaches the network as one', () async {
+    final client = _RecordingImageClient();
+    final harness = _Harness();
+    addTearDown(harness.stop);
+    await harness.start(fetchClient: () => client);
+
+    harness.fetch(
+      1,
+      'https://i.pximg.net/img-master/prefetch.jpg',
+      priority: ImageFetchPriority.background,
+    );
+    await harness.eventFor(1);
+    harness.fetch(2, 'https://i.pximg.net/img-master/visible.jpg');
+    await harness.eventFor(2);
+    expect(
+      [for (final r in client.requests) (r as ImageRequest).background],
+      [true, false],
+    );
+  });
 
   test('a cancelled queued fetch never reaches the network', () async {
     final harness = await _served();

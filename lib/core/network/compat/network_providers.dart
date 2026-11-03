@@ -53,10 +53,10 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   );
 
   // A network change (Wi-Fi↔cellular, VPN toggle, captive portal escape)
-  // invalidates every learned route, pooled client and cooldown — the
-  // remembered winner on the old network is frequently unreachable on the
-  // new one. The identity string also keys the persisted route kinds, so
-  // returning to a known network re-seeds its last-good tiers.
+  // invalidates every learned route and pooled client — the remembered
+  // winner on the old network is frequently unreachable on the new one.
+  // The identity string also keys the persisted route kinds, so returning
+  // to a known network re-seeds its last-good tiers.
   var connectivityIdentity = 'initial';
   final autoSource = AutoImageSource(
     preferences: ref.watch(sharedPreferencesProvider),

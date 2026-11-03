@@ -348,22 +348,30 @@ class ImageWorkerHost {
   /// a failure the visible image should not spend a retry on; whatever
   /// the second attempt meets surfaces. Called by the scheduler only after
   /// the fetch holds its lane permit.
-  Future<(File, int)> _fetch(String url, NetworkCancelSignal cancel) async {
+  Future<(File, int)> _fetch(
+    String url,
+    NetworkCancelSignal cancel, {
+    required bool background,
+  }) async {
     final network = _network;
     try {
-      return await _download(url, cancel);
+      return await _download(url, cancel, background: background);
     } on ImageHttpStatus {
       rethrow;
     } on Object {
       if (cancel.isCancelled || network == _network) rethrow;
-      return _download(url, cancel);
+      return _download(url, cancel, background: background);
     }
   }
 
   /// One policy GET (an original: its ranges), then an atomic commit into
   /// the cache. [cancel] ends every request of the transfer, and the
-  /// partial file is deleted.
-  Future<(File, int)> _download(String url, NetworkCancelSignal cancel) async {
+  /// partial file is deleted. A [background] transfer is a prefetch.
+  Future<(File, int)> _download(
+    String url,
+    NetworkCancelSignal cancel, {
+    required bool background,
+  }) async {
     // A flight for the URL may have committed between this request's own
     // lookup and its submit; the re-check is a stat, the miss a download.
     final cached = await _cache.lookup(url);
@@ -372,8 +380,14 @@ class ImageWorkerHost {
     }
     final uri = Uri.parse(url);
     final (body, segmented) = _isOriginal(url)
-        ? await _openInRanges(uri, cancel)
-        : (await _wholeBody(await _request(uri, cancel: cancel), uri), null);
+        ? await _openInRanges(uri, cancel, background: background)
+        : (
+            await _wholeBody(
+              await _request(uri, cancel: cancel, background: background),
+              uri,
+            ),
+            null,
+          );
     if (segmented != null) _segmentedFetches.add(segmented);
     try {
       final file = await _cache.store(
@@ -393,12 +407,14 @@ class ImageWorkerHost {
   /// worker sends no conditional headers, so every range asks the same.
   Future<(_Body, SegmentedFetch?)> _openInRanges(
     Uri uri,
-    NetworkCancelSignal cancel,
-  ) async {
+    NetworkCancelSignal cancel, {
+    required bool background,
+  }) async {
     final first = await _request(
       uri,
       range: (0, SegmentedFetch.defaultSegmentBytes - 1),
       cancel: cancel,
+      background: background,
     );
     final range = parseContentRange(first.headers['content-range']);
     final total = range?.total;
@@ -419,6 +435,7 @@ class ImageWorkerHost {
               range: (start, end),
               ifRange: ifRange,
               cancel: cancel,
+              background: background,
             ),
           ),
       budget: _segmentBudget,
@@ -435,11 +452,13 @@ class ImageWorkerHost {
     (int, int)? range,
     String? ifRange,
     NetworkCancelSignal? cancel,
+    required bool background,
   }) {
-    final request = http.AbortableRequest(
+    final request = ImageRequest(
       'GET',
       uri,
       abortTrigger: cancel?.whenCancel,
+      background: background,
     )..headers.addAll(PixivHeaders.image());
     if (range case (final start, final end)) {
       request.headers['range'] = 'bytes=$start-$end';

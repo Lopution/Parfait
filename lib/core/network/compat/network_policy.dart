@@ -9,6 +9,8 @@ import '../pixiv_client_identity.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
+import 'image_route_scores.dart';
+import 'network_fast_route_store.dart';
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
 import 'route_memory.dart';
@@ -86,6 +88,7 @@ class NetworkAccessPolicy {
        diagnostics = diagnostics ?? NetworkDiagnostics(),
        _mode = mode,
        _revision = revision,
+       _imageScores = ImageRouteScores(clock: clock),
        _imageHeadersTimeout =
            imageHeadersTimeout ?? _StreamIdleGuardClient.defaultHeadersTimeout,
        _imageIdleTimeout =
@@ -96,10 +99,10 @@ class NetworkAccessPolicy {
   /// ECH config for pixiv domains via this host; configurable in settings).
   final String echFrontHost;
 
-  /// Whether the `bootstrapNoSni` fallback tier exists for pixiv's image
-  /// hosts. In production this is enabled together with [fastRouteStore],
-  /// which makes it the persisted compatibility tier; tests and standalone
-  /// callers opt in explicitly.
+  /// Whether pixiv's origin addresses are a route candidate of its image
+  /// hosts (as a `bootstrapNoSni` route). Production enables it together
+  /// with [fastRouteStore]; tests and standalone callers opt in, so their
+  /// image requests never reach the built-in addresses.
   final bool bootstrapNoSniEnabled;
 
   /// User-configured hosts on the local network the app may not reach
@@ -107,9 +110,8 @@ class NetworkAccessPolicy {
   /// [LocalNetworkBlocked] instead of hanging until the connect times out.
   final Set<String> localNetworkBlockedHosts;
 
-  /// Origin addresses of pixiv's image hosts for the bootstrap tier, so it
-  /// needs no DNS lookup. A `noSni` success teaches it the address it was
-  /// served from.
+  /// The origin address each pixiv image host last loaded from, where its
+  /// origin candidate starts; an origin success teaches it.
   final FastRouteMemory? fastRouteStore;
 
   /// Persists the winning route *kind* per network identity so the next
@@ -167,15 +169,12 @@ class NetworkAccessPolicy {
   /// that close route pools (mode/revision changes).
   final Map<String, _HostRouteMemory> _routeMemory = {};
 
-  /// A stale persisted address must not make every request pay the fast-tier
-  /// timeout before reaching a strict route. The cooldown is process-local;
-  /// the persisted address remains available for a later network change.
-  final Map<String, DateTime> _fastRouteCooldownUntil = {};
+  /// How pixiv's image route candidates have been loading on the current
+  /// network; they keep no other memory. A new network starts a new board.
+  ImageRouteScores _imageScores;
 
-  /// Consecutive ECH failures per pixiv image host, and the time until which
-  /// ECH steps back for that host (see `_recordEchImageFailure`).
-  final Map<String, int> _echImageFailures = {};
-  final Map<String, DateTime> _echImageCooldownUntil = {};
+  /// Each pixiv image host's origin addresses and the one in use.
+  final Map<String, _OriginBook> _originBooks = {};
 
   /// A successful strict route is also remembered for its destination group.
   /// The value changes candidate order only; target addresses remain per-host.
@@ -192,12 +191,9 @@ class NetworkAccessPolicy {
   NetworkMode get mode => _mode;
   NetworkRevision get revision => _revision;
 
-  bool get _fastCompatibilityEnabled =>
-      bootstrapNoSniEnabled && fastRouteStore != null;
-
-  /// Loads the persisted compatibility-tier addresses and eagerly creates the
-  /// corresponding pooled clients. This work is intentionally asynchronous so
-  /// the first screen is not held up by preference I/O.
+  /// Loads the persisted origin addresses and eagerly creates their pooled
+  /// clients. This work is intentionally asynchronous so the first screen
+  /// is not held up by preference I/O.
   Future<void> warmUp() {
     if (_disposed) return Future<void>.value();
     return _warmupFuture ??= _warmUp();
@@ -209,27 +205,16 @@ class NetworkAccessPolicy {
     final rhttpReady = RhttpGate.ready;
     if (rhttpReady != null) await rhttpReady;
     unawaited(_seedPersistedGroupKinds());
-    final store = fastRouteStore;
-    if (!_fastCompatibilityEnabled ||
-        store == null ||
+    if (!bootstrapNoSniEnabled ||
+        fastRouteStore == null ||
         _mode == NetworkMode.directOnly) {
       return;
     }
-    // The bootstrap tier serves pixiv's image hosts only.
+    // The origin candidate serves pixiv's image hosts only.
     for (final host in PixivClientIdentity.downloadHosts) {
+      final route = await _originRoute(host);
       if (_disposed) return;
-      final address = await store.addressFor(host);
-      if (address == null) continue;
-      clientFor(
-        PixivDestinationPurpose.image,
-        NetworkRoute.bootstrapNoSni(
-          _revision,
-          address,
-          dnsSource: DnsSource.doh,
-          ttl: _kRouteMemoryTtl,
-        ),
-        host,
-      );
+      clientFor(PixivDestinationPurpose.image, route, host);
     }
   }
 
@@ -307,6 +292,10 @@ class NetworkAccessPolicy {
               _clientFactory(route, canonicalHost, purpose),
               headersTimeout: _imageHeadersTimeout,
               idleTimeout: _imageIdleTimeout,
+              observer:
+                  _routeGroupFor(purpose, canonicalHost) == _RouteGroup.image
+                  ? _CandidateObserver(this, canonicalHost, route)
+                  : null,
             )
           : _clientFactory(route, canonicalHost, purpose),
     );
@@ -386,6 +375,38 @@ class NetworkAccessPolicy {
     );
   }
 
+  /// [route]'s candidate while its network is current: what a closed
+  /// network's transfers show is not this network's.
+  String? _currentCandidate(NetworkRoute route) {
+    if (_disposed ||
+        route.revision.value != _revision.value ||
+        route.revision.networkIdentity != _revision.networkIdentity) {
+      return null;
+    }
+    return _imageCandidateKey(route.kind, route.address);
+  }
+
+  void _recordImageSample(
+    NetworkRoute route,
+    ImageRouteSample Function(String candidate, DateTime at) sample,
+  ) {
+    final candidate = _currentCandidate(route);
+    if (candidate != null) _imageScores.record(sample(candidate, clock()));
+  }
+
+  /// A failure before the body, a stall in it or a server error: the
+  /// candidate pays for it, and an origin address gives way to the next.
+  void _imageRouteFailed(String host, NetworkRoute route) {
+    _recordImageSample(
+      route,
+      (candidate, at) => ImageRouteSample.failure(candidate, at: at),
+    );
+    final address = route.address;
+    if (route.kind == NetworkRouteKind.bootstrapNoSni && address != null) {
+      _originBooks[host]?.failed(address);
+    }
+  }
+
   /// Changes mode and invalidates all route pools and route memory. This is
   /// deliberately synchronous because `http.Client.close` is synchronous; no
   /// caller can issue another request through the old pool after this method
@@ -397,10 +418,11 @@ class NetworkAccessPolicy {
   }
 
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
-    _revision = NetworkRevision(
-      _revision.value + 1,
-      networkIdentity: networkIdentity ?? _revision.networkIdentity,
-    );
+    final identity = networkIdentity ?? _revision.networkIdentity;
+    if (identity != _revision.networkIdentity) {
+      _imageScores = ImageRouteScores(clock: clock);
+    }
+    _revision = NetworkRevision(_revision.value + 1, networkIdentity: identity);
     _forgetRoutes();
     // Re-seed group preferences for the *new* identity — the same store
     // that accelerates a cold restart accelerates a Wi-Fi↔cellular flip.
@@ -426,8 +448,8 @@ class NetworkAccessPolicy {
       final kind = NetworkRouteKind.values
           .where((k) => k.name == entry.value)
           .firstOrNull;
-      // Older versions persisted origin-tier image preferences; those are
-      // ignored here and overwritten by the next ECH success.
+      // Older versions persisted pixiv image preferences; their scores
+      // replace them.
       if (kind == null || !_isGroupPreference(group, kind)) continue;
       _groupMemory[group] = _RouteGroupMemory(
         kind: kind,
@@ -456,15 +478,13 @@ class NetworkAccessPolicy {
     await _resolver.dispose();
   }
 
-  /// Closes the route pools and drops everything learned about routes on
-  /// the current network: what won, and what is cooling down.
+  /// Closes the route pools and drops what won on the current network.
+  /// Image route scores are the network's own and go only with it.
   void _forgetRoutes() {
     _closeClients();
     _routeMemory.clear();
     _groupMemory.clear();
-    _fastRouteCooldownUntil.clear();
-    _echImageFailures.clear();
-    _echImageCooldownUntil.clear();
+    _originBooks.clear();
   }
 
   void _closeClients() {
@@ -477,6 +497,24 @@ class NetworkAccessPolicy {
 
   void _checkUsable() {
     if (_disposed) throw StateError('network policy is disposed');
+  }
+}
+
+/// A pixiv image host's origin addresses and the one in use, which moves
+/// on after a failure there.
+class _OriginBook {
+  _OriginBook(this.addresses);
+
+  final List<InternetAddress> addresses;
+  var _index = 0;
+
+  InternetAddress get current => addresses[_index];
+
+  /// Requests that failed together on one address move the book once.
+  void failed(InternetAddress address) {
+    if (address.address == current.address) {
+      _index = (_index + 1) % addresses.length;
+    }
   }
 }
 
@@ -535,9 +573,13 @@ class _StreamIdleGuardClient extends http.BaseClient {
     this._inner, {
     this.headersTimeout = defaultHeadersTimeout,
     this.idleTimeout = defaultIdleTimeout,
-  });
+    _CandidateObserver? observer,
+  }) : _observer = observer;
 
   final http.Client _inner;
+
+  /// Hears how bodies end on a pixiv image route candidate.
+  final _CandidateObserver? _observer;
 
   /// Time budget for `send()` to resolve, i.e. until response headers.
   final Duration headersTimeout;
@@ -558,6 +600,7 @@ class _StreamIdleGuardClient extends http.BaseClient {
       if (!abandoned.isCompleted) abandoned.complete();
     }
 
+    final sent = Stopwatch()..start();
     final http.StreamedResponse response;
     try {
       response = await _inner
@@ -569,7 +612,12 @@ class _StreamIdleGuardClient extends http.BaseClient {
     }
     return http.StreamedResponse(
       http.ByteStream(
-        _IdleGuardStream(response.stream, idleTimeout, onAbandon: abandon),
+        _IdleGuardStream(
+          response.stream,
+          idleTimeout,
+          onAbandon: abandon,
+          onEnd: _bodyEnd(request, response, sent),
+        ),
       ),
       response.statusCode,
       contentLength: response.contentLength,
@@ -583,6 +631,42 @@ class _StreamIdleGuardClient extends http.BaseClient {
 
   @override
   void close() => _inner.close();
+
+  /// Tells the observer what [response] shows of its route: a `Range`
+  /// answered or ignored, a server error, or (through the returned
+  /// callback) how a 2xx body ends. Other answers say nothing of the
+  /// route.
+  void Function(_BodyEnd end, int bytes)? _bodyEnd(
+    http.BaseRequest request,
+    http.StreamedResponse response,
+    Stopwatch sent,
+  ) {
+    final observer = _observer;
+    if (observer == null) return null;
+    final status = response.statusCode;
+    if (request.headers.containsKey('range') &&
+        (status == 200 || status == 206)) {
+      observer.answeredRange(served: status == 206);
+    }
+    if (status >= 500) {
+      observer.failed();
+      return null;
+    }
+    if (status < 200 || status >= 300) {
+      observer.abandoned();
+      return null;
+    }
+    final headers = sent.elapsed;
+    return (end, bytes) => switch (end) {
+      _BodyEnd.done => observer.loaded(
+        headers: headers,
+        total: sent.elapsed,
+        bytes: bytes,
+      ),
+      _BodyEnd.failed => observer.failed(),
+      _BodyEnd.abandoned => observer.abandoned(),
+    };
+  }
 
   /// [request] whose abort trigger also fires on [abandoned]. Image and
   /// download exits send plain [http.Request]s; any other shape goes out
@@ -622,13 +706,21 @@ class _StreamIdleGuardClient extends http.BaseClient {
 /// On an idle gap the listener's error handler gets a `TimeoutException`
 /// and the source subscription is cancelled, releasing the socket.
 class _IdleGuardStream extends Stream<List<int>> {
-  _IdleGuardStream(this._source, this.idle, {required this.onAbandon});
+  _IdleGuardStream(
+    this._source,
+    this.idle, {
+    required this.onAbandon,
+    this.onEnd,
+  });
 
   final Stream<List<int>> _source;
   final Duration idle;
 
   /// Aborts the request once its body is given up.
   final void Function() onAbandon;
+
+  /// Told once how the body ended, and how many bytes it brought.
+  final void Function(_BodyEnd end, int bytes)? onEnd;
 
   @override
   StreamSubscription<List<int>> listen(
@@ -640,6 +732,7 @@ class _IdleGuardStream extends Stream<List<int>> {
     _source,
     idle,
     onAbandon: onAbandon,
+    onEnd: onEnd,
     onData: onData,
     onError: onError,
     onDone: onDone,
@@ -655,11 +748,13 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
     Stream<List<int>> source,
     this._idle, {
     required void Function() onAbandon,
+    required void Function(_BodyEnd end, int bytes)? onEnd,
     required void Function(List<int> event)? onData,
     required Function? onError,
     required void Function()? onDone,
     required bool cancelOnError,
   }) : _onAbandon = onAbandon,
+       _onEnd = onEnd,
        _onData = onData,
        _onError = onError,
        _onDone = onDone,
@@ -672,7 +767,10 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   final Zone _zone = Zone.current;
   final Duration _idle;
   final void Function() _onAbandon;
+  final void Function(_BodyEnd end, int bytes)? _onEnd;
   final bool _cancelOnError;
+  var _bytes = 0;
+  var _ended = false;
   late final StreamSubscription<List<int>> _source;
   void Function(List<int> event)? _onData;
   Function? _onError;
@@ -681,10 +779,18 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
 
   void _data(List<int> event) {
     _rearm();
+    _bytes += event.length;
     _onData?.call(event);
   }
 
+  void _end(_BodyEnd end) {
+    if (_ended) return;
+    _ended = true;
+    _onEnd?.call(end, _bytes);
+  }
+
   void _sourceError(Object error, StackTrace stack) {
+    _end(_BodyEnd.failed);
     if (_cancelOnError) {
       _timer?.cancel();
       unawaited(_cancelSource());
@@ -709,6 +815,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
 
   void _done() {
     _timer?.cancel();
+    _end(_BodyEnd.done);
     _onDone?.call();
   }
 
@@ -719,6 +826,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
     // for any stream still draining at teardown, and in production there
     // is no fake zone anyway.
     _timer = Zone.root.createTimer(_idle, () {
+      _end(_BodyEnd.failed);
       unawaited(_cancelSource());
       _error(
         TimeoutException('response stream idle', _idle),
@@ -737,6 +845,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   @override
   Future<void> cancel() {
     _timer?.cancel();
+    _end(_BodyEnd.abandoned);
     unawaited(_cancelSource());
     return Future<void>.value();
   }
@@ -782,6 +891,56 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
     return result.future;
   }
 }
+
+enum _BodyEnd { done, failed, abandoned }
+
+/// Hears how the transfers on one pixiv image route candidate end, for the
+/// policy's scores.
+class _CandidateObserver {
+  _CandidateObserver(this._policy, this._host, this._route);
+
+  final NetworkAccessPolicy _policy;
+  final String _host;
+  final NetworkRoute _route;
+
+  void loaded({
+    required Duration headers,
+    required Duration total,
+    required int bytes,
+  }) => _policy._recordImageSample(
+    _route,
+    (candidate, at) => ImageRouteSample.load(
+      candidate,
+      headers: headers,
+      total: total,
+      bytes: bytes,
+      at: at,
+    ),
+  );
+
+  void failed() => _policy._imageRouteFailed(_host, _route);
+
+  /// Given up while healthy: no sample, but an exploration is over.
+  void abandoned() {
+    final candidate = _policy._currentCandidate(_route);
+    if (candidate != null) _policy._imageScores.release(candidate);
+  }
+
+  void answeredRange({required bool served}) {
+    final candidate = _policy._currentCandidate(_route);
+    if (candidate != null) {
+      _policy._imageScores.noteRanges(candidate, served: served);
+    }
+  }
+}
+
+/// The candidate a pixiv image route is: `origin`, or `ech:<front>`.
+String? _imageCandidateKey(NetworkRouteKind kind, InternetAddress? address) =>
+    switch (kind) {
+      NetworkRouteKind.bootstrapNoSni => 'origin',
+      NetworkRouteKind.ech when address != null => 'ech:${address.address}',
+      _ => null,
+    };
 
 enum _RouteGroup { cloudflare, image, imageMirror }
 

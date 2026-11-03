@@ -649,9 +649,13 @@ void main() {
     final noSni = GateFailureClient();
     final realSni = FakeClient(body: 'ok');
     final policy = NetworkAccessPolicy(
+      registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
       resolver: resolver,
-      clientFactory: (route, _, _) =>
-          route.kind == NetworkRouteKind.noSni ? noSni : realSni,
+      clientFactory: (route, _, _) => switch (route.kind) {
+        NetworkRouteKind.noSni => noSni,
+        NetworkRouteKind.dohRealSni => realSni,
+        _ => FakeClient(failure: SocketException('Connection refused')),
+      },
     );
     addTearDown(policy.dispose);
     final client = PixivPolicyHttpClient(
@@ -659,7 +663,7 @@ void main() {
       purpose: PixivDestinationPurpose.image,
     );
 
-    final response = client.get(Uri.parse('https://i.pximg.net/a.jpg'));
+    final response = client.get(Uri.parse('https://i.pixiv.re/a.jpg'));
     await turnUntil(() => noSni.requests.isNotEmpty);
     policy.advanceNetworkRevision(networkIdentity: 'cellular');
     noSni.gate.complete();
@@ -800,14 +804,15 @@ void main() {
     await imageClient.get(
       Uri.parse('https://i.pximg.net/img-master/img/1/2/3/a.jpg'),
     );
-    // Pixiv image hosts walk serially; without an ECH-capable resolver the
-    // origin tier answers on the first send.
+    // Without an ECH config or the origin, a pixiv image host has no
+    // candidate and its first send is the secure-DNS tier.
     expect(secureDns.requests, hasLength(2));
     expect(direct.requests, isEmpty);
     expect(resolver.calls, 2);
-    // Both exits observe the same policy-owned route memory.
+    // Pixiv's image hosts remember through their scores, not the API's
+    // route memory.
     expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
-    expect(policy.hasStrictRouteMemory('i.pximg.net'), isTrue);
+    expect(policy.hasStrictRouteMemory('i.pximg.net'), isFalse);
   });
 
   test(
