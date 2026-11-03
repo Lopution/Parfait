@@ -16,6 +16,7 @@ import 'package:parfait/app/motion/reveal.dart';
 import 'package:parfait/app/motion/spring_size.dart';
 import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
+import 'package:parfait/app/motion/still_work.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 
@@ -629,6 +630,53 @@ void main() {
     expect(card.value.enabled, isFalse);
   });
 
+  testWidgets('work ahead waits for a running animation to end', (
+    tester,
+  ) async {
+    var ended = false;
+    bool? endedAtWork;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Column(
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 300),
+              onEnd: () => ended = true,
+              builder: (_, value, _) =>
+                  Opacity(opacity: value, child: const Text('in')),
+            ),
+            _StillPieces(pieces: 1, onPiece: () => endedAtWork = ended),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(endedAtWork, isTrue);
+  });
+
+  testWidgets('work ahead behind a looping indicator waits once a run, '
+      'not once a piece', (tester) async {
+    var done = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Column(
+          children: [
+            const CircularProgressIndicator(),
+            _StillPieces(pieces: 5, onPiece: () => done++),
+          ],
+        ),
+      ),
+    );
+    var frames = 0;
+    while (done < 5 && frames < 400) {
+      await tester.pump(const Duration(milliseconds: 16));
+      frames++;
+    }
+    expect(done, 5);
+    expect(frames, lessThan(StillWork.maxAnimationFrames + 5 * 3));
+  });
+
   group('SpringSize', () {
     Widget section(bool open, {bool reduce = false}) => _wrap(
       Column(
@@ -851,4 +899,40 @@ void main() {
       expect(dismissed, isFalse);
     });
   });
+}
+
+/// [pieces] pieces of work ahead, one per still frame.
+class _StillPieces extends StatefulWidget {
+  const _StillPieces({required this.pieces, required this.onPiece});
+
+  final int pieces;
+  final VoidCallback onPiece;
+
+  @override
+  State<_StillPieces> createState() => _StillPiecesState();
+}
+
+class _StillPiecesState extends State<_StillPieces> with StillWork {
+  var _left = 0;
+
+  @override
+  bool get stillWorkWaitsForImages => false;
+
+  @override
+  void initState() {
+    super.initState();
+    _left = widget.pieces;
+    scheduleStillWork();
+  }
+
+  @override
+  bool runStillWork() {
+    if (_left == 0) return false;
+    _left--;
+    widget.onPiece();
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
 }

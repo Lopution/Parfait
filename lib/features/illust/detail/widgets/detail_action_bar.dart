@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -19,8 +18,8 @@ import '../../../../l10n/context.dart';
 /// a tonal circle as the page's main action. Comments open from the
 /// page's own comment preview.
 ///
-/// One slightly translucent, shadowless surface with separate buttons —
-/// no dividers, no segments.
+/// One opaque surface on a layer lift with separate buttons — no
+/// dividers, no segments.
 /// [visibility] (1 shown, 0 hidden) slides it below the screen edge as
 /// [ScrollHiddenChrome] slides the shell's bar; the page drives it from
 /// scrolling. It is the page's prompt anchor, so a snackbar rests above it
@@ -53,9 +52,6 @@ class DetailActionBar extends StatefulWidget {
 }
 
 class _DetailActionBarState extends State<DetailActionBar> {
-  /// The page shows through a little; the outline keeps the edge.
-  static const _surfaceOpacity = 0.85;
-
   /// The height the bar covers right now, for the prompt anchor.
   final _visibleExtent = ValueNotifier<double>(0);
   double _restingExtent = 0;
@@ -92,38 +88,22 @@ class _DetailActionBarState extends State<DetailActionBar> {
     // Written during build: the anchor only relayouts on it.
     _publish();
     final colors = Theme.of(context).colorScheme;
-    // A layer over the page (THEME-20): what passes under the capsule is
-    // frosted, so it reads as beneath rather than smeared through, and a
-    // warm lift sets it off. The lift is drawn outside the capsule only:
-    // under a translucent surface a whole-shape shadow would darken it.
-    final frosted = Stack(
-      children: [
-        Positioned.fill(
-          child: ClipPath(
-            clipper: const _OutsideStadium(),
-            child: DecoratedBox(
-              decoration: ShapeDecoration(
-                shape: const StadiumBorder(),
-                shadows: FuncSemanticTokens.of(context).layerLift,
-              ),
-            ),
-          ),
-        ),
-        ClipPath(
-          clipper: const ShapeBorderClipper(shape: StadiumBorder()),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: _toolbar(colors),
-          ),
-        ),
-      ],
+    // A layer over the page (THEME-20): opaque, so what passes under it
+    // never smears through, on a warm lift. A frosted capsule cost a
+    // backdrop pass per page, two a frame in a side swipe.
+    final capsule = DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: const StadiumBorder(),
+        shadows: FuncSemanticTokens.of(context).layerLift,
+      ),
+      child: _toolbar(colors),
     );
-    return _host(context, bottomInset, frosted);
+    return _host(context, bottomInset, capsule);
   }
 
   Widget _toolbar(ColorScheme colors) {
     return Material(
-      color: colors.surfaceContainerHigh.withValues(alpha: _surfaceOpacity),
+      color: colors.surfaceContainerHigh,
       shape: StadiumBorder(side: BorderSide(color: colors.outlineVariant)),
       child: Padding(
         padding: const EdgeInsets.all(FuncSpacing.xs),
@@ -183,26 +163,6 @@ class _DetailActionBarState extends State<DetailActionBar> {
       ),
     );
   }
-}
-
-/// Everything around a stadium of the clipped box's size, out to a
-/// shadow's reach.
-class _OutsideStadium extends CustomClipper<Path> {
-  const _OutsideStadium();
-
-  static const double _reach = 48;
-
-  @override
-  Path getClip(Size size) {
-    final box = Offset.zero & size;
-    return Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRect(box.inflate(_reach))
-      ..addPath(const StadiumBorder().getOuterPath(box), Offset.zero);
-  }
-
-  @override
-  bool shouldReclip(_OutsideStadium oldClipper) => false;
 }
 
 /// Download every page; the icon follows the whole work: a ring while

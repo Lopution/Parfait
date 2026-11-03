@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/motion/motion_tokens.dart';
 import '../../../app/motion/still_work.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/scroll_behavior.dart';
@@ -354,6 +355,10 @@ typedef _ReadyWindow = ({int center, Set<int> neighbours});
 /// One pager page: a stand-in until the page has been inside the ready
 /// window, the real detail from then on. Latched — a page that has built
 /// its detail keeps it for as long as the pager keeps the page.
+///
+/// The page a swipe settled on builds on screen: its stand-in stays over
+/// the new detail and fades off, so the image holds still while the rest
+/// of the page fades in around it instead of cutting in.
 class _PagerSlot extends StatefulWidget {
   const _PagerSlot({
     required this.index,
@@ -385,8 +390,15 @@ class _PagerSlot extends StatefulWidget {
   State<_PagerSlot> createState() => _PagerSlotState();
 }
 
-class _PagerSlotState extends State<_PagerSlot> {
+class _PagerSlotState extends State<_PagerSlot>
+    with SingleTickerProviderStateMixin {
   var _built = false;
+
+  /// Whether the detail was built on screen, under a fading stand-in.
+  var _builtOnScreen = false;
+
+  /// The stand-in's opacity over that detail; null once the fade is over.
+  AnimationController? _standInFade;
   late final Listenable _gates = Listenable.merge([
     widget.current,
     widget.activeId,
@@ -433,11 +445,57 @@ class _PagerSlotState extends State<_PagerSlot> {
   @override
   void dispose() {
     widget.ready.removeListener(_onReadyChanged);
+    _standInFade?.dispose();
     super.dispose();
   }
 
   void _onReadyChanged() {
-    if (_inWindow) setState(_latch);
+    if (!_inWindow) return;
+    setState(_latch);
+    // Neighbours join off screen; the centre is the page in view.
+    if (widget.index == widget.ready.value.center) _fadeStandIn();
+  }
+
+  /// Holds the stand-in over the detail for the frame that builds it, then
+  /// fades it from there: started inside that long frame, the fade's clock
+  /// would run from the frame's start and jump.
+  void _fadeStandIn() {
+    if (_fadeCurve() == null) return;
+    _builtOnScreen = true;
+    final fade = _standInFade = AnimationController(vsync: this, value: 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final curve = _fadeCurve();
+      if (curve == null) {
+        _endStandInFade();
+        return;
+      }
+      final (duration, easing) = curve;
+      fade.animateTo(0, duration: duration, curve: easing).whenCompleteOrCancel(
+        () {
+          if (mounted) _endStandInFade();
+        },
+      );
+    });
+  }
+
+  void _endStandInFade() {
+    setState(() {
+      _standInFade?.dispose();
+      _standInFade = null;
+    });
+  }
+
+  /// The fade's duration and curve; null under reduced motion or a frozen
+  /// ticker, where the page shows at once.
+  (Duration, Curve)? _fadeCurve() {
+    final (duration, curve) = MotionTokens.springCurve(
+      context,
+      MotionSpring.effectsFast,
+    );
+    final tickersEnabled = TickerMode.getValuesNotifier(context).value.enabled;
+    if (duration == Duration.zero || !tickersEnabled) return null;
+    return (duration, curve);
   }
 
   void _latch() {
@@ -461,7 +519,7 @@ class _PagerSlotState extends State<_PagerSlot> {
     // re-wraps it in a new HeroMode/DetailPageActivity instead of running
     // the whole detail build again; only dependents of the activity scope
     // rebuild.
-    return ListenableBuilder(
+    final page = ListenableBuilder(
       listenable: _gates,
       child: _detail,
       builder: (context, child) => HeroMode(
@@ -471,6 +529,26 @@ class _PagerSlotState extends State<_PagerSlot> {
           child: child!,
         ),
       ),
+    );
+    if (!_builtOnScreen) return page;
+    final fade = _standInFade;
+    // The stack outlives the fade, the detail first in it: dropping the
+    // stand-in keeps the detail's element.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        page,
+        if (fade != null)
+          IgnorePointer(
+            child: ExcludeSemantics(
+              child: FadeTransition(
+                key: ValueKey('pager-stand-in-${widget.illustId}'),
+                opacity: fade,
+                child: _SlotStandIn(illustId: widget.illustId),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

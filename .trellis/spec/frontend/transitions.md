@@ -370,11 +370,15 @@ reviewed: 2026-10-29
 ### TRANS-18 Pager neighbours paint a decode, never a load
 - **Rule:** A pager page outside the build window paints the feed's
   existing decode (`PixivImage.decodedStandIn`) where the built page will
-  draw it, or a bare surface. `findChildIndexCallback` maps pages by work
+  draw it, or a bare surface. A page built where a swipe settled keeps
+  its stand-in over the detail for the building frame, then fades it off
+  on the effects spring (at once under reduced motion); a neighbour built
+  off screen shows at once. `findChildIndexCallback` maps pages by work
   id.
 - **Why:** A stand-in at another position jumped on landing; index mapping
-  rebuilt pages as other works when the list shifted.
-- **Check:** `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it", `test/illust_detail_pager_test.dart` "a rewritten feed list keeps the viewport on the same work"
+  rebuilt pages as other works when the list shifted. The rest of a page
+  built on landing cut in around its image.
+- **Check:** `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it", `test/illust_detail_pager_test.dart` "a rewritten feed list keeps the viewport on the same work" "a page built where a swipe settles fades in around"
 - **Code:** `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### TRANS-19 The viewer decodes a preview first, the whole file once zoomed

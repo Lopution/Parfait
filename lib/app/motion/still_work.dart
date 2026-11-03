@@ -19,14 +19,18 @@ import '../../core/image/image_worker_providers.dart';
 /// - no scrollable reported through [trackStillScroll] is scrolling,
 /// - the on-screen images have loaded, failed ones included, when
 ///   [stillWorkWaitsForImages]: they come first on the network, and
-/// - no animation runs, waiting at most [maxAnimationFrames], since a
-///   looping indicator never stops.
+/// - no animation runs, waiting at most [maxAnimationFrames] per run of
+///   work, since a looping indicator never stops.
 ///
 /// One piece per still frame: after a piece, the gate waits for the frame
 /// that builds it and asks again. [runStillWork] picks its piece when it
-/// runs, so work the user has moved past is never done.
+/// runs, so work the user has moved past is never done. A run starts at
+/// [scheduleStillWork]; the pieces that follow wait for animations only
+/// within what is left of the run's frames, not each its own: a page
+/// built ahead a paragraph at a time behind a spinning indicator came
+/// seconds late.
 mixin StillWork<T extends StatefulWidget> on State<T> {
-  /// Frames to wait for running animations to stop.
+  /// Frames a run of work waits for running animations to stop.
   static const maxAnimationFrames = 60;
 
   /// Does one piece of the deferred work; returns whether it did any.
@@ -72,11 +76,16 @@ mixin StillWork<T extends StatefulWidget> on State<T> {
     super.dispose();
   }
 
-  /// Asks for [runStillWork] on the next still frame.
+  /// Starts a run: asks for [runStillWork] on the next still frame, with
+  /// the full wait for animations.
   void scheduleStillWork() {
+    _animationFrames = 0;
+    _arm();
+  }
+
+  void _arm() {
     if (_scheduled) return;
     _scheduled = true;
-    _animationFrames = 0;
     _wake();
   }
 
@@ -123,7 +132,8 @@ mixin StillWork<T extends StatefulWidget> on State<T> {
       return;
     }
     _scheduled = false;
-    if (runStillWork()) scheduleStillWork();
+    // The run goes on with what is left of its wait.
+    if (runStillWork()) _arm();
   }
 }
 
