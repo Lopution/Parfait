@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
@@ -9,7 +11,9 @@ import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 
 import 'helpers/restricted_compat_support.dart';
 import 'helpers/waits.dart';
@@ -610,6 +614,34 @@ void main() {
       isNot(same(first)),
     );
     await policy.dispose();
+  });
+
+  test('on Android a data-SIM switch is a network change', () async {
+    const channel = EventChannel('parfait/network_identity/events');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late MockStreamHandlerEventSink identities;
+    messenger.setMockStreamHandler(
+      channel,
+      MockStreamHandler.inline(
+        onListen: (_, events) => (identities = events).success('mobile:46001'),
+      ),
+    );
+    addTearDown(() => messenger.setMockStreamHandler(channel, null));
+    final container = ProviderContainer.test(
+      overrides: [
+        platformCapsProvider.overrideWithValue(
+          const PlatformCaps(isAndroid: true),
+        ),
+      ],
+    );
+    final policy = container.read(networkAccessPolicyProvider);
+
+    await turnUntil(() => policy.revision.networkIdentity == 'mobile:46001');
+    final before = policy.revision.value;
+    identities.success('mobile:46011');
+    await turnUntil(() => policy.revision.networkIdentity == 'mobile:46011');
+    expect(policy.revision.value, before + 1);
   });
 
   test('a network change mid-request looks the host up again', () async {

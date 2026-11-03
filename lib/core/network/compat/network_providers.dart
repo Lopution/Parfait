@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart' show ServicesBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../settings/shared_preferences.dart';
 
+import '../../log.dart';
 import '../../platform/local_network.dart';
+import '../../platform/network_identity.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/settings_controller.dart';
 import '../network_restore_signal.dart';
@@ -121,8 +122,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     resolveAutoSource(connectivityIdentity, throttled: true);
   };
 
-  void onConnectivity(List<ConnectivityResult> results) {
-    final identity = _connectivityIdentity(results);
+  void onConnectivity(String identity) {
     if (identity == connectivityIdentity) return;
     connectivityIdentity = identity;
     policy.advanceNetworkRevision(networkIdentity: identity);
@@ -130,11 +130,11 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     ref.read(networkRestoreSignalProvider.notifier).observe(identity);
   }
 
-  StreamSubscription<List<ConnectivityResult>>? connectivitySub;
-  // The plugin's stream errors asynchronously when no ServicesBinding
-  // exists (headless test containers) — a try/catch around listen cannot
-  // reach the EventChannel's deferred onListen body, so probe the binding
-  // first instead.
+  StreamSubscription<String>? connectivitySub;
+  // A platform stream errors asynchronously when no ServicesBinding exists
+  // (headless test containers) — a try/catch around listen cannot reach
+  // the EventChannel's deferred onListen body, so probe the binding first
+  // instead.
   final bindingReady = () {
     try {
       ServicesBinding.instance;
@@ -144,13 +144,13 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     }
   }();
   if (bindingReady) {
-    connectivitySub = Connectivity().onConnectivityChanged.listen(
-      onConnectivity,
-      onError: (_) {},
-    );
-    unawaited(
-      Connectivity().checkConnectivity().then(onConnectivity, onError: (_) {}),
-    );
+    connectivitySub = ref
+        .watch(networkIdentitySourceProvider)
+        .identities()
+        .listen(
+          onConnectivity,
+          onError: (Object error) => log('network identity: $error'),
+        );
   }
   // Even with no connectivity events (plugin absent/failed) auto mode still
   // gets one race under the 'initial' identity.
@@ -168,18 +168,6 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   ref.onDispose(() => unawaited(policy.dispose()));
   return policy;
 });
-
-/// Deterministic identity for a connectivity snapshot. Sorted so a VPN
-/// layered over Wi-Fi differs from plain Wi-Fi — tunnel interfaces change
-/// which routes actually work.
-String _connectivityIdentity(List<ConnectivityResult> results) {
-  if (results.isEmpty ||
-      results.every((result) => result == ConnectivityResult.none)) {
-    return offlineNetworkIdentity;
-  }
-  final names = results.map((r) => r.name).toList()..sort();
-  return names.join('+');
-}
 
 /// Persisted route memories. They outlive policy rebuilds so each
 /// preference key has one writer — the policy and the image worker's
