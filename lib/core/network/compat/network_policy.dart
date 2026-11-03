@@ -678,10 +678,16 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
 
   /// Also stops the idle timer: an abandoned body (raced loser drained
   /// late, caller gone) would otherwise leak a pending timer until it fires.
+  ///
+  /// Completes at once rather than with the source's cancel, which on rhttp
+  /// waits for Rust's next event: a `.map` under `await for` hands an error
+  /// on only after the cancel it started ends, so the idle timeout reached
+  /// the image cache 15–30 s late.
   @override
   Future<void> cancel() {
     _timer?.cancel();
-    return _cancelSource();
+    unawaited(_cancelSource());
+    return Future<void>.value();
   }
 
   /// rhttp's body is flutter_rust_bridge's `async*` stream: cancelled while

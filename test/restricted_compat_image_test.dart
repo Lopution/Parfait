@@ -384,6 +384,27 @@ void main() {
       });
     }
 
+    // rhttp's cancel waits for Rust's next event, and a `.map` under
+    // `await for` (the worker's cache write) handed the idle timeout on
+    // only once that cancel ended: stalled images failed 15–30 s late.
+    test(
+      'a mapped body errors after an idle gap though its cancel waits',
+      () async {
+        final rust = RustBodyClient();
+        final body = (await guardedBody(rust)).map((chunk) => chunk);
+        rust.port.add([1]);
+        await expectLater(
+          Future(() async {
+            await for (final _ in body) {}
+          }).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw StateError('the idle timeout was held'),
+          ),
+          throwsA(isA<TimeoutException>()),
+        );
+      },
+    );
+
     test('a body that errs and goes on still times out', () async {
       final errors = <Object>[];
       final timedOut = Completer<void>();
