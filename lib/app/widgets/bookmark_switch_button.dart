@@ -763,7 +763,10 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                                 context,
                               ).caption.copyWith(color: colorScheme.error),
                             ),
-                            ErrorDetails(error: error),
+                            FailureReport(
+                              action: l10n.bookmarkOperationFailed,
+                              error: error,
+                            ),
                           ],
                         ),
                       ),

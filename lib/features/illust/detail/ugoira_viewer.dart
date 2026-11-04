@@ -647,7 +647,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   /// Archive/decode failures get a specific localized headline; anything
   /// else gets the generic one plus its category sentence. Either way the
-  /// raw error stays behind the details disclosure.
+  /// raw error goes to the crash log.
   _UgoiraFailure _friendlyError(BuildContext context, Object error) {
     return switch (error) {
       UgoiraArchiveException() => (
@@ -696,7 +696,7 @@ class _PlayOverlay extends StatelessWidget {
 }
 
 /// A failure the overlay presents: [message] is the headline, [details] the
-/// raw error behind the disclosure, and [categorized] whether the headline
+/// raw error it records in the crash log, and [categorized] whether the headline
 /// is generic enough to need the category sentence under it.
 typedef _UgoiraFailure = ({String message, Object? details, bool categorized});
 
@@ -715,8 +715,8 @@ class _ErrorOverlay extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.lg),
           // The scrim is dark regardless of the app theme, so the overlay
-          // pins a dark scheme — otherwise the disclosure button and the
-          // details text would take light-surface colors and disappear.
+          // pins a dark scheme — otherwise the retry button would take
+          // light-surface colors and disappear.
           child: Theme(
             data: Theme.of(
               context,
@@ -739,7 +739,7 @@ class _ErrorOverlay extends StatelessWidget {
                           color: FuncTokens.white.withAlpha(204),
                         ),
                       ),
-                    ErrorDetails(error: error),
+                    FailureReport(action: failure.message, error: error),
                   ],
                   const SizedBox(height: FuncSpacing.sm),
                   TextButton(

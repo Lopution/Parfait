@@ -136,7 +136,10 @@ class _LoadMoreFooter extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),
-            ErrorDetails(error: loadMoreError),
+            FailureReport(
+              action: context.l10n.watchlistLoadMoreFailed,
+              error: loadMoreError,
+            ),
           ],
         ),
       );

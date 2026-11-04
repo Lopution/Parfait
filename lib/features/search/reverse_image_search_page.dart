@@ -1009,8 +1009,8 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
 
 /// The three embedded WebViews share one failure surface: a localized
 /// headline, the network category (a main-frame error is always a
-/// connectivity failure), and the engine-reported detail behind the
-/// disclosure.
+/// connectivity failure); the engine-reported detail goes to the crash
+/// log.
 Widget _webViewErrorBody(BuildContext context, String error) {
   return Center(
     child: Column(
@@ -1033,7 +1033,10 @@ Widget _webViewErrorBody(BuildContext context, String error) {
                 style: Theme.of(context).textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
-              ErrorDetails(error: error),
+              FailureReport(
+                action: context.l10n.searchReversePageLoadFailed,
+                error: error,
+              ),
             ],
           ),
         ),

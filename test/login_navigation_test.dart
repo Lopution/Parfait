@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/account_store.dart';
@@ -22,6 +23,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 
 /// The login page's web view as its platform drives it.
@@ -94,6 +96,24 @@ class _HeldExchange extends OAuthService {
 
 /// Settings storage that fails a fixed number of reads, then succeeds.
 /// Retry has to be observable as a real second read, not a rebuild.
+/// Taps the error card's diagnostics button and returns what it copied.
+Future<String?> _copyDiagnostics(WidgetTester tester) async {
+  String? copied;
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'Clipboard.setData') {
+      copied = (call.arguments as Map)['text'] as String;
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  await tester.tap(find.text('复制诊断信息'));
+  await tester.pump();
+  return copied;
+}
+
 void main() {
   late FakeInAppWebViewPlatform platform;
 
@@ -111,6 +131,7 @@ void main() {
     final oauth = service ?? OAuthService(exchangeTimeout: Duration.zero);
     await tester.pumpWidget(
       localizedApp(
+        builder: promptHostBuilder,
         overrides: [
           ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(oauth),
@@ -238,13 +259,11 @@ void main() {
     expect(find.text('重新打开'), findsNothing);
     expect(find.text('知道了'), findsNothing);
 
-    // The headline is plain copy; the developer reason only appears behind
-    // the details disclosure.
+    // The headline is plain copy; the developer reason never shows, only
+    // the diagnostics copy carries it.
     expect(find.text('登录回调无效，请重新登录'), findsOneWidget);
     expect(find.textContaining('missing code'), findsNothing);
-    await tester.tap(find.text('详情'));
-    await tester.pump();
-    expect(find.text('missing code'), findsOneWidget);
+    expect(await _copyDiagnostics(tester), 'missing code');
   });
 
   testWidgets('leaving during the token exchange drops its outcome', (
@@ -425,13 +444,10 @@ void main() {
     );
     await tester.pump();
 
-    // '<type> <host>' behind the details disclosure: the query string must
-    // not leak into the card.
+    // The diagnostics copy is '<type> <host>': the query string must not
+    // leak into it.
     expect(find.text('页面加载失败'), findsOneWidget);
-    await tester.tap(find.text('详情'));
-    await tester.pump();
-    expect(find.text('TIMEOUT accounts.pixiv.net'), findsOneWidget);
-    expect(find.textContaining('code=secret'), findsNothing);
+    expect(await _copyDiagnostics(tester), 'TIMEOUT accounts.pixiv.net');
 
     // HTTP errors follow the same '<status> <host>' contract.
     await tester.tap(find.text('知道了'));

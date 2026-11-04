@@ -9,7 +9,7 @@
 //       one path raw diagnostics can take past raw_error_text_test.dart
 //       (`l10n.someKey(error.message)` names no error variable), so a new
 //       `{error}`-style key must fail here and be redesigned: localized copy
-//       up front, the original behind ErrorDetails or in CrashLog.
+//       up front, the original in CrashLog.
 
 import 'dart:convert';
 import 'dart:io';
@@ -129,8 +129,8 @@ void main() {
       reason:
           'ERR-05 keys with a text placeholder must not carry diagnostics — '
           'drop '
-          'the placeholder (raw text goes behind ErrorDetails or into '
-          'CrashLog) or allow-list the key with its reason:\n'
+          'the placeholder (raw text goes into CrashLog) or allow-list the '
+          'key with its reason:\n'
           '${unlisted.join('\n')}',
     );
     expect(

@@ -791,9 +791,8 @@
   "errorParse": "响应无法解析",
   "errorStorage": "存储错误",
   "errorUnknown": "未知错误",
-  "errorDetails": "详情",
-  "errorDetailsCopy": "复制",
-  "errorDetailsCopied": "已复制",
+  "copyDiagnostics": "复制诊断信息",
+  "diagnosticsCopied": "已复制诊断信息",
   "errorWithReason": "{action}：{reason}",
   "@errorWithReason": {
     "placeholders": {

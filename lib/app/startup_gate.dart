@@ -475,7 +475,8 @@ class _StartupError extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),
-                ErrorDetails(error: error),
+                FailureReport(action: text('accountReadFailed'), error: error),
+                CopyDiagnosticsButton(error: error),
                 const SizedBox(height: FuncSpacing.lg),
                 // Retry is the page's primary action — same weight as
                 // FeedError's retry, not a low-emphasis text button.

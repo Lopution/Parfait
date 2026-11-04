@@ -3005,23 +3005,17 @@ abstract class AppLocalizations {
   /// **'未知错误'**
   String get errorUnknown;
 
-  /// No description provided for @errorDetails.
+  /// No description provided for @copyDiagnostics.
   ///
   /// In zh, this message translates to:
-  /// **'详情'**
-  String get errorDetails;
+  /// **'复制诊断信息'**
+  String get copyDiagnostics;
 
-  /// No description provided for @errorDetailsCopy.
+  /// No description provided for @diagnosticsCopied.
   ///
   /// In zh, this message translates to:
-  /// **'复制'**
-  String get errorDetailsCopy;
-
-  /// No description provided for @errorDetailsCopied.
-  ///
-  /// In zh, this message translates to:
-  /// **'已复制'**
-  String get errorDetailsCopied;
+  /// **'已复制诊断信息'**
+  String get diagnosticsCopied;
 
   /// No description provided for @errorWithReason.
   ///

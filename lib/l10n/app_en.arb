@@ -706,9 +706,8 @@
   "errorParse": "Response could not be parsed",
   "errorStorage": "Storage error",
   "errorUnknown": "Unknown error",
-  "errorDetails": "Details",
-  "errorDetailsCopy": "Copy",
-  "errorDetailsCopied": "Copied",
+  "copyDiagnostics": "Copy diagnostics",
+  "diagnosticsCopied": "Diagnostics copied",
   "errorWithReason": "{action}: {reason}",
   "@errorWithReason": {
     "placeholders": {

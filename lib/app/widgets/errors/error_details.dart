@@ -5,9 +5,6 @@ import '../../../core/errors/error_category.dart';
 import '../../../core/logging/crash_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
-import '../../motion/spring_size.dart';
-import '../../motion/state_fade.dart';
-import '../../theme/func_semantic_tokens.dart';
 import '../app_snack_bar.dart';
 import '../../clipboard.dart';
 
@@ -53,97 +50,92 @@ String? downloadFailureReasonText(
   final k => errorCategoryTextL10n(l10n, categorizeDownloadFailure(k)),
 };
 
-/// Collapsible "details" block: collapsed it is a low-emphasis button;
-/// expanded it shows the raw technical text (`error.toString()`, capped)
-/// in a selectable, copyable field. Error surfaces pair a localized
-/// category sentence with this so the original failure stays reachable
-/// for support without shouting stack noise at every failure (D1).
-class ErrorDetails extends StatefulWidget {
-  const ErrorDetails({super.key, required this.error});
+/// Records a failure its surface shows in [CrashLog] and paints nothing
+/// (ERR-02): the surface says what went wrong in the user's language, and
+/// the raw error waits in the crash log, which 关于 exports for a bug
+/// report. An error object is recorded once however often its surface
+/// rebuilds or comes back on screen; a value without identity (a string)
+/// once per mount.
+class FailureReport extends StatefulWidget {
+  const FailureReport({super.key, required this.action, required this.error});
 
-  /// The raw error object; [Object.toString] is displayed verbatim.
+  /// What failed, as the surface names it (its localized headline).
+  final String action;
   final Object error;
 
-  /// Raw text is capped so a huge HTML dump cannot flood the surface.
-  @visibleForTesting
-  static const int maxChars = 2000;
-
-  /// The disclosure's content area is capped at roughly twelve body lines.
-  @visibleForTesting
-  static const double maxContentHeight = 240;
-
   @override
-  State<ErrorDetails> createState() => _ErrorDetailsState();
+  State<FailureReport> createState() => _FailureReportState();
 }
 
-class _ErrorDetailsState extends State<ErrorDetails> {
-  bool _expanded = false;
+class _FailureReportState extends State<FailureReport> {
+  static final _recorded = Expando<bool>();
+
+  @override
+  void initState() {
+    super.initState();
+    _record();
+  }
+
+  @override
+  void didUpdateWidget(FailureReport oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // An error object goes by identity, so a retry's equal but new error
+    // is recorded; a string goes by value, so a rebuild's copy is not.
+    if (_keyed(widget.error) || oldWidget.error != widget.error) _record();
+  }
+
+  /// Whether [error] can key an [Expando] (has identity).
+  static bool _keyed(Object error) =>
+      !(error is String || error is num || error is bool || error is Record);
+
+  void _record() {
+    final error = widget.error;
+    if (_keyed(error)) {
+      if (_recorded[error] ?? false) return;
+      _recorded[error] = true;
+    }
+    CrashLog.report(widget.action, error);
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// Copies what the crash log holds about [error], for the surfaces that
+/// come before the app's pages (startup, sign-in), where 关于 and its
+/// crash-log export cannot be reached. Nothing raw shows on screen.
+class CopyDiagnosticsButton extends StatelessWidget {
+  const CopyDiagnosticsButton({super.key, required this.error});
+
+  final Object error;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final raw = widget.error.toString();
-    final text = raw.length <= ErrorDetails.maxChars
-        ? raw
-        : '${raw.substring(0, ErrorDetails.maxChars)}…';
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // The expanded state belongs on the button's own semantics node so
-        // screen readers announce it; MergeSemantics folds the flag into
-        // the button node TextButton creates.
-        MergeSemantics(
-          child: Semantics(
-            expanded: _expanded,
-            child: TextButton.icon(
-              onPressed: () => setState(() => _expanded = !_expanded),
-              icon: Icon(
-                _expanded ? Icons.expand_less : Icons.expand_more,
-                size: 18,
-              ),
-              label: Text(l10n.errorDetails),
-            ),
-          ),
-        ),
-        SpringSize(
-          child: _expanded
-              ? StateFade.onMount(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: FuncSpacing.xs),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxHeight: ErrorDetails.maxContentHeight,
-                        ),
-                        child: SingleChildScrollView(
-                          child: SelectableText(
-                            text,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => copyToClipboard(
-                          context,
-                          text,
-                          message: l10n.errorDetailsCopied,
-                        ),
-                        icon: const Icon(Icons.copy_outlined, size: 16),
-                        label: Text(l10n.errorDetailsCopy),
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
+    return TextButton.icon(
+      onPressed: () => copyToClipboard(
+        context,
+        diagnosticText(error),
+        message: l10n.diagnosticsCopied,
+      ),
+      icon: const Icon(Icons.copy_outlined, size: 18),
+      label: Text(l10n.copyDiagnostics),
     );
   }
 }
+
+/// [error] as a diagnostics copy carries it, capped so a huge HTML dump
+/// cannot flood the clipboard.
+@visibleForTesting
+String diagnosticText(Object error) {
+  final raw = CrashLog.describe(error);
+  return raw.length <= diagnosticMaxChars
+      ? raw
+      : '${raw.substring(0, diagnosticMaxChars)}…';
+}
+
+@visibleForTesting
+const diagnosticMaxChars = 2000;
 
 /// The one feedback shape for an operation that failed (D1): the prompt
 /// shows "action: category" — never raw exception text — and the original

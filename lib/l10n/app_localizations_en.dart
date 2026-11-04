@@ -1608,13 +1608,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorUnknown => 'Unknown error';
 
   @override
-  String get errorDetails => 'Details';
+  String get copyDiagnostics => 'Copy diagnostics';
 
   @override
-  String get errorDetailsCopy => 'Copy';
-
-  @override
-  String get errorDetailsCopied => 'Copied';
+  String get diagnosticsCopied => 'Diagnostics copied';
 
   @override
   String errorWithReason(String action, String reason) {

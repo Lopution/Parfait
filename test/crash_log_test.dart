@@ -30,6 +30,24 @@ void main() {
     expect(content.split('===').length - 1, greaterThanOrEqualTo(2));
   });
 
+  test('a file error is logged without its path', () async {
+    CrashLog.report(
+      'rename',
+      const PathNotFoundException(
+        r'C:\Users\someone\a.zip',
+        OSError('No such file or directory', 2),
+        "Cannot rename file to 'C:\\Users\\O'Connor\\b.zip'",
+      ),
+    );
+    await CrashLog.pending;
+
+    final content = file.readAsStringSync();
+    expect(content, contains('PathNotFoundException: Cannot rename file to …'));
+    expect(content, contains('No such file or directory, errno = 2'));
+    expect(content, isNot(contains('someone')));
+    expect(content, isNot(contains('Connor')));
+  });
+
   test('record without an installed file is a no-op', () {
     CrashLog.useFile(null);
     expect(() => CrashLog.record(Error()), returnsNormally);

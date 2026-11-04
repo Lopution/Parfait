@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/image_network.dart';
+import 'package:parfait/core/logging/crash_log.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/ugoira/ugoira_providers.dart';
 import 'package:parfait/core/ugoira/ugoira_repository.dart';
@@ -170,12 +171,17 @@ void main() {
     await tester.pump();
     await tester.tap(find.byType(UgoiraViewer));
     // The load creates and removes its file on real IO.
-    await pumpIoUntil(tester, () => find.text('详情').tryEvaluate());
+    await pumpIoUntil(tester, () => find.text('动图压缩包无效').tryEvaluate());
   }
 
-  testWidgets('a specific failure headline keeps its diagnostic in details', (
+  testWidgets('a specific failure headline records its diagnostic', (
     tester,
   ) async {
+    final dir = Directory.systemTemp.createTempSync('ugoira-crash-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final log = File('${dir.path}/crash.log');
+    CrashLog.useFile(log);
+    addTearDown(() => CrashLog.useFile(null));
     await pumpFailingViewer(tester);
 
     // The headline names the problem, so no generic category line rides
@@ -184,11 +190,16 @@ void main() {
     expect(find.text('未知错误'), findsNothing);
     expect(find.textContaining('compressed limit'), findsNothing);
 
-    await tester.tap(find.text('详情'));
-    await tester.pump();
+    // The raw reason goes to the crash log under the headline.
+    await pumpIoUntil(
+      tester,
+      () => log.existsSync() && log.readAsStringSync().contains('limit'),
+    );
+    final logged = log.readAsStringSync();
+    expect(logged, contains('reported: 动图压缩包无效'));
     expect(
-      find.text('UgoiraArchiveException: archive exceeds compressed limit'),
-      findsOneWidget,
+      logged,
+      contains('UgoiraArchiveException: archive exceeds compressed limit'),
     );
     await tester.pump(const Duration(milliseconds: 500));
   });

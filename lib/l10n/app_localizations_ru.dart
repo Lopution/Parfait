@@ -1601,13 +1601,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errorUnknown => 'Неизвестная ошибка';
 
   @override
-  String get errorDetails => 'Подробности';
+  String get copyDiagnostics => 'Копировать диагностику';
 
   @override
-  String get errorDetailsCopy => 'Копировать';
-
-  @override
-  String get errorDetailsCopied => 'Скопировано';
+  String get diagnosticsCopied => 'Диагностика скопирована';
 
   @override
   String errorWithReason(String action, String reason) {

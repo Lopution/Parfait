@@ -68,7 +68,10 @@ class FeedTail extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),
-                ErrorDetails(error: loadMoreError),
+                FailureReport(
+                  action: errorTitle ?? 'load more',
+                  error: loadMoreError,
+                ),
               ],
               TextButton(onPressed: onRetry, child: Text(retryLabel)),
             ],
@@ -163,7 +166,7 @@ class FeedEmpty extends StatelessWidget {
        ),
        assert(
          error == null || detail == null,
-         'error already supplies the category line and a details disclosure',
+         'error already supplies the category line',
        );
 
   final IconData icon;
@@ -171,7 +174,7 @@ class FeedEmpty extends StatelessWidget {
   final String? detail;
 
   /// When set, the detail line is the localized category of this error and
-  /// the raw text moves behind an expandable [ErrorDetails] disclosure.
+  /// the raw text goes to the crash log ([FailureReport]).
   final Object? error;
 
   /// Offered only where content can still arrive: a live feed that is empty
@@ -205,7 +208,7 @@ class FeedEmpty extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
-          ErrorDetails(error: error!),
+          FailureReport(action: title, error: error!),
         ] else if (detail != null) ...[
           const SizedBox(height: FuncSpacing.sm),
           Text(
@@ -300,8 +303,8 @@ class FeedAllHidden extends StatelessWidget {
 
 /// Shared feed error state (initial-load failure). Callers keep their own
 /// error mapping: [title] and [retryLabel] are already translated, [error]
-/// renders as its localized category plus an expandable [ErrorDetails]
-/// disclosure — never as raw exception text.
+/// renders as its localized category, its raw text recorded by
+/// [FailureReport] — never shown.
 class FeedError extends StatelessWidget {
   const FeedError({
     super.key,
@@ -333,7 +336,7 @@ class FeedError extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
-          ErrorDetails(error: error!),
+          FailureReport(action: title, error: error!),
         ],
         const SizedBox(height: FuncSpacing.md),
         StateActionButton(label: retryLabel, onPressed: onRetry),
