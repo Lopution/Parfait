@@ -320,13 +320,14 @@ class NetworkRoute {
 /// Keeps the ranges of one transfer of a pixiv image on one route: another
 /// route may serve another copy, whose bytes do not stitch. The first
 /// request goes where the ladder sends it and sets [route]; every later one
-/// goes there only, and a failure there is its own.
+/// goes there only, and a failure there is its own. A range started again
+/// may go [ImageRoutePin.awayFrom] it, and is checked like any range.
 class ImageRoutePin {
   ImageRoutePin({this.resuming = false}) : away = null;
 
   /// A range of [pin]'s transfer started again after a stall or a failure:
-  /// it goes to the best other candidate that serves ranges, and to
-  /// [pin]'s route only when there is none.
+  /// it goes to the best other candidate that serves ranges, then to
+  /// [pin]'s route.
   ImageRoutePin.awayFrom(ImageRoutePin pin)
     : resuming = false,
       away = pin.route;

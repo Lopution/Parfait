@@ -111,26 +111,49 @@ reviewed: 2026-10-26
   `ImageWorker.demand` (new before releasing old). A URL stays wanted for
   500 ms after release. An in-flight request nobody wants is cancelled: a
   queued fetch drops with `ImageFetchDropped`, a streaming one finishes,
-  except an original (`/img-original/`): its first range and every
-  further range stop, its partial file is deleted, and its URL leaves the
-  books at once, so asking again starts a fresh flight. A first `hold` or
-  any `holdFor` promotes a queued background fetch.
+  except an original (`/img-original/`) or a transfer that has stalled
+  (IMG-16): it stops, now or when it stalls, its partial file is deleted,
+  and its URL leaves the books at once, so asking again starts a fresh
+  flight. A first `hold` or any `holdFor` promotes a queued background
+  fetch.
 - **Why:** Flinging a feed queued hundreds of images the user never saw;
   Hero flights and re-layouts briefly release and re-hold. Originals the
   user swiped past in the viewer kept downloading megabytes each and
   slowed the one on screen; a thumbnail is done in a moment, and stopping
-  it would cost the next one a new connection.
-- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel" "an original nobody wants stops; one still shared runs on", `test/image_worker_host_test.dart` "an original nobody wants stops, and asking again starts afresh", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
+  it would cost the next one a new connection, unless it has stalled: a
+  stalled one held its slot until the idle budget, and a widget that came
+  back joined it stalled.
+- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel" "an original nobody wants stops; one still shared runs on" "a streaming transfer that " "a stall that moved on again lets the transfer run on", `test/hedged_image_fetch_test.dart` "a stalled image nobody wants is given up", `test/image_worker_host_test.dart` "an original nobody wants stops, and asking again starts afresh", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
 - **Code:** `lib/core/image/image_demand.dart`, `lib/core/image/image_fetch_scheduler.dart`, `lib/core/image/image_worker_host.dart`
 
 ### IMG-07 Two lanes: foreground 8, background 2
 - **Rule:** Background priority is only for `PixivImage.preload` without a
   user request; everything else is foreground. A user-asked preload (card
   tap, opening the viewer) is foreground with a 10 s `holdFor`. A disk hit
-  answers before any lane.
+  answers before any lane. Beyond the lanes the worker runs at most three
+  hedges (IMG-16) and three extra range connections (NET-15).
 - **Why:** Prefetches starved visible images of transfer slots.
 - **Check:** `test/image_fetch_scheduler_test.dart` "lane caps hold; a finished transfer admits the next waiter", `test/pixiv_image_preload_test.dart` "a preload the user asked for skips the queued prefetch"
 - **Code:** `lib/core/image/image_fetch_scheduler.dart`
+
+### IMG-16 A stalled visible image is sent again over another route
+- **Rule:** A whole-body image GET (not an original) with no headers for
+  2.5 s, or no body bytes for 2 s (`ImageStall`), has stalled and tells
+  its flight. While a foreground request waits on the flight, now or once
+  one joins it, the GET is sent once more to a route candidate the first
+  send did not use (`ImageRouteTrack.avoid`; never a fallback tier, never
+  a mirror), at most three at once per worker. The first whole body is
+  kept: the first send streams to disk as any fetch, the hedge's body is
+  held in memory (at most 8 MB), and the other send stops. Progress
+  follows the further send; when both fail, the first send's error is the
+  fetch's.
+- **Why:** On one carrier half the image bodies through the default fronts
+  stalled for good while the routes beside them served; scores (NET-04)
+  learnt from those loads, but the image that hit the stall waited 15 s
+  for its idle budget and a retry. A healthy route sends headers within
+  about 2 s (p90) and leaves at most 1.3 s between chunks (p99).
+- **Check:** `test/hedged_image_fetch_test.dart` "a send stalled after its first bytes is sent again elsewhere at " "the first send finishing stops the hedge" "a fourth image stalled at once is not sent again" "a prefetch is sent again only once a visible request joins it" "a hedge that " "both sends failing fail with the first one's error" "progress follows the further of the two sends", `test/restricted_compat_image_test.dart` "a second send goes to a candidate the first did not use, and "
+- **Code:** `lib/core/image/hedged_image_fetch.dart`, `lib/core/image/image_worker_host.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ### IMG-08 Retry belongs to the visible image
 - **Rule:** A failed preload is not retried and never reported through
