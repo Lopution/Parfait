@@ -585,6 +585,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       };
       book = _originBooks[host] ??= _OriginBook(
         addresses.values.toList(growable: false),
+        health: _originHealth.putIfAbsent(host, _OriginHealth.new),
         clock: clock,
       );
     }
@@ -807,7 +808,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     if (address == null || route.kind != NetworkRouteKind.bootstrapNoSni) {
       return;
     }
-    _originBooks[host]?.served(address);
+    _originHealth[host]?.served(address.address);
     if (store == null) return;
     // An acceleration layer: the request has already completed and must not
     // be changed by a cache write error.

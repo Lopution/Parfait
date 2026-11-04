@@ -572,13 +572,15 @@ void main() {
     });
 
     test('a visible image arriving mid-refresh stops it before the next '
-        'probe; the next idle sample finishes it', () async {
+        'probe; the next idle sample probes the rest of the same DNS '
+        'answer', () async {
       installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
       final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
       final second = InternetAddress('210.140.139.203');
       final probed = <String>[];
+      final resolver = FakeResolver([served, second], source: DnsSource.doh);
       final policy = NetworkAccessPolicy(
-        resolver: FakeResolver([served, second], source: DnsSource.doh),
+        resolver: resolver,
         bootstrapNoSniEnabled: true,
         fastRouteStore: store,
         clientFactory: (route, _, _) =>
@@ -601,15 +603,18 @@ void main() {
       refresh.noteSample('unicom', sample);
       await refresh.settled;
       expect(probed.last, second.address);
-      expect((await store.provenOrigins())!.addresses.map((a) => a.address), [
+      expect(resolver.calls, 1);
+      final origins = (await store.provenOrigins())!;
+      expect(origins.addresses.map((a) => a.address), [
         served.address,
         second.address,
       ]);
+      expect(origins.refreshedAt.year, isNot(1970));
     });
 
     test('a proven address from a new worker\'s config is tried after the '
         'last served one, and is skipped once it fails three loads in a '
-        'row; a built-in one never is', () async {
+        'row, even after an origin refresh; a built-in one never is', () async {
       final config = ImageWorkerConfig.fromJson(
         jsonDecode(
               jsonEncode(
@@ -657,6 +662,16 @@ void main() {
       expect(origins.take(2), [bootstrap, served.address]);
       expect(origins.where((a) => a == served.address), hasLength(3));
       expect(origins.where((a) => a == bootstrap), hasLength(4));
+
+      // An origin refresh that ends in the same addresses does not bring
+      // the skipped one back.
+      policy.rememberProvenOrigins(
+        ProvenOrigins([served], refreshedAt: DateTime(2026, 11, 5)),
+      );
+      for (var i = 0; i < book; i++) {
+        await expectLater(client.get(_thumbnail), throwsA(anything));
+      }
+      expect(sent.where((a) => a == served.address), hasLength(3));
     });
 
     test('the worker sends its proven origins home, and a config sent '

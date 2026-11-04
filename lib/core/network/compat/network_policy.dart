@@ -195,6 +195,10 @@ class NetworkAccessPolicy {
   /// Each pixiv image host's origin addresses and the one in use.
   final Map<String, _OriginBook> _originBooks = {};
 
+  /// Each pixiv image host's failing origin addresses on this network; it
+  /// outlasts a book an origin refresh replaces.
+  final Map<String, _OriginHealth> _originHealth = {};
+
   /// The origin addresses DNS named and an image proved; read from
   /// [fastRouteStore] when the first book is made.
   List<InternetAddress>? _provenOrigins;
@@ -322,7 +326,8 @@ class NetworkAccessPolicy {
       await fastRouteStore?.provenOrigins();
 
   /// An origin refresh, here or in the image worker, came to [origins]:
-  /// the origin books start again with them, and the store keeps them.
+  /// the origin books start again with them (an address skipped stays
+  /// skipped), and the store keeps them.
   void rememberProvenOrigins(ProvenOrigins origins) {
     if (_disposed) return;
     _provenOrigins = origins.addresses;
@@ -630,6 +635,7 @@ class NetworkAccessPolicy {
     _routeMemory.clear();
     _groupMemory.clear();
     _originBooks.clear();
+    _originHealth.clear();
   }
 
   void _closeClients() {
@@ -645,50 +651,71 @@ class NetworkAccessPolicy {
   }
 }
 
-/// A pixiv image host's origin addresses and the one in use, which moves
-/// on after a failure there.
-class _OriginBook {
-  _OriginBook(this.addresses, {required DateTime Function() clock})
-    : _clock = clock;
+/// A pixiv image host's failing origin addresses: an address other than
+/// the built-in ones that fails [skipAfter] loads in a row is skipped for
+/// [skipFor].
+class _OriginHealth {
+  static const skipAfter = 3;
+  static const skipFor = Duration(days: 1);
 
-  /// An address other than the built-in ones that fails this many loads in
-  /// a row is skipped for [_skipFor].
-  static const _skipAfter = 3;
-  static const _skipFor = Duration(days: 1);
-
-  final List<InternetAddress> addresses;
-  final DateTime Function() _clock;
-  var _index = 0;
   final _failures = <String, int>{};
   final _skipped = <String, DateTime>{};
+
+  void failed(String address, DateTime now) {
+    final builtIn = PixivFastRouteStore.originAddresses.any(
+      (origin) => origin.address == address,
+    );
+    if (builtIn) return;
+    final failures = (_failures[address] ?? 0) + 1;
+    if (failures >= skipAfter) {
+      _failures.remove(address);
+      _skipped[address] = now;
+    } else {
+      _failures[address] = failures;
+    }
+  }
+
+  void served(String address) => _failures.remove(address);
+
+  bool skips(String address, DateTime now) {
+    final since = _skipped[address];
+    return since != null && now.difference(since) < skipFor;
+  }
+}
+
+/// A pixiv image host's origin addresses and the one in use, which moves
+/// on after a failure there, past the addresses [_health] skips.
+class _OriginBook {
+  _OriginBook(
+    this.addresses, {
+    required _OriginHealth health,
+    required DateTime Function() clock,
+  }) : _health = health,
+       _clock = clock {
+    if (_health.skips(current.address, _clock())) _moveOn();
+  }
+
+  final List<InternetAddress> addresses;
+  final _OriginHealth _health;
+  final DateTime Function() _clock;
+  var _index = 0;
 
   InternetAddress get current => addresses[_index];
 
   /// Requests that failed together on one address move the book once.
   void failed(InternetAddress address) {
     final key = address.address;
-    final builtIn = PixivFastRouteStore.originAddresses.any(
-      (origin) => origin.address == key,
-    );
-    if (!builtIn) {
-      final failures = (_failures[key] ?? 0) + 1;
-      if (failures >= _skipAfter) {
-        _failures.remove(key);
-        _skipped[key] = _clock();
-      } else {
-        _failures[key] = failures;
-      }
-    }
-    if (key != current.address) return;
+    _health.failed(key, _clock());
+    if (key == current.address) _moveOn();
+  }
+
+  void _moveOn() {
     final now = _clock();
     for (var i = 0; i < addresses.length; i++) {
       _index = (_index + 1) % addresses.length;
-      final since = _skipped[current.address];
-      if (since == null || now.difference(since) >= _skipFor) break;
+      if (!_health.skips(current.address, now)) break;
     }
   }
-
-  void served(InternetAddress address) => _failures.remove(address.address);
 }
 
 class _HostRouteMemory {

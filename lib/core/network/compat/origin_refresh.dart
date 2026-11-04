@@ -22,9 +22,9 @@ import 'proven_origins.dart';
 ///
 /// It runs in the image worker, on an image sample, only while no visible
 /// image waits for a lane ([idle]); one that arrives mid-refresh stops it
-/// before the next probe, and the next idle sample finishes it. A DNS
-/// lookup that fails counts as the day's ask: mainland networks often
-/// block DoH.
+/// before the next probe, and the next idle sample probes the rest of the
+/// same answer. A DNS lookup that fails counts as the day's ask: mainland
+/// networks often block DoH.
 class OriginRefresh {
   OriginRefresh(
     this._policy, {
@@ -42,6 +42,9 @@ class OriginRefresh {
   final Uri Function() _image;
 
   DateTime? _nextAsk;
+
+  /// A refresh a visible image interrupted.
+  _Probing? _pending;
   var _running = false;
   var _closed = false;
 
@@ -66,6 +69,11 @@ class OriginRefresh {
   void close() => _closed = true;
 
   Future<void> _refresh() async {
+    final pending = _pending;
+    if (pending != null) {
+      _pending = null;
+      return _probe(pending);
+    }
     final known = await _policy.provenOrigins();
     final now = clock.now();
     if (known != null && now.difference(known.refreshedAt) < every) {
@@ -94,38 +102,41 @@ class OriginRefresh {
       for (final address in known?.addresses ?? const <InternetAddress>[])
         if (namedSet.contains(address.address)) address,
     ];
-    final keptSet = {for (final address in kept) address.address};
-    var interrupted = false;
-    for (final address in named) {
-      if (_closed || kept.length >= maxAddresses) break;
-      if (builtIn.contains(address.address) ||
-          keptSet.contains(address.address)) {
-        continue;
-      }
+    final seen = {...builtIn, for (final address in kept) address.address};
+    await _probe(
+      _Probing(
+        askedAt: now,
+        before: known?.refreshedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+        kept: kept,
+        rest: [
+          for (final address in named)
+            if (seen.add(address.address)) address,
+        ],
+      ),
+    );
+  }
+
+  /// Probes what [run] has left while no visible image waits; one that
+  /// does keeps the run for the next idle sample, without asking DNS again.
+  Future<void> _probe(_Probing run) async {
+    while (run.rest.isNotEmpty && run.kept.length < maxAddresses) {
+      if (_closed) return;
       if (!_idle()) {
-        interrupted = true;
-        break;
+        _pending = run;
+        _nextAsk = null;
+        // What is proven so far is used now; the day is not done yet.
+        _policy.rememberProvenOrigins(
+          ProvenOrigins(List.of(run.kept), refreshedAt: run.before),
+        );
+        return;
       }
-      if (await _proves(address)) {
-        kept.add(address);
-        keptSet.add(address.address);
-      }
+      final address = run.rest.removeAt(0);
+      if (await _proves(address)) run.kept.add(address);
     }
     if (_closed) return;
-    if (interrupted) {
-      // A visible image is waiting: what is proven is kept, and the next
-      // idle sample asks again for the rest.
-      _nextAsk = null;
-      _policy.rememberProvenOrigins(
-        ProvenOrigins(
-          kept,
-          refreshedAt:
-              known?.refreshedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
-        ),
-      );
-      return;
-    }
-    _policy.rememberProvenOrigins(ProvenOrigins(kept, refreshedAt: now));
+    _policy.rememberProvenOrigins(
+      ProvenOrigins(run.kept, refreshedAt: run.askedAt),
+    );
   }
 
   /// Whether one image GET through [address] answers 200 with a body.
@@ -152,4 +163,21 @@ class OriginRefresh {
       limit.cancel();
     }
   }
+}
+
+/// A refresh's DNS answer: the addresses kept so far and those left to
+/// probe.
+class _Probing {
+  _Probing({
+    required this.askedAt,
+    required this.before,
+    required this.kept,
+    required this.rest,
+  });
+
+  /// When DNS was asked, and when the refresh before it was.
+  final DateTime askedAt;
+  final DateTime before;
+  final List<InternetAddress> kept;
+  final List<InternetAddress> rest;
 }
