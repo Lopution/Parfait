@@ -10,6 +10,7 @@ library;
 import 'dart:io' show File;
 import 'dart:isolate' show SendPort;
 
+import '../network/compat/image_route_discovery.dart';
 import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_contracts.dart' show NetworkRouteKind;
 import 'lane_permit_gate.dart';
@@ -30,6 +31,7 @@ class ImageWorkerConfig {
     this.learnedFastRoutes = const {},
     this.routeKinds = const {},
     this.routeScores = const {},
+    this.routeDiscovery,
   });
 
   /// Persisted `imageSource` setting (`i.pximg.net`, `auto`, a preset host
@@ -77,6 +79,10 @@ class ImageWorkerConfig {
   /// the main isolate's store; it seeds the worker's board.
   final Map<String, ImageRouteScore> routeScores;
 
+  /// What front discovery came to on [networkIdentity], from the main
+  /// isolate's store; null when it never ran there.
+  final ImageRouteDiscovery? routeDiscovery;
+
   Map<String, Object?> toJson() => {
     'imageSource': imageSource,
     'autoWinnerHost': autoWinnerHost,
@@ -92,6 +98,7 @@ class ImageWorkerConfig {
       for (final MapEntry(:key, :value) in routeScores.entries)
         key: value.toJson(),
     },
+    'routeDiscovery': routeDiscovery?.toJson(),
   };
 
   static ImageWorkerConfig fromJson(Map<String, Object?> json) {
@@ -113,6 +120,9 @@ class ImageWorkerConfig {
             in (json['routeScores'] as Map? ?? const {}).entries)
           key as String: ?ImageRouteScore.fromJson(value),
       },
+      routeDiscovery: json['routeDiscovery'] == null
+          ? null
+          : ImageRouteDiscovery.fromJson(json['routeDiscovery']),
     );
   }
 }
@@ -433,6 +443,13 @@ class ImageRouteRangesEvent extends WorkerEvent {
   final bool served;
 }
 
+/// Front discovery in the worker came to [discovery] on [networkIdentity].
+class RouteDiscoveryEvent extends WorkerEvent {
+  const RouteDiscoveryEvent(this.networkIdentity, this.discovery);
+  final String networkIdentity;
+  final ImageRouteDiscovery discovery;
+}
+
 /// Every ladder tier on [host] was exhausted — forwarded from
 /// `NetworkAccessPolicy.onImageHostExhausted` so the main isolate can drop
 /// the auto-source winner and re-race, as it does for API traffic.
@@ -489,6 +506,11 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
       'candidate': candidate,
       'served': served,
     },
+  RouteDiscoveryEvent(:final networkIdentity, :final discovery) => {
+    'type': 'routeDiscovery',
+    'networkIdentity': networkIdentity,
+    'discovery': discovery.toJson(),
+  },
   RouteExhaustedEvent(:final host) => {'type': 'routeExhausted', 'host': host},
   WorkerErrorEvent(:final message, :final stack) => {
     'type': 'workerError',
@@ -589,6 +611,10 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
       raw['networkIdentity'] as String,
       raw['candidate'] as String,
       served: raw['served'] as bool,
+    ),
+    'routeDiscovery' => RouteDiscoveryEvent(
+      raw['networkIdentity'] as String,
+      ImageRouteDiscovery.fromJson(raw['discovery']),
     ),
     'routeExhausted' => RouteExhaustedEvent(raw['host'] as String),
     'workerError' => WorkerErrorEvent(

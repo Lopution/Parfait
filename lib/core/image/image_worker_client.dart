@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../logging/crash_log.dart';
 import 'image_demand.dart';
+import '../network/compat/image_route_discovery.dart';
 import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_contracts.dart';
 import 'image_worker_host.dart';
@@ -65,6 +66,8 @@ class ImageWorkerClient implements ImageFetcher {
   void Function(String identity, ImageRouteSample sample)? onImageRouteSample;
   void Function(String identity, String candidate, bool served)?
   onImageRouteRanges;
+  void Function(String identity, ImageRouteDiscovery discovery)?
+  onRouteDiscovery;
 
   /// Download progress of a URL [watchProgress] turned on.
   void Function(String url, int received, int? total)? onProgress;
@@ -331,6 +334,8 @@ class ImageWorkerClient implements ImageFetcher {
         :final served,
       ):
         onImageRouteRanges?.call(networkIdentity, candidate, served);
+      case RouteDiscoveryEvent(:final networkIdentity, :final discovery):
+        onRouteDiscovery?.call(networkIdentity, discovery);
       case RouteExhaustedEvent(:final host):
         onRouteExhausted?.call(host);
       case WorkerErrorEvent(:final message, :final stack):

@@ -9,6 +9,7 @@ import '../pixiv_client_identity.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
+import 'image_route_discovery.dart';
 import 'image_route_scores.dart';
 import 'network_fast_route_store.dart';
 import 'secure_resolver.dart';
@@ -184,6 +185,12 @@ class NetworkAccessPolicy {
   /// network; they keep no other memory. A new network starts a new board.
   ImageRouteScores _imageScores;
 
+  /// The current network's extra Cloudflare fronts and colo labels.
+  ImageRouteDiscovery _discovery = ImageRouteDiscovery.initial;
+
+  /// The image route candidates the last selection had.
+  Set<String> _imageCandidateKeys = const {};
+
   /// Each pixiv image host's origin addresses and the one in use.
   final Map<String, _OriginBook> _originBooks = {};
 
@@ -266,12 +273,22 @@ class NetworkAccessPolicy {
     return snapshot;
   }
 
+  /// What the current network taught about each of pixiv's image route
+  /// candidates it has now; those no longer candidates are left out once
+  /// a request has listed the candidates.
+  Map<String, ImageRouteScore> currentImageRouteScores() => {
+    for (final MapEntry(:key, :value) in _imageScores.snapshot().entries)
+      if (_imageCandidateKeys.isEmpty || _imageCandidateKeys.contains(key))
+        key: value,
+  };
+
   /// The pixiv image route candidates the current network has samples
   /// of, cheapest first, for the network settings page. The Cloudflare
-  /// fronts are numbered in the order of their addresses.
+  /// fronts are numbered in the order of their addresses and carry the
+  /// colo they land in, once known.
   List<ImageRouteStanding> imageRouteStandings() {
     final scores = {
-      for (final MapEntry(:key, :value) in _imageScores.snapshot().entries)
+      for (final MapEntry(:key, :value) in currentImageRouteScores().entries)
         if (value.weight > 0) key: value,
     };
     final fronts = scores.keys.where((key) => key != _originCandidate).toList()
@@ -282,11 +299,30 @@ class NetworkAccessPolicy {
           cloudflare: candidate == _originCandidate
               ? null
               : fronts.indexOf(candidate) + 1,
+          colo: candidate.startsWith('ech:')
+              ? _discovery.colos[candidate.substring(4)]?.colo
+              : null,
           cost: score.cost,
           failureShare: score.failureShare,
           inUse: candidate == _imageScores.chosen,
         ),
     ]..sort((a, b) => a.cost.compareTo(b.cost));
+  }
+
+  /// The current network's extra Cloudflare fronts and colo labels.
+  ImageRouteDiscovery get imageRouteDiscovery => _discovery;
+
+  /// Front discovery on [networkIdentity], here or in the image worker,
+  /// came to [discovery]: the policy uses it while that network is
+  /// current, the store keeps it.
+  void updateImageRouteDiscovery(
+    String networkIdentity,
+    ImageRouteDiscovery discovery,
+  ) {
+    if (!_disposed && networkIdentity == _revision.networkIdentity) {
+      _discovery = discovery;
+    }
+    imageRouteScoreStore?.discovered(networkIdentity, discovery);
   }
 
   @visibleForTesting
@@ -470,8 +506,16 @@ class NetworkAccessPolicy {
     final store = imageRouteScoreStore;
     if (store == null) return;
     final board = _imageScores;
-    final scores = await store.scoresFor(_revision.networkIdentity);
+    final identity = _revision.networkIdentity;
+    final scores = await store.scoresFor(identity);
     if (!_disposed && identical(board, _imageScores)) board.seed(scores);
+    final discovery = await store.discoveryFor(identity);
+    // Discovery that ran meanwhile is newer than the store's.
+    if (!_disposed &&
+        identical(board, _imageScores) &&
+        identical(_discovery, ImageRouteDiscovery.initial)) {
+      _discovery = discovery ?? ImageRouteDiscovery.initial;
+    }
   }
 
   /// A failure before the body, a stall in it or a server error: the
@@ -500,7 +544,10 @@ class NetworkAccessPolicy {
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
     final identity = networkIdentity ?? _revision.networkIdentity;
     final newNetwork = identity != _revision.networkIdentity;
-    if (newNetwork) _imageScores = ImageRouteScores(clock: clock);
+    if (newNetwork) {
+      _imageScores = ImageRouteScores(clock: clock);
+      _discovery = ImageRouteDiscovery.initial;
+    }
     _revision = NetworkRevision(_revision.value + 1, networkIdentity: identity);
     if (newNetwork) unawaited(_seedImageRouteScores());
     _forgetRoutes();
@@ -1064,7 +1111,7 @@ class _CandidateObserver {
 String? _imageCandidateKey(NetworkRouteKind kind, InternetAddress? address) =>
     switch (kind) {
       NetworkRouteKind.bootstrapNoSni => _originCandidate,
-      NetworkRouteKind.ech when address != null => 'ech:${address.address}',
+      NetworkRouteKind.ech when address != null => echCandidate(address),
       _ => null,
     };
 

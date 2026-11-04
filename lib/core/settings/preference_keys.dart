@@ -41,6 +41,11 @@ abstract final class PreferenceKeys {
   /// (`ImageRouteScoreStore`).
   static const String imageRouteScores = 'pixiv.network.image_route_scores.v1';
 
+  /// The extra Cloudflare fronts and colo labels per network identity
+  /// (`ImageRouteScoreStore`).
+  static const String imageRouteDiscovery =
+      'pixiv.network.image_route_discovery.v1';
+
   /// Last auto-mode image-source winner per network identity
   /// (`AutoImageSource`).
   static const String autoImageSource = 'pixiv.network.auto_image_source.v1';

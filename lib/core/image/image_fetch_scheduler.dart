@@ -75,6 +75,9 @@ class ImageFetchScheduler<T> {
   /// Requests queued behind the lane limits.
   int get queued => _foreground.queued + _background.queued;
 
+  /// Visible images waiting for a foreground lane.
+  int get foregroundQueued => _foreground.queued;
+
   /// Submits [requestId] for [url]. Completes with the shared fetch result,
   /// an error from [execute], or [ImageFetchDropped] when the request was
   /// cancelled (or dropped from the queue) before it streamed.

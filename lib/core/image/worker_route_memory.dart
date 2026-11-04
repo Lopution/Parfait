@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../network/compat/image_route_discovery.dart';
 import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_fast_route_store.dart';
 import '../network/compat/route_memory.dart';
@@ -67,21 +68,47 @@ class WorkerRouteKindMemory implements RouteKindMemory {
 
 /// What pixiv's image routes scored on the worker's network, as the main
 /// isolate's store had it when the config came. Samples and range marks
-/// go back through [onSample] and [onRanges]: the main isolate's policy
-/// learns them and its store persists them.
+/// go back through [onSample] and [onRanges], front discovery through
+/// [onDiscovery]: the main isolate's policy learns them and its store
+/// persists them.
 class WorkerImageRouteScoreMemory implements ImageRouteScoreMemory {
-  WorkerImageRouteScoreMemory({this.onSample, this.onRanges});
+  WorkerImageRouteScoreMemory({this.onSample, this.onRanges, this.onDiscovery});
 
   final void Function(String identity, ImageRouteSample sample)? onSample;
   final void Function(String identity, String candidate, bool served)? onRanges;
+  final void Function(String identity, ImageRouteDiscovery discovery)?
+  onDiscovery;
 
   var _identity = '';
   Map<String, ImageRouteScore> _scores = const {};
 
-  /// Takes a config's scores, which are [networkIdentity]'s.
-  void reseed(String networkIdentity, Map<String, ImageRouteScore> scores) {
+  /// By identity: the configs', and what this worker came to since, which
+  /// is newer than a config sent before the main isolate heard of it.
+  final _discoveries = <String, ImageRouteDiscovery>{};
+  final _discoveredHere = <String>{};
+
+  /// Takes a config's scores and discovery, which are [networkIdentity]'s.
+  void reseed(
+    String networkIdentity,
+    Map<String, ImageRouteScore> scores,
+    ImageRouteDiscovery? discovery,
+  ) {
     _identity = networkIdentity;
     _scores = scores;
+    if (discovery != null && !_discoveredHere.contains(networkIdentity)) {
+      _discoveries[networkIdentity] = discovery;
+    }
+  }
+
+  @override
+  Future<ImageRouteDiscovery?> discoveryFor(String networkIdentity) async =>
+      _discoveries[networkIdentity];
+
+  @override
+  void discovered(String networkIdentity, ImageRouteDiscovery discovery) {
+    _discoveries[networkIdentity] = discovery;
+    _discoveredHere.add(networkIdentity);
+    onDiscovery?.call(networkIdentity, discovery);
   }
 
   @override
