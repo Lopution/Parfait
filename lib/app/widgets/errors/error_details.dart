@@ -79,14 +79,18 @@ class _FailureReportState extends State<FailureReport> {
   @override
   void didUpdateWidget(FailureReport oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.error != widget.error) _record();
+    // An error object goes by identity, so a retry's equal but new error
+    // is recorded; a string goes by value, so a rebuild's copy is not.
+    if (_keyed(widget.error) || oldWidget.error != widget.error) _record();
   }
+
+  /// Whether [error] can key an [Expando] (has identity).
+  static bool _keyed(Object error) =>
+      !(error is String || error is num || error is bool || error is Record);
 
   void _record() {
     final error = widget.error;
-    final keyed =
-        !(error is String || error is num || error is bool || error is Record);
-    if (keyed) {
+    if (_keyed(error)) {
       if (_recorded[error] ?? false) return;
       _recorded[error] = true;
     }

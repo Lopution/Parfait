@@ -34,6 +34,15 @@ void _mockClipboard(Map<String, String> store) {
   );
 }
 
+/// Two failures with the same value: equal, but not the same object.
+class _EqualError {
+  @override
+  bool operator ==(Object other) => other is _EqualError;
+
+  @override
+  int get hashCode => 0;
+}
+
 void main() {
   group('FailureReport', () {
     late Directory dir;
@@ -55,6 +64,7 @@ void main() {
     ) async {
       final first = StateError('boom');
       final second = StateError('again');
+      final retried = _EqualError();
       // dart:io continuations parked in the fake-async zone are never
       // resumed, so the CrashLog writes run on the real event loop.
       await tester.runAsync(() async {
@@ -71,11 +81,18 @@ void main() {
         await tester.pumpWidget(
           _host(FailureReport(action: '加载失败', error: second)),
         );
+        // A retry's error equal to the last one is still a new failure.
+        await tester.pumpWidget(
+          _host(FailureReport(action: '加载失败', error: _EqualError())),
+        );
+        await tester.pumpWidget(
+          _host(FailureReport(action: '加载失败', error: retried)),
+        );
         await CrashLog.pending;
       });
 
       final content = file.readAsStringSync();
-      expect('reported: 加载失败'.allMatches(content).length, 2);
+      expect('reported: 加载失败'.allMatches(content).length, 4);
       expect('Bad state: boom'.allMatches(content).length, 1);
       expect(content, contains('Bad state: again'));
       expect(find.textContaining('Bad state'), findsNothing);
