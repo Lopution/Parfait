@@ -43,7 +43,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// response, timeout after send) is never repeated. A [background]
   /// request (a prefetch) to pixiv's image hosts may explore a candidate
   /// route no recent load has tried; a [pin] keeps the ranges of one of
-  /// their transfers on one route.
+  /// their transfers on one route, and a [track] follows a request that may
+  /// be sent twice.
   Future<T> runLadder<T>({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
@@ -52,6 +53,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     bool raceWhenCold = false,
     bool background = false,
     ImageRoutePin? pin,
+    ImageRouteTrack? track,
   }) async {
     _checkUsable();
     final host = destination.canonicalHost;
@@ -71,6 +73,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         raceWhenCold: raceWhenCold,
         background: background,
         pin: _isPixivImage(destination) ? pin : null,
+        track: _isPixivImage(destination) ? track : null,
       );
     } on Object {
       // A mirror/auto-source host that exhausted every tier is reported so
@@ -99,6 +102,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required bool raceWhenCold,
     required bool background,
     required ImageRoutePin? pin,
+    required ImageRouteTrack? track,
   }) async {
     final host = destination.canonicalHost;
     final pinned = pin?.route != null;
@@ -146,6 +150,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           useMemory: useMemory,
           explore: explore,
           pin: pin,
+          track: track,
         );
       } on Object catch (error, stackTrace) {
         Error.throwWithStackTrace(error, stackTrace);
@@ -223,6 +228,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     bool remember = true,
     bool explore = false,
     ImageRoutePin? pin,
+    ImageRouteTrack? track,
   }) async {
     final host = destination.canonicalHost;
     final now = clock();
@@ -234,6 +240,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // Explicit direct-only mode is a route decision, not a reason to probe
     // and then issue a second direct request.
     if (_mode == NetworkMode.directOnly) {
+      if (track != null && track.avoid.isNotEmpty) {
+        throw const NoOtherImageRoute();
+      }
       final direct = NetworkRoute.direct(_revision);
       attemptedKinds.add(direct.kind);
       attemptedKeys.add(direct.key);
@@ -249,6 +258,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         resolveHost: resolveHost,
         explore: explore,
         pin: pin,
+        track: track,
       );
     }
 
@@ -353,7 +363,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// tier once per request. A candidate that cannot be built (no ECH
   /// config) is left out. Only a request's first selection may [explore].
   /// A set [pin] allows its route alone; a resuming one tries last the
-  /// candidates that answered a `Range` with the whole file.
+  /// candidates that answered a `Range` with the whole file, and one
+  /// [ImageRoutePin.away] from a route tries the other candidates that
+  /// serve ranges, then that route. A [track] notes each choice, and one
+  /// that avoids candidates takes no fallback tier.
   Future<NetworkRoute> _selectImageRoute({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
@@ -362,8 +375,11 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required Future<ResolvedHost> Function() resolveHost,
     required bool explore,
     required ImageRoutePin? pin,
+    required ImageRouteTrack? track,
   }) async {
     final pinned = pin?.route;
+    final away = pinned == null ? pin?.away : null;
+    final avoid = track?.avoid ?? const <String>{};
     final candidates = await _imageCandidates(destination, cancelSignal);
     var order = pinned != null
         ? [if (candidates.containsKey(pinned)) pinned]
@@ -377,18 +393,31 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         ...order.where((candidate) => !_imageScores.servesRanges(candidate)),
       ];
     }
+    if (away != null) {
+      order = [
+        ...order.where(
+          (candidate) =>
+              candidate != away && _imageScores.servesRanges(candidate),
+        ),
+        if (candidates.containsKey(away)) away,
+      ];
+    }
     for (final candidate in order) {
+      if (avoid.contains(candidate)) continue;
       if (attemptedKeys.add('candidate:$candidate')) {
+        track?.sent.add(candidate);
         return candidates[candidate]!;
       }
     }
+    if (avoid.isNotEmpty) throw const NoOtherImageRoute();
+    final only = pinned ?? away;
     Object? lastError;
     StackTrace? lastStack;
     for (final kind in const [
       NetworkRouteKind.dohRealSni,
       NetworkRouteKind.direct,
     ]) {
-      if (pinned != null && pinned != kind.name) continue;
+      if (only != null && only != kind.name) continue;
       if (!attemptedKinds.add(kind)) continue;
       try {
         final route = kind == NetworkRouteKind.direct
@@ -399,7 +428,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
                 resolveHost: resolveHost,
                 cancelSignal: cancelSignal,
               );
-        if (route != null && attemptedKeys.add(route.key)) return route;
+        if (route != null && attemptedKeys.add(route.key)) {
+          track?.sent.add(kind.name);
+          return route;
+        }
       } on Object catch (error, stackTrace) {
         if (_isCancellation(error, cancelSignal)) {
           Error.throwWithStackTrace(error, stackTrace);

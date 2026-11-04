@@ -20,9 +20,10 @@ import 'lane_permit_gate.dart';
 ///   dropped after [cancelGrace] — the grace absorbs the unmount/remount
 ///   of a Hero flight or a list re-layout without losing queue position.
 /// - A transfer that already started runs to the end, so its bytes land
-///   in the disk cache for the next visit, unless it is [abortable]: an
-///   original whose last interest left stops at once, and a new request
-///   for its URL starts a fresh flight. The caller's own release grace
+///   in the disk cache for the next visit, unless it is [abortable] or has
+///   stalled ([ImageFlight.stalled]): an original or a stalled transfer
+///   whose last interest left stops at once, and a new request for its
+///   URL starts a fresh flight. The caller's own release grace
 ///   (`ImageDemand`) has already passed by the time its cancel arrives.
 ///
 /// The transport itself is injected via [execute] — the scheduler only owns
@@ -41,14 +42,7 @@ class ImageFetchScheduler<T> {
 
   /// Runs one admitted fetch to completion (transport + disk write lives
   /// in the caller). Its result/error is fanned out to every interest.
-  /// [cancel] fires when an [abortable] transfer loses its last interest;
-  /// `background` says it was admitted on the background lane.
-  final Future<T> Function(
-    String url,
-    NetworkCancelSignal cancel, {
-    required bool background,
-  })
-  execute;
+  final Future<T> Function(String url, ImageFlight flight) execute;
 
   /// Whether a streaming transfer for a URL stops when nobody wants it:
   /// megabytes the user has swiped past, whose bandwidth the page on screen
@@ -102,13 +96,15 @@ class ImageFetchScheduler<T> {
       unawaited(_run(fetch));
     } else if (priority == ImageFetchPriority.foreground) {
       _promote(fetch);
+      fetch.flight?.onSeen?.call();
     }
     return completer.future;
   }
 
   /// Drops [requestId]'s interest; the requester completes with
   /// [ImageFetchDropped]. A queued fetch with no interests left arms the
-  /// cancel-grace timer; a streaming one runs on unless [abortable].
+  /// cancel-grace timer; a streaming one runs on unless [abortable] or
+  /// stalled.
   void cancel(int requestId) {
     final fetch = _interests.remove(requestId);
     if (fetch == null) return;
@@ -117,12 +113,16 @@ class ImageFetchScheduler<T> {
     if (fetch.interests.isNotEmpty) return;
     if (!fetch.streaming) {
       fetch.dropTimer ??= Timer(cancelGrace, () => _drop(fetch));
-    } else if (abortable(fetch.url)) {
-      // Off the books first: a request for the URL from now on must not
-      // join a transfer that is ending.
-      if (identical(_fetches[fetch.url], fetch)) _fetches.remove(fetch.url);
-      fetch.abort.cancel();
+    } else if (abortable(fetch.url) || fetch.stalled) {
+      _stop(fetch);
     }
+  }
+
+  /// Ends a streaming [fetch] nobody wants. Off the books first: a request
+  /// for the URL from now on must not join a transfer that is ending.
+  void _stop(_Fetch<T> fetch) {
+    if (identical(_fetches[fetch.url], fetch)) _fetches.remove(fetch.url);
+    fetch.abort.cancel();
   }
 
   /// Moves the queued background fetch for [url] onto the foreground lane.
@@ -171,11 +171,22 @@ class ImageFetchScheduler<T> {
       fetch.streaming = true;
       fetch.dropTimer?.cancel();
       fetch.dropTimer = null;
-      final result = await execute(
-        fetch.url,
+      final flight = fetch.flight = ImageFlight._(
         fetch.abort,
         background: !fetch.foreground,
+        seen: () => fetch.interests.values.any(
+          (interest) => interest.$2 == ImageFetchPriority.foreground,
+        ),
+        stalled: (stalled) {
+          fetch.stalled = stalled;
+          if (stalled &&
+              fetch.interests.isEmpty &&
+              identical(_fetches[fetch.url], fetch)) {
+            _stop(fetch);
+          }
+        },
       );
+      final result = await execute(fetch.url, flight);
       for (final completer in _settle(fetch)) {
         completer.complete(result);
       }
@@ -215,7 +226,46 @@ class _Fetch<T> {
   Timer? dropTimer;
   var streaming = false;
   var foreground = false;
+  var stalled = false;
+  ImageFlight? flight;
   final abort = _Abort();
+}
+
+/// An admitted fetch's view of its flight. It is also the flight's cancel
+/// signal, which fires when the flight stops because nobody wants it.
+class ImageFlight implements NetworkCancelSignal {
+  ImageFlight._(
+    this._abort, {
+    required this.background,
+    required bool Function() seen,
+    required void Function(bool stalled) stalled,
+  }) : _seen = seen,
+       _stalled = stalled;
+
+  final NetworkCancelSignal _abort;
+  final bool Function() _seen;
+  final void Function(bool stalled) _stalled;
+
+  /// Admitted on the background lane: a prefetch.
+  final bool background;
+
+  /// Called when a foreground request joins the flight while it streams;
+  /// set by the fetch.
+  void Function()? onSeen;
+
+  /// A foreground request waits on the flight.
+  bool get seen => _seen();
+
+  /// The fetch tells whether its transfer has stalled ([ImageStall]). A
+  /// stalled flight nobody wants stops, now or when its last interest
+  /// leaves.
+  void stalled(bool stalled) => _stalled(stalled);
+
+  @override
+  bool get isCancelled => _abort.isCancelled;
+
+  @override
+  Future<void> get whenCancel => _abort.whenCancel;
 }
 
 class _Abort implements NetworkCancelSignal {

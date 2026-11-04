@@ -813,6 +813,7 @@ void main() {
         List<String> sent, {
         ImageRouteScoreMemory? scores,
         String network = 'initial',
+        Duration stall = ImageStall.body,
       }) {
         final policy = NetworkAccessPolicy(
           revision: NetworkRevision(0, networkIdentity: network),
@@ -822,6 +823,7 @@ void main() {
             frontAddresses: [InternetAddress('1.2.3.81')],
           ),
           imageIdleTimeout: const Duration(milliseconds: 50),
+          imageBodyStall: stall,
           clientFactory: (route, _, _) =>
               RouteLogClient(route, sent, StallClient()),
         );
@@ -846,6 +848,45 @@ void main() {
           throwsA(isA<TimeoutException>()),
         );
         await get();
+        expect(sent, ['1.2.3.81', '1.2.3.81', '162.159.152.4']);
+      });
+
+      test('a body given up after a stall counts against its route', () async {
+        final sent = <String>[];
+        final get = imageGets(sent, stall: Duration.zero).get;
+
+        await (await get()).listen(null).cancel();
+        await get();
+        expect(sent, ['1.2.3.81', '162.159.152.4']);
+      });
+
+      test('a request aborted with no headers after the stall gap counts '
+          'against its route; one aborted sooner does not', () async {
+        final sent = <String>[];
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          imageHeadersStall: const Duration(milliseconds: 50),
+          clientFactory: (route, _, _) =>
+              RouteLogClient(route, sent, HangingClient()),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
+        Future<void> abortAfter(Duration wait) async {
+          final abort = Completer<void>();
+          final response = client.send(
+            ImageRequest('GET', uri, abortTrigger: abort.future),
+          );
+          await Future<void>.delayed(wait);
+          abort.complete();
+          await expectLater(response, throwsA(isA<Exception>()));
+        }
+
+        await abortAfter(Duration.zero);
+        await abortAfter(const Duration(milliseconds: 100));
+        await abortAfter(Duration.zero);
         expect(sent, ['1.2.3.81', '1.2.3.81', '162.159.152.4']);
       });
 
@@ -930,6 +971,70 @@ void main() {
         await get('bytes=0-99');
         await get('bytes=100-199', resuming: true);
         expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81', '1.2.3.81']);
+      });
+
+      test('a second send goes to a candidate the first did not use, and '
+          'finds none once every one was', () async {
+        final sent = <String>[];
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          clientFactory: (route, _, _) =>
+              RouteLogClient(route, sent, FakeClient()),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
+        Future<void> get(ImageRouteTrack track) async => (await client.send(
+          ImageRequest('GET', uri, track: track),
+        )).stream.drain<void>();
+
+        final first = ImageRouteTrack();
+        await get(first);
+        final second = ImageRouteTrack(avoid: first.sent);
+        await get(second);
+        await expectLater(
+          get(ImageRouteTrack(avoid: {...first.sent, ...second.sent})),
+          throwsA(isA<NoOtherImageRoute>()),
+        );
+        expect(sent, ['1.2.3.81', '162.159.152.4']);
+        expect(
+          [...first.sent, ...second.sent],
+          ['ech:1.2.3.81', 'ech:162.159.152.4'],
+        );
+      });
+
+      test('a restarted range goes to another candidate that serves ranges, '
+          'else back to its own', () async {
+        final sent = <String>[];
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          clientFactory: (route, _, _) => RouteLogClient(
+            route,
+            sent,
+            FakeClient(
+              statusCode: route.address?.address == '1.2.3.81' ? 206 : 200,
+            ),
+          ),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-original/img/x_p0.png');
+        Future<void> get(ImageRoutePin pin, String range) async {
+          final request = ImageRequest('GET', uri, pin: pin)
+            ..headers['range'] = range;
+          await (await client.send(request)).stream.drain<void>();
+        }
+
+        final pin = ImageRoutePin();
+        await get(pin, 'bytes=0-99');
+        // The seed front answers the range with the whole file.
+        await get(ImageRoutePin.awayFrom(pin), 'bytes=100-199');
+        await get(ImageRoutePin.awayFrom(pin), 'bytes=100-199');
+        expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81']);
       });
 
       test('a network starts on the route that served it last time', () async {

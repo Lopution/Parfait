@@ -82,8 +82,9 @@ reviewed: 2026-10-29
   address (ten built in; a failed one gives way to the next, a served one
   is persisted). A request tries each once, cheapest expected cost first,
   then `dohRealSni` and `direct`. Costs come from the image bodies:
-  seconds per 100 KB; 12 s for a stall, a failure or a 5xx; nothing for a
-  body given up while healthy. Samples halve in weight every 10 min and
+  seconds per 100 KB; 12 s for a stall, a failure or a 5xx. A request
+  given up is a stall after 2.5 s without headers or 2 s without body
+  bytes (`ImageStall`), else costs nothing. Samples halve in weight every 10 min and
   weigh at most 6 together; another candidate takes over only when 15 %
   cheaper. A prefetch may go first to one candidate without a sample in
   10 min, one at a time; a visible load never does. Each network identity
@@ -96,8 +97,8 @@ reviewed: 2026-10-29
   origin crawled at 25 KB/s while every front served. Each fixed order
   was wrong on one of them, and a first-byte race says nothing of the
   body.
-- **Check:** `test/image_route_scores_test.dart` "visible loads settle on a good route within six and stay there" "a route that turns slow loses the choice within minutes" "another route takes over only when 15 % cheaper" "prefetches explore one stale route at a time, visible loads never" "a snapshot seeds the next visit to the network", `test/restricted_compat_image_test.dart` "pixiv images walk their candidates, then dohRealSni and direct, " "a stalled body counts against its route; one given up does " "a prefetch may try another route; a visible load never" "a network starts on the route that served it last time", `test/settings_test.dart` "effective routes list the image worker's hosts and route ", `test/network_fast_route_test.dart` "a failed origin address gives way to the next, where the next "
-- **Code:** `lib/core/network/compat/image_route_scores.dart`, `lib/core/network/compat/image_route_score_store.dart`, `lib/core/network/compat/network_policy_ladder.dart`
+- **Check:** `test/image_route_scores_test.dart` "visible loads settle on a good route within six and stay there" "a route that turns slow loses the choice within minutes" "another route takes over only when 15 % cheaper" "prefetches explore one stale route at a time, visible loads never" "a snapshot seeds the next visit to the network", `test/restricted_compat_image_test.dart` "pixiv images walk their candidates, then dohRealSni and direct, " "a stalled body counts against its route; one given up does " "a body given up after a stall counts against its route" "a request aborted with no headers after the stall gap counts " "a prefetch may try another route; a visible load never" "a network starts on the route that served it last time", `test/settings_test.dart` "effective routes list the image worker's hosts and route ", `test/network_fast_route_test.dart` "a failed origin address gives way to the next, where the next "
+- **Code:** `lib/core/network/compat/image_route_scores.dart`, `lib/core/network/compat/image_route_score_store.dart`, `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ### NET-19 A network is its carrier or its link
 - **Rule:** The network identity keys route memory, image route scores
@@ -110,7 +111,7 @@ reviewed: 2026-10-29
   revision, a data-SIM switch included.
 - **Why:** `connectivity_plus` named every cellular network `mobile`, so
   two carriers whose best image routes are opposite shared one memory.
-- **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/NetworkIdentityChannelTest.kt` "the kind and the data SIM's operator name the network" "a local link is named by its provider's IPv6 block, else by its router", `test/restricted_compat_network_test.dart` "on Android a data-SIM switch is a network change"
+- **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/NetworkIdentityChannelTest.kt` "the kind and the data SIM's operator name the network" "a local link is named by its provider's IPv6 block, else by its router", `test/restricted_compat_network_test.dart` "on Android a data-SIM switch is a network change" "on Windows a failed first look still follows network changes"
 - **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait/NetworkIdentityChannel.kt`, `lib/core/platform/network_identity.dart`, `lib/core/network/compat/network_providers.dart`
 
 ### NET-05 Image and download exits use HTTP/1.1
@@ -267,27 +268,33 @@ reviewed: 2026-10-29
   with the first ETag; a range that is not exactly its 206 fails the whole
   transfer with `SegmentedFetchMismatch`, never retried. On pixiv's image
   hosts every range of a transfer shares one `ImageRoutePin`: the first
-  range sets its route, the others go there alone, and a failure there is
-  the range's own (NET-16). A candidate that answered a `Range` with the
-  whole file is marked per network until it serves a range; a resumed
-  download tries marked candidates last, a range from byte 0 ignores the
-  mark. Extra connections
-  come from the isolate's `SegmentBudget` (main isolate one provider,
-  limit 6; image worker its own, limit 3).
+  range sets its route, the others go there alone, and a restart goes
+  away from it first (NET-16). A range asked without `If-Range` (no first
+  ETag, as with pximg) and answered 200 is closed and restarted instead;
+  bytes are never taken from a 200. A candidate that answered a `Range`
+  with the whole file is marked per network until it serves a range; a
+  resumed download tries marked candidates last, a range from byte 0
+  ignores the mark. Extra connections come from the isolate's
+  `SegmentBudget` (main isolate one provider, limit 6; image worker its
+  own, limit 3).
 - **Why:** Stitching a mismatched range mixed two files; per-factory
   budgets multiplied connections per host. Image routes change with their
   scores mid-transfer, and another route may serve another copy. A whole
   file for a resume's range discards the bytes kept, while from byte 0 it
   only loses the parallel ranges.
-- **Check:** `test/segmented_fetch_test.dart` "every segment asks If-Range with the first ETag" "a budget of 2 caps the transfer at 3 connections" "cancelling closes every connection and returns the budget", `test/restricted_compat_image_test.dart` "every range of a transfer keeps to the route of its first" "a resumed transfer tries last a route that sent a whole file ", `test/download_resume_test.dart` "a large file arrives in parallel ranges, in order" "a retry after pause starts at the anchor and still segments"
+- **Check:** `test/segmented_fetch_test.dart` "every segment asks If-Range with the first ETag" " for a segment fails the transfer without a retry" "a range asked without If-Range and answered with the whole file " "a range answered with the whole file each time fails the transfer" "a budget of 2 caps the transfer at 3 connections" "cancelling closes every connection and returns the budget", `test/restricted_compat_image_test.dart` "every range of a transfer keeps to the route of its first" "a resumed transfer tries last a route that sent a whole file ", `test/download_resume_test.dart` "a large file arrives in parallel ranges, in order" "a retry after pause starts at the anchor and still segments"
 - **Code:** `lib/core/network/compat/segmented_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/download/download_manager.dart`, `lib/core/image/image_worker_host.dart`
 
 ### NET-16 Slow ranges restart a bounded number of times
 - **Rule:** A range restarts from the byte it reached after 5 s without
-  bytes, or when it streams under a third of the median pace; at most
-  `maxRestarts` per range. Teardown uses `subscription.cancel().ignore()`
-  before closing the response.
+  bytes, when it streams under a third of the median pace, or when its
+  connection fails; at most `maxRestarts` per range. A restart opens
+  elsewhere: on pixiv's image hosts the best other candidate that serves
+  ranges (`ImageRoutePin.awayFrom`), else the transfer's own route.
+  Teardown uses `subscription.cancel().ignore()` before closing the
+  response.
 - **Why:** One slow CDN connection set the pace; awaiting `cancel()` never
-  settled under `fakeAsync` and surfaced teardown errors as uncaught.
-- **Check:** `test/segmented_fetch_test.dart` "a slow segment restarts from the byte it reached" "a segment restarts at most twice, then waits"
-- **Code:** `lib/core/network/compat/segmented_fetch.dart`
+  settled under `fakeAsync` and surfaced teardown errors as uncaught. A
+  bad route stalls for good, so a range restarted there stalled again.
+- **Check:** `test/segmented_fetch_test.dart` "a slow segment restarts from the byte it reached" "a stalled segment restarts after 5 s without bytes" "a segment restarts at most twice, then waits", `test/restricted_compat_image_test.dart` "a restarted range goes to another candidate that serves ranges, "
+- **Code:** `lib/core/network/compat/segmented_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`

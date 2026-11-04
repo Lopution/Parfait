@@ -15,6 +15,7 @@ class ImageRequest extends http.Request with http.Abortable {
     this.abortTrigger,
     this.background = false,
     this.pin,
+    this.track,
   });
 
   @override
@@ -26,6 +27,9 @@ class ImageRequest extends http.Request with http.Abortable {
 
   /// Set for the ranges of one transfer, which stay on one route.
   final ImageRoutePin? pin;
+
+  /// Set for a GET that may be sent once more over another route.
+  final ImageRouteTrack? track;
 }
 
 /// A policy-aware `package:http` client. The business request is the route
@@ -77,6 +81,7 @@ class PixivPolicyHttpClient extends http.BaseClient {
           (request.method == 'GET' || request.method == 'HEAD'),
       background: request is ImageRequest && request.background,
       pin: request is ImageRequest ? request.pin : null,
+      track: request is ImageRequest ? request.track : null,
       attempt: (route, url) async {
         // A clone is created for each attempt. package:http requests are
         // single-use after finalize(), so reusing one object would turn the

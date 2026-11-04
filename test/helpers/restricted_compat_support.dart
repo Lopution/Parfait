@@ -117,6 +117,18 @@ class NeverSendClient extends http.BaseClient {
   }
 }
 
+/// Sends no headers until its request is aborted, then fails like rhttp.
+class HangingClient extends http.BaseClient {
+  final requests = <http.BaseRequest>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    await (request as http.Abortable).abortTrigger;
+    throw http.RequestAbortedException(request.url);
+  }
+}
+
 /// Emits [bytes] of body then stalls forever — a mid-body connection stall.
 class StallClient extends http.BaseClient {
   StallClient([this.bytes = 1, this.error]);

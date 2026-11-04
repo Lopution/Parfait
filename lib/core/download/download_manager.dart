@@ -1286,15 +1286,16 @@ class DownloadManager {
     }
     final remaining = total - resumeOffset;
     final fetch = SegmentedFetch(
-      open: (start, end, {ifRange, required cancel}) => _openRange(
-        pin,
-        url,
-        headers,
-        start,
-        end,
-        ifRange: ifRange,
-        cancel: cancel,
-      ),
+      open: (start, end, {ifRange, required cancel, required elsewhere}) =>
+          _openRange(
+            elsewhere ? ImageRoutePin.awayFrom(pin) : pin,
+            url,
+            headers,
+            start,
+            end,
+            ifRange: ifRange,
+            cancel: cancel,
+          ),
       budget: budget,
       maxParallel: remaining >= _kParallelMinRemaining
           ? SegmentedFetch.defaultParallel
