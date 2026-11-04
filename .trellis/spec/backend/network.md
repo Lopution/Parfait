@@ -77,8 +77,8 @@ reviewed: 2026-10-29
 
 ### NET-04 Pixiv image routes follow per-network scores
 - **Rule:** Pixiv's image hosts have route candidates: `ech:<front>` for
-  up to three public fronts the ECH config names and the seed front
-  162.159.152.4, and `origin`, pixiv's image origin at the host's current
+  up to four Cloudflare fronts (NET-20), and `origin`, pixiv's image
+  origin at the host's current
   address (ten built in; a failed one gives way to the next, a served one
   is persisted). A request tries each once, cheapest expected cost first,
   then `dohRealSni` and `direct`. Costs come from the image bodies:
@@ -90,8 +90,8 @@ reviewed: 2026-10-29
   10 min, one at a time; a visible load never does. Each network identity
   has its own board, seeded from what that network scored before (the
   last 16 networks, 8 candidates each). The network page lists the
-  worker's candidates as "Cloudflare n" or the origin, with cost, failure
-  share and the one in use; never an address (NET-13).
+  worker's current candidates as "Cloudflare n · colo" or the origin, with
+  cost, failure share and the one in use; never an address (NET-13).
 - **Why:** On one carrier the fronts the ECH config names stalled half the
   bodies while the seed front and the origin served; on another the
   origin crawled at 25 KB/s while every front served. Each fixed order
@@ -99,6 +99,30 @@ reviewed: 2026-10-29
   body.
 - **Check:** `test/image_route_scores_test.dart` "visible loads settle on a good route within six and stay there" "a route that turns slow loses the choice within minutes" "another route takes over only when 15 % cheaper" "prefetches explore one stale route at a time, visible loads never" "a snapshot seeds the next visit to the network", `test/restricted_compat_image_test.dart` "pixiv images walk their candidates, then dohRealSni and direct, " "a stalled body counts against its route; one given up does " "a body given up after a stall counts against its route" "a request aborted with no headers after the stall gap counts " "a prefetch may try another route; a visible load never" "a network starts on the route that served it last time", `test/settings_test.dart` "effective routes list the image worker's hosts and route ", `test/network_fast_route_test.dart` "a failed origin address gives way to the next, where the next "
 - **Code:** `lib/core/network/compat/image_route_scores.dart`, `lib/core/network/compat/image_route_score_store.dart`, `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`
+
+### NET-20 Each network finds its own Cloudflare fronts
+- **Rule:** After the up to three public fronts the ECH config names, each
+  network identity has extra fronts, four `ech:` in all: the seed
+  162.159.152.4 until a run replaces it. A run (`FrontDiscovery`, image
+  worker) samples 8 addresses across the 15 built-in Cloudflare IPv4
+  prefixes by size and, one at a time, 10 s each, only while no visible
+  image waits, fetches `cdn-cgi/trace` (`colo=`) and a thumbnail over ECH
+  through each, certificates verified, unscored. It keeps the two best
+  under 0.8 × the best Cloudflare candidate's cost, or in a new colo
+  within 1.2 ×; a failed address is skipped for a day. A run starts after
+  20 samples on a network with no run, or when every sampled Cloudflare
+  candidate costs 1.5 × the best other or fails over 30 % of two loads or
+  more; 6 h apart at least, doubled after each run that kept nothing (up
+  to 48 h). A front at 1.5 × the best other for a day is dropped. A front
+  in use gets one trace a day for its colo label. Results reach the main
+  isolate like samples (NET-12) and persist per network.
+- **Why:** The colo a front reaches differs by carrier and prefix: the
+  ECH config's fronts land in LAX, which stalls pixiv's bodies for
+  Unicom, while the seed lands in HKG there and in SJC for Telecom. Some
+  Cloudflare addresses refuse or answer 403, so each is proven by a real
+  image.
+- **Check:** `test/route_discovery_test.dart` "a run keeps the two fronts that beat the hints or add a colo, " "a front worse than the best other for a day is dropped; a better " "a discovery survives a restart and seeds a new worker" "the sample spreads over Cloudflare" "a run is due"
+- **Code:** `lib/core/network/compat/front_discovery.dart`, `lib/core/network/compat/image_route_discovery.dart`, `lib/core/image/image_worker_host.dart`
 
 ### NET-19 A network is its carrier or its link
 - **Rule:** The network identity keys route memory, image route scores
@@ -232,15 +256,16 @@ reviewed: 2026-10-29
 ### NET-12 The image worker never persists routes
 - **Rule:** The worker's own policy learns routes but sends them back to
   the main isolate's fast-route, route-kind and image route score stores,
-  the only writers of those preferences. Image route samples and range
-  marks go back with their network identity: the main isolate's policy
-  learns them while that network is current, and the score store keeps
-  them. Each config carries the store's scores for its network, which
-  seed the worker's board when its policy or network is new.
+  the only writers of those preferences. Image route samples, range
+  marks and front discoveries go back with their network identity: the
+  main isolate's policy learns them while that network is current, and
+  the score store keeps them. Each config carries the store's scores and
+  discovery for its network, which seed the worker's policy when it or
+  its network is new; a discovery the worker made outranks a config's.
 - **Why:** Two isolates writing the same preferences overwrote each other.
   Downloads run on the main isolate and choose their route from the
   images the worker loaded.
-- **Check:** `test/image_worker_host_test.dart` "route samples go back to the main isolate under their network"
+- **Check:** `test/image_worker_host_test.dart` "route samples go back to the main isolate under their network", `test/route_discovery_test.dart` "the worker sends its discoveries home, and a config sent before "
 - **Code:** `lib/core/image/image_worker_host.dart`, `lib/core/image/image_worker_providers.dart`, `lib/core/network/compat/route_kind_store.dart`, `lib/core/network/compat/image_route_score_store.dart`
 
 ### NET-13 Diagnostics and errors carry no secrets
