@@ -808,7 +808,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     if (address == null || route.kind != NetworkRouteKind.bootstrapNoSni) {
       return;
     }
-    _originHealth[host]?.served(address.address);
     if (store == null) return;
     // An acceleration layer: the request has already completed and must not
     // be changed by a cache write error.

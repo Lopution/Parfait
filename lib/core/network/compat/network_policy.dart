@@ -550,7 +550,18 @@ class NetworkAccessPolicy {
     );
     final address = route.address;
     if (route.kind == NetworkRouteKind.bootstrapNoSni && address != null) {
-      _originBooks[host]?.failed(address);
+      _originHealth
+          .putIfAbsent(host, _OriginHealth.new)
+          .failed(address.address, clock());
+      _originBooks[host]?.movedOff(address);
+    }
+  }
+
+  /// A whole image body loaded: an origin address is healthy again.
+  void _imageRouteLoaded(String host, NetworkRoute route) {
+    final address = route.address;
+    if (route.kind == NetworkRouteKind.bootstrapNoSni && address != null) {
+      _originHealth[host]?.served(address.address);
     }
   }
 
@@ -703,10 +714,8 @@ class _OriginBook {
   InternetAddress get current => addresses[_index];
 
   /// Requests that failed together on one address move the book once.
-  void failed(InternetAddress address) {
-    final key = address.address;
-    _health.failed(key, _clock());
-    if (key == current.address) _moveOn();
+  void movedOff(InternetAddress address) {
+    if (address.address == current.address) _moveOn();
   }
 
   void _moveOn() {
@@ -1148,16 +1157,19 @@ class _CandidateObserver {
     required Duration headers,
     required Duration total,
     required int bytes,
-  }) => _policy._recordImageSample(
-    _route,
-    (candidate, at) => ImageRouteSample.load(
-      candidate,
-      headers: headers,
-      total: total,
-      bytes: bytes,
-      at: at,
-    ),
-  );
+  }) {
+    _policy._recordImageSample(
+      _route,
+      (candidate, at) => ImageRouteSample.load(
+        candidate,
+        headers: headers,
+        total: total,
+        bytes: bytes,
+        at: at,
+      ),
+    );
+    _policy._imageRouteLoaded(_host, _route);
+  }
 
   void failed() => _policy._imageRouteFailed(_host, _route);
 
