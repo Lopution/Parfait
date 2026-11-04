@@ -813,6 +813,7 @@ void main() {
         List<String> sent, {
         ImageRouteScoreMemory? scores,
         String network = 'initial',
+        Duration stall = ImageStall.body,
       }) {
         final policy = NetworkAccessPolicy(
           revision: NetworkRevision(0, networkIdentity: network),
@@ -822,6 +823,7 @@ void main() {
             frontAddresses: [InternetAddress('1.2.3.81')],
           ),
           imageIdleTimeout: const Duration(milliseconds: 50),
+          imageBodyStall: stall,
           clientFactory: (route, _, _) =>
               RouteLogClient(route, sent, StallClient()),
         );
@@ -846,6 +848,45 @@ void main() {
           throwsA(isA<TimeoutException>()),
         );
         await get();
+        expect(sent, ['1.2.3.81', '1.2.3.81', '162.159.152.4']);
+      });
+
+      test('a body given up after a stall counts against its route', () async {
+        final sent = <String>[];
+        final get = imageGets(sent, stall: Duration.zero).get;
+
+        await (await get()).listen(null).cancel();
+        await get();
+        expect(sent, ['1.2.3.81', '162.159.152.4']);
+      });
+
+      test('a request aborted with no headers after the stall gap counts '
+          'against its route; one aborted sooner does not', () async {
+        final sent = <String>[];
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          imageHeadersStall: const Duration(milliseconds: 50),
+          clientFactory: (route, _, _) =>
+              RouteLogClient(route, sent, HangingClient()),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
+        Future<void> abortAfter(Duration wait) async {
+          final abort = Completer<void>();
+          final response = client.send(
+            ImageRequest('GET', uri, abortTrigger: abort.future),
+          );
+          await Future<void>.delayed(wait);
+          abort.complete();
+          await expectLater(response, throwsA(isA<Exception>()));
+        }
+
+        await abortAfter(Duration.zero);
+        await abortAfter(const Duration(milliseconds: 100));
+        await abortAfter(Duration.zero);
         expect(sent, ['1.2.3.81', '1.2.3.81', '162.159.152.4']);
       });
 

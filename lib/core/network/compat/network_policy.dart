@@ -51,6 +51,8 @@ class NetworkAccessPolicy {
     this.localNetworkBlockedHosts = const {},
     @visibleForTesting Duration? imageHeadersTimeout,
     @visibleForTesting Duration? imageIdleTimeout,
+    @visibleForTesting Duration imageHeadersStall = ImageStall.headers,
+    @visibleForTesting Duration imageBodyStall = ImageStall.body,
     List<String> dohEndpoints = const [
       // Cloudflare DoH over its well-known anycast IPs (proven bootstrap:
       // `1dot1dot1dot1.cloudflare-dns.com` + static IP map).
@@ -94,6 +96,8 @@ class NetworkAccessPolicy {
            imageHeadersTimeout ?? _StreamIdleGuardClient.defaultHeadersTimeout,
        _imageIdleTimeout =
            imageIdleTimeout ?? _StreamIdleGuardClient.defaultIdleTimeout,
+       _imageHeadersStall = imageHeadersStall,
+       _imageBodyStall = imageBodyStall,
        _clientFactory = clientFactory ?? RhttpClientFactory.create {
     unawaited(_seedImageRouteScores());
   }
@@ -192,6 +196,8 @@ class NetworkAccessPolicy {
   NetworkRevision _revision;
   final Duration _imageHeadersTimeout;
   final Duration _imageIdleTimeout;
+  final Duration _imageHeadersStall;
+  final Duration _imageBodyStall;
   bool _disposed = false;
   Future<void>? _warmupFuture;
 
@@ -322,6 +328,8 @@ class NetworkAccessPolicy {
               _clientFactory(route, canonicalHost, purpose),
               headersTimeout: _imageHeadersTimeout,
               idleTimeout: _imageIdleTimeout,
+              headersStall: _imageHeadersStall,
+              bodyStall: _imageBodyStall,
               observer:
                   _routeGroupFor(purpose, canonicalHost) == _RouteGroup.image
                   ? _CandidateObserver(this, canonicalHost, route)
@@ -640,11 +648,17 @@ class _HostRouteMemory {
 /// and the download manager retries through its resume anchor. Either
 /// way, and whenever a reader gives the body up, the request's abort
 /// trigger fires: rhttp keeps the transfer and its socket otherwise.
+///
+/// A request given up, by its reader or by its own abort trigger, counts
+/// against its route candidate when it had stalled ([ImageStall]): no
+/// headers for [headersStall], or no body bytes for [bodyStall].
 class _StreamIdleGuardClient extends http.BaseClient {
   _StreamIdleGuardClient(
     this._inner, {
     this.headersTimeout = defaultHeadersTimeout,
     this.idleTimeout = defaultIdleTimeout,
+    this.headersStall = ImageStall.headers,
+    this.bodyStall = ImageStall.body,
     _CandidateObserver? observer,
   }) : _observer = observer;
 
@@ -659,6 +673,9 @@ class _StreamIdleGuardClient extends http.BaseClient {
   /// Maximum gap between body chunks before the stream errors out.
   final Duration idleTimeout;
 
+  final Duration headersStall;
+  final Duration bodyStall;
+
   static const defaultHeadersTimeout = Duration(seconds: 15);
   static const defaultIdleTimeout = Duration(seconds: 15);
 
@@ -672,6 +689,12 @@ class _StreamIdleGuardClient extends http.BaseClient {
       if (!abandoned.isCompleted) abandoned.complete();
     }
 
+    final trigger = switch (request) {
+      http.Abortable(:final abortTrigger) => abortTrigger,
+      _ => null,
+    };
+    var givenUp = false;
+    unawaited(trigger?.then((_) => givenUp = true, onError: (_) {}));
     final sent = Stopwatch()..start();
     final http.StreamedResponse response;
     try {
@@ -681,12 +704,17 @@ class _StreamIdleGuardClient extends http.BaseClient {
     } on TimeoutException {
       abandon();
       rethrow;
+    } on Object {
+      if (givenUp && sent.elapsed >= headersStall) _observer?.failed();
+      rethrow;
     }
     return http.StreamedResponse(
       http.ByteStream(
         _IdleGuardStream(
           response.stream,
           idleTimeout,
+          stall: bodyStall,
+          givenUp: trigger,
           onAbandon: abandon,
           onEnd: _bodyEnd(request, response, sent),
         ),
@@ -776,17 +804,23 @@ class _StreamIdleGuardClient extends http.BaseClient {
 /// data/done flow through one synchronous hop with no extra buffering.
 ///
 /// On an idle gap the listener's error handler gets a `TimeoutException`
-/// and the source subscription is cancelled, releasing the socket.
+/// and the source subscription is cancelled, releasing the socket. A body
+/// its reader cancels, or whose request is aborted ([givenUp]), ends
+/// failed when it had brought nothing for [stall], else abandoned.
 class _IdleGuardStream extends Stream<List<int>> {
   _IdleGuardStream(
     this._source,
     this.idle, {
+    required this.stall,
+    required this.givenUp,
     required this.onAbandon,
     this.onEnd,
   });
 
   final Stream<List<int>> _source;
   final Duration idle;
+  final Duration stall;
+  final Future<void>? givenUp;
 
   /// Aborts the request once its body is given up.
   final void Function() onAbandon;
@@ -803,6 +837,8 @@ class _IdleGuardStream extends Stream<List<int>> {
   }) => _IdleGuardSubscription(
     _source,
     idle,
+    stall: stall,
+    givenUp: givenUp,
     onAbandon: onAbandon,
     onEnd: onEnd,
     onData: onData,
@@ -819,6 +855,8 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   _IdleGuardSubscription(
     Stream<List<int>> source,
     this._idle, {
+    required Duration stall,
+    required Future<void>? givenUp,
     required void Function() onAbandon,
     required void Function(_BodyEnd end, int bytes)? onEnd,
     required void Function(List<int> event)? onData,
@@ -830,9 +868,12 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
        _onData = onData,
        _onError = onError,
        _onDone = onDone,
-       _cancelOnError = cancelOnError {
+       _cancelOnError = cancelOnError,
+       _stall = stall {
     _source = source.listen(_data, onError: _sourceError, onDone: _done);
     _rearm();
+    // Before the abort's own error, which would read as the route's.
+    unawaited(givenUp?.then((_) => _end(_givenUp), onError: (_) {}));
   }
 
   /// The listener's zone: the idle timer runs in the root zone.
@@ -841,6 +882,10 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   final void Function() _onAbandon;
   final void Function(_BodyEnd end, int bytes)? _onEnd;
   final bool _cancelOnError;
+  final Duration _stall;
+
+  /// Since the headers or the last chunk.
+  final _quiet = Stopwatch()..start();
   var _bytes = 0;
   var _ended = false;
   late final StreamSubscription<List<int>> _source;
@@ -851,9 +896,13 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
 
   void _data(List<int> event) {
     _rearm();
+    _quiet.reset();
     _bytes += event.length;
     _onData?.call(event);
   }
+
+  _BodyEnd get _givenUp =>
+      _quiet.elapsed >= _stall ? _BodyEnd.failed : _BodyEnd.abandoned;
 
   void _end(_BodyEnd end) {
     if (_ended) return;
@@ -917,7 +966,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   @override
   Future<void> cancel() {
     _timer?.cancel();
-    _end(_BodyEnd.abandoned);
+    _end(_givenUp);
     unawaited(_cancelSource());
     return Future<void>.value();
   }
