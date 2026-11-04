@@ -245,7 +245,7 @@ void main() {
 
   test('a run keeps the two fronts that beat the hints or add a colo, '
       'rejects the 403, refused, colourless and slow ones, and only that '
-      'network routes through them', () {
+      'network routes through them; labels are read again a day on', () {
     fakeAsync((async) {
       final addresses = CloudflarePrefixes.sample(
         Random(3),
@@ -282,7 +282,9 @@ void main() {
           [InternetAddress('1.2.3.80')],
           frontAddresses: [_lax1, _lax2],
         ),
-        clientFactory: (route, _, _) => fronts[route.address!.address]!,
+        // A later run's addresses refuse.
+        clientFactory: (route, _, _) =>
+            fronts[route.address!.address] ?? _Front(refused: true),
         clock: () => clock.now(),
       );
       var idle = false;
@@ -362,6 +364,18 @@ void main() {
       expect(
         policy.imageRouteStandings().map((s) => s.colo),
         containsAll(['LAX', 'HKG']),
+      );
+
+      // A day on, the next load through a front reads its colo again.
+      async.elapse(const Duration(days: 1));
+      final traces = fronts[_lax1.address]!.paths
+          .where((path) => path == '/cdn-cgi/trace')
+          .length;
+      fail(_lax1, 1);
+      async.elapse(const Duration(minutes: 2));
+      expect(
+        fronts[_lax1.address]!.paths.where((path) => path == '/cdn-cgi/trace'),
+        hasLength(traces + 1),
       );
 
       policy.advanceNetworkRevision(networkIdentity: 'telecom');

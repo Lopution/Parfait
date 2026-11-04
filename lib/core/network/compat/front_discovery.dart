@@ -84,9 +84,11 @@ class FrontDiscovery {
   /// No run before this: the last one could not reach any front.
   DateTime? _restUntil;
 
-  /// Fronts to label, and those tried on this network.
+  /// Fronts to label, and when each was last tried on this network: a
+  /// trace that failed is tried again the next day, as is a label that
+  /// grew old.
   final _toLabel = <InternetAddress>[];
-  final _labelTried = <String>{};
+  final _labelTried = <String, DateTime>{};
   var _busy = false;
   var _closed = false;
 
@@ -116,9 +118,11 @@ class FrontDiscovery {
     if (candidate.startsWith('ech:')) {
       final address = InternetAddress.tryParse(candidate.substring(4));
       final label = address == null ? null : state.colos[address.address];
+      final tried = address == null ? null : _labelTried[address.address];
       if (address != null &&
           (label == null || now.difference(label.at) >= labelFor) &&
-          _labelTried.add(address.address)) {
+          (tried == null || now.difference(tried) >= labelFor)) {
+        _labelTried[address.address] = now;
         _toLabel.add(address);
       }
     }
