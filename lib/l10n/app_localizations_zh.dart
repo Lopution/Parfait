@@ -185,7 +185,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agreementNetworkBody =>
-      '在默认的「自动」网络模式下，访问 Pixiv 官方域名（API、登录、网页、图片）时，本应用会在以下连接方式中选择能用的一种，并记住成功的方式，之后优先使用：\n• 经 Cloudflare 的 ECH 加密握手连接；\n• 通过加密 DNS（默认 Cloudflare、Google）解析地址后连接，获取 ECH 配置时查询阿里云 DNS；\n• 仅限图片：不带 SNI 连接内置或上次可用的 Pixiv 图片服务器地址；\n• 系统直连。\n以上方式都会校验证书。图片不沿用记住的方式，而是按网络分别记录每种方式加载图片的快慢与失败，使用最快的一种，并在预加载时偶尔试用其他方式。区分网络依据的是移动运营商代码，或由 Wi-Fi 路由器地址算出的摘要；这些记录只保存在本机。\n\n如果只想使用系统直连，请在「设置 → 网络 → 网络模式」选择「仅直连」，这会关闭以上所有兼容连接。\n\n图片源默认为「自动」：在官方图片服务器与第三方镜像（i.pixiv.re、i.pixiv.nl、i.pixiv.cat）之间测速，使用最快的一个。经由镜像时，镜像运营方能看到你请求的图片地址和你的 IP 地址。可在「设置 → 网络 → 图片源」固定为官方源。\n\n本应用不代理其他流量；网络可用性、接口变更与服务中断不由本应用保证。';
+      '在默认的「自动」网络模式下，访问 Pixiv 官方域名（API、登录、网页、图片）时，本应用会在以下连接方式中选择能用的一种，并记住成功的方式，之后优先使用：\n• 经 Cloudflare 的 ECH 加密握手连接；\n• 通过加密 DNS（默认 Cloudflare、Google）解析地址后连接，获取 ECH 配置时查询阿里云 DNS；\n• 仅限图片：不带 SNI 连接内置或上次可用的 Pixiv 图片服务器地址；\n• 系统直连。\n以上方式都会校验证书。图片不沿用记住的方式，而是按网络分别记录每种方式加载图片的快慢与失败，使用最快的一种，并在预加载时偶尔试用其他方式；若 Cloudflare 的常用地址加载图片较慢，还会各取一张小图试几个其他 Cloudflare 地址，保留更快的。区分网络依据的是移动运营商代码，或由 Wi-Fi 路由器地址算出的摘要；这些记录只保存在本机。\n\n如果只想使用系统直连，请在「设置 → 网络 → 网络模式」选择「仅直连」，这会关闭以上所有兼容连接。\n\n图片源默认为「自动」：在官方图片服务器与第三方镜像（i.pixiv.re、i.pixiv.nl、i.pixiv.cat）之间测速，使用最快的一个。经由镜像时，镜像运营方能看到你请求的图片地址和你的 IP 地址。可在「设置 → 网络 → 图片源」固定为官方源。\n\n本应用不代理其他流量；网络可用性、接口变更与服务中断不由本应用保证。';
 
   @override
   String get agreementThirdPartyTitle => '第三方服务';
@@ -300,6 +300,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String networkImageRouteCloudflare(int number) {
     return 'Cloudflare $number';
+  }
+
+  @override
+  String networkImageRouteCloudflareColo(int number, String colo) {
+    return 'Cloudflare $number · $colo';
   }
 
   @override

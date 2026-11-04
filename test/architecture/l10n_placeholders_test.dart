@@ -37,6 +37,7 @@ const _textPlaceholderKeys = <String, String>{
   'backupImportPrompt': 'account name stored in the backup',
   'imageSourceTestOk': 'HTTP status of a successful probe',
   'imageSourceAutoWinner': 'selected mirror host',
+  'networkImageRouteCloudflareColo': 'Cloudflare colo code from the trace',
   'safStorageSdCard': 'storage volume label',
   'namingTemplateHint': 'naming-template variable tokens',
   'downloadGroupAuthorTitle': 'author name',

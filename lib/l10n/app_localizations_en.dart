@@ -193,7 +193,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agreementNetworkBody =>
-      'In the default \"Automatic\" network mode, when reaching official Pixiv domains (API, sign-in, web pages, images) the app picks whichever of these connection methods works, remembers the one that succeeded, and prefers it afterwards:\n• an ECH-encrypted handshake through Cloudflare;\n• connecting to addresses resolved over encrypted DNS (Cloudflare and Google by default), with Alibaba DNS queried for the ECH configuration;\n• for images only, connecting without SNI to built-in or previously working Pixiv image server addresses;\n• a plain system connection.\nAll of these verify certificates. Images do not follow the remembered method: for each network the app keeps how fast and how reliably each method loaded them, uses the fastest, and now and then tries another while preloading. Networks are told apart by the mobile carrier\'s code or by a digest of the Wi-Fi router\'s addresses, kept only on the device.\n\nTo use plain system connections only, choose \"Direct only\" in Settings → Network → Network mode, which turns off every compatibility connection above.\n\nThe image source defaults to \"Auto\": it measures the official image servers against third-party mirrors (i.pixiv.re, i.pixiv.nl, i.pixiv.cat) and uses the fastest. Through a mirror, its operator can see which image addresses you request and your IP address. You can pin the official source in Settings → Network → Image source.\n\nThe app proxies no other traffic, and does not guarantee network availability, API changes or service continuity.';
+      'In the default \"Automatic\" network mode, when reaching official Pixiv domains (API, sign-in, web pages, images) the app picks whichever of these connection methods works, remembers the one that succeeded, and prefers it afterwards:\n• an ECH-encrypted handshake through Cloudflare;\n• connecting to addresses resolved over encrypted DNS (Cloudflare and Google by default), with Alibaba DNS queried for the ECH configuration;\n• for images only, connecting without SNI to built-in or previously working Pixiv image server addresses;\n• a plain system connection.\nAll of these verify certificates. Images do not follow the remembered method: for each network the app keeps how fast and how reliably each method loaded them, uses the fastest, and now and then tries another while preloading. Where Cloudflare\'s usual addresses load images slowly, it also tries a few other Cloudflare addresses with one small image each and keeps those that do better. Networks are told apart by the mobile carrier\'s code or by a digest of the Wi-Fi router\'s addresses, kept only on the device.\n\nTo use plain system connections only, choose \"Direct only\" in Settings → Network → Network mode, which turns off every compatibility connection above.\n\nThe image source defaults to \"Auto\": it measures the official image servers against third-party mirrors (i.pixiv.re, i.pixiv.nl, i.pixiv.cat) and uses the fastest. Through a mirror, its operator can see which image addresses you request and your IP address. You can pin the official source in Settings → Network → Image source.\n\nThe app proxies no other traffic, and does not guarantee network availability, API changes or service continuity.';
 
   @override
   String get agreementThirdPartyTitle => 'Third-party services';
@@ -312,6 +312,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String networkImageRouteCloudflare(int number) {
     return 'Cloudflare $number';
+  }
+
+  @override
+  String networkImageRouteCloudflareColo(int number, String colo) {
+    return 'Cloudflare $number · $colo';
   }
 
   @override
