@@ -2,6 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../log.dart';
 import '../network/network_restore_signal.dart' show offlineNetworkIdentity;
 import 'platform_caps.dart';
 
@@ -34,10 +35,16 @@ class ChannelNetworkIdentitySource implements NetworkIdentitySource {
 class ConnectivityNetworkIdentitySource implements NetworkIdentitySource {
   const ConnectivityNetworkIdentitySource();
 
+  /// A failed first look is logged and skipped: an error inside this
+  /// generator would end the stream before it follows any change.
   @override
   Stream<String> identities() async* {
     final connectivity = Connectivity();
-    yield _identityOf(await connectivity.checkConnectivity());
+    try {
+      yield _identityOf(await connectivity.checkConnectivity());
+    } on Object catch (error) {
+      log('network identity: $error');
+    }
     yield* connectivity.onConnectivityChanged.map(_identityOf);
   }
 

@@ -644,6 +644,43 @@ void main() {
     expect(policy.revision.value, before + 1);
   });
 
+  test(
+    'on Windows a failed first look still follows network changes',
+    () async {
+      const check = MethodChannel('dev.fluttercommunity.plus/connectivity');
+      const changes = EventChannel(
+        'dev.fluttercommunity.plus/connectivity_status',
+      );
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      MockStreamHandlerEventSink? links;
+      messenger.setMockMethodCallHandler(
+        check,
+        (_) async => throw PlatformException(code: 'unavailable'),
+      );
+      messenger.setMockStreamHandler(
+        changes,
+        MockStreamHandler.inline(onListen: (_, events) => links = events),
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(check, null);
+        messenger.setMockStreamHandler(changes, null);
+      });
+      final container = ProviderContainer.test(
+        overrides: [
+          platformCapsProvider.overrideWithValue(
+            const PlatformCaps(isWindows: true),
+          ),
+        ],
+      );
+      final policy = container.read(networkAccessPolicyProvider);
+
+      await turnUntil(() => links != null);
+      links!.success(['mobile']);
+      await turnUntil(() => policy.revision.networkIdentity == 'mobile');
+    },
+  );
+
   test('a network change mid-request looks the host up again', () async {
     final resolver = FakeResolver([InternetAddress('1.2.3.8')]);
     final noSni = GateFailureClient();
