@@ -17,8 +17,8 @@ import 'proven_origins.dart';
 /// join the origin book of both image hosts (after the address served
 /// last, before the built-in ten); a proven address DNS no longer names
 /// leaves it. A proven address that fails three loads in a row is
-/// skipped for a day, or until the network changes; the built-in ten never
-/// are.
+/// skipped for a day, or until the network or the network settings
+/// change; the built-in ten never are.
 ///
 /// It runs in the image worker, on an image sample, only while no visible
 /// image waits for a lane ([idle]); one that arrives mid-refresh stops it
