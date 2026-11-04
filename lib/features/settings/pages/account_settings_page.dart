@@ -363,7 +363,10 @@ class _ServerDisplaySection extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(errorCategoryText(context, categorizeError(error))),
-                ErrorDetails(error: error),
+                FailureReport(
+                  action: context.l10n.serverDisplayLoadFailed,
+                  error: error,
+                ),
               ],
             ),
             trailing: TextButton(

@@ -699,9 +699,8 @@
   "errorParse": "応答を解析できませんでした",
   "errorStorage": "ストレージエラー",
   "errorUnknown": "不明なエラー",
-  "errorDetails": "詳細",
-  "errorDetailsCopy": "コピー",
-  "errorDetailsCopied": "コピーしました",
+  "copyDiagnostics": "診断情報をコピー",
+  "diagnosticsCopied": "診断情報をコピーしました",
   "errorWithReason": "{action}：{reason}",
   "@errorWithReason": {
     "placeholders": {

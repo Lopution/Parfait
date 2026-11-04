@@ -35,39 +35,68 @@ void _mockClipboard(Map<String, String> store) {
 }
 
 void main() {
-  group('ErrorDetails', () {
-    testWidgets('expands to the raw text and flips the expanded flag', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_host(ErrorDetails(error: StateError('boom'))));
-      await tester.tap(find.widgetWithText(TextButton, '详情'));
-      await tester.pump();
+  group('FailureReport', () {
+    late Directory dir;
+    late File file;
 
-      expect(find.text('Bad state: boom'), findsOneWidget);
-      expect(
-        tester.getSemantics(find.widgetWithText(TextButton, '详情')),
-        isSemantics(hasExpandedState: true, isExpanded: true),
-      );
-
-      await tester.tap(find.widgetWithText(TextButton, '详情'));
-      await tester.pump();
-      expect(find.byType(SelectableText), findsNothing);
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('failure_report_test');
+      file = File('${dir.path}/crash.log');
+      CrashLog.useFile(file);
     });
 
-    testWidgets('copy puts the text on the clipboard and confirms', (
+    tearDown(() {
+      CrashLog.useFile(null);
+      dir.deleteSync(recursive: true);
+    });
+
+    testWidgets('records an error once however often it is mounted', (
       tester,
     ) async {
-      final clipboard = <String, String>{};
-      _mockClipboard(clipboard);
-      await tester.pumpWidget(_host(ErrorDetails(error: StateError('boom'))));
-      await tester.tap(find.widgetWithText(TextButton, '详情'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '复制'));
-      await tester.pump();
+      final first = StateError('boom');
+      final second = StateError('again');
+      // dart:io continuations parked in the fake-async zone are never
+      // resumed, so the CrashLog writes run on the real event loop.
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _host(FailureReport(action: '加载失败', error: first)),
+        );
+        await tester.pumpWidget(
+          _host(FailureReport(action: '加载失败', error: first)),
+        );
+        await tester.pumpWidget(_host(const SizedBox()));
+        await tester.pumpWidget(
+          _host(FailureReport(action: '加载失败', error: first)),
+        );
+        await tester.pumpWidget(
+          _host(FailureReport(action: '加载失败', error: second)),
+        );
+        await CrashLog.pending;
+      });
 
-      expect(clipboard['text'], 'Bad state: boom');
-      expect(find.text('已复制'), findsOneWidget);
+      final content = file.readAsStringSync();
+      expect('reported: 加载失败'.allMatches(content).length, 2);
+      expect('Bad state: boom'.allMatches(content).length, 1);
+      expect(content, contains('Bad state: again'));
+      expect(find.textContaining('Bad state'), findsNothing);
     });
+  });
+
+  testWidgets('copy diagnostics puts the raw text on the clipboard only', (
+    tester,
+  ) async {
+    final clipboard = <String, String>{};
+    _mockClipboard(clipboard);
+    await tester.pumpWidget(
+      _host(CopyDiagnosticsButton(error: StateError('boom'))),
+    );
+    expect(find.textContaining('boom'), findsNothing);
+
+    await tester.tap(find.text('复制诊断信息'));
+    await tester.pump();
+
+    expect(clipboard['text'], 'Bad state: boom');
+    expect(find.text('已复制诊断信息'), findsOneWidget);
   });
 
   group('errorCategoryText', () {

@@ -502,7 +502,10 @@ class _HistoryBody extends ConsumerWidget {
                                   style: Theme.of(context).textTheme.bodySmall,
                                   textAlign: TextAlign.center,
                                 ),
-                                ErrorDetails(error: error),
+                                FailureReport(
+                                  action: context.l10n.historyLoadFailed,
+                                  error: error,
+                                ),
                               ],
                             ),
                           ),

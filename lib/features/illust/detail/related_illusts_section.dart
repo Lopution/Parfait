@@ -198,7 +198,7 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
   }
 
   /// The one failure row shape this section uses: a localized category
-  /// line plus the raw text behind [ErrorDetails], with retry beside it.
+  /// line, its raw text recorded by [FailureReport], with retry beside it.
   /// A null error (defensive branch) still gets the localized headline.
   Widget _errorRow(BuildContext context, Object? error, VoidCallback onRetry) {
     return RetryOnNetworkRestore(
@@ -215,7 +215,10 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(errorCategoryText(context, categorizeError(error))),
-                      ErrorDetails(error: error),
+                      FailureReport(
+                        action: context.l10n.relatedLoadFailed,
+                        error: error,
+                      ),
                     ],
                   ),
           ),

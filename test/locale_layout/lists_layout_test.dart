@@ -88,9 +88,7 @@ void main() {
     await _expectSettled(tester, locale, profile);
 
     final l10n = lookupAppLocalizations(locale);
-    // The failure's details, then the management bar.
-    await tester.tap(find.text(l10n.errorDetails));
-    await _expectSettled(tester, locale, profile);
+    // The management bar.
     await tester.tap(find.text(l10n.manage));
     await _expectSettled(tester, locale, profile);
   });

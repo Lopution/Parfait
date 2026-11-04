@@ -1541,13 +1541,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorUnknown => '未知错误';
 
   @override
-  String get errorDetails => '详情';
+  String get copyDiagnostics => '复制诊断信息';
 
   @override
-  String get errorDetailsCopy => '复制';
-
-  @override
-  String get errorDetailsCopied => '已复制';
+  String get diagnosticsCopied => '已复制诊断信息';
 
   @override
   String errorWithReason(String action, String reason) {

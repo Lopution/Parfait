@@ -46,9 +46,10 @@ class LoginWebViewErrorCard extends StatelessWidget {
   /// Localized error description already resolved by the caller.
   final String message;
 
-  /// Raw diagnostic behind the collapsible details disclosure (an exchange
-  /// exception, an invalid callback reason, a `'<type> <host>'` failure);
-  /// `null` when there is nothing raw to expand.
+  /// Raw diagnostic (an exchange exception, an invalid callback reason, a
+  /// `'<type> <host>'` failure), recorded in the crash log and copied by
+  /// the card's diagnostics button, never shown; `null` when there is
+  /// none.
   final Object? error;
 
   /// Whether the error killed the PKCE session. Recoverable errors keep the
@@ -88,7 +89,10 @@ class LoginWebViewErrorCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(message),
-                        if (error != null) ErrorDetails(error: error!),
+                        if (error != null) ...[
+                          FailureReport(action: message, error: error!),
+                          CopyDiagnosticsButton(error: error!),
+                        ],
                       ],
                     ),
                   ),

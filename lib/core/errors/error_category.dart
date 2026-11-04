@@ -11,8 +11,7 @@ import '../network/next_page_parser.dart';
 ///
 /// UI surfaces never print raw exception text: each category maps to one
 /// localized sentence via `errorCategoryText`, while the original error is
-/// recorded to `CrashLog` or offered behind the collapsible "details"
-/// disclosure (`ErrorDetails`).
+/// recorded to `CrashLog`.
 enum ErrorCategory {
   /// DNS, socket, TLS or other transport-level failure.
   network,

@@ -1567,13 +1567,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errorUnknown => '不明なエラー';
 
   @override
-  String get errorDetails => '詳細';
+  String get copyDiagnostics => '診断情報をコピー';
 
   @override
-  String get errorDetailsCopy => 'コピー';
-
-  @override
-  String get errorDetailsCopied => 'コピーしました';
+  String get diagnosticsCopied => '診断情報をコピーしました';
 
   @override
   String errorWithReason(String action, String reason) {

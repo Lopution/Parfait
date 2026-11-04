@@ -195,7 +195,10 @@ class _AuthorWorksDownloadDialogState
                       errorCategoryText(context, categorizeError(_error!)),
                     ),
                   ),
-                  ErrorDetails(error: _error!),
+                  FailureReport(
+                    action: l10n.downloadAuthorFailed,
+                    error: _error!,
+                  ),
                 ],
               ),
         actions: [

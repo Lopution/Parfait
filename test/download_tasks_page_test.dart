@@ -242,7 +242,7 @@ void main() {
       findsOneWidget,
     );
     // C8/D1: the status line carries the localized reason (StateError →
-    // 未知错误), never the raw exception — that stays behind 详情.
+    // 未知错误), never the raw exception — that goes to the crash log.
     expect(
       find.descendant(of: row, matching: find.textContaining('未知错误')),
       findsOneWidget,
@@ -250,12 +250,6 @@ void main() {
     expect(
       find.descendant(of: row, matching: find.textContaining('boom')),
       findsNothing,
-    );
-    await tester.tap(find.descendant(of: row, matching: find.text('详情')));
-    await tester.pump();
-    expect(
-      find.descendant(of: row, matching: find.textContaining('boom')),
-      findsOneWidget,
     );
     expect(
       find.descendant(of: row, matching: find.byType(LinearProgressIndicator)),
@@ -377,7 +371,7 @@ void main() {
       find.descendant(of: row, matching: find.textContaining('未知错误')),
       findsNothing,
     );
-    expect(find.descendant(of: row, matching: find.text('详情')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('详情')), findsNothing);
   });
 
   testWidgets('a group of one is a plain task row', (tester) async {

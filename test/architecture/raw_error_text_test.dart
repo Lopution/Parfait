@@ -1,6 +1,6 @@
 // Raw error text must never reach a user-facing surface (C8/D1, design
 // §2.5). Error surfaces show a localized category or action sentence; the
-// original exception stays behind ErrorDetails or in CrashLog.
+// original exception goes to CrashLog (FailureReport, showErrorSnackBar).
 //
 // Heuristic scan, not a proof: a violation is a line — or a short
 // multi-line expression — that combines a user-facing text entry
@@ -42,14 +42,9 @@ final _rawError = RegExp(
   r'|\be\.toString\(\)',
 );
 
-/// Files whose raw-error text is intentional:
-/// - the network diagnostics page prints probe output verbatim;
-/// - ErrorDetails is the disclosure widget that legitimately renders
-///   `error.toString()`.
-const _allowList = <String>{
-  'lib/features/settings/network_probe_page.dart',
-  'lib/app/widgets/errors/error_details.dart',
-};
+/// Files whose raw-error text is intentional: the network diagnostics page
+/// prints probe output verbatim.
+const _allowList = <String>{'lib/features/settings/network_probe_page.dart'};
 
 /// How far a text-entry line and a raw-error line may sit apart inside one
 /// expression and still count as a violation (multi-line calls/strings).
@@ -90,7 +85,7 @@ void main() {
       reason:
           'ERR-02 raw error values near user-facing text — show a localized '
           'category via errorCategoryText/showErrorSnackBar and keep the '
-          'original behind ErrorDetails or CrashLog:\n'
+          'original in CrashLog:\n'
           '${violations.join('\n')}',
     );
   });

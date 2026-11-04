@@ -559,7 +559,6 @@ class _DownloadRowLayout extends StatelessWidget {
     required this.status,
     this.progress,
     this.detail,
-    this.errorDetails,
     this.titleAction,
     this.actions = const [],
   });
@@ -587,10 +586,6 @@ class _DownloadRowLayout extends StatelessWidget {
 
   /// Localized failure reason under the status line.
   final String? detail;
-
-  /// Raw error behind the collapsible details disclosure (C8/D1) — `null`
-  /// when there is nothing technical to expand.
-  final Object? errorDetails;
 
   /// Element pinned to the end of the title row in both layouts.
   final Widget? titleAction;
@@ -657,7 +652,6 @@ class _DownloadRowLayout extends StatelessWidget {
               const SizedBox(height: FuncSpacing.xxs),
               Text(detail!, style: captionStyle),
             ],
-            if (errorDetails != null) ErrorDetails(error: errorDetails!),
           ],
         );
         final rowContent = Row(
@@ -795,8 +789,9 @@ class _DownloadTaskRow extends StatelessWidget {
   final bool dense;
 
   /// Localized failure reason under the status line (C8/D1): mapped from
-  /// [DownloadTaskSnapshot.failureKind], with the raw error staying behind
-  /// [ErrorDetails]. `paused`/`canceled` are not failures and show nothing.
+  /// [DownloadTaskSnapshot.failureKind]; the raw error went to the crash
+  /// log when the task failed. `paused`/`canceled` are not failures and
+  /// show nothing.
   /// A retryable task without a kind was running or queued when the process
   /// died (recovery keeps the record's null kind), so it says so instead of
   /// "unknown error". Any other kindless record falls back to the generic
@@ -819,17 +814,6 @@ class _DownloadTaskRow extends StatelessWidget {
     return error == null
         ? null
         : errorCategoryText(context, categorizeError(error));
-  }
-
-  /// Raw error text for the details disclosure — shown only when the row
-  /// also reports a failure ([_failureReason] suppresses paused/canceled).
-  static Object? _failureDetailsError(DownloadTaskSnapshot task) {
-    final kind = task.failureKind;
-    if (kind == DownloadFailureKind.canceled ||
-        kind == DownloadFailureKind.paused) {
-      return null;
-    }
-    return task.error;
   }
 
   @override
@@ -872,7 +856,6 @@ class _DownloadTaskRow extends StatelessWidget {
                   )
                 : null,
             detail: _failureReason(context, task),
-            errorDetails: _failureDetailsError(task),
             titleAction: managing
                 ? StateIconSwitcher(
                     value: selected,

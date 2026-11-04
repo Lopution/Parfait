@@ -45,7 +45,7 @@ class SettingsLoadError extends StatelessWidget {
               errorCategoryText(context, categorizeError(error)),
               textAlign: TextAlign.center,
             ),
-            ErrorDetails(error: error),
+            FailureReport(action: text(messageKey), error: error),
             const SizedBox(height: FuncSpacing.md),
             FilledButton(
               key: const Key('settings-load-retry'),

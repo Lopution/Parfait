@@ -63,8 +63,8 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   double? _progress;
   String? _error;
 
-  /// Raw error shown behind the card's details disclosure; `null` when
-  /// [_error] is a crafted message with nothing technical to expand.
+  /// Raw error the card records and copies as diagnostics; `null` when
+  /// [_error] is a crafted message with nothing technical behind it.
   Object? _errorDetails;
 
   /// Whether [_error] describes a state the page cannot navigate out of.

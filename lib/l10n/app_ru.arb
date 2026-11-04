@@ -699,9 +699,8 @@
   "errorParse": "Не удалось разобрать ответ",
   "errorStorage": "Ошибка хранилища",
   "errorUnknown": "Неизвестная ошибка",
-  "errorDetails": "Подробности",
-  "errorDetailsCopy": "Копировать",
-  "errorDetailsCopied": "Скопировано",
+  "copyDiagnostics": "Копировать диагностику",
+  "diagnosticsCopied": "Диагностика скопирована",
   "errorWithReason": "{action}: {reason}",
   "@errorWithReason": {
     "placeholders": {
