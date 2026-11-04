@@ -1907,6 +1907,13 @@ DownloadFailureKind? _hostFailureKind(String code) => switch (code) {
 };
 
 String _safeError(Object error) {
+  // The path names the user's folders (and account on desktop); the crash
+  // log a user shares keeps only what went wrong.
+  if (error is FileSystemException) {
+    final os = error.osError;
+    return 'FileSystemException: ${error.message}'
+        '${os == null ? '' : ', OS Error: ${os.message}, errno = ${os.errorCode}'}';
+  }
   if (error is DownloadHttpStatusException) {
     return 'HTTP ${error.statusCode} download failure';
   }

@@ -1035,11 +1035,14 @@ void main() {
       // dart:io reports a full disk by its errno.
       const full = FileSystemException(
         'write failed',
-        'a.jpg',
+        '/home/someone/Pictures/a.jpg',
         OSError('No space left on device', 28),
       );
       final task = await failed(ThrowAfterWriteSinkFactory(full));
       expect(task.failureKind, DownloadFailureKind.noSpace);
+      // The recorded text, which the crash log gets, names no folder.
+      expect(task.error, contains('No space left on device'));
+      expect(task.error, isNot(contains('someone')));
     });
 
     test('MediaStoreSinkFactory drives the session contract', () async {
