@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart' show getCrc32;
 
+import '../logging/crash_log.dart';
 import 'ugoira_limits.dart';
 import 'ugoira_metadata.dart';
 
@@ -774,7 +775,9 @@ class _FileArchiveReader implements _ArchiveReader {
     } on UgoiraArchiveException {
       rethrow;
     } on FileSystemException catch (error) {
-      throw UgoiraArchiveException('archive read failed: $error');
+      throw UgoiraArchiveException(
+        'archive read failed: ${CrashLog.describe(error)}',
+      );
     }
   }
 

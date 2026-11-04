@@ -128,7 +128,7 @@ class CopyDiagnosticsButton extends StatelessWidget {
 /// cannot flood the clipboard.
 @visibleForTesting
 String diagnosticText(Object error) {
-  final raw = error.toString();
+  final raw = CrashLog.describe(error);
   return raw.length <= diagnosticMaxChars
       ? raw
       : '${raw.substring(0, diagnosticMaxChars)}…';

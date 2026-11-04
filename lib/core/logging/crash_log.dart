@@ -63,6 +63,17 @@ class CrashLog {
   static void report(String action, Object error, [StackTrace? stack]) =>
       _enqueue(action, error, stack);
 
+  /// [error] as the log and a diagnostics copy carry it. A file error
+  /// keeps its message and OS error but not its path, which names the
+  /// user's folders (and account, on desktop); a log is shared in bug
+  /// reports (ERR-06).
+  static String describe(Object error) {
+    if (error is! FileSystemException) return error.toString();
+    final os = error.osError;
+    return '${error.runtimeType}: ${error.message}'
+        '${os == null ? '' : ', OS Error: ${os.message}, errno = ${os.errorCode}'}';
+  }
+
   static void _enqueue(String? action, Object error, StackTrace? stack) {
     final file = _file;
     if (file == null) return;
@@ -91,7 +102,7 @@ class CrashLog {
         '=== ${DateTime.now().toIso8601String()}'
         '${action == null ? '' : ' · reported: $action'} ===',
       )
-      ..writeln(error);
+      ..writeln(describe(error));
     if (stack != null) entry.writeln(stack);
     await file.writeAsString(
       entry.toString(),
