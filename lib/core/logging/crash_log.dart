@@ -64,15 +64,19 @@ class CrashLog {
       _enqueue(action, error, stack);
 
   /// [error] as the log and a diagnostics copy carry it. A file error
-  /// keeps its message and OS error but not its path, which names the
-  /// user's folders (and account, on desktop); a log is shared in bug
-  /// reports (ERR-06).
+  /// keeps its operation and OS error but no path, which names the user's
+  /// folders (and account, on desktop); a log is shared in bug reports
+  /// (ERR-06). dart:io quotes the other path of a rename or copy in the
+  /// message, so quoted text goes too.
   static String describe(Object error) {
     if (error is! FileSystemException) return error.toString();
     final os = error.osError;
-    return '${error.runtimeType}: ${error.message}'
+    final message = error.message.replaceAll(_quoted, "'…'");
+    return '${error.runtimeType}: $message'
         '${os == null ? '' : ', OS Error: ${os.message}, errno = ${os.errorCode}'}';
   }
+
+  static final _quoted = RegExp("'[^']*'");
 
   static void _enqueue(String? action, Object error, StackTrace? stack) {
     final file = _file;

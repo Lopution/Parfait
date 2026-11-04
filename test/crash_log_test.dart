@@ -32,17 +32,20 @@ void main() {
 
   test('a file error is logged without its path', () async {
     CrashLog.report(
-      'open',
+      'rename',
       const PathNotFoundException(
         r'C:\Users\someone\a.zip',
         OSError('No such file or directory', 2),
-        'open failed',
+        "Cannot rename file to 'C:\\Users\\someone\\b.zip'",
       ),
     );
     await CrashLog.pending;
 
     final content = file.readAsStringSync();
-    expect(content, contains('PathNotFoundException: open failed'));
+    expect(
+      content,
+      contains("PathNotFoundException: Cannot rename file to '…'"),
+    );
     expect(content, contains('No such file or directory, errno = 2'));
     expect(content, isNot(contains('someone')));
   });
