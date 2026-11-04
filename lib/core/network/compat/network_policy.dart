@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'image_route_discovery.dart';
 import 'image_route_scores.dart';
 import 'network_fast_route_store.dart';
+import 'proven_origins.dart';
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
 import 'route_memory.dart';
@@ -194,6 +195,10 @@ class NetworkAccessPolicy {
   /// Each pixiv image host's origin addresses and the one in use.
   final Map<String, _OriginBook> _originBooks = {};
 
+  /// The origin addresses DNS named and an image proved; read from
+  /// [fastRouteStore] when the first book is made.
+  List<InternetAddress>? _provenOrigins;
+
   /// A successful strict route is also remembered for its destination group.
   /// The value changes candidate order only; target addresses remain per-host.
   final Map<_RouteGroup, _RouteGroupMemory> _groupMemory = {};
@@ -311,6 +316,19 @@ class NetworkAccessPolicy {
 
   /// The current network's extra Cloudflare fronts and colo labels.
   ImageRouteDiscovery get imageRouteDiscovery => _discovery;
+
+  /// What the last origin refresh came to, here or in the image worker.
+  Future<ProvenOrigins?> provenOrigins() async =>
+      await fastRouteStore?.provenOrigins();
+
+  /// An origin refresh, here or in the image worker, came to [origins]:
+  /// the origin books start again with them, and the store keeps them.
+  void rememberProvenOrigins(ProvenOrigins origins) {
+    if (_disposed) return;
+    _provenOrigins = origins.addresses;
+    _originBooks.clear();
+    fastRouteStore?.proveOrigins(origins);
+  }
 
   /// Front discovery on [networkIdentity], here or in the image worker,
   /// came to [discovery]: the policy uses it while that network is
@@ -630,19 +648,47 @@ class NetworkAccessPolicy {
 /// A pixiv image host's origin addresses and the one in use, which moves
 /// on after a failure there.
 class _OriginBook {
-  _OriginBook(this.addresses);
+  _OriginBook(this.addresses, {required DateTime Function() clock})
+    : _clock = clock;
+
+  /// An address other than the built-in ones that fails this many loads in
+  /// a row is skipped for [_skipFor].
+  static const _skipAfter = 3;
+  static const _skipFor = Duration(days: 1);
 
   final List<InternetAddress> addresses;
+  final DateTime Function() _clock;
   var _index = 0;
+  final _failures = <String, int>{};
+  final _skipped = <String, DateTime>{};
 
   InternetAddress get current => addresses[_index];
 
   /// Requests that failed together on one address move the book once.
   void failed(InternetAddress address) {
-    if (address.address == current.address) {
+    final key = address.address;
+    final builtIn = PixivFastRouteStore.originAddresses.any(
+      (origin) => origin.address == key,
+    );
+    if (!builtIn) {
+      final failures = (_failures[key] ?? 0) + 1;
+      if (failures >= _skipAfter) {
+        _failures.remove(key);
+        _skipped[key] = _clock();
+      } else {
+        _failures[key] = failures;
+      }
+    }
+    if (key != current.address) return;
+    final now = _clock();
+    for (var i = 0; i < addresses.length; i++) {
       _index = (_index + 1) % addresses.length;
+      final since = _skipped[current.address];
+      if (since == null || now.difference(since) >= _skipFor) break;
     }
   }
+
+  void served(InternetAddress address) => _failures.remove(address.address);
 }
 
 class _HostRouteMemory {

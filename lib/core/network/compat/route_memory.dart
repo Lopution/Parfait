@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'image_route_discovery.dart';
 import 'image_route_scores.dart';
+import 'proven_origins.dart';
 
 /// Read/write contract for the compatibility-tier host-address memory.
 ///
@@ -15,6 +16,12 @@ abstract interface class FastRouteMemory {
 
   /// Records [address] as a working address for [host].
   Future<void> remember(String host, InternetAddress address);
+
+  /// What the last origin refresh came to; null before the first.
+  Future<ProvenOrigins?> provenOrigins();
+
+  /// An origin refresh came to [origins].
+  void proveOrigins(ProvenOrigins origins);
 }
 
 /// Read/write contract for the per-network-identity route-kind hints.

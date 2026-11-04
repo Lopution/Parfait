@@ -9,6 +9,7 @@ import 'image_demand.dart';
 import '../network/compat/image_route_discovery.dart';
 import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_contracts.dart';
+import '../network/compat/proven_origins.dart';
 import 'image_worker_host.dart';
 import 'image_worker_protocol.dart';
 import 'lane_permit_gate.dart';
@@ -68,6 +69,7 @@ class ImageWorkerClient implements ImageFetcher {
   onImageRouteRanges;
   void Function(String identity, ImageRouteDiscovery discovery)?
   onRouteDiscovery;
+  void Function(ProvenOrigins origins)? onOriginsProven;
 
   /// Download progress of a URL [watchProgress] turned on.
   void Function(String url, int received, int? total)? onProgress;
@@ -336,6 +338,8 @@ class ImageWorkerClient implements ImageFetcher {
         onImageRouteRanges?.call(networkIdentity, candidate, served);
       case RouteDiscoveryEvent(:final networkIdentity, :final discovery):
         onRouteDiscovery?.call(networkIdentity, discovery);
+      case OriginsProvenEvent(:final origins):
+        onOriginsProven?.call(origins);
       case RouteExhaustedEvent(:final host):
         onRouteExhausted?.call(host);
       case WorkerErrorEvent(:final message, :final stack):

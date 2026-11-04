@@ -49,6 +49,7 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
       routeKinds: await routeKinds.kindsFor(identity) ?? const {},
       routeScores: await routeScores.scoresFor(identity),
       routeDiscovery: await routeScores.discoveryFor(identity),
+      provenOrigins: await fastRoutes.provenOrigins(),
     );
   }
 
@@ -85,6 +86,9 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
           ref
               .read(networkAccessPolicyProvider)
               .updateImageRouteDiscovery(identity, discovery);
+        }
+        ..onOriginsProven = (origins) {
+          ref.read(networkAccessPolicyProvider).rememberProvenOrigins(origins);
         }
         // The main policy owns the auto-source re-race.
         ..onRouteExhausted = (host) {
