@@ -136,14 +136,15 @@ reviewed: 2026-10-29
   next idle sample probes the rest of the same answer without asking
   again. The origin book of each image host is the address served last,
   the kept ones, then the built-in ten. A kept address that fails three
-  loads without a success between is skipped for a day or until the
+  loads (a refusal, a broken body or a 5xx) without a whole image
+  between is skipped for a day or until the
   network changes, across new books a refresh makes; a built-in one never
   is. Results reach the main isolate's
   fast-route store like learned routes (NET-12).
 - **Why:** Pixiv's image addresses change without a release; mainland
   resolvers poison them, so only encrypted DNS is asked and every
   address is proven before it is used.
-- **Check:** `test/route_discovery_test.dart` "it keeps the address DNS names that serves an image, ignores " "a proven address from a new worker" "the worker sends its proven origins home, and a config sent " "a visible image arriving mid-refresh stops it before the next "
+- **Check:** `test/route_discovery_test.dart` "it keeps the address DNS names that serves an image, ignores " "a proven address from a new worker" "the worker sends its proven origins home, and a config sent " "a visible image arriving mid-refresh stops it before the next " "a whole image from a proven address between its failures starts "
 - **Code:** `lib/core/network/compat/origin_refresh.dart`, `lib/core/network/compat/network_fast_route_store.dart`, `lib/core/network/compat/network_policy.dart`
 
 ### NET-19 A network is its carrier or its link
