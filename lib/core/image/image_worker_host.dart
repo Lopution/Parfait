@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart';
 
+import '../network/compat/front_discovery.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_policy.dart';
 import '../network/compat/pixiv_network_factory.dart';
@@ -148,6 +149,14 @@ class ImageWorkerHost {
 
   NetworkAccessPolicy? _policy;
 
+  /// Front discovery on the current policy's networks.
+  FrontDiscovery? _discovery;
+
+  /// The last thumbnail loaded from pixiv's image hosts, and when: front
+  /// discovery's probe image while it is likely in Cloudflare's cache.
+  (Uri, DateTime)? _lastThumbnail;
+  static const _thumbnailFresh = Duration(hours: 1);
+
   /// Bumped when the policy is rebuilt or moves to a new network identity:
   /// either closes the route pools that requests in flight are using.
   var _network = 0;
@@ -277,10 +286,14 @@ class ImageWorkerHost {
           _send(RouteKindLearnedEvent(identity, group, kind)),
     );
     _routeScores = WorkerImageRouteScoreMemory(
-      onSample: (identity, sample) =>
-          _send(ImageRouteSampleEvent(identity, sample)),
+      onSample: (identity, sample) {
+        _send(ImageRouteSampleEvent(identity, sample));
+        _discovery?.noteSample(identity, sample);
+      },
       onRanges: (identity, candidate, served) =>
           _send(ImageRouteRangesEvent(identity, candidate, served: served)),
+      onDiscovery: (identity, discovery) =>
+          _send(RouteDiscoveryEvent(identity, discovery)),
     );
     return state;
   }
@@ -300,7 +313,11 @@ class ImageWorkerHost {
   void _applyConfig(ImageWorkerConfig next, {bool initial = false}) {
     final previous = config;
     config = next;
-    _routeScores.reseed(next.networkIdentity, next.routeScores);
+    _routeScores.reseed(
+      next.networkIdentity,
+      next.routeScores,
+      next.routeDiscovery,
+    );
     _mirror = next.imageSource == 'auto'
         ? ImageMirror.auto(next.autoWinnerHost)
         : ImageMirror.of(next.imageSource);
@@ -317,10 +334,15 @@ class ImageWorkerHost {
         !_setEquals(allowlist, _allowlist);
     if (initial || policyInputsChanged) {
       unawaited(_policy?.dispose());
+      _discovery?.close();
       _allowlist = allowlist;
-      _policy = _buildPolicy(next, allowlist);
-      _policy!.onImageHostExhausted = (host) =>
-          _send(RouteExhaustedEvent(host));
+      final policy = _policy = _buildPolicy(next, allowlist);
+      policy.onImageHostExhausted = (host) => _send(RouteExhaustedEvent(host));
+      _discovery = FrontDiscovery(
+        policy,
+        idle: () => _scheduler.foregroundQueued == 0,
+        image: _probeImage,
+      );
       _network++;
     } else if (next.networkIdentity != previous.networkIdentity) {
       _policy!.advanceNetworkRevision(networkIdentity: next.networkIdentity);
@@ -356,6 +378,13 @@ class ImageWorkerHost {
       dohEndpoints: config.dohEndpoints,
       clientFactory: _clientFactory,
     );
+  }
+
+  Uri _probeImage() {
+    final (url, at) = _lastThumbnail ?? (FrontDiscovery.fallbackImage, null);
+    return at != null && _clock().difference(at) < _thumbnailFresh
+        ? url
+        : FrontDiscovery.fallbackImage;
   }
 
   /// Originals are the transfers stopped once nobody wants them: several
@@ -410,6 +439,9 @@ class ImageWorkerHost {
         statusError: (statusCode) => ImageHttpStatus(statusCode, url),
         store: (body, length) async {
           final file = await _cache.store(url, body, expectedLength: length);
+          if (uri.host == FrontDiscovery.imageHost) {
+            _lastThumbnail = (uri, _clock());
+          }
           return (file, length ?? await file.length());
         },
         progress: _progressOf(url),
@@ -565,6 +597,7 @@ class ImageWorkerHost {
   Future<void> close() async {
     _closed = true;
     _inbox.close();
+    _discovery?.close();
     for (final segmented in List.of(_segmentedFetches)) {
       segmented.close();
     }

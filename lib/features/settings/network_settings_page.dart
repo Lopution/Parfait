@@ -692,15 +692,20 @@ class _EffectiveRoutesSectionState
     trailing: _kindLabel(context, route.value),
   );
 
-  /// A pixiv image route candidate: its cost per 100 KB and its share of
-  /// failures, and whether visible images load through it now.
+  /// A pixiv image route candidate: a Cloudflare front by number and colo,
+  /// never by address, its cost per 100 KB and its share of failures, and
+  /// whether visible images load through it now.
   Widget _candidateTile(BuildContext context, ImageRouteStanding standing) {
     final l10n = context.l10n;
     return _routeRow(
       context,
-      title: switch (standing.cloudflare) {
-        final number? => l10n.networkImageRouteCloudflare(number),
-        null => l10n.networkImageRouteOrigin,
+      title: switch ((standing.cloudflare, standing.colo)) {
+        (final number?, final colo?) => l10n.networkImageRouteCloudflareColo(
+          number,
+          colo,
+        ),
+        (final number?, null) => l10n.networkImageRouteCloudflare(number),
+        (null, _) => l10n.networkImageRouteOrigin,
       },
       subtitle: l10n.networkImageRouteScore(
         AppFormat.decimal(context, standing.cost),

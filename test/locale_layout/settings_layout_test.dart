@@ -123,8 +123,10 @@ void main() {
     await toEnd();
     await pumpIoUntil(
       tester,
-      () =>
-          find.text('Cloudflare 2', skipOffstage: false).evaluate().isNotEmpty,
+      () => find
+          .text('Cloudflare 2 · HKG', skipOffstage: false)
+          .evaluate()
+          .isNotEmpty,
     );
     await toEnd();
     await settleLayout(tester);

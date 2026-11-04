@@ -1201,8 +1201,8 @@ void main() {
       find.descendant(of: imageRoute, matching: find.text('空 SNI')),
       findsOneWidget,
     );
-    // The candidates go by number, never by address.
-    final front = find.widgetWithText(ListTile, 'Cloudflare 2');
+    // The candidates go by number and colo, never by address.
+    final front = find.widgetWithText(ListTile, 'Cloudflare 2 · HKG');
     expect(
       find.descendant(
         of: front,

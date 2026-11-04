@@ -269,9 +269,15 @@ Future<ImageWorkerClient> scriptedImageWorkerClient(
 }
 
 /// The image route candidates [routedImageWorker] reports: a Cloudflare
-/// front in use, and the origin.
+/// front in use, labelled with its colo, and the origin.
 const testImageRouteStandings = [
-  ImageRouteStanding(cloudflare: 2, cost: 0.84, failureShare: 0.1, inUse: true),
+  ImageRouteStanding(
+    cloudflare: 2,
+    colo: 'HKG',
+    cost: 0.84,
+    failureShare: 0.1,
+    inUse: true,
+  ),
   ImageRouteStanding(cost: 3, failureShare: 0.5, inUse: false),
 ];
 

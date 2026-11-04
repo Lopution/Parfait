@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'image_route_discovery.dart';
 import 'image_route_scores.dart';
 
 /// Read/write contract for the compatibility-tier host-address memory.
@@ -43,4 +44,11 @@ abstract interface class ImageRouteScoreMemory {
     String candidate, {
     required bool served,
   });
+
+  /// What front discovery last came to on [networkIdentity]; null when no
+  /// run or label was ever kept there.
+  Future<ImageRouteDiscovery?> discoveryFor(String networkIdentity);
+
+  /// Front discovery on [networkIdentity] came to [discovery].
+  void discovered(String networkIdentity, ImageRouteDiscovery discovery);
 }

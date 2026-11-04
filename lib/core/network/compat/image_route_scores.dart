@@ -118,6 +118,7 @@ class ImageRouteScore {
 class ImageRouteStanding {
   const ImageRouteStanding({
     this.cloudflare,
+    this.colo,
     required this.cost,
     required this.failureShare,
     required this.inUse,
@@ -126,6 +127,7 @@ class ImageRouteStanding {
   factory ImageRouteStanding.fromJson(Map<String, Object?> json) =>
       ImageRouteStanding(
         cloudflare: json['cloudflare'] as int?,
+        colo: json['colo'] as String?,
         cost: (json['cost']! as num).toDouble(),
         failureShare: (json['failureShare']! as num).toDouble(),
         inUse: json['inUse']! as bool,
@@ -133,6 +135,9 @@ class ImageRouteStanding {
 
   /// The Cloudflare front's number, from 1; null for pixiv's origin.
   final int? cloudflare;
+
+  /// The Cloudflare colo the front lands in, such as `HKG`, once known.
+  final String? colo;
 
   /// Expected seconds for a 100 KB image.
   final double cost;
@@ -143,6 +148,7 @@ class ImageRouteStanding {
 
   Map<String, Object?> toJson() => {
     'cloudflare': cloudflare,
+    'colo': colo,
     'cost': cost,
     'failureShare': failureShare,
     'inUse': inUse,

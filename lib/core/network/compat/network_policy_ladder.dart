@@ -18,14 +18,6 @@ const Set<NetworkFailureKind> _unsentEligibleKinds = {
   NetworkFailureKind.tlsHandshake,
 };
 
-/// A Cloudflare address that served the ECH front from Hong Kong where the
-/// fronts the ECH config names were routed to Los Angeles (Unicom,
-/// 2026-11-03): pixiv's image hosts always have it as a candidate.
-final _kSeedEchFront = InternetAddress('162.159.152.4');
-
-/// ECH candidates per image host: the config's fronts, then the seed.
-const _kMaxEchCandidates = 4;
-
 extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// The single route ladder shared by the API, OAuth, image and download
   /// exits.
@@ -447,8 +439,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   }
 
   /// A pixiv image host's route candidates by key, in their default order:
-  /// ECH through each front the ECH config names, then through the seed
-  /// front, then pixiv's origin.
+  /// ECH through each front the ECH config names, then through the
+  /// network's extra fronts ([ImageRouteDiscovery.frontsAfter]), then
+  /// pixiv's origin.
   Future<Map<String, NetworkRoute>> _imageCandidates(
     PixivDestination destination,
     NetworkCancelSignal? cancelSignal,
@@ -456,22 +449,16 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     final candidates = <String, NetworkRoute>{};
     final ech = await _lookupEchConfig(cancelSignal: cancelSignal);
     if (ech != null && ech.echConfig.isNotEmpty) {
-      final fronts = [
-        ...ech.frontAddresses
-            .where(isPublicNetworkAddress)
-            .take(_kMaxEchCandidates - 1),
-        _kSeedEchFront,
-      ];
+      final fronts = _discovery.frontsAfter(
+        ech.frontAddresses.where(isPublicNetworkAddress),
+      );
       for (final front in fronts) {
-        candidates.putIfAbsent(
-          _imageCandidateKey(NetworkRouteKind.ech, front)!,
-          () => NetworkRoute.ech(
-            _revision,
-            front,
-            ech.echConfig,
-            dnsSource: DnsSource.doh,
-            ttl: ech.ttl,
-          ),
+        candidates[echCandidate(front)] = NetworkRoute.ech(
+          _revision,
+          front,
+          ech.echConfig,
+          dnsSource: DnsSource.doh,
+          ttl: ech.ttl,
         );
       }
     }
@@ -479,7 +466,58 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       final origin = await _originRoute(destination.canonicalHost);
       candidates[_imageCandidateKey(origin.kind, origin.address)!] = origin;
     }
+    _imageCandidateKeys = candidates.keys.toSet();
     return candidates;
+  }
+
+  /// The public fronts the ECH config names, those pixiv's image hosts
+  /// route through first; null without an ECH config.
+  Future<List<InternetAddress>?> imageFrontsNamed() async {
+    _checkUsable();
+    if (_mode == NetworkMode.directOnly) return null;
+    final ech = await _lookupEchConfig(cancelSignal: null);
+    if (ech == null || ech.echConfig.isEmpty) return null;
+    return ech.frontAddresses
+        .where(isPublicNetworkAddress)
+        .take(ImageRouteDiscovery.maxNamedFronts)
+        .toList(growable: false);
+  }
+
+  /// Hands [use] a client of its own that sends to `i.pximg.net` over ECH
+  /// through [front] alone, certificates verified, and closes it once
+  /// [use] is done. Nothing it sends is scored or remembered: front
+  /// discovery probes addresses that are not candidates. Throws
+  /// [NoImageFront] in direct-only mode, without an ECH config, or for an
+  /// address that is not public.
+  Future<T> throughImageFront<T>(
+    InternetAddress front,
+    Future<T> Function(http.Client client) use,
+  ) async {
+    _checkUsable();
+    if (_mode == NetworkMode.directOnly || !isPublicNetworkAddress(front)) {
+      throw const NoImageFront();
+    }
+    final rhttpReady = RhttpGate.ready;
+    if (rhttpReady != null) await rhttpReady;
+    final ech = await _lookupEchConfig(cancelSignal: null);
+    if (ech == null || ech.echConfig.isEmpty) throw const NoImageFront();
+    final route = NetworkRoute.ech(
+      _revision,
+      front,
+      ech.echConfig,
+      dnsSource: DnsSource.doh,
+      ttl: ech.ttl,
+    );
+    final client = _clientFactory(
+      route,
+      'i.pximg.net',
+      PixivDestinationPurpose.image,
+    );
+    try {
+      return await use(client);
+    } finally {
+      client.close();
+    }
   }
 
   /// The origin candidate on the address [host]'s book has in use: the one

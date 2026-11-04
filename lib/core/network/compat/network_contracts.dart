@@ -379,6 +379,15 @@ class ImageRouteTrack {
   final sent = <String>{};
 }
 
+/// No ECH route can be built to probe a Cloudflare front: direct-only
+/// mode, no ECH config, or an address that is not public.
+class NoImageFront implements Exception {
+  const NoImageFront();
+
+  @override
+  String toString() => 'NoImageFront';
+}
+
 /// A request that [ImageRouteTrack.avoid]s candidates found no other.
 class NoOtherImageRoute implements Exception {
   const NoOtherImageRoute();
