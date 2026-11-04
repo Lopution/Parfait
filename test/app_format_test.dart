@@ -124,4 +124,15 @@ void main() {
       ('ru', count(12345), isNot('12345')),
     ]);
   });
+
+  testWidgets('decimal keeps one digit in the locale separator', (
+    tester,
+  ) async {
+    String decimal(BuildContext c) => AppFormat.decimal(c, 0.75);
+    await expectRows(tester, [
+      ('zh', decimal, '0.8'),
+      ('en', decimal, '0.8'),
+      ('ru', decimal, '0,8'),
+    ]);
+  });
 }

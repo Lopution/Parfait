@@ -317,6 +317,22 @@ class NetworkRoute {
   ].join('|');
 }
 
+/// Keeps the ranges of one transfer of a pixiv image on one route: another
+/// route may serve another copy, whose bytes do not stitch. The first
+/// request goes where the ladder sends it and sets [route]; every later one
+/// goes there only, and a failure there is its own.
+class ImageRoutePin {
+  ImageRoutePin({this.resuming = false});
+
+  /// The first range continues bytes an earlier transfer kept: it avoids
+  /// the route candidates that answered a `Range` with the whole file.
+  final bool resuming;
+
+  /// The route candidate, or the fallback tier's kind, that answered the
+  /// first request.
+  String? route;
+}
+
 class NetworkFailure {
   const NetworkFailure(this.kind, {this.cause});
 

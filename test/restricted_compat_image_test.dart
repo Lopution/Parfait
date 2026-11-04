@@ -9,14 +9,20 @@ import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/auto_image_source.dart';
+import 'package:parfait/core/network/compat/image_route_score_store.dart';
+import 'package:parfait/core/network/compat/image_route_scores.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
 import 'package:parfait/core/network/compat/route_kind_store.dart';
+import 'package:parfait/core/network/compat/route_memory.dart';
 import 'package:parfait/core/settings/image_mirror.dart';
 
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+
 import 'helpers/restricted_compat_support.dart';
+import 'helpers/test_preferences.dart';
 
 /// An image client over [policy], which the test disposes.
 PixivPolicyHttpClient _imageClient(NetworkAccessPolicy policy) {
@@ -202,55 +208,6 @@ void main() {
         expect(sent.url.path, '/pixiv/img-original/img/2_p0.jpg');
       },
     );
-
-    test('pximg route memory never leaks onto a mirror host', () async {
-      final resolver = FakeEchResolver(
-        [InternetAddress('1.2.3.64')],
-        frontAddresses: [InternetAddress('1.2.3.67')],
-      );
-      final policy = NetworkAccessPolicy(
-        registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
-        resolver: resolver,
-        clientFactory: (route, canonicalHost, _) => switch (route.kind) {
-          NetworkRouteKind.ech ||
-          NetworkRouteKind.noSni => FakeClient(body: 'ok'),
-          _ => FakeClient(failure: SocketException('Connection refused')),
-        },
-      );
-      final client = _imageClient(policy);
-
-      await client.get(Uri.parse('https://i.pximg.net/a.jpg'));
-      expect(
-        policy.rememberedGroupRouteKind(
-          PixivDestinationPurpose.image,
-          'i.pximg.net',
-        ),
-        NetworkRouteKind.ech,
-        reason: 'pximg remembers its own ECH success',
-      );
-      expect(
-        policy.rememberedGroupRouteKind(
-          PixivDestinationPurpose.image,
-          'i.pixiv.re',
-        ),
-        isNull,
-        reason:
-            'the pximg preference must not seed the mirror group — the ECH '
-            'config only covers pixiv hosts',
-      );
-
-      // The mirror races its own tiers (direct is refused here), and the
-      // noSni success seeds the *mirror* group instead.
-      await client.get(Uri.parse('https://i.pixiv.re/a.jpg'));
-      expect(policy.rememberedRouteKind('i.pixiv.re'), NetworkRouteKind.noSni);
-      expect(
-        policy.rememberedGroupRouteKind(
-          PixivDestinationPurpose.image,
-          'i.pixiv.re',
-        ),
-        NetworkRouteKind.noSni,
-      );
-    });
 
     test(
       'a mirror empty-SNI certificate mismatch falls through to real SNI',
@@ -668,223 +625,6 @@ void main() {
     );
   });
 
-  group('pixiv image hosts stay on ECH', () {
-    final imageUri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
-    late List<NetworkRouteKind> attempts;
-    late Set<NetworkRouteKind> down;
-    late DateTime now;
-
-    setUp(() {
-      attempts = [];
-      down = {};
-      now = DateTime(2026, 10, 3, 12);
-    });
-
-    NetworkAccessPolicy ladderPolicy({
-      RouteKindStore? store,
-      PixivDestinationRegistry? registry,
-    }) {
-      final policy = NetworkAccessPolicy(
-        registry: registry,
-        resolver: FakeEchResolver(
-          [InternetAddress('1.2.3.80')],
-          frontAddresses: [InternetAddress('1.2.3.81')],
-        ),
-        routeKindStore: store,
-        clock: () => now,
-        clientFactory: (route, _, _) => KindClient(route.kind, attempts, down),
-      );
-      addTearDown(policy.dispose);
-      return policy;
-    }
-
-    /// One image GET; returns the route kinds it was sent on, in order.
-    Future<List<NetworkRouteKind>> fetch(NetworkAccessPolicy policy) async {
-      attempts.clear();
-      final response = await PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.image,
-      ).get(imageUri);
-      expect(response.statusCode, 200);
-      return List.of(attempts);
-    }
-
-    Future<void> coolEch(NetworkAccessPolicy policy) async {
-      down.add(NetworkRouteKind.ech);
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-        NetworkRouteKind.noSni,
-      ]);
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-        NetworkRouteKind.noSni,
-      ]);
-      expect(await fetch(policy), [
-        NetworkRouteKind.noSni,
-      ], reason: 'two failures in a row cool ECH down');
-    }
-
-    test('a cold GET goes to ECH alone instead of racing', () async {
-      final policy = ladderPolicy();
-
-      expect(await fetch(policy), [NetworkRouteKind.ech]);
-      expect(policy.rememberedRouteKind('i.pximg.net'), NetworkRouteKind.ech);
-      expect(
-        policy.rememberedGroupRouteKind(
-          PixivDestinationPurpose.image,
-          'i.pximg.net',
-        ),
-        NetworkRouteKind.ech,
-      );
-    });
-
-    test('one ECH failure only moves that request', () async {
-      final policy = ladderPolicy();
-      down.add(NetworkRouteKind.ech);
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-        NetworkRouteKind.noSni,
-      ]);
-
-      down.clear();
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-      ], reason: 'the remembered origin route gives way to ECH');
-      expect(policy.rememberedRouteKind('i.pximg.net'), NetworkRouteKind.ech);
-    });
-
-    test('the cooldown doubles after every failed retry, capped', () async {
-      final policy = ladderPolicy();
-      await coolEch(policy);
-
-      var cooldown = const Duration(minutes: 1);
-      for (final next in const [2, 4, 8, 10, 10]) {
-        now = now.add(cooldown - const Duration(seconds: 1));
-        expect(await fetch(policy), [
-          NetworkRouteKind.noSni,
-        ], reason: 'still cooling within $cooldown');
-        now = now.add(const Duration(seconds: 1));
-        expect(await fetch(policy), [
-          NetworkRouteKind.ech,
-          NetworkRouteKind.noSni,
-        ], reason: 'ECH is retried once $cooldown has passed');
-        cooldown = Duration(minutes: next);
-      }
-    });
-
-    test('an ECH success clears the failure count', () async {
-      final policy = ladderPolicy();
-      await coolEch(policy);
-
-      now = now.add(const Duration(minutes: 1));
-      down.clear();
-      expect(await fetch(policy), [NetworkRouteKind.ech]);
-
-      down.add(NetworkRouteKind.ech);
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-        NetworkRouteKind.noSni,
-      ]);
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-        NetworkRouteKind.noSni,
-      ], reason: 'one failure after a success does not cool ECH yet');
-    });
-
-    test('a cooling ECH tier is still the last resort', () async {
-      final policy = ladderPolicy();
-      await coolEch(policy);
-
-      down
-        ..clear()
-        ..addAll({
-          NetworkRouteKind.noSni,
-          NetworkRouteKind.dohRealSni,
-          NetworkRouteKind.direct,
-        });
-      expect(await fetch(policy), [
-        NetworkRouteKind.noSni,
-        NetworkRouteKind.dohRealSni,
-        NetworkRouteKind.direct,
-        NetworkRouteKind.ech,
-      ]);
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-      ], reason: 'that ECH success ended the cooldown');
-    });
-
-    test('a network change forgets the cooldown', () async {
-      final policy = ladderPolicy();
-      await coolEch(policy);
-
-      down.clear();
-      policy.advanceNetworkRevision(networkIdentity: 'cellular');
-      expect(await fetch(policy), [NetworkRouteKind.ech]);
-    });
-
-    test('origin-tier successes are neither shared nor persisted', () async {
-      final policy = ladderPolicy(
-        store: RouteKindStore(preferences: SharedPreferencesAsync()),
-      );
-      Future<String?> persistedImageKind() async {
-        // Writes are fire-and-forget; read back through a fresh store.
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        final reloaded = RouteKindStore(preferences: SharedPreferencesAsync());
-        return (await reloaded.kindsFor('initial'))?['image'];
-      }
-
-      down.add(NetworkRouteKind.ech);
-      expect(await fetch(policy), [
-        NetworkRouteKind.ech,
-        NetworkRouteKind.noSni,
-      ]);
-      expect(
-        policy.rememberedGroupRouteKind(
-          PixivDestinationPurpose.image,
-          'i.pximg.net',
-        ),
-        isNull,
-      );
-      // Selecting ECH may already have stored it; the origin tier that
-      // actually carried the request must not replace it.
-      expect(await persistedImageKind(), isNot('noSni'));
-
-      down.clear();
-      expect(await fetch(policy), [NetworkRouteKind.ech]);
-      expect(await persistedImageKind(), 'ech');
-    });
-
-    test('a persisted origin-tier image preference is ignored', () async {
-      final store = RouteKindStore(preferences: SharedPreferencesAsync());
-      // Written by a version that let the origin tier win the race.
-      await store.remember('initial', 'image', 'noSni');
-      await store.remember('initial', 'imageMirror', 'dohRealSni');
-      final policy = ladderPolicy(
-        store: store,
-        registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
-      );
-      await policy.warmUp();
-      await Future<void>.delayed(Duration.zero);
-
-      expect(
-        policy.rememberedGroupRouteKind(
-          PixivDestinationPurpose.image,
-          'i.pximg.net',
-        ),
-        isNull,
-      );
-      expect(
-        policy.rememberedGroupRouteKind(
-          PixivDestinationPurpose.image,
-          'i.pixiv.re',
-        ),
-        NetworkRouteKind.dohRealSni,
-        reason: 'mirror preferences are still honored',
-      );
-      expect(await fetch(policy), [NetworkRouteKind.ech]);
-    });
-  });
-
   group('auto image source', () {
     NetworkAccessPolicy autoPolicy(
       http.Client Function(String host) clientFor,
@@ -1026,14 +766,18 @@ void main() {
   });
 
   group('network modes', () {
-    Future<List<NetworkRouteKind>> runExhaustingLadder(NetworkMode mode) async {
-      final order = <NetworkRouteKind>[];
+    /// The routes one pixiv image GET walks when every one is refused.
+    Future<List<String>> runExhaustingLadder(NetworkMode mode) async {
+      final order = <String>[];
       final policy = NetworkAccessPolicy(
-        resolver: FakeResolver([InternetAddress('1.2.3.70')]),
+        resolver: FakeEchResolver(
+          [InternetAddress('1.2.3.70')],
+          frontAddresses: [InternetAddress('1.2.3.81')],
+        ),
         bootstrapNoSniEnabled: true,
         mode: mode,
         clientFactory: (route, canonicalHost, purpose) {
-          order.add(route.kind);
+          order.add('${route.kind.name} ${route.address?.address ?? ''}');
           return FakeClient(failure: const SocketException('refused'));
         },
       );
@@ -1045,22 +789,185 @@ void main() {
       return order;
     }
 
-    test('automatic keeps direct ahead of the bootstrap tier; compatPrefer '
-        'walks every compat tier first', () async {
-      // ECH yields no route without an ECH-capable resolver, so the
-      // observable ladder is the DoH tiers, direct and the bootstrap tier.
-      expect(await runExhaustingLadder(NetworkMode.automatic), [
-        NetworkRouteKind.noSni,
-        NetworkRouteKind.dohRealSni,
-        NetworkRouteKind.direct,
-        NetworkRouteKind.bootstrapNoSni,
-      ]);
-      expect(await runExhaustingLadder(NetworkMode.compatPrefer), [
-        NetworkRouteKind.noSni,
-        NetworkRouteKind.dohRealSni,
-        NetworkRouteKind.bootstrapNoSni,
-        NetworkRouteKind.direct,
-      ]);
+    test('pixiv images walk their candidates, then dohRealSni and direct, '
+        'in either mode', () async {
+      for (final mode in [NetworkMode.automatic, NetworkMode.compatPrefer]) {
+        expect(await runExhaustingLadder(mode), [
+          'ech 1.2.3.81',
+          'ech 162.159.152.4',
+          'bootstrapNoSni 210.140.139.133',
+          'dohRealSni 1.2.3.70',
+          'direct ',
+        ], reason: mode.name);
+      }
+    });
+
+    group('pixiv image route scores', () {
+      // An image body behind a 50 ms idle timeout on the front 1.2.3.81 or
+      // the seed front; [sent] logs which one each GET went to.
+      ({
+        NetworkAccessPolicy policy,
+        Future<Stream<List<int>>> Function({bool background}) get,
+      })
+      imageGets(
+        List<String> sent, {
+        ImageRouteScoreMemory? scores,
+        String network = 'initial',
+      }) {
+        final policy = NetworkAccessPolicy(
+          revision: NetworkRevision(0, networkIdentity: network),
+          imageRouteScoreStore: scores,
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          imageIdleTimeout: const Duration(milliseconds: 50),
+          clientFactory: (route, _, _) =>
+              RouteLogClient(route, sent, StallClient()),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
+        return (
+          policy: policy,
+          get: ({bool background = false}) async => (await client.send(
+            ImageRequest('GET', uri, background: background),
+          )).stream,
+        );
+      }
+
+      test('a stalled body counts against its route; one given up does '
+          'not', () async {
+        final sent = <String>[];
+        final get = imageGets(sent).get;
+
+        await (await get()).listen(null).cancel();
+        await expectLater(
+          (await get()).drain<void>(),
+          throwsA(isA<TimeoutException>()),
+        );
+        await get();
+        expect(sent, ['1.2.3.81', '1.2.3.81', '162.159.152.4']);
+      });
+
+      test('a prefetch may try another route; a visible load never', () async {
+        final sent = <String>[];
+        final get = imageGets(sent).get;
+
+        await get(background: true);
+        await get();
+        expect(sent, ['162.159.152.4', '1.2.3.81']);
+      });
+
+      test(
+        'every range of a transfer keeps to the route of its first',
+        () async {
+          final sent = <String>[];
+          final front = ScriptedClient([
+            null,
+            null,
+            const SocketException('refused'),
+          ]);
+          final policy = NetworkAccessPolicy(
+            resolver: FakeEchResolver(
+              [InternetAddress('1.2.3.80')],
+              frontAddresses: [InternetAddress('1.2.3.81')],
+            ),
+            clientFactory: (route, _, _) => RouteLogClient(
+              route,
+              sent,
+              route.address?.address == '1.2.3.81' ? front : FakeClient(),
+            ),
+          );
+          final client = _imageClient(policy);
+          final uri = Uri.parse(
+            'https://i.pximg.net/img-original/img/x_p0.png',
+          );
+          final pin = ImageRoutePin();
+          Future<void> get([ImageRoutePin? pin]) =>
+              client.send(ImageRequest('GET', uri, pin: pin));
+
+          await get(pin);
+          // The route turns bad: other loads leave it, the transfer stays,
+          // and a failure there is the transfer's own.
+          policy.recordImageRouteSample(
+            'initial',
+            ImageRouteSample.failure('ech:1.2.3.81', at: DateTime.now()),
+          );
+          await get();
+          await get(pin);
+          await expectLater(get(pin), throwsA(isA<SocketException>()));
+          expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81', '1.2.3.81']);
+        },
+      );
+
+      test('a resumed transfer tries last a route that sent a whole file '
+          'for a range, until it serves one', () async {
+        final sent = <String>[];
+        final upstream = FakeClient();
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          clientFactory: (route, _, _) => RouteLogClient(route, sent, upstream),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-original/img/x_p0.png');
+        Future<void> get(String range, {bool resuming = false}) async {
+          final request = ImageRequest(
+            'GET',
+            uri,
+            pin: ImageRoutePin(resuming: resuming),
+          )..headers['range'] = range;
+          await (await client.send(request)).stream.drain<void>();
+        }
+
+        await get('bytes=0-99');
+        upstream.statusCode = 206;
+        await get('bytes=100-199', resuming: true);
+        // From the first byte, a whole file is as good as a range; this
+        // time the route serves one, and a resume goes there again.
+        await get('bytes=0-99');
+        await get('bytes=100-199', resuming: true);
+        expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81', '1.2.3.81']);
+      });
+
+      test('a network starts on the route that served it last time', () async {
+        installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
+        final sent = <String>[];
+        final store = ImageRouteScoreStore(
+          preferences: SharedPreferencesAsync(),
+        );
+        await expectLater(
+          (await imageGets(
+            sent,
+            scores: store,
+            network: 'home',
+          ).get()).drain<void>(),
+          throwsA(isA<TimeoutException>()),
+        );
+        await store.flush();
+
+        // The next start, at home and elsewhere; then elsewhere turns
+        // into home.
+        final restarted = ImageRouteScoreStore(
+          preferences: SharedPreferencesAsync(),
+        );
+        final home = imageGets(sent, scores: restarted, network: 'home');
+        final elsewhere = imageGets(sent, scores: restarted, network: 'cafe');
+        await pumpEventQueue();
+        await home.get();
+        await elsewhere.get();
+        elsewhere.policy.advanceNetworkRevision(networkIdentity: 'home');
+        await pumpEventQueue();
+        await elsewhere.get();
+        expect(sent, [
+          '1.2.3.81',
+          '162.159.152.4',
+          '1.2.3.81',
+          '162.159.152.4',
+        ]);
+      });
     });
 
     test('effectiveRouteSnapshot reports settled per-host kinds', () async {
@@ -1074,13 +981,13 @@ void main() {
 
       final client = PixivPolicyHttpClient(
         policy: policy,
-        purpose: PixivDestinationPurpose.image,
+        purpose: PixivDestinationPurpose.appApi,
       );
-      await client.get(Uri.parse('https://i.pximg.net/img/a.jpg'));
+      await client.get(apiUri);
 
       final snapshot = policy.effectiveRouteSnapshot();
-      expect(snapshot.keys, contains('i.pximg.net'));
-      expect(snapshot['i.pximg.net'], isNotNull);
+      expect(snapshot.keys, contains(apiUri.host));
+      expect(snapshot[apiUri.host], isNotNull);
     });
   });
 }

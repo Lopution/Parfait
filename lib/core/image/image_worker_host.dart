@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart';
 
@@ -97,9 +98,11 @@ class ImageWorkerHost {
     required this.cacheDir,
     Future<void> Function()? transportInit,
     http.Client Function()? fetchClient,
+    @visibleForTesting NetworkClientFactory? clientFactory,
     DateTime Function()? clock,
   }) : _transportInit = transportInit ?? Rhttp.init,
        _fetchClient = fetchClient,
+       _clientFactory = clientFactory,
        _clock = clock ?? DateTime.now;
 
   final SendPort mainSendPort;
@@ -107,12 +110,16 @@ class ImageWorkerHost {
   final String cacheDir;
   final Future<void> Function() _transportInit;
   final http.Client Function()? _fetchClient;
+
+  /// The policy's transport per route, in place of rhttp.
+  final NetworkClientFactory? _clientFactory;
   final DateTime Function() _clock;
 
   final _inbox = ReceivePort();
   late final WorkerRouteMemoryState _routeMemoryState;
   late final WorkerFastRouteMemory _fastRoutes;
   late final WorkerRouteKindMemory _routeKinds;
+  late final WorkerImageRouteScoreMemory _routeScores;
   late final DiskImageCache _cache;
   late final ImageFetchScheduler<(File, int)> _scheduler;
 
@@ -195,7 +202,7 @@ class ImageWorkerHost {
             RoutesEvent(id, {
               for (final MapEntry(:key, :value) in routes.entries)
                 key: value.name,
-            }),
+            }, images: _policy?.imageRouteStandings() ?? const []),
           );
         case StatusMessage(:final id):
           _send(
@@ -265,6 +272,12 @@ class ImageWorkerHost {
       onRouteKindLearned: (identity, group, kind) =>
           _send(RouteKindLearnedEvent(identity, group, kind)),
     );
+    _routeScores = WorkerImageRouteScoreMemory(
+      onSample: (identity, sample) =>
+          _send(ImageRouteSampleEvent(identity, sample)),
+      onRanges: (identity, candidate, served) =>
+          _send(ImageRouteRangesEvent(identity, candidate, served: served)),
+    );
     return state;
   }
 
@@ -273,7 +286,8 @@ class ImageWorkerHost {
   /// - `networkIdentity` → `advanceNetworkRevision` on the live policy plus
   ///   a route-kind reseed (the new identity may have its own remembered
   ///   kinds); learned fast routes survive — they are bootstrap addresses,
-  ///   not per-network.
+  ///   not per-network. The image route scores of every config are
+  ///   current, and seed the board of a new policy or a new network.
   /// - resolver/policy inputs (mode, DoH endpoints, ECH host, allowlist)
   ///   → full policy rebuild, same as a provider rebuild on the main side.
   /// - `imageSource`/`autoWinnerHost` → mirror + client rewrite only; the
@@ -282,6 +296,7 @@ class ImageWorkerHost {
   void _applyConfig(ImageWorkerConfig next, {bool initial = false}) {
     final previous = config;
     config = next;
+    _routeScores.reseed(next.networkIdentity, next.routeScores);
     _mirror = next.imageSource == 'auto'
         ? ImageMirror.auto(next.autoWinnerHost)
         : ImageMirror.of(next.imageSource);
@@ -333,7 +348,9 @@ class ImageWorkerHost {
       localNetworkBlockedHosts: config.localNetworkBlockedHosts,
       fastRouteStore: _fastRoutes,
       routeKindStore: _routeKinds,
+      imageRouteScoreStore: _routeScores,
       dohEndpoints: config.dohEndpoints,
+      clientFactory: _clientFactory,
     );
   }
 
@@ -348,22 +365,30 @@ class ImageWorkerHost {
   /// a failure the visible image should not spend a retry on; whatever
   /// the second attempt meets surfaces. Called by the scheduler only after
   /// the fetch holds its lane permit.
-  Future<(File, int)> _fetch(String url, NetworkCancelSignal cancel) async {
+  Future<(File, int)> _fetch(
+    String url,
+    NetworkCancelSignal cancel, {
+    required bool background,
+  }) async {
     final network = _network;
     try {
-      return await _download(url, cancel);
+      return await _download(url, cancel, background: background);
     } on ImageHttpStatus {
       rethrow;
     } on Object {
       if (cancel.isCancelled || network == _network) rethrow;
-      return _download(url, cancel);
+      return _download(url, cancel, background: background);
     }
   }
 
   /// One policy GET (an original: its ranges), then an atomic commit into
   /// the cache. [cancel] ends every request of the transfer, and the
-  /// partial file is deleted.
-  Future<(File, int)> _download(String url, NetworkCancelSignal cancel) async {
+  /// partial file is deleted. A [background] transfer is a prefetch.
+  Future<(File, int)> _download(
+    String url,
+    NetworkCancelSignal cancel, {
+    required bool background,
+  }) async {
     // A flight for the URL may have committed between this request's own
     // lookup and its submit; the re-check is a stat, the miss a download.
     final cached = await _cache.lookup(url);
@@ -372,8 +397,14 @@ class ImageWorkerHost {
     }
     final uri = Uri.parse(url);
     final (body, segmented) = _isOriginal(url)
-        ? await _openInRanges(uri, cancel)
-        : (await _wholeBody(await _request(uri, cancel: cancel), uri), null);
+        ? await _openInRanges(uri, cancel, background: background)
+        : (
+            await _wholeBody(
+              await _request(uri, cancel: cancel, background: background),
+              uri,
+            ),
+            null,
+          );
     if (segmented != null) _segmentedFetches.add(segmented);
     try {
       final file = await _cache.store(
@@ -388,17 +419,22 @@ class ImageWorkerHost {
   }
 
   /// An original file: its first range, then the rest in parallel ranges
-  /// when the server answers a sized 206 from byte 0. A 200 (`Range`
-  /// ignored) is the whole file; anything else fails like any image. The
-  /// worker sends no conditional headers, so every range asks the same.
+  /// when the server answers a sized 206 from byte 0, all on the route of
+  /// the first. A 200 (`Range` ignored) is the whole file; anything else
+  /// fails like any image. The worker sends no conditional headers, so
+  /// every range asks the same.
   Future<(_Body, SegmentedFetch?)> _openInRanges(
     Uri uri,
-    NetworkCancelSignal cancel,
-  ) async {
+    NetworkCancelSignal cancel, {
+    required bool background,
+  }) async {
+    final pin = ImageRoutePin();
     final first = await _request(
       uri,
       range: (0, SegmentedFetch.defaultSegmentBytes - 1),
       cancel: cancel,
+      background: background,
+      pin: pin,
     );
     final range = parseContentRange(first.headers['content-range']);
     final total = range?.total;
@@ -419,6 +455,8 @@ class ImageWorkerHost {
               range: (start, end),
               ifRange: ifRange,
               cancel: cancel,
+              background: background,
+              pin: pin,
             ),
           ),
       budget: _segmentBudget,
@@ -435,11 +473,15 @@ class ImageWorkerHost {
     (int, int)? range,
     String? ifRange,
     NetworkCancelSignal? cancel,
+    required bool background,
+    ImageRoutePin? pin,
   }) {
-    final request = http.AbortableRequest(
+    final request = ImageRequest(
       'GET',
       uri,
       abortTrigger: cancel?.whenCancel,
+      background: background,
+      pin: pin,
     )..headers.addAll(PixivHeaders.image());
     if (range case (final start, final end)) {
       request.headers['range'] = 'bytes=$start-$end';

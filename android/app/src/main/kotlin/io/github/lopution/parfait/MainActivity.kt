@@ -27,6 +27,7 @@ class MainActivity : FlutterActivity() {
         WebProfileChannel.configure(this, flutterEngine)
         HapticsChannel.configure(this, flutterEngine)
         AccessibilityChannel.configure(this, flutterEngine)
+        NetworkIdentityChannel.configure(this, flutterEngine)
         RemovedWidgetCleanup.runInBackground(this)
     }
 

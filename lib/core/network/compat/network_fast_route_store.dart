@@ -11,13 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'route_memory.dart';
 import 'secure_resolver.dart';
 
-/// Persists the last known public origin address of the Pixiv image hosts
-/// for the `bootstrapNoSni` tier.
+/// Persists the origin address each Pixiv image host last loaded from, where
+/// its origin route candidate (`bootstrapNoSni`) starts.
 ///
 /// The address map is only a connection bootstrap. The request still carries
 /// the canonical Pixiv hostname as Host and verifies its certificate. An
-/// address is learned only after a `noSni` request was served from it, so a
-/// DoH answer that cannot complete an empty-SNI handshake is never stored.
+/// address is learned only after an origin request was served from it.
 /// Keeping this tiny cache outside the route-memory TTL means the first
 /// request after an app restart does not pay for polluted system DNS.
 class PixivFastRouteStore implements FastRouteMemory {
@@ -37,6 +36,13 @@ class PixivFastRouteStore implements FastRouteMemory {
   });
 
   static final Map<String, InternetAddress> _bootstrap = bootstrap;
+
+  /// Pixiv's image origin addresses: every one served both image hosts
+  /// with a valid certificate on an empty SNI (2026-11-03).
+  static final List<InternetAddress> originAddresses = List.unmodifiable([
+    for (var last = 129; last <= 138; last++)
+      InternetAddress('210.140.139.$last'),
+  ]);
 
   final SharedPreferencesAsync _preferences;
 

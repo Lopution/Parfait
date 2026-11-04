@@ -26,13 +26,14 @@ reviewed: 2026-10-14
   reverse-image input, the github updater, fonts) register with
   `messenger.makeBackgroundTaskQueue()`; Activity work is posted to the
   main looper through `MainThreadPoster`. `parfait/webprofile`, clipboard,
-  intents, haptics and accessibility stay on main. Another app's content
-  URI that arrives on main (a shared or opened intent, a picker result) is
-  never opened there: main takes a plain snapshot, probes run on
-  `foreignContentExecutor`, and events go back to main. A picked file is
-  never read whole on main: the pick returns its URI and the copy runs on
-  the background queue under a byte limit (`file_selector` reads it whole
-  on main, so Android imports do not use it).
+  intents, haptics, accessibility and the network identity stay on main.
+  Another app's content URI that arrives on main (a shared or opened
+  intent, a picker result) is never opened there: main takes a plain
+  snapshot, probes run on `foreignContentExecutor`, and events go back to
+  main. A picked file is never read whole on main: the pick returns its
+  URI and the copy runs on the background queue under a byte limit
+  (`file_selector` reads it whole on main, so Android imports do not use
+  it).
 - **Why:** The serial queue keeps begin → write → finalize ordered off the
   UI thread; `CookieManager` is not documented as thread-safe. A slow or
   hostile provider on main is an ANR, and a huge picked file was an

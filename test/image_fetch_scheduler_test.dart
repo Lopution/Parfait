@@ -15,7 +15,7 @@ class _Harness {
       foregroundSlots: foreground,
       backgroundSlots: background,
       abortable: (url) => url.startsWith('original'),
-      execute: (url, cancel) {
+      execute: (url, cancel, {required background}) {
         started.add(url);
         final completer = Completer<String>();
         pending[url] = completer;

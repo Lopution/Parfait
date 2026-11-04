@@ -10,6 +10,8 @@ library;
 import 'dart:io' show File;
 import 'dart:isolate' show SendPort;
 
+import '../network/compat/image_route_scores.dart';
+import '../network/compat/network_contracts.dart' show NetworkRouteKind;
 import 'lane_permit_gate.dart';
 
 /// Every knob the worker needs to rebuild the same `NetworkAccessPolicy`
@@ -27,6 +29,7 @@ class ImageWorkerConfig {
     this.localNetworkBlockedHosts = const {},
     this.learnedFastRoutes = const {},
     this.routeKinds = const {},
+    this.routeScores = const {},
   });
 
   /// Persisted `imageSource` setting (`i.pximg.net`, `auto`, a preset host
@@ -70,6 +73,10 @@ class ImageWorkerConfig {
   /// [networkIdentity].
   final Map<String, String> routeKinds;
 
+  /// What pixiv's image route candidates scored on [networkIdentity], from
+  /// the main isolate's store; it seeds the worker's board.
+  final Map<String, ImageRouteScore> routeScores;
+
   Map<String, Object?> toJson() => {
     'imageSource': imageSource,
     'autoWinnerHost': autoWinnerHost,
@@ -81,6 +88,10 @@ class ImageWorkerConfig {
     'localNetworkBlockedHosts': localNetworkBlockedHosts.toList(),
     'learnedFastRoutes': learnedFastRoutes,
     'routeKinds': routeKinds,
+    'routeScores': {
+      for (final MapEntry(:key, :value) in routeScores.entries)
+        key: value.toJson(),
+    },
   };
 
   static ImageWorkerConfig fromJson(Map<String, Object?> json) {
@@ -97,9 +108,21 @@ class ImageWorkerConfig {
       },
       learnedFastRoutes: (json['learnedFastRoutes'] as Map? ?? const {}).cast(),
       routeKinds: (json['routeKinds'] as Map? ?? const {}).cast(),
+      routeScores: {
+        for (final MapEntry(:key, :value)
+            in (json['routeScores'] as Map? ?? const {}).entries)
+          key as String: ?ImageRouteScore.fromJson(value),
+      },
     );
   }
 }
+
+/// What the worker's policy routes by: the route kind by host, and pixiv's
+/// image route candidates.
+typedef ImageWorkerRoutes = ({
+  Map<String, NetworkRouteKind> hosts,
+  List<ImageRouteStanding> images,
+});
 
 /// Main→worker: fetch [url] (the canonical, pre-rewrite URL) on [priority].
 /// The worker coalesces by URL; [id] identifies this caller.
@@ -389,6 +412,27 @@ class RouteKindLearnedEvent extends WorkerEvent {
   final String kind;
 }
 
+/// A sample the worker's policy took of an image route candidate on
+/// [networkIdentity].
+class ImageRouteSampleEvent extends WorkerEvent {
+  const ImageRouteSampleEvent(this.networkIdentity, this.sample);
+  final String networkIdentity;
+  final ImageRouteSample sample;
+}
+
+/// [candidate] answered one of the worker's `Range` requests on
+/// [networkIdentity] with a range ([served]) or with the whole file.
+class ImageRouteRangesEvent extends WorkerEvent {
+  const ImageRouteRangesEvent(
+    this.networkIdentity,
+    this.candidate, {
+    required this.served,
+  });
+  final String networkIdentity;
+  final String candidate;
+  final bool served;
+}
+
 /// Every ladder tier on [host] was exhausted — forwarded from
 /// `NetworkAccessPolicy.onImageHostExhausted` so the main isolate can drop
 /// the auto-source winner and re-race, as it does for API traffic.
@@ -429,6 +473,22 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'group': group,
     'kind': kind,
   },
+  ImageRouteSampleEvent(:final networkIdentity, :final sample) => {
+    'type': 'imageRouteSample',
+    'networkIdentity': networkIdentity,
+    'sample': sample.toJson(),
+  },
+  ImageRouteRangesEvent(
+    :final networkIdentity,
+    :final candidate,
+    :final served,
+  ) =>
+    {
+      'type': 'imageRouteRanges',
+      'networkIdentity': networkIdentity,
+      'candidate': candidate,
+      'served': served,
+    },
   RouteExhaustedEvent(:final host) => {'type': 'routeExhausted', 'host': host},
   WorkerErrorEvent(:final message, :final stack) => {
     'type': 'workerError',
@@ -440,10 +500,11 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'id': id,
     'path': path,
   },
-  RoutesEvent(:final id, :final routes) => {
+  RoutesEvent(:final id, :final routes, :final images) => {
     'type': 'routes',
     'id': id,
     'routes': routes,
+    'images': [for (final standing in images) standing.toJson()],
   },
   StatusEvent(:final id, :final status) => {
     'type': 'status',
@@ -474,9 +535,12 @@ class StatusEvent extends WorkerEvent {
 /// The answer to a [RoutesMessage]: `NetworkRouteKind.name` by host, the
 /// hosts whose remembered route is usable now.
 class RoutesEvent extends WorkerEvent {
-  const RoutesEvent(this.id, this.routes);
+  const RoutesEvent(this.id, this.routes, {this.images = const []});
   final int id;
   final Map<String, String> routes;
+
+  /// Pixiv's image route candidates as the worker's policy scores them.
+  final List<ImageRouteStanding> images;
 }
 
 /// The answer to a [LookupMessage]: the cached file's [path], or null on
@@ -517,6 +581,15 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
       raw['group'] as String,
       raw['kind'] as String,
     ),
+    'imageRouteSample' => ImageRouteSampleEvent(
+      raw['networkIdentity'] as String,
+      ImageRouteSample.fromJson((raw['sample'] as Map).cast()),
+    ),
+    'imageRouteRanges' => ImageRouteRangesEvent(
+      raw['networkIdentity'] as String,
+      raw['candidate'] as String,
+      served: raw['served'] as bool,
+    ),
     'routeExhausted' => RouteExhaustedEvent(raw['host'] as String),
     'workerError' => WorkerErrorEvent(
       raw['message'] as String,
@@ -526,6 +599,10 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
     'routes' => RoutesEvent(
       raw['id'] as int,
       (raw['routes'] as Map).cast<String, String>(),
+      images: [
+        for (final standing in raw['images'] as List)
+          ImageRouteStanding.fromJson((standing as Map).cast()),
+      ],
     ),
     'status' => StatusEvent(
       raw['id'] as int,

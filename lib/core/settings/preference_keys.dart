@@ -37,6 +37,10 @@ abstract final class PreferenceKeys {
   /// Persisted route-kind hints per network identity (`RouteKindStore`).
   static const String routeKinds = 'pixiv.network.route_kinds.v1';
 
+  /// What pixiv's image route candidates scored per network identity
+  /// (`ImageRouteScoreStore`).
+  static const String imageRouteScores = 'pixiv.network.image_route_scores.v1';
+
   /// Last auto-mode image-source winner per network identity
   /// (`AutoImageSource`).
   static const String autoImageSource = 'pixiv.network.auto_image_source.v1';

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
@@ -9,7 +11,9 @@ import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 
 import 'helpers/restricted_compat_support.dart';
 import 'helpers/waits.dart';
@@ -612,14 +616,83 @@ void main() {
     await policy.dispose();
   });
 
+  test('on Android a data-SIM switch is a network change', () async {
+    const channel = EventChannel('parfait/network_identity/events');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late MockStreamHandlerEventSink identities;
+    messenger.setMockStreamHandler(
+      channel,
+      MockStreamHandler.inline(
+        onListen: (_, events) => (identities = events).success('mobile:46001'),
+      ),
+    );
+    addTearDown(() => messenger.setMockStreamHandler(channel, null));
+    final container = ProviderContainer.test(
+      overrides: [
+        platformCapsProvider.overrideWithValue(
+          const PlatformCaps(isAndroid: true),
+        ),
+      ],
+    );
+    final policy = container.read(networkAccessPolicyProvider);
+
+    await turnUntil(() => policy.revision.networkIdentity == 'mobile:46001');
+    final before = policy.revision.value;
+    identities.success('mobile:46011');
+    await turnUntil(() => policy.revision.networkIdentity == 'mobile:46011');
+    expect(policy.revision.value, before + 1);
+  });
+
+  test(
+    'on Windows a failed first look still follows network changes',
+    () async {
+      const check = MethodChannel('dev.fluttercommunity.plus/connectivity');
+      const changes = EventChannel(
+        'dev.fluttercommunity.plus/connectivity_status',
+      );
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      MockStreamHandlerEventSink? links;
+      messenger.setMockMethodCallHandler(
+        check,
+        (_) async => throw PlatformException(code: 'unavailable'),
+      );
+      messenger.setMockStreamHandler(
+        changes,
+        MockStreamHandler.inline(onListen: (_, events) => links = events),
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(check, null);
+        messenger.setMockStreamHandler(changes, null);
+      });
+      final container = ProviderContainer.test(
+        overrides: [
+          platformCapsProvider.overrideWithValue(
+            const PlatformCaps(isWindows: true),
+          ),
+        ],
+      );
+      final policy = container.read(networkAccessPolicyProvider);
+
+      await turnUntil(() => links != null);
+      links!.success(['mobile']);
+      await turnUntil(() => policy.revision.networkIdentity == 'mobile');
+    },
+  );
+
   test('a network change mid-request looks the host up again', () async {
     final resolver = FakeResolver([InternetAddress('1.2.3.8')]);
     final noSni = GateFailureClient();
     final realSni = FakeClient(body: 'ok');
     final policy = NetworkAccessPolicy(
+      registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
       resolver: resolver,
-      clientFactory: (route, _, _) =>
-          route.kind == NetworkRouteKind.noSni ? noSni : realSni,
+      clientFactory: (route, _, _) => switch (route.kind) {
+        NetworkRouteKind.noSni => noSni,
+        NetworkRouteKind.dohRealSni => realSni,
+        _ => FakeClient(failure: SocketException('Connection refused')),
+      },
     );
     addTearDown(policy.dispose);
     final client = PixivPolicyHttpClient(
@@ -627,7 +700,7 @@ void main() {
       purpose: PixivDestinationPurpose.image,
     );
 
-    final response = client.get(Uri.parse('https://i.pximg.net/a.jpg'));
+    final response = client.get(Uri.parse('https://i.pixiv.re/a.jpg'));
     await turnUntil(() => noSni.requests.isNotEmpty);
     policy.advanceNetworkRevision(networkIdentity: 'cellular');
     noSni.gate.complete();
@@ -768,14 +841,15 @@ void main() {
     await imageClient.get(
       Uri.parse('https://i.pximg.net/img-master/img/1/2/3/a.jpg'),
     );
-    // Pixiv image hosts walk serially; without an ECH-capable resolver the
-    // origin tier answers on the first send.
+    // Without an ECH config or the origin, a pixiv image host has no
+    // candidate and its first send is the secure-DNS tier.
     expect(secureDns.requests, hasLength(2));
     expect(direct.requests, isEmpty);
     expect(resolver.calls, 2);
-    // Both exits observe the same policy-owned route memory.
+    // Pixiv's image hosts remember through their scores, not the API's
+    // route memory.
     expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
-    expect(policy.hasStrictRouteMemory('i.pximg.net'), isTrue);
+    expect(policy.hasStrictRouteMemory('i.pximg.net'), isFalse);
   });
 
   test(

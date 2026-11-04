@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -6,6 +7,7 @@ import 'package:parfait/core/translation/translation_service.dart'
     show translationCredentialStoreProvider;
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/i18n/replica_language.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
@@ -15,8 +17,10 @@ import 'package:parfait/features/settings/pages/translation_credentials_page.dar
 import 'package:parfait/features/settings/settings_page.dart';
 
 import '../helpers/fake_account.dart';
+import '../helpers/image_network.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/settings_world.dart';
+import '../helpers/waits.dart';
 
 /// The settings pages, each in the language its own settings select.
 /// The frame probe is a debug page and stays out.
@@ -85,6 +89,47 @@ void main() {
       await expectPageLayoutIntact(tester, locale: locale, profile: profile);
     });
   }
+
+  // The effective routes close the network page: scrolled to, they list
+  // the image worker's hosts and route candidates once its port answers.
+  localeLayoutMatrix('settings: network (effective routes)', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    await _seed(locale);
+    final worker = await routedImageWorker(tester);
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        overrides: [
+          ..._overrides,
+          imageWorkerProvider.overrideWithValue(worker),
+        ],
+        home: const NetworkSettingsPage(),
+      ),
+    );
+    // A lazy list only estimates its end until it lays the end out, and
+    // the estimate may be past it.
+    Future<void> toEnd() async {
+      final list = tester.state<ScrollableState>(find.byType(Scrollable).first);
+      while (list.position.pixels != list.position.maxScrollExtent) {
+        list.position.jumpTo(list.position.maxScrollExtent);
+        await tester.pump();
+      }
+    }
+
+    await settleLayout(tester);
+    await toEnd();
+    await pumpIoUntil(
+      tester,
+      () =>
+          find.text('Cloudflare 2', skipOffstage: false).evaluate().isNotEmpty,
+    );
+    await toEnd();
+    await settleLayout(tester);
+    expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
+  });
 
   // The custom template section with its variable chips.
   localeLayoutMatrix('settings: download (custom template)', (

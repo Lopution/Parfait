@@ -41,8 +41,14 @@ class ImageFetchScheduler<T> {
 
   /// Runs one admitted fetch to completion (transport + disk write lives
   /// in the caller). Its result/error is fanned out to every interest.
-  /// [cancel] fires when an [abortable] transfer loses its last interest.
-  final Future<T> Function(String url, NetworkCancelSignal cancel) execute;
+  /// [cancel] fires when an [abortable] transfer loses its last interest;
+  /// `background` says it was admitted on the background lane.
+  final Future<T> Function(
+    String url,
+    NetworkCancelSignal cancel, {
+    required bool background,
+  })
+  execute;
 
   /// Whether a streaming transfer for a URL stops when nobody wants it:
   /// megabytes the user has swiped past, whose bandwidth the page on screen
@@ -165,7 +171,11 @@ class ImageFetchScheduler<T> {
       fetch.streaming = true;
       fetch.dropTimer?.cancel();
       fetch.dropTimer = null;
-      final result = await execute(fetch.url, fetch.abort);
+      final result = await execute(
+        fetch.url,
+        fetch.abort,
+        background: !fetch.foreground,
+      );
       for (final completer in _settle(fetch)) {
         completer.complete(result);
       }

@@ -293,12 +293,12 @@ void main() {
   test('route snapshots arrive as route kinds by host', () async {
     final client = await scriptedImageWorkerClient(
       ImageDemand(),
-      routes: {'i.pximg.net': 'ech', 'i.pixiv.cat': 'direct'},
+      routes: {'i.pixiv.re': 'noSni', 'i.pixiv.cat': 'direct'},
     );
     addTearDown(client.dispose);
 
-    expect(await client.routeSnapshot(), {
-      'i.pximg.net': NetworkRouteKind.ech,
+    expect((await client.routeSnapshot()).hosts, {
+      'i.pixiv.re': NetworkRouteKind.noSni,
       'i.pixiv.cat': NetworkRouteKind.direct,
     });
   });

@@ -6,10 +6,32 @@ import '../../log.dart';
 import 'network_contracts.dart';
 import 'network_policy.dart';
 
+/// An image GET that tells the policy how it may be routed; none of it
+/// goes on the wire.
+class ImageRequest extends http.Request with http.Abortable {
+  ImageRequest(
+    super.method,
+    super.url, {
+    this.abortTrigger,
+    this.background = false,
+    this.pin,
+  });
+
+  @override
+  final Future<void>? abortTrigger;
+
+  /// A prefetch: on pixiv's image hosts it may try a route candidate no
+  /// recent load has tried, which a visible image never does.
+  final bool background;
+
+  /// Set for the ranges of one transfer, which stay on one route.
+  final ImageRoutePin? pin;
+}
+
 /// A policy-aware `package:http` client. The business request is the route
 /// attempt: selection never pays for a separate probe. A
 /// retryable undelivered failure walks the remaining unused kinds (ECH
-/// first on a cold start; `bootstrapNoSni` always last). The request is
+/// first on a cold start; pixiv's image hosts by score). The request is
 /// freshly cloned for each attempt because package:http requests are
 /// single-use after finalize().
 class PixivPolicyHttpClient extends http.BaseClient {
@@ -47,12 +69,14 @@ class PixivPolicyHttpClient extends http.BaseClient {
       canReplay: request.method == 'GET' || request.method == 'HEAD',
       // A cold image host pays each candidate tier's timeout in series;
       // racing the top two turns that into one round trip for the waterfall's
-      // first paint. The policy still keeps pixiv's own image hosts serial on
-      // ECH (`_prefersEch`). API/OAuth stays serial — duplicate reads are
-      // free for the CDN, not for the app backend.
+      // first paint. The policy still keeps pixiv's own image hosts serial,
+      // ordered by their scores. API/OAuth stays serial — duplicate reads
+      // are free for the CDN, not for the app backend.
       raceWhenCold:
           purpose == PixivDestinationPurpose.image &&
           (request.method == 'GET' || request.method == 'HEAD'),
+      background: request is ImageRequest && request.background,
+      pin: request is ImageRequest ? request.pin : null,
       attempt: (route, url) async {
         // A clone is created for each attempt. package:http requests are
         // single-use after finalize(), so reusing one object would turn the
@@ -83,9 +107,10 @@ class PixivPolicyHttpClient extends http.BaseClient {
     }
     final headers = Map<String, String>.from(request.headers);
     final body = List<int>.from(request.bodyBytes);
-    final abortTrigger = request is http.AbortableRequest
-        ? request.abortTrigger
-        : null;
+    final abortTrigger = switch (request) {
+      http.Abortable(:final abortTrigger) => abortTrigger,
+      _ => null,
+    };
     return http.AbortableRequest(
         request.method,
         url,
@@ -135,9 +160,7 @@ class _RequestCancelSignal implements NetworkCancelSignal {
   Future<void> get whenCancel => _completer.future;
 
   static _RequestCancelSignal? from(http.BaseRequest request) {
-    final trigger = request is http.AbortableRequest
-        ? request.abortTrigger
-        : null;
+    final trigger = request is http.Abortable ? request.abortTrigger : null;
     return trigger == null ? null : _RequestCancelSignal(trigger);
   }
 }

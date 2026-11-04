@@ -19,12 +19,6 @@ import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/network/rhttp_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _HandshakeFailingClient extends http.BaseClient {
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) =>
-      throw const NetworkFailureException(NetworkFailureKind.tlsHandshake);
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -63,10 +57,9 @@ void main() {
       await response.stream.drain<void>();
       await response.close();
 
-      // Strict tiers are verified before the unverified fast address: each
-      // host resolves once through DoH. Pixiv image hosts do not race, so
-      // no host resolves twice.
-      expect(resolver.calls, 4);
+      // The API and OAuth hosts resolve once each through DoH; pixiv's
+      // image hosts go to their origin address without a lookup.
+      expect(resolver.calls, 2);
       for (final client in clients.values) {
         expect(client.requests, isNotEmpty);
         expect(
@@ -170,41 +163,46 @@ void main() {
     await PixivNetworkFactory(policy).warmUp();
   });
 
-  test('a failed fast address is cooled before the next request', () async {
-    var now = DateTime.utc(2026, 9, 3);
-    final policy = NetworkAccessPolicy(
-      resolver: StaticSecureResolver(addresses: [InternetAddress('1.2.3.4')]),
-      fastRouteStore: PixivFastRouteStore(
-        preferences: SharedPreferencesAsync(),
-      ),
-      bootstrapNoSniEnabled: true,
-      clock: () => now,
-    );
-    addTearDown(policy.dispose);
-    final attempted = <NetworkRouteKind>[];
+  test('a failed origin address gives way to the next, where the next '
+      'start begins', () async {
+    final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
+    NetworkAccessPolicy start() {
+      final policy = NetworkAccessPolicy(
+        resolver: StaticSecureResolver(addresses: [InternetAddress('1.2.3.4')]),
+        fastRouteStore: store,
+        bootstrapNoSniEnabled: true,
+      );
+      addTearDown(policy.dispose);
+      return policy;
+    }
 
-    Future<void> run() => _failEveryTier(
-      policy,
-      'https://i.pximg.net/img-master/a.jpg',
-      PixivDestinationPurpose.image,
-      attempted,
-    );
+    final sent = <String>[];
+    Future<void> fetch(NetworkAccessPolicy policy, {String? refused}) =>
+        policy.runLadder<void>(
+          destination: policy.registry.require(
+            Uri.parse('https://i.pximg.net/img-master/a.jpg'),
+            PixivDestinationPurpose.image,
+          ),
+          cancelSignal: null,
+          canReplay: true,
+          attempt: (route, _) async {
+            final address = route.address?.address;
+            sent.add('${route.kind.name} $address');
+            if (address == refused) throw const SocketException('refused');
+          },
+        );
 
-    await run();
-    expect(attempted.last, NetworkRouteKind.bootstrapNoSni);
-
-    attempted.clear();
-    await run();
-    expect(
-      attempted,
-      isNot(contains(NetworkRouteKind.bootstrapNoSni)),
-      reason: 'the cooled fast address must not be tried again',
-    );
-
-    now = now.add(const Duration(seconds: 31));
-    attempted.clear();
-    await run();
-    expect(attempted, contains(NetworkRouteKind.bootstrapNoSni));
+    final first = start();
+    await fetch(first, refused: '210.140.139.133');
+    await fetch(first, refused: '210.140.139.133');
+    await pumpEventQueue();
+    await fetch(start());
+    expect(sent, [
+      'bootstrapNoSni 210.140.139.133',
+      'dohRealSni 1.2.3.4',
+      'bootstrapNoSni 210.140.139.129',
+      'bootstrapNoSni 210.140.139.129',
+    ]);
   });
 
   test('API, OAuth and web never reach the bootstrap tier', () async {
@@ -251,37 +249,6 @@ void main() {
         reason: url,
       );
     }
-  });
-
-  test('only a noSni success teaches the bootstrap tier an address', () async {
-    final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
-
-    Future<void> fetch(String resolved, {required bool noSniWorks}) async {
-      final policy = NetworkAccessPolicy(
-        resolver: StaticSecureResolver(addresses: [InternetAddress(resolved)]),
-        fastRouteStore: store,
-        bootstrapNoSniEnabled: true,
-        clientFactory: (route, _, _) =>
-            route.kind == NetworkRouteKind.noSni && !noSniWorks
-            ? _HandshakeFailingClient()
-            : RecordingClient(),
-      );
-      addTearDown(policy.dispose);
-      await PixivNetworkFactory(policy)
-          .client(PixivDestinationPurpose.image)
-          .get(Uri.parse('https://i.pximg.net/img-master/a.jpg'));
-      await pumpEventQueue();
-    }
-
-    await fetch('1.2.3.4', noSniWorks: true);
-    expect((await store.addressFor('i.pximg.net'))?.address, '1.2.3.4');
-
-    await fetch('1.2.3.5', noSniWorks: false);
-    expect(
-      (await store.addressFor('i.pximg.net'))?.address,
-      '1.2.3.4',
-      reason: 'a DoH answer that failed the empty-SNI handshake is not stored',
-    );
   });
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../logging/crash_log.dart';
 import 'image_demand.dart';
+import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_contracts.dart';
 import 'image_worker_client.dart';
 import 'image_worker_protocol.dart';
@@ -51,6 +52,9 @@ class ImageWorker implements ImageFetcher {
   void Function(String host, String address)? onFastRouteLearned;
   void Function(String identity, String group, String kind)? onRouteKindLearned;
   void Function(String host)? onRouteExhausted;
+  void Function(String identity, ImageRouteSample sample)? onImageRouteSample;
+  void Function(String identity, String candidate, bool served)?
+  onImageRouteRanges;
 
   /// Progress listeners by URL. They outlive any one isolate: a
   /// replacement is told to report every URL still here.
@@ -100,12 +104,17 @@ class ImageWorker implements ImageFetcher {
 
   static const statusTimeout = Duration(seconds: 2);
 
-  /// The routes the running worker's policy uses, by host, for the network
-  /// page. Never starts a worker: none running means no image routes yet.
-  /// A worker that does not answer within [statusTimeout] fails it.
-  Future<Map<String, NetworkRouteKind>> routeSnapshot() async {
+  /// The routes the running worker's policy uses, for the network page.
+  /// Never starts a worker: none running means no image routes yet. A
+  /// worker that does not answer within [statusTimeout] fails it.
+  Future<ImageWorkerRoutes> routeSnapshot() async {
     final client = _live;
-    if (client == null) return const {};
+    if (client == null) {
+      return (
+        hosts: const <String, NetworkRouteKind>{},
+        images: const <ImageRouteStanding>[],
+      );
+    }
     return client.routeSnapshot().timeout(statusTimeout);
   }
 
@@ -215,6 +224,8 @@ class ImageWorker implements ImageFetcher {
       ..onFastRouteLearned = onFastRouteLearned
       ..onRouteKindLearned = onRouteKindLearned
       ..onRouteExhausted = onRouteExhausted
+      ..onImageRouteSample = onImageRouteSample
+      ..onImageRouteRanges = onImageRouteRanges
       ..onProgress = _reportProgress
       ..onDied = (error) {
         _lastFailure = error;

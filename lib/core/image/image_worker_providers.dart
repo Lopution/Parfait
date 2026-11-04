@@ -23,6 +23,7 @@ import 'image_worker_protocol.dart';
 final imageWorkerProvider = Provider<ImageWorker>((ref) {
   final fastRoutes = ref.watch(fastRouteStoreProvider);
   final routeKinds = ref.watch(routeKindStoreProvider);
+  final routeScores = ref.watch(imageRouteScoreStoreProvider);
 
   Future<ImageWorkerConfig> config() async {
     final policy = ref.read(networkAccessPolicyProvider);
@@ -46,6 +47,7 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
           key: value.address,
       },
       routeKinds: await routeKinds.kindsFor(identity) ?? const {},
+      routeScores: await routeScores.scoresFor(identity),
     );
   }
 
@@ -67,6 +69,16 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
         }
         ..onRouteKindLearned = (identity, group, kind) {
           unawaited(routeKinds.remember(identity, group, kind));
+        }
+        ..onImageRouteSample = (identity, sample) {
+          ref
+              .read(networkAccessPolicyProvider)
+              .recordImageRouteSample(identity, sample);
+        }
+        ..onImageRouteRanges = (identity, candidate, served) {
+          ref
+              .read(networkAccessPolicyProvider)
+              .noteImageRouteRanges(identity, candidate, served: served);
         }
         // The main policy owns the auto-source re-race.
         ..onRouteExhausted = (host) {

@@ -69,6 +69,7 @@ const _textPlaceholderKeys = <String, String>{
   'rankingDateLabel': 'formatted date',
   'commentTitleCount': 'compact count (AppFormat.count)',
   'historyEmptyRecordingOff': 'localized setting name',
+  'networkImageRouteScore': 'one-decimal number (AppFormat.decimal)',
 };
 
 const _textTypes = {'String', 'Object'};

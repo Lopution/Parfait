@@ -12,7 +12,9 @@ class FakeClient extends http.BaseClient {
   FakeClient({this.failure, this.statusCode = 200, this.body = '{}'});
 
   final Object? failure;
-  final int statusCode;
+
+  /// The status of every answer from here on.
+  int statusCode;
   final String body;
   final requests = <http.BaseRequest>[];
 
@@ -210,6 +212,21 @@ class KindClient extends http.BaseClient {
       200,
       request: request,
     );
+  }
+}
+
+/// Logs [route]'s address for each send, then sends through [inner].
+class RouteLogClient extends http.BaseClient {
+  RouteLogClient(this.route, this.log, this.inner);
+
+  final NetworkRoute route;
+  final List<String> log;
+  final http.Client inner;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    log.add(route.address?.address ?? route.kind.name);
+    return inner.send(request);
   }
 }
 

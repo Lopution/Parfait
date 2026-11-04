@@ -1264,7 +1264,9 @@ class DownloadManager {
   ) async {
     final url = job.request.url;
     final lastByte = resumeOffset + SegmentedFetch.defaultSegmentBytes - 1;
-    final first = await _transport.open(
+    final pin = ImageRoutePin(resuming: resumeOffset > 0);
+    final first = await _openOn(
+      pin,
       url,
       headers: {...headers, 'Range': 'bytes=$resumeOffset-$lastByte'},
       cancelToken: job.cancelToken,
@@ -1285,6 +1287,7 @@ class DownloadManager {
     final remaining = total - resumeOffset;
     final fetch = SegmentedFetch(
       open: (start, end, {ifRange, required cancel}) => _openRange(
+        pin,
         url,
         headers,
         start,
@@ -1307,6 +1310,7 @@ class DownloadManager {
 
   /// One further segment on its own connection, closed through [cancel].
   Future<RangeResponse> _openRange(
+    ImageRoutePin pin,
     Uri url,
     Map<String, String> headers,
     int start,
@@ -1316,13 +1320,35 @@ class DownloadManager {
   }) async {
     final token = DownloadCancelToken();
     unawaited(cancel.whenCancel.then((_) => token.cancel()));
-    final response = await _transport.open(
+    final response = await _openOn(
+      pin,
       url,
       headers: {...headers, 'Range': 'bytes=$start-$end', 'If-Range': ?ifRange},
       cancelToken: token,
     );
     return _rangeResponse(response);
   }
+
+  /// Opens one range of a transfer on [pin]'s route, where the transport
+  /// routes pixiv's images.
+  Future<DownloadResponse> _openOn(
+    ImageRoutePin pin,
+    Uri url, {
+    required Map<String, String> headers,
+    required DownloadCancelToken cancelToken,
+  }) => switch (_transport) {
+    final RoutedDownloadTransport routed => routed.openOn(
+      url,
+      headers: headers,
+      cancelToken: cancelToken,
+      pin: pin,
+    ),
+    final transport => transport.open(
+      url,
+      headers: headers,
+      cancelToken: cancelToken,
+    ),
+  };
 
   void _checkOwner(_Job job) {
     final snapshot = job.submission;
