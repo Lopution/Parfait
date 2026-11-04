@@ -51,7 +51,13 @@ class SecureCredentialStore implements CredentialStore {
     try {
       return _decode(raw);
     } on FormatException catch (error) {
-      throw CredentialStoreException('read', accountId, error);
+      // A JSON error's toString quotes the stored text, tokens included,
+      // and this exception reaches the crash log (ERR-06): keep only why.
+      throw CredentialStoreException(
+        'read',
+        accountId,
+        FormatException(error.message),
+      );
     }
   }
 
