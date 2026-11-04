@@ -91,13 +91,16 @@ class RangeResponse {
 }
 
 /// Opens bytes [start]..[endInclusive] on a new connection. [ifRange] is the
-/// first response's ETag: a changed file then answers 200, not 206.
+/// first response's ETag: a changed file then answers 200, not 206. A range
+/// started again after a stall or a failure goes [elsewhere] when another
+/// route may serve it ([ImageRoutePin.awayFrom]).
 typedef RangeOpen =
     Future<RangeResponse> Function(
       int start,
       int endInclusive, {
       String? ifRange,
       required NetworkCancelSignal cancel,
+      required bool elsewhere,
     });
 
 /// A segment answered with something other than its own bytes of the same
@@ -131,7 +134,10 @@ class SegmentedFetchCancelled implements Exception {
 /// A segment that streams far slower than the others, or not at all, is
 /// restarted on a new connection from the byte it reached — at most
 /// [maxRestarts] times; after that it is left alone and the transport's own
-/// idle timeout is the last resort. Workers never run more than
+/// idle timeout is the last resort. A restart goes elsewhere, and so does a
+/// range answered with the whole file when it asked without `If-Range`
+/// (the first response had no ETag): that route ignores `Range` for this
+/// file, which is not a sign of another file. Workers never run more than
 /// [maxParallel] segments ahead of the delivered bytes, so at most that many
 /// segments sit in memory.
 ///
@@ -305,6 +311,7 @@ class SegmentedFetch {
 
   Future<void> _fetch(_Segment segment, RangeResponse? opened) async {
     var response = opened;
+    var again = false;
     while (!_closed) {
       final attempt = _Attempt(_clock(), segment.received);
       segment.attempt = attempt;
@@ -317,6 +324,7 @@ class SegmentedFetch {
             to,
             ifRange: _etag,
             cancel: attempt.cancel,
+            elsewhere: again,
           );
           attempt.response = response;
           if (attempt.restartRequested || _closed) throw const _Restart();
@@ -343,20 +351,29 @@ class SegmentedFetch {
         return;
       } on SegmentedFetchMismatch {
         rethrow;
-      } on Object {
+      } on Object catch (error) {
         segment.attempt = null;
         response = null;
         await attempt.abort();
         if (_closed) return;
+        again = true;
         // A requested restart was already counted.
         if (attempt.restartRequested) continue;
-        if (segment.restarts >= maxRestarts) rethrow;
+        if (segment.restarts >= maxRestarts) {
+          if (error case _WholeFile(:final message)) {
+            throw SegmentedFetchMismatch(message);
+          }
+          rethrow;
+        }
         segment.restarts++;
       }
     }
   }
 
   void _validate(RangeResponse response, int from, int to) {
+    if (response.statusCode == 200 && _etag == null) {
+      throw _WholeFile('asked $from-$to/$_total, got the whole file');
+    }
     final range = response.contentRange;
     if (response.statusCode != 206 ||
         range == null ||
@@ -511,6 +528,16 @@ class _Segment {
 
 class _Restart implements Exception {
   const _Restart();
+}
+
+/// A range asked without `If-Range` was answered with the whole file.
+class _WholeFile implements Exception {
+  const _WholeFile(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'SegmentedFetch: $message';
 }
 
 class _SegmentCancel implements NetworkCancelSignal {

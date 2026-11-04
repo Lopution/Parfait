@@ -40,7 +40,7 @@ class _Plan {
   final int shiftRange;
 }
 
-typedef _Request = ({int start, int end, String? ifRange});
+typedef _Request = ({int start, int end, String? ifRange, bool elsewhere});
 
 /// The network boundary: serves byte ranges of [data] from memory, paced in
 /// fake time by a per-request [_Plan].
@@ -69,8 +69,14 @@ class _Server {
     int end, {
     String? ifRange,
     required NetworkCancelSignal cancel,
+    bool elsewhere = false,
   }) async {
-    final request = (start: start, end: end, ifRange: ifRange);
+    final request = (
+      start: start,
+      end: end,
+      ifRange: ifRange,
+      elsewhere: elsewhere,
+    );
     requests.add(request);
     final nth = requests.where((r) => r.start == start).length;
     final plan = this.plan(request, nth);
@@ -264,6 +270,11 @@ void main() {
       expect(server.requests.last.start, 2 * _mib + 128 * 1024);
       async.elapse(const Duration(seconds: 30));
       run.expectComplete();
+      // Only the restart may go to another route.
+      expect(
+        [for (final r in server.requests) r.elsewhere],
+        [false, false, false, true],
+      );
     });
   });
 
@@ -321,12 +332,12 @@ void main() {
   });
 
   for (final (name, plan) in [
-    ('a 200', const _Plan(status: 200)),
+    ('a 200 to If-Range', const _Plan(status: 200)),
     ('a shifted range', const _Plan(shiftRange: 1)),
   ]) {
     test('$name for a segment fails the transfer without a retry', () {
       fakeAsync((async) {
-        final server = _Server(3 * _mib)
+        final server = _Server(3 * _mib, etag: '"abc"')
           ..plan = (r, _) => r.start == 2 * _mib ? plan : _Plan.fast;
         final run = _Run(async, server);
         async.elapse(const Duration(seconds: 30));
@@ -337,6 +348,43 @@ void main() {
       });
     });
   }
+
+  test('a range asked without If-Range and answered with the whole file '
+      'is asked again elsewhere', () {
+    fakeAsync((async) {
+      final server = _Server(3 * _mib)
+        ..plan = (r, nth) => r.start == 2 * _mib && nth == 1
+            ? const _Plan(status: 200)
+            : _Plan.fast;
+      final run = _Run(async, server);
+      async.elapse(const Duration(seconds: 30));
+      run.expectComplete();
+      expect(
+        [
+          for (final r in server.requests)
+            if (r.start == 2 * _mib) r.elsewhere,
+        ],
+        [false, true],
+      );
+    });
+  });
+
+  test('a range answered with the whole file each time fails the transfer', () {
+    fakeAsync((async) {
+      final server = _Server(3 * _mib)
+        ..plan = (r, _) =>
+            r.start == 2 * _mib ? const _Plan(status: 200) : _Plan.fast;
+      final run = _Run(async, server);
+      async.elapse(const Duration(seconds: 30));
+      expect(run.error, isA<SegmentedFetchMismatch>());
+      expect(
+        server.attemptsFor(2 * _mib, _mib),
+        1 + SegmentedFetch.maxRestarts,
+      );
+      expect(server.openConnections, 0);
+      expect(run.budget.inUse, 0);
+    });
+  });
 
   test('cancelling closes every connection and returns the budget', () {
     fakeAsync((async) {

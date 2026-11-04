@@ -463,17 +463,18 @@ class ImageWorkerHost {
       return ((stream: first.stream, length: total), null);
     }
     final segmented = SegmentedFetch(
-      open: (start, end, {ifRange, required cancel}) async =>
-          RangeResponse.fromHttp(
-            await _request(
-              uri,
-              range: (start, end),
-              ifRange: ifRange,
-              abort: cancel.whenCancel,
-              background: background,
-              pin: pin,
-            ),
-          ),
+      open:
+          (start, end, {ifRange, required cancel, required elsewhere}) async =>
+              RangeResponse.fromHttp(
+                await _request(
+                  uri,
+                  range: (start, end),
+                  ifRange: ifRange,
+                  abort: cancel.whenCancel,
+                  background: background,
+                  pin: elsewhere ? ImageRoutePin.awayFrom(pin) : pin,
+                ),
+              ),
       budget: _segmentBudget,
     );
     final body = segmented.continueFrom(
