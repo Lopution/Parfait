@@ -87,9 +87,11 @@ reviewed: 2026-10-29
   translation credentials, request or response bodies, transfer envelopes
   or URLs carrying credentials; log host, status, error type and outcome.
   The same holds for an error that reaches `CrashLog` or a diagnostics
-  copy: the boundary that throws it drops what it quotes (a
-  `FormatException`'s source, a file path).
+  copy. `CrashLog.describe` writes a file error without its path; a
+  boundary that wraps an error into its own text goes through it, and one
+  whose error quotes a secret (a credential's `FormatException` source)
+  drops the quote.
 - **Why:** Debug output is pasted into bug reports. A corrupt stored
   credential's JSON error quoted its tokens (11-04).
-- **Check:** `test/architecture/feedback_channels_test.dart` "diagnostics go through log()", `test/credential_store_test.dart` "a corrupt credential fails without quoting the stored secret"; the rest of the secrets part is manual.
+- **Check:** `test/architecture/feedback_channels_test.dart` "diagnostics go through log()", `test/credential_store_test.dart` "a corrupt credential fails without quoting the stored secret", `test/crash_log_test.dart` "a file error is logged without its path"; the rest of the secrets part is manual.
 - **Code:** `lib/core/log.dart`
