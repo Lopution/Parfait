@@ -29,12 +29,19 @@ reviewed: 2026-10-29
 
 ### ERR-02 Users never see raw exception text
 - **Rule:** Visible failure copy is a localized category or a hand-written
-  message; the technical text lives behind `ErrorDetails` or in `CrashLog`.
-  The scanner's allowlist holds only surfaces whose purpose is diagnostic.
+  message; the technical text goes to `CrashLog` and never shows, not even
+  behind a tap. A surface that shows an error records it with
+  `FailureReport` (once per error object); a download failure is recorded
+  by `DownloadManager` when the task fails, not by its row. The startup
+  and sign-in errors, which come before 关于 and its log export, add
+  `CopyDiagnosticsButton`. The scanner's allowlist holds only surfaces
+  whose purpose is diagnostic.
 - **Why:** Raw `toString()` output leaked hosts, status bodies and Dart
-  type names into SnackBars.
-- **Check:** `test/architecture/raw_error_text_test.dart` "no raw error text reaches user-facing surfaces"
-- **Code:** `lib/app/widgets/errors/error_details.dart`
+  type names into SnackBars. The "详情" disclosure that replaced it still
+  showed users stack-like text and broke the download row's layout
+  (11-04).
+- **Check:** `test/architecture/raw_error_text_test.dart` "no raw error text reaches user-facing surfaces", `test/error_details_test.dart` "records an error once however often it is mounted", `test/download_manager_test.dart` "failure aborts the sink, logs the error once and retry re-enqueues"
+- **Code:** `lib/app/widgets/errors/error_details.dart`, `lib/core/download/download_manager.dart`
 
 ### ERR-03 One classifier, one error SnackBar
 - **Rule:** `categorizeError` and `categorizeDownloadFailure` in
@@ -64,8 +71,7 @@ reviewed: 2026-10-29
 
 ### ERR-05 Localized copy never interpolates a diagnostic
 - **Rule:** An arb message takes no `{error}`/`{reason}`-style text
-  placeholder carrying diagnostics; pass those to `ErrorDetails` or
-  `CrashLog`. Any text placeholder is allow-listed with a reason. Every arb
+  placeholder carrying diagnostics; those go to `CrashLog` (ERR-02). Any text placeholder is allow-listed with a reason. Every arb
   key is defined once. When a headline already names the problem, omit the
   category sentence under it.
 - **Why:** Placeholders smuggled raw errors past ERR-02; a duplicated key
