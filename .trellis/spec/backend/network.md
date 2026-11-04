@@ -136,8 +136,8 @@ reviewed: 2026-10-29
   next idle sample probes the rest of the same answer without asking
   again. The origin book of each image host is the address served last,
   the kept ones, then the built-in ten. A kept address that fails three
-  loads (a refusal, a broken body or a 5xx) without a whole image
-  between is skipped for a day or until the
+  loads (a refusal, a broken body or a 5xx) without a whole response
+  body between (a range's counts) is skipped for a day or until the
   network changes, across new books a refresh makes; a built-in one never
   is. Results reach the main isolate's
   fast-route store like learned routes (NET-12).

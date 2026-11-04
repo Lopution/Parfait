@@ -557,7 +557,8 @@ class NetworkAccessPolicy {
     }
   }
 
-  /// A whole image body loaded: an origin address is healthy again.
+  /// A whole response body loaded (a range's counts: the address served
+  /// that request): an origin address is healthy again.
   void _imageRouteLoaded(String host, NetworkRoute route) {
     final address = route.address;
     if (route.kind == NetworkRouteKind.bootstrapNoSni && address != null) {
