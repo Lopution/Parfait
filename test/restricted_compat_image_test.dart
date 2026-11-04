@@ -932,6 +932,70 @@ void main() {
         expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81', '1.2.3.81']);
       });
 
+      test('a second send goes to a candidate the first did not use, and '
+          'finds none once every one was', () async {
+        final sent = <String>[];
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          clientFactory: (route, _, _) =>
+              RouteLogClient(route, sent, FakeClient()),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
+        Future<void> get(ImageRouteTrack track) async => (await client.send(
+          ImageRequest('GET', uri, track: track),
+        )).stream.drain<void>();
+
+        final first = ImageRouteTrack();
+        await get(first);
+        final second = ImageRouteTrack(avoid: first.sent);
+        await get(second);
+        await expectLater(
+          get(ImageRouteTrack(avoid: {...first.sent, ...second.sent})),
+          throwsA(isA<NoOtherImageRoute>()),
+        );
+        expect(sent, ['1.2.3.81', '162.159.152.4']);
+        expect(
+          [...first.sent, ...second.sent],
+          ['ech:1.2.3.81', 'ech:162.159.152.4'],
+        );
+      });
+
+      test('a restarted range goes to another candidate that serves ranges, '
+          'else back to its own', () async {
+        final sent = <String>[];
+        final policy = NetworkAccessPolicy(
+          resolver: FakeEchResolver(
+            [InternetAddress('1.2.3.80')],
+            frontAddresses: [InternetAddress('1.2.3.81')],
+          ),
+          clientFactory: (route, _, _) => RouteLogClient(
+            route,
+            sent,
+            FakeClient(
+              statusCode: route.address?.address == '1.2.3.81' ? 206 : 200,
+            ),
+          ),
+        );
+        final client = _imageClient(policy);
+        final uri = Uri.parse('https://i.pximg.net/img-original/img/x_p0.png');
+        Future<void> get(ImageRoutePin pin, String range) async {
+          final request = ImageRequest('GET', uri, pin: pin)
+            ..headers['range'] = range;
+          await (await client.send(request)).stream.drain<void>();
+        }
+
+        final pin = ImageRoutePin();
+        await get(pin, 'bytes=0-99');
+        // The seed front answers the range with the whole file.
+        await get(ImageRoutePin.awayFrom(pin), 'bytes=100-199');
+        await get(ImageRoutePin.awayFrom(pin), 'bytes=100-199');
+        expect(sent, ['1.2.3.81', '162.159.152.4', '1.2.3.81']);
+      });
+
       test('a network starts on the route that served it last time', () async {
         installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
         final sent = <String>[];

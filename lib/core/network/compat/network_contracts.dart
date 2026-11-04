@@ -322,15 +322,68 @@ class NetworkRoute {
 /// request goes where the ladder sends it and sets [route]; every later one
 /// goes there only, and a failure there is its own.
 class ImageRoutePin {
-  ImageRoutePin({this.resuming = false});
+  ImageRoutePin({this.resuming = false}) : away = null;
+
+  /// A range of [pin]'s transfer started again after a stall or a failure:
+  /// it goes to the best other candidate that serves ranges, and to
+  /// [pin]'s route only when there is none.
+  ImageRoutePin.awayFrom(ImageRoutePin pin)
+    : resuming = false,
+      away = pin.route;
 
   /// The first range continues bytes an earlier transfer kept: it avoids
   /// the route candidates that answered a `Range` with the whole file.
   final bool resuming;
 
+  /// The route a restarted range tries last.
+  final String? away;
+
   /// The route candidate, or the fallback tier's kind, that answered the
   /// first request.
   String? route;
+}
+
+/// When a transfer from pixiv's image hosts has stalled, and what is done
+/// about it. A healthy route sends its headers within about 2 s (p90) and
+/// leaves at most 1.3 s between body chunks (p99); a bad one stalls for
+/// good or crawls with gaps of 2–8 s.
+abstract final class ImageStall {
+  /// No response headers for this long.
+  static const headers = Duration(milliseconds: 2500);
+
+  /// No body bytes for this long.
+  static const body = Duration(seconds: 2);
+
+  /// Hedges, a stalled visible image sent once more over another route,
+  /// running at once in one image worker.
+  static const hedges = 3;
+
+  /// The largest body a hedge holds in memory; only originals are larger,
+  /// and they restart their ranges instead.
+  static const hedgeBytes = 8 << 20;
+}
+
+/// Follows one pixiv image request that may be sent twice
+/// ([ImageStall]): the route candidates it went out on, and those it keeps
+/// off. A request that [avoid]s some tries only the other candidates, never
+/// a fallback tier, and fails with [NoOtherImageRoute] when none is left.
+/// Mirrors have no candidates: their requests leave [sent] empty.
+class ImageRouteTrack {
+  ImageRouteTrack({this.avoid = const {}});
+
+  final Set<String> avoid;
+
+  /// The candidates, or fallback tiers by kind name, the request was sent
+  /// on, in order.
+  final sent = <String>{};
+}
+
+/// A request that [ImageRouteTrack.avoid]s candidates found no other.
+class NoOtherImageRoute implements Exception {
+  const NoOtherImageRoute();
+
+  @override
+  String toString() => 'NoOtherImageRoute';
 }
 
 class NetworkFailure {
