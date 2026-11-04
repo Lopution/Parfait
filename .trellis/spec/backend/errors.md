@@ -86,6 +86,10 @@ reviewed: 2026-10-29
   `print`/`debugPrint` and no `log` from `dart:developer`. Never log tokens, cookies, secure-storage payloads,
   translation credentials, request or response bodies, transfer envelopes
   or URLs carrying credentials; log host, status, error type and outcome.
-- **Why:** Debug output is pasted into bug reports.
-- **Check:** `test/architecture/feedback_channels_test.dart` "diagnostics go through log()"; the secrets part is manual.
+  The same holds for an error that reaches `CrashLog` or a diagnostics
+  copy: the boundary that throws it drops what it quotes (a
+  `FormatException`'s source, a file path).
+- **Why:** Debug output is pasted into bug reports. A corrupt stored
+  credential's JSON error quoted its tokens (11-04).
+- **Check:** `test/architecture/feedback_channels_test.dart` "diagnostics go through log()", `test/credential_store_test.dart` "a corrupt credential fails without quoting the stored secret"; the rest of the secrets part is manual.
 - **Code:** `lib/core/log.dart`
