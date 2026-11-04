@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:http/testing.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
+import 'package:parfait/core/logging/crash_log.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_request.dart';
@@ -393,8 +394,13 @@ void main() {
     });
 
     test(
-      'failure aborts the sink, surfaces error and retry re-enqueues',
+      'failure aborts the sink, logs the error once and retry re-enqueues',
       () async {
+        final dir = Directory.systemTemp.createTempSync('download_failure_');
+        addTearDown(() => dir.delete(recursive: true));
+        final log = File('${dir.path}/crash.log');
+        CrashLog.useFile(log);
+        addTearDown(() => CrashLog.useFile(null));
         final transport = FakeTransport();
         transport.responses.add(ScriptedResponse(error: Exception('boom')));
         transport.responses.add(
@@ -417,6 +423,12 @@ void main() {
         expect(failed.status, DownloadStatus.failed);
         expect(failed.error, isNotNull);
         expect(sinks.sinks.single.aborted, isTrue);
+        // ERR-02: the row shows a localized reason; the raw error is in
+        // the crash log, written once by the manager, not by each row.
+        await CrashLog.pending;
+        final logged = log.readAsStringSync();
+        expect('reported: download 42'.allMatches(logged).length, 1);
+        expect(logged, contains('Exception: boom'));
 
         final retried = manager.retry(failed.id);
         expect(retried, isNotNull);

@@ -5,6 +5,7 @@ library;
 
 import 'dart:async';
 import '../log.dart';
+import '../logging/crash_log.dart';
 import '../network/pixiv_headers.dart';
 import 'dart:io';
 import 'dart:math' show Random;
@@ -1118,8 +1119,14 @@ class DownloadManager {
         failureKind: DownloadFailureKind.ownership,
       ),
     );
+    _reportFailure(job);
     _complete(job, DownloadEvent.orphaned(job.snapshot, job.snapshot.error));
   }
+
+  /// The raw error of a task that just failed goes to the crash log
+  /// (ERR-02): its row shows only the localized reason.
+  void _reportFailure(_Job job) =>
+      CrashLog.report('download ${job.snapshot.illustId}', job.snapshot.error!);
 
   Future<void> _handleGenericFailure(
     _Job job,
@@ -1165,6 +1172,7 @@ class DownloadManager {
           retryAfter: _retryAfterFromError(error),
         ),
       );
+      _reportFailure(job);
       _complete(job, DownloadEvent.failed(job.snapshot, job.snapshot.error));
     }
   }
