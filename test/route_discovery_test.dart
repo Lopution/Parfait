@@ -571,6 +571,42 @@ void main() {
       expect(resolver.calls, 1);
     });
 
+    test('a visible image arriving mid-refresh stops it before the next '
+        'probe; the next idle sample finishes it', () async {
+      installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
+      final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
+      final second = InternetAddress('210.140.139.203');
+      final probed = <String>[];
+      final policy = NetworkAccessPolicy(
+        resolver: FakeResolver([served, second], source: DnsSource.doh),
+        bootstrapNoSniEnabled: true,
+        fastRouteStore: store,
+        clientFactory: (route, _, _) =>
+            RouteLogClient(route, probed, FakeClient(body: 'jpg')),
+      );
+      addTearDown(policy.dispose);
+      final refresh = OriginRefresh(
+        policy,
+        // The first probe's image is seen; then a visible image waits.
+        idle: () => probed.length != 1,
+        image: () => _thumbnail,
+      )..noteSample('unicom', sample);
+      await refresh.settled;
+      expect(probed, [served.address]);
+      expect((await store.provenOrigins())!.addresses.map((a) => a.address), [
+        served.address,
+      ]);
+
+      probed.add('visible image done');
+      refresh.noteSample('unicom', sample);
+      await refresh.settled;
+      expect(probed.last, second.address);
+      expect((await store.provenOrigins())!.addresses.map((a) => a.address), [
+        served.address,
+        second.address,
+      ]);
+    });
+
     test('a proven address from a new worker\'s config is tried after the '
         'last served one, and is skipped once it fails three loads in a '
         'row; a built-in one never is', () async {

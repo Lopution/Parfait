@@ -21,8 +21,10 @@ import 'proven_origins.dart';
 /// are.
 ///
 /// It runs in the image worker, on an image sample, only while no visible
-/// image waits for a lane ([idle]). A DNS lookup that fails counts as the
-/// day's ask: mainland networks often block DoH.
+/// image waits for a lane ([idle]); one that arrives mid-refresh stops it
+/// before the next probe, and the next idle sample finishes it. A DNS
+/// lookup that fails counts as the day's ask: mainland networks often
+/// block DoH.
 class OriginRefresh {
   OriginRefresh(
     this._policy, {
@@ -93,11 +95,16 @@ class OriginRefresh {
         if (namedSet.contains(address.address)) address,
     ];
     final keptSet = {for (final address in kept) address.address};
+    var interrupted = false;
     for (final address in named) {
       if (_closed || kept.length >= maxAddresses) break;
       if (builtIn.contains(address.address) ||
           keptSet.contains(address.address)) {
         continue;
+      }
+      if (!_idle()) {
+        interrupted = true;
+        break;
       }
       if (await _proves(address)) {
         kept.add(address);
@@ -105,6 +112,19 @@ class OriginRefresh {
       }
     }
     if (_closed) return;
+    if (interrupted) {
+      // A visible image is waiting: what is proven is kept, and the next
+      // idle sample asks again for the rest.
+      _nextAsk = null;
+      _policy.rememberProvenOrigins(
+        ProvenOrigins(
+          kept,
+          refreshedAt:
+              known?.refreshedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+      );
+      return;
+    }
     _policy.rememberProvenOrigins(ProvenOrigins(kept, refreshedAt: now));
   }
 
