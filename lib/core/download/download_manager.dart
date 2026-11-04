@@ -13,7 +13,7 @@ import 'dart:math' show Random;
 import 'package:flutter/services.dart' show PlatformException;
 
 import '../network/compat/network_contracts.dart';
-import '../network/compat/segmented_fetch.dart';
+import '../network/compat/continued_fetch.dart';
 import '../platform/android_platform_interfaces.dart';
 import 'download_destination.dart';
 import 'download_request.dart';
@@ -24,10 +24,6 @@ import 'pixiv_download_transport.dart';
 
 /// Per-task progress snapshot emission interval (R5 throttle).
 const Duration _kProgressThrottle = Duration(milliseconds: 200);
-
-/// Below this many remaining bytes a download continues on one connection
-/// after its first segment.
-const int _kParallelMinRemaining = 2 << 20;
 
 typedef DownloadSubmissionContextProvider =
     DownloadSubmissionContext? Function();
@@ -49,7 +45,7 @@ class DownloadManager {
     this.requireOwnedSubmissions = false,
     this.enforceDefaultDestination = true,
     this.cacheLookup,
-    this.segmentBudget,
+    this.continueStalls = false,
     DateTime Function()? now,
   }) : _transport = transport,
        _sinkFactory = sinkFactory,
@@ -67,10 +63,10 @@ class DownloadManager {
   /// to the transport — the lookup must never make a download worse.
   final Future<File?> Function(Uri url)? cacheLookup;
 
-  /// Extra connections for fetching one file in parallel byte ranges,
-  /// shared by the main isolate's transfers (the image worker keeps its
-  /// own). Null keeps every download on a single connection.
-  final SegmentBudget? segmentBudget;
+  /// Whether a download whose body stops continues from the received byte
+  /// on a new connection ([ContinuedFetch]). Off, a download is one plain
+  /// request and a stall waits for the transport's idle timeout.
+  final bool continueStalls;
   final Duration progressThrottle;
   final DownloadSubmissionContextProvider? _submissionContext;
   final DownloadRecoveryStore _recoveryStore;
@@ -1007,9 +1003,6 @@ class DownloadManager {
     );
 
     var received = resumeOffset;
-    // Parallel ranges arrive ahead of the in-order bytes the sink takes;
-    // counting only the sink would make progress jump a segment at a time.
-    final segmented = response is _SegmentedDownloadResponse ? response : null;
     var lastEmit = _now();
     await for (final chunk in response.stream) {
       if (job.cancelToken.isCancelled) {
@@ -1021,10 +1014,7 @@ class DownloadManager {
       final now = _now();
       if (now.difference(lastEmit) >= progressThrottle) {
         lastEmit = now;
-        final shown = segmented == null
-            ? received
-            : resumeOffset + segmented.fetchedBytes;
-        _update(job, job.snapshot.copyWith(receivedBytes: shown));
+        _update(job, job.snapshot.copyWith(receivedBytes: received));
       }
     }
     _update(job, job.snapshot.copyWith(receivedBytes: received));
@@ -1246,10 +1236,7 @@ class DownloadManager {
       }
     }
     final headers = PixivHeaders.image(userAgent: true);
-    final budget = segmentBudget;
-    if (budget != null) {
-      return _openSegmented(job, resumeOffset, headers, budget);
-    }
+    if (continueStalls) return _openContinued(job, resumeOffset, headers);
     if (resumeOffset > 0) {
       headers['Range'] = 'bytes=$resumeOffset-';
     }
@@ -1260,23 +1247,21 @@ class DownloadManager {
     );
   }
 
-  /// Asks for one segment from [resumeOffset]. A sized 206 continues in
-  /// parallel ranges; any other status goes back to [_run] unchanged, so a
-  /// server ignoring `Range` (200) or rejecting it (416) keeps its existing
+  /// Asks for the file from [resumeOffset]. A sized 206 is continued when
+  /// it stalls; any other status goes back to [_run] unchanged, so a server
+  /// ignoring `Range` (200) or rejecting it (416) keeps its existing
   /// handling.
-  Future<DownloadResponse> _openSegmented(
+  Future<DownloadResponse> _openContinued(
     _Job job,
     int resumeOffset,
     Map<String, String> headers,
-    SegmentBudget budget,
   ) async {
     final url = job.request.url;
-    final lastByte = resumeOffset + SegmentedFetch.defaultSegmentBytes - 1;
     final pin = ImageRoutePin(resuming: resumeOffset > 0);
     final first = await _openOn(
       pin,
       url,
-      headers: {...headers, 'Range': 'bytes=$resumeOffset-$lastByte'},
+      headers: {...headers, 'Range': 'bytes=$resumeOffset-'},
       cancelToken: job.cancelToken,
     );
     if (first.statusCode != 206) return first;
@@ -1287,43 +1272,37 @@ class DownloadManager {
       // Without the file size, or from another offset, these bytes cannot
       // be continued or appended.
       await firstRange.close().catchError((Object _) {});
-      throw SegmentedFetchMismatch(
-        'asked bytes=$resumeOffset-$lastByte, got '
+      throw ContinuedFetchMismatch(
+        'asked bytes=$resumeOffset-, got '
         '${firstRange.headers['content-range']}',
       );
     }
-    final remaining = total - resumeOffset;
-    final fetch = SegmentedFetch(
-      open: (start, end, {ifRange, required cancel, required elsewhere}) =>
-          _openRange(
+    final fetch = ContinuedFetch(
+      open: (start, {ifRange, required cancel, required elsewhere}) =>
+          _openRest(
             elsewhere ? ImageRoutePin.awayFrom(pin) : pin,
             url,
             headers,
             start,
-            end,
             ifRange: ifRange,
             cancel: cancel,
           ),
-      budget: budget,
-      maxParallel: remaining >= _kParallelMinRemaining
-          ? SegmentedFetch.defaultParallel
-          : 1,
     );
-    return _SegmentedDownloadResponse(
+    return _ContinuedDownloadResponse(
       fetch,
       firstRange,
-      contentLength: remaining,
+      contentLength: total - resumeOffset,
       cancel: job.cancelToken,
     );
   }
 
-  /// One further segment on its own connection, closed through [cancel].
-  Future<RangeResponse> _openRange(
+  /// The file from [start] to its end on a new connection, closed through
+  /// [cancel].
+  Future<RangeResponse> _openRest(
     ImageRoutePin pin,
     Uri url,
     Map<String, String> headers,
-    int start,
-    int end, {
+    int start, {
     String? ifRange,
     required NetworkCancelSignal cancel,
   }) async {
@@ -1332,13 +1311,13 @@ class DownloadManager {
     final response = await _openOn(
       pin,
       url,
-      headers: {...headers, 'Range': 'bytes=$start-$end', 'If-Range': ?ifRange},
+      headers: {...headers, 'Range': 'bytes=$start-', 'If-Range': ?ifRange},
       cancelToken: token,
     );
     return _rangeResponse(response);
   }
 
-  /// Opens one range of a transfer on [pin]'s route, where the transport
+  /// Opens one request of a transfer on [pin]'s route, where the transport
   /// routes pixiv's images.
   Future<DownloadResponse> _openOn(
     ImageRoutePin pin,
@@ -1955,12 +1934,12 @@ RangeResponse _rangeResponse(DownloadResponse response) => RangeResponse(
   close: response.close,
 );
 
-/// A sized 206 continued in parallel ranges. It reads like one 206 for the
-/// rest of the file: [contentLength] counts from the resume offset to the
-/// end and [headers] are the first segment's.
-class _SegmentedDownloadResponse
+/// A sized 206 continued when it stalls. It reads like one 206 for the rest
+/// of the file: [contentLength] counts from the resume offset to the end
+/// and [headers] are the first response's.
+class _ContinuedDownloadResponse
     implements DownloadResponse, DownloadResponseMetadata {
-  _SegmentedDownloadResponse(
+  _ContinuedDownloadResponse(
     this._fetch,
     RangeResponse first, {
     required this.contentLength,
@@ -1970,10 +1949,10 @@ class _SegmentedDownloadResponse
            .continueFrom(first, cancel: cancel)
            .handleError(
              (Object _) => throw const DownloadCancelledException(),
-             test: (error) => error is SegmentedFetchCancelled,
+             test: (error) => error is ContinuedFetchCancelled,
            );
 
-  final SegmentedFetch _fetch;
+  final ContinuedFetch _fetch;
 
   @override
   int get statusCode => 206;
@@ -1986,9 +1965,6 @@ class _SegmentedDownloadResponse
 
   @override
   final Stream<List<int>> stream;
-
-  /// Bytes received so far, including segments not yet in the sink.
-  int get fetchedBytes => _fetch.fetchedBytes;
 
   @override
   Future<void> close() async => _fetch.close();

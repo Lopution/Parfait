@@ -61,7 +61,7 @@ class RangeServingClient extends http.BaseClient {
   final _held = <(StreamController<List<int>>, Uint8List)>[];
 
   static const _chunk = 64 * 1024;
-  static final _rangePattern = RegExp(r'^bytes=(\d+)-(\d+)$');
+  static final _rangePattern = RegExp(r'^bytes=(\d+)-(\d*)$');
 
   List<String> get urls => [for (final r in requests) r.url.toString()];
   List<String?> get ranges => [for (final r in requests) r.headers['range']];
@@ -84,7 +84,10 @@ class RangeServingClient extends http.BaseClient {
       );
     }
     final start = int.parse(range.group(1)!);
-    final last = math.min(int.parse(range.group(2)!), data.length - 1);
+    final end = range.group(2)!;
+    final last = end.isEmpty
+        ? data.length - 1
+        : math.min(int.parse(end), data.length - 1);
     final slice = Uint8List.sublistView(data, start, last + 1);
     return http.StreamedResponse(
       _body(slice),

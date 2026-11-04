@@ -17,7 +17,6 @@ import 'network_policy.dart';
 import 'network_fast_route_store.dart';
 import 'image_route_score_store.dart';
 import 'route_kind_store.dart';
-import 'segmented_fetch.dart';
 
 /// App-scoped network policy. Every native Pixiv API/OAuth/image/download
 /// consumer receives this same revision and diagnostics owner.
@@ -188,11 +187,6 @@ final imageRouteScoreStoreProvider = Provider<ImageRouteScoreStore>((ref) {
   ref.onDispose(() => unawaited(store.flush()));
   return store;
 });
-
-/// Extra connections for the main isolate's segmented transfers, which are
-/// downloads (the image worker keeps its own). Outlives download manager
-/// rebuilds so the cap stays app-wide.
-final segmentBudgetProvider = Provider<SegmentBudget>((ref) => SegmentBudget());
 
 final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {
   return PixivNetworkFactory(

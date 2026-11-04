@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:meta/meta.dart';
 
 import '../network/compat/network_contracts.dart';
-import '../network/compat/segmented_fetch.dart' show SegmentBudget;
 import 'image_fetch_scheduler.dart' show ImageFlight;
 
 /// Sends the GET once on [track], aborted when [abort] completes. A [hedge]
@@ -15,6 +15,28 @@ typedef HedgeSend =
       Future<void> abort, {
       required bool hedge,
     });
+
+/// Hedges running at once in one image worker ([ImageStall.hedges]).
+class HedgeBudget {
+  HedgeBudget({required this.limit});
+
+  final int limit;
+  var _inUse = 0;
+
+  @visibleForTesting
+  int get inUse => _inUse;
+
+  bool tryAcquire() {
+    if (_inUse >= limit) return false;
+    _inUse++;
+    return true;
+  }
+
+  void release() {
+    assert(_inUse > 0, 'HedgeBudget released more than acquired');
+    _inUse--;
+  }
+}
 
 /// One whole-body image GET (not an original) that, when its route stalls
 /// while someone looks at the image, is sent once more over another route;
@@ -32,7 +54,7 @@ typedef HedgeSend =
 class HedgedImageFetch<T> {
   HedgedImageFetch({
     required ImageFlight flight,
-    required SegmentBudget budget,
+    required HedgeBudget budget,
     required HedgeSend send,
     required Object Function(int statusCode) statusError,
     required Future<T> Function(Stream<List<int>> body, int? length) store,
@@ -47,7 +69,7 @@ class HedgedImageFetch<T> {
        _timer = timer ?? _rootTimer;
 
   final ImageFlight _flight;
-  final SegmentBudget _budget;
+  final HedgeBudget _budget;
   final HedgeSend _send;
   final Object Function(int statusCode) _statusError;
   final Future<T> Function(Stream<List<int>> body, int? length) _store;

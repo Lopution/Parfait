@@ -11,7 +11,7 @@ import '../network/compat/network_contracts.dart';
 import '../network/compat/network_policy.dart';
 import '../network/compat/origin_refresh.dart';
 import '../network/compat/pixiv_network_factory.dart';
-import '../network/compat/segmented_fetch.dart';
+import '../network/compat/continued_fetch.dart';
 import '../network/pixiv_headers.dart';
 import '../settings/image_mirror.dart';
 import 'disk_image_cache.dart';
@@ -132,21 +132,15 @@ class ImageWorkerHost {
   /// URLs whose download progress the main isolate shows.
   final _watched = <String>{};
 
-  /// Extra connections for originals fetched in parallel ranges. The
-  /// worker's own: a permit never crosses the isolate boundary. Three
-  /// fill one original's [SegmentedFetch.defaultParallel] — the viewer
-  /// usually fetches one at a time. Downloads keep their own budget.
-  final _segmentBudget = SegmentBudget(limit: segmentLimit);
-  static const segmentLimit = 3;
-
-  /// Path marker of full-size originals, the only images worth splitting.
-  static const _segmentedPath = '/img-original/';
+  /// Path marker of full-size originals, the only images continued from
+  /// their received byte (others are hedged).
+  static const _originalPath = '/img-original/';
 
   /// Stalled visible images sent once more over another route.
-  final _hedgeBudget = SegmentBudget(limit: ImageStall.hedges);
+  final _hedgeBudget = HedgeBudget(limit: ImageStall.hedges);
 
-  /// Transfers in parallel ranges still running; [close] ends them.
-  final _segmentedFetches = <SegmentedFetch>{};
+  /// Continued transfers still running; [close] ends them.
+  final _continuedFetches = <ContinuedFetch>{};
 
   NetworkAccessPolicy? _policy;
 
@@ -397,7 +391,7 @@ class ImageWorkerHost {
   /// megabytes each, while a thumbnail is done in a moment and a restart
   /// would cost it a new connection.
   static bool _isOriginal(String url) =>
-      Uri.parse(url).path.contains(_segmentedPath);
+      Uri.parse(url).path.contains(_originalPath);
 
   /// The admitted-flight body: [_download], sent once more when the
   /// network changed under it. The change closed the pools it was using,
@@ -416,8 +410,8 @@ class ImageWorkerHost {
     }
   }
 
-  /// One policy GET (a stalled one perhaps twice; an original: its
-  /// ranges), then an atomic commit into the cache. The [flight]'s cancel
+  /// One policy GET (a stalled one perhaps twice; an original: continued
+  /// from its received byte when it stalls), then an atomic commit into the cache. The [flight]'s cancel
   /// ends every request of the transfer, and the partial file is deleted.
   /// A [background] transfer is a prefetch.
   Future<(File, int)> _download(
@@ -453,12 +447,12 @@ class ImageWorkerHost {
         progress: _progressOf(url),
       ).run();
     }
-    final (body, segmented) = await _openInRanges(
+    final (body, continued) = await _openContinued(
       uri,
       flight,
       background: background,
     );
-    if (segmented != null) _segmentedFetches.add(segmented);
+    if (continued != null) _continuedFetches.add(continued);
     try {
       final file = await _cache.store(
         url,
@@ -467,16 +461,16 @@ class ImageWorkerHost {
       );
       return (file, body.length ?? await file.length());
     } finally {
-      _segmentedFetches.remove(segmented);
+      _continuedFetches.remove(continued);
     }
   }
 
-  /// An original file: its first range, then the rest in parallel ranges
-  /// when the server answers a sized 206 from byte 0, all on the route of
-  /// the first. A 200 (`Range` ignored) is the whole file; anything else
-  /// fails like any image. The worker sends no conditional headers, so
-  /// every range asks the same.
-  Future<(_Body, SegmentedFetch?)> _openInRanges(
+  /// An original file, asked from byte 0 as a range: a sized 206 is
+  /// continued from its received byte when it stalls, on the route of the
+  /// first request unless it moves away ([ContinuedFetch]). A 200 (`Range`
+  /// ignored) is the whole file, read as it comes; anything else fails like
+  /// any image.
+  Future<(_Body, ContinuedFetch?)> _openContinued(
     Uri uri,
     NetworkCancelSignal cancel, {
     required bool background,
@@ -484,7 +478,7 @@ class ImageWorkerHost {
     final pin = ImageRoutePin();
     final first = await _request(
       uri,
-      range: (0, SegmentedFetch.defaultSegmentBytes - 1),
+      from: 0,
       abort: cancel.whenCancel,
       background: background,
       pin: pin,
@@ -497,34 +491,29 @@ class ImageWorkerHost {
         total == null) {
       return (await _wholeBody(first, uri), null);
     }
-    if (range.end + 1 >= total) {
-      return ((stream: first.stream, length: total), null);
-    }
-    final segmented = SegmentedFetch(
-      open:
-          (start, end, {ifRange, required cancel, required elsewhere}) async =>
-              RangeResponse.fromHttp(
-                await _request(
-                  uri,
-                  range: (start, end),
-                  ifRange: ifRange,
-                  abort: cancel.whenCancel,
-                  background: background,
-                  pin: elsewhere ? ImageRoutePin.awayFrom(pin) : pin,
-                ),
-              ),
-      budget: _segmentBudget,
+    final continued = ContinuedFetch(
+      open: (start, {ifRange, required cancel, required elsewhere}) async =>
+          RangeResponse.fromHttp(
+            await _request(
+              uri,
+              from: start,
+              ifRange: ifRange,
+              abort: cancel.whenCancel,
+              background: background,
+              pin: elsewhere ? ImageRoutePin.awayFrom(pin) : pin,
+            ),
+          ),
     );
-    final body = segmented.continueFrom(
+    final body = continued.continueFrom(
       RangeResponse.fromHttp(first),
       cancel: cancel,
     );
-    return ((stream: body, length: total), segmented);
+    return ((stream: body, length: total), continued);
   }
 
   Future<http.StreamedResponse> _request(
     Uri uri, {
-    (int, int)? range,
+    int? from,
     String? ifRange,
     required Future<void> abort,
     required bool background,
@@ -539,9 +528,7 @@ class ImageWorkerHost {
       pin: pin,
       track: track,
     )..headers.addAll(PixivHeaders.image());
-    if (range case (final start, final end)) {
-      request.headers['range'] = 'bytes=$start-$end';
-    }
+    if (from != null) request.headers['range'] = 'bytes=$from-';
     if (ifRange != null) request.headers['if-range'] = ifRange;
     return _imageClient!.send(request);
   }
@@ -605,8 +592,8 @@ class ImageWorkerHost {
     _inbox.close();
     _discovery?.close();
     _originRefresh?.close();
-    for (final segmented in List.of(_segmentedFetches)) {
-      segmented.close();
+    for (final continued in List.of(_continuedFetches)) {
+      continued.close();
     }
     await _policy?.dispose();
   }
