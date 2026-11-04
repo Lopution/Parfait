@@ -79,8 +79,8 @@ reviewed: 2026-10-29
 - **Rule:** Pixiv's image hosts have route candidates: `ech:<front>` for
   up to four Cloudflare fronts (NET-20), and `origin`, pixiv's image
   origin at the host's current
-  address (ten built in; a failed one gives way to the next, a served one
-  is persisted). A request tries each once, cheapest expected cost first,
+  address (ten built in, plus those NET-21 proves; a failed one gives way
+  to the next, a served one is persisted). A request tries each once, cheapest expected cost first,
   then `dohRealSni` and `direct`. Costs come from the image bodies:
   seconds per 100 KB; 12 s for a stall, a failure or a 5xx. A request
   given up is a stall after 2.5 s without headers or 2 s without body
@@ -123,6 +123,25 @@ reviewed: 2026-10-29
   image.
 - **Check:** `test/route_discovery_test.dart` "a run keeps the two fronts that beat the hints or add a colo, " "a front worse than the best other for a day is dropped; a better " "a discovery survives a restart and seeds a new worker" "the sample spreads over Cloudflare" "a run is due"
 - **Code:** `lib/core/network/compat/front_discovery.dart`, `lib/core/network/compat/image_route_discovery.dart`, `lib/core/image/image_worker_host.dart`
+
+### NET-21 Pixiv's origin addresses follow encrypted DNS
+- **Rule:** At most once a day, on an image sample while no visible
+  image waits, the image worker's `OriginRefresh` asks the policy's DoH
+  resolver for `i.pximg.net` (never system DNS). Each public address it
+  names beyond the built-in ten and those already proven gets one image
+  GET over the empty-SNI route, 10 s, certificates verified; those that
+  answer 200 with a body are kept (at most ten), and a kept address DNS
+  no longer names is dropped. A failed lookup counts as the day's ask. The
+  origin book of each image host is the address served last, the kept
+  ones, then the built-in ten. A kept address that fails three loads
+  without a success between is skipped for a day or until the network
+  changes; a built-in one never is. Results reach the main isolate's
+  fast-route store like learned routes (NET-12).
+- **Why:** Pixiv's image addresses change without a release; mainland
+  resolvers poison them, so only encrypted DNS is asked and every
+  address is proven before it is used.
+- **Check:** `test/route_discovery_test.dart` "it keeps the address DNS names that serves an image, ignores " "a proven address from a new worker" "the worker sends its proven origins home, and a config sent "
+- **Code:** `lib/core/network/compat/origin_refresh.dart`, `lib/core/network/compat/network_fast_route_store.dart`, `lib/core/network/compat/network_policy.dart`
 
 ### NET-19 A network is its carrier or its link
 - **Rule:** The network identity keys route memory, image route scores
