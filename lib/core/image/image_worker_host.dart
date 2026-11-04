@@ -13,6 +13,7 @@ import '../network/compat/segmented_fetch.dart';
 import '../network/pixiv_headers.dart';
 import '../settings/image_mirror.dart';
 import 'disk_image_cache.dart';
+import 'hedged_image_fetch.dart';
 import 'image_fetch_scheduler.dart';
 import 'image_worker_protocol.dart';
 import 'lane_permit_gate.dart';
@@ -138,6 +139,9 @@ class ImageWorkerHost {
 
   /// Path marker of full-size originals, the only images worth splitting.
   static const _segmentedPath = '/img-original/';
+
+  /// Stalled visible images sent once more over another route.
+  final _hedgeBudget = SegmentBudget(limit: ImageStall.hedges);
 
   /// Transfers in parallel ranges still running; [close] ends them.
   final _segmentedFetches = <SegmentedFetch>{};
@@ -377,12 +381,13 @@ class ImageWorkerHost {
     }
   }
 
-  /// One policy GET (an original: its ranges), then an atomic commit into
-  /// the cache. [cancel] ends every request of the transfer, and the
-  /// partial file is deleted. A [background] transfer is a prefetch.
+  /// One policy GET (a stalled one perhaps twice; an original: its
+  /// ranges), then an atomic commit into the cache. The [flight]'s cancel
+  /// ends every request of the transfer, and the partial file is deleted.
+  /// A [background] transfer is a prefetch.
   Future<(File, int)> _download(
     String url,
-    NetworkCancelSignal cancel, {
+    ImageFlight flight, {
     required bool background,
   }) async {
     // A flight for the URL may have committed between this request's own
@@ -392,15 +397,29 @@ class ImageWorkerHost {
       return (cached, await cached.length());
     }
     final uri = Uri.parse(url);
-    final (body, segmented) = _isOriginal(url)
-        ? await _openInRanges(uri, cancel, background: background)
-        : (
-            await _wholeBody(
-              await _request(uri, cancel: cancel, background: background),
-              uri,
-            ),
-            null,
-          );
+    if (!_isOriginal(url)) {
+      return HedgedImageFetch<(File, int)>(
+        flight: flight,
+        budget: _hedgeBudget,
+        send: (track, abort, {required hedge}) => _request(
+          uri,
+          abort: abort,
+          background: background && !hedge,
+          track: track,
+        ),
+        statusError: (statusCode) => ImageHttpStatus(statusCode, url),
+        store: (body, length) async {
+          final file = await _cache.store(url, body, expectedLength: length);
+          return (file, length ?? await file.length());
+        },
+        progress: _progressOf(url),
+      ).run();
+    }
+    final (body, segmented) = await _openInRanges(
+      uri,
+      flight,
+      background: background,
+    );
     if (segmented != null) _segmentedFetches.add(segmented);
     try {
       final file = await _cache.store(
@@ -428,7 +447,7 @@ class ImageWorkerHost {
     final first = await _request(
       uri,
       range: (0, SegmentedFetch.defaultSegmentBytes - 1),
-      cancel: cancel,
+      abort: cancel.whenCancel,
       background: background,
       pin: pin,
     );
@@ -450,7 +469,7 @@ class ImageWorkerHost {
               uri,
               range: (start, end),
               ifRange: ifRange,
-              cancel: cancel,
+              abort: cancel.whenCancel,
               background: background,
               pin: pin,
             ),
@@ -468,16 +487,18 @@ class ImageWorkerHost {
     Uri uri, {
     (int, int)? range,
     String? ifRange,
-    NetworkCancelSignal? cancel,
+    required Future<void> abort,
     required bool background,
     ImageRoutePin? pin,
+    ImageRouteTrack? track,
   }) {
     final request = ImageRequest(
       'GET',
       uri,
-      abortTrigger: cancel?.whenCancel,
+      abortTrigger: abort,
       background: background,
       pin: pin,
+      track: track,
     )..headers.addAll(PixivHeaders.image());
     if (range case (final start, final end)) {
       request.headers['range'] = 'bytes=$start-$end';
@@ -499,23 +520,31 @@ class ImageWorkerHost {
     return (stream: response.stream, length: response.contentLength);
   }
 
-  /// [body] with throttled progress reports while [url] is watched. The
-  /// watch is read per chunk, so a ring that appears mid-transfer starts
-  /// reporting with the next bytes.
+  /// [body] with throttled progress reports while [url] is watched.
   Stream<List<int>> _reportingProgress(
     String url,
     Stream<List<int>> body,
     int? total,
   ) {
-    final throttle = ImageProgressThrottle(clock: _clock);
+    final report = _progressOf(url);
     var received = 0;
     return body.map((chunk) {
       received += chunk.length;
+      report(received, total);
+      return chunk;
+    });
+  }
+
+  /// Throttled reports of one transfer of [url] while it is watched. The
+  /// watch is read per report, so a ring that appears mid-transfer starts
+  /// reporting with the next bytes.
+  void Function(int received, int? total) _progressOf(String url) {
+    final throttle = ImageProgressThrottle(clock: _clock);
+    return (received, total) {
       if (_watched.contains(url) && throttle.shouldReport(received, total)) {
         _send(ProgressEvent(url, received, total));
       }
-      return chunk;
-    });
+    };
   }
 
   void _reportFailure(int id, Object error) {
