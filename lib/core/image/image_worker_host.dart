@@ -365,19 +365,15 @@ class ImageWorkerHost {
   /// a failure the visible image should not spend a retry on; whatever
   /// the second attempt meets surfaces. Called by the scheduler only after
   /// the fetch holds its lane permit.
-  Future<(File, int)> _fetch(
-    String url,
-    NetworkCancelSignal cancel, {
-    required bool background,
-  }) async {
+  Future<(File, int)> _fetch(String url, ImageFlight flight) async {
     final network = _network;
     try {
-      return await _download(url, cancel, background: background);
+      return await _download(url, flight, background: flight.background);
     } on ImageHttpStatus {
       rethrow;
     } on Object {
-      if (cancel.isCancelled || network == _network) rethrow;
-      return _download(url, cancel, background: background);
+      if (flight.isCancelled || network == _network) rethrow;
+      return _download(url, flight, background: flight.background);
     }
   }
 

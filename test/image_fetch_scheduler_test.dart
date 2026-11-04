@@ -15,11 +15,11 @@ class _Harness {
       foregroundSlots: foreground,
       backgroundSlots: background,
       abortable: (url) => url.startsWith('original'),
-      execute: (url, cancel, {required background}) {
+      execute: (url, flight) {
         started.add(url);
         final completer = Completer<String>();
         pending[url] = completer;
-        cancels.add(cancel);
+        flights.add(flight);
         return completer.future;
       },
     );
@@ -28,7 +28,8 @@ class _Harness {
   late final ImageFetchScheduler<String> scheduler;
   final started = <String>[];
   final pending = <String, Completer<String>>{};
-  final cancels = <NetworkCancelSignal>[];
+  final flights = <ImageFlight>[];
+  List<NetworkCancelSignal> get cancels => flights;
 
   /// A request whose outcome the case does not read.
   void submit(
@@ -267,6 +268,91 @@ void main() {
       harness.finish('fg');
       async.flushMicrotasks();
       expect(harness.scheduler.inFlight, 0);
+    });
+  });
+
+  for (final (name, leaveFirst) in [
+    ('stalls, then nobody wants it', false),
+    ('loses its last interest, then stalls', true),
+  ]) {
+    test('a streaming transfer that $name stops and admits the next '
+        'waiter', () {
+      fakeAsync((async) {
+        final harness = _Harness(foreground: 1);
+        ImageFetchPriority fg() => ImageFetchPriority.foreground;
+        _Capture(harness.scheduler.submit(1, 'a', priority: fg()));
+        _Capture(harness.scheduler.submit(2, 'b', priority: fg()));
+        async.flushMicrotasks();
+        final flight = harness.flights.single;
+
+        if (leaveFirst) {
+          harness.scheduler.cancel(1);
+          expect(flight.isCancelled, isFalse);
+          flight.stalled(true);
+        } else {
+          flight.stalled(true);
+          expect(flight.isCancelled, isFalse);
+          harness.scheduler.cancel(1);
+        }
+        expect(flight.isCancelled, isTrue);
+        // Asked again: a fresh flight, not the ending one.
+        _Capture(harness.scheduler.submit(3, 'a', priority: fg()));
+        harness.fail('a', StateError('aborted'));
+        async.flushMicrotasks();
+        expect(harness.started, ['a', 'b']);
+        harness.finish('b');
+        async.flushMicrotasks();
+        expect(harness.started, ['a', 'b', 'a']);
+      });
+    });
+  }
+
+  test('a stall that moved on again lets the transfer run on', () {
+    fakeAsync((async) {
+      final harness = _Harness();
+      _Capture(
+        harness.scheduler.submit(
+          1,
+          'a',
+          priority: ImageFetchPriority.foreground,
+        ),
+      );
+      async.flushMicrotasks();
+      final flight = harness.flights.single
+        ..stalled(true)
+        ..stalled(false);
+
+      harness.scheduler.cancel(1);
+      expect(flight.isCancelled, isFalse);
+    });
+  });
+
+  test('a foreground request joining a streaming flight is seen by it', () {
+    fakeAsync((async) {
+      final harness = _Harness();
+      _Capture(
+        harness.scheduler.submit(
+          1,
+          'a',
+          priority: ImageFetchPriority.background,
+        ),
+      );
+      async.flushMicrotasks();
+      final flight = harness.flights.single;
+      var seen = 0;
+      flight.onSeen = () => seen++;
+      expect((flight.background, flight.seen), (true, false));
+
+      _Capture(
+        harness.scheduler.submit(
+          2,
+          'a',
+          priority: ImageFetchPriority.foreground,
+        ),
+      );
+      expect((seen, flight.seen), (1, true));
+      harness.scheduler.cancel(2);
+      expect(flight.seen, isFalse);
     });
   });
 
