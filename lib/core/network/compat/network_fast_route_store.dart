@@ -8,6 +8,7 @@ import '../../settings/preference_keys.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'proven_origins.dart';
 import 'route_memory.dart';
 import 'secure_resolver.dart';
 
@@ -21,6 +22,7 @@ import 'secure_resolver.dart';
 /// request after an app restart does not pay for polluted system DNS.
 class PixivFastRouteStore implements FastRouteMemory {
   static const storageKey = PreferenceKeys.fastRoutes;
+  static const originsKey = PreferenceKeys.originAddresses;
 
   /// Built-in origin addresses, exposed read-only so a second
   /// [FastRouteMemory] (the image worker's in-memory store) can seed the
@@ -83,6 +85,36 @@ class PixivFastRouteStore implements FastRouteMemory {
         log('fast route not remembered: $error');
       }
     });
+  }
+
+  @override
+  Future<ProvenOrigins?> provenOrigins() => _origins ??= _readOrigins();
+
+  /// Callers do not wait; a failed write is logged.
+  @override
+  void proveOrigins(ProvenOrigins origins) {
+    _origins = Future.value(origins);
+    _writeTail = _writeTail.then<void>((_) async {
+      try {
+        await _preferences.setString(originsKey, jsonEncode(origins.toJson()));
+      } on Object catch (error) {
+        log('origin addresses not saved: $error');
+      }
+    });
+  }
+
+  Future<ProvenOrigins?>? _origins;
+
+  Future<ProvenOrigins?> _readOrigins() async {
+    try {
+      final raw = await _preferences.getString(originsKey);
+      return raw == null || raw.isEmpty
+          ? null
+          : ProvenOrigins.fromJson(jsonDecode(raw));
+    } on Object catch (error) {
+      log('origin addresses not read: $error');
+      return null;
+    }
   }
 
   /// The persisted addresses, without the bootstrap fallback — the seed of

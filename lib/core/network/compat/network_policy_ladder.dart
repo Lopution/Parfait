@@ -483,6 +483,50 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         .toList(growable: false);
   }
 
+  /// The public addresses encrypted DNS names for `i.pximg.net`; null when
+  /// the policy resolves through the system (DoH off) or is direct-only.
+  /// Throws when the lookup fails.
+  Future<List<InternetAddress>?> resolveImageOrigins() async {
+    _checkUsable();
+    if (_mode == NetworkMode.directOnly) return null;
+    final resolved = await resolve(
+      registry.require(
+        Uri.https('i.pximg.net', '/'),
+        PixivDestinationPurpose.image,
+      ),
+    );
+    if (resolved.dnsSource != DnsSource.doh) return null;
+    return resolved.addresses;
+  }
+
+  /// Like [throughImageFront], over the empty-SNI route to the origin
+  /// [address]. Throws [NoImageFront] when the origin candidate is off
+  /// ([bootstrapNoSniEnabled]), in direct-only mode, or for an address
+  /// that is not public.
+  Future<T> throughImageOrigin<T>(
+    InternetAddress address,
+    Future<T> Function(http.Client client) use,
+  ) async {
+    _checkUsable();
+    if (!bootstrapNoSniEnabled ||
+        _mode == NetworkMode.directOnly ||
+        !isPublicNetworkAddress(address)) {
+      throw const NoImageFront();
+    }
+    final rhttpReady = RhttpGate.ready;
+    if (rhttpReady != null) await rhttpReady;
+    final client = _clientFactory(
+      NetworkRoute.bootstrapNoSni(_revision, address),
+      'i.pximg.net',
+      PixivDestinationPurpose.image,
+    );
+    try {
+      return await use(client);
+    } finally {
+      client.close();
+    }
+  }
+
   /// Hands [use] a client of its own that sends to `i.pximg.net` over ECH
   /// through [front] alone, certificates verified, and closes it once
   /// [use] is done. Nothing it sends is scored or remembered: front
@@ -521,19 +565,29 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   }
 
   /// The origin candidate on the address [host]'s book has in use: the one
-  /// it last loaded from, then pixiv's other origin addresses.
+  /// it last loaded from, then those DNS named and an image proved
+  /// ([ProvenOrigins]), then the built-in ones.
   Future<NetworkRoute> _originRoute(String host) async {
     var book = _originBooks[host];
     if (book == null) {
       final first =
           await fastRouteStore?.addressFor(host) ??
           PixivFastRouteStore.bootstrap[host];
-      book = _originBooks[host] ??= _OriginBook([
-        ?first,
-        ...PixivFastRouteStore.originAddresses.where(
-          (address) => address.address != first?.address,
-        ),
-      ]);
+      final proven = _provenOrigins ??=
+          (await fastRouteStore?.provenOrigins())?.addresses ?? const [];
+      final addresses = <String, InternetAddress>{
+        for (final address in [
+          ?first,
+          ...proven,
+          ...PixivFastRouteStore.originAddresses,
+        ])
+          address.address: address,
+      };
+      book = _originBooks[host] ??= _OriginBook(
+        addresses.values.toList(growable: false),
+        health: _originHealth.putIfAbsent(host, _OriginHealth.new),
+        clock: clock,
+      );
     }
     return NetworkRoute.bootstrapNoSni(
       _revision,
@@ -751,11 +805,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   void _learnFastRoute(String host, NetworkRoute route) {
     final store = fastRouteStore;
     final address = route.address;
-    if (store == null ||
-        address == null ||
-        route.kind != NetworkRouteKind.bootstrapNoSni) {
+    if (address == null || route.kind != NetworkRouteKind.bootstrapNoSni) {
       return;
     }
+    if (store == null) return;
     // An acceleration layer: the request has already completed and must not
     // be changed by a cache write error.
     unawaited(

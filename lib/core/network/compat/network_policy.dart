@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'image_route_discovery.dart';
 import 'image_route_scores.dart';
 import 'network_fast_route_store.dart';
+import 'proven_origins.dart';
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
 import 'route_memory.dart';
@@ -194,6 +195,14 @@ class NetworkAccessPolicy {
   /// Each pixiv image host's origin addresses and the one in use.
   final Map<String, _OriginBook> _originBooks = {};
 
+  /// Each pixiv image host's failing origin addresses on this network; it
+  /// outlasts a book an origin refresh replaces.
+  final Map<String, _OriginHealth> _originHealth = {};
+
+  /// The origin addresses DNS named and an image proved; read from
+  /// [fastRouteStore] when the first book is made.
+  List<InternetAddress>? _provenOrigins;
+
   /// A successful strict route is also remembered for its destination group.
   /// The value changes candidate order only; target addresses remain per-host.
   final Map<_RouteGroup, _RouteGroupMemory> _groupMemory = {};
@@ -311,6 +320,20 @@ class NetworkAccessPolicy {
 
   /// The current network's extra Cloudflare fronts and colo labels.
   ImageRouteDiscovery get imageRouteDiscovery => _discovery;
+
+  /// What the last origin refresh came to, here or in the image worker.
+  Future<ProvenOrigins?> provenOrigins() async =>
+      await fastRouteStore?.provenOrigins();
+
+  /// An origin refresh, here or in the image worker, came to [origins]:
+  /// the origin books start again with them (an address skipped stays
+  /// skipped), and the store keeps them.
+  void rememberProvenOrigins(ProvenOrigins origins) {
+    if (_disposed) return;
+    _provenOrigins = origins.addresses;
+    _originBooks.clear();
+    fastRouteStore?.proveOrigins(origins);
+  }
 
   /// Front discovery on [networkIdentity], here or in the image worker,
   /// came to [discovery]: the policy uses it while that network is
@@ -527,7 +550,19 @@ class NetworkAccessPolicy {
     );
     final address = route.address;
     if (route.kind == NetworkRouteKind.bootstrapNoSni && address != null) {
-      _originBooks[host]?.failed(address);
+      _originHealth
+          .putIfAbsent(host, _OriginHealth.new)
+          .failed(address.address, clock());
+      _originBooks[host]?.movedOff(address);
+    }
+  }
+
+  /// A whole response body loaded (a range's counts: the address served
+  /// that request): an origin address is healthy again.
+  void _imageRouteLoaded(String host, NetworkRoute route) {
+    final address = route.address;
+    if (route.kind == NetworkRouteKind.bootstrapNoSni && address != null) {
+      _originHealth[host]?.served(address.address);
     }
   }
 
@@ -612,6 +647,7 @@ class NetworkAccessPolicy {
     _routeMemory.clear();
     _groupMemory.clear();
     _originBooks.clear();
+    _originHealth.clear();
   }
 
   void _closeClients() {
@@ -627,20 +663,67 @@ class NetworkAccessPolicy {
   }
 }
 
+/// A pixiv image host's failing origin addresses: an address other than
+/// the built-in ones that fails [skipAfter] loads in a row is skipped for
+/// [skipFor].
+class _OriginHealth {
+  static const skipAfter = 3;
+  static const skipFor = Duration(days: 1);
+
+  final _failures = <String, int>{};
+  final _skipped = <String, DateTime>{};
+
+  void failed(String address, DateTime now) {
+    final builtIn = PixivFastRouteStore.originAddresses.any(
+      (origin) => origin.address == address,
+    );
+    if (builtIn) return;
+    final failures = (_failures[address] ?? 0) + 1;
+    if (failures >= skipAfter) {
+      _failures.remove(address);
+      _skipped[address] = now;
+    } else {
+      _failures[address] = failures;
+    }
+  }
+
+  void served(String address) => _failures.remove(address);
+
+  bool skips(String address, DateTime now) {
+    final since = _skipped[address];
+    return since != null && now.difference(since) < skipFor;
+  }
+}
+
 /// A pixiv image host's origin addresses and the one in use, which moves
-/// on after a failure there.
+/// on after a failure there, past the addresses [_health] skips.
 class _OriginBook {
-  _OriginBook(this.addresses);
+  _OriginBook(
+    this.addresses, {
+    required _OriginHealth health,
+    required DateTime Function() clock,
+  }) : _health = health,
+       _clock = clock {
+    if (_health.skips(current.address, _clock())) _moveOn();
+  }
 
   final List<InternetAddress> addresses;
+  final _OriginHealth _health;
+  final DateTime Function() _clock;
   var _index = 0;
 
   InternetAddress get current => addresses[_index];
 
   /// Requests that failed together on one address move the book once.
-  void failed(InternetAddress address) {
-    if (address.address == current.address) {
+  void movedOff(InternetAddress address) {
+    if (address.address == current.address) _moveOn();
+  }
+
+  void _moveOn() {
+    final now = _clock();
+    for (var i = 0; i < addresses.length; i++) {
       _index = (_index + 1) % addresses.length;
+      if (!_health.skips(current.address, now)) break;
     }
   }
 }
@@ -1075,16 +1158,19 @@ class _CandidateObserver {
     required Duration headers,
     required Duration total,
     required int bytes,
-  }) => _policy._recordImageSample(
-    _route,
-    (candidate, at) => ImageRouteSample.load(
-      candidate,
-      headers: headers,
-      total: total,
-      bytes: bytes,
-      at: at,
-    ),
-  );
+  }) {
+    _policy._recordImageSample(
+      _route,
+      (candidate, at) => ImageRouteSample.load(
+        candidate,
+        headers: headers,
+        total: total,
+        bytes: bytes,
+        at: at,
+      ),
+    );
+    _policy._imageRouteLoaded(_host, _route);
+  }
 
   void failed() => _policy._imageRouteFailed(_host, _route);
 

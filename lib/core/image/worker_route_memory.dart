@@ -3,6 +3,7 @@ import 'dart:io';
 import '../network/compat/image_route_discovery.dart';
 import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_fast_route_store.dart';
+import '../network/compat/proven_origins.dart';
 import '../network/compat/route_memory.dart';
 import '../network/compat/secure_resolver.dart';
 
@@ -20,10 +21,26 @@ import '../network/compat/secure_resolver.dart';
 /// declare `remember` with different signatures — so the worker carries a
 /// pair sharing one [WorkerRouteMemoryState].
 class WorkerFastRouteMemory implements FastRouteMemory {
-  WorkerFastRouteMemory(this._state, {this.onFastRouteLearned});
+  WorkerFastRouteMemory(
+    this._state, {
+    this.onFastRouteLearned,
+    this.onOriginsProven,
+  });
 
   final WorkerRouteMemoryState _state;
   final void Function(String host, String address)? onFastRouteLearned;
+  final void Function(ProvenOrigins origins)? onOriginsProven;
+
+  @override
+  Future<ProvenOrigins?> provenOrigins() async => _state.origins;
+
+  @override
+  void proveOrigins(ProvenOrigins origins) {
+    _state
+      ..origins = origins
+      ..originsProvenHere = true;
+    onOriginsProven?.call(origins);
+  }
 
   @override
   Future<InternetAddress?> addressFor(String host) async {
@@ -133,11 +150,22 @@ class WorkerRouteMemoryState {
   WorkerRouteMemoryState({
     Map<String, String> learnedFastRoutes = const {},
     Map<String, String> routeKinds = const {},
+    this.origins,
   }) : fastRoutes = _parse(learnedFastRoutes),
        routeKinds = Map.of(routeKinds);
 
   final Map<String, InternetAddress> fastRoutes;
   final Map<String, String> routeKinds;
+
+  /// The config's, until this worker refreshes them: its own are newer
+  /// than a config sent before the main isolate heard of them.
+  ProvenOrigins? origins;
+  var originsProvenHere = false;
+
+  /// Takes a config's proven origins unless this worker has its own.
+  void reseedOrigins(ProvenOrigins? next) {
+    if (!originsProvenHere) origins = next;
+  }
 
   /// Replaces the seeded memory on a config push — a new network identity
   /// invalidates what the old one learned, matching `advanceNetworkRevision`.

@@ -13,6 +13,7 @@ import 'dart:isolate' show SendPort;
 import '../network/compat/image_route_discovery.dart';
 import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_contracts.dart' show NetworkRouteKind;
+import '../network/compat/proven_origins.dart';
 import 'lane_permit_gate.dart';
 
 /// Every knob the worker needs to rebuild the same `NetworkAccessPolicy`
@@ -32,6 +33,7 @@ class ImageWorkerConfig {
     this.routeKinds = const {},
     this.routeScores = const {},
     this.routeDiscovery,
+    this.provenOrigins,
   });
 
   /// Persisted `imageSource` setting (`i.pximg.net`, `auto`, a preset host
@@ -83,6 +85,10 @@ class ImageWorkerConfig {
   /// isolate's store; null when it never ran there.
   final ImageRouteDiscovery? routeDiscovery;
 
+  /// What the main isolate's fast-route store has from the last origin
+  /// refresh; null before the first.
+  final ProvenOrigins? provenOrigins;
+
   Map<String, Object?> toJson() => {
     'imageSource': imageSource,
     'autoWinnerHost': autoWinnerHost,
@@ -99,6 +105,7 @@ class ImageWorkerConfig {
         key: value.toJson(),
     },
     'routeDiscovery': routeDiscovery?.toJson(),
+    'provenOrigins': provenOrigins?.toJson(),
   };
 
   static ImageWorkerConfig fromJson(Map<String, Object?> json) {
@@ -123,6 +130,7 @@ class ImageWorkerConfig {
       routeDiscovery: json['routeDiscovery'] == null
           ? null
           : ImageRouteDiscovery.fromJson(json['routeDiscovery']),
+      provenOrigins: ProvenOrigins.fromJson(json['provenOrigins']),
     );
   }
 }
@@ -450,6 +458,12 @@ class RouteDiscoveryEvent extends WorkerEvent {
   final ImageRouteDiscovery discovery;
 }
 
+/// An origin refresh in the worker came to [origins].
+class OriginsProvenEvent extends WorkerEvent {
+  const OriginsProvenEvent(this.origins);
+  final ProvenOrigins origins;
+}
+
 /// Every ladder tier on [host] was exhausted — forwarded from
 /// `NetworkAccessPolicy.onImageHostExhausted` so the main isolate can drop
 /// the auto-source winner and re-race, as it does for API traffic.
@@ -510,6 +524,10 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'type': 'routeDiscovery',
     'networkIdentity': networkIdentity,
     'discovery': discovery.toJson(),
+  },
+  OriginsProvenEvent(:final origins) => {
+    'type': 'originsProven',
+    'origins': origins.toJson(),
   },
   RouteExhaustedEvent(:final host) => {'type': 'routeExhausted', 'host': host},
   WorkerErrorEvent(:final message, :final stack) => {
@@ -615,6 +633,9 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
     'routeDiscovery' => RouteDiscoveryEvent(
       raw['networkIdentity'] as String,
       ImageRouteDiscovery.fromJson(raw['discovery']),
+    ),
+    'originsProven' => OriginsProvenEvent(
+      ProvenOrigins.fromJson(raw['origins'])!,
     ),
     'routeExhausted' => RouteExhaustedEvent(raw['host'] as String),
     'workerError' => WorkerErrorEvent(

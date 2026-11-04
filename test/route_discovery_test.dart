@@ -15,8 +15,11 @@ import 'package:parfait/core/network/compat/image_route_discovery.dart';
 import 'package:parfait/core/network/compat/image_route_score_store.dart';
 import 'package:parfait/core/network/compat/image_route_scores.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/compat/network_fast_route_store.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/origin_refresh.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
+import 'package:parfait/core/network/compat/proven_origins.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 
@@ -63,6 +66,32 @@ class _Front extends http.BaseClient {
       contentLength: 20 * 1024,
     );
   }
+}
+
+/// An origin whose image answers 200 and then breaks off mid-body.
+class _BrokenBody extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
+      http.StreamedResponse(_body(), 200);
+
+  static Stream<List<int>> _body() async* {
+    yield Uint8List(1024);
+    throw const SocketException('reset');
+  }
+}
+
+/// An origin that answers [statuses] in turn, then 503.
+class _Statuses extends http.BaseClient {
+  _Statuses(this.statuses);
+
+  final List<int> statuses;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
+      http.StreamedResponse(
+        Stream.value(utf8.encode('jpg')),
+        statuses.isEmpty ? 503 : statuses.removeAt(0),
+      );
 }
 
 final _lax1 = InternetAddress('104.18.10.118');
@@ -498,5 +527,253 @@ void main() {
     await response.stream.drain<void>();
     // The kept front took the seed's place.
     expect(sent, [_lax1.address, _lax2.address, kept.address]);
+  });
+
+  group('origin refresh', () {
+    final served = InternetAddress('210.140.139.200');
+    final refused = InternetAddress('210.140.139.201');
+    final forbidden = InternetAddress('210.140.139.202');
+    final builtIn = PixivFastRouteStore.originAddresses.first;
+    final sample = ImageRouteSample.failure('origin', at: DateTime(2026));
+
+    test('it keeps the address DNS names that serves an image, ignores '
+        'those that do not, and asks once a day', () async {
+      installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
+      final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
+      final resolver = FakeResolver([
+        builtIn,
+        served,
+        refused,
+        forbidden,
+      ], source: DnsSource.doh);
+      final probed = <String>[];
+      final policy = NetworkAccessPolicy(
+        resolver: resolver,
+        bootstrapNoSniEnabled: true,
+        fastRouteStore: store,
+        clientFactory: (route, _, _) => RouteLogClient(
+          route,
+          probed,
+          switch (route.address?.address) {
+            final a when a == served.address => FakeClient(body: 'jpg'),
+            final a when a == forbidden.address => FakeClient(statusCode: 403),
+            _ => FakeClient(failure: const SocketException('refused')),
+          },
+        ),
+      );
+      addTearDown(policy.dispose);
+      var idle = false;
+      final refresh = OriginRefresh(
+        policy,
+        idle: () => idle,
+        image: () => _thumbnail,
+      );
+
+      refresh.noteSample('unicom', sample);
+      await refresh.settled;
+      expect(resolver.calls, 0, reason: 'a visible image waits');
+      idle = true;
+      refresh
+        ..noteSample('unicom', sample)
+        ..noteSample('unicom', sample);
+      await refresh.settled;
+      expect(resolver.calls, 1);
+      expect(probed, [served, refused, forbidden].map((a) => a.address));
+      final restarted = PixivFastRouteStore(
+        preferences: SharedPreferencesAsync(),
+      );
+      await pumpEventQueue();
+      expect(
+        (await restarted.provenOrigins())!.addresses.map((a) => a.address),
+        [served.address],
+      );
+
+      final again = OriginRefresh(
+        policy,
+        idle: () => true,
+        image: () => _thumbnail,
+      )..noteSample('unicom', sample);
+      await again.settled;
+      expect(resolver.calls, 1);
+    });
+
+    test('a visible image arriving mid-refresh stops it before the next '
+        'probe; the next idle sample probes the rest of the same DNS '
+        'answer', () async {
+      installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
+      final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
+      final second = InternetAddress('210.140.139.203');
+      final probed = <String>[];
+      final resolver = FakeResolver([served, second], source: DnsSource.doh);
+      final policy = NetworkAccessPolicy(
+        resolver: resolver,
+        bootstrapNoSniEnabled: true,
+        fastRouteStore: store,
+        clientFactory: (route, _, _) =>
+            RouteLogClient(route, probed, FakeClient(body: 'jpg')),
+      );
+      addTearDown(policy.dispose);
+      final refresh = OriginRefresh(
+        policy,
+        // The first probe's image is seen; then a visible image waits.
+        idle: () => probed.length != 1,
+        image: () => _thumbnail,
+      )..noteSample('unicom', sample);
+      await refresh.settled;
+      expect(probed, [served.address]);
+      expect((await store.provenOrigins())!.addresses.map((a) => a.address), [
+        served.address,
+      ]);
+
+      probed.add('visible image done');
+      refresh.noteSample('unicom', sample);
+      await refresh.settled;
+      expect(probed.last, second.address);
+      expect(resolver.calls, 1);
+      final origins = (await store.provenOrigins())!;
+      expect(origins.addresses.map((a) => a.address), [
+        served.address,
+        second.address,
+      ]);
+      expect(origins.refreshedAt.year, isNot(1970));
+    });
+
+    for (final (failure, origin) in <(String, http.Client Function())>[
+      ('is refused', () => FakeClient(failure: const SocketException('x'))),
+      ('breaks off its body', _BrokenBody.new),
+      ('answers 503', () => FakeClient(statusCode: 503, body: '')),
+    ]) {
+      test(
+        'a proven address from a new worker\'s config is tried after the '
+        'last served one, and is skipped once it $failure three loads in '
+        'a row, even after an origin refresh; a built-in one never is',
+        () async {
+          final config = ImageWorkerConfig.fromJson(
+            jsonDecode(
+                  jsonEncode(
+                    ImageWorkerConfig(
+                      imageSource: 'i.pximg.net',
+                      mode: 'automatic',
+                      networkIdentity: 'unicom',
+                      echFrontHost: 'cloudflare-ech.com',
+                      dohEndpoints: const [],
+                      bootstrapNoSniEnabled: true,
+                      provenOrigins: ProvenOrigins([
+                        served,
+                      ], refreshedAt: DateTime(2026, 11, 4)),
+                    ).toJson(),
+                  ),
+                )
+                as Map<String, Object?>,
+          );
+          final memory = WorkerFastRouteMemory(
+            WorkerRouteMemoryState(origins: config.provenOrigins),
+          );
+          final sent = <String>[];
+          final policy = NetworkAccessPolicy(
+            resolver: FakeResolver([InternetAddress('1.2.3.4')]),
+            bootstrapNoSniEnabled: true,
+            fastRouteStore: memory,
+            clientFactory: (route, _, _) => RouteLogClient(
+              route,
+              sent,
+              route.kind == NetworkRouteKind.bootstrapNoSni
+                  ? origin()
+                  : FakeClient(failure: const SocketException('refused')),
+            ),
+          );
+          final client = PixivPolicyHttpClient(
+            policy: policy,
+            purpose: PixivDestinationPurpose.image,
+          );
+          addTearDown(policy.dispose);
+          Future<void> load() async {
+            final status = await client
+                .get(_thumbnail)
+                .then((r) => r.statusCode, onError: (Object _) => 0);
+            expect(status, isNot(200));
+          }
+
+          final book = PixivFastRouteStore.originAddresses.length + 1;
+          // Three turns of the book, then one without the skipped address.
+          for (var i = 0; i < 4 * book - 1; i++) {
+            await load();
+          }
+          final origins = sent.where((a) => a.startsWith('210.140.139.'));
+          final bootstrap =
+              PixivFastRouteStore.bootstrap['i.pximg.net']!.address;
+          expect(origins.take(2), [bootstrap, served.address]);
+          expect(origins.where((a) => a == served.address), hasLength(3));
+          expect(origins.where((a) => a == bootstrap), hasLength(4));
+
+          // An origin refresh that ends in the same addresses does not bring
+          // the skipped one back.
+          policy.rememberProvenOrigins(
+            ProvenOrigins([served], refreshedAt: DateTime(2026, 11, 5)),
+          );
+          for (var i = 0; i < book; i++) {
+            await load();
+          }
+          expect(sent.where((a) => a == served.address), hasLength(3));
+        },
+      );
+    }
+
+    test('a whole image from a proven address between its failures starts '
+        'its count again', () async {
+      final statuses = [503, 503, 200];
+      final sent = <String>[];
+      final policy = NetworkAccessPolicy(
+        resolver: FakeResolver([InternetAddress('1.2.3.4')]),
+        bootstrapNoSniEnabled: true,
+        fastRouteStore: WorkerFastRouteMemory(
+          WorkerRouteMemoryState(
+            origins: ProvenOrigins([
+              served,
+            ], refreshedAt: DateTime(2026, 11, 4)),
+          ),
+        ),
+        clientFactory: (route, _, _) => RouteLogClient(
+          route,
+          sent,
+          route.kind != NetworkRouteKind.bootstrapNoSni
+              ? FakeClient(failure: const SocketException('refused'))
+              : route.address == served
+              ? _Statuses(statuses)
+              : FakeClient(statusCode: 503, body: ''),
+        ),
+      );
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+      addTearDown(policy.dispose);
+      final book = PixivFastRouteStore.originAddresses.length + 1;
+      for (var i = 0; i < 8 * book; i++) {
+        await client.get(_thumbnail);
+      }
+      // Two failures, a whole image, then three more before the skip.
+      expect(sent.where((a) => a == served.address), hasLength(6));
+    });
+
+    test('the worker sends its proven origins home, and a config sent '
+        'before the main isolate heard of them does not undo them', () async {
+      final sent = <ProvenOrigins>[];
+      final state = WorkerRouteMemoryState();
+      final memory = WorkerFastRouteMemory(
+        state,
+        onOriginsProven: (origins) => sent.add(
+          (decodeWorkerEvent(encodeWorkerEvent(OriginsProvenEvent(origins)))
+                  as OriginsProvenEvent)
+              .origins,
+        ),
+      );
+      final mine = ProvenOrigins([served], refreshedAt: DateTime(2026, 11, 4));
+      state.reseedOrigins(null);
+      memory.proveOrigins(mine);
+      state.reseedOrigins(ProvenOrigins(const [], refreshedAt: DateTime(2026)));
+      expect(sent.single.addresses.single.address, served.address);
+      expect((await memory.provenOrigins())!.addresses.single, served);
+    });
   });
 }

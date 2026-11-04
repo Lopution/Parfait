@@ -8,6 +8,7 @@ import 'image_demand.dart';
 import '../network/compat/image_route_discovery.dart';
 import '../network/compat/image_route_scores.dart';
 import '../network/compat/network_contracts.dart';
+import '../network/compat/proven_origins.dart';
 import 'image_worker_client.dart';
 import 'image_worker_protocol.dart';
 import 'lane_permit_gate.dart';
@@ -58,6 +59,7 @@ class ImageWorker implements ImageFetcher {
   onImageRouteRanges;
   void Function(String identity, ImageRouteDiscovery discovery)?
   onRouteDiscovery;
+  void Function(ProvenOrigins origins)? onOriginsProven;
 
   /// Progress listeners by URL. They outlive any one isolate: a
   /// replacement is told to report every URL still here.
@@ -230,6 +232,7 @@ class ImageWorker implements ImageFetcher {
       ..onImageRouteSample = onImageRouteSample
       ..onImageRouteRanges = onImageRouteRanges
       ..onRouteDiscovery = onRouteDiscovery
+      ..onOriginsProven = onOriginsProven
       ..onProgress = _reportProgress
       ..onDied = (error) {
         _lastFailure = error;

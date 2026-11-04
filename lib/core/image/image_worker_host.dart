@@ -9,6 +9,7 @@ import 'package:rhttp/rhttp.dart';
 import '../network/compat/front_discovery.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_policy.dart';
+import '../network/compat/origin_refresh.dart';
 import '../network/compat/pixiv_network_factory.dart';
 import '../network/compat/segmented_fetch.dart';
 import '../network/pixiv_headers.dart';
@@ -149,8 +150,10 @@ class ImageWorkerHost {
 
   NetworkAccessPolicy? _policy;
 
-  /// Front discovery on the current policy's networks.
+  /// Front discovery on the current policy's networks, and the daily
+  /// origin refresh.
   FrontDiscovery? _discovery;
+  OriginRefresh? _originRefresh;
 
   /// The last thumbnail loaded from pixiv's image hosts, and when: front
   /// discovery's probe image while it is likely in Cloudflare's cache.
@@ -274,11 +277,13 @@ class ImageWorkerHost {
     final state = WorkerRouteMemoryState(
       learnedFastRoutes: config.learnedFastRoutes,
       routeKinds: config.routeKinds,
+      origins: config.provenOrigins,
     );
     _fastRoutes = WorkerFastRouteMemory(
       state,
       onFastRouteLearned: (host, address) =>
           _send(FastRouteLearnedEvent(host, address)),
+      onOriginsProven: (origins) => _send(OriginsProvenEvent(origins)),
     );
     _routeKinds = WorkerRouteKindMemory(
       state,
@@ -289,6 +294,7 @@ class ImageWorkerHost {
       onSample: (identity, sample) {
         _send(ImageRouteSampleEvent(identity, sample));
         _discovery?.noteSample(identity, sample);
+        _originRefresh?.noteSample(identity, sample);
       },
       onRanges: (identity, candidate, served) =>
           _send(ImageRouteRangesEvent(identity, candidate, served: served)),
@@ -318,6 +324,7 @@ class ImageWorkerHost {
       next.routeScores,
       next.routeDiscovery,
     );
+    _routeMemoryState.reseedOrigins(next.provenOrigins);
     _mirror = next.imageSource == 'auto'
         ? ImageMirror.auto(next.autoWinnerHost)
         : ImageMirror.of(next.imageSource);
@@ -335,14 +342,13 @@ class ImageWorkerHost {
     if (initial || policyInputsChanged) {
       unawaited(_policy?.dispose());
       _discovery?.close();
+      _originRefresh?.close();
       _allowlist = allowlist;
       final policy = _policy = _buildPolicy(next, allowlist);
       policy.onImageHostExhausted = (host) => _send(RouteExhaustedEvent(host));
-      _discovery = FrontDiscovery(
-        policy,
-        idle: () => _scheduler.foregroundQueued == 0,
-        image: _probeImage,
-      );
+      bool idle() => _scheduler.foregroundQueued == 0;
+      _discovery = FrontDiscovery(policy, idle: idle, image: _probeImage);
+      _originRefresh = OriginRefresh(policy, idle: idle, image: _probeImage);
       _network++;
     } else if (next.networkIdentity != previous.networkIdentity) {
       _policy!.advanceNetworkRevision(networkIdentity: next.networkIdentity);
@@ -598,6 +604,7 @@ class ImageWorkerHost {
     _closed = true;
     _inbox.close();
     _discovery?.close();
+    _originRefresh?.close();
     for (final segmented in List.of(_segmentedFetches)) {
       segmented.close();
     }
