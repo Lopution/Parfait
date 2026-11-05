@@ -844,6 +844,8 @@ void main() {
     // the commit from the branch page it covers, before a frame.
     await startBackGesture();
     await dragBackGesture(0.35);
+    await tester.pump();
+    expect(tester.getRect(find.byType(HistoryPage)).width, lessThan(390));
     unawaited(
       showGeneralDialog<void>(
         context: tester.element(find.byType(HistoryPage)),
