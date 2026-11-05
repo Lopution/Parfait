@@ -552,17 +552,14 @@ void main() {
                   as PageRoute<void>,
             ),
           );
-          // The wash's height over the band, anchored at the image's edge.
-          double lit() => tester
-              .getSize(
-                find
-                    .ancestor(
-                      of: find.byType(AmbientWash),
-                      matching: find.byType(ClipRect),
-                    )
-                    .first,
+          // The wash over the band, anchored at the image's edge.
+          final wash = find
+              .ancestor(
+                of: find.byType(AmbientWash),
+                matching: find.byType(ClipRect),
               )
-              .height;
+              .first;
+          double lit() => tester.getSize(wash).height;
           final naturalHeight = 390 / (1600 / 900);
           final band = (844 * 0.7 - naturalHeight) / 2;
 
@@ -581,18 +578,16 @@ void main() {
             () => lit() > 0,
             step: const Duration(milliseconds: 16),
           );
+          expect(
+            ModalRoute.of(
+              tester.element(find.byType(IllustDetailPage)),
+            )!.animation!.isCompleted,
+            isTrue,
+            reason: 'unlit until the page has landed',
+          );
           expect(lit(), lessThan(band));
           expect(
-            tester
-                .getRect(
-                  find
-                      .ancestor(
-                        of: find.byType(AmbientWash),
-                        matching: find.byType(ClipRect),
-                      )
-                      .first,
-                )
-                .bottom,
+            tester.getRect(wash).bottom,
             closeTo(
               tester.getRect(find.byType(DetailPageImage)).top + band,
               0.5,
