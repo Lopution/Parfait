@@ -832,7 +832,7 @@ void main() {
     expect(branch0Route.isActive, isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('a root-level page owns the gesture over the whole shell, '
+  testWidgets('a root-level route owns the gesture over the whole shell, '
       'from its push', (tester) async {
     final router = await _pumpHome(tester, location: '/ranking');
     unawaited(router.push('/ranking/history'));
@@ -840,16 +840,24 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     final historyRoute = _routeOf(tester, find.byType(HistoryPage));
 
-    // Pushed over the shell mid-swipe (a shared image), it takes the
-    // commit from the branch page it covers.
+    // Pushed over the shell mid-swipe (a dialog, a shared image), it takes
+    // the commit from the branch page it covers, before a frame.
     await startBackGesture();
     await dragBackGesture(0.35);
-    unawaited(router.push('/me'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
+    unawaited(
+      showGeneralDialog<void>(
+        context: tester.element(find.byType(HistoryPage)),
+        pageBuilder: (_, _, _) => const Text('over'),
+      ),
+    );
     await commitBackGesture();
     await tester.pump();
     expect(historyRoute.isActive, isTrue);
+    Navigator.of(tester.element(find.text('over'))).pop();
+
+    unawaited(router.push('/me'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(find.byType(MePage), findsOneWidget);
     final meRoute = _routeOf(tester, find.byType(MePage));
 

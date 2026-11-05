@@ -433,7 +433,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     int i, {
     required bool rail,
     required List<HomeDestination> order,
-    required bool shellIsCurrent,
+    required ModalRoute<dynamic>? shell,
   }) {
     return _swipeSlide(
       i,
@@ -460,7 +460,8 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
                 child: ExcludeSemantics(
                   excluding: i != _current,
                   child: BranchActivityScope(
-                    active: shellIsCurrent && i == _current,
+                    shell: shell,
+                    selected: i == _current,
                     child: SlideTransition(
                       position: _slideOf(i, rail: rail, order: order),
                       // Always in the tree, so starting a switch never
@@ -494,8 +495,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     _barBranches = [for (final d in arrangement.shown) d.branchIndex];
     final width = MediaQuery.sizeOf(context).width;
     final rail = _rail = AppBreakpoints.useNavigationRail(width);
-    // Under a page or a dialog on the root navigator no branch is on top.
-    final shellIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    final shell = ModalRoute.of(context);
     // An immersive page (the novel reader) takes the rail's room too, as it
     // covers the bottom bar on a phone.
     final railShown = rail && !ref.watch(shellRailHiddenProvider);
@@ -515,12 +515,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
               fit: StackFit.expand,
               children: [
                 for (var i = 0; i < widget.children.length; i++)
-                  _buildBranch(
-                    i,
-                    rail: rail,
-                    order: order,
-                    shellIsCurrent: shellIsCurrent,
-                  ),
+                  _buildBranch(i, rail: rail, order: order, shell: shell),
               ],
             ),
           ),
@@ -596,11 +591,21 @@ class _HomeBranchScope extends InheritedWidget {
 class BranchActivityScope extends InheritedWidget {
   const BranchActivityScope({
     super.key,
-    required this.active,
+    required this.shell,
+    required this.selected,
     required super.child,
   });
 
-  final bool active;
+  /// The route holding the shell; null when it is the app's root.
+  final ModalRoute<dynamic>? shell;
+
+  /// Whether this is the branch on screen.
+  final bool selected;
+
+  /// The branch is on screen with nothing over the shell: read at the
+  /// moment asked, since a page or a dialog pushed on the root navigator
+  /// covers the shell before it rebuilds.
+  bool get active => selected && (shell?.isCurrent ?? true);
 
   /// The scope over [context], read without a dependency: the check runs
   /// when a back swipe starts, outside any build.
