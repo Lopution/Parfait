@@ -13,6 +13,7 @@ import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/person_avatar.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
@@ -508,78 +509,100 @@ void main() {
       },
     );
 
-    testWidgets('the band lights up from the image once it has landed', (
-      tester,
-    ) async {
-      setViewSize(tester, const Size(390, 844));
-      final (container, _, _) = await makeWorld(
-        detailOverrides: {
-          42: illustJson(42, pageCount: 1, width: 1600, height: 900),
+    for (final reduce in [false, true]) {
+      testWidgets(
+        reduce
+            ? 'under reduced motion the band is lit as the page shows'
+            : 'the band lights up from the image once it has landed',
+        (tester) async {
+          setViewSize(tester, const Size(390, 844));
+          final (container, _, _) = await makeWorld(
+            detailOverrides: {
+              42: illustJson(42, pageCount: 1, width: 1600, height: 900),
+            },
+          );
+          final entity = parseIllust(
+            illustJson(42, pageCount: 1, width: 1600, height: 900),
+          );
+          container.read(illustStoreProvider).mergeAll([entity]);
+          final navigatorKey = GlobalKey<NavigatorState>();
+          final app = localizedApp(
+            container: container,
+            navigatorKey: navigatorKey,
+            body: const SizedBox.expand(),
+          );
+          await tester.pumpWidget(
+            reduce ? MotionScope(reduce: true, child: app) : app,
+          );
+          unawaited(
+            navigatorKey.currentState!.push(
+              // The app's route: its scope hands the page the controller, which
+              // a Hero's measuring frame does not report complete.
+              FuncPage<void>(
+                    sharedElement: true,
+                    // As the router resolves it: none under reduced motion.
+                    transitionDuration: reduce
+                        ? Duration.zero
+                        : MotionTokens.pageTransition,
+                    child: IllustDetailPage(
+                      illustId: 42,
+                      initialEntity: entity,
+                    ),
+                  ).createRoute(navigatorKey.currentContext!)
+                  as PageRoute<void>,
+            ),
+          );
+          // The wash's height over the band, anchored at the image's edge.
+          double lit() => tester
+              .getSize(
+                find
+                    .ancestor(
+                      of: find.byType(AmbientWash),
+                      matching: find.byType(ClipRect),
+                    )
+                    .first,
+              )
+              .height;
+          final naturalHeight = 390 / (1600 / 900);
+          final band = (844 * 0.7 - naturalHeight) / 2;
+
+          await tester.pump();
+          if (reduce) {
+            // MOTION-02: no rise, the end state at once.
+            await tester.pump();
+            expect(lit(), closeTo(band, 0.5));
+            return;
+          }
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(lit(), 0, reason: 'the page colour while the page opens');
+          // Lands, then rises from the image's edge.
+          await pumpUntil(
+            tester,
+            () => lit() > 0,
+            step: const Duration(milliseconds: 16),
+          );
+          expect(lit(), lessThan(band));
+          expect(
+            tester
+                .getRect(
+                  find
+                      .ancestor(
+                        of: find.byType(AmbientWash),
+                        matching: find.byType(ClipRect),
+                      )
+                      .first,
+                )
+                .bottom,
+            closeTo(
+              tester.getRect(find.byType(DetailPageImage)).top + band,
+              0.5,
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(lit(), closeTo(band, 0.5));
         },
       );
-      final entity = parseIllust(
-        illustJson(42, pageCount: 1, width: 1600, height: 900),
-      );
-      container.read(illustStoreProvider).mergeAll([entity]);
-      final navigatorKey = GlobalKey<NavigatorState>();
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          navigatorKey: navigatorKey,
-          body: const SizedBox.expand(),
-        ),
-      );
-      unawaited(
-        navigatorKey.currentState!.push(
-          // The app's route: its scope hands the page the controller, which
-          // a Hero's measuring frame does not report complete.
-          FuncPage<void>(
-                sharedElement: true,
-                child: IllustDetailPage(illustId: 42, initialEntity: entity),
-              ).createRoute(navigatorKey.currentContext!)
-              as PageRoute<void>,
-        ),
-      );
-      // The wash's height over the band, anchored at the image's edge.
-      double lit() => tester
-          .getSize(
-            find
-                .ancestor(
-                  of: find.byType(AmbientWash),
-                  matching: find.byType(ClipRect),
-                )
-                .first,
-          )
-          .height;
-      final naturalHeight = 390 / (1600 / 900);
-      final band = (844 * 0.7 - naturalHeight) / 2;
-
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(lit(), 0, reason: 'the page colour while the page opens');
-      // Lands, then rises from the image's edge.
-      await pumpUntil(
-        tester,
-        () => lit() > 0,
-        step: const Duration(milliseconds: 16),
-      );
-      expect(lit(), lessThan(band));
-      expect(
-        tester
-            .getRect(
-              find
-                  .ancestor(
-                    of: find.byType(AmbientWash),
-                    matching: find.byType(ClipRect),
-                  )
-                  .first,
-            )
-            .bottom,
-        closeTo(tester.getRect(find.byType(DetailPageImage)).top + band, 0.5),
-      );
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(lit(), closeTo(band, 0.5));
-    });
+    }
 
     testWidgets('gives the first image of a set the same slot', (tester) async {
       final (container, _, _) = await makeWorld(

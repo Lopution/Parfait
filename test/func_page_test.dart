@@ -637,11 +637,14 @@ void main() {
     expect(pageB().width, lessThan(screen.width), reason: 'from its pose');
     expect(
       tester
-          .widget<Opacity>(
-            find.ancestor(of: find.byKey(b), matching: find.byType(Opacity)),
+          .renderObject<RenderOpacity>(
+            find
+                .ancestor(of: find.byKey(b), matching: find.byType(Opacity))
+                .first,
           )
           .opacity,
       lessThan(1),
+      reason: 'it fades as it leaves',
     );
     await tester.pumpAndSettle();
     expect(find.text('page b'), findsNothing);
