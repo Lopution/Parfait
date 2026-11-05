@@ -181,13 +181,13 @@ reviewed: 2026-10-29
   least 1/0.85 of that winner's bytes per second in the same race, or the
   winner failed in it; a kept winner counts as measured then. A winner
   whose every tier failed drops to direct and the candidates race at once,
-  30 s apart at least. A network change cancels the old network's pending
+  or once 30 s have passed since the last race. A network change cancels the old network's pending
   race, and a result measured on another network is dropped.
 - **Why:** Every launch raced and applied one sample per candidate during
   the first screen: the race paid a cold ECH lookup for pixiv's host, the
   source flipped between two launches on one network, and the images sent
   to the old source held five of the eight lanes for 21–23 s.
-- **Check:** `test/restricted_compat_image_test.dart` "no winner remembered: the race runs at once and applies" "a stale winner applies at once, races after the deferral and " "a race replaces a winner it beats by 15 % or that failed" "a network change drops the old network's pending race; a " "the winner persists scoped to the network identity"
+- **Check:** `test/restricted_compat_image_test.dart` "no winner remembered: the race runs at once and applies; an " "a stale winner applies at once, races after the deferral and " "a race replaces a winner it beats by 15 % or that failed" "a network change drops the old network's pending race; a " "the winner persists scoped to the network identity"
 - **Code:** `lib/core/network/compat/auto_image_source.dart`, `lib/core/network/compat/network_providers.dart`
 
 ### NET-05 Image and download exits use HTTP/1.1

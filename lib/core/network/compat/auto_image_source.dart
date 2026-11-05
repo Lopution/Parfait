@@ -285,8 +285,8 @@ class AutoSourceRace {
 /// - a race replaces the winner in use only when its best candidate is at
 ///   least 1/[replaceRatio] as fast as that winner in the same race, or the
 ///   winner failed in it;
-/// - an exhausted winner drops to direct and re-races at once, at most once
-///   per [throttle].
+/// - an exhausted winner drops to direct and re-races at once, or once
+///   [throttle] has passed since the last race.
 class AutoSourceSelector {
   AutoSourceSelector({
     required AutoImageSource store,
@@ -315,6 +315,9 @@ class AutoSourceSelector {
   final void Function(String? host) _apply;
 
   String? _identity;
+  // Each [networkSeen] call; a lookup that finds it moved on is stale even
+  // when the identity came back (A → B → A).
+  int _seenCount = 0;
   Timer? _deferred;
   bool _racing = false;
   String? _pendingIdentity;
@@ -326,13 +329,14 @@ class AutoSourceSelector {
     _deferred?.cancel();
     _deferred = null;
     _identity = identity;
+    final seen = ++_seenCount;
     if (!_enabled()) return;
-    unawaited(_seen(identity));
+    unawaited(_seen(identity, seen));
   }
 
-  Future<void> _seen(String identity) async {
+  Future<void> _seen(String identity, int seen) async {
     final remembered = await _store.winnerFor(identity);
-    if (_disposed || identity != _identity) return;
+    if (_disposed || seen != _seenCount) return;
     if (remembered == null) {
       _raceNow(identity);
       return;
@@ -373,9 +377,17 @@ class AutoSourceSelector {
       return;
     }
     final now = clock.now();
-    if (throttled &&
-        _lastRaceAt != null &&
-        now.difference(_lastRaceAt!) < throttle) {
+    final wait = throttled && _lastRaceAt != null
+        ? throttle - now.difference(_lastRaceAt!)
+        : Duration.zero;
+    if (wait > Duration.zero) {
+      // Put off, not dropped: with the winner gone nothing else would
+      // race this network again.
+      _deferred?.cancel();
+      _deferred = Timer(wait, () {
+        _deferred = null;
+        if (identity == _identity) _raceNow(identity);
+      });
       return;
     }
     _racing = true;

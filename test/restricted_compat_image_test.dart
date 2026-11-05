@@ -710,14 +710,12 @@ void main() {
         current: () => applied,
         apply: (host) => applied = host,
       );
-      void remembered(String identity, Object record) {
-        unawaited(
-          SharedPreferencesAsync().setString(
-            AutoImageSource.storageKey,
-            jsonEncode({identity: record}),
-          ),
-        );
-      }
+      void remembered(String identity, Object record) => unawaited(
+        SharedPreferencesAsync().setString(
+          AutoImageSource.storageKey,
+          jsonEncode({identity: record}),
+        ),
+      );
 
       setUp(() {
         installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
@@ -725,14 +723,19 @@ void main() {
         applied = null;
       });
 
-      test('no winner remembered: the race runs at once and applies', () {
+      test('no winner remembered: the race runs at once and applies; an '
+          'exhausted winner races again after the throttle', () {
         fakeAsync((async) {
           races = [
             {'i.pximg.net': 50, 'i.pixiv.re': 100},
+            {'i.pximg.net': 50},
           ];
-          selector().networkSeen('wifi');
+          final selection = selector()..networkSeen('wifi');
           async.flushMicrotasks();
           expect((applied, raced), ('i.pixiv.re', 1));
+          selection.winnerExhausted('i.pixiv.re');
+          async.elapse(AutoSourceSelector.throttle);
+          expect((applied, raced), ('i.pximg.net', 2), reason: 'not dropped');
         });
       });
 
@@ -742,9 +745,12 @@ void main() {
           races = [
             {'i.pximg.net': 100, 'i.pixiv.re': 110},
           ];
-          // Stored before the time was kept: stale.
+          // Stored before the time was kept: stale. Seen twice, one race.
           remembered('wifi', 'i.pximg.net');
-          selector().networkSeen('wifi');
+          selector()
+            ..networkSeen('wifi')
+            ..networkSeen('cellular')
+            ..networkSeen('wifi');
           async.elapse(const Duration(seconds: 29));
           expect((applied, raced), ('i.pximg.net', 0));
           async.elapse(const Duration(seconds: 1));
