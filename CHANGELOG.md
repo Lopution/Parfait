@@ -16,7 +16,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **Pixiv 小说书签：** 在「阅读进度」面板里可以给小说加 Pixiv 书签，随账号同步；没有阅读记录的小说从书签处打开。「我的」页新增「小说书签」，列出加了书签的小说和所在页码，点开从书签处阅读，也能删除或加回书签。
 - **收藏的小说：** 个人主页的「收藏」可以在插画和小说之间切换，小说收藏有自己的公开、私密和标签筛选。
 - **小说详情：** 小说详情面板列出系列、字数、浏览数、收藏数和发布时间。
-- **小说系列页：** 显示标题、作者、作品数、「已完结」「原创」标签和可展开的简介，按「第 n 话」列出全部小说，看不了的会说明原因。可以从上次读到的那一话「继续阅读」（按账号记住，重启后仍在），也可以「从第 1 话开始」或「阅读最新话」。小说详情面板里的系列名、阅读器底部系列栏的标题，以及追更里小说系列的「打开目录」都能进入系列页；追更里的小说系列也能直接「继续阅读」。
+- **小说系列页：** 显示标题、作者、作品数、「已完结」「原创」标签和可展开的简介，按「第 N 话」列出全部小说，看不了的会说明原因。读过的系列点「继续第 N 话」，从上次打开的那一话接着读（按账号记住，重启后仍在），也可以「从第 1 话开始」；没读过时点「开始阅读」；「阅读最新第 N 话」直接打开最新的一话。小说详情面板里的系列名、阅读器底部系列栏的标题，以及追更里小说系列的「打开目录」都能进入系列页；追更里的小说系列也能直接「继续阅读」。
 - **画师搜索带作品：** 搜索用户的结果和推荐画师一样，每位画师下面带最多三张作品，点作品直接打开；被 R-18、AI 屏蔽或已屏蔽的作品不显示。
 
 ### 变更
@@ -121,7 +121,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **Pixiv markers on novels:** The Reading progress sheet can set a Pixiv marker on a novel, kept with your account, and a novel you have no reading position in opens at its marker. The Me page gains Novel markers, listing the novels you marked and the page of each: tap one to read from the marker, or remove the marker and put it back.
 - **Bookmarked novels:** The Bookmarks tab of a profile switches between illustrations and novels, and novel bookmarks have their own public, private and tag filters.
 - **Novel details:** A novel's info sheet lists its series, length, views, bookmarks and posting date.
-- **Novel series page:** A novel series has its own page with its title, author, work count, Completed and Original labels, an expandable caption, and every novel by episode number; novels you cannot read say why. Continue reading picks up at the novel you last opened in the series (remembered per account, across restarts), or choose Start from episode 1 or Read latest. The series name in a novel's info sheet, the series bar title in the reader and Open contents on a watched novel series all lead there, and a novel series in your Watchlist can also Continue reading directly.
+- **Novel series page:** A novel series has its own page with its title, author, work count, Completed and Original labels, an expandable caption, and every novel by episode number; novels you cannot read say why. Continue episode N picks up at the novel you last opened in the series (remembered per account, across restarts), and Start from episode 1 is there too; a series you have not read shows Start reading, and Read latest (episode N) opens the newest one. The series name in a novel's info sheet, the series bar title in the reader and Open contents on a watched novel series all lead there, and a novel series in your Watchlist can also Continue reading directly.
 - **Artist search shows works:** Like the recommended artists, each artist in user search results shows up to three of their works; tap one to open it. Works hidden by the R-18 or AI blocks or by a mute are left out.
 
 ### Changed
