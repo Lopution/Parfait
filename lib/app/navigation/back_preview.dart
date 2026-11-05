@@ -64,6 +64,16 @@ class BackPreview extends ChangeNotifier {
   bool get canStart =>
       _phase == BackPreviewPhase.idle || _phase == BackPreviewPhase.settling;
 
+  /// Whether the route is the one on screen: on top of its navigator, and
+  /// that navigator in the branch on screen with nothing over the shell
+  /// ([BranchActivityScope]). A route pushed over the shell mid-swipe (a
+  /// shared image) takes it off screen before the commit.
+  bool get onScreen {
+    final navigator = route.navigator;
+    if (navigator == null || !route.isCurrent) return false;
+    return BranchActivityScope.maybeOf(navigator.context)?.active ?? true;
+  }
+
   void start(PredictiveBackEvent event) {
     assert(canStart);
     final progress = _progress ??= AnimationController(vsync: route.navigator!)
@@ -114,16 +124,16 @@ class BackPreview extends ChangeNotifier {
         });
   }
 
-  /// Pops the route from its pose. A route that is no longer on top, or
-  /// that would not pop now, goes back to rest; one that would not pop
-  /// hears the back as the button's (its `PopScope` asks).
+  /// Pops the route from its pose. A route no longer [onScreen], or that
+  /// would not pop now, goes back to rest; one that would not pop hears
+  /// the back as the button's (its `PopScope` asks).
   void commit() {
     if (_phase != BackPreviewPhase.dragging) return;
-    final navigator = route.navigator;
-    if (navigator == null || !route.isCurrent) {
+    if (!onScreen) {
       _rest();
       return;
     }
+    final navigator = route.navigator!;
     if (route.popDisposition == RoutePopDisposition.doNotPop) {
       _rest();
       navigator.maybePop();
@@ -201,15 +211,6 @@ class _BackPreviewListenerState extends State<BackPreviewListener>
     super.dispose();
   }
 
-  bool get _onTop {
-    final route = widget.preview.route;
-    final navigator = route.navigator;
-    if (navigator == null || !route.isCurrent || !route.popGestureEnabled) {
-      return false;
-    }
-    return BranchActivityScope.maybeOf(navigator.context)?.active ?? true;
-  }
-
   // The binding sends update, cancel and commit only to observers that
   // returned true from start.
   @override
@@ -218,7 +219,8 @@ class _BackPreviewListenerState extends State<BackPreviewListener>
     if (backEvent.isButtonEvent ||
         _cancelDuration == Duration.zero ||
         !preview.canStart ||
-        !_onTop) {
+        !preview.onScreen ||
+        !preview.route.popGestureEnabled) {
       return false;
     }
     preview.start(backEvent);

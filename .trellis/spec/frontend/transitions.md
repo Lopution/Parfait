@@ -88,7 +88,8 @@ reviewed: 2026-10-29
   takes the swipe is current, `popGestureEnabled`, motion is not
   reduced, the event is not a button's, and its navigator is in the
   branch on screen with nothing on the root navigator over the shell
-  (`BranchActivityScope`). Every other back is the back button's, with
+  (`BranchActivityScope`); a route that leaves the screen mid-swipe (a
+  page pushed over the shell) rests at the commit. Every other back is the back button's, with
   no taker the binding's commit reaching `handlePopRoute`: dialogs,
   menus, `PopScope`-guarded states, a branch root and the start page
   (NAV-03), a route still animating, reduced motion, a system that sends
@@ -104,7 +105,7 @@ reviewed: 2026-10-29
   was before the swipe. A parked branch keeps a current route offstage,
   and a branch page under a root-level page or a dialog is current in
   its own navigator.
-- **Check:** `test/func_page_test.dart` "a back swipe shrinks a page over the page below at rest; " "a back swipe shrinks a shared-element page whole; the image " "under reduced motion a back swipe leaves the page as it is; " "only the visible branch answers the back gesture" "a root-level page owns the gesture over the whole shell"; `test/app_overlays_test.dart` "a back swipe shrinks a sheet from its bottom edge; a cancel "
+- **Check:** `test/func_page_test.dart` "a back swipe shrinks a page over the page below at rest; " "a back swipe shrinks a shared-element page whole; the image " "under reduced motion a back swipe leaves the page as it is; " "only the visible branch answers the back gesture" "a root-level page owns the gesture over the whole shell, "; `test/app_overlays_test.dart` "a back swipe shrinks a sheet from its bottom edge; a cancel "
 - **Code:** `lib/app/navigation/back_preview.dart`, `lib/app/navigation/func_page.dart`, `lib/app/motion/app_overlays.dart`, `lib/app/widgets/home_branch_stack.dart`
 
 ### TRANS-06 Transitions snapshot only what does not move live
