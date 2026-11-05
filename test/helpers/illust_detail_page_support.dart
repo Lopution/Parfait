@@ -65,7 +65,12 @@ Future<void> openDetailMenu(
 /// The selection bar's count, or null outside the page-selection mode.
 String? selectionCount(WidgetTester tester) {
   if (downloadSelectedButton.evaluate().isEmpty) return null;
-  return (tester.widget<AppBar>(find.byType(AppBar)).title! as Text).data;
+  // The bar cross-fades from the page's own: read the one holding it.
+  final bar = find.ancestor(
+    of: downloadSelectedButton,
+    matching: find.byType(AppBar),
+  );
+  return (tester.widget<AppBar>(bar).title! as Text).data;
 }
 
 /// The selection bar's download action.

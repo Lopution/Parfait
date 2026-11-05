@@ -65,8 +65,10 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   final bool overArtwork;
 
   /// Fades the whole bar in, with the page a Hero flight brings in, so its
-  /// controls arrive with a fade rather than a cut; the bar also stays out
-  /// of a flight over it ([HeroChrome]). Null shows the bar at once.
+  /// controls arrive with a fade rather than a cut. A see-through toolbar
+  /// also stays out of a flight over it ([HeroChrome]); a drawn one and
+  /// the status strip stay, and the flight passes under them. Null shows
+  /// the bar at once.
   final Animation<double>? entrance;
 
   /// Whether the bar currently hides what scrolls under it. A Hero flight
@@ -127,19 +129,19 @@ class _AppTopBarState extends State<AppTopBar> {
             builder: (context, value, _) =>
                 _buildBar(context, value.clamp(0.0, 1.0).toDouble()),
           );
-    final switched = AnimatedSwitcher(
+    return AnimatedSwitcher(
       duration: MotionTokens.resolve(context, MotionTokens.chrome),
       switchInCurve: MotionTokens.chromeCurve,
       switchOutCurve: MotionTokens.chromeCurve,
       child: KeyedSubtree(key: ValueKey(widget.backgroundColor), child: bar),
     );
-    final entrance = widget.entrance;
-    return entrance == null
-        ? switched
-        : HeroChrome(
-            child: FadeTransition(opacity: entrance, child: switched),
-          );
   }
+
+  /// [child] fading in with [AppTopBar.entrance].
+  Widget _entering(Widget child) => switch (widget.entrance) {
+    null => child,
+    final entrance => FadeTransition(opacity: entrance, child: child),
+  };
 
   /// [drawn] is the bar's presence: 1 the normal bar, 0 fully immersed.
   Widget _buildBar(BuildContext context, double drawn) {
@@ -163,6 +165,32 @@ class _AppTopBarState extends State<AppTopBar> {
           );
     final title = widget.title;
     final statusInset = MediaQuery.paddingOf(context).top;
+    final toolbar = ValueListenableBuilder(
+      valueListenable: _scrolledUnder,
+      builder: (context, scrolledUnder, bar) =>
+          ScrollEdgeShadow(visible: scrolledUnder && !immersed, child: bar!),
+      child: AppBar(
+        leading: widget.leading,
+        automaticallyImplyLeading: widget.automaticallyImplyLeading,
+        title: title == null || !immersed
+            ? title
+            : Opacity(opacity: drawn, child: title),
+        titleSpacing: widget.titleSpacing,
+        actions: widget.actions,
+        bottom: widget.bottom,
+        backgroundColor: immersed
+            ? surface.withValues(alpha: surface.a * drawn)
+            : widget.backgroundColor,
+        foregroundColor: immersed ? foreground : null,
+        iconTheme: liftedIcons,
+        // The status strip is the page surface, so its icons follow the
+        // theme like the navigation bar's.
+        systemOverlayStyle: immersed
+            ? funcSystemBarsStyle(theme.brightness)
+            : null,
+        notificationPredicate: widget.notificationPredicate,
+      ),
+    );
     return Stack(
       fit: StackFit.passthrough,
       children: [
@@ -172,36 +200,15 @@ class _AppTopBarState extends State<AppTopBar> {
             top: 0,
             right: 0,
             height: statusInset,
-            child: ColoredBox(color: surface),
+            child: _entering(ColoredBox(color: surface)),
           ),
-        ValueListenableBuilder(
-          valueListenable: _scrolledUnder,
-          builder: (context, scrolledUnder, bar) => ScrollEdgeShadow(
-            visible: scrolledUnder && !immersed,
-            child: bar!,
+        if (widget.entrance == null)
+          toolbar
+        else
+          HeroChrome(
+            holdable: () => !widget.occludesContent,
+            child: _entering(toolbar),
           ),
-          child: AppBar(
-            leading: widget.leading,
-            automaticallyImplyLeading: widget.automaticallyImplyLeading,
-            title: title == null || !immersed
-                ? title
-                : Opacity(opacity: drawn, child: title),
-            titleSpacing: widget.titleSpacing,
-            actions: widget.actions,
-            bottom: widget.bottom,
-            backgroundColor: immersed
-                ? surface.withValues(alpha: surface.a * drawn)
-                : widget.backgroundColor,
-            foregroundColor: immersed ? foreground : null,
-            iconTheme: liftedIcons,
-            // The status strip is the page surface, so its icons follow the
-            // theme like the navigation bar's.
-            systemOverlayStyle: immersed
-                ? funcSystemBarsStyle(theme.brightness)
-                : null,
-            notificationPredicate: widget.notificationPredicate,
-          ),
-        ),
       ],
     );
   }

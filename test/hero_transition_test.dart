@@ -1088,6 +1088,99 @@ void main() {
     expect(realShadow(), isTrue);
   });
 
+  // The work page's status strip, and its top bar once drawn, stay over a
+  // flight to and from the viewer and cut it; the viewer's stage runs
+  // under the status bar, so the image reaches the top there. A
+  // see-through toolbar steps aside. Status bar 24, a 1:5 work: at 1850
+  // the bar is part drawn.
+  for (final (scroll, top) in [(0.0, 24.0), (1850.0, 24.0 + kToolbarHeight)]) {
+    testWidgets('detail and viewer: the clip runs between the work page\'s top '
+        'chrome and the top of the screen (scroll $scroll)', (tester) async {
+      setViewSize(tester, const Size(390, 844));
+      tester.view.padding = const FakeViewPadding(top: 24);
+      tester.view.viewPadding = const FakeViewPadding(top: 24);
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+      final json = illustJson(42, width: 800, height: 4000);
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      final entity = parseIllust(json);
+      container.read(illustStoreProvider).mergeAll([entity]);
+      final router = pixivRouter('/recommended');
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      unawaited(
+        router.push<void>(
+          '/recommended/illust/42',
+          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+      if (scroll > 0) {
+        tester
+            .stateList<ScrollableState>(find.byType(Scrollable))
+            .lastWhere(
+              (s) =>
+                  s.position.axis == Axis.vertical &&
+                  s.position.maxScrollExtent > 1000,
+            )
+            .position
+            .jumpTo(scroll);
+        await tester.pumpAndSettle();
+      }
+      final drawn = tester
+          .widget<AppTopBar>(find.byType(AppTopBar))
+          .occludesContent;
+      expect(drawn, scroll > 0);
+      final toolbar = find
+          .descendant(
+            of: find.ancestor(
+              of: find.byType(AppBar),
+              matching: find.byType(HeroChrome),
+            ),
+            matching: find.byType(FadeTransition),
+          )
+          .first;
+
+      // Each flight frame's clip top, and the toolbar's opacity on it.
+      Future<List<double>> fly() async {
+        final tops = <double>[];
+        await tester.pump();
+        while (true) {
+          await tester.pump(const Duration(milliseconds: 30));
+          if (find.byType(HeroRectClip).evaluate().isEmpty) break;
+          tops.add(_heroClipRect(tester).top);
+          expect(
+            tester.widget<FadeTransition>(toolbar).opacity.value,
+            drawn ? 1 : 0,
+            reason: 'a drawn bar stays; a see-through one steps aside',
+          );
+        }
+        await tester.pumpAndSettle();
+        return tops;
+      }
+
+      final image = tester.getRect(find.byType(DetailPageImage).first);
+      await tester.tapAt(
+        Offset(
+          195,
+          (math.max(image.top, 100) + math.min(image.bottom, 800)) / 2,
+        ),
+      );
+      final opening = await fly();
+      expect(find.byType(ImageViewerPage), findsOneWidget);
+      expect(opening.first, closeTo(top, 3));
+      expect(opening.last, closeTo(0, 1));
+
+      await tester.tap(find.byType(BackButton).last);
+      final closing = await fly();
+      expect(find.byType(ImageViewerPage), findsNothing);
+      expect(closing.first, closeTo(0, 3));
+      expect(closing.last, closeTo(top, 1));
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+    });
+  }
+
   testWidgets('Hero pop flight is occluded by the chrome', (tester) async {
     setViewSize(tester, const Size(400, 800));
 

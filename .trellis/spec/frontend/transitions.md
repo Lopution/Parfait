@@ -217,7 +217,12 @@ reviewed: 2026-10-29
   and action bar) is `HeroChrome`: while a flight runs, the chrome its
   ends overlap is hidden, including that of a page opened while the
   image flew home, and fades in (`stateFade`) once the image has landed.
-  Tests inspect the render-time clip.
+  Chrome that hides what is under it stays (`HeroChrome.holdable`), and
+  the flight is clipped below it: the detail top bar steps aside only
+  while see-through, its status strip never. An end's status inset is
+  the flight overlay's, not the page's (zeroed behind or below an app
+  bar); the viewer's end (`IllustHeroFlightChild.edgeToEdge`) has no top
+  chrome. Tests inspect the render-time clip.
 - **Why:** Artwork covered app bars and the bottom bar, or was cut hard on
   landing; slide transforms made the boundary empty. The page covers the
   page below over the first part of the flight while the image flies on, so a clip that
@@ -238,8 +243,12 @@ reviewed: 2026-10-29
   the card end and the tab row cut the image on the detail page. The
   shuttle is painted over every page, so chrome on the image was covered
   as a flight set off and popped back whole at the landing, and badges
-  floated over the card's empty slot.
-- **Check:** `test/hero_transition_test.dart` "a card flight lifts the card page's bars over the image" (with their shadows) "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing"
+  floated over the card's empty slot. Between the work page and the
+  viewer (11-04), the image jumped under the status icons at takeoff, a
+  half-drawn bar vanished over an empty band where the image stayed cut,
+  and the viewer's end was cut by a status strip it does not have: the
+  ends' insets came from the pages' own MediaQuery.
+- **Check:** `test/hero_transition_test.dart` "a card flight lifts the card page's bars over the image" (with their shadows) "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing" "detail and viewer: the clip runs between the work page's top "
 - **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_top_bar.dart`
 
 ### TRANS-11 Card rounding lives inside the Hero child

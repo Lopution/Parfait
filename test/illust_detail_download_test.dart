@@ -8,6 +8,7 @@ import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
@@ -180,7 +181,9 @@ void main() {
       expect(selectionCount(tester), isNotNull);
 
       await tester.binding.handlePopRoute();
-      await tester.pump(const Duration(milliseconds: 50));
+      // Past the bars' cross-fade, which starts on the next frame.
+      await tester.pump();
+      await tester.pump(MotionTokens.chrome + const Duration(milliseconds: 50));
       // The route stays; the mode is gone.
       expect(find.byType(IllustDetailPage), findsOneWidget);
       expect(selectionCount(tester), isNull);
