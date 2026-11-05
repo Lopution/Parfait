@@ -345,12 +345,13 @@ reviewed: 2026-10-29
   other candidate that serves ranges, else the transfer's own route) when
   the one before it also stopped before sending a byte. After the last
   continuation the connection is left to the transport's idle timeout,
-  and the next failure or early end ends the transfer as a transport
-  failure, so a download keeps its bytes for a retry from its anchor (D8). Teardown uses
+  and the next failure, early end or idle timeout ends the transfer as a
+  transport failure, so a download keeps its bytes for a retry from its
+  anchor (D8). Teardown uses
   `subscription.cancel().ignore()` before closing the response.
 - **Why:** A stalled body waited the 15 s idle timeout, then failed. The
   first stop is often one bad connection; a route that stops again before
   a byte is likely bad for good. Awaiting `cancel()` never settled under
   `fakeAsync` and surfaced teardown errors as uncaught.
-- **Check:** `test/continued_fetch_test.dart` "a stalled body continues from the received byte after 2 s; " "a dropped connection continues on the same route" "continuations stop at the bound, then " "a paused reader is not a stall; resuming finishes", `test/download_resume_test.dart` "a dropped connection continues from the received byte, on the ", `test/restricted_compat_image_test.dart` "a restarted range goes to another candidate that serves ranges, "
+- **Check:** `test/continued_fetch_test.dart` "a stalled body continues from the received byte after 2 s; " "a dropped connection continues on the same route" "continuations stop at the bound, then " "a paused reader is not a stall; resuming finishes", `test/download_resume_test.dart` "a dropped connection continues from the received byte, on the " "network failure preserves bytes; retry resumes", `test/restricted_compat_image_test.dart` "a restarted range goes to another candidate that serves ranges, "
 - **Code:** `lib/core/network/compat/continued_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`

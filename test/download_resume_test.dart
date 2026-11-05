@@ -479,44 +479,52 @@ void main() {
       expect(factory.store.files.values.single, List.filled(20, 5));
     });
 
-    test('network failure preserves bytes; retry resumes', () async {
-      final transport = FakeTransport();
-      final factory = _ResumableFactory();
-      transport.responses.add(
-        ScriptedResponse(
-          contentLength: 30,
-          chunks: [List.filled(10, 1)],
-          error: const SocketException('connection reset'),
-        ),
-      );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: factory,
-        submissionContext: _context,
-      );
-      addTearDown(manager.dispose);
+    for (final (failure, error) in [
+      ('a reset', const SocketException('connection reset')),
+      ('an idle body', TimeoutException('response stream idle')),
+    ]) {
+      test(
+        'network failure preserves bytes; retry resumes ($failure)',
+        () async {
+          final transport = FakeTransport();
+          final factory = _ResumableFactory();
+          transport.responses.add(
+            ScriptedResponse(
+              contentLength: 30,
+              chunks: [List.filled(10, 1)],
+              error: error,
+            ),
+          );
+          final manager = DownloadManager(
+            transport: transport,
+            sinkFactory: factory,
+            submissionContext: _context,
+          );
+          addTearDown(manager.dispose);
 
-      final task = manager.submit(_request());
-      await turnUntil(
-        () => manager.taskById(task.id)?.status == DownloadStatus.failed,
-      );
+          final task = manager.submit(_request());
+          await turnUntil(
+            () => manager.taskById(task.id)?.status == DownloadStatus.failed,
+          );
 
-      final failed = manager.taskById(task.id)!;
-      expect(failed.failureKind, DownloadFailureKind.network);
-      expect(failed.resumeAnchor!.storedBytes, 10);
-      expect(factory.sinks.single.aborted, isFalse);
+          final failed = manager.taskById(task.id)!;
+          expect(failed.failureKind, DownloadFailureKind.network);
+          expect(failed.resumeAnchor!.storedBytes, 10);
+          expect(factory.sinks.single.aborted, isFalse);
 
-      transport.responses.add(
-        ScriptedResponse(
-          statusCode: 206,
-          contentLength: 20,
-          chunks: [List.filled(20, 7)],
-        ),
+          transport.responses.add(
+            ScriptedResponse(
+              statusCode: 206,
+              contentLength: 20,
+              chunks: [List.filled(20, 7)],
+            ),
+          );
+          await _retried(manager, task.id);
+          expect(transport.openedHeaders.last['Range'], 'bytes=10-');
+          expect(factory.store.files.values.single.length, 30);
+        },
       );
-      await _retried(manager, task.id);
-      expect(transport.openedHeaders.last['Range'], 'bytes=10-');
-      expect(factory.store.files.values.single.length, 30);
-    });
+    }
 
     test(
       'mismatched platform byte count discards anchor, no Range sent',

@@ -1860,9 +1860,11 @@ DownloadFailureKind classifyDownloadFailure(Object error) {
       error.toString().toLowerCase().contains('limit exceeded')) {
     return DownloadFailureKind.resource;
   }
+  // A timeout here is the transport's: no body byte within its idle budget.
   if (error is NetworkFailureException ||
       error is DownloadTransportException ||
-      error is SocketException) {
+      error is SocketException ||
+      error is TimeoutException) {
     return DownloadFailureKind.network;
   }
   return DownloadFailureKind.unknown;
