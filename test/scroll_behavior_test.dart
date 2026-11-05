@@ -180,6 +180,7 @@ void main() {
 
       final alone = await flick();
       await tester.pump(const Duration(milliseconds: 50));
+      expect(controller.position.isScrollingNotifier.value, isTrue);
       expect(await flick(), closeTo(alone, alone * 0.1));
       await tester.pumpAndSettle();
     });
