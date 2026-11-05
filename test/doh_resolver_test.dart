@@ -266,16 +266,29 @@ void main() {
     },
   );
 
-  test('concurrent address lookups share one wire query', () async {
+  test('concurrent address lookups share one wire query; a cancel ends '
+      'only its own wait', () async {
     final gate = Completer<void>();
     final server = _FakeDohServer(address: '1.1.1.1')..block = gate;
     final resolver = _resolver(_DohServerClient([server]));
+    final cancel = _TestCancelSignal();
 
-    final first = resolver.pixiv();
+    final cancelled = resolver.resolve(
+      'app-api.pixiv.net',
+      revision: _revision,
+      cancelSignal: cancel,
+    );
+    final first = resolver.resolve(
+      'app-api.pixiv.net',
+      revision: _revision,
+      cancelSignal: _TestCancelSignal(),
+    );
     final second = resolver.pixiv();
     await Future<void>.delayed(Duration.zero);
     expect(server.requests, hasLength(1));
 
+    cancel.cancel();
+    await expectLater(cancelled, throwsA(isA<NetworkFailureException>()));
     gate.complete();
     final results = await Future.wait([first, second]);
     expect(results[0].addresses, results[1].addresses);
@@ -345,7 +358,7 @@ void main() {
     );
   });
 
-  test('cancellation aborts the query', () async {
+  test('a cancel ends the caller\'s wait', () async {
     final server = _FakeDohServer(address: '1.1.1.1');
     final gate = Completer<void>();
     server.block = gate;
@@ -554,14 +567,19 @@ void main() {
       expect(server.requests, hasLength(2));
     });
 
-    test('concurrent uncancelled ECH lookups share one wire query', () async {
+    test('concurrent ECH lookups share one wire query, cancellable or '
+        'not', () async {
       final gate = Completer<void>();
       final server = _FakeDohServer(address: '1.1.1.1')
         ..httpsEchRdata = _echRdata([1, 2, 3])
         ..block = gate;
       final resolver = _resolver(_DohServerClient([server]));
 
-      final first = resolver.ech();
+      final first = resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+        cancelSignal: _TestCancelSignal(),
+      );
       final second = resolver.ech();
       await Future<void>.delayed(Duration.zero);
       expect(server.requests, hasLength(1));
@@ -621,7 +639,8 @@ void main() {
       expect(broken.requests, hasLength(1));
     });
 
-    test('cancellation aborts the ECH lookup', () async {
+    test('a cancel ends the caller\'s ECH wait; the lookup still answers '
+        'the next one', () async {
       final server = _FakeDohServer(address: '1.1.1.1')
         ..httpsEchRdata = _echRdata([1]);
       final gate = Completer<void>();
@@ -645,16 +664,11 @@ void main() {
           ),
         ),
       );
-      server.block = null;
       gate.complete();
       await Future<void>.delayed(Duration.zero);
 
       await resolver.ech();
-      expect(
-        server.requests,
-        hasLength(2),
-        reason: 'a cancelled lookup must not populate the cache',
-      );
+      expect(server.requests, hasLength(1));
     });
   });
 }
