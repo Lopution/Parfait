@@ -16,6 +16,7 @@ class _Plan {
     this.interval = const Duration(milliseconds: 10),
     this.stallAt,
     this.failAt,
+    this.endAt,
     this.status = 206,
     this.shiftRange = 0,
   });
@@ -31,6 +32,9 @@ class _Plan {
 
   /// Fails the body with a socket-style error after this many bytes.
   final int? failAt;
+
+  /// Ends the body normally, short of the file, after this many bytes.
+  final int? endAt;
   final int status;
 
   /// Misreports the served range's start by this many bytes.
@@ -84,6 +88,12 @@ class _Server {
         if (plan.failAt case final failAt? when sent >= failAt) {
           timer?.cancel();
           body.addError(const _Reset());
+          hangUp();
+          return;
+        }
+        if (plan.endAt case final endAt? when sent >= endAt) {
+          timer?.cancel();
+          unawaited(body.close());
           hangUp();
           return;
         }
@@ -230,35 +240,49 @@ void main() {
     });
   });
 
-  test('continuations stop at the bound, then the next failure ends it', () {
-    fakeAsync((async) {
-      final server = _Server(2 * _mib)
-        ..plan = (nth) => switch (nth) {
-          0 => const _Plan(stallAt: 64 * 1024),
-          ContinuedFetch.defaultContinuations => const _Plan(
-            stallAt: 0,
-            failAt: 0,
-            interval: Duration(seconds: 15),
-          ),
-          _ => const _Plan(stallAt: 0),
-        };
-      final run = _Run(async, server);
-      async.elapse(const Duration(seconds: 14));
-      expect(
-        run.server.requests,
-        hasLength(1 + ContinuedFetch.defaultContinuations),
-      );
-      expect(run.error, isNull, reason: 'the last connection is left alone');
-      // Its own idle timeout, played here by the server, ends it.
-      async.elapse(const Duration(seconds: 15));
-      expect(run.error, isA<_Reset>());
-      expect(
-        run.server.requests,
-        hasLength(1 + ContinuedFetch.defaultContinuations),
-      );
-      expect(server.openConnections, 0);
+  for (final (ending, last, ends) in [
+    (
+      'a failure',
+      const _Plan(stallAt: 0, failAt: 0, interval: Duration(seconds: 15)),
+      isA<_Reset>(),
+    ),
+    (
+      'an early end',
+      const _Plan(endAt: 0, interval: Duration(seconds: 15)),
+      isA<NetworkFailureException>().having(
+        (e) => e.kind,
+        'kind',
+        NetworkFailureKind.reset,
+      ),
+    ),
+  ]) {
+    test('continuations stop at the bound, then $ending ends it as a '
+        'transport failure', () {
+      fakeAsync((async) {
+        final server = _Server(2 * _mib)
+          ..plan = (nth) => switch (nth) {
+            0 => const _Plan(stallAt: 64 * 1024),
+            ContinuedFetch.defaultContinuations => last,
+            _ => const _Plan(stallAt: 0),
+          };
+        final run = _Run(async, server);
+        async.elapse(const Duration(seconds: 14));
+        expect(
+          run.server.requests,
+          hasLength(1 + ContinuedFetch.defaultContinuations),
+        );
+        expect(run.error, isNull, reason: 'the last connection is left alone');
+        // Its own idle timeout, played here by the server, ends it.
+        async.elapse(const Duration(seconds: 15));
+        expect(run.error, ends);
+        expect(
+          run.server.requests,
+          hasLength(1 + ContinuedFetch.defaultContinuations),
+        );
+        expect(server.openConnections, 0);
+      });
     });
-  });
+  }
 
   test('every continuation asks If-Range with the first ETag', () {
     fakeAsync((async) {

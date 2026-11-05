@@ -220,8 +220,9 @@ class ContinuedFetch {
           unawaited(_output.close());
           _shutdown();
         } else {
+          // A transport failure, so a download keeps its bytes (NET-16).
           _continueAfter(
-            StateError('connection ended at ${_from + _received}'),
+            const NetworkFailureException(NetworkFailureKind.reset),
           );
         }
       },
