@@ -47,8 +47,7 @@ reviewed: 2026-10-17
 - **Rule:** Dialogs and bottom sheets open through `showAppDialog` /
   `showAppBottomSheet`. Their barrier replaces the stock one and closes the
   route when a touch that started on the scrim is released on the scrim,
-  tap or drag. A sheet previews Android's back swipe (TRANS-04); a dialog
-  takes it as the back button.
+  tap or drag.
 - **Why:** Wrapping the stock barrier popped twice and closed the page
   below; native Android dialogs close on a drag released outside.
 - **Check:** `test/architecture/feedback_channels_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "a drag outside closes it on release, one layer only"

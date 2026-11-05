@@ -5,7 +5,6 @@ import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/scroll_behavior.dart';
-import 'helpers/back_gesture.dart';
 import 'helpers/view_size.dart';
 
 const _page = Size(400, 800);
@@ -56,11 +55,7 @@ Future<void> _openDialog(BuildContext context, {bool dismissible = true}) =>
 
 Future<void> _openSheet(BuildContext context) => showAppBottomSheet<void>(
   context: context,
-  builder: (_) => const SizedBox(
-    width: double.infinity,
-    height: 200,
-    child: Text('overlay'),
-  ),
+  builder: (_) => const SizedBox(height: 200, child: Text('overlay')),
 );
 
 void main() {
@@ -161,41 +156,6 @@ void main() {
     await tester.tap(find.text('open'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(taps, 1);
-  });
-
-  testWidgets('a back swipe shrinks a sheet from its bottom edge; a cancel '
-      'restores it, a commit closes it', (tester) async {
-    await _pumpPage(tester, open: _openSheet);
-    final sheet = find.byType(BottomSheet);
-    final open = tester.getRect(sheet);
-    final content = tester.getRect(find.text('overlay'));
-
-    await startBackGesture();
-    await dragBackGesture(1);
-    await tester.pump();
-    // MDC's bottom container: 48 dp narrower, 24 dp shorter, from its
-    // bottom edge, the content kept to its shape.
-    final posed = tester.getRect(sheet);
-    expect(posed.width, closeTo(open.width - 48, 1));
-    expect(posed.height, closeTo(open.height - 24, 1));
-    expect(posed.bottom, closeTo(open.bottom, 0.5));
-    expect(posed.center.dx, closeTo(open.center.dx, 0.5));
-    final text = tester.getRect(find.text('overlay'));
-    expect(
-      text.height / content.height,
-      closeTo(text.width / content.width, 0.01),
-    );
-
-    await cancelBackGesture();
-    await tester.pumpAndSettle();
-    expect(tester.getRect(sheet), open);
-
-    await startBackGesture();
-    await dragBackGesture(0.5);
-    await commitBackGesture();
-    await tester.pumpAndSettle();
-    expect(find.text('overlay'), findsNothing);
-    expect(find.text('open'), findsOneWidget, reason: 'one layer only');
   });
 
   group('sheet content that fits drags the sheet closed', () {

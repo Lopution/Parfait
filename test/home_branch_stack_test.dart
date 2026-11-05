@@ -93,7 +93,7 @@ ExcludeSemantics _branchSemantics(WidgetTester tester, Finder page) => tester
     .widgetList<ExcludeSemantics>(
       find.ancestor(of: page, matching: find.byType(ExcludeSemantics)),
     )
-    .singleWhere((w) => w.child is BranchActivityScope);
+    .singleWhere((w) => w.child is SlideTransition);
 
 /// Drives the shell's shared tap entry the way FuncShellBottomNav does —
 /// needed while a pushed route covers the current branch root and the bar

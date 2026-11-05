@@ -73,22 +73,6 @@ abstract final class MotionTokens {
   static const ambientRise = Duration(milliseconds: 300);
   static const ambientRiseCurve = Cubic(0, 0, 0, 1);
 
-  /// A predictive back swipe (TRANS-04), MDC's values: its progress eased
-  /// as Material's back helpers ease it, and a cancelled swipe settling
-  /// back (M3 short2, fast-out-slow-in).
-  static const backPreviewProgress = Cubic(0.1, 0.1, 0, 1);
-  static const backPreviewCancel = Duration(milliseconds: 100);
-  static const backPreviewCancelCurve = Curves.fastOutSlowIn;
-
-  /// A page committed from its back preview fades out and carries on away
-  /// from the swiped edge over the first part of its leave, accelerating
-  /// (M3 emphasized accelerate).
-  static const backPreviewLeave = Interval(
-    0,
-    0.6,
-    curve: Cubic(0.3, 0, 0.8, 0.15),
-  );
-
   /// A scroll back to the top takes [spatial] for a short way and grows
   /// with the distance to this at a screen; see [scrollToTop].
   static const scrollToTopLong = Duration(milliseconds: 500);

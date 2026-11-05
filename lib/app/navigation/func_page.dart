@@ -8,15 +8,13 @@ import '../motion/hero_transition.dart'
     show HeroBarsCover, HeroLiftHole, HeroPageCover;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
-import 'back_preview.dart';
 import 'frozen_while_hidden.dart';
 import 'route_animation.dart';
 
 /// The app's standard route page: it slides in from the trailing edge over
 /// a darkened, parallaxed page below ([CupertinoPageTransition]) on every
-/// platform. The back button slides it out; Android's predictive back swipe
-/// shrinks it with the finger over the page below, at rest, and the commit
-/// pops it from there ([BackPreview], TRANS-04).
+/// platform. Back, the button or the system gesture, pops it as one plain
+/// pop; nothing follows the finger.
 ///
 /// A [sharedElement] page (one opened with a Hero from the page below)
 /// does not move while its Hero flies, the way shared-element transitions
@@ -84,37 +82,6 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   /// The route this page last took as its [_above] key.
   Route<dynamic>? _below;
-
-  /// Android's predictive back swipe on this page.
-  late final BackPreview _preview = BackPreview(this)
-    ..onActiveChanged = _holdBelow
-    ..addListener(_followPreview);
-
-  /// Whether the page above shows this one in its back preview: held at
-  /// rest, live, as under a shared-element page.
-  final _heldStill = ValueNotifier(false);
-
-  /// Whether this page holds the page below still for its preview.
-  bool _holding = false;
-
-  void _holdBelow(bool hold) {
-    _holding = hold;
-    if (_below case final _FuncPageRoute<dynamic> below) {
-      below._heldStill.value = hold;
-    }
-  }
-
-  /// The slide in and out, or this page held in place while its preview
-  /// poses it.
-  late final ProxyAnimation _slide = ProxyAnimation(_slideIn);
-
-  void _followPreview() {
-    // A shared-element page does not slide.
-    if (_page.sharedElement) return;
-    _slide.parent = _preview.phase == BackPreviewPhase.idle
-        ? _slideIn
-        : kAlwaysCompleteAnimation;
-  }
 
   bool get _backdrop => _page.sharedElement && _page.sharedElementBackdrop;
 
@@ -198,9 +165,6 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   @override
   void dispose() {
-    if (_holding) _holdBelow(false);
-    _preview.dispose();
-    _heldStill.dispose();
     _uncover();
     // A page removed without a pop never finished leaving: left behind, its
     // entry would hold the page below still for good.
@@ -248,13 +212,10 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       // The controller: [animation] reads complete while a Hero measures
       // the opening page (see RouteAnimationScope).
       animation: controller!,
-      child: BackPreviewPagePose(
-        preview: _preview,
-        child: Semantics(
-          scopesRoute: true,
-          explicitChildNodes: true,
-          child: FrozenWhileHidden(child: _page.child),
-        ),
+      child: Semantics(
+        scopesRoute: true,
+        explicitChildNodes: true,
+        child: FrozenWhileHidden(child: _page.child),
       ),
     );
     return page;
@@ -271,52 +232,33 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     // page lives under the route's GlobalKey, and a changed widget type
     // here would reparent it, rebuilding the whole page in that frame.
     final shared = _page.sharedElement;
-    return ValueListenableBuilder<bool>(
-      valueListenable: _heldStill,
-      builder: (context, held, child) {
-        final still = held || underSharedElement(this);
-        final secondary = still
-            ? kAlwaysDismissedAnimation
-            : secondaryAnimation;
-        return FuncTransitionGuard(
-          animation: animation,
-          secondaryAnimation: secondary,
-          transition: (child) => BackPreviewListener(
-            preview: _preview,
-            child: IgnorePointer(
-              // Leaving, nothing of the page takes a touch, so the page
-              // below answers at once: while the image flies home, and
-              // where the sliding page still is. Opening, a shared-element
-              // page takes none until its content has shown: a second tap
-              // on the card opened the viewer from content still faded
-              // out. The route's barrier takes that tap, so the card below
-              // gets none either.
-              ignoring:
-                  animation.status == AnimationStatus.reverse ||
-                  shared && _contentFade.value < 1,
-              child: BackPreviewLeave(
-                preview: _preview,
-                // A shared-element page leaves on its own timeline.
-                route: shared ? kAlwaysCompleteAnimation : controller!,
-                // The transition widget, not CupertinoPageTransitionsBuilder:
-                // the builder adds an iOS edge-swipe back detector that
-                // would take horizontal drags from in-page pagers.
-                child: CupertinoPageTransition(
-                  primaryRouteAnimation: shared
-                      ? kAlwaysCompleteAnimation
-                      : _slide,
-                  secondaryRouteAnimation: still
-                      ? kAlwaysDismissedAnimation
-                      : _slideAside,
-                  linearTransition: true,
-                  child: shared ? _sharedElementStage(context, child) : child,
-                ),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+    final still = underSharedElement(this);
+    final secondary = still ? kAlwaysDismissedAnimation : secondaryAnimation;
+    return FuncTransitionGuard(
+      animation: animation,
+      secondaryAnimation: secondary,
+      transition: (child) => IgnorePointer(
+        // Leaving, nothing of the page takes a touch, so the page below
+        // answers at once: while the image flies home, and where the
+        // sliding page still is. Opening, a shared-element page takes
+        // none until its content has shown: a second tap on the card
+        // opened the viewer from content still faded out. The route's
+        // barrier takes that tap, so the card below gets none either.
+        ignoring:
+            animation.status == AnimationStatus.reverse ||
+            shared && _contentFade.value < 1,
+        // The transition widget, not CupertinoPageTransitionsBuilder: the
+        // builder adds an iOS edge-swipe back detector that would take
+        // horizontal drags from in-page pagers.
+        child: CupertinoPageTransition(
+          primaryRouteAnimation: shared ? kAlwaysCompleteAnimation : _slideIn,
+          secondaryRouteAnimation: still
+              ? kAlwaysDismissedAnimation
+              : _slideAside,
+          linearTransition: true,
+          child: shared ? _sharedElementStage(context, child) : child,
+        ),
+      ),
       child: child,
     );
   }
@@ -331,16 +273,9 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       fit: StackFit.passthrough,
       children: [
         Positioned.fill(
-          // Shrinks with the page in its back preview, so the page below
-          // shows around both.
-          child: BackPreviewPagePose(
-            preview: _preview,
-            child: FadeTransition(
-              opacity: _backdropFade,
-              child: ColoredBox(
-                color: Theme.of(context).scaffoldBackgroundColor,
-              ),
-            ),
+          child: FadeTransition(
+            opacity: _backdropFade,
+            child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
           ),
         ),
         Positioned.fill(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -23,12 +24,22 @@ import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 
 import 'helpers/api_responses.dart';
-import 'helpers/back_gesture.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+
+Future<void> _sendBackGestureMethod(
+  String method, [
+  Map<String, dynamic>? arguments,
+]) {
+  final data = const StandardMethodCodec().encodeMethodCall(
+    MethodCall(method, arguments),
+  );
+  return TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+      .handlePlatformMessage('flutter/backgesture', data, (_) {});
+}
 
 /// Whether the lifted-Hero hole of a moving page covers [global]: the
 /// painted even-odd clip leaves it out. Null when no page has a hole.
@@ -50,6 +61,21 @@ bool? _liftedHoleAt(WidgetTester tester, Offset global) {
   final local = MatrixUtils.transformPoint(Matrix4.inverted(transform), global);
   return !clip.clipPath!.contains(local);
 }
+
+/// Android's back gesture, starting at the left edge.
+Future<void> _startBackGesture() => _sendBackGestureMethod('startBackGesture', {
+  'touchOffset': <double>[5.0, 300.0],
+  'progress': 0.0,
+  'swipeEdge': 0,
+});
+
+/// The back swipe, 100 px in, at [progress].
+Future<void> _dragBackGesture(double progress) =>
+    _sendBackGestureMethod('updateBackGestureProgress', {
+      'touchOffset': <double>[100.0, 300.0],
+      'progress': progress,
+      'swipeEdge': 0,
+    });
 
 /// Pumps a bare Navigator whose initial route is a [FuncPage]; the page's
 /// button pushes a second FuncPage showing [second] and hands the route back
@@ -600,169 +626,6 @@ void main() {
     expect(probe.value, 1);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('a back swipe shrinks a page over the page below at rest; '
-      'a cancel restores it, a commit pops it from there', (tester) async {
-    const a = ValueKey('a');
-    const b = ValueKey('b');
-    final route = await _pushSecondPage(
-      tester,
-      home: const SizedBox.expand(key: a, child: Text('page a')),
-      second: const SizedBox.expand(key: b, child: Text('page b')),
-    );
-    final screen = tester.getRect(find.byType(Navigator));
-    Rect pageB() => tester.getRect(find.byKey(b));
-
-    await startBackGesture();
-    await dragBackGesture(0.5);
-    await tester.pump();
-    expect(route.animation!.value, 1, reason: 'the route is not rewound');
-    final posed = pageB();
-    expect(posed.width, inExclusiveRange(screen.width * 0.9, screen.width));
-    expect(posed.center.dx, greaterThan(screen.center.dx));
-    expect(find.text('page a'), findsOneWidget, reason: 'the page below');
-    final pageA = tester.getRect(find.byKey(a));
-
-    await cancelBackGesture();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(pageB(), screen);
-    expect(find.text('page a'), findsNothing, reason: 'covered again');
-
-    await startBackGesture();
-    await dragBackGesture(0.5);
-    await commitBackGesture();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(tester.getRect(find.byKey(a)), pageA, reason: 'it does not move');
-    expect(pageB().width, lessThan(screen.width), reason: 'from its pose');
-    expect(
-      tester
-          .renderObject<RenderOpacity>(
-            find
-                .ancestor(of: find.byKey(b), matching: find.byType(Opacity))
-                .first,
-          )
-          .opacity,
-      lessThan(1),
-      reason: 'it fades as it leaves',
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('page b'), findsNothing);
-    expect(tester.getRect(find.byKey(a)), pageA, reason: 'it was at rest');
-  });
-
-  for (final backdrop in [true, false]) {
-    testWidgets('a back swipe shrinks a shared-element page whole; the image '
-        'flies home from the shrunk page${backdrop ? '' : ' (viewer)'}', (
-      tester,
-    ) async {
-      late BuildContext rootContext;
-      late NavigatorState navigator;
-      PageRoute<void> page(Widget child, {bool shared = false}) =>
-          FuncPage<void>(
-                transitionDuration: const Duration(milliseconds: 400),
-                reverseTransitionDuration: const Duration(milliseconds: 400),
-                sharedElement: shared,
-                sharedElementBackdrop: backdrop,
-                child: child,
-              ).createRoute(rootContext)
-              as PageRoute<void>;
-      Widget art(String key, Rect at) => Stack(
-        children: [
-          Positioned.fromRect(
-            rect: at,
-            child: Hero(
-              tag: 'art',
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: SizedBox.expand(key: ValueKey(key)),
-            ),
-          ),
-        ],
-      );
-      final heroes = HeroController();
-      addTearDown(heroes.dispose);
-      const card = Rect.fromLTWH(0, 0, 50, 50);
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Builder(
-            builder: (context) {
-              rootContext = context;
-              return Navigator(
-                observers: [heroes],
-                onGenerateRoute: (_) => page(
-                  Builder(
-                    builder: (context) {
-                      navigator = Navigator.of(context);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox.fromSize(
-                            size: card.size,
-                            child: art('card', Offset.zero & card.size),
-                          ),
-                          const Text('feed'),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-      unawaited(
-        navigator.push(
-          page(
-            art('detail', const Rect.fromLTWH(100, 300, 200, 200)),
-            shared: true,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final detail = find.byKey(const ValueKey('detail'));
-      final route = _routeOf(tester, detail);
-
-      await startBackGesture();
-      await dragBackGesture(0.5);
-      await tester.pump();
-      expect(route.animation!.value, 1, reason: 'the content stays shown');
-      final posed = tester.getRect(detail);
-      expect(posed.width, inExclusiveRange(180, 200));
-      // The page below shows; its card stays hidden for the flight home.
-      expect(find.text('feed'), findsOneWidget);
-
-      await commitBackGesture();
-      await tester.pump();
-      await tester.pump();
-      final shuttle = tester.getRect(detail);
-      expect(shuttle.topLeft.dx, closeTo(posed.left, 1));
-      expect(shuttle.topLeft.dy, closeTo(posed.top, 1));
-      expect(shuttle.width, closeTo(posed.width, 1));
-      await tester.pumpAndSettle();
-      expect(detail, findsNothing);
-      expect(tester.getRect(find.byKey(const ValueKey('card'))), card);
-    });
-  }
-
-  testWidgets('under reduced motion a back swipe leaves the page as it is; '
-      'its commit pops it', (tester) async {
-    final router = await _pumpHome(tester, reduceMotion: true);
-    unawaited(router.push('/recommended/history'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    final atRest = tester.getRect(find.byType(HistoryPage));
-    await startBackGesture();
-    await dragBackGesture(0.5);
-    await tester.pump();
-    expect(tester.getRect(find.byType(HistoryPage)), atRest);
-    await commitBackGesture();
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.byType(HistoryPage), findsNothing);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
   testWidgets('only the visible branch answers the back gesture', (
     tester,
   ) async {
@@ -786,33 +649,20 @@ void main() {
     // a visible marker that it did NOT take the gesture below.
     expect(find.byType(HistoryPage, skipOffstage: false), findsNWidgets(2));
 
-    await startBackGesture();
-    await dragBackGesture(0.35);
+    await _startBackGesture();
+    await _dragBackGesture(0.35);
     await tester.pump();
     expect(branch1Route.animation!.value, 1.0);
     expect(branch0Route.animation!.value, 1.0);
-    // Only the visible branch's page shrinks with the finger.
-    double widthOn(ModalRoute<dynamic> route) => tester
-        .getRect(
-          find.byElementPredicate(
-            (element) =>
-                element.widget is HistoryPage &&
-                identical(ModalRoute.of(element), route),
-            skipOffstage: false,
-          ),
-        )
-        .width;
-    expect(widthOn(branch1Route), lessThan(390));
-    expect(widthOn(branch0Route), 390);
-    await cancelBackGesture();
-    await tester.pump();
+    await _sendBackGestureMethod('cancelBackGesture');
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(HistoryPage), findsOneWidget);
-    expect(widthOn(branch1Route), 390);
 
-    await startBackGesture();
-    await dragBackGesture(0.35);
-    await commitBackGesture();
+    // No route takes the gesture, so the framework pops on its commit as
+    // on the back button.
+    await _startBackGesture();
+    await _dragBackGesture(0.35);
+    await _sendBackGestureMethod('commitBackGesture');
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     // The visible branch popped its pushed route; the parked branch's
@@ -832,30 +682,14 @@ void main() {
     expect(branch0Route.isActive, isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('a root-level route owns the gesture over the whole shell, '
-      'from its push', (tester) async {
+  testWidgets('a root-level page owns the gesture over the whole shell', (
+    tester,
+  ) async {
     final router = await _pumpHome(tester, location: '/ranking');
     unawaited(router.push('/ranking/history'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     final historyRoute = _routeOf(tester, find.byType(HistoryPage));
-
-    // Pushed over the shell mid-swipe (a dialog, a shared image), it takes
-    // the commit from the branch page it covers, before a frame.
-    await startBackGesture();
-    await dragBackGesture(0.35);
-    await tester.pump();
-    expect(tester.getRect(find.byType(HistoryPage)).width, lessThan(390));
-    unawaited(
-      showGeneralDialog<void>(
-        context: tester.element(find.byType(HistoryPage)),
-        pageBuilder: (_, _, _) => const Text('over'),
-      ),
-    );
-    await commitBackGesture();
-    await tester.pump();
-    expect(historyRoute.isActive, isTrue);
-    Navigator.of(tester.element(find.text('over'))).pop();
 
     unawaited(router.push('/me'));
     await tester.pump();
@@ -863,17 +697,13 @@ void main() {
     expect(find.byType(MePage), findsOneWidget);
     final meRoute = _routeOf(tester, find.byType(MePage));
 
-    await startBackGesture();
-    await dragBackGesture(0.35);
+    await _startBackGesture();
+    await _dragBackGesture(0.35);
     await tester.pump();
     expect(meRoute.animation!.value, 1.0);
     expect(historyRoute.animation!.value, 1.0);
-    // The root-level page shrinks over the shell, which shows at rest.
-    expect(tester.getRect(find.byType(MePage)).width, lessThan(390));
-    expect(tester.getRect(find.byType(HistoryPage)).left, 0);
-    expect(tester.getSize(find.byType(HistoryPage)).width, 390);
 
-    await commitBackGesture();
+    await _sendBackGestureMethod('commitBackGesture');
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(MePage), findsNothing);
@@ -960,15 +790,13 @@ void main() {
       await tester.enterText(fields.first, 'changed');
       await tester.pump();
 
-      // A page that would not pop takes no preview; the commit is the back
-      // button: PopScope(canPop: false) keeps the page and asks.
-      final atRest = tester.getRect(find.byType(ProfileEditPage));
-      await startBackGesture();
-      await dragBackGesture(0.5);
+      // The gesture's commit is the back button: PopScope(canPop: false)
+      // keeps the page and asks.
+      await _startBackGesture();
+      await _dragBackGesture(0.5);
       await tester.pump();
       expect(editRoute.animation!.value, 1.0);
-      expect(tester.getRect(find.byType(ProfileEditPage)), atRest);
-      await commitBackGesture();
+      await _sendBackGestureMethod('commitBackGesture');
       await tester.pumpAndSettle();
       expect(find.text('Discard unsaved changes?'), findsOneWidget);
       expect(editRoute.isActive, isTrue);
