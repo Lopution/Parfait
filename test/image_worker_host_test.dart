@@ -497,6 +497,25 @@ void main() {
       expect(progress.last.received, lessThanOrEqualTo(size));
     });
 
+    test('a dropped connection continues from its received byte on the '
+        'same route, asking If-Range', () async {
+      final bytes = patternBytes(size);
+      final client = RangeServingClient({original: bytes})
+        ..failOnceAt = 1 << 20;
+      final harness = await started(client);
+
+      harness
+        ..watch(original)
+        ..fetch(1, original);
+      final result = await harness.eventFor(1) as ResultEvent;
+      expect(await File(result.path).readAsBytes(), bytes);
+      expect(client.ranges, ['bytes=0-', 'bytes=${1 << 20}-']);
+      expect(client.requests.last.headers['if-range'], '"v1"');
+      expect({
+        for (final r in client.requests) (r as ImageRequest).pin,
+      }, hasLength(1));
+    });
+
     test('a server that ignores Range sends the whole file at once', () async {
       final bytes = patternBytes(size);
       final client = RangeServingClient({original: bytes}, honorRange: false);
