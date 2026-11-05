@@ -734,7 +734,9 @@ void main() {
           async.flushMicrotasks();
           expect((applied, raced), ('i.pixiv.re', 1));
           selection.winnerExhausted('i.pixiv.re');
-          async.elapse(AutoSourceSelector.throttle);
+          async.elapse(const Duration(seconds: 29));
+          expect((applied, raced), (null, 1));
+          async.elapse(const Duration(seconds: 1));
           expect((applied, raced), ('i.pximg.net', 2), reason: 'not dropped');
         });
       });
@@ -768,7 +770,6 @@ void main() {
           {'i.pixiv.re': 50.0},
         ]) {
           fakeAsync((async) {
-            installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
             races = [answered];
             remembered('wifi', 'i.pximg.net');
             selector().networkSeen('wifi');
