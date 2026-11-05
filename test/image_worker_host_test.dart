@@ -511,9 +511,10 @@ void main() {
       expect(await File(result.path).readAsBytes(), bytes);
       expect(client.ranges, ['bytes=0-', 'bytes=${1 << 20}-']);
       expect(client.requests.last.headers['if-range'], '"v1"');
-      expect({
-        for (final r in client.requests) (r as ImageRequest).pin,
-      }, hasLength(1));
+      expect(
+        {for (final r in client.requests) (r as ImageRequest).pin},
+        [isNotNull],
+      );
     });
 
     test('a server that ignores Range sends the whole file at once', () async {
