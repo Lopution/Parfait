@@ -220,43 +220,38 @@ class DohResolver implements SecureResolver, EchConfigResolver {
       _addressCache.remove(key);
     }
 
-    // An uncancelled caller can share the same DNS flight with API, image,
-    // widget, and background refresh requests. A caller with a cancellation
-    // signal bypasses the shared flight so it can stop independently.
-    if (cancelSignal == null) {
-      final pending = _addressInflight[key];
-      if (pending != null) return _copyResolved(await pending);
-      final future = _resolveUncached(
-        host,
-        revision: revision,
-        cancelSignal: null,
-      );
-      _addressInflight[key] = future;
+    // Every caller of the same host and revision shares one DNS flight. A
+    // caller's cancel ends only its own wait; the flight completes and is
+    // cached for the others (a cold feed sends eight image requests at once,
+    // each with its own cancel signal).
+    return _copyResolved(
+      await _raceCancellation(_sharedAddress(key), cancelSignal),
+    );
+  }
+
+  Future<ResolvedHost> _sharedAddress(_AddressCacheKey key) {
+    final pending = _addressInflight[key];
+    if (pending != null) return pending;
+    late final Future<ResolvedHost> flight;
+    flight = () async {
       try {
-        final result = await future;
+        final result = await _resolveUncached(key.host, key.revision);
         _rememberAddress(key, result);
-        return _copyResolved(result);
+        return result;
       } finally {
-        if (identical(_addressInflight[key], future)) {
+        if (identical(_addressInflight[key], flight)) {
           unawaited(_addressInflight.remove(key));
         }
       }
-    }
-
-    final result = await _resolveUncached(
-      host,
-      revision: revision,
-      cancelSignal: cancelSignal,
-    );
-    _rememberAddress(key, result);
-    return _copyResolved(result);
+    }();
+    _addressInflight[key] = flight;
+    return flight;
   }
 
   Future<ResolvedHost> _resolveUncached(
-    String host, {
-    required NetworkRevision revision,
-    required NetworkCancelSignal? cancelSignal,
-  }) async {
+    String host,
+    NetworkRevision revision,
+  ) async {
     // Find a healthy endpoint starting at the cursor (round-robin start).
     final candidates = <String>[];
     for (var i = 0; i < _endpoints.length; i++) {
@@ -273,16 +268,12 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     Object? lastError;
     for (final endpoint in candidates) {
       try {
-        final result = await _query(endpoint, host, revision, cancelSignal);
+        final result = await _query(endpoint, host, revision);
         _markEndpointHealthy(endpoint);
         return result;
       } on Object catch (error) {
         lastError = error;
         _markEndpointFailed(endpoint);
-        if (error is NetworkFailureException &&
-            error.kind == NetworkFailureKind.cancelled) {
-          rethrow;
-        }
       }
     }
     _endpointCursor = (_endpointCursor + 1) % _endpoints.length;
@@ -317,11 +308,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     String endpoint,
     String host,
     NetworkRevision revision,
-    NetworkCancelSignal? cancelSignal,
   ) async {
-    if (cancelSignal?.isCancelled ?? false) {
-      throw const NetworkFailureException(NetworkFailureKind.cancelled);
-    }
     final endpointHost = Uri.parse(endpoint).host;
     if (blockedHosts.contains(endpointHost)) {
       throw LocalNetworkBlocked(endpointHost);
@@ -329,40 +316,28 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     final id = _nextQueryId++ & 0xffff;
     final payload = encodeQuery(id: id, name: host, type: 1);
 
-    final request =
-        http.AbortableRequest(
-            'POST',
-            Uri.parse(endpoint),
-            abortTrigger: cancelSignal?.whenCancel,
-          )
-          ..headers['content-type'] = 'application/dns-message'
-          ..headers['accept'] = 'application/dns-message'
-          ..bodyBytes = payload;
+    final request = http.Request('POST', Uri.parse(endpoint))
+      ..headers['content-type'] = 'application/dns-message'
+      ..headers['accept'] = 'application/dns-message'
+      ..bodyBytes = payload;
 
-    final future = _client.send(request).timeout(requestTimeout);
-    final response = await _raceCancellation(future, cancelSignal);
+    final response = await _client.send(request).timeout(requestTimeout);
     if (response.statusCode != 200) {
-      await _raceCancellation(
-        response.stream.drain<void>().timeout(requestTimeout),
-        cancelSignal,
-      );
+      await response.stream.drain<void>().timeout(requestTimeout);
       throw SecureResolutionException(
         'DoH endpoint $endpoint HTTP '
         '${response.statusCode}',
       );
     }
-    final body = await _raceCancellation(
-      response.stream
-          .fold<List<int>>(<int>[], (acc, chunk) {
-            if (acc.length + chunk.length > maxResponseBytes) {
-              throw const SecureResolutionException('DoH response too large');
-            }
-            acc.addAll(chunk);
-            return acc;
-          })
-          .timeout(requestTimeout),
-      cancelSignal,
-    );
+    final body = await response.stream
+        .fold<List<int>>(<int>[], (acc, chunk) {
+          if (acc.length + chunk.length > maxResponseBytes) {
+            throw const SecureResolutionException('DoH response too large');
+          }
+          acc.addAll(chunk);
+          return acc;
+        })
+        .timeout(requestTimeout);
     if (body.length > maxResponseBytes) {
       throw const SecureResolutionException('DoH response too large');
     }
@@ -436,46 +411,38 @@ class DohResolver implements SecureResolver, EchConfigResolver {
       _echCache.remove(key);
     }
 
-    // Only calls without a cancellation signal may share an in-flight query.
-    // A caller with its own signal must be able to stop independently without
-    // cancelling (or poisoning) another request that is using the result.
-    if (cancelSignal == null) {
-      final pending = _echInflight[key];
-      if (pending != null) {
-        return _copyEchResult(await pending);
-      }
-      final future = _lookupEchConfigUncached(
-        frontHost,
-        revision: revision,
-        cancelSignal: null,
-      );
-      _echInflight[key] = future;
+    // Shared like [resolve]: a caller's cancel ends only its own wait.
+    return _copyEchResult(
+      await _raceCancellation(_sharedEch(key), cancelSignal),
+    );
+  }
+
+  Future<EchConfigResult> _sharedEch(_EchCacheKey key) {
+    final pending = _echInflight[key];
+    if (pending != null) return pending;
+    late final Future<EchConfigResult> flight;
+    flight = () async {
       try {
-        final result = await future;
+        final result = await _lookupEchConfigUncached(
+          key.frontHost,
+          key.revision,
+        );
         _rememberEchResult(key, result);
-        return _copyEchResult(result);
+        return result;
       } finally {
-        if (identical(_echInflight[key], future)) {
+        if (identical(_echInflight[key], flight)) {
           unawaited(_echInflight.remove(key));
         }
       }
-    }
-
-    // Cancellation-aware lookups intentionally bypass the shared flight.
-    final result = await _lookupEchConfigUncached(
-      frontHost,
-      revision: revision,
-      cancelSignal: cancelSignal,
-    );
-    _rememberEchResult(key, result);
-    return _copyEchResult(result);
+    }();
+    _echInflight[key] = flight;
+    return flight;
   }
 
   Future<EchConfigResult> _lookupEchConfigUncached(
-    String frontHost, {
-    required NetworkRevision revision,
-    required NetworkCancelSignal? cancelSignal,
-  }) async {
+    String frontHost,
+    NetworkRevision revision,
+  ) async {
     _checkUsable();
 
     final candidates = <String>[];
@@ -491,21 +458,12 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     Object? lastError;
     for (final endpoint in candidates) {
       try {
-        final result = await _queryEch(
-          endpoint,
-          frontHost,
-          revision,
-          cancelSignal,
-        );
+        final result = await _queryEch(endpoint, frontHost, revision);
         _markEndpointHealthy(endpoint);
         return result;
       } on Object catch (error) {
         lastError = error;
         _markEndpointFailed(endpoint);
-        if (error is NetworkFailureException &&
-            error.kind == NetworkFailureKind.cancelled) {
-          rethrow;
-        }
       }
     }
     _echEndpointCursor = (_echEndpointCursor + 1) % _echEndpoints.length;
@@ -541,48 +499,32 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     String endpoint,
     String frontHost,
     NetworkRevision revision,
-    NetworkCancelSignal? cancelSignal,
   ) async {
-    if (cancelSignal?.isCancelled ?? false) {
-      throw const NetworkFailureException(NetworkFailureKind.cancelled);
-    }
     final id = _nextQueryId++ & 0xffff;
     final payload = encodeQuery(id: id, name: frontHost, type: 65);
 
-    final request =
-        http.AbortableRequest(
-            'POST',
-            Uri.parse(endpoint),
-            abortTrigger: cancelSignal?.whenCancel,
-          )
-          ..headers['content-type'] = 'application/dns-message'
-          ..headers['accept'] = 'application/dns-message'
-          ..bodyBytes = payload;
+    final request = http.Request('POST', Uri.parse(endpoint))
+      ..headers['content-type'] = 'application/dns-message'
+      ..headers['accept'] = 'application/dns-message'
+      ..bodyBytes = payload;
 
-    final future = _client.send(request).timeout(requestTimeout);
-    final response = await _raceCancellation(future, cancelSignal);
+    final response = await _client.send(request).timeout(requestTimeout);
     if (response.statusCode != 200) {
-      await _raceCancellation(
-        response.stream.drain<void>().timeout(requestTimeout),
-        cancelSignal,
-      );
+      await response.stream.drain<void>().timeout(requestTimeout);
       throw SecureResolutionException(
         'DoH endpoint $endpoint HTTP '
         '${response.statusCode}',
       );
     }
-    final body = await _raceCancellation(
-      response.stream
-          .fold<List<int>>(<int>[], (acc, chunk) {
-            if (acc.length + chunk.length > maxResponseBytes) {
-              throw const SecureResolutionException('DoH response too large');
-            }
-            acc.addAll(chunk);
-            return acc;
-          })
-          .timeout(requestTimeout),
-      cancelSignal,
-    );
+    final body = await response.stream
+        .fold<List<int>>(<int>[], (acc, chunk) {
+          if (acc.length + chunk.length > maxResponseBytes) {
+            throw const SecureResolutionException('DoH response too large');
+          }
+          acc.addAll(chunk);
+          return acc;
+        })
+        .timeout(requestTimeout);
     if (body.length > maxResponseBytes) {
       throw const SecureResolutionException('DoH response too large');
     }

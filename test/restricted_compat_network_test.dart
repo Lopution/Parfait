@@ -683,12 +683,14 @@ void main() {
 
   test('a network change mid-request looks the host up again', () async {
     final resolver = FakeResolver([InternetAddress('1.2.3.8')]);
+    final direct = GateFailureClient();
     final noSni = GateFailureClient();
     final realSni = FakeClient(body: 'ok');
     final policy = NetworkAccessPolicy(
       registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
       resolver: resolver,
       clientFactory: (route, _, _) => switch (route.kind) {
+        NetworkRouteKind.direct => direct,
         NetworkRouteKind.noSni => noSni,
         NetworkRouteKind.dohRealSni => realSni,
         _ => FakeClient(failure: SocketException('Connection refused')),
@@ -703,6 +705,7 @@ void main() {
     final response = client.get(Uri.parse('https://i.pixiv.re/a.jpg'));
     await turnUntil(() => noSni.requests.isNotEmpty);
     policy.advanceNetworkRevision(networkIdentity: 'cellular');
+    direct.gate.complete();
     noSni.gate.complete();
 
     expect((await response).statusCode, 200);

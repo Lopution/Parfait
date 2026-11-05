@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:clock/clock.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -267,11 +269,19 @@ void main() {
         clientFactory: (route, canonicalHost, _) {
           attempts.add(route.kind);
           return switch (route.kind) {
-            NetworkRouteKind.direct => FakeClient(failure: certError),
+            NetworkRouteKind.direct => DelayedClient(
+              FakeClient(failure: certError),
+              const Duration(milliseconds: 20),
+            ),
             NetworkRouteKind.noSni => FakeClient(
               failure: SocketException('Connection refused'),
             ),
-            _ => FakeClient(body: 'must-not-send'),
+            // Brought in when noSni fails first; still running when the
+            // mismatch arrives.
+            _ => DelayedClient(
+              FakeClient(body: 'must-not-send'),
+              const Duration(hours: 1),
+            ),
           };
         },
       );
@@ -280,11 +290,13 @@ void main() {
       await expectLater(
         client.get(Uri.parse('https://i.pixiv.re/a.jpg')),
         throwsA(same(certError)),
+        reason: 'a real-SNI mismatch on direct never falls through',
       );
-      expect(attempts, [
-        NetworkRouteKind.direct,
-        NetworkRouteKind.noSni,
-      ], reason: 'a real-SNI mismatch on direct never falls through');
+      expect(
+        attempts.last,
+        NetworkRouteKind.dohRealSni,
+        reason: 'the tier brought in after noSni failed is dropped',
+      );
     });
   });
 
@@ -531,22 +543,31 @@ void main() {
       expect(client.requests, hasLength(1));
     });
 
-    test('both raced tiers failing falls back to the serial ladder', () async {
-      final failing = FakeClient(failure: const SocketException('refused'));
+    test('a raced tier that fails gives its place to the next while the '
+        'other hangs', () async {
+      final noSni = FakeClient(failure: const SocketException('handshake'));
       final realSni = FakeClient(body: 'realSni');
+      // The direct leg answers long after the test: the request must not
+      // wait for it once noSni has failed.
+      final direct = DelayedClient(
+        FakeClient(body: 'direct'),
+        const Duration(hours: 1),
+      );
       final policy = NetworkAccessPolicy(
         registry: mirrorRegistry(),
         resolver: FakeResolver([InternetAddress('1.2.3.4')]),
-        clientFactory: (route, _, _) =>
-            route.kind == NetworkRouteKind.dohRealSni ? realSni : failing,
+        clientFactory: (route, _, _) => switch (route.kind) {
+          NetworkRouteKind.direct => direct,
+          NetworkRouteKind.noSni => noSni,
+          _ => realSni,
+        },
       );
       final client = _imageClient(policy);
 
       final response = await client.get(imageUri);
 
-      expect(response.statusCode, 200);
-      expect(failing.requests, hasLength(2));
-      expect(realSni.requests, hasLength(1));
+      expect(response.body, 'realSni');
+      expect(noSni.requests, hasLength(1));
       expect(
         policy.rememberedRouteKind('i.pixiv.re'),
         NetworkRouteKind.dohRealSni,
@@ -641,14 +662,18 @@ void main() {
 
     test('the winner persists scoped to the network identity', () async {
       final source = AutoImageSource(preferences: SharedPreferencesAsync());
-      await source.remember('wifi', 'i.pixiv.re');
+      final at = DateTime(2026, 11, 6, 12);
+      await source.remember('wifi', 'i.pixiv.re', measuredAt: at);
 
-      expect(await source.winnerFor('wifi'), 'i.pixiv.re');
+      expect(await source.winnerFor('wifi'), (
+        host: 'i.pixiv.re',
+        measuredAt: at,
+      ));
       expect(await source.winnerFor('cellular'), isNull);
       // A fresh instance reads the same store — the winner survives a
       // cold start.
       final reloaded = AutoImageSource(preferences: SharedPreferencesAsync());
-      expect(await reloaded.winnerFor('wifi'), 'i.pixiv.re');
+      expect((await reloaded.winnerFor('wifi'))?.host, 'i.pixiv.re');
     });
 
     test('the next winner replaces a damaged record', () async {
@@ -656,9 +681,119 @@ void main() {
       await preferences.setString(AutoImageSource.storageKey, '{not json');
       final source = AutoImageSource(preferences: preferences);
 
-      await source.remember('wifi', 'i.pixiv.re');
+      await source.remember('wifi', 'i.pixiv.re', measuredAt: DateTime(2026));
 
-      expect(await source.winnerFor('wifi'), 'i.pixiv.re');
+      expect((await source.winnerFor('wifi'))?.host, 'i.pixiv.re');
+    });
+
+    group('selection', () {
+      var races = <Map<String, double>>[];
+      var raced = 0;
+      String? applied;
+      AutoSourceSelector selector() => AutoSourceSelector(
+        store: AutoImageSource(preferences: SharedPreferencesAsync()),
+        // Each race answers with the next measurement; a host missing
+        // from it failed.
+        race: () async {
+          raced++;
+          final answered = races.removeAt(0);
+          final best = answered.entries.reduce(
+            (a, b) => b.value > a.value ? b : a,
+          );
+          return AutoSourceRace(
+            host: best.key,
+            bps: best.value,
+            answered: answered,
+          );
+        },
+        enabled: () => true,
+        current: () => applied,
+        apply: (host) => applied = host,
+      );
+      void remembered(String identity, Object record) => unawaited(
+        SharedPreferencesAsync().setString(
+          AutoImageSource.storageKey,
+          jsonEncode({identity: record}),
+        ),
+      );
+
+      setUp(() {
+        installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
+        raced = 0;
+        applied = null;
+      });
+
+      test('no winner remembered: the race runs at once and applies; an '
+          'exhausted winner races again after the throttle', () {
+        fakeAsync((async) {
+          races = [
+            {'i.pximg.net': 50, 'i.pixiv.re': 100},
+            {'i.pximg.net': 50},
+          ];
+          final selection = selector()..networkSeen('wifi');
+          async.flushMicrotasks();
+          expect((applied, raced), ('i.pixiv.re', 1));
+          selection.winnerExhausted('i.pixiv.re');
+          async.elapse(const Duration(seconds: 29));
+          expect((applied, raced), (null, 1));
+          async.elapse(const Duration(seconds: 1));
+          expect((applied, raced), ('i.pximg.net', 2), reason: 'not dropped');
+        });
+      });
+
+      test('a stale winner applies at once, races after the deferral and '
+          'stays within 15 %', () {
+        fakeAsync((async) {
+          races = [
+            {'i.pximg.net': 100, 'i.pixiv.re': 110},
+          ];
+          // Stored before the time was kept: stale. Seen twice, one race.
+          remembered('wifi', 'i.pximg.net');
+          selector()
+            ..networkSeen('wifi')
+            ..networkSeen('cellular')
+            ..networkSeen('wifi');
+          async.elapse(const Duration(seconds: 29));
+          expect((applied, raced), ('i.pximg.net', 0));
+          async.elapse(const Duration(seconds: 1));
+          expect((applied, raced), ('i.pximg.net', 1), reason: 'not 15 %');
+          // The kept winner counts as measured now.
+          selector().networkSeen('wifi');
+          async.elapse(const Duration(minutes: 5));
+          expect(raced, 1);
+        });
+      });
+
+      test('a race replaces a winner it beats by 15 % or that failed', () {
+        for (final answered in [
+          {'i.pximg.net': 100.0, 'i.pixiv.re': 118.0},
+          {'i.pixiv.re': 50.0},
+        ]) {
+          fakeAsync((async) {
+            races = [answered];
+            remembered('wifi', 'i.pximg.net');
+            selector().networkSeen('wifi');
+            async.elapse(AutoSourceSelector.deferral);
+            expect(applied, 'i.pixiv.re', reason: '$answered');
+          });
+        }
+      });
+
+      test('a network change drops the old network\'s pending race; a '
+          'winner measured within a day applies with no race', () {
+        fakeAsync((async) {
+          remembered('wifi', 'i.pximg.net');
+          final selection = selector()..networkSeen('wifi');
+          async.flushMicrotasks();
+          remembered('cellular', {
+            'host': 'i.pixiv.re',
+            'at': clock.hoursAgo(23).millisecondsSinceEpoch,
+          });
+          selection.networkSeen('cellular');
+          async.elapse(const Duration(minutes: 5));
+          expect((applied, raced), ('i.pixiv.re', 0));
+        });
+      });
     });
 
     test('race picks the fastest transfer, not the first response', () async {
