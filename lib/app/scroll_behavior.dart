@@ -37,7 +37,7 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) =>
       textScrollPhysics(context) ??
-      const NoDragDeadZonePhysics(
+      const AndroidDragPhysics(
         parent: FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       );
 
@@ -251,21 +251,31 @@ class FuncScrollPhysics extends BouncingScrollPhysics {
   }
 }
 
-/// [parent] without the drag dead zone of [BouncingScrollPhysics]: iOS
-/// holds a drag for 3.5 more pixels past the touch slop, at its start and
-/// again after every pause, which reads as sticky on a slow drag. Android
-/// follows the finger once the slop is crossed. Bouncing physics declares
-/// the threshold non-nullable, so it is dropped by this wrapper on top;
-/// everything else is the parent's.
-class NoDragDeadZonePhysics extends ScrollPhysics {
-  const NoDragDeadZonePhysics({required ScrollPhysics super.parent});
+/// [parent] without two drag habits of [BouncingScrollPhysics] that
+/// Android lists do not have; everything else is the parent's. Bouncing
+/// physics declares both, so this wrapper on top drops them:
+///
+/// * The drag dead zone: iOS holds a drag for 3.5 more pixels past the
+///   touch slop, at its start and again after every pause, which reads as
+///   sticky on a slow drag. Android follows the finger once the slop is
+///   crossed.
+/// * The momentum carry: a fling started while the list coasts the same
+///   way adds a velocity that grows with the square of the coasting one,
+///   past it above about 1560 px/s and past the fling cap, so a few small
+///   flicks in a row shot the list off (11-05). Android's RecyclerView and
+///   Compose lists stop the fling on touch and start the next one afresh.
+class AndroidDragPhysics extends ScrollPhysics {
+  const AndroidDragPhysics({required ScrollPhysics super.parent});
 
   @override
-  NoDragDeadZonePhysics applyTo(ScrollPhysics? ancestor) =>
-      NoDragDeadZonePhysics(parent: buildParent(ancestor)!);
+  AndroidDragPhysics applyTo(ScrollPhysics? ancestor) =>
+      AndroidDragPhysics(parent: buildParent(ancestor)!);
 
   @override
   double? get dragStartDistanceMotionThreshold => null;
+
+  @override
+  double carriedMomentum(double existingVelocity) => 0;
 }
 
 /// A pager's snap to its page on Material's default spatial spring

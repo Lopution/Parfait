@@ -278,8 +278,9 @@ reviewed: 2026-10-31
   The scrollable inside a text control (`EditableText`) is not always
   scrollable: every scroll behavior the app installs returns
   `textScrollPhysics` for it first. Both the app's and the feed's physics
-  sit under `NoDragDeadZonePhysics`: a list follows the finger from the
-  move that crosses the slop.
+  sit under `AndroidDragPhysics`: a list follows the finger from the
+  move that crosses the slop, and a fling started while it coasts gets
+  no carried momentum.
 - **Why:** Mixed physics felt different per page; a fling into the end of
   a feed sprang back while the next page loaded, because EasyRefresh
   copies `ClassicFooter`'s `hitOver: true` without `onLoad`. A text
@@ -290,8 +291,13 @@ reviewed: 2026-10-31
   stuck before the list moved, which Android lists never do. Android's
   clamping physics, an `OverScroller` fling with Android 12's stretch at
   both ends, were tried on device and dropped: the user kept the bounce
-  past an end and the iOS fling (user decision 10-24).
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
+  past an end and the iOS fling (user decision 10-24). Bouncing physics
+  also add to a fling the square of the speed the list still coasts at,
+  more than that speed above about 1560 px/s and past the fling cap: a
+  few small flicks in a row shot the list off (11-05). Android's
+  RecyclerView and Compose lists, and PiliPlus and freepiv on Android,
+  carry nothing; the user dropped the carry and kept the rest (11-05).
+- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop" "a flick while the list coasts starts at its own speed", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab

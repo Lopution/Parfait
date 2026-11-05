@@ -292,7 +292,7 @@ class _FeedScrollBehavior extends ERScrollBehavior {
             // Its _ERScrollPhysics is bouncing too. The refresh, edge and
             // fling behaviour stay EasyRefresh's: it finds its own physics
             // by walking the parent chain.
-            : NoDragDeadZonePhysics(parent: physics),
+            : AndroidDragPhysics(parent: physics),
       );
 
   /// A text control in the feed keeps the app's text physics instead of
