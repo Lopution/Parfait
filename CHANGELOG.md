@@ -6,8 +6,37 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-05
+
+### 新增
+
+- **小说插图：** 小说正文里的插图会显示出来，每张占一页，点开可以看大图；清晰度在「浏览设置」的「小说插图质量」里选。
+- **上下滚动阅读：** 小说阅读器默认改为上下滚动，「阅读设置」里可以切回「左右翻页」。
+- **小说的标题页、章节与链接：** 第一页开头显示标题、作者和所属系列，章节标题用更大的粗体；作者写的页面跳转显示为「→ 第 N 页」，点一下到那一页；正文里的 Pixiv 链接可以直接打开；「阅读进度」面板的目录标出当前章节并滚到它。
+- **Pixiv 小说书签：** 在「阅读进度」面板里可以给小说加 Pixiv 书签，随账号同步；没有阅读记录的小说从书签处打开。「我的」页新增「小说书签」，列出加了书签的小说和所在页码，点开从书签处阅读，也能删除或加回书签。
+- **收藏的小说：** 个人主页的「收藏」可以在插画和小说之间切换，小说收藏有自己的公开、私密和标签筛选。
+- **小说详情：** 小说详情面板列出系列、字数、浏览数、收藏数和发布时间。
+- **小说系列页：** 显示标题、作者、作品数、「已完结」「原创」标签和可展开的简介，按「第 n 话」列出全部小说，看不了的会说明原因。可以从上次读到的那一话「继续阅读」（按账号记住，重启后仍在），也可以「从第 1 话开始」或「阅读最新话」。小说详情面板里的系列名、阅读器底部系列栏的标题，以及追更里小说系列的「打开目录」都能进入系列页；追更里的小说系列也能直接「继续阅读」。
+- **画师搜索带作品：** 搜索用户的结果和推荐画师一样，每位画师下面带最多三张作品，点作品直接打开；被 R-18、AI 屏蔽或已屏蔽的作品不显示。
+
 ### 变更
 
+- **小说也能屏蔽：** 屏蔽和本地过滤现在也作用于小说（推荐、排行、搜索、作者作品）：关闭「直接隐藏被屏蔽的作品」时，被屏蔽的小说封面模糊、标题处写明屏蔽原因，点按可以临时查看。「相关作品」和「新作」也会过滤，屏蔽 R-18 时同时隐藏 R-18G。
+- **作品详情页的新样子：** 短图上方的空白和平板的看图区域铺上作品自己的淡淡色调，图片落定后从图片上沿升起；底部的下载收藏胶囊带柔和投影；作者卡片轻轻浮起；作品标题更大、分区标题更轻；顶栏、底栏和评论框的阴影变浅。
+- **主页和欢迎页的色调：** 没有背景图的画师主页，头部铺上头像自己的淡淡色调，不再是一条灰带；欢迎页和登录页的标题后面有一层应用图标颜色的柔和光晕；登录页只有「登录」按钮是粉色，「注册」和「使用剪贴板数据登录」退到次要位置。
+- **浮层：** 菜单、对话框、底部面板和提示浮在页面上方，带一层柔和的投影，浅色主题下偏暖；从屏幕边上的 ⋮ 打开的菜单不再贴着屏幕边。
+- **排行榜名次：** 名次单独成一列，放在标题和作者前面，前三名更大更醒目，其余名次小一号、颜色淡一些；小说排行同样突出前三。
+- **各页细节统一：** 搜索筛选的数量角标改为主题粉色，不再是报错红；特辑卡片和作品卡片一样，把标题和日期放在图片下方；评论之间用留白分隔，不再画分割线；空状态和加载失败的图标放进圆底，整体略微上移；移除账号、删除评论、清除翻译凭据等无法撤销的确认按钮改为红色；设置里选中的选项只有标题变色，说明文字保持灰色；平板横屏等宽窗口里的标签栏更紧凑，俄语等较长的标签也能完整显示。
+- **详情页左右滑动更顺：** 滑到下一张作品时，标题、作者和按钮随图片淡入，不再一下子跳出来。
+- **出错时只说原因：** 出错提示不再带「详情」和英文技术信息；技术信息仍记在日志里，可从「我的 → 关于 → 导出日志」导出；启动页和登录页出错时可以点「复制诊断信息」。
+- **存储出错说清楚：** 下载因存储空间不足失败时显示「存储空间不足」；保存用的文件夹被删除或访问授权失效时，提示到「保存位置」重新选择；其他存储问题显示「存储错误」；GIF 保存失败也会说明原因。
+- **设置没存上会提示：** 设置保存失败时（包括以图搜图引擎、开发者选项和移除账号）提示「设置保存失败」，已经离开页面也会提示；「稍后再看」没存上，或从卡片菜单下载、屏蔽失败时，同样会提示。
+- **图片线路按网络挑选：** 图片按所在网络（运营商或 Wi-Fi）记住各条线路的快慢和失败，自动用表现最好的一条；常用的 Cloudflare 地址慢时，会试几个其他地址，留下更快的；pixiv 图片源站换了地址，也能经加密 DNS 自己找到，不用等新版本。「当前生效路由」列出图片线路、速度和 Cloudflare 所在机房，用户协议的网络说明也同步更新。
+- **图片卡住更快恢复：** 缩略图卡在慢线路上约 2 秒后，会换一条线路再取一次；自动重试期间不再先显示裂图；切换网络或断网恢复后，加载失败的图片会自己重新加载。
+- **原图下载更连贯：** 下载原图和查看原图改为单个连接，卡住时从已收到的位置接着下，不再一截一截地停顿。
+- **超长图完整打开：** 超长图从卡片打开时整张显示：顶部的方图清晰，下方先显示模糊的整图，随后变清晰。
+- **重新打开会刷新：** 重新打开作品、用户主页、评论、相关作品、搜索结果或「收藏标签」时会重新加载，不再一直是本次启动后第一次打开时的内容；作品的浏览数和收藏数超过 10 分钟会在后台刷新。
+- **小说正文跟随系统字号。**
 - **相册里不再导出简介：** 系统不允许相册存放文本文件，下载位置为相册时「同时导出作品简介」显示为不可用并注明原因，选「文件夹」时照常导出。以前在相册下打开它，下载时会报错，也不会生成简介。
 
 ### 修复
@@ -29,9 +58,90 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 个别图片加载失败后会一直失败，重试或重新打开都不行，只能清除缓存。
 - 在稍后再看里用「管理」批量移除后马上返回，作品不会被移除。
 - 图片源为「自动」并已测出镜像时，评论里的贴图和未设头像用户的默认头像显示不出来。
+- 卡片、作品页和看图页之间转场时，图片被顶栏错误地遮住或裁掉；返回时，滑走的栏后面露出空白条。
+- 从详情页返回可以下拉刷新的列表（推荐、排行、搜索结果、用户页）时，滑走的顶栏下面露出空白条，卡片被切平。
+- 点开或返回卡片时，顶栏和底栏在复位的那一刻闪一下。
+- 列表还在惯性滚动时连续小幅快滑，会越滑越快。
+- 快速连点同一张卡片，会接着打开大图。
+- 页面返回的动画还没结束时横滑，会切到底栏的下一个页面。
+- 刷新时打开的卡片菜单或关注菜单，等刷新完成后再选，操作不生效。
+- 收藏或关注失败时，如果按钮已经滑出屏幕就不提示原因；收藏面板提交失败会提示两遍。
+- Pixiv 小说里作者设置的分页和章节标题，被原样显示成「[newpage]」「[chapter:…]」文字。
+- 系统字号调大后，小说每行的末尾被截掉。
+- 正文含「,]」的小说少了逗号。
+- 简介由短行组成时，折叠后的「展开」压在文字上。
+- 打开某位用户的小说作品时，先闪现上一位用户的小说。
+- 切换账号后编辑资料，会改到另一个账号上。
+- 添加账号途中被跳回首页。
+- 切换账号后，短暂显示上一个账号的追更、用户页、系列、小说、收藏标签和最近浏览。
+- 离线时排队的收藏、关注和追更，切换账号后会以另一个账号的身份发出。
+- 移除账号后再添加回来，会补发它被移除前离线排队的收藏和关注。
+- 登录途中离开登录页，仍会登录上。
+- 退出豆包登录时如果安全存储出错，网页上的登录状态还留着。
+- 收藏面板提交途中关闭面板，会把下面的页面一起关掉。
+- 评论框关闭后评论发送失败，没有任何提示。
+- 连点作者批量下载的确认，会把作者页一起关掉。
+- 部分设备上下载到自选文件夹时报错，或文件名多出一段扩展名。
+- 下载失败的条目里多出一个错位的「详情」。
+- 分享图片或链接、以图搜图选图、导入备份或本地小说时，界面会卡住。
+- 冷启动时分享图片进来，按返回会停在启动页。
+- 导入本地小说失败时，会留下一个列表里看不到的文件。
+- 保存设置（翻译凭据、相册名、命名模板、自定义图源、DoH/ECH）时继续输入，新输入的内容会被已保存的值覆盖，或被当成已经保存。
+- 编辑资料时图片还在读取就点保存，资料会不带图片提交。
+- 编辑资料读取失败时，只显示一行英文错误。
+- 自动选择的图片源记录损坏后，再也存不进新的测速结果。
+- 部分系统启动时，崩溃日志里会写入无关的错误。
+- 启动时的更新检查如果在发出请求前就失败，要等一天才会再试。
+- 应用从后台恢复后，详情页翻页会跳回第一张作品。
+- 看图时应用被系统回收，回来后一直显示「没有可显示的图片」。
+- 大图查看器里作品加载失败时，显示「没有可显示的图片」，没有重试。
+- 带大段 EXIF 信息的 JPEG 不能用来以图搜图，也不能设为头像。
+- 以图搜图时取消选图，会丢掉已选的图片并换回 SauceNAO。
+- 用键盘或滚轮缩放图片，可以放大到超过 6 倍。
+- 作品页「作者的其他作品」里会显示已屏蔽的作品。
+- 搜索或排行加载到的作品全被过滤掉时，显示「暂无搜索结果」并停止加载。
+- 开启屏蔽后，列表从上次保存的内容恢复时，仍会短暂显示被屏蔽的作品。
+- 限定最近一天、一周或一月的搜索，过了午夜就加载不出下一页。
+- 列表补页时遇到无效或重复的翻页地址，没有出错提示，看起来像已经到底。
+- 应用被系统关闭后再回到搜索首页，热门标签加载出来时列表弹回上方。
+- 简介里的 pixiv:// 链接打不开。
+- 浏览历史删掉一条后往下翻，会漏掉一条；读取失败时显示「暂无浏览历史」，而且不能重试。
+- 浏览历史时删除记录，后面的记录会加载不出来。
+- 加载期间删掉的浏览记录，会随新加载的一页又回来。
+- 一边浏览一边导出备份时，导出的浏览记录有的重复、有的缺失。
+- 大字号加上键盘弹出时，收藏面板的确认按钮被挤出屏幕。
+- 作品的绘画工具列表过长时，信息行溢出。
+- 开启 TalkBack 时，关闭评论框或提交多页作品的下载后，底部操作栏不再出现。
+
+### Added
+
+- **Images in novels:** Images in a novel's text now show, each on a page of its own; tap one to view it. Pick their quality under Browse settings → Novel image quality.
+- **A reader that scrolls:** The novel reader now scrolls up and down by default; Reading settings can switch back to Turn pages.
+- **Title page, chapters and links in novels:** A novel's first page opens with its title, author and series, and chapter titles stand out in larger bold type. Page jumps an author writes show as a "→ Page N" link that goes to that page, and Pixiv links in the text open. The chapter list in the Reading progress sheet marks the chapter you are in and scrolls to it.
+- **Pixiv markers on novels:** The Reading progress sheet can set a Pixiv marker on a novel, kept with your account, and a novel you have no reading position in opens at its marker. The Me page gains Novel markers, listing the novels you marked and the page of each: tap one to read from the marker, or remove the marker and put it back.
+- **Bookmarked novels:** The Bookmarks tab of a profile switches between illustrations and novels, and novel bookmarks have their own public, private and tag filters.
+- **Novel details:** A novel's info sheet lists its series, length, views, bookmarks and posting date.
+- **Novel series page:** A novel series has its own page with its title, author, work count, Completed and Original labels, an expandable caption, and every novel by episode number; novels you cannot read say why. Continue reading picks up at the novel you last opened in the series (remembered per account, across restarts), or choose Start from episode 1 or Read latest. The series name in a novel's info sheet, the series bar title in the reader and Open contents on a watched novel series all lead there, and a novel series in your Watchlist can also Continue reading directly.
+- **Artist search shows works:** Like the recommended artists, each artist in user search results shows up to three of their works; tap one to open it. Works hidden by the R-18 or AI blocks or by a mute are left out.
 
 ### Changed
 
+- **Mutes cover novels:** Mutes and the local filters now apply to novels too (recommended, rankings, search, an artist's works). With Hide muted works off, a muted novel's cover is blurred and its title says why until you tap it. Related works and New are filtered as well, and blocking R-18 also hides R-18G.
+- **A new look for the artwork page:** The space above a short image and the tablet image stage carry a soft wash of the artwork's own colours, which rises from the top edge of the image once it has landed. The download and bookmark capsule casts a soft shadow, the author card sits slightly raised, the title is larger and section headings quieter, and the top bar, bottom bar and comment box cast lighter shadows.
+- **Colour on profiles and the welcome page:** A profile without a cover shows a soft wash of the avatar's colours instead of a grey band. The welcome and login pages glow softly behind the title in the app icon's colours, and on the login page only Log in is pink, with Register and Log in with clipboard data stepping back.
+- **Overlays:** Menus, dialogs, bottom sheets and messages float above the page on a soft shadow, warm in the light theme, and a menu opened from a ⋮ at the screen edge no longer touches the edge.
+- **Ranking positions:** A ranking position stands in its own column before the title and author, with the top three larger and bolder and the rest smaller and lighter. Novel rankings mark the top three the same way.
+- **Details that match across pages:** The search filter count badge is the theme pink instead of the error red. Spotlight cards put their title and date under the image, like work cards. Comments are separated by space instead of lines. Empty and error views show their icon on a disc, a little above the middle. Confirm buttons for things that cannot be undone (removing an account, deleting a comment, clearing translation credentials and so on) are red. A selected settings choice tints only its title, and its description stays grey. Tab rows on wide windows, such as a tablet in landscape, sit closer together and show long labels, such as Russian ones, in full.
+- **Smoother swipes on the detail page:** When you swipe to the next work, its title, author and buttons fade in with the image instead of popping in.
+- **Errors say what went wrong:** Error messages no longer come with Details and English technical text. The technical text stays in the log, which you can export from Me → About → Export logs, and errors on the startup and login pages offer Copy diagnostics.
+- **Clear storage errors:** A download that fails because storage is full says Not enough storage space. If the chosen folder was deleted or lost its access, the message asks you to choose it again under Save location. Other storage problems read Storage error, and a failed GIF save says why.
+- **Failed saves are reported:** When a setting fails to save (the reverse image search engine, developer options and account removal included), the app says Failed to save settings, even after you have left the page. A Watch later save that fails, and a download or mute from a card's menu that fails, are reported the same way.
+- **Image routes chosen per network:** Images remember, for each network (carrier or Wi-Fi), how fast and how reliably each route loads them, and use the best one. When the usual Cloudflare addresses are slow, a few others are tried and the faster ones kept. If pixiv's image origin changes its addresses, the app finds the new ones over encrypted DNS without waiting for a release. Effective routes lists the image routes, their speed and each Cloudflare route's data centre, and the network section of the user agreement says so.
+- **Stuck images recover sooner:** A thumbnail stuck on a slow route is fetched again over another route after about two seconds. Images no longer flash a broken-image icon while an automatic retry is pending, and images that failed reload on their own after a network switch or when the connection comes back.
+- **Steadier original downloads:** Originals, whether downloaded or viewed, arrive on one connection that picks up from the last byte received when it stalls, instead of advancing in pauses.
+- **Very tall works open whole:** A very tall work opened from a card shows in full: the square at its top is sharp, and the rest is blurry until the full image arrives.
+- **Reopening refreshes:** Reopening a work, a profile, comments, related works, search results or Bookmark tags loads them again, instead of showing what they held the first time you opened them since launch. A work's view and bookmark counts refresh in the background once they are more than 10 minutes old.
+- **Novel text follows the system font size.**
 - **No captions in albums:** Android does not let an album hold text files, so Export work caption is greyed out with the reason while downloads go to an album, and works as before with a folder. Before, turning it on with an album made downloads report an error and wrote no caption.
 
 ### Fixed
@@ -53,6 +163,60 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - An image that failed to load once could keep failing, through retries and reopening, until the cache was cleared.
 - Removing several works from Watch later with Manage and leaving the page right away left them in the list.
 - With the image source on Auto and a mirror picked, stamps in comments and the default avatar of users without one did not load.
+- In transitions between cards, the work page and the viewer, the image was covered or cut off by the wrong bar, and a blank strip opened behind the bars as they slid away on the way back.
+- Going back from a work to a feed you can pull to refresh (Recommended, Rankings, search results, user pages) showed a blank strip under the sliding top bar and cut the cards off flat.
+- The top and bottom bars flashed at the moment they settled as a card opened or returned.
+- Quick flicks in a row while a list was still scrolling made it go faster and faster.
+- Tapping the same card twice quickly also opened the image viewer.
+- A sideways swipe while a page was still closing moved to the next bottom-bar destination.
+- A card or follow menu opened during a refresh did nothing when you picked from it after the refresh finished.
+- A failed bookmark or follow gave no reason if its button had already scrolled off screen, and a failed bookmark sheet reported it twice.
+- Pixiv novels showed the page breaks and chapter titles set by their author as raw "[newpage]" and "[chapter:…]" text.
+- With a large system font, the end of every novel line was cut off.
+- Novels whose text contains ",]" lost the comma.
+- Show more overlapped a collapsed caption made of short lines.
+- Opening a user's novel works briefly showed the previous user's novels.
+- Editing your profile after switching accounts could change the other account.
+- Adding an account could bounce you back to the home page partway through.
+- Right after switching accounts, the previous account's watchlist, user pages, series, novels, bookmark tags and recent works could briefly show.
+- Bookmarks, follows and Watchlist changes queued offline were sent as another account after a switch.
+- Adding back a removed account sent the bookmarks and follows it had queued offline before it was removed.
+- Leaving the login page partway through could still log you in.
+- Logging out of Doubao kept the web login when secure storage failed.
+- Closing the bookmark sheet while it was saving also closed the page under it.
+- A comment that failed to send after its box was closed gave no message.
+- Tapping confirm twice in an artist's batch download also closed the artist's page.
+- Downloading to a chosen folder failed on some devices, or produced file names with a doubled extension.
+- Failed downloads had a misplaced Details button.
+- Sharing an image or link, picking an image for reverse image search, and importing a backup or a local novel could freeze the app.
+- Going back from an image shared into the app at cold start stayed on the splash screen.
+- A failed local novel import left behind a file the library did not list.
+- Typing while a setting was saving (translation credentials, album name, naming template, custom image source, DoH/ECH) was overwritten by the saved value, or counted as saved.
+- Saving your profile while a picked image was still loading sent it without the image.
+- When the profile editor could not read your profile, it showed only a line of English error text.
+- A damaged record of the automatically chosen image source kept new results from being saved.
+- On some systems, launching the app wrote unrelated errors to the crash log.
+- An update check at launch that failed before sending its request waited a day before trying again.
+- After the app was restored in the background, paging on the detail page jumped back to the first work.
+- If Android closed the app in the background while the image viewer was open, returning to it showed No images to display for good.
+- When an artwork failed to load in the image viewer, it said there were no images to display, with no way to retry.
+- JPEGs with large EXIF data could not be used for reverse image search or as an avatar.
+- Cancelling the picker in reverse image search dropped the image you had picked and switched back to SauceNAO.
+- Zooming with the keyboard or mouse wheel went past 6x.
+- More by this artist on a work page showed muted works.
+- A search or ranking whose loaded works were all filtered out said No search results and stopped loading.
+- After you switched a block on, a list restored from what it last saved still briefly showed blocked works.
+- A search limited to the last day, week or month stopped loading more after midnight.
+- When a list topping up a short page got an invalid or repeated next-page link, it gave no error and looked finished.
+- Coming back to the search home after Android closed the app made the list spring back up when the trending tags loaded.
+- pixiv:// links in captions did not open.
+- Deleting a browsing history entry skipped one further down, and a failed history read showed No browsing history with no retry.
+- Deleting a history entry while browsing stopped the rest of the history from loading.
+- History entries deleted while a page was loading came back with the next page.
+- Exporting a backup while browsing could duplicate some history entries and leave others out.
+- With a large font and the keyboard up, the bookmark sheet pushed its confirm button off screen.
+- A long list of drawing tools overflowed the artwork's info row.
+- Under TalkBack, the bottom action bar did not come back after closing the comment box or downloading selected pages of a work.
 
 ## [1.0.0] - 2026-10-25
 
@@ -292,7 +456,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Multiple accounts, settings backup and a home screen widget; Chinese, English, Japanese and Russian interfaces.
 - No ads, no analytics.
 
-[Unreleased]: https://github.com/Lopution/Parfait/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Lopution/Parfait/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Lopution/Parfait/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Lopution/Parfait/releases/tag/v1.0.0
 [0.10.0]: https://github.com/Lopution/Parfait/releases/tag/v0.10.0
 [0.9.0]: https://github.com/Lopution/Parfait/releases/tag/v0.9.0
