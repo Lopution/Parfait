@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart' show HitTestResult, PointerUpEvent;
 import 'package:material_ui/material_ui.dart';
 
-import '../navigation/back_preview.dart';
 import '../widgets/prompt_host.dart';
 import 'motion_tokens.dart';
 
@@ -12,9 +11,7 @@ import 'motion_tokens.dart';
 /// lands, only the slide is removed.
 ///
 /// The scrim closes the sheet when a touch outside it is released there —
-/// a drag counts, not just a tap (see [_ReleaseDismissBarrier]). Android's
-/// predictive back swipe shrinks it with the finger, as Material's sheets
-/// do ([BackPreviewSheetPose]).
+/// a drag counts, not just a tap (see [_ReleaseDismissBarrier]).
 ///
 /// Content scrolls clamped, and only when it overflows. The app-wide
 /// bouncing, always-scrollable physics took every vertical drag: the
@@ -35,13 +32,11 @@ Future<T?> showAppBottomSheet<T>({
   final localizations = MaterialLocalizations.of(context);
   return navigator.push(
     _AppBottomSheetRoute<T>(
-      builder: (context) => BackPreviewSheetContent(
-        child: ScrollConfiguration(
-          behavior: ScrollConfiguration.of(
-            context,
-          ).copyWith(physics: const ClampingScrollPhysics()),
-          child: builder(context),
-        ),
+      builder: (context) => ScrollConfiguration(
+        behavior: ScrollConfiguration.of(
+          context,
+        ).copyWith(physics: const ClampingScrollPhysics()),
+        child: builder(context),
       ),
       capturedThemes: InheritedTheme.capture(
         from: context,
@@ -143,27 +138,6 @@ class _AppBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
     super.useSafeArea,
     super.sheetAnimationStyle,
   });
-
-  late final _preview = BackPreview(this);
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) => BackPreviewListener(
-    preview: _preview,
-    child: BackPreviewSheetPose(
-      preview: _preview,
-      child: super.buildPage(context, animation, secondaryAnimation),
-    ),
-  );
-
-  @override
-  void dispose() {
-    _preview.dispose();
-    super.dispose();
-  }
 
   @override
   Widget buildModalBarrier() => PromptCover(
