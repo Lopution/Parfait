@@ -261,37 +261,30 @@ void main() {
           .where((tag) => tag.startsWith('IllustHero:'));
       expect(tags, ['IllustHero:feed:1', 'IllustHero:feed:4']);
       final copy = entities.first.previewUrl(quality);
-      // IO turns in which a second request would show up.
-      Future<void> idle() async {
-        for (var turn = 0; turn < 3; turn++) {
-          await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 20)),
-          );
-          await tester.pump();
-        }
-      }
-
       // The cards' own images (the ugoira's cover is card 1's square
       // here), and the copy.
       await pumpIoUntil(tester, () => client.urls.length == 4);
-      // A rebuild asks for nothing again.
-      await tester.pumpWidget(feed());
-      await idle();
       expect(client.urls.where((url) => url == copy), hasLength(1));
-      expect(client.urls, hasLength(4));
       // The copy is no on-screen load: it went on the background lane.
       expect(worker.foregroundLoads.value, 3);
+      // A held request is a pending cache entry, made when it is asked
+      // for: a second request for a file needs a second entry.
+      final cache = PaintingBinding.instance.imageCache;
+      final pending = cache.pendingImageCount;
+      // A rebuild asks for nothing again.
+      await tester.pumpWidget(feed());
+      expect(cache.pendingImageCount, pending);
 
-      // A press decodes the copy and the page image at the page's width:
-      // entries of the requests already made, or the page image's own.
+      // A press decodes the copy and the page image at the page's width,
+      // as the card and the page do, and warms the author's avatar.
       final press = await tester.startGesture(
         tester.getCenter(find.byType(IllustCard).first),
       );
       await tester.pump(kPressTimeout);
       await press.cancel();
       final large = entities.first.imageUrls.large;
+      expect(cache.pendingImageCount, pending + (large == copy ? 1 : 2));
       await pumpIoUntil(tester, () => client.urls.contains(large));
-      await idle();
       expect(client.urls.where((url) => url == copy), hasLength(1));
       expect(client.urls.where((url) => url == large), hasLength(1));
       await unmountPastReleaseGrace(tester);
