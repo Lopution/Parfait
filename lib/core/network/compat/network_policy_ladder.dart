@@ -674,7 +674,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         winner = await _raceAgainst(
           destination,
           [sendA, _raceSend(destination, routeB, attempt, cancelSignal)],
-          next: () =>
+          next: (wanted) =>
               _selectRoute(
                 destination: destination,
                 cancelSignal: cancelSignal,
@@ -684,7 +684,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
                 useMemory: false,
                 remember: false,
               ).then<_RaceOutcome<T>?>(
-                (route) => _raceSend(destination, route, attempt, cancelSignal),
+                (route) => wanted()
+                    ? _raceSend(destination, route, attempt, cancelSignal)
+                    : null,
                 onError: (Object _) => null,
               ),
         );
@@ -702,14 +704,15 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
 
   /// The first success among [sends]; null when every send failed and the
   /// serial ladder should continue. A send that fails gives its place to
-  /// the [next] tier (an outcome of null: none is left), so two stay in
+  /// the [next] tier (an outcome of null: none is left, or the race ended
+  /// while it was selected, so it sends nothing), so two stay in
   /// flight: a mirror that refuses the no-SNI handshake at once no longer
   /// leaves the request waiting on a direct leg that takes seconds. Sends
   /// still running when the race ends are drained here.
   Future<_RaceSuccess<T>?> _raceAgainst<T>(
     PixivDestination destination,
     List<Future<_RaceOutcome<T>>> sends, {
-    required Future<_RaceOutcome<T>?> Function() next,
+    required Future<_RaceOutcome<T>?> Function(bool Function() wanted) next,
   }) async {
     final host = destination.canonicalHost;
     final running = <Future<_RaceOutcome<T>?>>[...sends];
@@ -726,6 +729,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         case null:
           tiersLeft = false;
         case final _RaceSuccess<T> success:
+          tiersLeft = false;
           for (final loser in running) {
             unawaited(
               loser.then((late) {
@@ -738,7 +742,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           failures.add(failure);
           if (_retryEligible(true, failure.error, failure.route)) {
             if (tiersLeft) {
-              final replacement = next();
+              final replacement = next(() => tiersLeft);
               replacements.add(replacement);
               running.add(replacement);
             }
