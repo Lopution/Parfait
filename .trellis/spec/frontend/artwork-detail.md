@@ -33,7 +33,8 @@ reviewed: 2026-10-17
   expanded set drops the band. The Hero, placeholder and error states
   stay inside the ratio box, not the slot. Page 1 always goes through the
   slot box so expanding a set never remounts it. Outside selection the
-  band carries the work's ambient light (THEME-19). In selection, every
+  band carries the work's ambient light (THEME-19), rising from the image
+  once it has landed. In selection, every
   page's badge keeps one inset from its image's top-end corner, moved
   down only by the part of the image the toolbar covers.
 - **Why:** A wide image at the very top was hard to see and to tap; the
@@ -43,7 +44,7 @@ reviewed: 2026-10-17
   tablet the slot only opened a gap. A badge moved down a toolbar's
   height on an image the bar did not reach sat mid-image (user report,
   10-24).
-- **Check:** `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it" "gives the first image of a set the same slot"
+- **Check:** `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it" "gives the first image of a set the same slot" "the band lights up from the image once it has landed"
 - **Code:** `lib/features/illust/detail/widgets/page_image.dart`
 
 ### DETAIL-03 A panorama scrolls before the pager takes over

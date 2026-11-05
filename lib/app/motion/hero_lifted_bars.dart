@@ -778,6 +778,13 @@ VoidCallback? _unclipCard(BuildContext card, List<_LiftedBar> bars) {
             (box) => box.clipBehavior,
             (box, clip) => box.clipBehavior = clip,
           );
+        // A refreshable feed's: EasyRefresh clips its child to a path.
+        case RenderClipPath() when inViewport && onEdge(node):
+          unclip<RenderClipPath>(
+            node,
+            (box) => box.clipBehavior,
+            (box, clip) => box.clipBehavior = clip,
+          );
         default:
       }
     }

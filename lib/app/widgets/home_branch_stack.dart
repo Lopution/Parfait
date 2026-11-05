@@ -433,6 +433,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     int i, {
     required bool rail,
     required List<HomeDestination> order,
+    required ModalRoute<dynamic>? shell,
   }) {
     return _swipeSlide(
       i,
@@ -458,20 +459,24 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
                 excluding: i != _current,
                 child: ExcludeSemantics(
                   excluding: i != _current,
-                  child: SlideTransition(
-                    position: _slideOf(i, rail: rail, order: order),
-                    // Always in the tree, so starting a switch never
-                    // remounts a branch; only the outgoing branch paints
-                    // from a texture.
-                    child: SnapshotWidget(
-                      // A branch showing a platform view paints live.
-                      mode: SnapshotMode.permissive,
-                      controller: i == _outgoing
-                          ? _switchSnapshot
-                          : _idleSnapshot,
-                      child: _mounted.contains(i)
-                          ? widget.children[i]
-                          : const SizedBox.shrink(),
+                  child: BranchActivityScope(
+                    shell: shell,
+                    selected: i == _current,
+                    child: SlideTransition(
+                      position: _slideOf(i, rail: rail, order: order),
+                      // Always in the tree, so starting a switch never
+                      // remounts a branch; only the outgoing branch paints
+                      // from a texture.
+                      child: SnapshotWidget(
+                        // A branch showing a platform view paints live.
+                        mode: SnapshotMode.permissive,
+                        controller: i == _outgoing
+                            ? _switchSnapshot
+                            : _idleSnapshot,
+                        child: _mounted.contains(i)
+                            ? widget.children[i]
+                            : const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),
@@ -490,6 +495,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     _barBranches = [for (final d in arrangement.shown) d.branchIndex];
     final width = MediaQuery.sizeOf(context).width;
     final rail = _rail = AppBreakpoints.useNavigationRail(width);
+    final shell = ModalRoute.of(context);
     // An immersive page (the novel reader) takes the rail's room too, as it
     // covers the bottom bar on a phone.
     final railShown = rail && !ref.watch(shellRailHiddenProvider);
@@ -509,7 +515,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
               fit: StackFit.expand,
               children: [
                 for (var i = 0; i < widget.children.length; i++)
-                  _buildBranch(i, rail: rail, order: order),
+                  _buildBranch(i, rail: rail, order: order, shell: shell),
               ],
             ),
           ),
@@ -575,4 +581,40 @@ class _HomeBranchScope extends InheritedWidget {
   @override
   bool updateShouldNotify(_HomeBranchScope oldWidget) =>
       channel != oldWidget.channel;
+}
+
+/// Whether a branch Navigator's subtree is the one on top of the screen:
+/// the branch on screen, with nothing on the root navigator over the
+/// shell. A predictive back preview starts only there (TRANS-04): a parked
+/// branch keeps a current route offstage, and a branch's page under a
+/// root-level page or dialog is current in its own navigator.
+class BranchActivityScope extends InheritedWidget {
+  const BranchActivityScope({
+    super.key,
+    required this.shell,
+    required this.selected,
+    required super.child,
+  });
+
+  /// The route holding the shell; null when it is the app's root.
+  final ModalRoute<dynamic>? shell;
+
+  /// Whether this is the branch on screen.
+  final bool selected;
+
+  /// The branch is on screen with nothing over the shell: read at the
+  /// moment asked, since a page or a dialog pushed on the root navigator
+  /// covers the shell before it rebuilds.
+  bool get active => selected && (shell?.isCurrent ?? true);
+
+  /// The scope over [context], read without a dependency: the check runs
+  /// when a back swipe starts, outside any build.
+  static BranchActivityScope? maybeOf(BuildContext context) =>
+      context
+              .getElementForInheritedWidgetOfExactType<BranchActivityScope>()
+              ?.widget
+          as BranchActivityScope?;
+
+  @override
+  bool updateShouldNotify(BranchActivityScope oldWidget) => false;
 }

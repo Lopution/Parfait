@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/navigation/func_page.dart';
+import 'package:parfait/app/pull_to_refresh.dart';
 
 import 'helpers/hero_flight.dart';
 import 'helpers/view_size.dart';
@@ -101,8 +102,8 @@ void main() {
       'puts the bars and clips back as it lands', (tester) async {
     final scroll = ScrollController(initialScrollOffset: 200);
     addTearDown(scroll.dispose);
-    // A 100px top bar over a tab body of 150px rows scrolled by 200, the
-    // card the third.
+    // A 100px top bar over a refreshable tab body of 150px rows scrolled
+    // by 200, the card the third.
     final moved = ValueNotifier(false);
     addTearDown(moved.dispose);
     final navigator = await _pumpCardPage(
@@ -115,25 +116,28 @@ void main() {
         key: const ValueKey('tab body'),
         fit: StackFit.expand,
         children: [
-          ListView(
-            controller: scroll,
-            children: [
-              for (var i = 0; i < 8; i++)
-                SizedBox(
-                  key: ValueKey('row $i'),
-                  height: 150,
-                  child: i == 2
-                      ? Align(
-                          alignment: Alignment.topLeft,
-                          child: _art(
-                            const IllustHeroCardFrame(
-                              child: SizedBox.square(dimension: 150),
+          PullToRefresh(
+            onRefresh: () async {},
+            child: ListView(
+              controller: scroll,
+              children: [
+                for (var i = 0; i < 8; i++)
+                  SizedBox(
+                    key: ValueKey('row $i'),
+                    height: 150,
+                    child: i == 2
+                        ? Align(
+                            alignment: Alignment.topLeft,
+                            child: _art(
+                              const IllustHeroCardFrame(
+                                child: SizedBox.square(dimension: 150),
+                              ),
                             ),
-                          ),
-                        )
-                      : null,
-                ),
-            ],
+                          )
+                        : null,
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -155,6 +159,15 @@ void main() {
             find.byType(Viewport, skipOffstage: false),
           )
           .clipBehavior,
+      // The refresh's own clip, at the viewport's rect.
+      tester
+          .renderObject<RenderClipPath>(
+            find.descendant(
+              of: find.byType(PullToRefresh, skipOffstage: false),
+              matching: find.byType(ClipPath, skipOffstage: false),
+            ),
+          )
+          .clipBehavior,
       tester
           .renderObject<RenderStack>(
             find.byKey(const ValueKey('tab body'), skipOffstage: false),
@@ -168,7 +181,7 @@ void main() {
           .top,
       -100,
     );
-    expect(clips(), [Clip.hardEdge, Clip.hardEdge]);
+    expect(clips(), [Clip.hardEdge, Clip.hardEdge, Clip.hardEdge]);
 
     for (final push in [true, false]) {
       if (push) {
@@ -182,7 +195,7 @@ void main() {
       expect(liftedBars(tester), hasLength(2), reason: 'push: $push');
       expect(covered(), isEmpty);
       expect(barsOut(), [true, true]);
-      expect(clips(), [Clip.none, Clip.none]);
+      expect(clips(), [Clip.none, Clip.none, Clip.none]);
       if (push) {
         // The navigator moves mid-flight, as a branch's across a layout
         // breakpoint: the bars are lifted again once it has laid out.
@@ -190,7 +203,7 @@ void main() {
         await tester.pump();
         await tester.pump();
         expect(barsOut(), [true, true]);
-        expect(clips(), [Clip.none, Clip.none]);
+        expect(clips(), [Clip.none, Clip.none, Clip.none]);
       }
       // Bars and clips are back in the frame the lifted copies go: a frame
       // later the bars flashed out (11-05). (Under the opened page the card
@@ -200,7 +213,7 @@ void main() {
         () => liftedBars(tester).isEmpty,
         step: const Duration(milliseconds: 16),
       );
-      expect(clips(), [Clip.hardEdge, Clip.hardEdge]);
+      expect(clips(), [Clip.hardEdge, Clip.hardEdge, Clip.hardEdge]);
       // The bottom bar floats over the opened page too.
       expect(push ? barsOut().last : barsOut(), push ? false : [false, false]);
       await tester.pumpAndSettle();

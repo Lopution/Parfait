@@ -2,6 +2,7 @@
 prefix: TRANS
 applies_to:
   - lib/app/navigation/func_page.dart
+  - lib/app/navigation/back_preview.dart
   - lib/app/motion/page_transitions.dart
   - lib/app/motion/hero_*.dart
   - lib/app/motion/drag_to_dismiss.dart
@@ -32,7 +33,9 @@ reviewed: 2026-10-29
   where the page still is. The home shell is a `FuncPage` too, with no
   duration of its own: it appears at once and moves aside under a page
   pushed over it on the root navigator (Me, downloads, reverse image
-  search, login), as a branch root does under a branch push. There is no
+  search, login), as a branch root does under a branch push. The back
+  button slides a page out; Android's back swipe previews it (TRANS-04).
+  There is no
   transition setting and no hand-written transition. A stored
   `pageTransitionStyle` is ignored and not written back. Shared-element
   pages have their own transition (TRANS-09).
@@ -64,20 +67,46 @@ reviewed: 2026-10-29
 - **Check:** `test/func_page_test.dart` "a dirty profile editor confirms on the back gesture instead of popping"
 - **Code:** `lib/features/profile/profile_edit_page.dart`
 
-### TRANS-04 The back gesture is the back button
-- **Rule:** No route or binding observer takes the system back gesture
-  (`handleStartBackGesture` returns false everywhere): nothing follows the
-  finger, a cancel does nothing, and the commit reaches
-  `handlePopRoute`, the back button's path. That path pops only the
-  visible branch's page, or the root-level page covering the shell. Do
-  not add `PredictiveBackPageTransitionsBuilder` or a gesture driver.
-- **Why:** User decision (10-20): no in-app gesture-following back. A
-  route following the gesture had to gate itself on branch visibility
-  (parked branches keep an `isCurrent` route offstage and popped a page
-  the user could not see) and release the Navigator when a commit threw;
-  the back button's path already does both.
-- **Check:** `test/func_page_test.dart` "only the visible branch answers the back gesture" "a root-level page owns the gesture over the whole shell"
-- **Code:** `lib/app/navigation/func_page.dart`
+### TRANS-04 The back swipe previews the leave where the system sends it
+- **Rule:** Where Android sends predictive back events (14 and up; on
+  ColorOS only with the user's 「三方应用侧滑跟手动画」 on), one route
+  previews the swipe (`BackPreview`): a `FuncPage` shrinks to 90 % about
+  its centre, moves away from the swiped edge by `w / 20 − 8` and with
+  the finger's vertical drag by at most `h / 20 − 8`, its corners
+  rounding to the display's (`BackPreviewPagePose`, inside `buildPage`;
+  a shared-element page's background takes the same pose), progress on
+  `MotionTokens.backPreviewProgress`. The page below shows at rest and
+  live (held still, as under a shared-element page). A cancel eases back
+  over `backPreviewCancel` and covers the page below again. A commit
+  pops from the pose: a page fades out and carries on away from the edge
+  (`backPreviewLeave`), a shared-element page runs its own leave
+  (TRANS-09) and its image flies home from the shrunk page. A sheet from
+  `showAppBottomSheet` takes MDC's bottom-container pose (48 dp
+  narrower, 24 dp shorter, from its bottom edge, its content kept to
+  shape) and closes as on any dismiss. The route animation is never
+  rewound and the navigator's gesture flag never raised. The route that
+  takes the swipe is current, `popGestureEnabled`, motion is not
+  reduced, the event is not a button's, and its navigator is in the
+  branch on screen with nothing on the root navigator over the shell
+  (`BranchActivityScope`); a route that leaves the screen mid-swipe (a
+  page or dialog pushed over the shell, read live) rests at the commit. Every other back is the back button's, with
+  no taker the binding's commit reaching `handlePopRoute`: dialogs,
+  menus, `PopScope`-guarded states, a branch root and the start page
+  (NAV-03), a route still animating, reduced motion, a system that sends
+  no events. Do not add `PredictiveBackPageTransitionsBuilder`.
+- **Why:** User decision (11-05), reversing 10-20's "no in-app
+  gesture-following back", taken while the user's phone never sent the
+  events: ColorOS gates third-party apps behind that setting (Gmail is
+  on its built-in list). Gmail and Android's shared-element spec shrink
+  the page. Flutter's builder rewinds the route: a shared-element page's
+  content faded with the finger, and a pop made under the gesture flag
+  starts no Hero flight. A Hero measures its start inside the route's
+  subtree, so a pose around the page sent the image off from where it
+  was before the swipe. A parked branch keeps a current route offstage,
+  and a branch page under a root-level page or a dialog is current in
+  its own navigator.
+- **Check:** `test/func_page_test.dart` "a back swipe shrinks a page over the page below at rest; " "a back swipe shrinks a shared-element page whole; the image " "under reduced motion a back swipe leaves the page as it is; " "only the visible branch answers the back gesture" "a root-level route owns the gesture over the whole shell, "; `test/app_overlays_test.dart` "a back swipe shrinks a sheet from its bottom edge; a cancel "
+- **Code:** `lib/app/navigation/back_preview.dart`, `lib/app/navigation/func_page.dart`, `lib/app/motion/app_overlays.dart`, `lib/app/widgets/home_branch_stack.dart`
 
 ### TRANS-06 Transitions snapshot only what does not move live
 - **Rule:** Every transition runs inside `FuncTransitionGuard`: entering
@@ -86,8 +115,8 @@ reviewed: 2026-10-29
   its cover began (Android's ink sparkle runs 617ms from the tap); a
   finger down on a revealing page turns it live until the reveal ends. A
   page under a shared-element page (`underSharedElement`), the home shell
-  under the viewer included, is never frozen: it stays live while the
-  image flies.
+  under the viewer included, or under a page in its back preview (held
+  still, TRANS-04), is never frozen: it stays live while the image flies.
 - **Why:** Re-rendering the leaving page every frame dropped frames;
   freezing the entering page froze its entrances. A detail page frozen
   under the viewer's return flight could not be scrolled or tapped to any
@@ -148,7 +177,8 @@ reviewed: 2026-10-29
   landed page leaves, `HeroLiftHole` cuts the flying image's spot out of
   its content, so what is under the content shows there; an opening page
   has none. The viewer's endpoint (`IllustHeroFlightChild.containsImage`)
-  cuts nothing. Under a page pushed on top it slides like any page. A
+  cuts nothing. In a back preview the whole stage shrinks with the finger
+  (TRANS-04). Under a page pushed on top it slides like any page. A
   page that is leaving keeps the page it was on (`didChangePrevious` is
   ignored once it is not active), so two backs in a row leave the page
   under the shared-element page still. The
@@ -195,8 +225,9 @@ reviewed: 2026-10-29
   alone. Meanwhile a real bar that is a `LiftableBar` (the top bar, the
   bottom navigation, the user page's header and tab strip) paints
   nothing, and the card's viewport, with the clips above it up to the
-  card's page that end on a band's inner edge (a tab body's), lets its
-  content paint into the bands: the page under a bar shows until the
+  card's page that end on a band's inner edge (a tab body's stack, the
+  pull-to-refresh's path clip: missed, it cut every refreshable feed flat
+  under the sliding bar, 11-05), lets its content paint into the bands: the page under a bar shows until the
   lifted copy slides over it. The shared-element page's `HeroBarsCover`,
   over its background and under its content, paints the rest of a band
   (no `LiftableBar` as wide) in the page colour. Bars, clips and cover

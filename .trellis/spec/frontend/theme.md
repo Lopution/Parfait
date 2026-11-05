@@ -254,7 +254,9 @@ reviewed: 2026-10-21
   beside or behind the subject and fades into the page, never over it.
   The places:
   - the detail band above a short first image, and the wide detail stage
-    (page selection keeps the plain stage);
+    (page selection keeps the plain stage); the band stays the page
+    colour while the image flies in and rises from the image's edge once
+    it has landed (`MotionTokens.ambientRise`);
   - a profile header without a cover, from the avatar (with neither, a
     plain container);
   - the first-run pages (welcome, login), from the app icon, behind the
@@ -272,8 +274,9 @@ reviewed: 2026-10-21
   cover-less profile was a grey band; the welcome page was mostly blank.
   Impeller keeps no raster cache: the band's mask, blur and tone filter
   were drawn offscreen every frame, eight layers a frame in a side swipe
-  over two pages, and the swipe dropped frames (trace, 11-01).
-- **Check:** `test/ambient_wash_test.dart` "ambient light keeps the page lightness and a share of the colour" "a wash draws its image toned, in the page pass", `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it", `test/user_profile_test.dart` "a profile without a cover lights its header from the avatar"; placement manual (review shots, light and dark)
+  over two pages, and the swipe dropped frames (trace, 11-01). The band
+  tinted ahead of its image, or flown with it, read apart (user, 11-05).
+- **Check:** `test/ambient_wash_test.dart` "ambient light keeps the page lightness and a share of the colour" "a wash draws its image toned, in the page pass", `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it" "the band lights up from the image once it has landed", `test/user_profile_test.dart` "a profile without a cover lights its header from the avatar"; placement manual (review shots, light and dark)
 - **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/app/widgets/scrollable_form_shell.dart`
 
 ### THEME-20 A shadow marks a layer, or content under a bar
