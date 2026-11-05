@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +9,13 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/image/image_worker.dart';
+import 'package:parfait/core/image/image_worker_client.dart';
+import 'package:parfait/core/image/image_worker_protocol.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/image/lane_permit_gate.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 
@@ -15,6 +25,7 @@ import 'package:parfait/core/illust/recommended_repository.dart'
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
 
 /// Local transport serving deterministic recommended pages.
@@ -202,46 +213,101 @@ void main() {
     expect(tags, contains('IllustHero:search:blue-archive:8'));
   });
 
-  testWidgets("a tall card keeps its Hero only on pixiv's own top square", (
-    tester,
-  ) async {
-    final (container, _) = await makeWorld();
-    IllustEntity tall(int id, String squareMedium, {String type = 'illust'}) {
-      final json = illustJson(id, width: 1000, height: 8000, type: type);
-      (json['image_urls'] as Map<String, dynamic>)['square_medium'] =
-          squareMedium;
-      return parseIllust(json);
-    }
+  for (final quality in PreviewQuality.values) {
+    testWidgets("a tall card keeps its Hero only on pixiv's own top square, "
+        'which alone fetches the whole work in the background (${quality.name})', (
+      tester,
+    ) async {
+      final worker = _RecordingImageWorker();
+      final container = await signedInApiContainer(
+        MockClient((request) async => http.Response('{}', 200)),
+        overrides: [
+          imageWorkerProvider.overrideWithValue(worker),
+          previewQualityProvider.overrideWithValue(quality),
+        ],
+      );
+      IllustEntity tall(int id, String squareMedium, {String type = 'illust'}) {
+        final json = illustJson(id, width: 1000, height: 8000, type: type);
+        (json['image_urls'] as Map<String, dynamic>)['square_medium'] =
+            squareMedium;
+        return parseIllust(json);
+      }
 
-    const dir = 'img/2024/01/02/03/04/05';
-    const own =
-        'https://i.pximg.net/c/360x360_70/img-master/$dir/1_p0_square1200.jpg';
-    const custom =
-        'https://i.pximg.net/c/360x360_70/custom-thumb/$dir/2_p0_custom1200.jpg';
-    await tester.pumpWidget(
-      localizedApp(
+      const dir = 'img/2024/01/02/03/04/05';
+      const own =
+          'https://i.pximg.net/c/360x360_70/img-master/$dir/1_p0_square1200.jpg';
+      const custom =
+          'https://i.pximg.net/c/360x360_70/custom-thumb/$dir/2_p0_custom1200.jpg';
+      final entities = [
+        tall(1, own),
+        tall(2, custom),
+        // An ugoira's cover lays out no top square.
+        tall(3, own, type: 'ugoira'),
+        parseIllust(illustJson(4)),
+      ];
+      Widget feed() => localizedApp(
         container: container,
         home: SingleChildScrollView(
           child: Column(
             children: [
-              IllustCard(entity: tall(1, own), heroScope: 'feed'),
-              IllustCard(entity: tall(2, custom), heroScope: 'feed'),
-              // An ugoira's cover lays out no top square.
-              IllustCard(
-                entity: tall(3, own, type: 'ugoira'),
-                heroScope: 'feed',
-              ),
+              for (final entity in entities)
+                IllustCard(entity: entity, heroScope: 'feed'),
             ],
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pumpWidget(feed());
+      await tester.pump();
+      final tags = tester
+          .widgetList<Hero>(find.byType(Hero))
+          .map((hero) => '${hero.tag}')
+          .where((tag) => tag.startsWith('IllustHero:'));
+      expect(tags, ['IllustHero:feed:1', 'IllustHero:feed:4']);
+      // A rebuild asks for nothing again.
+      await tester.pumpWidget(feed());
+      await tester.pump();
+      final copy = entities.first.previewUrl(quality);
+      expect(
+        [
+          for (final (url, priority) in worker.fetches)
+            if (priority == ImageFetchPriority.background) url,
+        ],
+        [copy],
+      );
 
-    final tags = tester
-        .widgetList<Hero>(find.byType(Hero))
-        .map((hero) => '${hero.tag}')
-        .where((tag) => tag.startsWith('IllustHero:'));
-    expect(tags, ['IllustHero:feed:1']);
-  });
+      // A press decodes the copy and the page image at the page's width:
+      // entries of the fetches already asked for, or the page image's own.
+      final press = await tester.startGesture(
+        tester.getCenter(find.byType(IllustCard).first),
+      );
+      await tester.pump(kPressTimeout);
+      await press.cancel();
+      await tester.pump();
+      final large = entities.first.imageUrls.large;
+      expect(worker.fetches.where((f) => f.$1 == copy), hasLength(1));
+      expect(worker.fetches.where((f) => f.$1 == large), hasLength(1));
+    });
+  }
+}
+
+/// A worker that records every fetch and answers none.
+class _RecordingImageWorker extends ImageWorker {
+  _RecordingImageWorker()
+    : super(
+        start: (_, _) => Completer<ImageWorkerClient>().future,
+        config: () async => testImageWorkerConfig,
+      ) {
+    addTearDown(dispose);
+  }
+
+  final fetches = <(String, ImageFetchPriority)>[];
+
+  @override
+  Future<FetchResult> fetch(
+    String url, {
+    required ImageFetchPriority priority,
+  }) {
+    fetches.add((url, priority));
+    return Completer<FetchResult>().future;
+  }
 }
