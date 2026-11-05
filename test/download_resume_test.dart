@@ -15,7 +15,6 @@ import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
-import 'package:parfait/core/network/compat/segmented_fetch.dart';
 import 'package:parfait/core/platform/android_platform_interfaces.dart';
 
 DownloadRequest _request() => DownloadRequest(
@@ -43,6 +42,7 @@ class _RangeTransport implements DownloadTransport, RoutedDownloadTransport {
     this.honorRange = true,
     this.reportTotal = true,
     this.shiftStart = 0,
+    this.failOnceAt,
   });
 
   static final _rangePattern = RegExp(r'^bytes=(\d+)-(\d*)$');
@@ -55,6 +55,9 @@ class _RangeTransport implements DownloadTransport, RoutedDownloadTransport {
 
   /// Misreports the served range's start by this many bytes.
   final int shiftStart;
+
+  /// The first body to reach this byte fails there, as a reset connection.
+  int? failOnceAt;
   final opens = <Map<String, String>>[];
 
   /// The route pin of each [openOn].
@@ -153,6 +156,10 @@ class _Served implements DownloadResponse, DownloadResponseMetadata {
         }
         if (!_open || _cancel.isCancelled) {
           throw const DownloadCancelledException();
+        }
+        if (_server.failOnceAt case final failAt? when at >= failAt) {
+          _server.failOnceAt = null;
+          throw const SocketException('Connection reset by peer');
         }
         yield Uint8List.sublistView(
           _server.data,
@@ -472,44 +479,52 @@ void main() {
       expect(factory.store.files.values.single, List.filled(20, 5));
     });
 
-    test('network failure preserves bytes; retry resumes', () async {
-      final transport = FakeTransport();
-      final factory = _ResumableFactory();
-      transport.responses.add(
-        ScriptedResponse(
-          contentLength: 30,
-          chunks: [List.filled(10, 1)],
-          error: const SocketException('connection reset'),
-        ),
-      );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: factory,
-        submissionContext: _context,
-      );
-      addTearDown(manager.dispose);
+    for (final (failure, error) in [
+      ('a reset', const SocketException('connection reset')),
+      ('an idle body', TimeoutException('response stream idle')),
+    ]) {
+      test(
+        'network failure preserves bytes; retry resumes ($failure)',
+        () async {
+          final transport = FakeTransport();
+          final factory = _ResumableFactory();
+          transport.responses.add(
+            ScriptedResponse(
+              contentLength: 30,
+              chunks: [List.filled(10, 1)],
+              error: error,
+            ),
+          );
+          final manager = DownloadManager(
+            transport: transport,
+            sinkFactory: factory,
+            submissionContext: _context,
+          );
+          addTearDown(manager.dispose);
 
-      final task = manager.submit(_request());
-      await turnUntil(
-        () => manager.taskById(task.id)?.status == DownloadStatus.failed,
-      );
+          final task = manager.submit(_request());
+          await turnUntil(
+            () => manager.taskById(task.id)?.status == DownloadStatus.failed,
+          );
 
-      final failed = manager.taskById(task.id)!;
-      expect(failed.failureKind, DownloadFailureKind.network);
-      expect(failed.resumeAnchor!.storedBytes, 10);
-      expect(factory.sinks.single.aborted, isFalse);
+          final failed = manager.taskById(task.id)!;
+          expect(failed.failureKind, DownloadFailureKind.network);
+          expect(failed.resumeAnchor!.storedBytes, 10);
+          expect(factory.sinks.single.aborted, isFalse);
 
-      transport.responses.add(
-        ScriptedResponse(
-          statusCode: 206,
-          contentLength: 20,
-          chunks: [List.filled(20, 7)],
-        ),
+          transport.responses.add(
+            ScriptedResponse(
+              statusCode: 206,
+              contentLength: 20,
+              chunks: [List.filled(20, 7)],
+            ),
+          );
+          await _retried(manager, task.id);
+          expect(transport.openedHeaders.last['Range'], 'bytes=10-');
+          expect(factory.store.files.values.single.length, 30);
+        },
       );
-      await _retried(manager, task.id);
-      expect(transport.openedHeaders.last['Range'], 'bytes=10-');
-      expect(factory.store.files.values.single.length, 30);
-    });
+    }
 
     test(
       'mismatched platform byte count discards anchor, no Range sent',
@@ -690,12 +705,10 @@ void main() {
     });
   });
 
-  group('parallel ranges', () {
-    late SegmentBudget budget;
+  group('continued transfers', () {
     late _ResumableFactory factory;
 
     setUp(() {
-      budget = SegmentBudget();
       factory = _ResumableFactory();
     });
 
@@ -704,7 +717,7 @@ void main() {
         transport: transport,
         sinkFactory: factory,
         submissionContext: _context,
-        segmentBudget: budget,
+        continueStalls: true,
         progressThrottle: Duration.zero,
       );
       addTearDown(manager.dispose);
@@ -719,17 +732,12 @@ void main() {
 
     List<int> stored() => factory.store.files.values.single;
 
-    test('a large file arrives in parallel ranges, in order', () async {
+    test('a large file arrives on one connection, in order', () async {
       final transport = _RangeTransport(_bytes(5 * _mib + 123));
       final manager = managerFor(transport);
       final shown = <int>[];
-      var aheadOfSink = false;
       // Set before submit: the sink is created synchronously.
-      factory.beforeWrite = () {
-        final received = manager.tasks.single.receivedBytes;
-        shown.add(received);
-        if (received > stored().length) aheadOfSink = true;
-      };
+      factory.beforeWrite = () => shown.add(manager.tasks.single.receivedBytes);
       final task = manager.submit(_request());
       await until(manager, task.id, DownloadStatus.succeeded);
 
@@ -737,73 +745,64 @@ void main() {
       final done = manager.taskById(task.id)!;
       expect(done.totalBytes, transport.data.length);
       expect(done.receivedBytes, transport.data.length);
-      expect(transport.ranges, hasLength(6));
-      expect(transport.ranges.first, 'bytes=0-${_mib - 1}');
-      expect(
-        transport.opens.skip(1).map((headers) => headers['If-Range']),
-        everyElement('"v1"'),
-      );
-      expect(transport.peakLive, SegmentedFetch.defaultParallel);
-      // Every range keeps to the first one's route.
-      expect(transport.pins, hasLength(6));
-      expect(transport.pins.toSet().single.resuming, isFalse);
-      // Progress counts bytes fetched ahead of the sink and never goes back.
-      expect(aheadOfSink, isTrue);
+      expect(transport.ranges, ['bytes=0-']);
+      expect(transport.peakLive, 1);
+      expect(transport.pins.single.resuming, isFalse);
+      // Progress follows the bytes written and never goes back.
       expect(shown, orderedEquals([...shown]..sort()));
+      expect(shown.last, greaterThan(4 * _mib));
       expect(transport.live, 0);
-      expect(budget.inUse, 0);
     });
 
-    test('under 2 MiB left, the rest follows on one connection', () async {
-      final transport = _RangeTransport(_bytes(_mib + _mib ~/ 2));
+    test('a dropped connection continues from the received byte, on the '
+        'same route', () async {
+      final transport = _RangeTransport(
+        _bytes(3 * _mib),
+        failOnceAt: _mib + 256 * 1024,
+      );
       final manager = managerFor(transport);
       final task = manager.submit(_request());
       await until(manager, task.id, DownloadStatus.succeeded);
 
       expect(stored(), transport.data);
-      expect(transport.ranges, [
-        'bytes=0-${_mib - 1}',
-        'bytes=$_mib-${_mib + _mib ~/ 2 - 1}',
-      ]);
+      expect(transport.ranges, ['bytes=0-', 'bytes=${_mib + 256 * 1024}-']);
+      expect(transport.opens.last['If-Range'], '"v1"');
+      expect(transport.pins.toSet(), hasLength(1));
       expect(transport.peakLive, 1);
+      expect(manager.taskById(task.id)!.receivedBytes, 3 * _mib);
     });
 
-    test(
-      'a retry after pause starts at the anchor and still segments',
-      () async {
-        final transport = _RangeTransport(_bytes(5 * _mib + 123))
-          ..holdFrom = 3 * _mib;
-        final manager = managerFor(transport);
-        final task = manager.submit(_request());
-        await turnUntil(
-          () => factory.store.files.values.firstOrNull?.length == 3 * _mib,
-          turns: 5000,
-        );
-        await manager.pause(task.id);
-        await until(manager, task.id, DownloadStatus.retryable);
-        expect(manager.taskById(task.id)!.resumeAnchor!.storedBytes, 3 * _mib);
-        expect(transport.live, 0);
-        expect(budget.inUse, 0);
+    test('a retry after pause continues from the anchor', () async {
+      final transport = _RangeTransport(_bytes(5 * _mib + 123))
+        ..holdFrom = 3 * _mib;
+      final manager = managerFor(transport);
+      final task = manager.submit(_request());
+      await turnUntil(
+        () => factory.store.files.values.firstOrNull?.length == 3 * _mib,
+        turns: 5000,
+      );
+      await manager.pause(task.id);
+      await until(manager, task.id, DownloadStatus.retryable);
+      expect(manager.taskById(task.id)!.resumeAnchor!.storedBytes, 3 * _mib);
+      expect(transport.live, 0);
 
-        transport
-          ..opens.clear()
-          ..pins.clear()
-          ..peakLive = 0
-          ..release();
-        final retried = manager.retry(task.id)!;
-        await until(manager, retried.id, DownloadStatus.succeeded);
+      transport
+        ..opens.clear()
+        ..pins.clear()
+        ..peakLive = 0
+        ..release();
+      final retried = manager.retry(task.id)!;
+      await until(manager, retried.id, DownloadStatus.succeeded);
 
-        expect(stored(), transport.data);
-        expect(transport.ranges, hasLength(3));
-        expect(transport.ranges.first, 'bytes=${3 * _mib}-${4 * _mib - 1}');
-        expect(transport.pins.toSet().single.resuming, isTrue);
-        expect(transport.peakLive, greaterThan(1));
-        expect(
-          manager.taskById(retried.id)!.receivedBytes,
-          transport.data.length,
-        );
-      },
-    );
+      expect(stored(), transport.data);
+      expect(transport.ranges, ['bytes=${3 * _mib}-']);
+      expect(transport.pins.single.resuming, isTrue);
+      expect(transport.peakLive, 1);
+      expect(
+        manager.taskById(retried.id)!.receivedBytes,
+        transport.data.length,
+      );
+    });
 
     test('a server ignoring Range is read as one plain stream', () async {
       final transport = _RangeTransport(_bytes(3 * _mib), honorRange: false);
@@ -816,20 +815,15 @@ void main() {
       expect(transport.peakLive, 1);
     });
 
-    test('cancelling closes every segment and returns the budget', () async {
+    test('cancelling closes the connection', () async {
       final transport = _RangeTransport(_bytes(5 * _mib))..holdFrom = 0;
       final manager = managerFor(transport);
       final task = manager.submit(_request());
-      await turnUntil(
-        () => transport.live == SegmentedFetch.defaultParallel,
-        turns: 5000,
-      );
-      expect(transport.live, SegmentedFetch.defaultParallel);
+      await turnUntil(() => transport.live == 1, turns: 5000);
       await manager.cancel(task.id);
       await until(manager, task.id, DownloadStatus.canceled);
 
       expect(transport.live, 0);
-      expect(budget.inUse, 0);
       expect(factory.store.files, isEmpty);
     });
 

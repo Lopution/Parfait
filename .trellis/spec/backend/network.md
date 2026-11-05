@@ -18,7 +18,7 @@ reviewed: 2026-10-29
 - [Destinations and routes](#destinations-and-routes)
 - [Failures and replay](#failures-and-replay)
 - [Clients and diagnostics](#clients-and-diagnostics)
-- [Segmented transfers](#segmented-transfers)
+- [Continued transfers](#continued-transfers)
 
 ## Destinations and routes
 
@@ -308,41 +308,50 @@ reviewed: 2026-10-29
 - **Check:** `test/doh_resolver_test.dart`
 - **Code:** `lib/core/network/compat/dns_message.dart`
 
-## Segmented transfers
+## Continued transfers
 
-### NET-15 Ranges stitch only the same file
-- **Rule:** Large originals and downloads continue in parallel ranges only
-  from a first 206 carrying the total. Every later range sends `If-Range`
-  with the first ETag; a range that is not exactly its 206 fails the whole
-  transfer with `SegmentedFetchMismatch`, never retried. On pixiv's image
-  hosts every range of a transfer shares one `ImageRoutePin`: the first
-  range sets its route, the others go there alone, and a restart goes
-  away from it first (NET-16). A range asked without `If-Range` (no first
-  ETag, as with pximg) and answered 200 is closed and restarted instead;
-  bytes are never taken from a 200. A candidate that answered a `Range`
-  with the whole file is marked per network until it serves a range; a
-  resumed download tries marked candidates last, a range from byte 0
-  ignores the mark. Extra connections come from the isolate's
-  `SegmentBudget` (main isolate one provider, limit 6; image worker its
-  own, limit 3).
-- **Why:** Stitching a mismatched range mixed two files; per-factory
-  budgets multiplied connections per host. Image routes change with their
-  scores mid-transfer, and another route may serve another copy. A whole
-  file for a resume's range discards the bytes kept, while from byte 0 it
-  only loses the parallel ranges.
-- **Check:** `test/segmented_fetch_test.dart` "every segment asks If-Range with the first ETag" " for a segment fails the transfer without a retry" "a range asked without If-Range and answered with the whole file " "a range answered with the whole file each time fails the transfer" "a budget of 2 caps the transfer at 3 connections" "cancelling closes every connection and returns the budget", `test/restricted_compat_image_test.dart` "every range of a transfer keeps to the route of its first" "a resumed transfer tries last a route that sent a whole file ", `test/download_resume_test.dart` "a large file arrives in parallel ranges, in order" "a retry after pause starts at the anchor and still segments"
-- **Code:** `lib/core/network/compat/segmented_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/download/download_manager.dart`, `lib/core/image/image_worker_host.dart`
+### NET-15 A continuation appends only the same file
+- **Rule:** Originals and downloads are one connection at a time. The
+  first request asks a range from its offset (`bytes=N-`, from 0 too, so
+  the total is known); only a 206 carrying the total is continued. A
+  continuation asks `bytes=<received>-` with `If-Range` set to the first
+  ETag, and is appended only when it is a 206 from that byte with the
+  first total; anything else fails the transfer with
+  `ContinuedFetchMismatch`, never retried. A 200 to a continuation asked
+  without `If-Range` (no first ETag, as with pximg) is that route
+  ignoring `Range`: it is closed and continued elsewhere instead; bytes
+  are never taken from a 200. On pixiv's image hosts every request of a
+  transfer shares one `ImageRoutePin`: the first sets its route, the
+  continuations go there unless they move away (NET-16). A candidate that
+  answered a `Range` with the whole file is marked per network until it
+  serves a range; a resumed download tries marked candidates last, a
+  range from byte 0 ignores the mark.
+- **Why:** Appending a mismatched range mixed two files. Image routes
+  change with their scores mid-transfer, and another route may serve
+  another copy. Parallel 1 MiB ranges (until 11-04) were held up by their
+  slowest range near its end, so downloads advanced in steps and lost to
+  one connection on every measured network; no pixiv client splits an
+  image.
+- **Check:** `test/continued_fetch_test.dart` "every continuation asks If-Range with the first ETag" " fails the transfer without appending or a retry" "a 200 to a continuation without If-Range is asked again elsewhere; " "streams " "cancelling closes the live connection", `test/restricted_compat_image_test.dart` "every range of a transfer keeps to the route of its first" "a resumed transfer tries last a route that sent a whole file ", `test/download_resume_test.dart` "a large file arrives on one connection, in order" "a retry after pause continues from the anchor", `test/image_worker_host_test.dart` "arrives whole on one range request, its progress against the "
+- **Code:** `lib/core/network/compat/continued_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/download/download_manager.dart`, `lib/core/image/image_worker_host.dart`
 
-### NET-16 Slow ranges restart a bounded number of times
-- **Rule:** A range restarts from the byte it reached after 5 s without
-  bytes, when it streams under a third of the median pace, or when its
-  connection fails; at most `maxRestarts` per range. A restart opens
-  elsewhere: on pixiv's image hosts the best other candidate that serves
-  ranges (`ImageRoutePin.awayFrom`), else the transfer's own route.
-  Teardown uses `subscription.cancel().ignore()` before closing the
-  response.
-- **Why:** One slow CDN connection set the pace; awaiting `cancel()` never
-  settled under `fakeAsync` and surfaced teardown errors as uncaught. A
-  bad route stalls for good, so a range restarted there stalled again.
-- **Check:** `test/segmented_fetch_test.dart` "a slow segment restarts from the byte it reached" "a stalled segment restarts after 5 s without bytes" "a segment restarts at most twice, then waits", `test/restricted_compat_image_test.dart` "a restarted range goes to another candidate that serves ranges, "
-- **Code:** `lib/core/network/compat/segmented_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`
+### NET-16 A stopped connection continues from its received byte
+- **Rule:** When no body bytes arrive for `ImageStall.body` (no headers
+  for `ImageStall.headers` while a continuation opens), or the connection
+  fails or ends early, it is closed and the transfer continues from the
+  received byte, at most `ContinuedFetch.defaultContinuations` times; a
+  paused reader's wait does not count. A continuation stays on the
+  transfer's route; it goes elsewhere (`ImageRoutePin.awayFrom`: the best
+  other candidate that serves ranges, else the transfer's own route) when
+  the one before it also stopped before sending a byte. After the last
+  continuation the connection is left to the transport's idle timeout,
+  and the next failure, early end or idle timeout ends the transfer as a
+  transport failure, so a download keeps its bytes for a retry from its
+  anchor (D8). Teardown uses
+  `subscription.cancel().ignore()` before closing the response.
+- **Why:** A stalled body waited the 15 s idle timeout, then failed. The
+  first stop is often one bad connection; a route that stops again before
+  a byte is likely bad for good. Awaiting `cancel()` never settled under
+  `fakeAsync` and surfaced teardown errors as uncaught.
+- **Check:** `test/continued_fetch_test.dart` "a stalled body continues from the received byte after 2 s; " "a dropped connection continues on the same route" "continuations stop at the bound, then " "a paused reader is not a stall; resuming finishes", `test/download_resume_test.dart` "a dropped connection continues from the received byte, on the " "network failure preserves bytes; retry resumes", `test/image_worker_host_test.dart` "a dropped connection continues from its received byte on the ", `test/restricted_compat_image_test.dart` "a restarted range goes to another candidate that serves ranges, "
+- **Code:** `lib/core/network/compat/continued_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`

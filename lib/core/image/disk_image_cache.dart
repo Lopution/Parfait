@@ -174,8 +174,7 @@ class DiskImageCache {
     return File(_filePath(key));
   }
 
-  /// Commits an in-memory [bytes] body — used by tests and the segmented
-  /// writer path that already holds the full buffer.
+  /// Commits an in-memory [bytes] body (tests).
   Future<File> storeBytes(String url, Uint8List bytes) =>
       store(url, Stream<List<int>>.value(bytes), expectedLength: bytes.length);
 

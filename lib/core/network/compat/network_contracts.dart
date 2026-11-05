@@ -360,7 +360,7 @@ abstract final class ImageStall {
   static const hedges = 3;
 
   /// The largest body a hedge holds in memory; only originals are larger,
-  /// and they restart their ranges instead.
+  /// and they continue from their received byte instead.
   static const hedgeBytes = 8 << 20;
 }
 

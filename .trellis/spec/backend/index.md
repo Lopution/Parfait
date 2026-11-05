@@ -23,7 +23,7 @@ file are in the [spec root](../index.md).
 | [paging.md](./paging.md) | Feed controllers, cursors, load-more pacing, the commit gate, the data worker. |
 | [history.md](./history.md) | Browsing history, its database and the Pixiv history outbox. |
 | [images.md](./images.md) | Image loading, decoding, the image worker, caches, ugoira and GIF export. |
-| [network.md](./network.md) | Pixiv transport, routes, ECH, auth refresh, rate limits, segmented downloads. |
+| [network.md](./network.md) | Pixiv transport, routes, ECH, auth refresh, rate limits, continued downloads. |
 | [downloads.md](./downloads.md) | The download manager, sinks, recovery and file naming. |
 | [reverse-image.md](./reverse-image.md) | Reverse image search input and providers. |
 | [profile-edit.md](./profile-edit.md) | Editing the Pixiv profile and the web session behind it. |

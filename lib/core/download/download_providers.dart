@@ -83,7 +83,7 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
     cacheLookup: (url) =>
         ref.read(imageWorkerProvider).cachedFile(url.toString()),
     maxConcurrent: ref.read(maxDownloadCountProvider),
-    segmentBudget: ref.watch(segmentBudgetProvider),
+    continueStalls: true,
     requireOwnedSubmissions: true,
     // D5: authenticated product downloads may target the selected custom
     // album or SAF tree. Account and destination identity checks remain in

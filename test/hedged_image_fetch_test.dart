@@ -8,7 +8,6 @@ import 'package:parfait/core/image/hedged_image_fetch.dart';
 import 'package:parfait/core/image/image_fetch_scheduler.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
-import 'package:parfait/core/network/compat/segmented_fetch.dart';
 
 /// One send at the network boundary, answered by the case.
 class _Send {
@@ -53,7 +52,7 @@ class _Send {
 /// The worker's hedged fetches behind the real scheduler, in fake time.
 class _Worker {
   _Worker(this.async, {int hedges = ImageStall.hedges})
-    : budget = SegmentBudget(limit: hedges) {
+    : budget = HedgeBudget(limit: hedges) {
     scheduler = ImageFetchScheduler<List<int>>(
       execute: (url, flight) {
         final mine = <_Send>[];
@@ -88,7 +87,7 @@ class _Worker {
   }
 
   final FakeAsync async;
-  final SegmentBudget budget;
+  final HedgeBudget budget;
   late final ImageFetchScheduler<List<int>> scheduler;
   final sends = <String, List<_Send>>{};
   final stored = <List<int>>[];

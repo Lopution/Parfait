@@ -14,7 +14,6 @@ import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/core/network/compat/image_route_scores.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
-import 'package:parfait/core/network/compat/segmented_fetch.dart';
 import 'package:parfait/core/network/pixiv_headers.dart';
 
 import 'helpers/image_network.dart';
@@ -461,9 +460,7 @@ void main() {
 
   group('an original file', () {
     const original = 'https://i.pximg.net/img-original/big_p0.png';
-    const segment = SegmentedFetch.defaultSegmentBytes;
-    // Four segments, the last one short.
-    const size = 3 * segment + 12345;
+    const size = 3 * (1 << 20) + 12345;
 
     Future<_Harness> started(RangeServingClient client) async {
       final harness = _Harness();
@@ -472,7 +469,7 @@ void main() {
       return harness;
     }
 
-    test('arrives whole from parallel ranges, its progress against the '
+    test('arrives whole on one range request, its progress against the '
         'whole length', () async {
       final bytes = patternBytes(size);
       final client = RangeServingClient({original: bytes});
@@ -484,11 +481,8 @@ void main() {
       final result = await harness.eventFor(1) as ResultEvent;
       expect(result.bytes, size);
       expect(await File(result.path).readAsBytes(), bytes);
-      expect(client.ranges.first, 'bytes=0-${segment - 1}');
-      expect(client.ranges, hasLength(4));
-      expect(client.ranges, everyElement(isNotNull));
-      // Every range is a pixiv image request, not only the first, and
-      // keeps to the first one's route.
+      expect(client.ranges, ['bytes=0-']);
+      // It is a pixiv image request that keeps to one route.
       expect(
         client.requests.map((r) => r.headers['referer']),
         everyElement(PixivHeaders.image()['Referer']),
@@ -501,6 +495,26 @@ void main() {
       expect(progress, isNotEmpty);
       expect(progress.map((p) => p.total), everyElement(size));
       expect(progress.last.received, lessThanOrEqualTo(size));
+    });
+
+    test('a dropped connection continues from its received byte on the '
+        'same route, asking If-Range', () async {
+      final bytes = patternBytes(size);
+      final client = RangeServingClient({original: bytes})
+        ..failOnceAt = 1 << 20;
+      final harness = await started(client);
+
+      harness
+        ..watch(original)
+        ..fetch(1, original);
+      final result = await harness.eventFor(1) as ResultEvent;
+      expect(await File(result.path).readAsBytes(), bytes);
+      expect(client.ranges, ['bytes=0-', 'bytes=${1 << 20}-']);
+      expect(client.requests.last.headers['if-range'], '"v1"');
+      expect(
+        {for (final r in client.requests) (r as ImageRequest).pin},
+        [isNotNull],
+      );
     });
 
     test('a server that ignores Range sends the whole file at once', () async {
@@ -521,49 +535,20 @@ void main() {
       final failure = await harness.eventFor(1) as FailureEvent;
       expect(failure.statusCode, 404);
     });
-
-    test('transfers share the worker\'s extra connections', () async {
-      const other = 'https://i.pximg.net/img-original/other_p0.png';
-      final client = RangeServingClient({
-        original: patternBytes(size),
-        other: patternBytes(size),
-      }, hold: true);
-      final harness = await started(client);
-
-      harness
-        ..fetch(1, original)
-        ..fetch(2, other);
-      // Each first range rides its lane permit; every further connection
-      // comes from the worker's budget, whichever transfer takes it.
-      const open = 2 + ImageWorkerHost.segmentLimit;
-      await pollUntil(() => client.requests.length >= open);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(client.requests, hasLength(open));
-
-      final results = Future.wait([harness.eventFor(1), harness.eventFor(2)]);
-      var done = false;
-      unawaited(results.whenComplete(() => done = true));
-      while (!done) {
-        client.releaseHeld();
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-      expect(await results, everyElement(isA<ResultEvent>()));
-      expect(client.requests, hasLength(8));
-    });
   });
 
   test(
     'an original nobody wants stops, and asking again starts afresh',
     () async {
       const original = 'https://i.pximg.net/img-original/big_p0.png';
-      final bytes = patternBytes(3 * SegmentedFetch.defaultSegmentBytes);
+      final bytes = patternBytes(3 << 20);
       final client = RangeServingClient({original: bytes}, hold: true);
       final harness = _Harness();
       addTearDown(harness.stop);
       await harness.start(fetchClient: () => client);
 
       harness.fetch(1, original);
-      await pollUntil(() => client.readHeld > 1);
+      await pollUntil(() => client.readHeld == 1);
       harness.cancel(1);
       await pollUntil(() => client.readHeld == 0);
       // The partial file is gone with the transfer.
@@ -572,10 +557,7 @@ void main() {
       final opened = client.requests.length;
       harness.fetch(2, original);
       await pollUntil(() => client.requests.length > opened);
-      expect(
-        client.ranges[opened],
-        'bytes=0-${SegmentedFetch.defaultSegmentBytes - 1}',
-      );
+      expect(client.ranges[opened], 'bytes=0-');
       final result = harness.eventFor(2);
       var done = false;
       unawaited(result.whenComplete(() => done = true));

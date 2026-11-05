@@ -57,11 +57,15 @@ class RangeServingClient extends http.BaseClient {
   final Map<String, Uint8List> files;
   final bool honorRange;
   final bool hold;
+
+  /// The first body to run past this many bytes fails there, as a reset
+  /// connection.
+  int? failOnceAt;
   final requests = <http.BaseRequest>[];
   final _held = <(StreamController<List<int>>, Uint8List)>[];
 
   static const _chunk = 64 * 1024;
-  static final _rangePattern = RegExp(r'^bytes=(\d+)-(\d+)$');
+  static final _rangePattern = RegExp(r'^bytes=(\d+)-(\d*)$');
 
   List<String> get urls => [for (final r in requests) r.url.toString()];
   List<String?> get ranges => [for (final r in requests) r.headers['range']];
@@ -84,7 +88,10 @@ class RangeServingClient extends http.BaseClient {
       );
     }
     final start = int.parse(range.group(1)!);
-    final last = math.min(int.parse(range.group(2)!), data.length - 1);
+    final end = range.group(2)!;
+    final last = end.isEmpty
+        ? data.length - 1
+        : math.min(int.parse(end), data.length - 1);
     final slice = Uint8List.sublistView(data, start, last + 1);
     return http.StreamedResponse(
       _body(slice),
@@ -106,10 +113,19 @@ class RangeServingClient extends http.BaseClient {
       _held.add((body, bytes));
       return body.stream;
     }
-    return Stream.fromIterable([
-      for (var i = 0; i < bytes.length; i += _chunk)
-        Uint8List.sublistView(bytes, i, math.min(i + _chunk, bytes.length)),
+    final cut = failOnceAt;
+    final fails = cut != null && cut < bytes.length;
+    if (fails) failOnceAt = null;
+    final sent = fails ? Uint8List.sublistView(bytes, 0, cut) : bytes;
+    final chunks = Stream.fromIterable([
+      for (var i = 0; i < sent.length; i += _chunk)
+        Uint8List.sublistView(sent, i, math.min(i + _chunk, sent.length)),
     ]);
+    if (!fails) return chunks;
+    return () async* {
+      yield* chunks;
+      throw const SocketException('Connection reset by peer');
+    }();
   }
 
   /// Held bodies a reader still listens to.
