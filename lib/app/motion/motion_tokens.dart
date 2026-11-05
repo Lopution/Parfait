@@ -67,6 +67,12 @@ abstract final class MotionTokens {
   static const spatial = Duration(milliseconds: 300);
   static const spatialCurve = Cubic(0.3, 0, 0.2, 1);
 
+  /// The detail band's ambient light rising out of a landed image (11-05):
+  /// M3 medium2 on the standard decelerate easing, out of the image and
+  /// settling.
+  static const ambientRise = Duration(milliseconds: 300);
+  static const ambientRiseCurve = Cubic(0, 0, 0, 1);
+
   /// A scroll back to the top takes [spatial] for a short way and grows
   /// with the distance to this at a screen; see [scrollToTop].
   static const scrollToTopLong = Duration(milliseconds: 500);

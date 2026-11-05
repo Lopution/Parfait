@@ -378,6 +378,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
           _AmbientBand(
             url: widget.heroImageUrl ?? entity.imageUrls.medium,
             aspectRatio: entity.pageAspectRatioAt(widget.index),
+            landed: _routeTransitionComplete,
           ),
         Align(
           alignment: Alignment.bottomCenter,
@@ -473,21 +474,65 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
 /// light (THEME-19): a blurred, tone-locked mirror of the work's top,
 /// fading into the page toward the screen top, so the frame answers the
 /// work and the Hero lands on it. Nothing is drawn over the artwork.
-class _AmbientBand extends StatelessWidget {
-  const _AmbientBand({required this.url, required this.aspectRatio});
+class _AmbientBand extends StatefulWidget {
+  const _AmbientBand({
+    required this.url,
+    required this.aspectRatio,
+    required this.landed,
+  });
 
   final String url;
   final double aspectRatio;
 
+  /// Whether the image has landed: the route opening the page has
+  /// finished, or there was none.
+  final bool landed;
+
   /// The wash needs only the work's colours: the card's file, small.
   static const int _decodeWidth = 96;
+
+  @override
+  State<_AmbientBand> createState() => _AmbientBandState();
+}
+
+/// The light comes out of the work once it is there: while the image
+/// flies, the band is the page colour; on landing the wash rises from the
+/// image's edge. Shown with the page, it tinted the screen before its
+/// source arrived; flown with the image, it read as a separate piece
+/// (11-05). Built from the start, so its decode is ready by the landing.
+class _AmbientBandState extends State<_AmbientBand>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rise = AnimationController(
+    vsync: this,
+    value: widget.landed ? 1 : 0,
+  );
+  late final CurvedAnimation _height = CurvedAnimation(
+    parent: _rise,
+    curve: MotionTokens.ambientRiseCurve,
+  );
+
+  @override
+  void didUpdateWidget(_AmbientBand oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.landed && !oldWidget.landed) {
+      _rise.duration = MotionTokens.resolve(context, MotionTokens.ambientRise);
+      _rise.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _height.dispose();
+    _rise.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final imageHeight = width / aspectRatio;
+        final imageHeight = width / widget.aspectRatio;
         final band = constraints.maxHeight - imageHeight;
         if (band <= 0) return const SizedBox.shrink();
         final page = Theme.of(context).colorScheme.surface;
@@ -496,46 +541,55 @@ class _AmbientBand extends StatelessWidget {
           child: SizedBox(
             width: width,
             height: band,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRect(
-                  // The work's top, mirrored up from the image's edge.
-                  child: OverflowBox(
-                    alignment: Alignment.bottomCenter,
-                    minHeight: imageHeight,
-                    maxHeight: imageHeight,
-                    child: Transform.flip(
-                      flipY: true,
-                      child: AmbientWash(
-                        alignment: Alignment.topCenter,
-                        image: PixivImage.providerFor(
-                          context,
-                          url,
-                          decodeWidth: _decodeWidth,
+            // Anchored at the image's edge, the wash and its fade grow up
+            // from it.
+            child: AnimatedBuilder(
+              animation: _height,
+              builder: (context, child) => Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(height: band * _height.value, child: child),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRect(
+                    // The work's top, mirrored up from the image's edge.
+                    child: OverflowBox(
+                      alignment: Alignment.bottomCenter,
+                      minHeight: imageHeight,
+                      maxHeight: imageHeight,
+                      child: Transform.flip(
+                        flipY: true,
+                        child: AmbientWash(
+                          alignment: Alignment.topCenter,
+                          image: PixivImage.providerFor(
+                            context,
+                            widget.url,
+                            decodeWidth: _AmbientBand._decodeWidth,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                // The fade into the page: the page colour over the opaque
-                // wash, as a mask over it would show, without the layer a
-                // mask takes.
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        page,
-                        page.withValues(alpha: 0x8C / 0xFF),
-                        page.withValues(alpha: 0),
-                      ],
-                      stops: const [0, 0.55, 1],
+                  // The fade into the page: the page colour over the opaque
+                  // wash, as a mask over it would show, without the layer a
+                  // mask takes.
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          page,
+                          page.withValues(alpha: 0x8C / 0xFF),
+                          page.withValues(alpha: 0),
+                        ],
+                        stops: const [0, 0.55, 1],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
