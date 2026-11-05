@@ -6,6 +6,16 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-06
+
+### 修复
+
+- 冷启动后第一屏的预览图比往下滑时加载慢很多：图片源为「自动」时每次启动都重新测速，第一屏加载到一半就换源；镜像源的一条线路连不上时，要等另一条慢线路超时。
+
+### Fixed
+
+- After a cold start, the first screen of previews loaded much more slowly than the images you scrolled to: with the Auto image source, every launch measured the sources again and could switch partway through the first screen, and a mirror whose fastest route failed waited on a slow one.
+
 ## [1.1.0] - 2026-11-05
 
 ### 新增
@@ -456,7 +466,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Multiple accounts, settings backup and a home screen widget; Chinese, English, Japanese and Russian interfaces.
 - No ads, no analytics.
 
-[Unreleased]: https://github.com/Lopution/Parfait/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Lopution/Parfait/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Lopution/Parfait/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Lopution/Parfait/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Lopution/Parfait/releases/tag/v1.0.0
 [0.10.0]: https://github.com/Lopution/Parfait/releases/tag/v0.10.0
