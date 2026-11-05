@@ -652,6 +652,7 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
     for (final release in _releases) {
       release();
     }
+    _releases = const [];
     for (final chrome in _held) {
       chrome._release();
     }
@@ -675,9 +676,31 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
     }
   }
 
+  // Released as the flight's overlay drops the shuttle, in that frame's
+  // build: the lifted copies go in that frame, so the bars, clips and
+  // chrome come back in it. Released in dispose, after its paint, the bars
+  // stayed out one frame with nothing standing for them, a flash (11-05).
+  @override
+  void deactivate() {
+    _release();
+    super.deactivate();
+  }
+
+  // Moved with a GlobalKey (a branch navigator across a layout breakpoint),
+  // the endpoints' render objects attach only after this, and lay out anew
+  // in this frame: lift again once they have.
+  @override
+  void activate() {
+    super.activate();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _release();
+      _lift();
+    });
+  }
+
   @override
   void dispose() {
-    _release();
     _bars?.dispose();
     super.dispose();
   }

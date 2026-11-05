@@ -367,9 +367,6 @@ class _RenderHeroBarsCover extends RenderBox {
 
   void _onCovered() {
     markNeedsPaint();
-    // A flight uncovers as its shuttle is disposed, after the frame's
-    // paint, when a repaint asks for no frame of its own.
-    SchedulerBinding.instance.scheduleFrame();
   }
 
   @override
@@ -549,9 +546,6 @@ class _RenderLiftableShadow extends RenderProxyBox {
   void _onLifted() {
     if (LiftableShadow._heldOff(_route) == _paintedHeldOff) return;
     markNeedsPaint();
-    // A flight releases its shadows as its shuttle is disposed, after the
-    // frame's paint, when a repaint asks for no frame of its own.
-    SchedulerBinding.instance.scheduleFrame();
   }
 
   @override
@@ -672,8 +666,6 @@ class _RenderLiftableBar extends RenderProxyBox {
   void _onLifted() {
     if (LiftableShadow._heldOff(_route) == _paintedLifted) return;
     markNeedsPaint();
-    // Released after the frame's paint, as the shuttle is disposed.
-    SchedulerBinding.instance.scheduleFrame();
   }
 
   @override
@@ -796,7 +788,5 @@ VoidCallback? _unclipCard(BuildContext card, List<_LiftedBar> bars) {
     for (final restore in restores) {
       restore();
     }
-    // Released after the frame's paint, as the shuttle is disposed.
-    SchedulerBinding.instance.scheduleFrame();
   };
 }

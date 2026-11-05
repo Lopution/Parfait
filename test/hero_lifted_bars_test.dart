@@ -8,6 +8,7 @@ import 'package:parfait/app/navigation/func_page.dart';
 
 import 'helpers/hero_flight.dart';
 import 'helpers/view_size.dart';
+import 'helpers/waits.dart';
 
 /// A card page's bars ride over a card flight (TRANS-10).
 void main() {
@@ -102,8 +103,11 @@ void main() {
     addTearDown(scroll.dispose);
     // A 100px top bar over a tab body of 150px rows scrolled by 200, the
     // card the third.
+    final moved = ValueNotifier(false);
+    addTearDown(moved.dispose);
     final navigator = await _pumpCardPage(
       tester,
+      moved: moved,
       topBar: const LiftableBar(
         child: ColoredBox(color: Colors.green, child: SizedBox.expand()),
       ),
@@ -179,13 +183,28 @@ void main() {
       expect(covered(), isEmpty);
       expect(barsOut(), [true, true]);
       expect(clips(), [Clip.none, Clip.none]);
-      await tester.pumpAndSettle();
-      expect(liftedBars(tester), isEmpty);
+      if (push) {
+        // The navigator moves mid-flight, as a branch's across a layout
+        // breakpoint: the bars are lifted again once it has laid out.
+        moved.value = true;
+        await tester.pump();
+        await tester.pump();
+        expect(barsOut(), [true, true]);
+        expect(clips(), [Clip.none, Clip.none]);
+      }
+      // Bars and clips are back in the frame the lifted copies go: a frame
+      // later the bars flashed out (11-05). (Under the opened page the card
+      // page is not painted at all.)
+      await pumpUntil(
+        tester,
+        () => liftedBars(tester).isEmpty,
+        step: const Duration(milliseconds: 16),
+      );
       expect(clips(), [Clip.hardEdge, Clip.hardEdge]);
+      // The bottom bar floats over the opened page too.
+      expect(push ? barsOut().last : barsOut(), push ? false : [false, false]);
+      await tester.pumpAndSettle();
     }
-    // Repainted once the flight lets go, with no frame left to ask for it.
-    // (Under the opened page the card page was not painted at all.)
-    expect(barsOut(), [false, false]);
   });
 }
 
@@ -219,37 +238,50 @@ Future<NavigatorState> _pumpCardPage(
   required Widget body,
   bool bottomInset = false,
   required Widget bottomBar,
+  ValueNotifier<bool>? moved,
 }) async {
   setViewSize(tester, const Size(400, 800));
   final heroes = HeroController();
   addTearDown(heroes.dispose);
+  final navigatorKey = GlobalKey<NavigatorState>();
   late NavigatorState navigator;
+  final cardNavigator = Navigator(
+    key: navigatorKey,
+    observers: [heroes],
+    onGenerateRoute: (_) => _page(
+      navigatorKey.currentContext!,
+      Builder(
+        builder: (context) {
+          navigator = Navigator.of(context);
+          return Scaffold(
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(100),
+              child: topBar,
+            ),
+            body: body,
+            bottomNavigationBar: bottomInset
+                ? const SizedBox(height: 100)
+                : null,
+          );
+        },
+      ),
+    ),
+  );
   await tester.pumpWidget(
     MaterialApp(
       home: Builder(
         builder: (root) => Stack(
           children: [
-            Navigator(
-              observers: [heroes],
-              onGenerateRoute: (_) => _page(
-                root,
-                Builder(
-                  builder: (context) {
-                    navigator = Navigator.of(context);
-                    return Scaffold(
-                      appBar: PreferredSize(
-                        preferredSize: const Size.fromHeight(100),
-                        child: topBar,
-                      ),
-                      body: body,
-                      bottomNavigationBar: bottomInset
-                          ? const SizedBox(height: 100)
-                          : null,
-                    );
-                  },
-                ),
+            if (moved == null)
+              cardNavigator
+            else
+              ValueListenableBuilder(
+                valueListenable: moved,
+                builder: (_, moved, child) => moved
+                    ? Padding(padding: EdgeInsets.zero, child: child)
+                    : child!,
+                child: cardNavigator,
               ),
-            ),
             Positioned(left: 0, right: 0, bottom: 0, child: bottomBar),
           ],
         ),
