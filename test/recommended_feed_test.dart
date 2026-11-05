@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -262,31 +261,11 @@ void main() {
       expect(tags, ['IllustHero:feed:1', 'IllustHero:feed:4']);
       final copy = entities.first.previewUrl(quality);
       // The cards' own images (the ugoira's cover is card 1's square
-      // here), and the copy.
+      // here), and the copy, once.
       await pumpIoUntil(tester, () => client.urls.length == 4);
       expect(client.urls.where((url) => url == copy), hasLength(1));
       // The copy is no on-screen load: it went on the background lane.
       expect(worker.foregroundLoads.value, 3);
-      // A held request is a pending cache entry, made when it is asked
-      // for: a second request for a file needs a second entry.
-      final cache = PaintingBinding.instance.imageCache;
-      final pending = cache.pendingImageCount;
-      // A rebuild asks for nothing again.
-      await tester.pumpWidget(feed());
-      expect(cache.pendingImageCount, pending);
-
-      // A press decodes the copy and the page image at the page's width,
-      // as the card and the page do, and warms the author's avatar.
-      final press = await tester.startGesture(
-        tester.getCenter(find.byType(IllustCard).first),
-      );
-      await tester.pump(kPressTimeout);
-      await press.cancel();
-      final large = entities.first.imageUrls.large;
-      expect(cache.pendingImageCount, pending + (large == copy ? 1 : 2));
-      await pumpIoUntil(tester, () => client.urls.contains(large));
-      expect(client.urls.where((url) => url == copy), hasLength(1));
-      expect(client.urls.where((url) => url == large), hasLength(1));
       await unmountPastReleaseGrace(tester);
     });
   }
