@@ -200,14 +200,16 @@ reviewed: 2026-10-29
   lifted copy slides over it. The shared-element page's `HeroBarsCover`,
   over its background and under its content, paints the rest of a band
   (no `LiftableBar` as wide) in the page colour. Bars, clips and cover
-  come back as the flight ends, where the lifted ones rest. A bar's shadow over the content beside it is a `LiftableShadow`:
+  come back as the flight ends, where the lifted ones rest, in the frame
+  that drops the lifted copies: the shuttle releases them when it is
+  deactivated, in that frame's build, not in `dispose`, after its paint
+  (the bars flashed out for a frame, 11-05). A bar's shadow over the content beside it is a `LiftableShadow`:
   the lifted bar casts it (the one whose inner edge meets the band's),
   and the real one holds off while its page's bars are lifted. "Its
   page" is the card's route and every route holding the card's
   Navigator: the home shell's bottom bar floats over a branch on the
   shell's route, and the branch page's copy appears only a frame after
-  takeoff. The hold-off's repaint schedules its own frame (a flight lets
-  go after the frame's paint). Other flights use a global clip between the source and
+  takeoff. Other flights use a global clip between the source and
   destination chrome boundaries, interpolated by how much the
   shared-element page over the card's route covers it (its background,
   or the whole page without one), or over the route holding

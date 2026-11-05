@@ -179,13 +179,16 @@ void main() {
       expect(covered(), isEmpty);
       expect(barsOut(), [true, true]);
       expect(clips(), [Clip.none, Clip.none]);
-      await tester.pumpAndSettle();
-      expect(liftedBars(tester), isEmpty);
+      // Bars and clips are back in the frame the lifted copies go: a frame
+      // later the bars flashed out (11-05). (Under the opened page the card
+      // page is not painted at all.)
+      while (liftedBars(tester).isNotEmpty) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
       expect(clips(), [Clip.hardEdge, Clip.hardEdge]);
+      if (!push) expect(barsOut(), [false, false]);
+      await tester.pumpAndSettle();
     }
-    // Repainted once the flight lets go, with no frame left to ask for it.
-    // (Under the opened page the card page was not painted at all.)
-    expect(barsOut(), [false, false]);
   });
 }
 
