@@ -686,10 +686,17 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
     super.deactivate();
   }
 
+  // Moved with a GlobalKey (a branch navigator across a layout breakpoint),
+  // the endpoints' render objects attach only after this, and lay out anew
+  // in this frame: lift again once they have.
   @override
   void activate() {
     super.activate();
-    _lift();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _release();
+      _lift();
+    });
   }
 
   @override

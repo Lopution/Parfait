@@ -203,7 +203,10 @@ reviewed: 2026-10-29
   come back as the flight ends, where the lifted ones rest, in the frame
   that drops the lifted copies: the shuttle releases them when it is
   deactivated, in that frame's build, not in `dispose`, after its paint
-  (the bars flashed out for a frame, 11-05). A bar's shadow over the content beside it is a `LiftableShadow`:
+  (the bars flashed out for a frame, 11-05). A shuttle moved mid-flight
+  with a GlobalKey (a branch navigator across a layout breakpoint) lifts
+  again after that frame's layout: its endpoints attach only after
+  `activate`. A bar's shadow over the content beside it is a `LiftableShadow`:
   the lifted bar casts it (the one whose inner edge meets the band's),
   and the real one holds off while its page's bars are lifted. "Its
   page" is the card's route and every route holding the card's
