@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,11 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/image/image_worker.dart';
-import 'package:parfait/core/image/image_worker_client.dart';
-import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/network/api_error.dart';
@@ -27,6 +21,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/waits.dart';
 
 /// Local transport serving deterministic recommended pages.
 /// Page flow: offset-less page 1 (ids 1..10, next=page2) →
@@ -218,7 +213,9 @@ void main() {
         'which alone fetches the whole work in the background (${quality.name})', (
       tester,
     ) async {
-      final worker = _RecordingImageWorker();
+      // Every body held open: each request stays in flight.
+      final client = HeldBodyClient();
+      final worker = inProcessImageWorker(() => client);
       final container = await signedInApiContainer(
         MockClient((request) async => http.Response('{}', 200)),
         overrides: [
@@ -263,51 +260,41 @@ void main() {
           .map((hero) => '${hero.tag}')
           .where((tag) => tag.startsWith('IllustHero:'));
       expect(tags, ['IllustHero:feed:1', 'IllustHero:feed:4']);
+      final copy = entities.first.previewUrl(quality);
+      // IO turns in which a second request would show up.
+      Future<void> idle() async {
+        for (var turn = 0; turn < 3; turn++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump();
+        }
+      }
+
+      // The cards' own images (the ugoira's cover is card 1's square
+      // here), and the copy.
+      await pumpIoUntil(tester, () => client.urls.length == 4);
       // A rebuild asks for nothing again.
       await tester.pumpWidget(feed());
-      await tester.pump();
-      final copy = entities.first.previewUrl(quality);
-      expect(
-        [
-          for (final (url, priority) in worker.fetches)
-            if (priority == ImageFetchPriority.background) url,
-        ],
-        [copy],
-      );
+      await idle();
+      expect(client.urls.where((url) => url == copy), hasLength(1));
+      expect(client.urls, hasLength(4));
+      // The copy is no on-screen load: it went on the background lane.
+      expect(worker.foregroundLoads.value, 3);
 
       // A press decodes the copy and the page image at the page's width:
-      // entries of the fetches already asked for, or the page image's own.
+      // entries of the requests already made, or the page image's own.
       final press = await tester.startGesture(
         tester.getCenter(find.byType(IllustCard).first),
       );
       await tester.pump(kPressTimeout);
       await press.cancel();
-      await tester.pump();
       final large = entities.first.imageUrls.large;
-      expect(worker.fetches.where((f) => f.$1 == copy), hasLength(1));
-      expect(worker.fetches.where((f) => f.$1 == large), hasLength(1));
+      await pumpIoUntil(tester, () => client.urls.contains(large));
+      await idle();
+      expect(client.urls.where((url) => url == copy), hasLength(1));
+      expect(client.urls.where((url) => url == large), hasLength(1));
+      await unmountPastReleaseGrace(tester);
     });
-  }
-}
-
-/// A worker that records every fetch and answers none.
-class _RecordingImageWorker extends ImageWorker {
-  _RecordingImageWorker()
-    : super(
-        start: (_, _) => Completer<ImageWorkerClient>().future,
-        config: () async => testImageWorkerConfig,
-      ) {
-    addTearDown(dispose);
-  }
-
-  final fetches = <(String, ImageFetchPriority)>[];
-
-  @override
-  Future<FetchResult> fetch(
-    String url, {
-    required ImageFetchPriority priority,
-  }) {
-    fetches.add((url, priority));
-    return Completer<FetchResult>().future;
   }
 }
