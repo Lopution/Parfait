@@ -195,8 +195,9 @@ reviewed: 2026-10-29
   alone. Meanwhile a real bar that is a `LiftableBar` (the top bar, the
   bottom navigation, the user page's header and tab strip) paints
   nothing, and the card's viewport, with the clips above it up to the
-  card's page that end on a band's inner edge (a tab body's), lets its
-  content paint into the bands: the page under a bar shows until the
+  card's page that end on a band's inner edge (a tab body's stack, the
+  pull-to-refresh's path clip: missed, it cut every refreshable feed flat
+  under the sliding bar, 11-05), lets its content paint into the bands: the page under a bar shows until the
   lifted copy slides over it. The shared-element page's `HeroBarsCover`,
   over its background and under its content, paints the rest of a band
   (no `LiftableBar` as wide) in the page colour. Bars, clips and cover
