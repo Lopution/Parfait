@@ -122,7 +122,7 @@ void main() {
     ).remember('wifi:home', 'image', NetworkRouteKind.ech.name);
     await AutoImageSource(
       preferences: preferences,
-    ).remember('wifi:home', 'i.pixiv.re');
+    ).remember('wifi:home', 'i.pixiv.re', measuredAt: DateTime(2026));
   });
 
   test('a route that failed to save is saved when learned again', () async {

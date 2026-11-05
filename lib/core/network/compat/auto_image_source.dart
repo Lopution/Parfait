@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,26 +55,29 @@ class AutoImageSource {
   final SharedPreferencesAsync _preferences;
   Future<void> _writeTail = Future<void>.value();
 
-  /// The persisted winner for [networkIdentity], or null when none applies
-  /// (never raced on this network, or a corrupted blob). Winners are kept
-  /// per identity — switching back to a known network reuses its measured
-  /// source instead of re-racing.
-  Future<String?> winnerFor(String networkIdentity) async {
+  /// The persisted winner for [networkIdentity] and when it was measured,
+  /// or null when none applies (never raced on this network, or a corrupted
+  /// blob). Winners are kept per identity — switching back to a known
+  /// network reuses its measured source instead of re-racing.
+  Future<({String host, DateTime? measuredAt})?> winnerFor(
+    String networkIdentity,
+  ) async {
     try {
       final winners = await _readWinners();
-      // Accepts the plain-string form and the short-lived {host, bps} map
-      // written while throughput was persisted — the extra field is simply
-      // ignored now that nothing consumes it.
-      final host = switch (winners[networkIdentity]) {
-        String() => winners[networkIdentity] as String,
-        Map<String, dynamic>() =>
-          (winners[networkIdentity] as Map<String, dynamic>)['host'] as String?,
-        _ => null,
+      // A plain string, and a map without `at` (the short-lived {host, bps}
+      // form), were written before the time was kept: they read as stale.
+      final (host, at) = switch (winners[networkIdentity]) {
+        final String host => (host, null),
+        final Map<String, dynamic> record => (record['host'], record['at']),
+        _ => (null, null),
       };
-      if (host == null || !ImageMirror.autoCandidates.contains(host)) {
+      if (host is! String || !ImageMirror.autoCandidates.contains(host)) {
         return null;
       }
-      return host;
+      return (
+        host: host,
+        measuredAt: at is int ? DateTime.fromMillisecondsSinceEpoch(at) : null,
+      );
     } on Object {
       return null;
     }
@@ -82,10 +86,17 @@ class AutoImageSource {
   /// Serialized writes — a race completes at the same moment other network
   /// state is being persisted. Callers do not wait: a failed write is
   /// logged.
-  Future<void> remember(String networkIdentity, String host) {
+  Future<void> remember(
+    String networkIdentity,
+    String host, {
+    required DateTime measuredAt,
+  }) {
     return _writeTail = _writeTail.then<void>((_) async {
       final winners = await _readWinners();
-      winners[networkIdentity] = host;
+      winners[networkIdentity] = {
+        'host': host,
+        'at': measuredAt.millisecondsSinceEpoch,
+      };
       try {
         await _preferences.setString(storageKey, jsonEncode(winners));
       } on Object catch (error) {
@@ -109,11 +120,11 @@ class AutoImageSource {
   }
 
   /// Races a bounded image GET to every candidate through the image ladder
-  /// and resolves to the host with the highest measured throughput plus the
-  /// winning measurement itself. Returns null when every candidate fails —
-  /// callers keep the previous winner/direct then rather than degrading to
-  /// an untested source.
-  static Future<({String host, double? bps})?> race(
+  /// and resolves to the host with the highest measured throughput, with
+  /// what every candidate measured. Returns null when every candidate fails
+  /// — callers keep the previous winner/direct then rather than degrading
+  /// to an untested source.
+  static Future<AutoSourceRace?> race(
     NetworkAccessPolicy policy, {
     NetworkCancelSignal? cancelSignal,
     @visibleForTesting Duration timeout = probeTimeout,
@@ -137,7 +148,14 @@ class AutoImageSource {
     // dead host.
     best ??= samples.whereType<_ProbeSample>().firstOrNull;
     if (best == null) return null;
-    return (host: best.host, bps: best.bytesPerSec);
+    return AutoSourceRace(
+      host: best.host,
+      bps: best.bytesPerSec,
+      answered: {
+        for (final sample in samples.whereType<_ProbeSample>())
+          sample.host: sample.bytesPerSec,
+      },
+    );
   }
 
   static Future<_ProbeSample?> _probe(
@@ -232,4 +250,168 @@ class _ProbeSample {
   /// Null when the host answered but the body was too small to rank by
   /// throughput — it still counts as reachable.
   final double? bytesPerSec;
+}
+
+/// One race: the best candidate and what every candidate that answered
+/// measured.
+class AutoSourceRace {
+  const AutoSourceRace({
+    required this.host,
+    required this.bps,
+    required this.answered,
+  });
+
+  final String host;
+
+  /// Null when no candidate's body was large enough to rank by throughput.
+  final double? bps;
+
+  /// Bytes/second of every candidate that answered; null where the body was
+  /// too small to measure. A candidate missing here failed.
+  final Map<String, double?> answered;
+}
+
+/// When the auto source races, and whether a race result replaces the
+/// winner in use (NET-22). A race costs four image downloads and competes
+/// with the first screen for bandwidth, and one sample per candidate is
+/// noisy, so each network is measured rarely and a working source is not
+/// switched for a small or one-off difference:
+///
+/// - the winner remembered for a network applies at once;
+/// - none remembered: race now and apply the result;
+/// - measured within [freshFor]: no race;
+/// - older: race once, [deferral] after the network is seen, so the first
+///   screen is not contended and the probes run warm;
+/// - a race replaces the winner in use only when its best candidate is at
+///   least 1/[replaceRatio] as fast as that winner in the same race, or the
+///   winner failed in it;
+/// - an exhausted winner drops to direct and re-races at once, at most once
+///   per [throttle].
+class AutoSourceSelector {
+  AutoSourceSelector({
+    required AutoImageSource store,
+    required Future<AutoSourceRace?> Function() race,
+    required bool Function() enabled,
+    required String? Function() current,
+    required void Function(String? host) apply,
+  }) : _store = store,
+       _race = race,
+       _enabled = enabled,
+       _current = current,
+       _apply = apply;
+
+  static const freshFor = Duration(hours: 24);
+  static const deferral = Duration(seconds: 30);
+  static const throttle = Duration(seconds: 30);
+
+  /// A challenger must reach the winner's bytes/second divided by this —
+  /// about 15 % faster, the margin route scores use (NET-04).
+  static const replaceRatio = 0.85;
+
+  final AutoImageSource _store;
+  final Future<AutoSourceRace?> Function() _race;
+  final bool Function() _enabled;
+  final String? Function() _current;
+  final void Function(String? host) _apply;
+
+  String? _identity;
+  Timer? _deferred;
+  bool _racing = false;
+  String? _pendingIdentity;
+  DateTime? _lastRaceAt;
+  bool _disposed = false;
+
+  /// The network [identity] became current (the first one included).
+  void networkSeen(String identity) {
+    _deferred?.cancel();
+    _deferred = null;
+    _identity = identity;
+    if (!_enabled()) return;
+    unawaited(_seen(identity));
+  }
+
+  Future<void> _seen(String identity) async {
+    final remembered = await _store.winnerFor(identity);
+    if (_disposed || identity != _identity) return;
+    if (remembered == null) {
+      _raceNow(identity);
+      return;
+    }
+    _apply(remembered.host);
+    final measuredAt = remembered.measuredAt;
+    if (measuredAt != null && clock.now().difference(measuredAt) < freshFor) {
+      return;
+    }
+    _deferred = Timer(deferral, () {
+      _deferred = null;
+      _raceNow(identity);
+    });
+  }
+
+  /// Every ladder tier of [host] failed. The winner in use drops to direct
+  /// and the candidates are raced again.
+  void winnerExhausted(String host) {
+    final identity = _identity;
+    if (identity == null || _current() != host) return;
+    _deferred?.cancel();
+    _deferred = null;
+    _apply(null);
+    _raceNow(identity, throttled: true);
+  }
+
+  void dispose() {
+    _disposed = true;
+    _deferred?.cancel();
+  }
+
+  void _raceNow(String identity, {bool throttled = false}) {
+    if (_disposed || !_enabled()) return;
+    if (_racing) {
+      // A race is running, perhaps for an older network: one more runs for
+      // the latest identity once it ends.
+      _pendingIdentity = identity;
+      return;
+    }
+    final now = clock.now();
+    if (throttled &&
+        _lastRaceAt != null &&
+        now.difference(_lastRaceAt!) < throttle) {
+      return;
+    }
+    _racing = true;
+    _lastRaceAt = now;
+    unawaited(() async {
+      try {
+        final result = await _race();
+        // A result measured on a network that is no longer current is
+        // meaningless here.
+        if (_disposed || result == null || identity != _identity) return;
+        final held = _current();
+        final winner = held != null && !_replaces(result, held)
+            ? held
+            : result.host;
+        if (winner != held) _apply(winner);
+        unawaited(_store.remember(identity, winner, measuredAt: clock.now()));
+      } on Object catch (error) {
+        log('auto image source race failed: $error');
+      } finally {
+        _racing = false;
+        final pending = _pendingIdentity;
+        _pendingIdentity = null;
+        if (pending != null && pending == _identity) _raceNow(pending);
+      }
+    }());
+  }
+
+  /// Whether [race]'s best candidate should replace [held]: [held] failed,
+  /// or the best transferred at least 1/[replaceRatio] as fast. A best that
+  /// could not be measured never replaces a winner that answered.
+  static bool _replaces(AutoSourceRace race, String held) {
+    if (!race.answered.containsKey(held)) return true;
+    final heldBps = race.answered[held];
+    final bestBps = race.bps;
+    if (bestBps == null) return false;
+    if (heldBps == null) return true;
+    return bestBps * replaceRatio >= heldBps;
+  }
 }

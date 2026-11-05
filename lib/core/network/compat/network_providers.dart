@@ -59,75 +59,30 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   // The identity string also keys the persisted route kinds, so returning
   // to a known network re-seeds its last-good tiers.
   var connectivityIdentity = 'initial';
-  final autoSource = AutoImageSource(
-    preferences: ref.watch(sharedPreferencesProvider),
+  // In auto mode the winner applies through [autoImageSourceWinnerProvider]:
+  // its update rebuilds [imageMirrorProvider], so image URLs start
+  // rewriting through it.
+  final autoSource = AutoSourceSelector(
+    store: AutoImageSource(preferences: ref.watch(sharedPreferencesProvider)),
+    race: () => AutoImageSource.race(policy),
+    enabled: () =>
+        ref.read(settingsProvider).value?.imageSource ==
+        ImageSourceMode.auto.host,
+    current: () => ref.read(autoImageSourceWinnerProvider),
+    apply: (host) => ref.read(autoImageSourceWinnerProvider.notifier).set(host),
   );
-
-  /// In auto mode a network-identity change invalidates the remembered
-  /// winner the same way it invalidates route memory — re-seed from the
-  /// identity-scoped store, then re-race. The winner update rebuilds
-  /// [imageMirrorProvider], so image URLs start rewriting through it.
-  /// Concurrent calls are deduped; a failed-winner re-race is throttled so
-  /// a dead candidate cannot make every scrolling image re-trigger probes.
-  var autoRaceInFlight = false;
-  String? autoRacePendingIdentity;
-  DateTime? lastAutoRaceAt;
-  void resolveAutoSource(String identity, {bool throttled = false}) {
-    if (ref.read(settingsProvider).value?.imageSource !=
-        ImageSourceMode.auto.host) {
-      return;
-    }
-    if (autoRaceInFlight) {
-      // A race for an older network is still running. Dropping the new
-      // identity here meant its winner was never measured — queue one
-      // re-race for the latest identity instead.
-      autoRacePendingIdentity = identity;
-      return;
-    }
-    final now = DateTime.now();
-    if (throttled &&
-        lastAutoRaceAt != null &&
-        now.difference(lastAutoRaceAt!) < const Duration(seconds: 30)) {
-      return;
-    }
-    autoRaceInFlight = true;
-    lastAutoRaceAt = now;
-    unawaited(() async {
-      try {
-        final persisted = await autoSource.winnerFor(identity);
-        // Identity can flip while the lookup/race is in flight — a winner
-        // measured (or remembered) on the old network is meaningless on the
-        // new one, so results apply only when the identity still matches.
-        if (persisted != null && identity == connectivityIdentity) {
-          ref.read(autoImageSourceWinnerProvider.notifier).set(persisted);
-        }
-        final result = await AutoImageSource.race(policy);
-        if (result == null || identity != connectivityIdentity) return;
-        ref.read(autoImageSourceWinnerProvider.notifier).set(result.host);
-        unawaited(autoSource.remember(identity, result.host));
-      } finally {
-        autoRaceInFlight = false;
-        final pending = autoRacePendingIdentity;
-        autoRacePendingIdentity = null;
-        if (pending != null) resolveAutoSource(pending);
-      }
-    }());
-  }
+  ref.onDispose(autoSource.dispose);
 
   // A dead mirror winner (every ladder tier exhausted) is dropped back to
   // direct and the candidates are re-raced — the next reachable source
   // takes over without user intervention.
-  policy.onImageHostExhausted = (host) {
-    if (ref.read(autoImageSourceWinnerProvider) != host) return;
-    ref.read(autoImageSourceWinnerProvider.notifier).set(null);
-    resolveAutoSource(connectivityIdentity, throttled: true);
-  };
+  policy.onImageHostExhausted = autoSource.winnerExhausted;
 
   void onConnectivity(String identity) {
     if (identity == connectivityIdentity) return;
     connectivityIdentity = identity;
     policy.advanceNetworkRevision(networkIdentity: identity);
-    resolveAutoSource(identity);
+    autoSource.networkSeen(identity);
     ref.read(networkRestoreSignalProvider.notifier).observe(identity);
   }
 
@@ -154,8 +109,8 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
         );
   }
   // Even with no connectivity events (plugin absent/failed) auto mode still
-  // gets one race under the 'initial' identity.
-  resolveAutoSource(connectivityIdentity);
+  // gets a source under the 'initial' identity.
+  autoSource.networkSeen(connectivityIdentity);
   ref.onDispose(() {
     unawaited(() async {
       try {
