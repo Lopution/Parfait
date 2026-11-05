@@ -602,8 +602,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// tier's timeout in series. For idempotent image loads (a duplicate GET
   /// is safe — [canReplay] is already proven by the caller) the top two
   /// constructible tiers are sent in parallel and the first success wins;
-  /// the loser is drained and dropped. Both failing falls back to the
-  /// serial ladder with the two raced kinds already marked attempted.
+  /// the loser is drained and dropped. A tier that fails gives its place to
+  /// the next one. Every raced tier failing falls back to the serial ladder
+  /// with the raced kinds already marked attempted.
   ///
   /// Returns `(true, value)` on a raced win and `(false, null)` when the
   /// caller should continue with the serial walk.
@@ -658,7 +659,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       selectB.then((_) => null),
     ]);
     _RaceSuccess<T>? winner;
-    Future<_RaceOutcome<T>>? loser;
     if (early is _RaceSuccess<T>) {
       winner = early;
     } else {
@@ -671,10 +671,22 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
             Error.throwWithStackTrace(error, stackTrace),
         };
       } else {
-        (winner, loser) = await _raceAgainst(
+        winner = await _raceAgainst(
           destination,
-          sendA,
-          _raceSend(destination, routeB, attempt, cancelSignal),
+          [sendA, _raceSend(destination, routeB, attempt, cancelSignal)],
+          next: () =>
+              _selectRoute(
+                destination: destination,
+                cancelSignal: cancelSignal,
+                attemptedKeys: attemptedKeys,
+                attemptedKinds: attemptedKinds,
+                resolveHost: resolveHost,
+                useMemory: false,
+                remember: false,
+              ).then<_RaceOutcome<T>?>(
+                (route) => _raceSend(destination, route, attempt, cancelSignal),
+                onError: (Object _) => null,
+              ),
         );
       }
     }
@@ -682,57 +694,84 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
 
     if (cancelSignal?.isCancelled ?? false) {
       _discardRaceOutcome(destination, winner);
-      if (loser != null) {
-        unawaited(loser.then((o) => _discardRaceOutcome(destination, o)));
-      }
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
     }
     _rememberRoute(host, winner.route, purpose: destination.purpose);
-    // The loser keeps no memory and never reports back; drain its body so
-    // the socket is reclaimed promptly, or record a late failure so the
-    // diagnostics stay truthful.
-    if (loser != null) {
-      unawaited(loser.then((o) => _discardRaceOutcome(destination, o)));
-    }
     return (true, winner.value);
   }
 
-  /// The first success of [sendA] and [sendB], with the other send to
-  /// drain; a null winner when both failed and the serial ladder should
-  /// continue.
-  Future<(_RaceSuccess<T>?, Future<_RaceOutcome<T>>?)> _raceAgainst<T>(
+  /// The first success among [sends]; null when every send failed and the
+  /// serial ladder should continue. A send that fails gives its place to
+  /// the [next] tier (an outcome of null: none is left), so two stay in
+  /// flight: a mirror that refuses the no-SNI handshake at once no longer
+  /// leaves the request waiting on a direct leg that takes seconds. Sends
+  /// still running when the race ends are drained here.
+  Future<_RaceSuccess<T>?> _raceAgainst<T>(
     PixivDestination destination,
-    Future<_RaceOutcome<T>> sendA,
-    Future<_RaceOutcome<T>> sendB,
-  ) async {
+    List<Future<_RaceOutcome<T>>> sends, {
+    required Future<_RaceOutcome<T>?> Function() next,
+  }) async {
     final host = destination.canonicalHost;
-    // Tag each send so `Future.any` tells us which one resolved.
-    final (firstIndex, first) = await Future.any([
-      sendA.then((outcome) => (0, outcome)),
-      sendB.then((outcome) => (1, outcome)),
-    ]);
-    if (first is _RaceSuccess<T>) {
-      return (first, firstIndex == 0 ? sendB : sendA);
+    final running = <Future<_RaceOutcome<T>?>>[...sends];
+    final replacements = <Future<_RaceOutcome<T>?>>{};
+    final failures = <_RaceFailure<T>>[];
+    var tiersLeft = true;
+    while (running.isNotEmpty) {
+      // Tag each send so `Future.any` tells us which one resolved.
+      final (send, outcome) = await Future.any([
+        for (final send in running) send.then((outcome) => (send, outcome)),
+      ]);
+      running.remove(send);
+      switch (outcome) {
+        case null:
+          tiersLeft = false;
+        case final _RaceSuccess<T> success:
+          for (final loser in running) {
+            unawaited(
+              loser.then((late) {
+                if (late != null) _discardRaceOutcome(destination, late);
+              }),
+            );
+          }
+          return success;
+        case final _RaceFailure<T> failure:
+          failures.add(failure);
+          if (_retryEligible(true, failure.error, failure.route)) {
+            if (tiersLeft) {
+              final replacement = next();
+              replacements.add(replacement);
+              running.add(replacement);
+            }
+          } else {
+            // A terminal failure ends the walk where the serial ladder
+            // would have stopped: no tier past the raced pair is brought
+            // in, and one already brought in is dropped. The other raced
+            // send may still answer, as before replacements existed.
+            tiersLeft = false;
+            for (final dropped in [...running.where(replacements.contains)]) {
+              running.remove(dropped);
+              unawaited(
+                dropped.then((late) {
+                  if (late != null) _discardRaceOutcome(destination, late);
+                }),
+              );
+            }
+          }
+      }
     }
-    // The first failure often lands fast (RST/refused) while the winning
-    // tier is still handshaking — wait for the sibling before giving up.
-    final second = await (firstIndex == 0 ? sendB : sendA);
-    if (second is _RaceSuccess<T>) return (second, null);
-    _discardRaceOutcome(destination, first);
-    _discardRaceOutcome(destination, second);
-    for (final failure in [first, second]) {
+    for (final failure in failures) {
+      _discardRaceOutcome(destination, failure);
       _invalidateRouteMemory(host, failure.route, purpose: destination.purpose);
     }
     // Racing must not weaken terminal semantics: a failure the serial
     // ladder would have called final (e.g. a real-SNI certificate mismatch)
     // still ends the walk here instead of leaking into the remaining tiers.
-    for (final failure in [first, second]) {
-      if (failure is _RaceFailure<T> &&
-          !_retryEligible(true, failure.error, failure.route)) {
+    for (final failure in failures) {
+      if (!_retryEligible(true, failure.error, failure.route)) {
         Error.throwWithStackTrace(failure.error, failure.stackTrace);
       }
     }
-    return (null, null);
+    return null;
   }
 
   /// Wraps one raced attempt so neither send ever throws — the race loop

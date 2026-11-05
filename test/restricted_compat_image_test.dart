@@ -267,11 +267,19 @@ void main() {
         clientFactory: (route, canonicalHost, _) {
           attempts.add(route.kind);
           return switch (route.kind) {
-            NetworkRouteKind.direct => FakeClient(failure: certError),
+            NetworkRouteKind.direct => DelayedClient(
+              FakeClient(failure: certError),
+              const Duration(milliseconds: 20),
+            ),
             NetworkRouteKind.noSni => FakeClient(
               failure: SocketException('Connection refused'),
             ),
-            _ => FakeClient(body: 'must-not-send'),
+            // Brought in when noSni fails first; still running when the
+            // mismatch arrives.
+            _ => DelayedClient(
+              FakeClient(body: 'must-not-send'),
+              const Duration(hours: 1),
+            ),
           };
         },
       );
@@ -280,11 +288,13 @@ void main() {
       await expectLater(
         client.get(Uri.parse('https://i.pixiv.re/a.jpg')),
         throwsA(same(certError)),
+        reason: 'a real-SNI mismatch on direct never falls through',
       );
-      expect(attempts, [
-        NetworkRouteKind.direct,
-        NetworkRouteKind.noSni,
-      ], reason: 'a real-SNI mismatch on direct never falls through');
+      expect(
+        attempts.last,
+        NetworkRouteKind.dohRealSni,
+        reason: 'the tier brought in after noSni failed is dropped',
+      );
     });
   });
 
@@ -531,22 +541,31 @@ void main() {
       expect(client.requests, hasLength(1));
     });
 
-    test('both raced tiers failing falls back to the serial ladder', () async {
-      final failing = FakeClient(failure: const SocketException('refused'));
+    test('a raced tier that fails gives its place to the next while the '
+        'other hangs', () async {
+      final noSni = FakeClient(failure: const SocketException('handshake'));
       final realSni = FakeClient(body: 'realSni');
+      // The direct leg answers long after the test: the request must not
+      // wait for it once noSni has failed.
+      final direct = DelayedClient(
+        FakeClient(body: 'direct'),
+        const Duration(hours: 1),
+      );
       final policy = NetworkAccessPolicy(
         registry: mirrorRegistry(),
         resolver: FakeResolver([InternetAddress('1.2.3.4')]),
-        clientFactory: (route, _, _) =>
-            route.kind == NetworkRouteKind.dohRealSni ? realSni : failing,
+        clientFactory: (route, _, _) => switch (route.kind) {
+          NetworkRouteKind.direct => direct,
+          NetworkRouteKind.noSni => noSni,
+          _ => realSni,
+        },
       );
       final client = _imageClient(policy);
 
       final response = await client.get(imageUri);
 
-      expect(response.statusCode, 200);
-      expect(failing.requests, hasLength(2));
-      expect(realSni.requests, hasLength(1));
+      expect(response.body, 'realSni');
+      expect(noSni.requests, hasLength(1));
       expect(
         policy.rememberedRouteKind('i.pixiv.re'),
         NetworkRouteKind.dohRealSni,

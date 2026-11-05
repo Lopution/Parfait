@@ -59,9 +59,15 @@ reviewed: 2026-10-29
   except on pixiv's image hosts, persisted per network identity as a kind,
   never an address. Only cold mirror image requests
   race two tiers; a raced tier that answers before the other is even
-  selected wins without waiting. One request looks its host up once per
+  selected wins without waiting, and one that fails gives its place to the
+  next tier, so two stay in flight until one answers or the tiers run out.
+  A terminal failure (NET-06, NET-07) brings in no further tier and drops
+  one already brought in. One request looks its host up once per
   network revision: a failed lookup is not repeated by later tiers or
-  selections, and a network change mid-request looks it up again. A mirror's
+  selections, and a network change mid-request looks it up again.
+  Concurrent DoH lookups of one host (address or ECH config) on one
+  revision share one query, cancellable or not; a caller's cancel ends
+  only its own wait. A mirror's
   direct tier gets an 8 s connect budget (the fourth SYN), not the
   fast-fail 3 s.
 - **Why:** Plain DNS and SNI are blocked or poisoned on the user's
@@ -72,7 +78,11 @@ reviewed: 2026-10-29
   Cloudflare (no SNI, no handshake) and both other tiers waited on DoH,
   which the mainland could not reach, so an image took 24–40 s and hit
   the 15 s headers timeout; pixiv.re and pixiv.nl connect directly.
-- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct", `test/network_fast_route_test.dart` "API, OAuth and web never reach the bootstrap tier", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only" "a cold mirror answers from direct while DoH hangs", `test/restricted_compat_network_test.dart` "policy rejects private addresses from an injected resolver"
+  i.pixiv.re refuses the no-SNI handshake in 0.6 s, and the race then
+  waited on its direct leg alone for 3–15 s while `dohRealSni` answered in
+  1 s, and the slow direct was remembered. Every image request carries a
+  cancel signal, so the first screen sent eight ECH queries at once.
+- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct" "a network change mid-request looks the host up again", `test/network_fast_route_test.dart` "API, OAuth and web never reach the bootstrap tier", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only" "a cold mirror answers from direct while DoH hangs" "a raced tier that fails gives its place to the next while the " "a real-SNI certificate mismatch stays terminal", `test/restricted_compat_network_test.dart` "policy rejects private addresses from an injected resolver", `test/doh_resolver_test.dart` "concurrent address lookups share one wire query; a cancel ends " "concurrent ECH lookups share one wire query, cancellable or "
 - **Code:** `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/network/compat/rhttp_client_factory.dart`
 
 ### NET-04 Pixiv image routes follow per-network scores
