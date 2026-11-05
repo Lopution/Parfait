@@ -582,3 +582,221 @@ class _RenderLiftableShadow extends RenderProxyBox {
     super.paint(context, offset);
   }
 }
+
+/// A bar of its page ([child]): while a card flight lifts the bars of this
+/// bar's page over its image ([_LiftedBars]), the lifted copy stands for
+/// it and it paints nothing, so the page under it shows wherever the copy
+/// has not slid yet. Its page's cover ([HeroBarsCover]) leaves it out.
+/// Layout and hit testing do not change.
+class LiftableBar extends StatefulWidget {
+  const LiftableBar({super.key, required this.child});
+
+  final Widget child;
+
+  /// Each page's bars, by route.
+  static final _byRoute = Expando<Set<_LiftableBarState>>();
+
+  /// Where [route]'s bars are on screen.
+  static Iterable<Rect> _on(Route<dynamic> route) => [
+    for (final state in _byRoute[route] ?? const <_LiftableBarState>{})
+      ?_heroScreenRect(state.context),
+  ];
+
+  @override
+  State<LiftableBar> createState() => _LiftableBarState();
+}
+
+class _LiftableBarState extends State<LiftableBar> {
+  Route<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (identical(route, _route)) return;
+    _unregister();
+    _route = route;
+    if (route != null) (LiftableBar._byRoute[route] ??= {}).add(this);
+  }
+
+  void _unregister() {
+    if (_route case final route?) LiftableBar._byRoute[route]?.remove(this);
+  }
+
+  @override
+  void dispose() {
+    _unregister();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _LiftableBarBox(route: _route, child: widget.child);
+}
+
+/// Paints the bar unless its page's bars are lifted; follows a lift by
+/// repainting, as [_RenderLiftableShadow] does.
+class _LiftableBarBox extends SingleChildRenderObjectWidget {
+  const _LiftableBarBox({required this.route, super.child});
+
+  final Route<dynamic>? route;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderLiftableBar(route);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderLiftableBar renderObject,
+  ) {
+    renderObject.route = route;
+  }
+}
+
+class _RenderLiftableBar extends RenderProxyBox {
+  _RenderLiftableBar(this._route);
+
+  Route<dynamic>? _route;
+  set route(Route<dynamic>? value) {
+    if (identical(value, _route)) return;
+    _route = value;
+    markNeedsPaint();
+  }
+
+  /// Whether the last paint left the bar out, for tests.
+  @visibleForTesting
+  bool get debugLiftedOut => _paintedLifted;
+  bool _paintedLifted = false;
+
+  void _onLifted() {
+    if (LiftableShadow._heldOff(_route) == _paintedLifted) return;
+    markNeedsPaint();
+    // Released after the frame's paint, as the shuttle is disposed.
+    SchedulerBinding.instance.scheduleFrame();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    LiftableShadow._lifted.addListener(_onLifted);
+  }
+
+  @override
+  void detach() {
+    LiftableShadow._lifted.removeListener(_onLifted);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    _paintedLifted = LiftableShadow._heldOff(_route);
+    if (!_paintedLifted) super.paint(context, offset);
+  }
+}
+
+/// The parts of [bands] that none of [bars] covers: a bar as wide as a
+/// band takes its rows out of it; a narrower one takes nothing.
+List<Rect> _uncoveredBands(List<Rect> bands, Iterable<Rect> bars) {
+  const tolerance = _LiftedBars._edgeTolerance;
+  List<Rect> cut(Rect part, Rect bar) {
+    if (bar.bottom <= part.top || bar.top >= part.bottom) return [part];
+    return [
+      if (bar.top - part.top >= tolerance)
+        Rect.fromLTRB(part.left, part.top, part.right, bar.top),
+      if (part.bottom - bar.bottom >= tolerance)
+        Rect.fromLTRB(part.left, bar.bottom, part.right, part.bottom),
+    ];
+  }
+
+  return [
+    for (final band in bands)
+      ...bars
+          .where(
+            (bar) =>
+                bar.left <= band.left + tolerance &&
+                bar.right >= band.right - tolerance,
+          )
+          .fold([
+            band,
+          ], (parts, bar) => [for (final p in parts) ...cut(p, bar)]),
+  ];
+}
+
+/// Lets the card's scroll content paint past its viewport into [bars]'
+/// bands, where the bars that leave themselves out ([LiftableBar]) show
+/// the page under them, until the returned callback runs: the viewport
+/// nearest the card, and the clips above it up to the card's page that
+/// end on a band's inner edge (a tab body's [Stack]). Their own widgets
+/// set the clips back if they rebuild meanwhile. Null when the viewport
+/// does not meet a band.
+VoidCallback? _unclipCard(BuildContext card, List<_LiftedBar> bars) {
+  final page = _LiftedBars._pageBoundary(card);
+  final edges = [
+    for (final bar in bars) bar.up ? bar.rect.bottom : bar.rect.top,
+  ];
+  bool onEdge(RenderBox box) {
+    final rect = MatrixUtils.transformRect(
+      box.getTransformTo(null),
+      Offset.zero & box.size,
+    );
+    return edges.any(
+      (edge) =>
+          (rect.top - edge).abs() <= _LiftedBars._edgeTolerance ||
+          (rect.bottom - edge).abs() <= _LiftedBars._edgeTolerance,
+    );
+  }
+
+  final restores = <VoidCallback>[];
+  void unclip<T extends RenderBox>(
+    T box,
+    Clip Function(T) read,
+    void Function(T, Clip) write,
+  ) {
+    final old = read(box);
+    if (old == Clip.none) return;
+    write(box, Clip.none);
+    restores.add(() {
+      if (box.attached) write(box, old);
+    });
+  }
+
+  RenderObject? node = card.findRenderObject();
+  var inViewport = false;
+  while (node != null && !identical(node, page)) {
+    if (node is RenderBox && node.hasSize) {
+      switch (node) {
+        case RenderViewportBase(axis: Axis.vertical) when !inViewport:
+          if (!onEdge(node)) return null;
+          inViewport = true;
+          unclip<RenderViewportBase>(
+            node,
+            (box) => box.clipBehavior,
+            (box, clip) => box.clipBehavior = clip,
+          );
+        case RenderStack() when inViewport && onEdge(node):
+          unclip<RenderStack>(
+            node,
+            (box) => box.clipBehavior,
+            (box, clip) => box.clipBehavior = clip,
+          );
+        case RenderClipRect() when inViewport && onEdge(node):
+          unclip<RenderClipRect>(
+            node,
+            (box) => box.clipBehavior,
+            (box, clip) => box.clipBehavior = clip,
+          );
+        default:
+      }
+    }
+    node = node.parent;
+  }
+  if (restores.isEmpty) return null;
+  return () {
+    for (final restore in restores) {
+      restore();
+    }
+    // Released after the frame's paint, as the shuttle is disposed.
+    SchedulerBinding.instance.scheduleFrame();
+  };
+}

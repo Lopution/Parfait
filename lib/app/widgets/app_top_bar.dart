@@ -2,7 +2,8 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter/foundation.dart';
 
-import '../motion/hero_transition.dart' show HeroChrome, LiftableShadow;
+import '../motion/hero_transition.dart'
+    show HeroChrome, LiftableBar, LiftableShadow;
 import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -129,11 +130,13 @@ class _AppTopBarState extends State<AppTopBar> {
             builder: (context, value, _) =>
                 _buildBar(context, value.clamp(0.0, 1.0).toDouble()),
           );
-    return AnimatedSwitcher(
-      duration: MotionTokens.resolve(context, MotionTokens.chrome),
-      switchInCurve: MotionTokens.chromeCurve,
-      switchOutCurve: MotionTokens.chromeCurve,
-      child: KeyedSubtree(key: ValueKey(widget.backgroundColor), child: bar),
+    return LiftableBar(
+      child: AnimatedSwitcher(
+        duration: MotionTokens.resolve(context, MotionTokens.chrome),
+        switchInCurve: MotionTokens.chromeCurve,
+        switchOutCurve: MotionTokens.chromeCurve,
+        child: KeyedSubtree(key: ValueKey(widget.backgroundColor), child: bar),
+      ),
     );
   }
 

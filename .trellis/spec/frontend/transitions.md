@@ -192,10 +192,15 @@ reviewed: 2026-10-29
   bottom one down, each by its own height, and back as it returns, by the
   image's progress; each keeps its background (the page colour) solid and
   fades its content with the slide. The image is clipped at the far end
-  alone. Meanwhile the shared-element page's `HeroBarsCover`, over its
-  background and under its content, paints the real bars over in the
-  page colour; they show again as the flight ends, where the lifted ones
-  rest. A bar's shadow over the content beside it is a `LiftableShadow`:
+  alone. Meanwhile a real bar that is a `LiftableBar` (the top bar, the
+  bottom navigation, the user page's header and tab strip) paints
+  nothing, and the card's viewport, with the clips above it up to the
+  card's page that end on a band's inner edge (a tab body's), lets its
+  content paint into the bands: the page under a bar shows until the
+  lifted copy slides over it. The shared-element page's `HeroBarsCover`,
+  over its background and under its content, paints the rest of a band
+  (no `LiftableBar` as wide) in the page colour. Bars, clips and cover
+  come back as the flight ends, where the lifted ones rest. A bar's shadow over the content beside it is a `LiftableShadow`:
   the lifted bar casts it (the one whose inner edge meets the band's),
   and the real one holds off while its page's bars are lifted. "Its
   page" is the card's route and every route holding the card's
@@ -237,7 +242,9 @@ reviewed: 2026-10-29
   are captured, so the takeoff frame rasterizes two strips, not a page.
   Without the shadow the image met the lifted bottom bar with a hard edge
   and the real shadow stayed at the rest line, popping back on landing
-  (10-26). A card opened again while its image flew home
+  (10-26). A cover over the whole bands opened a blank strip between
+  each sliding bar and the feed on a return, the feed cut flat along it
+  (11-04). A card opened again while its image flew home
   sends the flight to the new page but keeps the shuttle, built with the
   old route's animation, which stops: the clip and the corners froze at
   the card end and the tab row cut the image on the detail page. The
@@ -248,8 +255,8 @@ reviewed: 2026-10-29
   half-drawn bar vanished over an empty band where the image stayed cut,
   and the viewer's end was cut by a status strip it does not have: the
   ends' insets came from the pages' own MediaQuery.
-- **Check:** `test/hero_transition_test.dart` "a card flight lifts the card page's bars over the image" (with their shadows) "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing" "detail and viewer: the clip runs between the work page's top "
-- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_top_bar.dart`
+- **Check:** `test/hero_lifted_bars_test.dart` "a card flight lifts the card page's bars over the image" (with their shadows) "a card flight shows the feed under the bars it lifts, and ", `test/hero_transition_test.dart` "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing" "detail and viewer: the clip runs between the work page's top "
+- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_top_bar.dart`, `lib/features/profile/profile_header_delegate.dart`
 
 ### TRANS-11 Card rounding lives inside the Hero child
 - **Rule:** The card's corner clip (`IllustHeroCardFrame`) wraps the Hero

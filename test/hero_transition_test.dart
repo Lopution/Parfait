@@ -25,6 +25,7 @@ import 'helpers/connectivity_channels.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
+import 'helpers/hero_flight.dart';
 import 'helpers/illust_detail_page_support.dart' show workImages;
 import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
@@ -792,9 +793,9 @@ void main() {
     navigatorKey.currentState!.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
-    final start = _heroClipRect(tester);
+    final start = heroClipRect(tester);
     await tester.pump(const Duration(milliseconds: 150));
-    final mid = _heroClipRect(tester);
+    final mid = heroClipRect(tester);
 
     // The boundary moves from the detail route's content area to the
     // profile route's app bar + pinned TabBar boundary. A static clip would
@@ -804,9 +805,9 @@ void main() {
     expect(start.bottom, greaterThanOrEqualTo(mid.bottom));
     expect(mid.top, greaterThan(0));
     expect(mid.bottom, closeTo(800, 0.001));
-    expect(_heroPaintClipRect(tester), mid);
+    expect(heroPaintClipRect(tester), mid);
     await tester.pump(const Duration(milliseconds: 100));
-    final late = _heroPaintClipRect(tester)!;
+    final late = heroPaintClipRect(tester)!;
     expect(late.top, greaterThan(mid.top));
     expect(late.bottom, closeTo(800, 0.001));
     await tester.pumpAndSettle();
@@ -919,9 +920,9 @@ void main() {
         pushed.animation!.value,
       );
       expect(shown, inExclusiveRange(0, 1));
-      expect(_heroClipRect(tester).top, closeTo(100 * (1 - shown), 0.5));
+      expect(heroClipRect(tester).top, closeTo(100 * (1 - shown), 0.5));
       // Not a card's flight: no bars are lifted over it.
-      expect(_liftedBars(tester), isEmpty);
+      expect(liftedBars(tester), isEmpty);
       await tester.pumpAndSettle();
       expect(chrome('control 1'), 1);
 
@@ -940,153 +941,6 @@ void main() {
       expect(tester.getTopLeft(find.byType(Hero).last), Offset.zero);
     });
   }
-
-  testWidgets('a card flight lifts the card page\'s bars over the image: '
-      'they slide and fade away as it opens and back as it returns', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(400, 800));
-    late BuildContext root;
-    late NavigatorState navigator;
-    PageRoute<void> page(Widget child, {bool shared = false}) =>
-        FuncPage<void>(
-              transitionDuration: const Duration(milliseconds: 400),
-              reverseTransitionDuration: const Duration(milliseconds: 400),
-              sharedElement: shared,
-              child: child,
-            ).createRoute(root)
-            as PageRoute<void>;
-    Widget art(Widget child) => Hero(
-      tag: 'card',
-      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-      child: child,
-    );
-    // A card right under a 100px app bar, over a 100px bottom bar that, as
-    // the home shell's, floats over the card's Navigator on the page
-    // around it.
-    final heroes = HeroController();
-    addTearDown(heroes.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            root = context;
-            return Stack(
-              children: [
-                Navigator(
-                  observers: [heroes],
-                  onGenerateRoute: (_) => page(
-                    Builder(
-                      builder: (context) {
-                        navigator = Navigator.of(context);
-                        return Scaffold(
-                          appBar: const PreferredSize(
-                            preferredSize: Size.fromHeight(100),
-                            child: ColoredBox(color: Colors.green),
-                          ),
-                          body: ListView(
-                            children: [
-                              Align(
-                                alignment: Alignment.topLeft,
-                                child: art(
-                                  const IllustHeroCardFrame(
-                                    child: SizedBox.square(dimension: 200),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          bottomNavigationBar: const SizedBox(height: 100),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: LiftableShadow(
-                    shadows: [BoxShadow(blurRadius: 4)],
-                    child: _bottomBar,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-    const top = Rect.fromLTRB(0, 0, 400, 100);
-    const bottom = Rect.fromLTRB(0, 700, 400, 800);
-    bool realShadow() =>
-        (tester.state(find.byType(LiftableShadow, skipOffstage: false))
-                    as dynamic)
-                .debugCasting
-            as bool;
-    // Each bar [shown] of the way in, its content as faded.
-    void expectBars(double shown) {
-      final bars = _liftedBars(tester);
-      expect(bars.map((bar) => bar.opacity), everyElement(shown));
-      expect(bars.map((bar) => bar.rect), [
-        top.translate(0, -100 * (1 - shown)),
-        bottom.translate(0, 100 * (1 - shown)),
-      ]);
-      // The bottom bar's shadow moves with the lifted copy; the real one
-      // holds off. The top bar casts none.
-      expect(bars.map((bar) => bar.shadows), [0, 1]);
-      expect(realShadow(), isFalse);
-    }
-
-    double shown() => _liftedBars(tester).first.opacity;
-    List<Rect> covered() =>
-        (tester.renderObject(find.byType(HeroBarsCover)) as dynamic)
-                .debugLastPaintedRects
-            as List<Rect>;
-
-    unawaited(
-      navigator.push(
-        page(
-          Align(
-            alignment: Alignment.topCenter,
-            child: art(const SizedBox.square(dimension: 400)),
-          ),
-          shared: true,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    // Takeoff: the bars where they were, over the image, which the app
-    // bar no longer cuts; the real ones covered.
-    expectBars(1);
-    expect(covered(), [top, bottom]);
-    expect(_heroPaintClipRect(tester)!.top, 0);
-    await tester.pump(const Duration(milliseconds: 150));
-    final opening = shown();
-    expect(opening, inExclusiveRange(0, 1));
-    expectBars(opening);
-    await tester.pumpAndSettle();
-    expect(_liftedBars(tester), isEmpty);
-    expect(covered(), isEmpty);
-    expect(realShadow(), isTrue);
-
-    navigator.pop();
-    await tester.pump();
-    await tester.pump();
-    expectBars(0);
-    expect(covered(), [top, bottom]);
-    await tester.pump(const Duration(milliseconds: 150));
-    final returning = shown();
-    expect(returning, inExclusiveRange(0, 1));
-    expectBars(returning);
-    await tester.pump(const Duration(milliseconds: 240));
-    expect(shown(), greaterThan(returning));
-    await tester.pumpAndSettle();
-    expect(_liftedBars(tester), isEmpty);
-    // Repainted once the flight lets go, with no frame left to ask for it.
-    expect(realShadow(), isTrue);
-  });
 
   // The work page's status strip, and its top bar once drawn, stay over a
   // flight to and from the viewer and cut it; the viewer's stage runs
@@ -1149,7 +1003,7 @@ void main() {
         while (true) {
           await tester.pump(const Duration(milliseconds: 30));
           if (find.byType(HeroRectClip).evaluate().isEmpty) break;
-          tops.add(_heroClipRect(tester).top);
+          tops.add(heroClipRect(tester).top);
           expect(
             tester.widget<FadeTransition>(toolbar).opacity.value,
             drawn ? 1 : 0,
@@ -1214,9 +1068,9 @@ void main() {
     navigatorKey.currentState!.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
-    final start = _heroClipRect(tester);
+    final start = heroClipRect(tester);
     await tester.pump(const Duration(milliseconds: 150));
-    final mid = _heroClipRect(tester);
+    final mid = heroClipRect(tester);
 
     // The bottom boundary retracts continuously toward the landing page's
     // 100px bottom navigation. It must not jump to the final clip at mid-flight.
@@ -1224,9 +1078,9 @@ void main() {
     expect(start.bottom, greaterThan(mid.bottom));
     expect(start.top, closeTo(mid.top, 0.001));
     expect(mid.top, closeTo(0, 0.001));
-    expect(_heroPaintClipRect(tester), mid);
+    expect(heroPaintClipRect(tester), mid);
     await tester.pump(const Duration(milliseconds: 100));
-    final late = _heroPaintClipRect(tester)!;
+    final late = heroPaintClipRect(tester)!;
     expect(late.bottom, lessThan(mid.bottom));
     await tester.pumpAndSettle();
   });
@@ -1307,9 +1161,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(milliseconds: 50));
-    final early = _heroClipRect(tester);
+    final early = heroClipRect(tester);
     await tester.pump(const Duration(milliseconds: 100));
-    final mid = _heroClipRect(tester);
+    final mid = heroClipRect(tester);
 
     // Push uses the same moving boundary in the opposite direction: the
     // source profile/feed chrome releases its clipped portion progressively,
@@ -1317,7 +1171,7 @@ void main() {
     expect(find.byType(HeroRectClip), findsOneWidget);
     expect(early.top, greaterThan(mid.top));
     expect(early.bottom, closeTo(mid.bottom, 0.001));
-    expect(_heroPaintClipRect(tester), mid);
+    expect(heroPaintClipRect(tester), mid);
     await tester.pumpAndSettle();
   });
 
@@ -1376,29 +1230,6 @@ PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
       transitionDuration: MotionTokens.pageTransition,
       reverseTransitionDuration: MotionTokens.pageTransition,
     );
-
-Rect _heroClipRect(WidgetTester tester) {
-  final clip = tester.widget<Widget>(find.byType(HeroRectClip));
-  return (clip as dynamic).globalRect as Rect;
-}
-
-Rect? _heroPaintClipRect(WidgetTester tester) {
-  final render = tester.renderObject(find.byType(HeroRectClip));
-  return (render as dynamic).debugLastPaintClipRect as Rect?;
-}
-
-/// The card page's bars a flight last painted over its image, and their
-/// content's opacity; none outside a card flight.
-List<({Rect rect, double opacity, int shadows})> _liftedBars(
-  WidgetTester tester,
-) {
-  final paint = find.byWidgetPredicate(
-    (widget) => '${widget.runtimeType}' == '_LiftedBarsPaint',
-  );
-  if (paint.evaluate().isEmpty) return const [];
-  return (tester.renderObject(paint) as dynamic).debugLastPaintedBars
-      as List<({Rect rect, double opacity, int shadows})>;
-}
 
 class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _FixedHeaderDelegate(this.extent);

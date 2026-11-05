@@ -604,8 +604,17 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
       ?HeroLiftHole.lift(widget.to),
     ];
     if ((_bars, ModalRoute.of(page)) case (final bars?, final route?)) {
-      HeroBarsCover._cover(route, bars.rects);
+      // The bars that leave themselves out need no cover.
+      HeroBarsCover._cover(
+        route,
+        _uncoveredBands(bars.rects, [
+          for (final route in bars.routes) ...LiftableBar._on(route),
+        ]),
+      );
       _releases = [..._releases, () => HeroBarsCover._uncover(route)];
+    }
+    if (_bars case final bars?) {
+      _releases = [..._releases, ?_unclipCard(widget.card, bars.bars)];
     }
     for (final route in _bars?.routes ?? const <Route<dynamic>>[]) {
       _releases = [..._releases, LiftableShadow._lift(route)];
