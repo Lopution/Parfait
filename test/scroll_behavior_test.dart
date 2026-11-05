@@ -147,6 +147,45 @@ void main() {
     });
   }
 
+  // Bouncing physics (iOS) add to a fling the square of the speed the
+  // list still coasts at: a few small flicks in a row shot it off (11-05).
+  for (final inRefreshList in [false, true]) {
+    testWidgets('a flick while the list coasts starts at its own speed'
+        '${inRefreshList ? ' (refresh list)' : ''}', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      Widget list = ListView.builder(
+        controller: controller,
+        itemCount: 100,
+        itemBuilder: (_, index) => SizedBox(height: 80, child: Text('$index')),
+      );
+      if (inRefreshList) {
+        list = PullToRefresh(onRefresh: () async {}, child: list);
+      }
+      await tester.pumpWidget(
+        localizedApp(scrollBehavior: const FuncScrollBehavior(), body: list),
+      );
+      // The speed a flick leaves the list at, a frame after release.
+      Future<double> flick() async {
+        await tester.flingFrom(
+          const Offset(200, 400),
+          const Offset(0, -150),
+          2000,
+        );
+        await tester.pump();
+        final from = controller.offset;
+        await tester.pump(const Duration(milliseconds: 16));
+        return (controller.offset - from) / 0.016;
+      }
+
+      final alone = await flick();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(controller.position.isScrollingNotifier.value, isTrue);
+      expect(await flick(), closeTo(alone, alone * 0.1));
+      await tester.pumpAndSettle();
+    });
+  }
+
   // A slow swipe past half and a short flick each land their page and end
   // the scroll in about 300 ms; the framework's spring took about 0.7 s.
   for (final (name, dx, ms) in [
