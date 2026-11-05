@@ -687,7 +687,7 @@ void main() {
     });
 
     group('selection', () {
-      late List<Map<String, double>> races;
+      var races = <Map<String, double>>[];
       var raced = 0;
       String? applied;
       AutoSourceSelector selector() => AutoSourceSelector(
@@ -696,7 +696,6 @@ void main() {
         // from it failed.
         race: () async {
           raced++;
-          if (races.isEmpty) return null;
           final answered = races.removeAt(0);
           final best = answered.entries.reduce(
             (a, b) => b.value > a.value ? b : a,
@@ -722,21 +721,8 @@ void main() {
 
       setUp(() {
         installPreferencesForTest(InMemorySharedPreferencesAsync.empty());
-        races = [];
         raced = 0;
         applied = null;
-      });
-
-      test('a winner measured within a day applies with no race', () {
-        fakeAsync((async) {
-          remembered('wifi', {
-            'host': 'i.pixiv.re',
-            'at': clock.hoursAgo(23).millisecondsSinceEpoch,
-          });
-          selector().networkSeen('wifi');
-          async.elapse(const Duration(minutes: 5));
-          expect((applied, raced), ('i.pixiv.re', 0));
-        });
       });
 
       test('no winner remembered: the race runs at once and applies', () {
@@ -786,14 +772,15 @@ void main() {
         }
       });
 
-      test('a network change drops the old network\'s pending race', () {
+      test('a network change drops the old network\'s pending race; a '
+          'winner measured within a day applies with no race', () {
         fakeAsync((async) {
           remembered('wifi', 'i.pximg.net');
           final selection = selector()..networkSeen('wifi');
           async.flushMicrotasks();
           remembered('cellular', {
             'host': 'i.pixiv.re',
-            'at': clock.now().millisecondsSinceEpoch,
+            'at': clock.hoursAgo(23).millisecondsSinceEpoch,
           });
           selection.networkSeen('cellular');
           async.elapse(const Duration(minutes: 5));

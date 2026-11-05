@@ -187,7 +187,7 @@ reviewed: 2026-10-29
   the first screen: the race paid a cold ECH lookup for pixiv's host, the
   source flipped between two launches on one network, and the images sent
   to the old source held five of the eight lanes for 21–23 s.
-- **Check:** `test/restricted_compat_image_test.dart` "a winner measured within a day applies with no race" "no winner remembered: the race runs at once and applies" "a stale winner applies at once, races after the deferral and " "a race replaces a winner it beats by 15 % or that failed" "a network change drops the old network's pending race" "the winner persists scoped to the network identity"
+- **Check:** `test/restricted_compat_image_test.dart` "no winner remembered: the race runs at once and applies" "a stale winner applies at once, races after the deferral and " "a race replaces a winner it beats by 15 % or that failed" "a network change drops the old network's pending race; a " "the winner persists scoped to the network identity"
 - **Code:** `lib/core/network/compat/auto_image_source.dart`, `lib/core/network/compat/network_providers.dart`
 
 ### NET-05 Image and download exits use HTTP/1.1
