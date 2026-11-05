@@ -906,6 +906,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           flightShuttleBuilder: illustHeroFlightShuttleBuilder,
           child: IllustHeroFlightChild(
             containsImage: true,
+            // The black stage runs under the status bar.
+            edgeToEdge: true,
             // The return shuttle paints the exact provider the
             // viewer is showing (same URL + same decode width =>
             // same decoded cache entry => identical pixels).

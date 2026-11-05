@@ -46,6 +46,7 @@ class IllustHeroFlightChild extends StatelessWidget {
     super.key,
     this.popChild,
     this.containsImage = false,
+    this.edgeToEdge = false,
     required this.child,
   });
 
@@ -57,6 +58,11 @@ class IllustHeroFlightChild extends StatelessWidget {
   /// other endpoint's shape, and [HeroLiftHole] cuts nothing out of the
   /// stage: it fades out whole.
   final bool containsImage;
+
+  /// Whether the endpoint's page has no top chrome, not even a status
+  /// strip (the viewer's black stage): a flight is clipped at the top of
+  /// the screen there.
+  final bool edgeToEdge;
 
   @override
   Widget build(BuildContext context) => child;
@@ -98,9 +104,14 @@ class IllustHeroCardFrame extends StatelessWidget {
 /// floated over its empty slot. While a flight runs, the chrome its ends
 /// overlap is hidden; once the image has landed it fades in.
 class HeroChrome extends StatefulWidget {
-  const HeroChrome({super.key, required this.child});
+  const HeroChrome({super.key, this.holdable, required this.child});
 
   final Widget child;
+
+  /// Whether the chrome steps aside for a flight starting now; null
+  /// always does. Chrome that hides what is under it (a drawn top bar)
+  /// stays, and the flight is clipped below it instead.
+  final bool Function()? holdable;
 
   /// Each route's chrome, for the flights that start or land on it.
   static final _byRoute = Expando<Set<_HeroChromeState>>();
@@ -390,10 +401,20 @@ Widget illustHeroFlightShuttleBuilder(
       : HomeShellChrome.maybeOf(homeContext)?.bottomBarVisibleExtent;
   final measuredFrom = size.isEmpty
       ? null
-      : _heroMeasuredViewport(fromHeroContext, size, isHome: fromHome);
+      : _heroMeasuredViewport(
+          flightContext,
+          fromHeroContext,
+          size,
+          isHome: fromHome,
+        );
   final measuredTo = size.isEmpty
       ? null
-      : _heroMeasuredViewport(toHeroContext, size, isHome: toHome);
+      : _heroMeasuredViewport(
+          flightContext,
+          toHeroContext,
+          size,
+          isHome: toHome,
+        );
   final fallbackFrom = size.isEmpty
       ? null
       : _fallbackHeroEndpoint(flightContext, fromHeroContext, size);
@@ -583,8 +604,17 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
       ?HeroLiftHole.lift(widget.to),
     ];
     if ((_bars, ModalRoute.of(page)) case (final bars?, final route?)) {
-      HeroBarsCover._cover(route, bars.rects);
+      // The bars that leave themselves out need no cover.
+      HeroBarsCover._cover(
+        route,
+        _uncoveredBands(bars.rects, [
+          for (final route in bars.routes) ...LiftableBar._on(route),
+        ]),
+      );
       _releases = [..._releases, () => HeroBarsCover._uncover(route)];
+    }
+    if (_bars case final bars?) {
+      _releases = [..._releases, ?_unclipCard(widget.card, bars.bars)];
     }
     for (final route in _bars?.routes ?? const <Route<dynamic>>[]) {
       _releases = [..._releases, LiftableShadow._lift(route)];
@@ -608,7 +638,11 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   void _holdOver(Route<dynamic>? route, Rect? rect) {
     if (route == null || rect == null) return;
     for (final chrome in HeroChrome._on(route)) {
-      if (_held.contains(chrome) || !chrome._over(rect)) continue;
+      if (_held.contains(chrome) ||
+          !(chrome.widget.holdable?.call() ?? true) ||
+          !chrome._over(rect)) {
+        continue;
+      }
       chrome._hold();
       _held.add(chrome);
     }
@@ -797,6 +831,7 @@ class _RenderHeroLiftHole extends RenderProxyBox {
 /// endpoint is not laid out yet (detached route on the first flight frame).
 /// Null keeps the fallback path in [_heroFlightClipRect].
 Rect? _heroMeasuredViewport(
+  BuildContext flightContext,
   BuildContext heroContext,
   Size size, {
   required bool isHome,
@@ -836,7 +871,11 @@ Rect? _heroMeasuredViewport(
           // combine both measurements instead of trusting viewport.size
           // alone. This also keeps non-scrollable Hero endpoints consistent
           // with scrollable ones.
-          final chrome = _fallbackHeroEndpoint(null, heroContext, size);
+          final chrome = _fallbackHeroEndpoint(
+            flightContext,
+            heroContext,
+            size,
+          );
           final top = math.max(viewportBounds.top, chrome.top);
           // Home-side: the floating bar's cap moves during the flight, so
           // the measured rect keeps the raw viewport bottom and the frame
@@ -995,7 +1034,7 @@ Rect _fallbackHeroFlightClipRect(
 }
 
 Rect _fallbackHeroEndpoint(
-  BuildContext? flightContext,
+  BuildContext flightContext,
   BuildContext heroContext,
   Size size,
 ) {
@@ -1005,10 +1044,15 @@ Rect _fallbackHeroEndpoint(
 }
 
 /// Status bar + app bar + pinned header of one flight end.
-double _heroTopChrome(BuildContext? context, BuildContext heroContext) {
+double _heroTopChrome(BuildContext flightContext, BuildContext heroContext) {
+  final hero = heroContext.widget;
+  final flightChild = hero is Hero ? hero.child : null;
+  if (flightChild is IllustHeroFlightChild && flightChild.edgeToEdge) return 0;
+  // The device's status inset, from the flight's overlay: a page's own
+  // MediaQuery has it zeroed below an app bar, and behind one
+  // (`extendBodyBehindAppBar`).
   final media =
-      MediaQuery.maybeOf(heroContext) ??
-      (context == null ? null : MediaQuery.maybeOf(context));
+      MediaQuery.maybeOf(flightContext) ?? MediaQuery.maybeOf(heroContext);
   final statusTop = media?.viewPadding.top ?? media?.padding.top ?? 0;
   final scaffold = heroContext.findAncestorWidgetOfExactType<Scaffold>();
   final appBar = scaffold?.appBar;

@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../l10n/context.dart';
-import '../motion/hero_transition.dart' show LiftableShadow;
+import '../motion/hero_transition.dart' show LiftableBar, LiftableShadow;
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
 import '../icons/app_icons.dart';
@@ -97,74 +97,76 @@ class FuncBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final navTheme = NavigationBarTheme.of(context);
-    return LiftableShadow(
-      shadows: FuncSemanticTokens.of(context).barShadow,
-      child: Material(
-        color: navTheme.backgroundColor ?? colors.surface,
-        child: SafeArea(
-          top: false,
-          // The labels are exempt from the user's text scale past
-          // NavigationBar's own 1.3 ceiling — measurement and drawing read
-          // the same clamped scaler inside.
-          child: MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1.3,
-            child: SizedBox(
-              height: _height,
-              child: Semantics(
-                role: ui.SemanticsRole.tabBar,
-                explicitChildNodes: true,
-                container: true,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // The ambient default lives below this widget's Material —
-                    // read it here so labels inherit the app font, not whatever
-                    // style floats above the shell.
-                    final ambient = DefaultTextStyle.of(context).style;
-                    // The theme's label style merged over the ambient keeps the
-                    // inherited font family. The selected weight is the wider
-                    // one, so the fit measured in it holds for every label.
-                    final measureStyle = ambient.merge(
-                      navTheme.labelTextStyle?.resolve(const {
-                        WidgetState.selected,
-                      }),
-                    );
-                    final itemWidth =
-                        constraints.maxWidth / destinations.length;
-                    // Uniform label scale: every destination shares one
-                    // size, shrunk until the widest translation fits its
-                    // slot, down to LabelFit.minScale; past that the labels
-                    // ellipsize.
-                    final fit = LabelFit.group(
-                      labels: [for (final d in destinations) d.label],
-                      style: LabelFit.paintedStyle(context, measureStyle),
-                      textScaler: MediaQuery.textScalerOf(context),
-                      textDirection: Directionality.of(context),
-                      slotWidth: _labelSlot(itemWidth),
-                      locale: Localizations.maybeLocaleOf(context),
-                    );
-                    return Row(
-                      children: [
-                        for (var i = 0; i < destinations.length; i++)
-                          Expanded(
-                            child: MergeSemantics(
-                              child: Semantics(
-                                role: ui.SemanticsRole.tab,
-                                selected: i == selectedIndex,
-                                child: _FuncBottomNavItem(
-                                  destination: destinations[i],
-                                  index: i,
-                                  count: destinations.length,
+    return LiftableBar(
+      child: LiftableShadow(
+        shadows: FuncSemanticTokens.of(context).barShadow,
+        child: Material(
+          color: navTheme.backgroundColor ?? colors.surface,
+          child: SafeArea(
+            top: false,
+            // The labels are exempt from the user's text scale past
+            // NavigationBar's own 1.3 ceiling — measurement and drawing read
+            // the same clamped scaler inside.
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              child: SizedBox(
+                height: _height,
+                child: Semantics(
+                  role: ui.SemanticsRole.tabBar,
+                  explicitChildNodes: true,
+                  container: true,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // The ambient default lives below this widget's Material —
+                      // read it here so labels inherit the app font, not whatever
+                      // style floats above the shell.
+                      final ambient = DefaultTextStyle.of(context).style;
+                      // The theme's label style merged over the ambient keeps the
+                      // inherited font family. The selected weight is the wider
+                      // one, so the fit measured in it holds for every label.
+                      final measureStyle = ambient.merge(
+                        navTheme.labelTextStyle?.resolve(const {
+                          WidgetState.selected,
+                        }),
+                      );
+                      final itemWidth =
+                          constraints.maxWidth / destinations.length;
+                      // Uniform label scale: every destination shares one
+                      // size, shrunk until the widest translation fits its
+                      // slot, down to LabelFit.minScale; past that the labels
+                      // ellipsize.
+                      final fit = LabelFit.group(
+                        labels: [for (final d in destinations) d.label],
+                        style: LabelFit.paintedStyle(context, measureStyle),
+                        textScaler: MediaQuery.textScalerOf(context),
+                        textDirection: Directionality.of(context),
+                        slotWidth: _labelSlot(itemWidth),
+                        locale: Localizations.maybeLocaleOf(context),
+                      );
+                      return Row(
+                        children: [
+                          for (var i = 0; i < destinations.length; i++)
+                            Expanded(
+                              child: MergeSemantics(
+                                child: Semantics(
+                                  role: ui.SemanticsRole.tab,
                                   selected: i == selectedIndex,
-                                  ambientStyle: ambient,
-                                  labelFit: fit,
-                                  onTap: () => onSelected(i),
+                                  child: _FuncBottomNavItem(
+                                    destination: destinations[i],
+                                    index: i,
+                                    count: destinations.length,
+                                    selected: i == selectedIndex,
+                                    ambientStyle: ambient,
+                                    labelFit: fit,
+                                    onTap: () => onSelected(i),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

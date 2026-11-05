@@ -122,7 +122,7 @@ reviewed: 2026-10-29
   the same worker entry as the card.
 - **Why:** Awaiting preload delayed every tap; a different first URL made
   the Hero start from a placeholder.
-- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"; `test/pixiv_image_pipelines_test.dart` "a preload lands on the entry of the widget that will show"
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square over the whole work; the page image "; `test/pixiv_image_pipelines_test.dart` "a preload lands on the entry of the widget that will show"
 - **Code:** `lib/app/widgets/feed/illust_card.dart`
 
 ### TRANS-09 Shared-element pages cover a still page, then show
@@ -192,10 +192,15 @@ reviewed: 2026-10-29
   bottom one down, each by its own height, and back as it returns, by the
   image's progress; each keeps its background (the page colour) solid and
   fades its content with the slide. The image is clipped at the far end
-  alone. Meanwhile the shared-element page's `HeroBarsCover`, over its
-  background and under its content, paints the real bars over in the
-  page colour; they show again as the flight ends, where the lifted ones
-  rest. A bar's shadow over the content beside it is a `LiftableShadow`:
+  alone. Meanwhile a real bar that is a `LiftableBar` (the top bar, the
+  bottom navigation, the user page's header and tab strip) paints
+  nothing, and the card's viewport, with the clips above it up to the
+  card's page that end on a band's inner edge (a tab body's), lets its
+  content paint into the bands: the page under a bar shows until the
+  lifted copy slides over it. The shared-element page's `HeroBarsCover`,
+  over its background and under its content, paints the rest of a band
+  (no `LiftableBar` as wide) in the page colour. Bars, clips and cover
+  come back as the flight ends, where the lifted ones rest. A bar's shadow over the content beside it is a `LiftableShadow`:
   the lifted bar casts it (the one whose inner edge meets the band's),
   and the real one holds off while its page's bars are lifted. "Its
   page" is the card's route and every route holding the card's
@@ -217,7 +222,12 @@ reviewed: 2026-10-29
   and action bar) is `HeroChrome`: while a flight runs, the chrome its
   ends overlap is hidden, including that of a page opened while the
   image flew home, and fades in (`stateFade`) once the image has landed.
-  Tests inspect the render-time clip.
+  Chrome that hides what is under it stays (`HeroChrome.holdable`), and
+  the flight is clipped below it: the detail top bar steps aside only
+  while see-through, its status strip never. An end's status inset is
+  the flight overlay's, not the page's (zeroed behind or below an app
+  bar); the viewer's end (`IllustHeroFlightChild.edgeToEdge`) has no top
+  chrome. Tests inspect the render-time clip.
 - **Why:** Artwork covered app bars and the bottom bar, or was cut hard on
   landing; slide transforms made the boundary empty. The page covers the
   page below over the first part of the flight while the image flies on, so a clip that
@@ -232,15 +242,21 @@ reviewed: 2026-10-29
   are captured, so the takeoff frame rasterizes two strips, not a page.
   Without the shadow the image met the lifted bottom bar with a hard edge
   and the real shadow stayed at the rest line, popping back on landing
-  (10-26). A card opened again while its image flew home
+  (10-26). A cover over the whole bands opened a blank strip between
+  each sliding bar and the feed on a return, the feed cut flat along it
+  (11-04). A card opened again while its image flew home
   sends the flight to the new page but keeps the shuttle, built with the
   old route's animation, which stops: the clip and the corners froze at
   the card end and the tab row cut the image on the detail page. The
   shuttle is painted over every page, so chrome on the image was covered
   as a flight set off and popped back whole at the landing, and badges
-  floated over the card's empty slot.
-- **Check:** `test/hero_transition_test.dart` "a card flight lifts the card page's bars over the image" (with their shadows) "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing"
-- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_top_bar.dart`
+  floated over the card's empty slot. Between the work page and the
+  viewer (11-04), the image jumped under the status icons at takeoff, a
+  half-drawn bar vanished over an empty band where the image stayed cut,
+  and the viewer's end was cut by a status strip it does not have: the
+  ends' insets came from the pages' own MediaQuery.
+- **Check:** `test/hero_lifted_bars_test.dart` "a card flight lifts the card page's bars over the image" (with their shadows) "a card flight shows the feed under the bars it lifts, and ", `test/hero_transition_test.dart` "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing" "detail and viewer: the clip runs between the work page's top "
+- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_top_bar.dart`, `lib/features/profile/profile_header_delegate.dart`
 
 ### TRANS-11 Card rounding lives inside the Hero child
 - **Rule:** The card's corner clip (`IllustHeroCardFrame`) wraps the Hero
@@ -271,8 +287,9 @@ reviewed: 2026-10-29
 - **Code:** `lib/app/motion/hero_transition.dart`
 
 ### TRANS-22 A flight keeps the card's image until it lands
-- **Rule:** A detail endpoint shows the card's preview (`heroImageUrl`)
-  until its route's opening completes; the page's own URL takes over
+- **Rule:** A detail endpoint shows the card's preview (`heroImageUrl`,
+  a top square over its copy: TRANS-23) until its route's opening
+  completes; the page's own URL takes over
   after the landing. Pages read their route's transition through
   `RouteAnimationScope.of`, where `FuncPage` provides its controller, not
   `ModalRoute.animation`.
@@ -282,33 +299,42 @@ reviewed: 2026-10-29
   known in that frame (a cached payload) was built into the flight: the
   image changed file mid-flight, and an ultra-long work's narrow `large`
   replaced the card's sharp square (10-25).
-- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square over the whole work; the page image "
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/route_animation.dart`, `lib/features/illust/detail/widgets/page_image.dart`
 
-### TRANS-23 A tall card's square thumbnail flies alone; an author's cover does not fly
+### TRANS-23 A tall card's square flies over the whole work; an author's cover does not fly
 - **Rule:** A card too tall for its box shows the square thumbnail
   (TRANS-11's crops end there). pixiv's own (`img-master/…_square1200`,
   `isTopSquareThumbnail`) is the work's full-width top square:
-  `IllustCardCrop.topSquare` keeps the Hero. The push flies that square
-  alone, sharp, laid at the top of the work's box; after the landing the
-  page image fades in over it (`imageFade`) once decoded, at the
-  detail-quality setting, or shows its own load error. The pop flies the
+  `IllustCardCrop.topSquare` keeps the Hero. Such a card fetches the whole
+  work at the feed-quality tier (`entity.previewUrl`) in the background
+  while it is built, decoded at the page's width, and its tap decodes that
+  copy and the page image at the page's width (foreground). The push
+  flies the square, sharp, at the top of the work's box over the copy,
+  fit to width, which paints once decoded (nothing before). After the
+  landing the page image (detail-quality setting) shows over both: at
+  once when decoded by its first frame, else fading in (`imageFade`) once
+  decoded, or with its own load error. A copy of the page image's own
+  file is dropped when that image shows at once. The pop flies the
   detail's image, and the card's square fades back over its top across
   60–90% of the return. An author's chosen cover (`custom-thumb`,
   `IllustCardCrop.square`) and a tall ugoira's cover open without a Hero.
 - **Why:** The square is the only sharp file of an ultra-long work at
   card size: `large` fits 600×1200, so its width is a few dozen pixels,
-  and a flight from it, or a cross-fade into it, showed a blur (user
-  decision 10-24: no low-res image during the flight). The square
-  matched the work's top in every work checked, ratios 2.7 to 29; an
-  author's cover is a square from anywhere in the work (user decision:
-  keep the cover, no Hero). An ugoira's viewer lays out no top square.
-  Android's `MaterialContainerTransform` fades a return's start view back
-  over 60–90%. This reveal waits for a decode the flight never carried;
-  it is no quality hand-off, so TRANS-15 still holds for every swap of
-  one file for another.
-- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"; `test/recommended_feed_test.dart` "a tall card keeps its Hero only on pixiv's own top square"; `test/illust_card_layout_test.dart` "pixiv's own square thumbnail is the work's top, an author's is not" "isTopSquareThumbnail knows pixiv's own square at any size"
-- **Code:** `lib/app/widgets/feed/illust_card_layout.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/widgets/page_image.dart`
+  and a flight from it showed a blur. The square alone (10-24) left the
+  rest of the box blank until the page image arrived, then faded it in:
+  half the work, then the other half (11-04 device report). User
+  decision 11-04: a whole copy at the user's feed tier goes under the
+  square, as PixEz and FreePiv put `medium` under the page image. The
+  square matched the work's top in every work checked, ratios 2.7 to 29;
+  an author's cover is a square from anywhere in the work (user
+  decision: keep the cover, no Hero). An ugoira's viewer lays out no top
+  square. Android's `MaterialContainerTransform` fades a return's start
+  view back over 60–90%. The page image's reveal is no quality hand-off
+  of one widget, so TRANS-15 still holds for every swap of one file for
+  another.
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square over the whole work; the page image "; `test/recommended_feed_test.dart` "a tall card keeps its Hero only on pixiv's own top square, "; `test/illust_card_layout_test.dart` "pixiv's own square thumbnail is the work's top, an author's is not" "isTopSquareThumbnail knows pixiv's own square at any size"
+- **Code:** `lib/app/widgets/feed/illust_card_layout.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/app/pixiv_image.dart`
 
 ### TRANS-12 Only the viewer's entry page flies back
 - **Rule:** The viewer carries a Hero only on the page it opened on. After a
@@ -342,8 +368,8 @@ reviewed: 2026-10-29
 - **Rule:** Artwork URL and quality changes go through `PixivImage`, which
   keeps the previous decoded frame until the new one is ready (gapless).
   Callers add no "ready" flag and never swap in a blank loading state.
-  The one reveal outside it is TRANS-23's: a part of the work the flight
-  never carried.
+  The one reveal outside it is TRANS-23's: the page image over the
+  square and the copy a top-square flight carried.
 - **Why:** Per-page ready flags flashed blank frames between qualities.
 - **Check:** `test/pixiv_image_variants_test.dart` "quality handoff keeps an old decoded frame placeholder"
 - **Code:** `lib/app/pixiv_image.dart`

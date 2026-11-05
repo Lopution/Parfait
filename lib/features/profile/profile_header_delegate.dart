@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/motion/hero_transition.dart' show LiftableBar;
 import '../../app/system_ui.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
@@ -250,128 +251,133 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     // cover-less surfaceContainerHigh band and the collapsed toolbar both
     // take the normal surface treatment.
     final overArtwork = hasCover && geometry.bannerBehindToolbar;
-    return _CoverSystemBars(
-      coverUrl: user.backgroundImageUrl,
-      overArtwork: overArtwork,
-      bannerHeight: bannerHeight,
-      // The banner scrolls up with the content: the status bar covers its
-      // rows from shrinkOffset down.
-      statusBarTop: shrinkOffset,
-      statusBarBottom: shrinkOffset + topInset,
-      child: Opacity(
-        // First frame only: the delegate still holds the estimate extent
-        // while the real identity height is being measured.
-        opacity: expandedExtent == null ? 0 : 1,
-        child: Material(
-          color: colors.surface,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                fit: StackFit.expand,
-                clipBehavior: Clip.hardEdge,
-                children: [
-                  // 1. Banner band: cover image, or a surfaceContainerHigh
-                  // strip so the header separates from the page colour;
-                  // either fades into the page at its bottom.
-                  Positioned(
-                    top: geometry.contentOffset,
-                    left: 0,
-                    right: 0,
-                    height: bannerHeight,
-                    child: _ProfileBackground(user: user),
-                  ),
-                  // 2. Identity block at natural height, clipped below the
-                  // toolbar's bottom edge so avatar and text never enter
-                  // the toolbar. Stays mounted (Offstage) when collapsed so
-                  // the measurement keeps reporting.
-                  Positioned(
-                    top: minExtent,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: ClipRect(
-                      child: OverflowBox(
-                        minHeight: 0,
-                        maxHeight: double.infinity,
-                        alignment: Alignment.topCenter,
-                        child: Transform.translate(
-                          offset: Offset(0, geometry.contentOffset - minExtent),
-                          child: Offstage(
-                            offstage: geometry.isFullyCollapsed,
-                            child: _ReportSize(
-                              onSize: (size) =>
-                                  onExpandedExtentMeasured(size.height),
-                              child: _ExpandedIdentity(
-                                user: user,
-                                bannerHeight: bannerHeight,
-                                actions: actions,
-                                stats: stats,
+    return LiftableBar(
+      child: _CoverSystemBars(
+        coverUrl: user.backgroundImageUrl,
+        overArtwork: overArtwork,
+        bannerHeight: bannerHeight,
+        // The banner scrolls up with the content: the status bar covers its
+        // rows from shrinkOffset down.
+        statusBarTop: shrinkOffset,
+        statusBarBottom: shrinkOffset + topInset,
+        child: Opacity(
+          // First frame only: the delegate still holds the estimate extent
+          // while the real identity height is being measured.
+          opacity: expandedExtent == null ? 0 : 1,
+          child: Material(
+            color: colors.surface,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  fit: StackFit.expand,
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    // 1. Banner band: cover image, or a surfaceContainerHigh
+                    // strip so the header separates from the page colour;
+                    // either fades into the page at its bottom.
+                    Positioned(
+                      top: geometry.contentOffset,
+                      left: 0,
+                      right: 0,
+                      height: bannerHeight,
+                      child: _ProfileBackground(user: user),
+                    ),
+                    // 2. Identity block at natural height, clipped below the
+                    // toolbar's bottom edge so avatar and text never enter
+                    // the toolbar. Stays mounted (Offstage) when collapsed so
+                    // the measurement keeps reporting.
+                    Positioned(
+                      top: minExtent,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: ClipRect(
+                        child: OverflowBox(
+                          minHeight: 0,
+                          maxHeight: double.infinity,
+                          alignment: Alignment.topCenter,
+                          child: Transform.translate(
+                            offset: Offset(
+                              0,
+                              geometry.contentOffset - minExtent,
+                            ),
+                            child: Offstage(
+                              offstage: geometry.isFullyCollapsed,
+                              child: _ReportSize(
+                                onSize: (size) =>
+                                    onExpandedExtentMeasured(size.height),
+                                child: _ExpandedIdentity(
+                                  user: user,
+                                  bannerHeight: bannerHeight,
+                                  actions: actions,
+                                  stats: stats,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  // 3. Toolbar surface fading in as the banner leaves.
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: minExtent,
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: geometry.toolbarOpacity,
-                        child: ColoredBox(color: colors.surface),
-                      ),
-                    ),
-                  ),
-                  // 4. Collapsed toolbar title mounts only at full collapse.
-                  if (geometry.isFullyCollapsed)
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        // The status-bar inset belongs above the actual
-                        // 56dp toolbar controls. This keeps pinned chrome
-                        // out of the system UI, which edge-to-edge
-                        // (enforced from targetSdk 35) draws under.
-                        height: minExtent,
-                        child: Padding(
-                          padding: EdgeInsets.only(top: topInset),
-                          child: SizedBox(
-                            height: kToolbarHeight,
-                            child: _CollapsedProfile(user: user),
-                          ),
+                    // 3. Toolbar surface fading in as the banner leaves.
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: minExtent,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: geometry.toolbarOpacity,
+                          child: ColoredBox(color: colors.surface),
                         ),
                       ),
                     ),
-                  // 5. Persistent controls: mounted and tappable through
-                  // the whole collapse interval. They switch to the
-                  // image-overlay affordance only while real artwork still
-                  // sits behind them (`overArtwork`).
-                  Positioned(
-                    top: topInset + 4,
-                    right: 8,
-                    // Each action shows once at a time: the name row's
-                    // share and main action join the menu only when the
-                    // row goes under the toolbar.
-                    child: _ProfileHeaderMoreButton(
-                      actions: actions,
-                      includePrimary: geometry.nameRowUnderToolbar,
-                      overArtwork: overArtwork,
+                    // 4. Collapsed toolbar title mounts only at full collapse.
+                    if (geometry.isFullyCollapsed)
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          // The status-bar inset belongs above the actual
+                          // 56dp toolbar controls. This keeps pinned chrome
+                          // out of the system UI, which edge-to-edge
+                          // (enforced from targetSdk 35) draws under.
+                          height: minExtent,
+                          child: Padding(
+                            padding: EdgeInsets.only(top: topInset),
+                            child: SizedBox(
+                              height: kToolbarHeight,
+                              child: _CollapsedProfile(user: user),
+                            ),
+                          ),
+                        ),
+                      ),
+                    // 5. Persistent controls: mounted and tappable through
+                    // the whole collapse interval. They switch to the
+                    // image-overlay affordance only while real artwork still
+                    // sits behind them (`overArtwork`).
+                    Positioned(
+                      top: topInset + 4,
+                      right: 8,
+                      // Each action shows once at a time: the name row's
+                      // share and main action join the menu only when the
+                      // row goes under the toolbar.
+                      child: _ProfileHeaderMoreButton(
+                        actions: actions,
+                        includePrimary: geometry.nameRowUnderToolbar,
+                        overArtwork: overArtwork,
+                      ),
                     ),
-                  ),
-                  // One persistent back button for both header states —
-                  // stays mounted through the pop animation instead of
-                  // being unmounted by a canPop flip (P3/P4).
-                  Positioned(
-                    top: topInset + 4,
-                    left: 8,
-                    child: _HeaderBackButton(overArtwork: overArtwork),
-                  ),
-                ],
-              );
-            },
+                    // One persistent back button for both header states —
+                    // stays mounted through the pop animation instead of
+                    // being unmounted by a canPop flip (P3/P4).
+                    Positioned(
+                      top: topInset + 4,
+                      left: 8,
+                      child: _HeaderBackButton(overArtwork: overArtwork),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -921,17 +927,19 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return ScrollEdgeShadow(
-      visible: scrolled,
-      child: Material(
-        key: const ValueKey('profile-tabs'),
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SizedBox(
-          height: kToolbarHeight,
-          child: AppTabBar(
-            controller: controller,
-            onTap: onTabTap,
-            labels: labels,
+    return LiftableBar(
+      child: ScrollEdgeShadow(
+        visible: scrolled,
+        child: Material(
+          key: const ValueKey('profile-tabs'),
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: AppTabBar(
+              controller: controller,
+              onTap: onTabTap,
+              labels: labels,
+            ),
           ),
         ),
       ),

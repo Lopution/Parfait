@@ -164,18 +164,35 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   String? _revealing;
   bool _revealed = false;
 
+  /// Whether the page image was decoded by the frame it was first built
+  /// in: shown at once, it needs no copy of its own file under it.
+  bool _revealedAtOnce = false;
+
   /// Whether the page image at [url] is shown over the held top square;
-  /// asks for its decode the first time.
+  /// asks for its decode the first time. One decoded already (warmed at
+  /// the card's tap) shows in the frame it is first built, with no fade.
   bool _revealWhenDecoded(String url, int? decodeWidth) {
     if (_revealed || url == _revealing) return _revealed;
     _revealing = url;
+    final tierKey = entity.imageTierKeyAt(widget.index);
+    final tier = entity.imageTierOf(url);
+    final width = decodeWidth ?? PixivImage.screenDecodeWidth;
+    if (PixivImage.isDecoded(
+      context,
+      url,
+      tierKey: tierKey,
+      tier: tier,
+      decodeWidth: width,
+    )) {
+      return _revealed = _revealedAtOnce = true;
+    }
     unawaited(
       PixivImage.preload(
         context,
         url,
-        tierKey: entity.imageTierKeyAt(widget.index),
-        tier: entity.imageTierOf(url),
-        memCacheWidth: decodeWidth ?? PixivImage.screenDecodeWidth,
+        tierKey: tierKey,
+        tier: tier,
+        memCacheWidth: width,
         // The page's own image resolves the same entry: the first resolve
         // sets the fetch's priority.
         priority: ImageFetchPriority.foreground,
@@ -280,6 +297,9 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                         ),
                   child: heroTopSquare
                       ? _topSquareImage(
+                          standInUrl: entity.previewUrl(
+                            ref.watch(previewQualityProvider),
+                          ),
                           detailUrl: onHeroPhase ? null : previewUrl,
                           decodeWidth: panoramaDecodeWidth,
                         )
@@ -378,17 +398,37 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
     );
   }
 
-  /// The card's top square held at the top of the work's box, with the
-  /// page image at [detailUrl] over it once the route has landed (null
-  /// before).
+  /// The card's top square held at the top of the work's box over the
+  /// whole work at the feed's tier ([standInUrl], which the card fetched),
+  /// with the page image at [detailUrl] over both once the route has
+  /// landed (null before).
   Widget _topSquareImage({
+    required String standInUrl,
     required String? detailUrl,
     required int? decodeWidth,
   }) {
     final filterColor = downloadMode ? FuncTokens.imageOverlay : null;
     final filterBlendMode = downloadMode ? BlendMode.srcOver : null;
+    final shown =
+        detailUrl != null && _revealWhenDecoded(detailUrl, decodeWidth);
     return _TopSquareLanding(
       aspectRatio: entity.pageAspectRatioAt(widget.index),
+      // The page image, shown at once, is that file itself: no second
+      // layer. One fading in keeps the copy under it.
+      standIn: shown && _revealedAtOnce && detailUrl == standInUrl
+          ? null
+          : PixivImage.detail(
+              standInUrl,
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.topCenter,
+              tierUpgrade: false,
+              decodeWidth: decodeWidth,
+              // Nothing over the box until the copy is there: the square
+              // above stays the one thing shown, as without a copy.
+              placeholderWidget: const SizedBox.expand(),
+              filterColor: filterColor,
+              filterBlendMode: filterBlendMode,
+            ),
       square: PixivImage.detail(
         widget.heroImageUrl!,
         fit: BoxFit.fitWidth,
@@ -398,7 +438,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
         filterColor: filterColor,
         filterBlendMode: filterBlendMode,
       ),
-      shown: detailUrl != null && _revealWhenDecoded(detailUrl, decodeWidth),
+      shown: shown,
       detail: detailUrl == null
           ? null
           : PixivImage.detail(
@@ -505,22 +545,27 @@ class _AmbientBand extends StatelessWidget {
 }
 
 /// The work's box with the card's [square], pixiv's square of the work's
-/// top, held at its top: the flight carried that file alone, sharp, and no
-/// lower tier stands in for the rest. Once the route has landed and the
-/// page image is decoded ([shown]), [detail] fades in over it, identical
-/// over the square, the rest of the work appearing below it.
+/// top, held at its top, sharp, over [standIn], the whole work at the
+/// feed's tier: the flight carries both. Once the route has landed and the
+/// page image is decoded ([shown]), [detail] shows over them, identical
+/// over the square: at once when it was decoded by its first frame, else
+/// fading in over the copy.
 ///
 /// Stateless: a pop's flight builds it anew in the overlay, where a state
 /// of its own would start hidden again.
 class _TopSquareLanding extends StatelessWidget {
   const _TopSquareLanding({
     required this.aspectRatio,
+    required this.standIn,
     required this.square,
     required this.shown,
     required this.detail,
   });
 
   final double aspectRatio;
+
+  /// The low-resolution copy; null once [detail], the same file, shows.
+  final Widget? standIn;
   final Widget square;
   final bool shown;
 
@@ -534,6 +579,7 @@ class _TopSquareLanding extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          ?standIn,
           square,
           if (detail case final detail?)
             AnimatedOpacity(

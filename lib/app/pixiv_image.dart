@@ -593,6 +593,37 @@ class PixivImage extends ConsumerStatefulWidget {
   /// How long a user-requested preload stays wanted without a widget; the
   /// target page normally mounts and takes over well within it.
   static const _userPreloadHold = Duration(seconds: 10);
+
+  /// Whether [url] is decoded at [decodeWidth] in the image cache now, as
+  /// [preload] with the same arguments leaves it: a widget resolving it
+  /// paints it in the frame it is first built.
+  static bool isDecoded(
+    BuildContext context,
+    String url, {
+    String? tierKey,
+    IllustImageTier? tier,
+    required int decodeWidth,
+  }) {
+    final resolved = tierKey != null && tier != null
+        ? IllustTierCache.resolve(tierKey, tier, url).$1
+        : url;
+    final worker = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(imageWorkerProvider);
+    Object? key;
+    // The worker provider and the resizes over it key synchronously.
+    unawaited(
+      _imageProvider(
+        resolved,
+        decodeWidth,
+        worker: worker,
+      ).obtainKey(ImageConfiguration.empty).then((value) => key = value),
+    );
+    if (key == null) return false;
+    final status = PaintingBinding.instance.imageCache.statusForKey(key!);
+    return status.tracked && !status.pending;
+  }
 }
 
 class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {

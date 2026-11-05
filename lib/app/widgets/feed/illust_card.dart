@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/image/image_worker_providers.dart';
 import '../../format/app_format.dart';
 import '../../format/content_locale.dart';
 import '../../../core/mute/mute_predicate.dart';
@@ -194,9 +195,10 @@ class _IllustCardBody extends ConsumerWidget {
     // Beta56 IllustPreviewer semantics: the preview height follows the
     // original aspect ratio up to 1:2. Taller works crop to the top of
     // `large` or switch to the square thumbnail (illustCardPreview).
+    final quality = ref.watch(previewQualityProvider);
     final preview = illustCardPreview(
       entity,
-      quality: ref.watch(previewQualityProvider),
+      quality: quality,
       cardPhysicalWidth: cardDecodeWidth,
     );
     final heroTag = illustHeroTag(heroScope, entity.id);
@@ -220,9 +222,20 @@ class _IllustCardBody extends ConsumerWidget {
       revealedMuteIdsProvider.select((ids) => ids.contains(entity.id)),
     );
     final muted = mutedHit != null && !revealed;
+    // The page of a top-square card shows the whole work at the feed's tier
+    // under the square while its page image loads (TRANS-23).
+    final standInUrl = preview.crop == IllustCardCrop.topSquare && hasHero
+        ? entity.previewUrl(quality)
+        : null;
     void openDetail() {
       pressWarmup.stop();
-      _preloadTransitionImages(context, ref, preview, cardDecodeWidth);
+      _preloadTransitionImages(
+        context,
+        ref,
+        preview,
+        cardDecodeWidth,
+        standInUrl: standInUrl,
+      );
       if (hasHero) noteHeroCardOpened(context, heroTag);
       unawaited(
         openIllust(
@@ -287,6 +300,7 @@ class _IllustCardBody extends ConsumerWidget {
                     ref,
                     preview,
                     cardDecodeWidth,
+                    standInUrl: standInUrl,
                   );
                   pressWarmup.start(context, entity);
                 },
@@ -307,7 +321,10 @@ class _IllustCardBody extends ConsumerWidget {
                   : Stack(
                       fit: StackFit.expand,
                       children: [
-                        image,
+                        if (standInUrl case final url?)
+                          _StandInPrefetch(url: url, child: image)
+                        else
+                          image,
                         HeroChrome(
                           child: Stack(
                             fit: StackFit.expand,
@@ -473,8 +490,9 @@ class _IllustCardBody extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     IllustCardPreview preview,
-    int decodeWidth,
-  ) {
+    int decodeWidth, {
+    required String? standInUrl,
+  }) {
     final previewUrl = preview.url;
     final previewTier = preview.tier;
     // Warm the exact decoded entry the feed card displays AND the detail
@@ -498,23 +516,90 @@ class _IllustCardBody extends ConsumerWidget {
     // variant still starts from zero on open. Original stays lazy — a
     // cancelled tap must not burn a multi-MB fetch on a background lane.
     // The user is waiting for this one, so it must not queue behind feed
-    // prefetch.
+    // prefetch. It decodes at the page's width, as the copy below does:
+    // the page then paints these entries.
     final detailQuality = ref.read(detailQualityProvider);
-    if (detailQuality != DetailQuality.original) {
-      final detailUrl = entity.detailUrlAt(0, detailQuality);
-      if (detailUrl != previewUrl) {
-        unawaited(
-          PixivImage.preload(
-            context,
-            detailUrl,
-            tierKey: entity.imageTierKeyAt(0),
-            tier: detailQuality.tier,
-            priority: ImageFetchPriority.foreground,
-          ),
-        );
-      }
+    final detailUrl = entity.detailUrlAt(0, detailQuality);
+    if (detailQuality != DetailQuality.original && detailUrl != previewUrl) {
+      unawaited(
+        PixivImage.preload(
+          context,
+          detailUrl,
+          tierKey: entity.imageTierKeyAt(0),
+          tier: detailQuality.tier,
+          memCacheWidth: PixivImage.screenDecodeWidth,
+          priority: ImageFetchPriority.foreground,
+        ),
+      );
+    }
+    // The copy the flight carries under the square; the page image covers
+    // it when it is that file.
+    if (standInUrl != null && standInUrl != detailUrl) {
+      unawaited(
+        PixivImage.preload(
+          context,
+          standInUrl,
+          memCacheWidth: PixivImage.screenDecodeWidth,
+          priority: ImageFetchPriority.foreground,
+        ),
+      );
     }
   }
+}
+
+/// Fetches [url], the whole work a top-square card's page shows under the
+/// square, in the background while the card is built, decoded at the
+/// page's width. Wanted only while the card is: a card scrolled away
+/// drops a fetch still queued.
+class _StandInPrefetch extends ConsumerStatefulWidget {
+  const _StandInPrefetch({required this.url, required this.child});
+
+  final String url;
+  final Widget child;
+
+  @override
+  ConsumerState<_StandInPrefetch> createState() => _StandInPrefetchState();
+}
+
+class _StandInPrefetchState extends ConsumerState<_StandInPrefetch> {
+  late final _demand = ref.read(imageWorkerProvider).demand;
+  String? _fetched;
+
+  // Not initState: a preload reads the context's media query.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _fetch();
+  }
+
+  @override
+  void didUpdateWidget(_StandInPrefetch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _fetch();
+  }
+
+  void _fetch() {
+    final url = widget.url;
+    if (url == _fetched) return;
+    _fetched = url;
+    _demand.setPrefetchWindow(this, {url});
+    unawaited(
+      PixivImage.preload(
+        context,
+        url,
+        memCacheWidth: PixivImage.screenDecodeWidth,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _demand.clearPrefetchWindow(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// The M3 hover state layer over the preview and a link cursor: with a
