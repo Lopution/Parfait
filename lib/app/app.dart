@@ -11,6 +11,7 @@ import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
 import '../core/log.dart';
 import '../core/translation/translation_service.dart';
+import '../core/translation/legacy_translation_cleanup.dart';
 import '../core/updater/update_auto_check.dart';
 import '../core/updater/update_service.dart';
 import '../core/download/download_providers.dart';
@@ -102,9 +103,9 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
 
   Future<void> _retireLegacyTranslationSession() async {
     try {
-      await ref
-          .read(translationCredentialStoreProvider)
-          .retireLegacyWebSession();
+      await retireLegacyTranslationData(
+        ref.read(translationCredentialStoreProvider),
+      );
     } catch (error) {
       log('translation legacy credential cleanup failed: $error');
     }
