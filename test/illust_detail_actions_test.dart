@@ -676,7 +676,7 @@ void main() {
               google: engine,
               baidu: engine,
               llm: engine,
-              doubao: engine,
+              indexTranslate: engine,
             ),
           ),
         ],

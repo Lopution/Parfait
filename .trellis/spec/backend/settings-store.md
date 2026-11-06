@@ -48,16 +48,20 @@ reviewed: 2026-10-14
 - **Check:** `test/translation_service_test.dart` "rejects plain HTTP endpoints as invalid credentials"
 - **Code:** `lib/core/translation/translation_service.dart`
 
-### PREF-05 A web-login credential lives in the secure store
-- **Rule:** A web session used as a credential (Doubao) is copied from the
-  WebView cookie store into the secure store when the login page sees the
-  session cookie, and requests send the stored copy. Signing out deletes
-  the stored copy and only that site's cookies (host and parent domain),
-  never `removeAllCookies`.
-- **Why:** Pixiv logout clears the shared WebView store, which silently
-  signed users out of translation; clearing all cookies did the reverse.
-- **Check:** `test/settings_test.dart` "signing out of Doubao clears the session and its cookies"
-- **Code:** `lib/core/translation/doubao_web_translation.dart`
+### PREF-05 A public translation provider has no secret state
+- **Rule:** A credential-free public translation provider never reads or
+  writes `TranslationCredentialStore`, never sends an authorization header or
+  cookie, and keeps its endpoint/model selectors in ordinary validated
+  settings. Provider selection and selectors remain independent of the
+  Baidu/LLM secret families.
+- **Why:** Public Index Translate replaced the former web-login provider;
+  retaining cookie or key plumbing would create an unneeded secret boundary
+  and could accidentally send stale credentials.
+- **Check:** `test/index_translate_translation_test.dart` "matches the public
+  request contract and strips disabled thinking"; `test/app_settings_test.dart`
+  "Index Translate model and thinking settings round-trip independently"
+- **Code:** `lib/core/translation/index_translate_translation.dart`,
+  `lib/core/settings/app_settings.dart`
 
 ### PREF-06 The account-transfer envelope is closed
 - **Rule:** The envelope carries exactly `version`, `payloadType`,

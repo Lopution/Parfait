@@ -64,7 +64,7 @@ void main() {
               google: transport,
               baidu: transport,
               llm: transport,
-              doubao: transport,
+              indexTranslate: transport,
             ),
           ),
         ],

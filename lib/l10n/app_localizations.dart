@@ -441,7 +441,7 @@ abstract class AppLocalizations {
   /// No description provided for @agreementThirdPartyBody.
   ///
   /// In zh, this message translates to:
-  /// **'以下服务只在你使用相应功能时访问：\n• 评论与小说翻译（默认关闭）：把原文发送给你选择的 Google 翻译、百度翻译、豆包（以你登录的豆包账号），或你填写的 OpenAI 兼容接口；\n• 以图搜图：把你选择的图片上传到你选择的 SauceNAO、iqdb、ascii2d 或 TinEye。\n\n登录网页由 Pixiv 提供，可能加载 Pixiv 使用的第三方资源（例如人机验证）。\n\n检查更新：本应用每 24 小时最多自动访问一次 GitHub 上的版本清单；F-Droid 版本不检查更新。'**
+  /// **'以下服务只在你使用相应功能时访问：\n• 评论与小说翻译（默认关闭）：把原文发送给你选择的 Google 翻译、百度翻译、Bilibili Index Translate（公共接口）或你填写的 OpenAI 兼容接口；\n• 以图搜图：把你选择的图片上传到你选择的 SauceNAO、iqdb、ascii2d 或 TinEye。\n\n登录网页由 Pixiv 提供，可能加载 Pixiv 使用的第三方资源（例如人机验证）。\n\n检查更新：本应用每 24 小时最多自动访问一次 GitHub 上的版本清单；F-Droid 版本不检查更新。'**
   String get agreementThirdPartyBody;
 
   /// No description provided for @agreementPrivacyTitle.
@@ -2177,6 +2177,48 @@ abstract class AppLocalizations {
   /// **'自定义 LLM（OpenAI 兼容）'**
   String get translateLlm;
 
+  /// No description provided for @translateIndex.
+  ///
+  /// In zh, this message translates to:
+  /// **'Index Translate'**
+  String get translateIndex;
+
+  /// No description provided for @translateIndexModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'Index Translate 模型'**
+  String get translateIndexModel;
+
+  /// No description provided for @translateIndexModel2B.
+  ///
+  /// In zh, this message translates to:
+  /// **'2B'**
+  String get translateIndexModel2B;
+
+  /// No description provided for @translateIndexModel9B.
+  ///
+  /// In zh, this message translates to:
+  /// **'9B'**
+  String get translateIndexModel9B;
+
+  /// No description provided for @translateIndexModel35B.
+  ///
+  /// In zh, this message translates to:
+  /// **'35B-A3B'**
+  String get translateIndexModel35B;
+
+  /// No description provided for @translateIndexThinking.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用思考模式'**
+  String get translateIndexThinking;
+
+  /// No description provided for @translateIndexThinkingHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许模型输出思考内容，可能增加耗时'**
+  String get translateIndexThinkingHint;
+
   /// No description provided for @translateBaiduCredential.
   ///
   /// In zh, this message translates to:
@@ -2266,66 +2308,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'输入不完整或接口地址不是 HTTPS'**
   String get translateCredentialsInvalid;
-
-  /// No description provided for @translateDoubao.
-  ///
-  /// In zh, this message translates to:
-  /// **'豆包（网页登录）'**
-  String get translateDoubao;
-
-  /// No description provided for @translateDoubaoAccount.
-  ///
-  /// In zh, this message translates to:
-  /// **'豆包账号'**
-  String get translateDoubaoAccount;
-
-  /// No description provided for @translateDoubaoSignedIn.
-  ///
-  /// In zh, this message translates to:
-  /// **'已登录'**
-  String get translateDoubaoSignedIn;
-
-  /// No description provided for @translateDoubaoSignedOut.
-  ///
-  /// In zh, this message translates to:
-  /// **'未登录'**
-  String get translateDoubaoSignedOut;
-
-  /// No description provided for @translateDoubaoSignOut.
-  ///
-  /// In zh, this message translates to:
-  /// **'退出豆包登录？'**
-  String get translateDoubaoSignOut;
-
-  /// No description provided for @translateDoubaoSignOutConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'将删除保存的豆包登录信息，翻译前需要重新登录。'**
-  String get translateDoubaoSignOutConfirm;
-
-  /// No description provided for @translateDoubaoSignOutAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'退出登录'**
-  String get translateDoubaoSignOutAction;
-
-  /// No description provided for @doubaoLoginTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录豆包'**
-  String get doubaoLoginTitle;
-
-  /// No description provided for @doubaoLoginDone.
-  ///
-  /// In zh, this message translates to:
-  /// **'完成'**
-  String get doubaoLoginDone;
-
-  /// No description provided for @doubaoLoginNotDetected.
-  ///
-  /// In zh, this message translates to:
-  /// **'还没有检测到豆包登录，请先在页面中登录'**
-  String get doubaoLoginNotDetected;
 
   /// No description provided for @downloadTasksEmpty.
   ///

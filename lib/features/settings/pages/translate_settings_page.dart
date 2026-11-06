@@ -1,29 +1,23 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/spring_size.dart';
 import '../../../app/motion/state_fade.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
-import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_top_bar.dart';
-import '../../../app/widgets/errors/error_details.dart';
+import '../../../app/widgets/app_menu_button.dart';
+import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_menu_tile.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
-import '../../../core/errors/error_category.dart';
-import '../../../core/logging/crash_log.dart';
-import '../../../core/translation/translation_credentials.dart';
 import '../../../core/translation/translation_service.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
-import 'doubao_login_page.dart';
 
 class TranslateSettingsPage extends ConsumerStatefulWidget {
   const TranslateSettingsPage({super.key});
@@ -40,7 +34,6 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
   /// cleared keys while this route was covered.
   Future<bool>? _baiduConfigured;
   Future<bool>? _llmConfigured;
-  Future<bool>? _doubaoSignedIn;
 
   @override
   void initState() {
@@ -52,66 +45,11 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
     final store = ref.read(translationCredentialStoreProvider);
     _baiduConfigured = store.hasBaidu();
     _llmConfigured = store.hasLlm();
-    _doubaoSignedIn = store.hasDoubao();
   }
 
   Future<void> _openTranslationCredentials(bool baidu) async {
     final provider = baidu ? 'baidu' : 'llm';
     await context.push<void>('/settings/translate/credentials/$provider');
-    if (mounted) setState(_refreshCredentials);
-  }
-
-  Future<void> _openDoubaoLogin() async {
-    await context.push<bool>('/settings/translate/doubao-login');
-    if (mounted) setState(_refreshCredentials);
-  }
-
-  /// Signing out forgets the saved session and the WebView's doubao.com
-  /// cookies, so the next login starts from the login form.
-  Future<void> _signOutDoubao() async {
-    final l10n = context.l10n;
-    final confirmed = await showAppDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.translateDoubaoSignOut),
-        content: Text(l10n.translateDoubaoSignOutConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.translateDoubaoSignOutAction),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    // Read before the first await: the page may be gone after it. Signing
-    // out clears the web session whatever the credential store does, or
-    // the next login would pick the old one up.
-    final credentials = ref.read(translationCredentialStoreProvider);
-    final cookies = ref.read(doubaoWebCookiesProvider);
-    try {
-      await credentials.deleteDoubao();
-    } on TranslationCredentialsStoreException catch (error, stack) {
-      CrashLog.record(error, stack);
-      if (mounted) {
-        showAppSnackBar(context, l10n.translateCredentialsStoreError);
-      }
-    }
-    try {
-      await cookies.clear();
-    } on Object catch (error, stack) {
-      CrashLog.record(error, stack);
-      if (mounted) {
-        showAppSnackBar(
-          context,
-          errorCategoryText(context, categorizeError(error)),
-        );
-      }
-    }
     if (mounted) setState(_refreshCredentials);
   }
 
@@ -129,36 +67,8 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
       subtitle: _credentialStatus(_llmConfigured),
       onTap: () => _openTranslationCredentials(false),
     ),
-    TranslationProvider.doubao => _doubaoAccount(),
     _ => null,
   };
-
-  Widget _doubaoAccount() {
-    return FutureBuilder<bool>(
-      future: _doubaoSignedIn,
-      builder: (context, snapshot) {
-        final signedIn = snapshot.data;
-        final l10n = context.l10n;
-        return SettingsTile(
-          icon: Icons.account_circle_outlined,
-          title: l10n.translateDoubaoAccount,
-          subtitle: signedIn == null
-              ? null
-              : Text(
-                  signedIn
-                      ? l10n.translateDoubaoSignedIn
-                      : l10n.translateDoubaoSignedOut,
-                ),
-          // Pending or a store error: the row waits instead of guessing.
-          onTap: switch (signedIn) {
-            true => () => unawaited(_signOutDoubao()),
-            false => () => unawaited(_openDoubaoLogin()),
-            null => () {},
-          },
-        );
-      },
-    );
-  }
 
   /// Subtitle under a credential entry. Pending or a store error renders
   /// nothing — the summary never invents a state.
@@ -194,7 +104,7 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
       (TranslationProvider.disabled, context.l10n.translateDisabled),
       (TranslationProvider.baidu, context.l10n.translateBaidu),
       (TranslationProvider.translationLlm, context.l10n.translateLlm),
-      (TranslationProvider.doubao, context.l10n.translateDoubao),
+      (TranslationProvider.indexTranslate, context.l10n.translateIndex),
       (TranslationProvider.google, context.l10n.translateGoogle),
     ];
     return Scaffold(
@@ -227,6 +137,49 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
                     StateFade(kind: provider, child: row),
                 ],
               ),
+            ),
+            SettingsGroup(
+              children: [
+                SettingsMenuTile<IndexTranslateModel>(
+                  setting: Setting.indexTranslateModel,
+                  value: settings.indexTranslateModel,
+                  options: [
+                    for (final model in IndexTranslateModel.values)
+                      AppMenuEntry(
+                        value: model,
+                        label: switch (model) {
+                          IndexTranslateModel.twoB =>
+                            context.l10n.translateIndexModel2B,
+                          IndexTranslateModel.nineB =>
+                            context.l10n.translateIndexModel9B,
+                          IndexTranslateModel.thirtyFiveBA3B =>
+                            context.l10n.translateIndexModel35B,
+                        },
+                      ),
+                  ],
+                  onChanged: provider == TranslationProvider.indexTranslate
+                      ? (model) => persistSettings(
+                          context,
+                          () => ref
+                              .read(settingsProvider.notifier)
+                              .selectIndexTranslateModel(model),
+                        )
+                      : null,
+                ),
+                SettingsControl(
+                  setting: Setting.indexTranslateThinking,
+                  subtitle: Text(context.l10n.translateIndexThinkingHint),
+                  value: settings.indexTranslateThinking,
+                  onChanged: provider == TranslationProvider.indexTranslate
+                      ? (enabled) => persistSettings(
+                          context,
+                          () => ref
+                              .read(settingsProvider.notifier)
+                              .setIndexTranslateThinking(enabled),
+                        )
+                      : null,
+                ),
+              ],
             ),
           ],
         ),

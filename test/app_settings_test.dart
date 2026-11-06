@@ -31,8 +31,37 @@ void main() {
     expect(settings.enableLocalBlockR18, isFalse);
     expect(settings.enableLocalBlockAI, isFalse);
     expect(settings.translateIndex, 1);
+    expect(settings.indexTranslateModel, IndexTranslateModel.thirtyFiveBA3B);
+    expect(settings.indexTranslateThinking, isFalse);
     expect(settings.maxDownloadCount, 3);
+    expect(
+      AppSettings.fromJson({'translateIndex': 4}).translationProvider,
+      TranslationProvider.indexTranslate,
+    );
   });
+
+  test(
+    'Index Translate model and thinking settings round-trip independently',
+    () {
+      final saved = baseTestSettings().copyWith(
+        indexTranslateModel: IndexTranslateModel.twoB,
+        indexTranslateThinking: true,
+      );
+      final restored = AppSettings.fromJson(
+        saved.toJson(),
+        fallback: baseTestSettings(),
+      );
+      expect(restored.indexTranslateModel, IndexTranslateModel.twoB);
+      expect(restored.indexTranslateThinking, isTrue);
+
+      final damaged = AppSettings.fromJson({
+        'indexTranslateModel': 99,
+        'indexTranslateThinking': 'yes',
+      }, fallback: saved);
+      expect(damaged.indexTranslateModel, IndexTranslateModel.twoB);
+      expect(damaged.indexTranslateThinking, isTrue);
+    },
+  );
 
   test('corrupt fields fall back independently and valid fields survive', () {
     final settings = AppSettings.fromJson({

@@ -99,10 +99,21 @@ enum Setting implements SettingsEntry {
       'translateDisabled',
       'translateBaidu',
       'translateLlm',
+      'translateIndex',
       'translateGoogle',
     ],
     extraKeys: ['translateBaiduCredential', 'translateLlmCredential'],
   ),
+  indexTranslateModel(
+    SettingsPageRef.translate,
+    'translateIndexModel',
+    optionKeys: [
+      'translateIndexModel2B',
+      'translateIndexModel9B',
+      'translateIndexModel35B',
+    ],
+  ),
+  indexTranslateThinking(SettingsPageRef.translate, 'translateIndexThinking'),
   animationSpeed(
     SettingsPageRef.motion,
     'animationSpeed',

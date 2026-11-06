@@ -311,7 +311,7 @@ void main() {
         google: engine,
         baidu: engine,
         llm: engine,
-        doubao: engine,
+        indexTranslate: engine,
       );
 
       await expectLater(
@@ -335,13 +335,32 @@ void main() {
         google: other,
         baidu: baidu,
         llm: other,
-        doubao: other,
+        indexTranslate: other,
       );
 
       expect(await service.translate('hello', targetLanguage: 'zh'), '你好');
       expect(baidu.sources, ['hello']);
       expect(other.sources, isEmpty);
     });
+
+    test(
+      'Index Translate provider is dispatched to the public transport',
+      () async {
+        final other = RecordingTranslationEngine();
+        final index = RecordingTranslationEngine((_) => '你好');
+        final service = ConfiguredTranslationService(
+          resolveProvider: () => TranslationProvider.indexTranslate,
+          google: other,
+          baidu: other,
+          llm: other,
+          indexTranslate: index,
+        );
+
+        expect(await service.translate('hello', targetLanguage: 'zh'), '你好');
+        expect(index.sources, ['hello']);
+        expect(other.sources, isEmpty);
+      },
+    );
   });
 
   group('credentials store', () {

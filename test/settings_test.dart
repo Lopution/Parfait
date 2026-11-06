@@ -15,7 +15,6 @@ import 'package:parfait/core/auth/account_transfer_service.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/translation/translation_credentials.dart';
-import 'package:parfait/features/settings/pages/doubao_login_page.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart'
     show PixivDestinationPurpose, PixivDestinationRegistry;
@@ -839,59 +838,42 @@ void main() {
     expect(find.textContaining('已配置'), findsNothing);
   });
 
-  testWidgets('signing out of Doubao clears the session and its cookies', (
+  testWidgets('Index Translate exposes model and thinking controls', (
     tester,
   ) async {
-    // Whatever the credential store does and whether the page stays, the
-    // web session goes: the next login would pick it up.
     await seedSettings(
       baseTestSettings().copyWith(
-        translateIndex: TranslationProvider.doubao.code,
+        translateIndex: TranslationProvider.indexTranslate.code,
       ),
     );
-    for (final (failStore, failCookies, leave, report) in [
-      (false, false, false, null),
-      (false, false, true, null),
-      (true, false, false, '安全存储操作失败'),
-      (false, true, false, '未知错误'),
-    ]) {
-      await tester.pumpWidget(const SizedBox());
-      final gate = Completer<void>();
-      final store = FakeTranslationStore()
-        ..doubao = const DoubaoWebSession(cookie: 'sessionid=a', teaUuid: '1')
-        ..deleteDoubaoGate = gate.future
-        ..deleteDoubaoError = failStore
-            ? TranslationCredentialsStoreException('delete', 'io')
-            : null;
-      final cookies = _FakeDoubaoCookies()
-        ..failure = failCookies ? StateError('cookie jar') : null;
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: [
-            translationCredentialStoreProvider.overrideWithValue(store),
-            doubaoWebCookiesProvider.overrideWithValue(cookies),
-          ],
-          builder: promptHostBuilder,
-          home: TranslateSettingsPage(),
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [
+          translationCredentialStoreProvider.overrideWithValue(
+            FakeTranslationStore(),
+          ),
+        ],
+        builder: promptHostBuilder,
+        home: const TranslateSettingsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('已登录'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '退出登录'));
-      await tester.pumpAndSettle();
-      if (leave) await tester.pumpWidget(const SizedBox());
-      gate.complete();
-      await tester.pumpAndSettle();
+    expect(find.text('Index Translate'), findsOneWidget);
+    expect(find.text('Index Translate 模型'), findsOneWidget);
+    expect(find.text('启用思考模式'), findsOneWidget);
 
-      expect(cookies.cleared, 1);
-      expect(tester.takeException(), isNull);
-      if (leave) continue;
-      expect(store.doubao, failStore ? isNotNull : isNull);
-      if (report != null) expect(find.text(report), findsOneWidget);
-      if (!failStore) expect(find.text('未登录'), findsOneWidget);
-    }
+    final element = tester.element(find.byType(TranslateSettingsPage));
+    final controller = ProviderScope.containerOf(
+      element,
+    ).read(settingsProvider.notifier);
+    await controller.selectIndexTranslateModel(IndexTranslateModel.twoB);
+    await controller.setIndexTranslateThinking(true);
+    expect(
+      (await storedSettings().load()).indexTranslateModel,
+      IndexTranslateModel.twoB,
+    );
+    expect((await storedSettings().load()).indexTranslateThinking, isTrue);
   });
 
   testWidgets(
@@ -1416,18 +1398,4 @@ void main() {
 Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {
   await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
   await tester.pumpAndSettle();
-}
-
-class _FakeDoubaoCookies implements DoubaoWebCookies {
-  var cleared = 0;
-  Object? failure;
-
-  @override
-  Future<String?> sessionCookie() async => null;
-
-  @override
-  Future<void> clear() async {
-    cleared++;
-    if (failure case final failure?) throw failure;
-  }
 }

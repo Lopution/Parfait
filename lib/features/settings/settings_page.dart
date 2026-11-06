@@ -383,7 +383,6 @@ class _TranslationSummaryState extends ConsumerState<_TranslationSummary>
     return switch (widget.provider) {
       TranslationProvider.baidu => store.hasBaidu(),
       TranslationProvider.translationLlm => store.hasLlm(),
-      TranslationProvider.doubao => store.hasDoubao(),
       _ => null,
     };
   }
@@ -450,13 +449,9 @@ class _TranslationSummaryState extends ConsumerState<_TranslationSummary>
         // never invents a state.
         if (state == null) return Text(label);
         final l10n = context.l10n;
-        final status = widget.provider == TranslationProvider.doubao
-            ? (state
-                  ? l10n.translateDoubaoSignedIn
-                  : l10n.translateDoubaoSignedOut)
-            : (state
-                  ? l10n.settingsCredentialConfigured
-                  : l10n.settingsCredentialNotConfigured);
+        final status = state
+            ? l10n.settingsCredentialConfigured
+            : l10n.settingsCredentialNotConfigured;
         return Text('$label · $status');
       },
     );

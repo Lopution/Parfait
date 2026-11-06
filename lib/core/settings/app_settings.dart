@@ -24,8 +24,8 @@ enum TranslationProvider {
   baidu(2),
   translationLlm(3),
 
-  /// Doubao web translation signed in as the user's own doubao.com account.
-  doubao(4);
+  /// Public Bilibili Index Translate endpoint.
+  indexTranslate(4);
 
   const TranslationProvider(this.code);
 
@@ -35,6 +35,27 @@ enum TranslationProvider {
     if (value is! int) return null;
     for (final provider in values) {
       if (provider.code == value) return provider;
+    }
+    return null;
+  }
+}
+
+/// Public Index Translate model choices. The wire names are part of the
+/// endpoint contract; the numeric codes are the local settings contract.
+enum IndexTranslateModel {
+  twoB(0, 'Index-Translate-2B'),
+  nineB(1, 'Index-Translate-9B'),
+  thirtyFiveBA3B(2, 'Index-Translate-35B-A3B');
+
+  const IndexTranslateModel(this.code, this.modelName);
+
+  final int code;
+  final String modelName;
+
+  static IndexTranslateModel? fromCode(Object? value) {
+    if (value is! int) return null;
+    for (final model in values) {
+      if (model.code == value) return model;
     }
     return null;
   }
@@ -245,6 +266,8 @@ class AppSettings {
     this.pressFeedback = true,
     this.hapticStrength = HapticStrength.standard,
     this.translateIndex = 1,
+    this.indexTranslateModel = IndexTranslateModel.thirtyFiveBA3B,
+    this.indexTranslateThinking = false,
     this.maxDownloadCount = defaultMaxDownloadCount,
     this.downloadDestination = DownloadDestination.builtin,
     this.downloadCaption = false,
@@ -357,6 +380,8 @@ class AppSettings {
   /// either way.
   final HapticStrength hapticStrength;
   final int translateIndex;
+  final IndexTranslateModel indexTranslateModel;
+  final bool indexTranslateThinking;
   final int maxDownloadCount;
   final DownloadDestination downloadDestination;
 
@@ -505,6 +530,13 @@ class AppSettings {
       pressFeedback: _bool(json['pressFeedback'], base.pressFeedback),
       hapticStrength: _readHapticStrength(json, base.hapticStrength),
       translateIndex: provider?.code ?? base.translateIndex,
+      indexTranslateModel:
+          IndexTranslateModel.fromCode(json['indexTranslateModel']) ??
+          base.indexTranslateModel,
+      indexTranslateThinking: _bool(
+        json['indexTranslateThinking'],
+        base.indexTranslateThinking,
+      ),
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
       downloadDestination: _readDestination(json, base.downloadDestination),
       downloadCaption: _bool(json['downloadCaption'], base.downloadCaption),
@@ -589,6 +621,8 @@ class AppSettings {
       'pressFeedback': pressFeedback,
       'hapticStrength': hapticStrength.name,
       'translateIndex': translateIndex,
+      'indexTranslateModel': indexTranslateModel.code,
+      'indexTranslateThinking': indexTranslateThinking,
       'maxDownloadCount': maxDownloadCount,
       ...downloadDestination.toJson(),
       'downloadCaption': downloadCaption,
@@ -735,6 +769,8 @@ class AppSettings {
     bool? pressFeedback,
     HapticStrength? hapticStrength,
     int? translateIndex,
+    IndexTranslateModel? indexTranslateModel,
+    bool? indexTranslateThinking,
     int? maxDownloadCount,
     Object? downloadDestination = _unset,
     bool? downloadCaption,
@@ -791,6 +827,9 @@ class AppSettings {
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??
           this.translateIndex,
+      indexTranslateModel: indexTranslateModel ?? this.indexTranslateModel,
+      indexTranslateThinking:
+          indexTranslateThinking ?? this.indexTranslateThinking,
       maxDownloadCount: _maxDownloads(maxDownloadCount, this.maxDownloadCount),
       downloadDestination: identical(downloadDestination, _unset)
           ? this.downloadDestination

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' show PlatformDispatcher;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +11,7 @@ import '../network/local_network_address.dart';
 import '../platform/local_network.dart';
 import '../settings/app_settings.dart';
 import '../settings/settings_controller.dart';
-import 'doubao_web_translation.dart';
+import 'index_translate_translation.dart';
 import 'translation_credentials.dart';
 import 'translation_transport.dart';
 
@@ -505,19 +504,13 @@ final translationServiceProvider = Provider<TranslationTransport>((ref) {
       store,
       ref.watch(localNetworkGateProvider),
     ),
-    doubao: ref.watch(doubaoWebTranslationProvider),
+    indexTranslate: IndexTranslateTranslationTransport(
+      client,
+      model: ref.watch(indexTranslateModelProvider),
+      enableThinking: ref.watch(indexTranslateThinkingProvider),
+    ),
   );
 });
-
-/// Kept alive for the process: it owns the launch handshake and the tab id
-/// Doubao expects to stay stable across requests.
-final doubaoWebTranslationProvider = Provider<DoubaoWebTranslationTransport>(
-  (ref) => DoubaoWebTranslationTransport(
-    ref.watch(thirdPartyHttpClientProvider),
-    ref.watch(translationCredentialStoreProvider),
-    browserLanguage: () => PlatformDispatcher.instance.locale.toLanguageTag(),
-  ),
-);
 
 /// Isolated secure storage for translation credentials (D2). A single
 /// instance shared by the settings UI and the transports.
@@ -539,14 +532,14 @@ class ConfiguredTranslationService implements TranslationTransport {
     required this.google,
     required this.baidu,
     required this.llm,
-    required this.doubao,
+    required this.indexTranslate,
   });
 
   final TranslationProvider Function() resolveProvider;
   final TranslationTransport google;
   final TranslationTransport baidu;
   final TranslationTransport llm;
-  final TranslationTransport doubao;
+  final TranslationTransport indexTranslate;
 
   @override
   Future<String> translate(
@@ -568,6 +561,6 @@ class ConfiguredTranslationService implements TranslationTransport {
     TranslationProvider.google => google,
     TranslationProvider.baidu => baidu,
     TranslationProvider.translationLlm => llm,
-    TranslationProvider.doubao => doubao,
+    TranslationProvider.indexTranslate => indexTranslate,
   };
 }

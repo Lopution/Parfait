@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/theme/system_colors.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
-import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/arrangement.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 
@@ -45,22 +44,6 @@ void main() {
       variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
     );
   }
-  // The Doubao engine adds its account row and the risk note.
-  testShot(
-    'settings/translate-doubao',
-    location: '/settings/translate',
-    variants: {ShotVariant.dark, ShotVariant.ru},
-    before: (tester, router) async {
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(Scaffold).first),
-      );
-      await tester.runAsync(
-        () => container
-            .read(settingsProvider.notifier)
-            .selectTranslationProvider(TranslationProvider.doubao),
-      );
-    },
-  );
   // A query that matches a page, settings by title and one by an option.
   testShot(
     'settings/index-search',

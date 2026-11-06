@@ -196,7 +196,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agreementThirdPartyBody =>
-      '次のサービスには、対応する機能を使ったときにだけ接続します。\n• コメントと小説の翻訳（既定はオフ）：原文を、選んだGoogle翻訳、Baidu翻訳、Doubao（ログインしたDoubaoアカウントで）、または入力したOpenAI互換APIに送信します。\n• 画像検索：選んだ画像を、選んだSauceNAO、iqdb、ascii2dまたはTinEyeにアップロードします。\n\nログイン用のWebページはPixivが提供しており、Pixivが使うサードパーティのリソース（例：ロボット認証）を読み込むことがあります。\n\nアップデート確認：本アプリは24時間に最大1回、GitHub上のバージョン情報を自動で取得します。F-Droid版はアップデートを確認しません。';
+      '次のサービスには、対応する機能を使ったときにだけ接続します。\n• コメントと小説の翻訳（既定はオフ）：原文を、選んだGoogle翻訳、Baidu翻訳、Bilibili Index Translate（公開API）、または入力したOpenAI互換APIに送信します。\n• 画像検索：選んだ画像を、選んだSauceNAO、iqdb、ascii2dまたはTinEyeにアップロードします。\n\nログイン用のWebページはPixivが提供しており、Pixivが使うサードパーティのリソース（例：ロボット認証）を読み込むことがあります。\n\nアップデート確認：本アプリは24時間に最大1回、GitHub上のバージョン情報を自動で取得します。F-Droid版はアップデートを確認しません。';
 
   @override
   String get agreementPrivacyTitle => 'プライバシーとローカルデータ';
@@ -1122,6 +1122,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get translateLlm => 'カスタム LLM（OpenAI 互換）';
 
   @override
+  String get translateIndex => 'Index Translate';
+
+  @override
+  String get translateIndexModel => 'Index Translate モデル';
+
+  @override
+  String get translateIndexModel2B => '2B';
+
+  @override
+  String get translateIndexModel9B => '9B';
+
+  @override
+  String get translateIndexModel35B => '35B-A3B';
+
+  @override
+  String get translateIndexThinking => '思考を有効化';
+
+  @override
+  String get translateIndexThinkingHint => 'モデルの思考出力を許可します。時間がかかる場合があります';
+
+  @override
   String get translateBaiduCredential => '百度 AppID / シークレット';
 
   @override
@@ -1166,38 +1187,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get translateCredentialsInvalid => '入力が不完全か、エンドポイントが HTTPS ではありません';
-
-  @override
-  String get translateDoubao => 'Doubao（ウェブログイン）';
-
-  @override
-  String get translateDoubaoAccount => 'Doubao アカウント';
-
-  @override
-  String get translateDoubaoSignedIn => 'ログイン済み';
-
-  @override
-  String get translateDoubaoSignedOut => '未ログイン';
-
-  @override
-  String get translateDoubaoSignOut => 'Doubao からログアウトしますか？';
-
-  @override
-  String get translateDoubaoSignOutConfirm =>
-      '保存された Doubao のログイン情報を削除します。翻訳する前に再度ログインしてください。';
-
-  @override
-  String get translateDoubaoSignOutAction => 'ログアウト';
-
-  @override
-  String get doubaoLoginTitle => 'Doubao にログイン';
-
-  @override
-  String get doubaoLoginDone => '完了';
-
-  @override
-  String get doubaoLoginNotDetected =>
-      'Doubao のログインをまだ検出できません。先にページでログインしてください';
 
   @override
   String get downloadTasksEmpty => 'ダウンロードタスクはありません';
