@@ -198,6 +198,12 @@ class IndexTranslateTranslationTransport
     if (choices is! List || choices.isEmpty) return null;
     final first = choices.first;
     if (first is! Map<String, dynamic>) return null;
+    if (first['finish_reason'] == 'length') {
+      throw const TranslationError(
+        'Index Translate response truncated',
+        TranslationFailureKind.malformed,
+      );
+    }
     final message = first['message'];
     if (message is! Map<String, dynamic>) return null;
     final content = message['content'];

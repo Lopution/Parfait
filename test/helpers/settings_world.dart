@@ -75,6 +75,9 @@ class FakeTranslationStore implements TranslationCredentialStore {
     baidu = null;
     llm = null;
   }
+
+  @override
+  Future<void> retireLegacyWebSession() async {}
 }
 
 /// Settings past onboarding with a fixed language, theme and image source.

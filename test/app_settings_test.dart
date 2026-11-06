@@ -36,7 +36,16 @@ void main() {
     expect(settings.maxDownloadCount, 3);
     expect(
       AppSettings.fromJson({'translateIndex': 4}).translationProvider,
-      TranslationProvider.indexTranslate,
+      TranslationProvider.disabled,
+    );
+    expect(
+      AppSettings.fromJson(
+        {'translationProvider': 4},
+        fallback: baseTestSettings().copyWith(
+          translateIndex: TranslationProvider.indexTranslate.code,
+        ),
+      ).translationProvider,
+      TranslationProvider.disabled,
     );
   });
 

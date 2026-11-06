@@ -53,7 +53,9 @@ reviewed: 2026-10-14
   writes `TranslationCredentialStore`, never sends an authorization header or
   cookie, and keeps its endpoint/model selectors in ordinary validated
   settings. Provider selection and selectors remain independent of the
-  Baidu/LLM secret families.
+  Baidu/LLM secret families. Retired provider codes are never reused: the
+  former web-login code maps to `disabled` on settings and backup import, and
+  its secure-storage session keys are purged at app startup.
 - **Why:** Public Index Translate replaced the former web-login provider;
   retaining cookie or key plumbing would create an unneeded secret boundary
   and could accidentally send stale credentials.

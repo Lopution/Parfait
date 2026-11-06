@@ -85,6 +85,10 @@ abstract class TranslationCredentialStore {
   Future<void> deleteBaidu();
   Future<void> deleteLlm();
   Future<void> deleteAll();
+
+  /// Removes credentials written by the retired web-login provider. The
+  /// default keeps test doubles and alternate stores source-compatible.
+  Future<void> retireLegacyWebSession() async {}
 }
 
 /// Android Keystore backed implementation with an isolated key namespace.
@@ -98,6 +102,8 @@ class SecureTranslationCredentialStore implements TranslationCredentialStore {
   static const _llmBaseUrlKey = '${_keyNamespace}llm.base_url';
   static const _llmApiKeyKey = '${_keyNamespace}llm.api_key';
   static const _llmModelKey = '${_keyNamespace}llm.model';
+  static const _legacyWebCookieKey = '${_keyNamespace}doubao.cookie';
+  static const _legacyWebDeviceKey = '${_keyNamespace}doubao.tea_uuid';
 
   final FlutterSecureStorage _storage;
 
@@ -170,7 +176,13 @@ class SecureTranslationCredentialStore implements TranslationCredentialStore {
     _llmBaseUrlKey,
     _llmApiKeyKey,
     _llmModelKey,
+    _legacyWebCookieKey,
+    _legacyWebDeviceKey,
   ]);
+
+  @override
+  Future<void> retireLegacyWebSession() =>
+      _deleteKeys([_legacyWebCookieKey, _legacyWebDeviceKey]);
 
   Future<void> _deleteKeys(List<String> keys) async {
     try {

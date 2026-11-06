@@ -863,17 +863,32 @@ void main() {
     expect(find.text('Index Translate 模型'), findsOneWidget);
     expect(find.text('启用思考模式'), findsOneWidget);
 
-    final element = tester.element(find.byType(TranslateSettingsPage));
-    final controller = ProviderScope.containerOf(
-      element,
-    ).read(settingsProvider.notifier);
-    await controller.selectIndexTranslateModel(IndexTranslateModel.twoB);
-    await controller.setIndexTranslateThinking(true);
+    await tester.tap(find.text('35B-A3B'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2B'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('启用思考模式'));
+    await tester.pumpAndSettle();
     expect(
       (await storedSettings().load()).indexTranslateModel,
       IndexTranslateModel.twoB,
     );
     expect((await storedSettings().load()).indexTranslateThinking, isTrue);
+
+    await tester.tap(find.text('百度翻译'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'Index Translate 模型'))
+          .enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, '启用思考模式'))
+          .onChanged,
+      isNull,
+    );
   });
 
   testWidgets(

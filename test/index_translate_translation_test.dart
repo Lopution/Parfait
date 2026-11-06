@@ -8,18 +8,22 @@ import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/translation/index_translate_translation.dart';
 import 'package:parfait/core/translation/translation_transport.dart';
 
-http.Response _success(String content) => http.Response.bytes(
-  utf8.encode(
-    jsonEncode({
-      'choices': [
-        {
-          'message': {'content': content},
-        },
-      ],
-    }),
-  ),
-  200,
-);
+http.Response _success(String content, {String? finishReason}) =>
+    http.Response.bytes(
+      utf8.encode(
+        jsonEncode({
+          'choices': [
+            {
+              'message': {'content': content},
+              ...?(finishReason == null
+                  ? null
+                  : {'finish_reason': finishReason}),
+            },
+          ],
+        }),
+      ),
+      200,
+    );
 
 IndexTranslateTranslationTransport _transport(
   http.Client client, {
@@ -117,7 +121,7 @@ void main() {
 
     await expectLater(
       _transport(
-        MockClient((_) async => http.Response('{}', 200)),
+        MockClient((_) async => _success('partial', finishReason: 'length')),
       ).translate('hello', targetLanguage: 'zh'),
       throwsA(
         isA<TranslationError>().having(

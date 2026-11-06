@@ -24,8 +24,9 @@ enum TranslationProvider {
   baidu(2),
   translationLlm(3),
 
-  /// Public Bilibili Index Translate endpoint.
-  indexTranslate(4);
+  /// Public Bilibili Index Translate endpoint. Code 4 was the retired
+  /// Doubao provider and is deliberately not reused for migration safety.
+  indexTranslate(5);
 
   const TranslationProvider(this.code);
 
@@ -447,9 +448,11 @@ class AppSettings {
   }) {
     final base = fallback ?? AppSettings.defaults();
     final source = json['imageSource'] ?? json['imageSourceMode'];
-    final provider = TranslationProvider.fromCode(
-      json['translateIndex'] ?? json['translationProvider'],
-    );
+    final persistedProvider =
+        json['translateIndex'] ?? json['translationProvider'];
+    final provider = persistedProvider == 4
+        ? TranslationProvider.disabled
+        : TranslationProvider.fromCode(persistedProvider);
     final maxDownloads = json['maxDownloadCount'];
     final legacyPreview = json['previewQuality'];
     final legacyScale = json['scaleQuality'];
@@ -824,9 +827,10 @@ class AppSettings {
       animationSpeed: animationSpeed ?? this.animationSpeed,
       pressFeedback: pressFeedback ?? this.pressFeedback,
       hapticStrength: hapticStrength ?? this.hapticStrength,
-      translateIndex:
-          TranslationProvider.fromCode(translateIndex)?.code ??
-          this.translateIndex,
+      translateIndex: translateIndex == 4
+          ? TranslationProvider.disabled.code
+          : TranslationProvider.fromCode(translateIndex)?.code ??
+                this.translateIndex,
       indexTranslateModel: indexTranslateModel ?? this.indexTranslateModel,
       indexTranslateThinking:
           indexTranslateThinking ?? this.indexTranslateThinking,
