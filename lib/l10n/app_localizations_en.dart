@@ -200,7 +200,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agreementThirdPartyBody =>
-      'These services are contacted only when you use the matching feature:\n• Comment and novel translation (off by default): sends the original text to the Google Translate, Baidu Translate, Doubao (as the Doubao account you signed in with) or OpenAI-compatible endpoint you chose;\n• Reverse image search: uploads the image you picked to SauceNAO, iqdb, ascii2d or TinEye, whichever you chose.\n\nThe sign-in pages are served by Pixiv and may load third-party resources Pixiv uses (for example, CAPTCHA checks).\n\nUpdate checks: the app fetches the version manifest on GitHub automatically at most once every 24 hours; the F-Droid build does not check for updates.';
+      'These services are contacted only when you use the matching feature:\n• Comment and novel translation (off by default): sends the original text to Google Translate, Baidu Translate, Bilibili Index Translate (public API) or the OpenAI-compatible endpoint you chose;\n• Reverse image search: uploads the image you picked to SauceNAO, iqdb, ascii2d or TinEye, whichever you chose.\n\nThe sign-in pages are served by Pixiv and may load third-party resources Pixiv uses (for example, CAPTCHA checks).\n\nUpdate checks: the app fetches the version manifest on GitHub automatically at most once every 24 hours; the F-Droid build does not check for updates.';
 
   @override
   String get agreementPrivacyTitle => 'Privacy and local data';
@@ -1144,6 +1144,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get translateLlm => 'Custom LLM (OpenAI-compatible)';
 
   @override
+  String get translateIndex => 'Index Translate';
+
+  @override
+  String get translateIndexModel => 'Index Translate model';
+
+  @override
+  String get translateIndexModel2B => '2B';
+
+  @override
+  String get translateIndexModel9B => '9B';
+
+  @override
+  String get translateIndexModel35B => '35B-A3B';
+
+  @override
+  String get translateIndexThinking => 'Enable thinking';
+
+  @override
+  String get translateIndexThinkingHint =>
+      'Allows model reasoning output and may take longer';
+
+  @override
   String get translateBaiduCredential => 'Baidu AppID / secret';
 
   @override
@@ -1190,38 +1212,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get translateCredentialsInvalid =>
       'Incomplete input or endpoint is not HTTPS';
-
-  @override
-  String get translateDoubao => 'Doubao (web sign-in)';
-
-  @override
-  String get translateDoubaoAccount => 'Doubao account';
-
-  @override
-  String get translateDoubaoSignedIn => 'Signed in';
-
-  @override
-  String get translateDoubaoSignedOut => 'Not signed in';
-
-  @override
-  String get translateDoubaoSignOut => 'Sign out of Doubao?';
-
-  @override
-  String get translateDoubaoSignOutConfirm =>
-      'The saved Doubao sign-in will be deleted; sign in again before translating.';
-
-  @override
-  String get translateDoubaoSignOutAction => 'Sign out';
-
-  @override
-  String get doubaoLoginTitle => 'Sign in to Doubao';
-
-  @override
-  String get doubaoLoginDone => 'Done';
-
-  @override
-  String get doubaoLoginNotDetected =>
-      'No Doubao sign-in detected yet; sign in on the page first';
 
   @override
   String get downloadTasksEmpty => 'No download tasks';

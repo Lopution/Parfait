@@ -177,7 +177,7 @@ reviewed: 2026-10-17
   credential keeps its risk note. Developer pages and help the user
   opens are exempt.
 - **Why:** User decision (10-25): the notes read as secondary headings
-  written as annotations. The Doubao risk paragraph went with them.
+  written as annotations. A credential risk paragraph went with them.
 - **Check:** `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"; `test/history_page_test.dart` "an empty history with recording off offers to turn it on"
 - **Code:** `lib/features/settings/`, `lib/app/widgets/feed/feed_states.dart`
 

@@ -9,6 +9,9 @@ import '../core/actionqueue/action_bootstrap.dart';
 import '../core/auth/account_store.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
+import '../core/log.dart';
+import '../core/translation/translation_service.dart';
+import '../core/translation/legacy_translation_cleanup.dart';
 import '../core/updater/update_auto_check.dart';
 import '../core/updater/update_service.dart';
 import '../core/download/download_providers.dart';
@@ -90,11 +93,22 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // account listener, which drains each account's queued mutations as it
     // becomes current; the resumed hook below repeats it on foreground.
     ref.read(actionQueuePumpProvider);
+    unawaited(_retireLegacyTranslationSession());
     // R2: one delayed background update check per throttle window.
     // Failure and no-update stay silent.
     unawaited(
       Future<void>.delayed(const Duration(seconds: 3), _runAutoUpdateCheck),
     );
+  }
+
+  Future<void> _retireLegacyTranslationSession() async {
+    try {
+      await retireLegacyTranslationData(
+        ref.read(translationCredentialStoreProvider),
+      );
+    } catch (error) {
+      log('translation legacy credential cleanup failed: $error');
+    }
   }
 
   Future<void> _runAutoUpdateCheck() async {

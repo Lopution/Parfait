@@ -148,6 +148,12 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> selectTranslationProvider(TranslationProvider provider) =>
       _update((settings) => settings.copyWith(translateIndex: provider.code));
 
+  Future<void> selectIndexTranslateModel(IndexTranslateModel model) =>
+      _update((settings) => settings.copyWith(indexTranslateModel: model));
+
+  Future<void> setIndexTranslateThinking(bool enabled) =>
+      _update((settings) => settings.copyWith(indexTranslateThinking: enabled));
+
   Future<void> setMaxDownloadCount(int count) {
     if (count < 1 || count > 10) {
       throw ArgumentError.value(count, 'count', 'must be between 1 and 10');
@@ -329,6 +335,24 @@ final translationProvider = Provider<TranslationProvider>((ref) {
     settingsProvider.select(
       (async) =>
           async.value?.translationProvider ?? TranslationProvider.disabled,
+    ),
+  );
+});
+
+final indexTranslateModelProvider = Provider<IndexTranslateModel>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) =>
+          async.value?.indexTranslateModel ??
+          IndexTranslateModel.thirtyFiveBA3B,
+    ),
+  );
+});
+
+final indexTranslateThinkingProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.indexTranslateThinking ?? false,
     ),
   );
 });

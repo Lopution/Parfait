@@ -54,7 +54,6 @@
  "test/disk_image_cache_test.dart": 1.0,
  "test/dns_message_test.dart": 0.8,
  "test/doh_resolver_test.dart": 1.0,
- "test/doubao_web_translation_test.dart": 2.1,
  "test/download_manager_test.dart": 1.9,
  "test/download_recovery_test.dart": 1.9,
  "test/download_resume_test.dart": 4.7,

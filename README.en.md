@@ -49,7 +49,7 @@ The original project is no longer maintained, and direct access to pixiv from ma
 - **Network and image sources**: network mode Automatic, Direct only or Compatibility-first; the image source is picked by speed on your network, or set to a public mirror such as pixiv.re or your own reverse proxy.
 - **Novels and series**: a reader with adjustable font size and line spacing, and paper, eye-care and night themes; follow manga and novel series; import local TXT novels with automatic encoding detection.
 - **Collections and muting**: bookmarks with tags, follows, watch later and history; mute tags, users or single works, or hide R-18 and AI-generated works locally.
-- **Comments and translation**: comment right on the artwork page, with emoji and stickers; translate comments and novels with Google Translate, Baidu Translate, Doubao (signed in with your own account) or any OpenAI-compatible endpoint. Text or images go to the service you chose only when you translate or search.
+- **Comments and translation**: comment right on the artwork page, with emoji and stickers; translate comments and novels with Google Translate, Baidu Translate, Index Translate (public API) or any OpenAI-compatible endpoint. Text or images go to the service you chose only when you translate or search.
 - **Your setup, on any device**: multiple accounts, and move your login to another device; back up and import settings, mute lists and history; choose the bottom bar pages, the start page and the grid density; English, 日本語, Русский and 中文, with colours from your wallpaper.
 
 ## Download

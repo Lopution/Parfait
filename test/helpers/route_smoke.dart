@@ -280,7 +280,7 @@ List<RouteMatch> _flatten(List<RouteMatchBase> matches) => [
 ];
 
 /// What every smoke file needs first in `main`: images fade in through
-/// octo_image, and the login and Doubao pages build a web view.
+/// octo_image and the login page build a web view.
 void smokeHarness() {
   ignoreOctoImageFades();
   setUp(() => InAppWebViewPlatform.instance = FakeInAppWebViewPlatform());
@@ -473,7 +473,7 @@ final smokePages = <SmokeGroup, Map<String, SmokePage>>{
   },
   SmokeGroup.settings: {
     for (final path in const [
-      'theme', 'language', 'translate', 'translate/doubao-login', 'network', //
+      'theme', 'language', 'translate', 'network', //
       'network/probe', 'network/advanced', 'frame-probe', 'browse', 'motion',
       'navigation', 'navigation/bottom-bar', 'download',
       'download/destination', 'backup', 'about', 'about/licenses',

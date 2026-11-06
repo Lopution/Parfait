@@ -192,7 +192,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agreementThirdPartyBody =>
-      '以下服务只在你使用相应功能时访问：\n• 评论与小说翻译（默认关闭）：把原文发送给你选择的 Google 翻译、百度翻译、豆包（以你登录的豆包账号），或你填写的 OpenAI 兼容接口；\n• 以图搜图：把你选择的图片上传到你选择的 SauceNAO、iqdb、ascii2d 或 TinEye。\n\n登录网页由 Pixiv 提供，可能加载 Pixiv 使用的第三方资源（例如人机验证）。\n\n检查更新：本应用每 24 小时最多自动访问一次 GitHub 上的版本清单；F-Droid 版本不检查更新。';
+      '以下服务只在你使用相应功能时访问：\n• 评论与小说翻译（默认关闭）：把原文发送给你选择的 Google 翻译、百度翻译、Bilibili Index Translate（公共接口）或你填写的 OpenAI 兼容接口；\n• 以图搜图：把你选择的图片上传到你选择的 SauceNAO、iqdb、ascii2d 或 TinEye。\n\n登录网页由 Pixiv 提供，可能加载 Pixiv 使用的第三方资源（例如人机验证）。\n\n检查更新：本应用每 24 小时最多自动访问一次 GitHub 上的版本清单；F-Droid 版本不检查更新。';
 
   @override
   String get agreementPrivacyTitle => '隐私与本地数据';
@@ -1105,6 +1105,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateLlm => '自定义 LLM（OpenAI 兼容）';
 
   @override
+  String get translateIndex => 'Index Translate';
+
+  @override
+  String get translateIndexModel => 'Index Translate 模型';
+
+  @override
+  String get translateIndexModel2B => '2B';
+
+  @override
+  String get translateIndexModel9B => '9B';
+
+  @override
+  String get translateIndexModel35B => '35B-A3B';
+
+  @override
+  String get translateIndexThinking => '启用思考模式';
+
+  @override
+  String get translateIndexThinkingHint => '允许模型输出思考内容，可能增加耗时';
+
+  @override
   String get translateBaiduCredential => '百度 AppID / 密钥';
 
   @override
@@ -1148,36 +1169,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get translateCredentialsInvalid => '输入不完整或接口地址不是 HTTPS';
-
-  @override
-  String get translateDoubao => '豆包（网页登录）';
-
-  @override
-  String get translateDoubaoAccount => '豆包账号';
-
-  @override
-  String get translateDoubaoSignedIn => '已登录';
-
-  @override
-  String get translateDoubaoSignedOut => '未登录';
-
-  @override
-  String get translateDoubaoSignOut => '退出豆包登录？';
-
-  @override
-  String get translateDoubaoSignOutConfirm => '将删除保存的豆包登录信息，翻译前需要重新登录。';
-
-  @override
-  String get translateDoubaoSignOutAction => '退出登录';
-
-  @override
-  String get doubaoLoginTitle => '登录豆包';
-
-  @override
-  String get doubaoLoginDone => '完成';
-
-  @override
-  String get doubaoLoginNotDetected => '还没有检测到豆包登录，请先在页面中登录';
 
   @override
   String get downloadTasksEmpty => '暂无下载任务';

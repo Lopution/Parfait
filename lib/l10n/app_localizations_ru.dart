@@ -200,7 +200,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get agreementThirdPartyBody =>
-      'К этим сервисам приложение обращается только при использовании соответствующей функции:\n• перевод комментариев и новелл (по умолчанию выключен): исходный текст отправляется в выбранный вами Google Переводчик, Baidu Translate, Doubao (от имени аккаунта Doubao, в который вы вошли) или указанный вами OpenAI-совместимый сервис;\n• поиск по изображению: выбранное изображение загружается в выбранный вами сервис — SauceNAO, iqdb, ascii2d или TinEye.\n\nСтраницы входа предоставляет Pixiv; они могут загружать сторонние ресурсы, которые использует Pixiv (например, проверку CAPTCHA).\n\nПроверка обновлений: приложение автоматически запрашивает файл версий на GitHub не чаще одного раза в 24 часа; версия из F-Droid обновления не проверяет.';
+      'К этим сервисам приложение обращается только при использовании соответствующей функции:\n• перевод комментариев и новелл (по умолчанию выключен): исходный текст отправляется в выбранный вами Google Переводчик, Baidu Translate, Bilibili Index Translate (публичный API) или указанный вами OpenAI-совместимый сервис;\n• поиск по изображению: выбранное изображение загружается в выбранный вами сервис — SauceNAO, iqdb, ascii2d или TinEye.\n\nСтраницы входа предоставляет Pixiv; они могут загружать сторонние ресурсы, которые использует Pixiv (например, проверку CAPTCHA).\n\nПроверка обновлений: приложение автоматически запрашивает файл версий на GitHub не чаще одного раза в 24 часа; версия из F-Droid обновления не проверяет.';
 
   @override
   String get agreementPrivacyTitle => 'Конфиденциальность и локальные данные';
@@ -1145,6 +1145,28 @@ class AppLocalizationsRu extends AppLocalizations {
   String get translateLlm => 'Свой LLM (OpenAI-совместимый)';
 
   @override
+  String get translateIndex => 'Index Translate';
+
+  @override
+  String get translateIndexModel => 'Модель Index Translate';
+
+  @override
+  String get translateIndexModel2B => '2B';
+
+  @override
+  String get translateIndexModel9B => '9B';
+
+  @override
+  String get translateIndexModel35B => '35B-A3B';
+
+  @override
+  String get translateIndexThinking => 'Включить рассуждение';
+
+  @override
+  String get translateIndexThinkingHint =>
+      'Разрешает вывод рассуждений модели и может замедлить перевод';
+
+  @override
   String get translateBaiduCredential => 'AppID / секрет Baidu';
 
   @override
@@ -1189,38 +1211,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get translateCredentialsInvalid => 'Неполный ввод или адрес не HTTPS';
-
-  @override
-  String get translateDoubao => 'Doubao (вход через веб)';
-
-  @override
-  String get translateDoubaoAccount => 'Аккаунт Doubao';
-
-  @override
-  String get translateDoubaoSignedIn => 'Вход выполнен';
-
-  @override
-  String get translateDoubaoSignedOut => 'Вход не выполнен';
-
-  @override
-  String get translateDoubaoSignOut => 'Выйти из Doubao?';
-
-  @override
-  String get translateDoubaoSignOutConfirm =>
-      'Сохранённый вход в Doubao будет удалён; перед переводом войдите снова.';
-
-  @override
-  String get translateDoubaoSignOutAction => 'Выйти';
-
-  @override
-  String get doubaoLoginTitle => 'Вход в Doubao';
-
-  @override
-  String get doubaoLoginDone => 'Готово';
-
-  @override
-  String get doubaoLoginNotDetected =>
-      'Вход в Doubao пока не обнаружен; сначала войдите на странице';
 
   @override
   String get downloadTasksEmpty => 'Нет задач загрузки';
