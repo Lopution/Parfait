@@ -15,6 +15,7 @@ import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_tile.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/translation/translation_service.dart'
     show translationCredentialStoreProvider;
 import 'package:parfait/core/network/compat/network_providers.dart';
@@ -119,7 +120,11 @@ void main() {
     await seedAccounts([
       const Account(id: '100', userId: 100, name: 'tester'),
     ], currentId: '100');
-    await seedSettings(baseTestSettings(languageTag: 'zh-CN'));
+    await seedSettings(
+      baseTestSettings(
+        languageTag: 'zh-CN',
+      ).copyWith(translateIndex: TranslationProvider.indexTranslate.code),
+    );
     PackageInfo.setMockInitialValues(
       appName: 'Parfait',
       packageName: 'io.github.lopution.parfait',

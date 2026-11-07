@@ -138,48 +138,52 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
                 ],
               ),
             ),
-            SettingsGroup(
-              children: [
-                SettingsMenuTile<IndexTranslateModel>(
-                  setting: Setting.indexTranslateModel,
-                  value: settings.indexTranslateModel,
-                  options: [
-                    for (final model in IndexTranslateModel.values)
-                      AppMenuEntry(
-                        value: model,
-                        label: switch (model) {
-                          IndexTranslateModel.twoB =>
-                            context.l10n.translateIndexModel2B,
-                          IndexTranslateModel.nineB =>
-                            context.l10n.translateIndexModel9B,
-                          IndexTranslateModel.thirtyFiveBA3B =>
-                            context.l10n.translateIndexModel35B,
-                        },
+            SpringSize(
+              child: provider == TranslationProvider.indexTranslate
+                  ? StateFade.onMount(
+                      child: SettingsGroup(
+                        children: [
+                          SettingsMenuTile<IndexTranslateModel>(
+                            setting: Setting.indexTranslateModel,
+                            value: settings.indexTranslateModel,
+                            options: [
+                              for (final model in IndexTranslateModel.values)
+                                AppMenuEntry(
+                                  value: model,
+                                  label: switch (model) {
+                                    IndexTranslateModel.twoB =>
+                                      context.l10n.translateIndexModel2B,
+                                    IndexTranslateModel.nineB =>
+                                      context.l10n.translateIndexModel9B,
+                                    IndexTranslateModel.thirtyFiveBA3B =>
+                                      context.l10n.translateIndexModel35B,
+                                  },
+                                ),
+                            ],
+                            onChanged: (model) => persistSettings(
+                              context,
+                              () => ref
+                                  .read(settingsProvider.notifier)
+                                  .selectIndexTranslateModel(model),
+                            ),
+                          ),
+                          SettingsControl(
+                            setting: Setting.indexTranslateThinking,
+                            subtitle: Text(
+                              context.l10n.translateIndexThinkingHint,
+                            ),
+                            value: settings.indexTranslateThinking,
+                            onChanged: (enabled) => persistSettings(
+                              context,
+                              () => ref
+                                  .read(settingsProvider.notifier)
+                                  .setIndexTranslateThinking(enabled),
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                  onChanged: provider == TranslationProvider.indexTranslate
-                      ? (model) => persistSettings(
-                          context,
-                          () => ref
-                              .read(settingsProvider.notifier)
-                              .selectIndexTranslateModel(model),
-                        )
-                      : null,
-                ),
-                SettingsControl(
-                  setting: Setting.indexTranslateThinking,
-                  subtitle: Text(context.l10n.translateIndexThinkingHint),
-                  value: settings.indexTranslateThinking,
-                  onChanged: provider == TranslationProvider.indexTranslate
-                      ? (enabled) => persistSettings(
-                          context,
-                          () => ref
-                              .read(settingsProvider.notifier)
-                              .setIndexTranslateThinking(enabled),
-                        )
-                      : null,
-                ),
-              ],
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),

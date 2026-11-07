@@ -877,18 +877,8 @@ void main() {
 
     await tester.tap(find.text('百度翻译'));
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<ListTile>(find.widgetWithText(ListTile, 'Index Translate 模型'))
-          .enabled,
-      isFalse,
-    );
-    expect(
-      tester
-          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, '启用思考模式'))
-          .onChanged,
-      isNull,
-    );
+    expect(find.text('Index Translate 模型'), findsNothing);
+    expect(find.text('启用思考模式'), findsNothing);
   });
 
   testWidgets(

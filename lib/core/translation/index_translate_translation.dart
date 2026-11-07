@@ -127,7 +127,7 @@ class IndexTranslateTranslationTransport
         TranslationFailureKind.malformed,
       );
     }
-    final result = _enableThinking ? content : _stripThink(content);
+    final result = _stripThink(content);
     if (result.trim().isEmpty) {
       throw const TranslationError(
         'empty translation',

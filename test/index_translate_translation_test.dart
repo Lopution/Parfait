@@ -69,15 +69,32 @@ void main() {
     },
   );
 
-  test('thinking can be enabled and its output stays observable', () async {
+  test('thinking can be enabled without exposing its markup', () async {
+    String? body;
     final transport = _transport(
-      MockClient((_) async => _success('<think>reason</think>answer')),
+      MockClient((request) async {
+        body = request.body;
+        return _success('<think>reason</think>answer');
+      }),
+      thinking: true,
+    );
+
+    expect(await transport.translate('hello', targetLanguage: 'en'), 'answer');
+    expect(
+      (jsonDecode(body!) as Map<String, dynamic>)['chat_template_kwargs'],
+      {'enable_thinking': true},
+    );
+  });
+
+  test('a response without thinking markup stays unchanged', () async {
+    final transport = _transport(
+      MockClient((_) async => _success('plain answer')),
       thinking: true,
     );
 
     expect(
       await transport.translate('hello', targetLanguage: 'en'),
-      '<think>reason</think>answer',
+      'plain answer',
     );
   });
 
