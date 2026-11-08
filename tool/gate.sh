@@ -59,11 +59,14 @@ pkg="$(sed -n 's/^name: *//p' pubspec.yaml | head -n 1)"
 
 # Committed since the base, uncommitted, and untracked; deleted paths stay
 # in the list (a deleted lib file still selects the tests that import it).
-mapfile -t changed < <({
-  git diff --name-only "$base"...HEAD
-  git diff --name-only HEAD
-  git ls-files --others --exclude-standard
-} | sort -u)
+changed_list="$(mktemp -t gate-changed.XXXXXX)"
+{
+  git diff --name-only "$base"...HEAD &&
+    git diff --name-only HEAD &&
+    git ls-files --others --exclude-standard
+} > "$changed_list" && sort -u -o "$changed_list" "$changed_list" ||
+  { echo "gate: cannot list the changed files" >&2; exit 2; }
+mapfile -t changed < "$changed_list"
 
 results=()
 failed=0
@@ -178,11 +181,11 @@ case "$mode" in
       whole_suite_trigger
       if [[ -z "$whole_suite_reason" ]]; then
         selection="$(mktemp -t gate-selection.XXXXXX)"
-        if ! select_tests > "$selection"; then
-          results+=("FAIL  test selection (grep could not read test/)")
+        if ! select_tests > "$selection" || ! sort -u -o "$selection" "$selection"; then
+          results+=("FAIL  test selection (could not read test/)")
           failed=1
         fi
-        mapfile -t tests < <(sort -u "$selection")
+        mapfile -t tests < "$selection"
       fi
     fi
     if [[ -n "$whole_suite_reason" ]]; then
