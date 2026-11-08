@@ -98,23 +98,25 @@ whole_suite_trigger() {
   done
 }
 
-# The test files that changed or import a changed file directly.
+# The test files that changed or import a changed file directly; fails
+# when grep cannot read test/ (exit 1 only means no file imports it).
 select_tests() {
-  local file needle
+  local file needle status=0
   for file in "${changed[@]}"; do
     case "$file" in
       test/review/*) ;;
       test/*_test.dart) [[ -f "$file" ]] && echo "$file" ;;
       lib/*.dart)
         needle="package:$pkg/${file#lib/}"
-        grep -rlF --include='*_test.dart' "$needle" test || true
+        grep -rlF --include='*_test.dart' "$needle" test || [[ $? -eq 1 ]] || status=1
         ;;
       test/*.dart)
         needle="${file#test/}"
-        grep -rlF --include='*_test.dart' "$needle" test || true
+        grep -rlF --include='*_test.dart' "$needle" test || [[ $? -eq 1 ]] || status=1
         ;;
     esac
   done
+  return "$status"
 }
 
 run_tests() {
@@ -174,7 +176,14 @@ case "$mode" in
       tests=("${explicit[@]}")
     else
       whole_suite_trigger
-      [[ -n "$whole_suite_reason" ]] || mapfile -t tests < <(select_tests | sort -u)
+      if [[ -z "$whole_suite_reason" ]]; then
+        selection="$(mktemp -t gate-selection.XXXXXX)"
+        if ! select_tests > "$selection"; then
+          results+=("FAIL  test selection (grep could not read test/)")
+          failed=1
+        fi
+        mapfile -t tests < <(sort -u "$selection")
+      fi
     fi
     if [[ -n "$whole_suite_reason" ]]; then
       step "tests (whole suite: $whole_suite_reason)" run_tests
