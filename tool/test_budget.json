@@ -1,4 +1,5 @@
 {
  "ratio": 0.657,
- "growth_warning": 400
+ "change_tolerance": 150,
+ "trend_warning": 0.68
 }
