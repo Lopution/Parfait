@@ -107,7 +107,6 @@ select_tests() {
   local file needle status=0
   for file in "${changed[@]}"; do
     case "$file" in
-      test/review/*) ;;
       test/*_test.dart) [[ -f "$file" ]] && echo "$file" ;;
       lib/*.dart)
         needle="package:$pkg/${file#lib/}"
