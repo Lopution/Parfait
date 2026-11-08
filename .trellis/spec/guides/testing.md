@@ -186,12 +186,15 @@ reviewed: 2026-10-30
   `tool/test_shards.py`; never use `flutter test --total-shards`. Every
   file under `test/` ending in `_test.dart` lands in exactly one shard. A
   case still sets up its own state, so `--plain-name` runs it alone.
+  Locally `tool/gate.sh` runs the analyze job's checks and only the test
+  files that changed or import a changed file; the whole suite runs in CI.
 - **Why:** `--total-shards` splits cases inside every file, so each shard
   compiled and loaded almost the whole suite and extra shards bought
   little; case-level splitting also broke cases that relied on an earlier
-  one.
+  one. Seven shards finish in about three minutes; the suite run file by
+  file locally takes about twenty.
 - **Check:** `tool/test_shards.py`
-- **Code:** `tool/test_shards.py`, `.github/workflows/ci.yml`
+- **Code:** `tool/test_shards.py`, `tool/gate.sh`, `.github/workflows/ci.yml`
 
 ### TEST-07 Loopback sockets retry; databases get their own path
 - **Rule:** A test that binds or connects to `127.0.0.1` wraps its body in
