@@ -81,36 +81,39 @@ reviewed: 2026-10-30
 
 ## Volume
 
-### TEST-05 The suite stays within its budget
-- **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart code
-  lines (`tool/test_budget.json`, 0.657; blank and comment lines excluded;
-  `test/review/` and `test/fixtures/` not counted, nor the localizations
-  `flutter gen-l10n` writes into `lib/l10n/`), so tests grow with the code
-  but not faster. Only the user changes the ratio; an agent asks and
-  never edits it without that consent. A change whose `test/` growth exceeds the
-  ratio × its `lib/` growth (none when `lib/` shrinks) by more than
-  `growth_warning` (400) code lines gets a CI warning, never a failure:
-  table-drive or prune before adding more. A change that needs room makes
-  it in this order: dedupe or table-drive repeated cases; drop UI tests of
-  colour, spacing, order or copy; drop tests of removed code; drop a
-  duplicated layer; prune under TEST-13. Coverage of core logic, fixed bugs
-  and security is never given up for room. A UI change ships one or two tests of its key behaviour; layout,
-  colour, spacing and copy are checked with review screenshots. No
-  per-locale or per-variant copies of a case. Core logic (network,
-  credentials, downloads, paging, parsing, persistence) and every fixed bug
-  keep thorough coverage. A file over 1500 lines is split by feature, with
-  shared fakes in `test/helpers/`. A test file is named after the `lib/`
-  module it covers; a file of one or two cases joins its feature's file
-  unless it is the only test of its module.
+### TEST-05 Each change keeps its tests in step with its code
+- **Rule:** User decision (11-08): a change may add at most `ratio` ×
+  its `lib/` growth (none when `lib/` shrinks) plus `change_tolerance`
+  `test/` code lines (`tool/test_budget.json`: 0.657, 150); more fails CI.
+  The suite's test/lib is reported on every run and warns above
+  `trend_warning` (0.68), the user's cue for a slimming round; it never
+  fails. Only the user changes these numbers; an agent asks and never
+  edits them without that consent. Counted: Dart code lines, blank and
+  comment lines excluded; not `test/review/`, `test/fixtures/` or the
+  localizations `flutter gen-l10n` writes into `lib/l10n/`. A change that
+  needs room makes it in this order: dedupe or table-drive repeated cases;
+  drop UI tests of colour, spacing, order or copy; drop tests of removed
+  code; drop a duplicated layer; prune under TEST-13. Coverage of core
+  logic, fixed bugs and security is never given up for room. A UI change
+  ships one or two tests of its key behaviour; layout, colour, spacing and
+  copy are checked with review screenshots. No per-locale or per-variant
+  copies of a case. Core logic (network, credentials, downloads, paging,
+  parsing, persistence) and every fixed bug keep thorough coverage. A file
+  over 1500 lines is split by feature, with shared fakes in
+  `test/helpers/`. A test file is named after the `lib/` module it covers;
+  a file of one or two cases joins its feature's file unless it is the
+  only test of its module.
 - **Why:** The suite doubled in a month, mostly with parameter assertions
   and duplicated layers; dozens of one-case files each cost a compile;
-  test/lib rose from 0.41 to 0.81. Under a fixed 60,000-line cap the
-  suite grew in step with `lib/` (about 0.55 test lines per new lib
-  line) and met the cap again within a week; a ratio keeps the alarm for
-  tests outgrowing the code without a wall every few days. The cap alone
-  showed growth only at the wall; the warning shows it in the change that
-  adds it (400 would have flagged about 4% of past PRs). Generated
-  localizations grow with every string, not with the code tests cover.
+  test/lib rose from 0.41 to 0.81. A fixed 60,000-line cap and then a
+  total cap of ratio × `lib/` (10-13 to 11-08) both sat full: the ratio
+  was raised five times, changes folded lines to fit, and a change
+  deleting 420 `lib/` lines tightened the cap. Of the 44 changes after
+  10-29 the median added 17 lines over ratio × its `lib/` growth, 80%
+  at most 85 (a bug fix brings its case with little code); 150 would
+  have stopped five, the largest the 409-line smoke matrix. Gating each
+  change keeps that discipline without a shared wall; the trend warning
+  catches the slow drift a per-change gate allows.
 - **Check:** `tool/test_budget.py`, `test/architecture/test_hygiene_test.dart` "test files stay under"
 - **Code:** `test`
 
@@ -183,12 +186,15 @@ reviewed: 2026-10-30
   `tool/test_shards.py`; never use `flutter test --total-shards`. Every
   file under `test/` ending in `_test.dart` lands in exactly one shard. A
   case still sets up its own state, so `--plain-name` runs it alone.
+  Locally `tool/gate.sh` runs the analyze job's checks and only the test
+  files that changed or import a changed file; the whole suite runs in CI.
 - **Why:** `--total-shards` splits cases inside every file, so each shard
   compiled and loaded almost the whole suite and extra shards bought
   little; case-level splitting also broke cases that relied on an earlier
-  one.
+  one. Seven shards finish in about three minutes; the suite run file by
+  file locally takes about twenty.
 - **Check:** `tool/test_shards.py`
-- **Code:** `tool/test_shards.py`, `.github/workflows/ci.yml`
+- **Code:** `tool/test_shards.py`, `tool/gate.sh`, `.github/workflows/ci.yml`
 
 ### TEST-07 Loopback sockets retry; databases get their own path
 - **Rule:** A test that binds or connects to `127.0.0.1` wraps its body in

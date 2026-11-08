@@ -29,7 +29,7 @@ reviews:
   path_instructions:
     - path: "test/**"
       instructions: >-
-        Test code is capped at a ratio of the lib code (spec TEST-05): do
+        A change's test growth is capped by its lib growth (spec TEST-05): do
         not ask for tests of colour, spacing, order or copy, or for tests
         of how a refactor or optimisation works inside (TEST-12). A fix's
         test belongs beside the tests of its behaviour (TEST-01). Pruning
