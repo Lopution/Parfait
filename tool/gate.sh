@@ -53,6 +53,9 @@ for tool in flutter dart python3; do
 done
 base="$(git merge-base HEAD "$base_ref")" ||
   { echo "gate: no merge base with $base_ref" >&2; exit 2; }
+# The package name turns a changed lib/ file into the import tests use.
+pkg="$(sed -n 's/^name: *//p' pubspec.yaml | head -n 1)"
+[[ -n "$pkg" ]] || { echo "gate: no package name in pubspec.yaml" >&2; exit 2; }
 
 # Committed since the base, uncommitted, and untracked; deleted paths stay
 # in the list (a deleted lib file still selects the tests that import it).
@@ -97,8 +100,7 @@ whole_suite_trigger() {
 
 # The test files that changed or import a changed file directly.
 select_tests() {
-  local pkg file needle
-  pkg="$(sed -n 's/^name: *//p' pubspec.yaml | head -n 1)"
+  local file needle
   for file in "${changed[@]}"; do
     case "$file" in
       test/review/*) ;;
@@ -123,13 +125,16 @@ run_tests() {
   log="$(mktemp -t gate-test.XXXXXX.log)"
   since="$(date +%s)"
   local command=(flutter test "${tests[@]}")
-  if command -v systemd-run >/dev/null; then
+  # A systemd-run whose system manager is unreachable (a container) fails
+  # before running anything: probe it, and say when there is no cap.
+  if command -v systemd-run >/dev/null &&
+    systemd-run --scope --quiet -p "MemoryMax=$memory" true 2>/dev/null; then
     echo "memory cap $memory; log $log"
     systemd-run --scope --quiet -p "MemoryMax=$memory" -p MemorySwapMax=0 \
       "${command[@]}" 2>&1 | tee "$log"
     status=${PIPESTATUS[0]}
   else
-    echo "no systemd-run: running without a memory cap; log $log"
+    echo "systemd-run cannot create a scope here: running without a memory cap; log $log"
     "${command[@]}" 2>&1 | tee "$log"
     status=${PIPESTATUS[0]}
   fi
