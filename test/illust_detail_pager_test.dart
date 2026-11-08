@@ -381,15 +381,14 @@ void main() {
     final source = IllustPagerSource()..update(const [42, 43, 44]);
     await _pumpPager(tester, container, source: source, initialId: 43);
     final account = container.read(historyAccountIdProvider)!;
-    // The ffi database answers on the real loop.
-    Future<List<int>?> recorded() => tester.runAsync(() async {
-      for (var i = 0; i < 3; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        await tester.pump();
-      }
-      final page = await history.page(accountId: account);
-      return [for (final record in page.records) record.contentId];
-    });
+    // The pages commit without waiting; a read waits their writes out.
+    Future<List<int>> recorded() async {
+      await settleHistory(tester, history);
+      final page = await tester.runAsync(
+        () => history.page(accountId: account),
+      );
+      return [for (final record in page!.records) record.contentId];
+    }
 
     expect(_detail(42), findsOneWidget);
     expect(_detail(44), findsOneWidget);
@@ -403,7 +402,7 @@ void main() {
     await tester.pump(IllustDetailPagerPage.activeDwell);
     // Closing commits each built page; one never seen leaves no row.
     await tester.pumpWidget(const SizedBox());
-    expect((await recorded())!.toSet(), {43, 44});
+    expect((await recorded()).toSet(), {43, 44});
   });
 
   group('related works on demand', () {

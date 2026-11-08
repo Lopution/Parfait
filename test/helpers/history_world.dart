@@ -92,27 +92,44 @@ Future<ProviderContainer> makeHistoryWorld(
   return container;
 }
 
-/// Runs [change], then pumps until every database call queued so far has
-/// finished. The ffi database answers on the real loop, while calls the
-/// widgets made in the fake zone advance only on a pump, one round trip
-/// each; a fixed number of rounds runs out on a slow machine. A probe
-/// queued behind them on the database's FIFO lock completes once they are
-/// all done; two more frames deliver their results.
+/// Runs [change], then pumps until the widgets have no database call left.
+/// The ffi database answers on the real loop, and a call the widgets made
+/// in the fake zone, or one chained behind it (a tracker's next commit),
+/// may still be running when a fixed number of rounds is over. Every such
+/// call starts sqflite's lock-warning timer in the fake zone and cancels it
+/// through a fake microtask once it holds the lock, so a pending microtask
+/// shows one ran since the last pump. Each round pumps and queues a probe
+/// on the database's FIFO lock: the widgets are done when the probe
+/// completes without a pump and no call took the lock meanwhile. A probe
+/// held back is pumped through before the next round. Two more frames
+/// deliver the results.
 Future<void> settleHistory(
   WidgetTester tester,
   HistoryRepository history, [
   Future<void> Function()? change,
 ]) => tester.runAsync(() async {
   await change?.call();
-  final probe = history.count(accountId: '100');
-  var drained = false;
-  probe.whenComplete(() => drained = true).ignore();
-  for (var round = 0; !drained; round++) {
-    if (round == 500) throw StateError('history database never drained');
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    await tester.pump();
+  var pumps = 0;
+  Future<void> pump() {
+    if (++pumps > 1000) throw StateError('history database never drained');
+    return tester.pump();
   }
-  await probe;
+
+  while (true) {
+    await pump();
+    final probe = history.count(accountId: '100');
+    var drained = false;
+    probe.whenComplete(() => drained = true).ignore();
+    final idle = await Future.any([
+      probe.then((_) => true),
+      Future<bool>.delayed(const Duration(milliseconds: 100), () => false),
+    ]);
+    if (idle && tester.binding.microtaskCount == 0) break;
+    while (!drained) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await pump();
+    }
+  }
   for (var i = 0; i < 2; i++) {
     await Future<void>.delayed(const Duration(milliseconds: 50));
     await tester.pump();
