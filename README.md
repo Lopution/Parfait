@@ -30,7 +30,7 @@ Parfait 是 Android 上的第三方 pixiv 客户端，基于已停止维护的�
 <tr>
 <td align="center" valign="top"><img src=".github/readme/home.webp" width="200" alt="推荐"><br><b>推荐</b><br><sub>插画、漫画、<br>小说与用户推荐</sub></td>
 <td align="center" valign="top"><img src=".github/readme/detail.webp" width="200" alt="作品详情"><br><b>作品详情</b><br><sub>浏览作品信息、<br>评论与相关推荐</sub></td>
-<td align="center" valign="top"><img src=".github/readme/search.webp" width="200" alt="搜索"><br><b>搜索</b><br><sub>特辑、热门标签，<br>拍照反向搜图</sub></td>
+<td align="center" valign="top"><img src=".github/readme/search.webp" width="200" alt="搜索"><br><b>搜索</b><br><sub>特辑、热门标签，<br>以图搜图</sub></td>
 <td align="center" valign="top"><img src=".github/readme/profile.webp" width="200" alt="画师主页"><br><b>画师主页</b><br><sub>作品、收藏与关注列表</sub></td>
 </tr>
 <tr>
