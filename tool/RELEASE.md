@@ -76,14 +76,21 @@ release goes through these steps in order:
    pull request. `N` is the versionCode and only ever grows.
 2. **CHANGELOG**: in the same pull request, move the `Unreleased` entries
    of `CHANGELOG.md` under `X.Y.Z` with the date. The entries come from
-   each pull request's "User-facing change".
-3. **Draft notes**: before building, create the draft with that section
-   (plus the download table and certificate fingerprint of the previous
-   release), so the workflow keeps it instead of generating notes from
-   pull request titles:
+   each pull request's "User-facing change". An entry says what users
+   notice; a fix describes the problem they saw, not its cause.
+3. **Draft notes**: before building, create the draft with that section,
+   so the workflow keeps it instead of generating notes from pull request
+   titles:
    ```bash
    gh release create vX.Y.Z --draft --title vX.Y.Z --notes-file notes.md
    ```
+   The notes open with a one-line summary and the unofficial-client note,
+   then the section; a section of more than about ten entries puts three
+   to five highlights first and folds the full list into `<details>`.
+   After it come the download table (which assets users can skip, and
+   that it installs over the previous version), one line pointing to the
+   README's FAQ for checking the signing certificate, the feedback
+   channels, and the English version folded into `<details>`.
 4. **Build**: dispatch the Windows compile guard on `main` and wait for
    green (it does not run on every pull request), then dispatch
    `release.yml` on `main`. It pins the draft to the commit it built,

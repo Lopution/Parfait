@@ -16,14 +16,12 @@
 > [!NOTE]
 > Parfait is an unofficial client and is not affiliated with pixiv Inc. All works belong to their creators; downloads are for your personal collection, so please do not re-upload them or use them commercially.
 
-Parfait is an unofficial pixiv client for Android. It started from the open-source Pixiv Func.
+Parfait is an unofficial pixiv client for Android, rewritten from the discontinued open-source Pixiv Func. It aims to make browsing, novel reading and bulk downloads work in mainland China without keeping a proxy on.
 
-The original project is no longer maintained, and direct access to pixiv from mainland China keeps changing, so Parfait rewrites the client in Flutter and Rust: a Material Design 3 interface on a network stack rebuilt in Rust, aimed at the everyday problems of connecting, loading images and downloading in bulk:
-
-- **Direct access out of the box**: no proxy needed for browsing and downloads (except the first sign-in, see [Signing in](#signing-in)). When something does not connect, the built-in layered connectivity probe tells DNS poisoning from SNI blocking. Direct access applies to pixiv's domains only and never touches other apps' traffic.
-- **Viewing and reading**: illustrations, manga, ugoira (savable as GIF) and novels; follow manga and novel series, reverse image search across several engines, translate comments in one tap, and two-pane layouts on tablets, foldables and phones in landscape.
-- **Bulk downloads that work**: download a selection or every work of an artist; multi-page works are grouped, downloads resume where they stopped, file names follow your template, and each work's caption can be saved to a TXT file.
-- **Nothing in the way**: no ads, analytics or telemetry. Permissions are network, vibration (haptics) and installing apps (in-app updates only); from Android 17, Parfait also asks for Nearby devices, and only when an image source, DoH, translation endpoint or system proxy you set is on your local network. Login credentials stay in the system's secure storage, and logs stay on the device.
+- **No proxy needed**: browsing and downloads need no proxy; only the first sign-in does (see [Signing in](#signing-in)). The image source defaults to **Auto**, which picks the fastest of pixiv's own servers and public mirrors on your current network, and when a connection fails, the built-in **Layered connectivity probe** shows where.
+- **Viewing and reading**: illustrations, manga, ugoira (savable as GIF) and novels. The novel reader shows inline illustrations, jumps between chapters, keeps pixiv markers in sync with your account and opens local TXT files. Tablets, foldables and phones in landscape get two-pane layouts.
+- **Bulk downloads**: download a selection or every work of an artist and name files with your own template; when you save to a folder, illustrations and manga can also get their captions in a TXT file alongside.
+- **No ads or analytics**: no ads, analytics or telemetry, and only the permissions the features need (see [FAQ](#faq)).
 
 ## Screenshots
 
@@ -43,14 +41,14 @@ The original project is no longer maintained, and direct access to pixiv from ma
 </tr>
 </table>
 
-## Features
+## More features
 
-- **Browse and search**: recommendations and pixivision features; rankings in 21 illustration and 12 novel categories, for any past date, with categories you can reorder or hide; search completes each keyword and filters by bookmark count, date and AI-generated works; reverse image search with SauceNAO, IQDB, ascii2d and TinEye.
-- **Network and image sources**: network mode Automatic, Direct only or Compatibility-first; the image source is picked by speed on your network, or set to a public mirror such as pixiv.re or your own reverse proxy.
-- **Novels and series**: a reader with adjustable font size and line spacing, and paper, eye-care and night themes; follow manga and novel series; import local TXT novels with automatic encoding detection.
-- **Collections and muting**: bookmarks with tags, follows, watch later and history; mute tags, users or single works, or hide R-18 and AI-generated works locally.
-- **Comments and translation**: comment right on the artwork page, with emoji and stickers; translate comments and novels with Google Translate, Baidu Translate, Index Translate (public API) or any OpenAI-compatible endpoint. Text or images go to the service you chose only when you translate or search.
-- **Your setup, on any device**: multiple accounts, and move your login to another device; back up and import settings, mute lists and history; choose the bottom bar pages, the start page and the grid density; English, 日本語, Русский and 中文, with colours from your wallpaper.
+- **Search**: completes each keyword separately and filters by bookmark count, date and AI-generated works; reverse image search with SauceNAO, IQDB, ascii2d and TinEye.
+- **Bookmarks and series**: bookmarks with tags, watch later and history; follow manga and novel series and continue from the episode you reached. Bookmarks, follows and series subscriptions made offline are kept on the device and sent once you are back online.
+- **Muting**: mute tags, users or single works, or hide R-18 and AI-generated works locally.
+- **Comments and translation**: comment on the artwork page with emoji and stamps; translate comments and novels with Google, Baidu, Index Translate or any OpenAI-compatible endpoint.
+- **Accounts and backup**: switch between several accounts; back up settings, mute lists and history, and import them on another device.
+- **Customization**: choose the bottom bar pages, the start page and the grid density; take theme colors from your wallpaper; English, 简体中文, 日本語 and Русский.
 
 ## Download
 
@@ -61,14 +59,37 @@ Download an APK from [Releases](https://github.com/Lopution/Parfait/releases/lat
 | `parfait-v<version>-github-arm64-v8a.apk` | Almost every phone; pick this if unsure |
 | `parfait-v<version>-github-armeabi-v7a.apk` | Older 32-bit devices |
 
-> A Windows build is in preparation and will ship as a preview.
+Parfait is released on GitHub Releases only. Copies on cloud drives, in group chats or elsewhere are third-party reposts; the [FAQ](#faq) shows how to check the signature. Later updates are under **Me → About → Check for updates** in the app, or track this repository with [Obtainium](https://github.com/ImranR98/Obtainium).
 
-Parfait is **released on GitHub Releases only**. Copies on cloud drives, in group chats or elsewhere are third-party reposts; get it from Releases or check the signing fingerprint below. Later updates are under **Me → About → Check for updates** in the app, or track this repository with [Obtainium](https://github.com/ImranR98/Obtainium).
+A Windows build is in preparation and will ship as a preview.
+
+## Signing in
+
+pixiv only supports signing in on its official web page. The page, including its human verification, opens in a WebView that uses the system network rather than Parfait's direct connection, so **the first sign-in or registration needs a proxy set up in the system or another app**. After that, browsing and downloads need no proxy.
+
+Already signed in on another device? There, open **Me → Accounts → Export account credential**, then choose **Log in with clipboard data** on the new device's sign-in page; no proxy is needed.
+
+## FAQ
 
 <details>
-<summary>Check the APK signing certificate</summary>
+<summary>Pages or images load slowly or not at all?</summary>
 
-Every APK on Releases is signed with the same certificate. On the phone you can check it with [AppVerifier](https://github.com/soupslurpr/AppVerifier); package name and SHA-256 fingerprint should be:
+1. Open **Me → Settings → Network**, run the **Layered connectivity probe** and switch the network mode as it suggests.
+2. If pages open but images are slow, choose **Auto**, another mirror or a **Custom reverse proxy** under **Me → Settings → Network → Image source**.
+
+</details>
+
+<details>
+<summary>Where are downloads saved?</summary>
+
+By default, in the **Parfait** album of your gallery. Under **Me → Settings → Download settings → Save location** you can pick a custom album name or any folder through the system folder picker; file name templates are on the **Download settings** page.
+
+</details>
+
+<details>
+<summary>How can I tell an APK is an official release?</summary>
+
+Every APK is signed with the same certificate. On the phone you can check it with [AppVerifier](https://github.com/soupslurpr/AppVerifier); package name and SHA-256 fingerprint should be:
 
 ```text
 io.github.lopution.parfait
@@ -83,72 +104,41 @@ apksigner verify --print-certs parfait-v<version>-github-arm64-v8a.apk
 # Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df10a6771d1c3384ab65cb112
 ```
 
-</details>
-
-## Signing in
-
-Parfait signs in through pixiv's official web page (OAuth). The page, including its human verification, opens in a WebView that uses the system network rather than Parfait's direct-access stack, so **the first sign-in or registration needs a proxy set up in the system or another app**. After that, browsing and downloads connect directly.
-
-Already signed in on another device? There, open **Me → Accounts → Export account credential**, then choose **Log in with clipboard data** on the new device's sign-in page; no proxy needed.
-
-## How it works
-
-Parfait's interface and app logic are written in Flutter (Riverpod for state, go_router for navigation). Requests to pixiv's API, images and downloads do not use Dart's own `HttpClient`; they go through a Rust network layer adapted from [rhttp](https://codeberg.org/Tienisto/rhttp) (`reqwest` + `rustls` + `tokio`, bridged with `flutter_rust_bridge`).
-
-Rust is there because Dart's standard library cannot control the TLS handshake (ECH, leaving out SNI) or how names are resolved, and direct access needs both:
-
-1. **Several connection methods, full certificate checks**
-   For pixiv's domains, the Rust layer tries these methods in turn and remembers the one that works:
-   - **ECH (Encrypted Client Hello)**: an encrypted handshake through Cloudflare that hides the real domain inside the encrypted ClientHello;
-   - **DoH, then connect**: resolve over encrypted DNS to get an unpoisoned address;
-   - **No-SNI handshake**: for pixiv's image servers only (such as `i.pximg.net`), a handshake without the plain-text SNI;
-   - **Plain system connection**: the only method when **Me → Settings → Network → Network mode** is **Direct only** (in mainland China you will then usually need your own proxy).
-
-   Pixiv's image servers are chosen differently: for each network (a carrier or a Wi-Fi), the app records how fast and how often each route loads images, uses the fastest, and now and then tries another while preloading, so each carrier settles on the route that serves it best. These records stay on the device.
-
-   **Security**: every method has `rustls` verify the full certificate chain and the domain, and no route can turn that off; if the server is not pixiv's, the handshake fails.
-
-2. **Layered connectivity probe**
-   Instead of guessing, the built-in probe compares system DNS with DoH answers, checks TCP reachability of the address and whether the TLS handshake of each method succeeds, then tells whether the network poisons DNS or blocks SNI and which settings to use.
-
-3. **Local storage and reliability**
-   - **Offline action queue**: bookmarks, follows and series subscriptions made offline or on a weak network go into a local SQLite queue and are sent at launch and when the network is back, so none are lost.
-   - **Verified in-app updates**: the version manifest is signed, and a downloaded APK's hash and signing certificate are checked before the system installer gets it, so a tampered download is rejected.
-
-## FAQ
-
-<details>
-<summary>Pages or images load slowly or not at all?</summary>
-
-1. Open **Me → Settings → Network**, run the **Network probe** and switch the network mode as it suggests.
-2. If pages open but images are slow, choose **Auto** or another mirror under **Me → Settings → Network → Image source**.
+When you update through **Check for updates**, the app verifies the signed version manifest and the new APK's hash and signing certificate before handing it to the system installer.
 
 </details>
 
 <details>
-<summary>Where are downloads saved?</summary>
+<summary>Which permissions does Parfait ask for, and where does data go?</summary>
 
-By default, in the **Parfait** album of your gallery. Under **Me → Settings → Download settings → Save location** you can pick a custom album name or any folder through the system folder picker; file name templates are on the **Download settings** page.
+Network, vibration (haptics) and installing apps (in-app updates only). From Android 17, Parfait also asks for **Nearby devices**, and only when an image source, DoH, translation endpoint or system proxy you set is on your local network.
 
-</details>
+Login credentials stay in the system's secure storage, and logs stay on the device. Text or images go to the service you chose only when you translate or search by image.
 
-<details>
-<summary>How do I report a problem?</summary>
-
-Describe the problem and how to reproduce it in [Issues](https://github.com/Lopution/Parfait/issues). Attaching the local log from **Me → About → Export logs** helps a lot; check that it contains nothing you would rather keep private first.
-
-Please do not report security issues in public; follow [SECURITY.md](SECURITY.md) to report them privately.
+With the image source on **Auto** (the default), the app requests a test image from pixiv's own servers and from the public mirrors pixiv.re, pixiv.nl and pixiv.cat, then loads images through the fastest. All three mirrors receive the test request, and once a mirror is chosen, its operator can see your IP address and which images you load. To keep images off third-party mirrors, choose **Official** under **Me → Settings → Network → Image source**.
 
 </details>
 
 ## Contact
 
-- Bug reports and feature requests: [GitHub Issues](https://github.com/Lopution/Parfait/issues)
+- Bug reports and feature requests: [GitHub Issues](https://github.com/Lopution/Parfait/issues). Attaching the log from **Me → About → Export logs** helps; check it for anything you would rather keep private before uploading.
+- Please report security issues privately as described in [SECURITY.md](SECURITY.md), not in a public issue.
 - Email: [fuyian533@gmail.com](mailto:fuyian533@gmail.com)
 
 ## Contributing and acknowledgements
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build and the project conventions.
+
+<details>
+<summary>How it works</summary>
+
+The interface and app logic are written in Flutter (Riverpod + go_router). Requests to pixiv's API, images and downloads go through a Rust network layer adapted from [rhttp](https://codeberg.org/Tienisto/rhttp) (`reqwest` + `rustls` + `tokio`, bridged with `flutter_rust_bridge`): direct access needs control over the TLS handshake (ECH, leaving out SNI) and name resolution, which Dart's own `HttpClient` does not offer. This layer handles pixiv's domains only and never touches other apps' traffic.
+
+- **Connection methods**: tries ECH (through Cloudflare), DoH then connect, and a handshake without SNI (image servers only) in turn, and remembers the one that works; with **Network mode** set to **Direct only**, it uses the system network alone. Whatever the method, `rustls` verifies the full certificate chain and the domain, and no route can turn that off.
+- **Image routes**: for each network (a carrier or a Wi-Fi), the app records how fast and how smoothly each route loads images, uses the fastest, and tries another now and then while preloading. These records stay on the device.
+- **Connectivity probe**: checks system DNS, DoH, TCP reachability and each method's TLS handshake in turn, finds the step that fails, and suggests settings.
+
+</details>
 
 - **Pixiv Func** by git-xiaocao. The original repository is no longer available; the source archive this project referred to is [svenfuss/pixiv_func_mobile](https://github.com/svenfuss/pixiv_func_mobile). See [NOTICE](NOTICE) for attribution and changes.
 - **[PixEz](https://github.com/Notsfsssf/pixez-flutter)** and **[Pixiv-Shaft](https://github.com/CeuiLiSA/Pixiv-Shaft)**: references for design and implementation.
