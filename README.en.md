@@ -18,9 +18,9 @@
 
 Parfait is an unofficial pixiv client for Android, rewritten from the discontinued open-source Pixiv Func. It aims to make browsing, novel reading and bulk downloads work in mainland China without keeping a proxy on.
 
-- **No proxy needed**: browsing and downloads connect to pixiv directly; only the first sign-in needs a proxy (see [Signing in](#signing-in)). Images come from the fastest route on your current network, and when a connection fails, the built-in **Layered connectivity probe** shows where.
+- **No proxy needed**: browsing and downloads need no proxy; only the first sign-in does (see [Signing in](#signing-in)). The image source defaults to **Auto**, which picks the fastest of pixiv's own servers and public mirrors on your current network, and when a connection fails, the built-in **Layered connectivity probe** shows where.
 - **Viewing and reading**: illustrations, manga, ugoira (savable as GIF) and novels. The novel reader shows inline illustrations, jumps between chapters, keeps pixiv markers in sync with your account and opens local TXT files. Tablets, foldables and phones in landscape get two-pane layouts.
-- **Bulk downloads**: download a selection or every work of an artist, name files with your own template, and save each work's caption to a TXT file alongside.
+- **Bulk downloads**: download a selection or every work of an artist and name files with your own template; when you save to a folder, illustrations and manga can also get their captions in a TXT file alongside.
 - **No ads or analytics**: no ads, analytics or telemetry, and only the permissions the features need (see [FAQ](#faq)).
 
 ## Screenshots
@@ -114,6 +114,8 @@ When you update through **Check for updates**, the app verifies the signed versi
 Network, vibration (haptics) and installing apps (in-app updates only). From Android 17, Parfait also asks for **Nearby devices**, and only when an image source, DoH, translation endpoint or system proxy you set is on your local network.
 
 Login credentials stay in the system's secure storage, and logs stay on the device. Text or images go to the service you chose only when you translate or search by image.
+
+With the image source on **Auto** (the default), the app requests a test image from pixiv's own servers and from the public mirrors pixiv.re, pixiv.nl and pixiv.cat, then loads images through the fastest. All three mirrors receive the test request, and once a mirror is chosen, its operator can see your IP address and which images you load. To keep images off third-party mirrors, choose **Official** under **Me → Settings → Network → Image source**.
 
 </details>
 
