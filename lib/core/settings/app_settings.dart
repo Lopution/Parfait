@@ -201,6 +201,25 @@ enum HapticStrength {
   }
 }
 
+/// The shell a large screen gets on a desktop (「界面形态」): [auto] is the
+/// platform's own (a PC on Windows, Linux and macOS, touch on a large
+/// Android screen), [touch] the touch large-screen shell on a desktop (a
+/// Windows tablet, or checking that shell in a window). Offered only on
+/// desktops. Persisted by [name].
+enum InterfaceForm {
+  auto,
+  touch,
+  pc;
+
+  static InterfaceForm? tryFromName(Object? value) {
+    if (value is! String) return null;
+    for (final form in values) {
+      if (form.name == value) return form;
+    }
+    return null;
+  }
+}
+
 /// How the normal network stack routes traffic (D3). Only the user choice is
 /// persisted; route memory and probe results are never saved.
 enum NetworkMode {
@@ -283,6 +302,8 @@ class AppSettings {
     this.homeArrangement,
     this.homeStartPage,
     this.lastHomeDestination,
+    this.interfaceForm = InterfaceForm.auto,
+    this.railExpanded,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -430,6 +451,12 @@ class AppSettings {
 
   /// The name of the home destination used last.
   final String? lastHomeDestination;
+
+  final InterfaceForm interfaceForm;
+
+  /// Whether the PC rail is open, as the user last left it; null until the
+  /// user toggles it, when the window's width decides.
+  final bool? railExpanded;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -592,6 +619,13 @@ class AppSettings {
         'lastHomeDestination',
         base.lastHomeDestination,
       ),
+      interfaceForm:
+          InterfaceForm.tryFromName(json['interfaceForm']) ??
+          base.interfaceForm,
+      railExpanded: switch (json['railExpanded']) {
+        final bool expanded => expanded,
+        _ => base.railExpanded,
+      },
     );
   }
 
@@ -642,6 +676,8 @@ class AppSettings {
       'homeArrangement': _encodeArrangement(homeArrangement),
       'homeStartPage': homeStartPage,
       'lastHomeDestination': lastHomeDestination,
+      'interfaceForm': interfaceForm.name,
+      'railExpanded': railExpanded,
     };
   }
 
@@ -788,6 +824,8 @@ class AppSettings {
     Object? homeArrangement = _unset,
     Object? homeStartPage = _unset,
     String? lastHomeDestination,
+    InterfaceForm? interfaceForm,
+    bool? railExpanded,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -861,6 +899,8 @@ class AppSettings {
           ? this.homeStartPage
           : homeStartPage as String?,
       lastHomeDestination: lastHomeDestination ?? this.lastHomeDestination,
+      interfaceForm: interfaceForm ?? this.interfaceForm,
+      railExpanded: railExpanded ?? this.railExpanded,
     );
   }
 

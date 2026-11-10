@@ -22,6 +22,7 @@ import '../core/platform/local_network.dart';
 import 'external_intent_bridge.dart';
 import 'haptics/app_haptics.dart';
 import 'haptics/haptics_driver.dart';
+import 'layout/form_factor.dart';
 import 'motion/motion_tokens.dart';
 import 'scroll_behavior.dart';
 import 'system_ui.dart';
@@ -274,8 +275,8 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
   }
 }
 
-/// Everything between MaterialApp and the route content: system bars,
-/// motion settings, the material_ui bridge, touch exploration, prompts and
+/// Everything between MaterialApp and the route content: the form factor,
+/// system bars, motion settings, the material_ui bridge, touch exploration, prompts and
 /// external intents. The UX review harness renders its routes inside the
 /// same chrome, so its shots show what the app shows.
 class AppChrome extends ConsumerWidget {
@@ -296,28 +297,31 @@ class AppChrome extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FuncSystemBars(
-      background: Theme.of(context).brightness,
-      child: MotionScope(
-        reduce: settings.reduceMotion,
-        speed: settings.animationSpeed,
-        pressFeedback: settings.pressFeedback,
-        // octo_image, flutter_staggered_grid_view and the WebView plugins
-        // still build package:flutter/material widgets; the bridge hands
-        // them this theme until they move to material_ui.
-        // ignore: deprecated_member_use
-        child: MaterialUiCompatibilityBridge(
-          child: TouchExplorationScope(
-            // Above the bridge so intent failures can prompt from its own
-            // context; below the motion and touch-exploration scopes it
-            // reads.
-            child: PromptHost(
-              key: promptHostKey,
-              accessibility: ref.watch(appAccessibilityProvider),
-              child: ExternalIntentBridge(
-                router: router,
-                intentSource: intentSource,
-                child: KeyboardBack(router: router, child: child),
+    return FormFactorScope(
+      choice: settings.interfaceForm,
+      child: FuncSystemBars(
+        background: Theme.of(context).brightness,
+        child: MotionScope(
+          reduce: settings.reduceMotion,
+          speed: settings.animationSpeed,
+          pressFeedback: settings.pressFeedback,
+          // octo_image, flutter_staggered_grid_view and the WebView plugins
+          // still build package:flutter/material widgets; the bridge hands
+          // them this theme until they move to material_ui.
+          // ignore: deprecated_member_use
+          child: MaterialUiCompatibilityBridge(
+            child: TouchExplorationScope(
+              // Above the bridge so intent failures can prompt from its own
+              // context; below the motion and touch-exploration scopes it
+              // reads.
+              child: PromptHost(
+                key: promptHostKey,
+                accessibility: ref.watch(appAccessibilityProvider),
+                child: ExternalIntentBridge(
+                  router: router,
+                  intentSource: intentSource,
+                  child: KeyboardBack(router: router, child: child),
+                ),
               ),
             ),
           ),

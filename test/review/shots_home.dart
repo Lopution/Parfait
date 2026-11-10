@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -12,6 +13,26 @@ void main() {
     location: '/recommended',
     variants: {...ShotVariant.values},
   );
+  // The PC shell: the rail collapsed under its menu button, then opened
+  // into the labelled panel. A phone keeps its bottom bar.
+  for (final open in [false, true]) {
+    testShot(
+      'home/recommended-pc${open ? '-open' : ''}',
+      location: '/recommended',
+      variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
+      before: (tester, router) async {
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(Scaffold).first),
+        );
+        await tester.runAsync(() async {
+          final settings = container.read(settingsProvider.notifier);
+          await settings.setInterfaceForm(InterfaceForm.pc);
+          await settings.setRailExpanded(open);
+        });
+        await tester.pumpAndSettle();
+      },
+    );
+  }
   // The grid at the other two densities (FEED-19).
   for (final density in [FeedDensity.compact, FeedDensity.comfortable]) {
     testShot(

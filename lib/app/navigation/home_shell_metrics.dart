@@ -13,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// while a route covers it, draws the bar itself from [bottomBarVisibility]
 /// (see `BranchRootScaffold`).
 ///
-/// Zero on NavigationRail layouts, where no bottom bar exists.
+/// Zero on rail layouts, where no bottom bar exists.
 class HomeShellChrome extends InheritedWidget {
   const HomeShellChrome({
     super.key,
@@ -27,18 +27,13 @@ class HomeShellChrome extends InheritedWidget {
 
   /// Rendered height the shell's floating bottom bar occupies at rest:
   /// `FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom)`,
-  /// or 0 while the shell shows the NavigationRail.
+  /// or 0 while the shell shows the rail.
   final double bottomBarExtent;
 
-  /// Width the rail and its divider take beside the branches; 0 on
-  /// bottom-bar layouts and while an immersive page hides the rail.
+  /// Width the rail takes beside the branches (`ShellRail.width`, or
+  /// `ShellRail.expandedWidth` open); 0 on bottom-bar layouts and while an
+  /// immersive page hides the rail.
   final double railExtent;
-
-  /// The collapsed rail's width (Material 3's navigation rail).
-  static const double railWidth = 80;
-
-  /// The labelled rail's width on extra-large windows.
-  static const double extendedRailWidth = 256;
 
   /// The area a page gets: the window less the rail. A page outside the
   /// shell, pushed over it, gets the whole window.

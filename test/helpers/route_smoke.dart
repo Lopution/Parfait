@@ -8,6 +8,7 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/app/widgets/shell_rail.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 
 import '../review/review_support.dart';
@@ -66,6 +67,9 @@ String smokePageOf(String template, Set<String> common) {
     if (!template.startsWith('$root/')) continue;
     final rest = template.substring(root.length + 1);
     if (common.contains(rest)) return rest;
+    // Beside a rail the profile and the downloads open on the branch's
+    // own stack (NAV-20): the same pages as their overlay routes.
+    if (smokeStackRoots.contains('/$rest')) return '/$rest';
     // The search branch's own search pages drop the `search/` prefix.
     if (root == '/search' && common.contains('search/$rest')) {
       return 'search/$rest';
@@ -250,7 +254,7 @@ const _bars = {
   TabBar,
   FuncShellBottomNav,
   FuncBottomNav,
-  NavigationRail,
+  ShellRail,
 };
 
 /// Whether text or an image a user can see sits outside the app's bars:

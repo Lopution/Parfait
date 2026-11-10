@@ -3329,6 +3329,54 @@ abstract class AppLocalizations {
   /// **'启动页'**
   String get homeStartPage;
 
+  /// Desktop setting: which large-screen shell the app shows
+  ///
+  /// In zh, this message translates to:
+  /// **'界面形态'**
+  String get interfaceForm;
+
+  /// Interface choice: the platform's own shell, a PC on a desktop
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get interfaceFormAuto;
+
+  /// Interface choice: the touch large-screen shell (tablets)
+  ///
+  /// In zh, this message translates to:
+  /// **'触控大屏'**
+  String get interfaceFormTouch;
+
+  /// Interface choice: the desktop shell with a rail that opens
+  ///
+  /// In zh, this message translates to:
+  /// **'PC'**
+  String get interfaceFormPc;
+
+  /// Tooltip of the PC rail's menu button while the rail is collapsed
+  ///
+  /// In zh, this message translates to:
+  /// **'展开侧栏'**
+  String get railExpand;
+
+  /// Tooltip of the PC rail's menu button while the rail is open
+  ///
+  /// In zh, this message translates to:
+  /// **'收起侧栏'**
+  String get railCollapse;
+
+  /// Rail shortcut under the destinations: opens your bookmarks
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get railBookmarks;
+
+  /// Rail shortcut under the destinations: opens the download tasks
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get railDownloads;
+
   /// Start page choice: open the first item of the bottom bar
   ///
   /// In zh, this message translates to:

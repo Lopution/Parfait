@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsRole;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,14 +8,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/layout/form_factor.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/touch_exploration_scope.dart';
+import 'package:parfait/app/widgets/app_snack_bar.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
+import 'package:parfait/app/widgets/shell_rail.dart';
 import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
@@ -27,6 +33,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/prompt_host.dart';
 
 /// A split-screen phone height: the "me" dashboard at the root of the
 /// settings branch fits a full phone screen and only scrolls on a short
@@ -48,9 +55,20 @@ Future<GoRouter> _pumpHome(
   final router = pixivRouter(location);
   Widget app = localizedRouterApp(
     router,
-    builder: (context, child) => KeyboardBack(
-      router: router,
-      child: TouchExplorationScope(child: child!),
+    // The app's chrome: the form factor from the settings, Esc, touch
+    // exploration, prompts.
+    builder: (context, child) => Consumer(
+      builder: (context, ref, _) => FormFactorScope(
+        choice:
+            ref.watch(settingsProvider).value?.interfaceForm ??
+            InterfaceForm.auto,
+        child: KeyboardBack(
+          router: router,
+          child: TouchExplorationScope(
+            child: promptHostBuilder(context, child),
+          ),
+        ),
+      ),
     ),
   );
   if (reduceMotion) {
@@ -269,7 +287,7 @@ void main() {
     // Unfolding: the rail replaces the bottom bar around the same branches.
     setViewSize(tester, const Size(1280, 800));
     await tester.pumpAndSettle();
-    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(ShellRail), findsOneWidget);
     expect(offset(), scrolled);
     expect(
       tester.state(find.byType(RecommendedHomePage, skipOffstage: false)),
@@ -533,7 +551,7 @@ void main() {
       display: const Size(411, 896),
     );
 
-    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(ShellRail), findsNothing);
     expect(find.byType(FuncShellBottomNav), findsOneWidget);
     // No rail to subtract: pages lay out for the whole window, so the
     // detail page's two panes stay.
@@ -555,14 +573,129 @@ void main() {
       display: const Size(1280, 800),
     );
 
-    // Five labelled destinations overflowed 411dp before the rail scrolled.
+    // Five labelled destinations and two shortcuts overflowed 411dp before
+    // the rail scrolled. A touch screen's rail stays collapsed, the app's
+    // icon on top.
     expect(tester.takeException(), isNull);
-    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-    expect(rail.scrollable, isTrue);
-    expect(rail.extended, isFalse);
+    final rail = find.byType(ShellRail);
+    expect(tester.getSize(rail).width, ShellRail.width);
+    expect(
+      find.descendant(of: rail, matching: find.byType(Scrollable)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: rail, matching: find.byType(IconButton)),
+      findsNothing,
+    );
+    // Its destinations read as the bottom bar's do.
+    expect(
+      tester.getSemantics(
+        find.descendant(of: rail, matching: find.byIcon(AppIcons.home)),
+      ),
+      isSemantics(
+        role: SemanticsRole.tab,
+        isSelected: true,
+        hasSelectedState: true,
+        label: '推荐\n第 1 个标签，共 5 个',
+      ),
+    );
   });
 
-  group('NavigationRail shares the bar action entry', () {
+  testWidgets('a PC rail opens from extra-large widths until the user '
+      'toggles it, then stays as left', (tester) async {
+    await _pumpHome(tester, width: 1600, height: 900);
+    final rail = find.byType(ShellRail);
+    final container = ProviderScope.containerOf(tester.element(rail));
+    double railWidth() => tester.getSize(rail).width;
+    expect(railWidth(), ShellRail.expandedWidth);
+    expect(
+      HomeShellChrome.contentSizeOf(
+        tester.element(find.byType(RecommendedHomePage)),
+      ).width,
+      1600 - ShellRail.expandedWidth,
+    );
+
+    await tester.tap(find.byTooltip('收起侧栏'));
+    await tester.pumpAndSettle();
+    expect(railWidth(), ShellRail.width);
+    expect(container.read(railExpandedProvider), isFalse);
+    setViewSize(tester, const Size(1920, 900));
+    await tester.pumpAndSettle();
+    expect(railWidth(), ShellRail.width);
+
+    setViewSize(tester, const Size(1000, 700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('展开侧栏'));
+    await tester.pumpAndSettle();
+    expect(railWidth(), ShellRail.expandedWidth);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets('the interface form changes the shell at once and keeps the '
+      'open page', (tester) async {
+    final router = await _pumpHome(tester, width: 1280, height: 800);
+    unawaited(router.push<void>('/recommended/history'));
+    await tester.pumpAndSettle();
+    final history = tester.state(find.byType(HistoryPage));
+    final rail = find.byType(ShellRail);
+    expect(find.byTooltip('展开侧栏'), findsOneWidget);
+
+    await ProviderScope.containerOf(
+      tester.element(rail),
+    ).read(settingsProvider.notifier).setInterfaceForm(InterfaceForm.touch);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('展开侧栏'), findsNothing);
+    expect(
+      find.descendant(of: rail, matching: find.byType(Image)),
+      findsOneWidget,
+    );
+    expect(tester.state(find.byType(HistoryPage)), same(history));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets('beside the rail, the downloads and the profile open in the '
+      'branch and the rail stays', (tester) async {
+    final router = await _pumpHome(tester, width: 1280, height: 800);
+    final rail = find.byType(ShellRail);
+    String location() => router.state.uri.toString();
+
+    await tester.tap(
+      find.descendant(
+        of: rail,
+        matching: find.byIcon(Icons.downloading_outlined),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DownloadTasksPage), findsOneWidget);
+    expect(location(), '/recommended/downloads');
+    expect(rail.hitTestable(), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(of: rail, matching: find.byIcon(Icons.favorite_border)),
+    );
+    await tester.pumpAndSettle();
+    expect(location(), '/recommended/me?tab=bookmarks');
+    expect(rail.hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('a prompt centres on the content beside the rail', (
+    tester,
+  ) async {
+    await _pumpHome(tester, width: 1280, height: 800);
+    showAppSnackBar(
+      tester.element(find.byType(RecommendedHomePage)),
+      '已保存',
+      duration: const Duration(seconds: 30),
+    );
+    await tester.pumpAndSettle();
+    // As the sheets are, in the content area, not the whole window.
+    expect(
+      tester.getCenter(promptCard('已保存')).dx,
+      (1280 + ShellRail.width) / 2,
+    );
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pumpAndSettle();
+  });
+
+  group('the rail shares the bar action entry', () {
     testWidgets('a same-destination rail tap pops the branch stack and '
         'emits re-tap', (tester) async {
       final router = await _pumpHome(tester, width: 900);
@@ -578,7 +711,7 @@ void main() {
       // the shared entry it is the bar's re-tap: pop to root + emit.
       await tester.tap(
         find.descendant(
-          of: find.byType(NavigationRail),
+          of: find.byType(ShellRail),
           matching: find.byIcon(AppIcons.home),
         ),
       );

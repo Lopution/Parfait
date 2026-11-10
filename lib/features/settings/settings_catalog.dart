@@ -167,6 +167,11 @@ enum Setting implements SettingsEntry {
     'novelImageQuality',
     optionKeys: ['qualityLarge', 'qualityOriginal'],
   ),
+  interfaceForm(
+    SettingsPageRef.navigation,
+    'interfaceForm',
+    optionKeys: ['interfaceFormAuto', 'interfaceFormTouch', 'interfaceFormPc'],
+  ),
   homeStartPage(
     SettingsPageRef.navigation,
     'homeStartPage',
@@ -265,8 +270,16 @@ enum Setting implements SettingsEntry {
   /// under the same condition.
   bool get available => switch (this) {
     hapticStrength => defaultTargetPlatform == TargetPlatform.android,
+    interfaceForm => _desktop,
     aboutDisplayRefreshRate => !kIsWeb && Platform.isAndroid,
     _ => true,
+  };
+
+  static bool get _desktop => switch (defaultTargetPlatform) {
+    TargetPlatform.windows ||
+    TargetPlatform.linux ||
+    TargetPlatform.macOS => true,
+    _ => false,
   };
 
   @override

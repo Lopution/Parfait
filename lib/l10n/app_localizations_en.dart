@@ -1778,6 +1778,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeStartPage => 'Start page';
 
   @override
+  String get interfaceForm => 'Interface';
+
+  @override
+  String get interfaceFormAuto => 'Automatic';
+
+  @override
+  String get interfaceFormTouch => 'Touch screen';
+
+  @override
+  String get interfaceFormPc => 'PC';
+
+  @override
+  String get railExpand => 'Expand sidebar';
+
+  @override
+  String get railCollapse => 'Collapse sidebar';
+
+  @override
+  String get railBookmarks => 'Bookmarks';
+
+  @override
+  String get railDownloads => 'Downloads';
+
+  @override
   String get homeStartFirstVisible => 'First bar item';
 
   @override

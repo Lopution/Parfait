@@ -1771,6 +1771,30 @@ class AppLocalizationsRu extends AppLocalizations {
   String get homeStartPage => 'Стартовая страница';
 
   @override
+  String get interfaceForm => 'Интерфейс';
+
+  @override
+  String get interfaceFormAuto => 'Автоматически';
+
+  @override
+  String get interfaceFormTouch => 'Сенсорный экран';
+
+  @override
+  String get interfaceFormPc => 'ПК';
+
+  @override
+  String get railExpand => 'Развернуть боковую панель';
+
+  @override
+  String get railCollapse => 'Свернуть боковую панель';
+
+  @override
+  String get railBookmarks => 'Закладки';
+
+  @override
+  String get railDownloads => 'Загрузки';
+
+  @override
   String get homeStartFirstVisible => 'Первый пункт панели';
 
   @override

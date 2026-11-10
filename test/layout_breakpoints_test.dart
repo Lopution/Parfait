@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart' as mui;
 
 import 'package:parfait/app/layout/app_breakpoints.dart';
+import 'package:parfait/app/layout/form_factor.dart';
 import 'package:parfait/app/layout/two_pane.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 
 void main() {
   group('AppBreakpoints', () {
-    test('navigation rail engages at the medium boundary', () {
-      expect(AppBreakpoints.useNavigationRail(599, phone: false), isFalse);
-      expect(AppBreakpoints.useNavigationRail(600, phone: false), isTrue);
-      expect(AppBreakpoints.useNavigationRail(1200, phone: true), isFalse);
-    });
-
     test('a phone is a display under the medium boundary', () {
       expect(AppBreakpoints.isPhoneDisplay(const Size(411, 896)), isTrue);
       // A foldable's cover screen; its unfolded inner screen.
@@ -20,11 +15,6 @@ void main() {
       expect(AppBreakpoints.isPhoneDisplay(const Size(673, 841)), isFalse);
       // No display size reported: decided by the window alone.
       expect(AppBreakpoints.isPhoneDisplay(null), isFalse);
-    });
-
-    test('extended rail waits for the extra-large boundary', () {
-      expect(AppBreakpoints.useExtendedRail(1599), isFalse);
-      expect(AppBreakpoints.useExtendedRail(1600), isTrue);
     });
 
     test('two-pane detail needs a landscape area at least medium wide', () {
@@ -39,8 +29,50 @@ void main() {
     });
   });
 
+  group('FormFactor', () {
+    FormFactor form(
+      Size? display,
+      TargetPlatform platform, [
+      InterfaceForm choice = InterfaceForm.auto,
+    ]) => FormFactor.resolve(
+      display: display,
+      platform: platform,
+      choice: choice,
+    );
+    const phone = Size(411, 896);
+    const tablet = Size(1280, 800);
+
+    test('a phone, a touch screen or a PC, by display and platform', () {
+      expect(form(phone, TargetPlatform.android), FormFactor.phone);
+      expect(form(tablet, TargetPlatform.android), FormFactor.touch);
+      expect(form(null, TargetPlatform.android), FormFactor.touch);
+      expect(form(tablet, TargetPlatform.windows), FormFactor.pc);
+      // A desktop asked for the touch shell (a Windows tablet).
+      expect(
+        form(tablet, TargetPlatform.windows, InterfaceForm.touch),
+        FormFactor.touch,
+      );
+    });
+
+    test('the rail engages at the medium boundary, never on a phone', () {
+      expect(FormFactor.touch.hasRail(599), isFalse);
+      expect(FormFactor.touch.hasRail(600), isTrue);
+      expect(FormFactor.pc.hasRail(600), isTrue);
+      expect(FormFactor.phone.hasRail(1200), isFalse);
+    });
+
+    test("a PC's rail opens from extra-large until the user toggles it; "
+        "a touch screen's never does", () {
+      expect(FormFactor.pc.railExpanded(1599, choice: null), isFalse);
+      expect(FormFactor.pc.railExpanded(1600, choice: null), isTrue);
+      expect(FormFactor.pc.railExpanded(1920, choice: false), isFalse);
+      expect(FormFactor.pc.railExpanded(800, choice: true), isTrue);
+      expect(FormFactor.touch.railExpanded(1920, choice: true), isFalse);
+    });
+  });
+
   group('TwoPane', () {
-    testWidgets('renders primary and secondary with a divider', (tester) async {
+    testWidgets('renders primary and secondary side by side', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
@@ -51,9 +83,10 @@ void main() {
           ),
         ),
       );
-      expect(find.byKey(const Key('p')), findsOneWidget);
-      expect(find.byKey(const Key('s')), findsOneWidget);
-      expect(find.byType(mui.VerticalDivider), findsOneWidget);
+      expect(
+        tester.getRect(find.byKey(const Key('p'))).right,
+        tester.getRect(find.byKey(const Key('s'))).left,
+      );
     });
 
     testWidgets('the secondary column stays between its bounds', (
