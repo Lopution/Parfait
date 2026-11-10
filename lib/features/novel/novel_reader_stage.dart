@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
+import '../../app/layout/app_breakpoints.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
@@ -863,20 +864,34 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         ),
                       ],
                     ),
-                    ?_markerSection(onJump: jumpTo),
-                    // D4: the TOC section only exists when the document
-                    // actually has chapters — local TXT files never do.
-                    if (chapters.isNotEmpty) ...[
-                      const SizedBox(height: FuncSpacing.sm),
-                      const Divider(),
-                      const SizedBox(height: FuncSpacing.sm),
-                      Text(
-                        l10n.novelChapters,
-                        style: Theme.of(context).textTheme.titleSmall,
+                    // The slider and its buttons stay put; on a short
+                    // window the bookmark and the chapters below them
+                    // scroll inside what is left of the sheet.
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ?_markerSection(onJump: jumpTo),
+                            // D4: the TOC section only exists when the
+                            // document actually has chapters — local TXT
+                            // files never do.
+                            if (chapters.isNotEmpty) ...[
+                              const SizedBox(height: FuncSpacing.sm),
+                              const Divider(),
+                              const SizedBox(height: FuncSpacing.sm),
+                              Text(
+                                l10n.novelChapters,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: FuncSpacing.xs),
+                              _chapterList(context, chapters, onTap: jumpTo),
+                            ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: FuncSpacing.xs),
-                      _chapterList(context, chapters, onTap: jumpTo),
-                    ],
+                    ),
                   ],
                 ),
               ),
@@ -914,20 +929,28 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   }
 
   /// The chapters, the one the reader is in marked; up to half the
-  /// screen tall, so a long table shows many at once.
+  /// screen tall, so a long table shows many at once. A short window
+  /// (a turned phone) lowers the floor to two rows, so the table fits
+  /// beside the controls instead of making the sheet scroll.
   Widget _chapterList(
     BuildContext context,
     List<({String title, int pageIndex})> chapters, {
     required ValueChanged<int> onTap,
-  }) => _NovelChapterList(
-    chapters: chapters,
-    current: chapters.lastIndexWhere((chapter) => chapter.pageIndex <= _page),
-    height: math.min(
-      chapters.length * _NovelChapterList.rowExtent,
-      math.max(_chapterListMinHeight, MediaQuery.sizeOf(context).height / 2),
-    ),
-    onTap: onTap,
-  );
+  }) {
+    final window = MediaQuery.sizeOf(context).height;
+    final floor = window < AppBreakpoints.compactHeight
+        ? 2 * _NovelChapterList.rowExtent
+        : _chapterListMinHeight;
+    return _NovelChapterList(
+      chapters: chapters,
+      current: chapters.lastIndexWhere((chapter) => chapter.pageIndex <= _page),
+      height: math.min(
+        chapters.length * _NovelChapterList.rowExtent,
+        math.max(floor, window / 2),
+      ),
+      onTap: onTap,
+    );
+  }
 
   static const _chapterListMinHeight = 240.0;
 
@@ -942,7 +965,9 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
               _applySettings(next);
             }
 
-            return Padding(
+            // The sheet is at most 9/16 of the screen: on a turned phone
+            // the settings scroll inside it.
+            return SingleChildScrollView(
               padding: MediaQuery.of(context).padding,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
