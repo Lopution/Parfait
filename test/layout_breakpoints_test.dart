@@ -52,6 +52,12 @@ void main() {
         form(tablet, TargetPlatform.windows, InterfaceForm.touch),
         FormFactor.touch,
       );
+      // Only desktops offer the choice; one restored from a desktop's
+      // backup does not turn a tablet into a PC.
+      expect(
+        form(tablet, TargetPlatform.android, InterfaceForm.pc),
+        FormFactor.touch,
+      );
     });
 
     test('the rail engages at the medium boundary, never on a phone', () {

@@ -622,8 +622,9 @@ class AppSettings {
       interfaceForm:
           InterfaceForm.tryFromName(json['interfaceForm']) ??
           base.interfaceForm,
-      railExpanded: switch (json['railExpanded']) {
-        final bool expanded => expanded,
+      // Null is a value: the rail follows the window until toggled.
+      railExpanded: switch (json) {
+        {'railExpanded': final bool? expanded} => expanded,
         _ => base.railExpanded,
       },
     );

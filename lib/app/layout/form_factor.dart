@@ -21,8 +21,8 @@ enum FormFactor {
 
   /// The form for a display of [display] logical pixels (null: unknown,
   /// never a phone) on [platform]. A desktop is a PC unless [choice] asks
-  /// for the touch shell; elsewhere [choice] stays [InterfaceForm.auto],
-  /// since only desktops offer it.
+  /// for the touch shell; elsewhere [choice] does not count, since only
+  /// desktops offer it.
   static FormFactor resolve({
     required Size? display,
     required TargetPlatform platform,
@@ -37,11 +37,9 @@ enum FormFactor {
       TargetPlatform.iOS ||
       TargetPlatform.fuchsia => false,
     };
-    return switch (choice) {
-      InterfaceForm.auto => desktop ? pc : touch,
-      InterfaceForm.touch => touch,
-      InterfaceForm.pc => pc,
-    };
+    // Elsewhere the choice is ignored: a backup from a desktop can carry it.
+    if (!desktop) return touch;
+    return choice == InterfaceForm.touch ? touch : pc;
   }
 
   /// The form of the screen [context] is on. Under [FormFactorScope] the

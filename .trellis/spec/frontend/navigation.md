@@ -70,7 +70,7 @@ reviewed: 2026-10-17
   whose debug assertion rejects a push into another branch. Overlay routes
   (`/me`, `/reverse-image`, `/downloads`) may open from any stack; beside
   a rail `/me` and `/downloads` open on the current stack instead
-  (NAV-20). The
+  (NAV-20), except from the viewer. The
   viewer opens only overlay destinations, and "back to the work" closes the
   viewer instead of pushing a second detail page.
 - **Why:** Pushing into another branch switched tabs under the user and
@@ -337,7 +337,7 @@ reviewed: 2026-10-17
   256dp labelled panel; it opens by itself from 1600dp until the user
   toggles it, then stays as left (`AppSettings.railExpanded`). Beside a
   rail, `/me` and `/downloads` open on the current branch's stack, so the
-  rail stays. Pages size themselves from `HomeShellChrome.contentSizeOf`
+  rail stays; from the viewer they stay overlays (NAV-04). Pages size themselves from `HomeShellChrome.contentSizeOf`
   (the window less the rail), not the window. An immersive page hides the
   rail through `shellRailHiddenProvider` while its route is current or
   only popups (sheets, dialogs) cover it (the novel reader); it releases

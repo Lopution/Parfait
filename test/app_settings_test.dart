@@ -106,6 +106,7 @@ void main() {
       homeArrangement: [(id: 'ranking', visible: true)],
       homeStartPage: 'last',
       lastHomeDestination: 'search',
+      railExpanded: true,
     );
     final json = jsonDecode(jsonEncode(saved.toJson())) as Map<String, Object?>;
     final restored = AppSettings.fromJson(json, fallback: baseTestSettings());
@@ -115,6 +116,7 @@ void main() {
     expect(restored.homeArrangement, [(id: 'ranking', visible: true)]);
     expect(restored.homeStartPage, 'last');
     expect(restored.lastHomeDestination, 'search');
+    expect(restored.railExpanded, isTrue);
 
     final damaged = AppSettings.fromJson({
       'illustRankingArrangement': 'broken',
@@ -122,12 +124,20 @@ void main() {
       'illustRankingLastMode': 3,
       'homeArrangement': 'broken',
       'homeStartPage': 3,
+      'railExpanded': null,
     }, fallback: saved);
     expect(damaged.illustRankingArrangement, saved.illustRankingArrangement);
     expect(damaged.novelRankingArrangement, isNull, reason: 'null resets');
     expect(damaged.illustRankingLastMode, 'week');
     expect(damaged.homeArrangement, saved.homeArrangement);
     expect(damaged.homeStartPage, 'last');
+    expect(damaged.railExpanded, isNull, reason: 'null follows the window');
+    expect(
+      AppSettings.fromJson({
+        'railExpanded': 'yes',
+      }, fallback: saved).railExpanded,
+      isTrue,
+    );
   });
 
   test('legacy individual keys migrate to the versioned JSON key', () async {
