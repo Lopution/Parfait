@@ -49,7 +49,7 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
     final provider = relatedIllustControllerProvider(widget.illustId);
     return OnDemandSliver(
       id: 'related-${widget.illustId}',
-      alreadyRequested: () => ref.exists(provider),
+      alreadyRequested: () => ref.read(provider.exists),
       // Same box as the loading spinner, so starting the request does not
       // shift anything.
       placeholder: _indicatorBox(null),

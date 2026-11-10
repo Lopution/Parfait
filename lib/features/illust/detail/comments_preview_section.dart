@@ -77,7 +77,7 @@ class CommentsPreviewSlivers extends ConsumerWidget {
     );
     return OnDemandSliver(
       id: 'comments-$illustId',
-      alreadyRequested: () => ref.exists(commentFeedProvider(query)),
+      alreadyRequested: () => ref.read(commentFeedProvider(query).exists),
       placeholder: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
