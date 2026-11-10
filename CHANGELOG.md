@@ -6,6 +6,28 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### 变更
+
+- **横屏手机的导航栏：** 手机横过来时保留底部导航栏，不再换成占去一截屏幕高度的侧边导航栏；导航项改为图标与文字并排，整组居中。
+- **横屏的个人主页：** 窗口较矮时，个人主页的头部收成一行，头像缩小，名字、分享和关注按钮并排，较宽的窗口里关注和好P友的数量也在这一行；第一屏就能看到标签页和作品。
+
+### 修复
+
+- 手机横屏时，小说阅读器的「阅读设置」面板显示不全，「阅读进度」面板超出屏幕底部。
+- 手机横屏时，还没弹出过键盘就打开评论的表情面板，面板几乎占满屏幕，上方只剩一条。
+- 手机横屏时，带筛选栏的搜索没有结果，提示里的按钮被挤出屏幕。
+
+### Changed
+
+- **Navigation on a turned phone:** A phone held sideways keeps the bottom navigation bar instead of switching to a side rail that took up part of an already short screen. Each item now shows its icon beside its label, and the items are centered.
+- **Profiles in a short window:** In a short window, the profile header fits into one row: a smaller avatar with the name, share and follow buttons beside it, and the counts too when the window is wide enough. The tabs and works now show on the first screen.
+
+### Fixed
+
+- On a phone held sideways, the novel reader's Reading settings panel was cut off, and the Reading progress panel ran past the bottom of the screen.
+- On a phone held sideways, opening the emoji panel in comments before the keyboard had appeared filled almost the whole screen, leaving a sliver above it.
+- On a phone held sideways, when a search with a filter bar had no results, the buttons in its message were pushed off the screen.
+
 ## [1.1.1] - 2026-11-06
 
 ### 修复
