@@ -14,8 +14,8 @@ reviews:
     Write every comment in Simplified Chinese. Be brief. Report only what
     is worth changing: bugs, regressions, security, missed edge cases,
     tests that do not test what they claim. Skip style nits. The
-    project's rules are in .trellis/spec/, each with an ID such as
-    TEST-05; cite the rule a finding rests on.
+    project's rules carry IDs such as TEST-05; cite the rule a finding
+    rests on when one of the linked rule files states it.
   ignore:
     files:
       - lib/l10n/app_localizations*.dart
@@ -23,6 +23,20 @@ reviews:
       - "**/*.g.dart"
       - "**/frb_generated*"
   custom_rules:
+    # Each rule reads at most 10,000 characters of its description and
+    # linked files, so only the cross-cutting guides are linked; the
+    # area specs in .trellis/spec/ are far larger.
+    - name: Project conventions
+      description: |
+        The cross-cutting code-quality and architecture rules every change
+        follows.
+      file_paths:
+        - .trellis/spec/guides/code-quality.md
+        - .trellis/spec/guides/architecture.md
+      include:
+        - lib/**
+        - plugins/**
+        - android/**
     - name: Tests
       description: |
         A change's test growth is capped by its lib growth (spec TEST-05):
