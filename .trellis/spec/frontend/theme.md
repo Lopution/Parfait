@@ -68,8 +68,9 @@ reviewed: 2026-10-21
   Neutrals and the surface ladder stay on `FuncTokens`: text, dividers
   and the inverse surfaces are warm grays that carry the brand hue at a
   very low chroma; the page and container ladder carries the brand pink
-  at a little more (OKLCH chroma 0.012–0.020, hue 346° light, 350° dark),
-  at the grays' lightness. Status colors and the bookmarked heart stay
+  at a little more, rising with the tier (OKLCH chroma about 0.009 on the
+  light page and 0.011 on the dark one, up to 0.020 on the highest
+  container; hue about 345° light, 350° dark), at the grays' lightness. Status colors and the bookmarked heart stay
   fixed too.
 - **Why:** The surface ladder and text contrast are tuned and tested on the
   app's own neutrals; a wallpaper palette would break them. User decision:
