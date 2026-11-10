@@ -251,13 +251,16 @@ reviewed: 2026-10-29
   prompt has it read and attack `git diff main...HEAD` itself, is
   suggested for high-risk PRs (network and
   TLS, credentials and accounts, persistence and migrations, downloads,
-  release and signing, CI workflows) and never required. CodeRabbit
-  (free for public repositories, configured in `.coderabbit.yaml`)
-  comments on every non-draft PR; it only advises: it is not a required
-  check, does not edit the description and does not commit. Each
-  finding, from either review, is fixed or answered in the PR's
-  "Independent review" section or its thread.
+  release and signing, CI workflows) and never required. cubic (free
+  for public repositories, configured in `cubic.yaml`, read from the
+  default branch) comments on every non-draft PR; it only advises: it
+  is not a required check, does not approve, does not edit the
+  description and does not commit. Each finding, from either review,
+  is fixed or answered in the PR's "Independent review" section or its
+  thread.
 - **Why:** One agent wrote, checked and merged every change; the first
-  review caught a cross-account replay the tests had missed.
+  review caught a cross-account replay the tests had missed. The user
+  moved from CodeRabbit to cubic when CodeRabbit's free tier fell to
+  about one review an hour for this repository.
 - **Check:** manual
-- **Code:** `.github/pull_request_template.md`, `.coderabbit.yaml`
+- **Code:** `.github/pull_request_template.md`, `cubic.yaml`
