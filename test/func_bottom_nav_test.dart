@@ -188,4 +188,52 @@ void main() {
     expect(position.pixels, greaterThan(0));
     expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
   });
+
+  testWidgets('a wide bar puts each icon beside its label, centred', (
+    tester,
+  ) async {
+    const labels = ['推荐', '排行', '新作', '搜索', '我的'];
+    const icons = [
+      Icons.home_outlined,
+      Icons.leaderboard_outlined,
+      Icons.fiber_new_outlined,
+      Icons.search,
+      Icons.person_outline,
+    ];
+    Future<void> pumpBar(double width) async {
+      setViewSize(tester, Size(width, 400));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            bottomNavigationBar: FuncBottomNav(
+              destinations: [
+                for (var i = 0; i < labels.length; i++)
+                  FuncBottomNavDestination(icon: icons[i], label: labels[i]),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pumpBar(896);
+    for (var i = 0; i < labels.length; i++) {
+      final icon = tester.getRect(find.byIcon(icons[i]));
+      final label = tester.getRect(find.text(labels[i]));
+      expect(icon.right, lessThan(label.left));
+      expect(icon.center.dy, closeTo(label.center.dy, 1));
+    }
+    final groupLeft = tester.getRect(find.byIcon(icons.first)).left;
+    final groupRight = tester.getRect(find.text(labels.last)).right;
+    expect(groupLeft, greaterThan(100));
+    expect(groupLeft, closeTo(896 - groupRight, 1));
+    // The pill keeps the bar's full height for the touch.
+    expect(tester.getSize(find.byType(InkWell).first).height, 56);
+
+    await pumpBar(390);
+    final icon = tester.getRect(find.byIcon(icons.first));
+    expect(icon.bottom, lessThanOrEqualTo(tester.getRect(find.text('推荐')).top));
+  });
 }

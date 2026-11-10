@@ -12,6 +12,7 @@ import '../motion/hero_transition.dart' show LiftableBar, LiftableShadow;
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
 import '../icons/app_icons.dart';
+import '../layout/app_breakpoints.dart';
 import '../navigation/frozen_while_hidden.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -62,7 +63,9 @@ int? homeBarIndexOf(List<HomeDestination> destinations, int branch) {
 /// `BottomNavigationView`: a 56dp row on the page background, casting a
 /// shadow up over the content under it, every destination an icon over
 /// its label, the selected one tinted in the theme's selected colour. No
-/// indicator shape.
+/// indicator shape. From [AppBreakpoints.medium] wide (a turned phone) each
+/// destination puts its icon beside its label and the group sits in the
+/// middle, as Compose's `ShortNavigationBar` does in a medium window.
 class FuncBottomNav extends StatelessWidget {
   const FuncBottomNav({
     super.key,
@@ -92,6 +95,17 @@ class FuncBottomNav extends StatelessWidget {
       math.max(0.0, itemWidth - 2 * _labelInset);
 
   static const double _labelInset = 6.0;
+
+  /// A side-by-side destination's padding either side of its icon and
+  /// label, and the gap between the two.
+  static const double _rowInset = 16.0;
+  static const double _rowGap = 8.0;
+  static const double _iconSize = 24.0;
+
+  /// Room for a side-by-side label: its share of the bar less the icon,
+  /// the gap and the padding, so the centred group never outgrows the bar.
+  static double _rowLabelSlot(double itemWidth) =>
+      math.max(0.0, itemWidth - _iconSize - _rowGap - 2 * _rowInset);
 
   @override
   Widget build(BuildContext context) {
@@ -131,6 +145,11 @@ class FuncBottomNav extends StatelessWidget {
                       );
                       final itemWidth =
                           constraints.maxWidth / destinations.length;
+                      final sideBySide =
+                          constraints.maxWidth >= AppBreakpoints.medium;
+                      final labelSlot = sideBySide
+                          ? _rowLabelSlot(itemWidth)
+                          : _labelSlot(itemWidth);
                       // Uniform label scale: every destination shares one
                       // size, shrunk until the widest translation fits its
                       // slot, down to LabelFit.minScale; past that the labels
@@ -140,29 +159,38 @@ class FuncBottomNav extends StatelessWidget {
                         style: LabelFit.paintedStyle(context, measureStyle),
                         textScaler: MediaQuery.textScalerOf(context),
                         textDirection: Directionality.of(context),
-                        slotWidth: _labelSlot(itemWidth),
+                        slotWidth: labelSlot,
                         locale: Localizations.maybeLocaleOf(context),
                       );
+                      Widget item(int i) => MergeSemantics(
+                        child: Semantics(
+                          role: ui.SemanticsRole.tab,
+                          selected: i == selectedIndex,
+                          child: _FuncBottomNavItem(
+                            destination: destinations[i],
+                            index: i,
+                            count: destinations.length,
+                            selected: i == selectedIndex,
+                            ambientStyle: ambient,
+                            labelFit: fit,
+                            rowLabelWidth: sideBySide ? labelSlot : null,
+                            onTap: () => onSelected(i),
+                          ),
+                        ),
+                      );
+                      if (sideBySide) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (var i = 0; i < destinations.length; i++)
+                              item(i),
+                          ],
+                        );
+                      }
                       return Row(
                         children: [
                           for (var i = 0; i < destinations.length; i++)
-                            Expanded(
-                              child: MergeSemantics(
-                                child: Semantics(
-                                  role: ui.SemanticsRole.tab,
-                                  selected: i == selectedIndex,
-                                  child: _FuncBottomNavItem(
-                                    destination: destinations[i],
-                                    index: i,
-                                    count: destinations.length,
-                                    selected: i == selectedIndex,
-                                    ambientStyle: ambient,
-                                    labelFit: fit,
-                                    onTap: () => onSelected(i),
-                                  ),
-                                ),
-                              ),
-                            ),
+                            Expanded(child: item(i)),
                         ],
                       );
                     },
@@ -214,8 +242,10 @@ Color? _resolveDestinationOverlay(ColorScheme colors, Set<WidgetState> states) {
 
 /// One destination cell: an icon over its label, vertically centred in the
 /// row. The whole cell takes the tap; the ripple is a circle around the
-/// icon, as on Shaft's `BottomNavigationView`. Selecting tints the icon and
-/// label from `onSurfaceVariant` to the theme's selected colour and the
+/// icon, as on Shaft's `BottomNavigationView`. Side by side
+/// ([rowLabelWidth] set) the icon sits beside the label, the cell is as
+/// wide as both and the ripple is a pill over it. Selecting tints the icon
+/// and label from `onSurfaceVariant` to the theme's selected colour and the
 /// label to its selected weight, on the [MotionSpring.effectsFast] spring.
 class _FuncBottomNavItem extends StatefulWidget {
   const _FuncBottomNavItem({
@@ -226,6 +256,7 @@ class _FuncBottomNavItem extends StatefulWidget {
     required this.ambientStyle,
     required this.labelFit,
     required this.onTap,
+    this.rowLabelWidth,
   });
 
   final FuncBottomNavDestination destination;
@@ -238,6 +269,9 @@ class _FuncBottomNavItem extends StatefulWidget {
   final TextStyle ambientStyle;
   final LabelFit labelFit;
   final VoidCallback onTap;
+
+  /// The widest a side-by-side label may be; null for icon over label.
+  final double? rowLabelWidth;
 
   @override
   State<_FuncBottomNavItem> createState() => _FuncBottomNavItemState();
@@ -298,50 +332,82 @@ class _FuncBottomNavItemState extends State<_FuncBottomNavItem>
     final selectedLabel = widget.ambientStyle.merge(
       navTheme.labelTextStyle?.resolve(_selectedStates),
     );
+    final rowLabelWidth = widget.rowLabelWidth;
+    final overlay = WidgetStateProperty.resolveWith(
+      (inkStates) => _resolveDestinationOverlay(colors, {
+        if (widget.selected) WidgetState.selected,
+        ...inkStates,
+      }),
+    );
+    final content = AnimatedBuilder(
+      animation: _selection,
+      builder: (context, _) {
+        final t = _curve.transform(_selection.value);
+        final icon = Icon(
+          widget.destination.icon,
+          size: FuncBottomNav._iconSize,
+          color: Color.lerp(idleIcon, selectedIcon, t),
+        );
+        final label = FitLabel(
+          widget.destination.label,
+          fit: widget.labelFit,
+          style: TextStyle.lerp(idleLabel, selectedLabel, t)!,
+        );
+        if (rowLabelWidth != null) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: FuncBottomNav._rowInset,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                icon,
+                const SizedBox(width: FuncBottomNav._rowGap),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: rowLabelWidth),
+                  child: label,
+                ),
+              ],
+            ),
+          );
+        }
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            icon,
+            const SizedBox(height: FuncSpacing.xxs),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FuncBottomNav._labelInset,
+              ),
+              child: label,
+            ),
+          ],
+        );
+      },
+    );
     return Semantics(
       button: true,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          InkResponse(
-            radius: FuncBottomNav._height / 2,
-            overlayColor: WidgetStateProperty.resolveWith(
-              (inkStates) => _resolveDestinationOverlay(colors, {
-                if (widget.selected) WidgetState.selected,
-                ...inkStates,
-              }),
-            ),
-            onTap: widget.onTap,
-            child: SizedBox.expand(
-              child: AnimatedBuilder(
-                animation: _selection,
-                builder: (context, _) {
-                  final t = _curve.transform(_selection.value);
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        widget.destination.icon,
-                        size: 24,
-                        color: Color.lerp(idleIcon, selectedIcon, t),
-                      ),
-                      const SizedBox(height: FuncSpacing.xxs),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: FuncBottomNav._labelInset,
-                        ),
-                        child: FitLabel(
-                          widget.destination.label,
-                          fit: widget.labelFit,
-                          style: TextStyle.lerp(idleLabel, selectedLabel, t)!,
-                        ),
-                      ),
-                    ],
-                  );
-                },
+          if (rowLabelWidth != null)
+            SizedBox(
+              height: FuncBottomNav._height,
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                overlayColor: overlay,
+                onTap: widget.onTap,
+                child: Center(child: content),
               ),
+            )
+          else
+            InkResponse(
+              radius: FuncBottomNav._height / 2,
+              overlayColor: overlay,
+              onTap: widget.onTap,
+              child: SizedBox.expand(child: content),
             ),
-          ),
           // A label-only overlay so the merged node reads "推荐，标签 1/5"
           // like a real NavigationBar destination.
           Semantics(
