@@ -92,6 +92,41 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
 
+  workflows-and-secrets:
+    # actionlint checks the workflow files (and, through the runner's
+    # shellcheck, their run scripts); gitleaks scans the commits a pull
+    # request or a merge adds. Both are release binaries pinned by version
+    # and checksum, which Dependabot does not bump: update them by hand.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # HEAD^1..HEAD reaches every commit the change adds.
+          fetch-depth: 0
+      - name: Install actionlint and gitleaks
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -sSfLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfLo gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$GITLEAKS_SHA256" gitleaks.tar.gz | sha256sum -c -
+          tar -xzf actionlint.tar.gz -C "$bin" actionlint
+          tar -xzf gitleaks.tar.gz -C "$bin" gitleaks
+          echo "$bin" >> "$GITHUB_PATH"
+      - run: actionlint
+      - name: Scan the added commits for secrets
+        # On a pull request HEAD is its merge commit and HEAD^1 the base;
+        # on main HEAD^1 is the commit before the merge. Known false
+        # positives in older history are listed in .gitleaksignore.
+        run: gitleaks git --no-banner --redact --log-opts="HEAD^1..HEAD" .
+
   test:
     name: test (shard ${{ matrix.shard }} of ${{ strategy.job-total }})
     runs-on: ubuntu-latest
@@ -124,22 +159,26 @@ jobs:
           flutter test "${files[@]}"
 
   analyze-and-test:
-    # The single check the ruleset requires. It aggregates analyze and every
-    # test shard, so keep the name and let it run even when they fail:
-    # a skipped required check would count as passing.
-    needs: [analyze, test]
+    # The single check the ruleset requires. It aggregates analyze, every
+    # test shard and the workflow and secret scans, so keep the name and
+    # let it run even when they fail: a skipped required check would count
+    # as passing.
+    needs: [analyze, test, workflows-and-secrets]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require analyze and all test shards to succeed
+      - name: Require analyze, all test shards and the scans to succeed
         env:
           ANALYZE_RESULT: ${{ needs.analyze.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          SCAN_RESULT: ${{ needs.workflows-and-secrets.result }}
         run: |
           echo "analyze: $ANALYZE_RESULT"
           echo "test:    $TEST_RESULT"
-          if [ "$ANALYZE_RESULT" != success ] || [ "$TEST_RESULT" != success ]; then
-            echo "::error::analyze or a test shard did not succeed"
+          echo "scans:   $SCAN_RESULT"
+          if [ "$ANALYZE_RESULT" != success ] || [ "$TEST_RESULT" != success ] ||
+            [ "$SCAN_RESULT" != success ]; then
+            echo "::error::analyze, a test shard or a scan did not succeed"
             exit 1
           fi
 

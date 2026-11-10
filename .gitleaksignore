@@ -1,0 +1,8 @@
+# gitleaks fingerprints (commit:file:rule:line) of findings that are not
+# secrets. CI scans only the commits a change adds; these keep a scan of
+# the whole history clean.
+# The public OAuth client secret every open-source pixiv client embeds.
+867cec27186dd34724efa8d83eef6518efbcb982:lib/core/network/pixiv_client_identity.dart:generic-api-key:11
+# Test URLs with a port, read as a key.
+da9f196391de279f20b10bcb7e4d3bd18bbd3197:test/next_page_parser_test.dart:generic-api-key:57
+5fd7b6d9a388e95ca2e6911ce0887b6a9dd3d798:test/restricted_compat_network_test.dart:generic-api-key:115
