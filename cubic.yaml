@@ -37,6 +37,8 @@ reviews:
         - lib/**
         - plugins/**
         - android/**
+        - tool/**
+        - analysis_options.yaml
     - name: Tests
       description: |
         A change's test growth is capped by its lib growth (spec TEST-05):
