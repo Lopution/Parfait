@@ -8,8 +8,18 @@ import 'package:parfait/app/layout/two_pane.dart';
 void main() {
   group('AppBreakpoints', () {
     test('navigation rail engages at the medium boundary', () {
-      expect(AppBreakpoints.useNavigationRail(599), isFalse);
-      expect(AppBreakpoints.useNavigationRail(600), isTrue);
+      expect(AppBreakpoints.useNavigationRail(599, phone: false), isFalse);
+      expect(AppBreakpoints.useNavigationRail(600, phone: false), isTrue);
+      expect(AppBreakpoints.useNavigationRail(1200, phone: true), isFalse);
+    });
+
+    test('a phone is a display under the medium boundary', () {
+      expect(AppBreakpoints.isPhoneDisplay(const Size(411, 896)), isTrue);
+      // A foldable's cover screen; its unfolded inner screen.
+      expect(AppBreakpoints.isPhoneDisplay(const Size(360, 748)), isTrue);
+      expect(AppBreakpoints.isPhoneDisplay(const Size(673, 841)), isFalse);
+      // No display size reported: decided by the window alone.
+      expect(AppBreakpoints.isPhoneDisplay(null), isFalse);
     });
 
     test('extended rail waits for the extra-large boundary', () {
@@ -18,8 +28,9 @@ void main() {
     });
 
     test('two-pane detail needs a landscape area at least medium wide', () {
-      // A turned phone less the rail; a small landscape tablet.
-      expect(AppBreakpoints.useTwoPaneDetail(const Size(815, 411)), isTrue);
+      // A turned phone (the bar, no rail); a small tablet turned, less the
+      // rail.
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(896, 411)), isTrue);
       expect(AppBreakpoints.useTwoPaneDetail(const Size(919, 640)), isTrue);
       // Portrait tablet, unfolded foldable, landscape split screen.
       expect(AppBreakpoints.useTwoPaneDetail(const Size(720, 1280)), isFalse);

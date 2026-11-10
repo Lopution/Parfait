@@ -999,6 +999,24 @@ void main() {
     expect(slot(), 280);
   });
 
+  testWidgets('a turned phone keeps the panel to half the window', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(896, 411));
+    await tester.pumpWidget(composerApp(bareComposer()));
+    final idleHeight = tester.getSize(find.byType(CommentComposer)).height;
+
+    // No keyboard height known yet: half of the 411 window, not the
+    // portrait default, so the page above keeps its room.
+    await tester.tap(find.byTooltip('Emoji'));
+    await _settlePanel(tester);
+    expect(
+      tester.getSize(find.byType(CommentComposer)).height - idleHeight,
+      411 / 2,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('composer input state covers the four-state matrix', (
     tester,
   ) async {

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../app/layout/app_breakpoints.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/motion/hero_transition.dart' show LiftableBar;
@@ -30,7 +31,18 @@ class ReplicaProfileHeaderGeometry {
     required this.shrinkOffset,
     required this.minExtent,
     required this.maxExtent,
+    this.shortWindow = false,
   });
+
+  /// A window under [AppBreakpoints.compactHeight], a turned phone: the
+  /// banner fills the toolbar's band alone and the identity is one row
+  /// under it, so the tabs and the works start on the first screen.
+  static bool isShortWindow(Size window) =>
+      window.height < AppBreakpoints.compactHeight;
+
+  /// The avatar in a short window's one-row identity: beside the name, not
+  /// on the banner's edge.
+  static const shortAvatarRadius = 28.0;
 
   /// Banner height left visible below the toolbar at full expansion. The
   /// banner's total height is `topInset + kToolbarHeight + 80`, i.e. a
@@ -56,6 +68,16 @@ class ReplicaProfileHeaderGeometry {
   final double minExtent;
   final double maxExtent;
 
+  /// Laid out for a short window ([isShortWindow]).
+  final bool shortWindow;
+
+  /// The banner below the toolbar at full expansion: none on a short
+  /// window.
+  double get bannerBelow => shortWindow ? 0 : bannerBelowToolbar;
+
+  /// How far below the banner the name row starts.
+  double get nameRowBelow => shortWindow ? FuncSpacing.sm : nameRowBelowBanner;
+
   double get collapseRange => math.max(0, maxExtent - minExtent);
 
   double get progress =>
@@ -68,9 +90,10 @@ class ReplicaProfileHeaderGeometry {
   double get contentOffset => -shrinkOffset;
 
   /// 0 while the banner still fills the toolbar, 1 once its bottom edge has
-  /// scrolled past; fades over [toolbarFadeDistance] before that.
+  /// scrolled past; fades over [toolbarFadeDistance] before that, or from
+  /// the first scroll when the banner is no taller than the toolbar.
   double get toolbarOpacity =>
-      ((shrinkOffset - (bannerBelowToolbar - toolbarFadeDistance)) /
+      ((shrinkOffset - math.max(0.0, bannerBelow - toolbarFadeDistance)) /
               toolbarFadeDistance)
           .clamp(0.0, 1.0);
 
@@ -81,8 +104,7 @@ class ReplicaProfileHeaderGeometry {
 
   /// Whether the name row has started sliding under the toolbar. From then
   /// on its share and main action are cut off, so the overflow lists them.
-  bool get nameRowUnderToolbar =>
-      shrinkOffset > bannerBelowToolbar + nameRowBelowBanner;
+  bool get nameRowUnderToolbar => shrinkOffset > bannerBelow + nameRowBelow;
 }
 
 /// Project-owned profile header. It avoids the old extended_sliver delegate.
@@ -233,14 +255,14 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
       shrinkOffset: shrinkOffset,
       minExtent: minExtent,
       maxExtent: maxExtent,
+      shortWindow: ReplicaProfileHeaderGeometry.isShortWindow(
+        MediaQuery.sizeOf(context),
+      ),
     );
     final colors = Theme.of(context).colorScheme;
     final actions = _actions(context);
     final hasCover = user.backgroundImageUrl != null;
-    final bannerHeight =
-        topInset +
-        kToolbarHeight +
-        ReplicaProfileHeaderGeometry.bannerBelowToolbar;
+    final bannerHeight = topInset + kToolbarHeight + geometry.bannerBelow;
     // Layered header, bottom to top: banner → identity (clipped below the
     // toolbar) → fading toolbar surface → collapsed title → persistent
     // back/overflow controls.
@@ -309,6 +331,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 child: _ExpandedIdentity(
                                   user: user,
                                   bannerHeight: bannerHeight,
+                                  shortWindow: geometry.shortWindow,
                                   actions: actions,
                                   stats: stats,
                                 ),
@@ -587,7 +610,9 @@ class _ProfileBackground extends StatelessWidget {
 /// height: a banner spacer (the banner itself is painted by the layered
 /// header), the overlapping 80dp avatar, the name row — name and @account
 /// on the left, share and the main action on the right — and the
-/// counters. The measured height of this widget drives
+/// counters. On a short window the avatar sits at the start of the name
+/// row, under the banner, and on a medium-wide one the counters join the
+/// row when they fit beside the name and the buttons. The measured height of this widget drives
 /// [ReplicaProfileHeaderDelegate.expandedExtent].
 class _ExpandedIdentity extends StatelessWidget {
   const _ExpandedIdentity({
@@ -595,6 +620,7 @@ class _ExpandedIdentity extends StatelessWidget {
     required this.bannerHeight,
     required this.actions,
     required this.stats,
+    this.shortWindow = false,
   });
 
   /// The main action never takes more than this share of the name row; a
@@ -606,6 +632,7 @@ class _ExpandedIdentity extends StatelessWidget {
   final double bannerHeight;
   final List<_ProfileHeaderAction> actions;
   final List<ProfileHeaderStat> stats;
+  final bool shortWindow;
 
   @override
   Widget build(BuildContext context) {
@@ -619,91 +646,155 @@ class _ExpandedIdentity extends StatelessWidget {
         main ??= action;
       }
     }
-    const avatarRadius = ReplicaProfileHeaderGeometry.avatarRadius;
+    final avatarRadius = shortWindow
+        ? ReplicaProfileHeaderGeometry.shortAvatarRadius
+        : ReplicaProfileHeaderGeometry.avatarRadius;
+    final avatar = KeyedSubtree(
+      key: const ValueKey('profile-expanded-avatar'),
+      child: _Avatar(user: user, radius: avatarRadius),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(
+        context,
+        theme: theme,
+        rowWidth: constraints.maxWidth - 2 * FuncSpacing.lg,
+        avatar: avatar,
+        avatarRadius: avatarRadius,
+        share: share,
+        main: main,
+      ),
+    );
+  }
+
+  /// The least room the name keeps when the counters join its row.
+  static const _minNameWidth = 96.0;
+
+  /// Whether a short window's counters fit in the name row beside the
+  /// name, the share button and the main action at its widest.
+  bool _statsFitInRow(
+    BuildContext context,
+    double rowWidth, {
+    required bool share,
+    required bool main,
+  }) {
+    if (!shortWindow ||
+        stats.isEmpty ||
+        !AppBreakpoints.useSideBySideForm(MediaQuery.sizeOf(context))) {
+      return false;
+    }
+    final taken =
+        2 * ReplicaProfileHeaderGeometry.shortAvatarRadius +
+        FuncSpacing.md +
+        (share ? kMinInteractiveDimension : 0) +
+        (main ? FuncSpacing.xs + rowWidth * mainActionMaxShare : 0) +
+        FuncSpacing.sm;
+    return ProfileStatRow.widthOf(context, stats) <=
+        rowWidth - taken - _minNameWidth;
+  }
+
+  Widget _build(
+    BuildContext context, {
+    required ThemeData theme,
+    required double rowWidth,
+    required Widget avatar,
+    required double avatarRadius,
+    required _ProfileHeaderAction? share,
+    required _ProfileHeaderAction? main,
+  }) {
+    final statsInRow = _statsFitInRow(
+      context,
+      rowWidth,
+      share: share?.buildInline != null,
+      main: main?.buildInline != null,
+    );
+    final nameRow = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+      child: Row(
+        children: [
+          if (shortWindow) ...[avatar, const SizedBox(width: FuncSpacing.md)],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  key: const ValueKey('profile-expanded-name'),
+                  user.name,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (user.account.isNotEmpty)
+                  Text(
+                    '@${user.account}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          if (statsInRow)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: FuncSpacing.sm),
+              child: ProfileStatRow(stats: stats),
+            ),
+          if (share?.buildInline != null) share!.buildInline!(context),
+          if (main?.buildInline != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: FuncSpacing.xs),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: rowWidth * mainActionMaxShare,
+                ),
+                child: main!.buildInline!(context),
+              ),
+            ),
+        ],
+      ),
+    );
+    final column = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: bannerHeight),
+        // A short window's row starts under the banner; otherwise under
+        // the avatar's lower half.
+        SizedBox(
+          height: shortWindow
+              ? FuncSpacing.sm
+              : ReplicaProfileHeaderGeometry.nameRowBelowBanner,
+        ),
+        nameRow,
+        if (stats.isNotEmpty && !statsInRow)
+          Padding(
+            // The blocks carry their own xs inset; line their text up
+            // with the name.
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.lg - FuncSpacing.xs,
+              FuncSpacing.xs,
+              FuncSpacing.lg - FuncSpacing.xs,
+              0,
+            ),
+            child: ProfileStatRow(stats: stats),
+          ),
+        const SizedBox(height: FuncSpacing.sm),
+      ],
+    );
+    if (shortWindow) return column;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: bannerHeight),
-            // The avatar's lower half.
-            const SizedBox(
-              height: ReplicaProfileHeaderGeometry.nameRowBelowBanner,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            key: const ValueKey('profile-expanded-name'),
-                            user.name,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (user.account.isNotEmpty)
-                            Text(
-                              '@${user.account}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (share?.buildInline != null)
-                      share!.buildInline!(context),
-                    if (main?.buildInline != null)
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                          start: FuncSpacing.xs,
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: constraints.maxWidth * mainActionMaxShare,
-                          ),
-                          child: main!.buildInline!(context),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            if (stats.isNotEmpty)
-              Padding(
-                // The blocks carry their own xs inset; line their text up
-                // with the name.
-                padding: const EdgeInsets.fromLTRB(
-                  FuncSpacing.lg - FuncSpacing.xs,
-                  FuncSpacing.xs,
-                  FuncSpacing.lg - FuncSpacing.xs,
-                  0,
-                ),
-                child: ProfileStatRow(stats: stats),
-              ),
-            const SizedBox(height: FuncSpacing.sm),
-          ],
-        ),
+        column,
         // 80dp avatar centred on the banner's bottom edge, left-aligned.
         PositionedDirectional(
           start: FuncSpacing.lg,
           top: bannerHeight - avatarRadius,
-          child: KeyedSubtree(
-            key: const ValueKey('profile-expanded-avatar'),
-            child: _Avatar(user: user, radius: avatarRadius),
-          ),
+          child: avatar,
         ),
       ],
     );

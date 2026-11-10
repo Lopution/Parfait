@@ -121,9 +121,17 @@ reviewed: 2026-10-17
   the content (no hairline), as the comment composer does. Do not swap
   it for the M3 `NavigationBar`; the wide layout's `NavigationRail` keeps
   the M3 rail. Labels share one `LabelFit` capped at 1.3x text scale.
+  From 600dp wide (a turned phone, NAV-20) each destination puts its icon
+  beside its label, as wide as both, and the group is centred (Compose's
+  `ShortNavigationBar` in a medium window); the ripple is a pill the bar's
+  height. Narrower, or when a label would not fit beside its icon at
+  `LabelFit.minScale` (Japanese at 1.3x on 600dp), the destinations
+  share the width, icon over label.
 - **Why:** User decision after comparing with Shaft: no capsule or
   segmented bar; a shadow over a hairline on every bottom bar (10-25).
-- **Check:** `test/locale_layout/compact_controls_test.dart`
+  On a turned phone five equal cells left 180dp between items; the user
+  chose the side-by-side items (11-10).
+- **Check:** `test/locale_layout/compact_controls_test.dart` "a turned phone's bottom bar keeps every label whole"; `test/func_bottom_nav_test.dart` "a wide bar puts each icon beside its label, centred"
 - **Code:** `lib/app/widgets/func_bottom_nav.dart`
 
 ### NAV-08 Bar geometry is published, never measured
@@ -308,18 +316,24 @@ reviewed: 2026-10-17
 
 ## Wide windows
 
-### NAV-20 Wide windows get a scrolling icon rail
-- **Rule:** From 600dp wide the shell swaps the bar for a
-  `NavigationRail`: an 80dp icon rail with labels below 1600dp, the 256dp
-  extended rail from 1600dp. The rail scrolls when the window is too short
-  for its items. Pages size themselves from `HomeShellChrome.contentSizeOf`
-  (the window less the rail), not the window. An immersive page hides the
-  rail through `shellRailHiddenProvider` while its route is current (the
-  novel reader); it releases the rail after the frame, never in dispose.
+### NAV-20 A phone keeps the bar; larger screens get a scrolling icon rail
+- **Rule:** User decision (11-09): a phone, a display whose shortest side
+  is under 600dp (`AppBreakpoints.isPhoneDisplay`, read from
+  `View.display`; Android's sw600dp line), always shows the bottom bar,
+  turned or not. On a larger display the shell swaps
+  the bar for a `NavigationRail` from 600dp wide: an 80dp icon rail with
+  labels below 1600dp, the 256dp extended rail from 1600dp. The rail
+  scrolls when the window is too short for its items. Pages size
+  themselves from `HomeShellChrome.contentSizeOf` (the window less the
+  rail), not the window. An immersive page hides the rail through
+  `shellRailHiddenProvider` while its route is current (the novel reader);
+  it releases the rail after the frame, never in dispose.
 - **Why:** On a turned phone five labelled items overflowed 411dp; the
-  extended rail took 256dp from content on tablets; the reader showed the
-  rail beside the text.
-- **Check:** `test/home_branch_stack_test.dart` "a turned phone gets a scrolling icon rail"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail"; `test/layout_breakpoints_test.dart` "extended rail waits for the extra-large boundary"
+  scrolling rail that fixed it took 80dp of a phone's width, and the user
+  wanted phones, touch tablets and desktops told apart rather than one
+  width ladder for all; the extended rail took 256dp from content on
+  tablets; the reader showed the rail beside the text.
+- **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar"; `test/home_branch_stack_test.dart` "a short window on a tablet gets a scrolling icon rail"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail"; `test/layout_breakpoints_test.dart` "extended rail waits for the extra-large boundary"
 - **Code:** `lib/app/layout/app_breakpoints.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place

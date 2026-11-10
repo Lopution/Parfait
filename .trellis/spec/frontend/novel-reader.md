@@ -231,11 +231,14 @@ reviewed: 2026-11-02
   (`novelMarkerWritesProvider`, not the action queue): the row waits
   for the answer, the novel in `NovelStore` changes only on success, and
   a failure says so. The chapter list marks the chapter the reader is
-  in, opens scrolled to it, and grows to half the screen.
+  in, opens scrolled to it, and grows to half the screen. The slider and
+  its buttons stay put; below them the bookmark and the chapters scroll
+  inside what is left of the sheet, and on a window under 480dp tall the
+  list may shrink to two rows. The settings sheet scrolls the same way.
 - **Why:** Pixiv's bookmark, kept with the account, was unreachable;
   a long table of contents showed four rows and no place in it (user
-  request, 11-02).
-- **Check:** `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your " "a one-page novel without a bookmark offers none"; `test/novel_reader_stage_test.dart` "progress sheet: the chapter you are in is marked and in "; `test/novel_webview_text_test.dart` "the account's marker: its page, none, or a parse error"
+  request, 11-02). On a turned phone both sheets overflowed.
+- **Check:** `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your " "a one-page novel without a bookmark offers none"; `test/novel_reader_stage_test.dart` "progress sheet: the chapter you are in is marked and in "; `test/novel_reader_stage_test.dart` "a turned phone fits the progress and settings sheets"; `test/novel_webview_text_test.dart` "the account's marker: its page, none, or a parse error"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_page.dart`, `lib/core/novel/novel_store.dart`, `lib/core/novel/novel_webview_text.dart`
 
 ### NOVEL-16 The info sheet states the novel's facts

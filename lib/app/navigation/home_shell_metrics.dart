@@ -27,7 +27,7 @@ class HomeShellChrome extends InheritedWidget {
 
   /// Rendered height the shell's floating bottom bar occupies at rest:
   /// `FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom)`,
-  /// or 0 while the width ladder selects the NavigationRail.
+  /// or 0 while the shell shows the NavigationRail.
   final double bottomBarExtent;
 
   /// Width the rail and its divider take beside the branches; 0 on
