@@ -83,7 +83,7 @@ void main() {
       final spot = Offset(reader.center.dx, reader.top + reader.height * share);
       if (!images.any((image) => image.contains(spot))) return spot;
     }
-    return reader.center;
+    fail('every tap spot on the reader is on an illustration');
   }
 
   Future<void> openReaderSettings(WidgetTester tester) async {

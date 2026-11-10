@@ -211,7 +211,12 @@ Future<void> revealForReview(WidgetTester tester, Finder target) async {
       main = state;
     }
   }
-  final position = main!.position;
+  if (main == null) {
+    if (target.evaluate().isEmpty) fail('no vertical scroll to reveal $target');
+    await Scrollable.ensureVisible(tester.element(target.first));
+    return;
+  }
+  final position = main.position;
   while (target.evaluate().isEmpty &&
       position.pixels < position.maxScrollExtent) {
     position.jumpTo(
@@ -223,6 +228,7 @@ Future<void> revealForReview(WidgetTester tester, Finder target) async {
     // A section scrolled into view asks for its content once on screen.
     await settleReview(tester, limit: const Duration(seconds: 1));
   }
+  if (target.evaluate().isEmpty) fail('$target is not on the page');
   // Mid-viewport: at an edge a bar over the page takes the tap.
   await Scrollable.ensureVisible(tester.element(target.first), alignment: 0.5);
   await tester.pump(const Duration(milliseconds: 500));
