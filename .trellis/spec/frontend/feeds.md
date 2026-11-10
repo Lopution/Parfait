@@ -33,13 +33,17 @@ reviewed: 2026-10-31
   explanation (PAGE-20). The first-load, empty and error views sit at the
   optical centre, 40% of the free space above them, of the area under
   the page's toolbar, the bar's extension (tabs, a filter row, a search
-  field) counted in; the extension is read at layout, not at build.
+  field) counted in; the extension is read at layout, not at build. An
+  empty view too tall for its area (a turned phone under a search bar)
+  scrolls, and takes a drag only then: laid out at its own height in a
+  page's scroll, it leaves the drag to that scroll's pull to refresh.
 - **Why:** Hand-drawn status buttons drifted in look; a fallback label
   shipped untranslated UI. Centred under the tabs, an empty state stood
   half a tab bar lower than on a page without them (user report). A bare
   outlined icon and one grey line floated in blank space and read as
-  unfinished; at the exact middle a view looks low.
-- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without"
+  unfinished; at the exact middle a view looks low. On a turned phone the
+  empty search result overflowed its buttons off the window.
+- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without" "an empty state scrolls only when the window cannot hold it"
 - **Code:** `lib/app/widgets/feed/feed_states.dart`
 
 ### FEED-02 Refresh only where content can still arrive

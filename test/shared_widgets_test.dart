@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
@@ -11,6 +12,7 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 void main() {
   group('retry on network restore (HCI 9)', () {
@@ -220,4 +222,76 @@ void main() {
       expect(tabbed, moreOrLessEquals(plain));
     },
   );
+
+  testWidgets('an empty state scrolls only when the window cannot hold it', (
+    tester,
+  ) async {
+    Widget empty() => FeedEmpty(
+      icon: Icons.search,
+      title: 'nothing here',
+      detail: 'try another search',
+      retryLabel: 'refresh',
+      onRefresh: () async {},
+      actionLabel: 'edit',
+      onAction: () {},
+    );
+
+    // A turned phone's short window under a bar with a search row and a
+    // filter row: the buttons are reached by scrolling, nothing overflows.
+    setViewSize(tester, const Size(568, 320));
+    await tester.pumpWidget(
+      localizedApp(
+        theme: replicaTheme(Brightness.light),
+        home: Scaffold(
+          appBar: AppTopBar(
+            title: const Text('page'),
+            bottom: const PreferredSize(
+              preferredSize: Size.fromHeight(96),
+              child: SizedBox.shrink(),
+            ),
+          ),
+          body: empty(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('edit'));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.text('edit')).bottom, lessThanOrEqualTo(320));
+
+    // Laid out at its own height in a page's scroll, it leaves the drag to
+    // that scroll, which pulls down to refresh.
+    final page = ScrollController();
+    addTearDown(page.dispose);
+    setViewSize(tester, const Size(400, 800));
+    await tester.pumpWidget(
+      localizedApp(
+        theme: replicaTheme(Brightness.light),
+        // The app's: a page's scroll and a status view's take any drag.
+        scrollBehavior: const FuncScrollBehavior(),
+        home: Scaffold(
+          body: CustomScrollView(
+            controller: page,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              SliverFillRemaining(hasScrollBody: false, child: empty()),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final drag = await tester.startGesture(
+      tester.getCenter(find.text('nothing here')),
+    );
+    await drag.moveBy(const Offset(0, 40));
+    await drag.moveBy(const Offset(0, 40));
+    await tester.pump();
+    expect(page.offset, lessThan(0));
+    await drag.up();
+    await tester.pumpAndSettle();
+  });
 }
