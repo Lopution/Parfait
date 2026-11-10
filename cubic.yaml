@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://cubic.dev/schema/cubic-repository-config.schema.json
+# cubic advises on every pull request and never approves, blocks or commits
+# (spec REL-16). The project's rules live in .trellis/spec/. cubic reads
+# this file from the default branch.
+version: 1
+
+reviews:
+  enabled: true
+  sensitivity: medium
+  check_drafts: false
+  incremental_commits: true
+  auto_approve: disabled
+  custom_instructions: |
+    Write every comment in Simplified Chinese. Be brief. Report only what
+    is worth changing: bugs, regressions, security, missed edge cases,
+    tests that do not test what they claim. Skip style nits. The
+    project's rules carry IDs such as TEST-05; cite the rule a finding
+    rests on when one of the linked rule files states it.
+  ignore:
+    files:
+      - lib/l10n/app_localizations*.dart
+      - "**/*.freezed.dart"
+      - "**/*.g.dart"
+      - "**/frb_generated*"
+  custom_rules:
+    # Each rule reads at most 10,000 characters of its description and
+    # linked files, so only the cross-cutting guides are linked; the
+    # area specs in .trellis/spec/ are far larger.
+    - name: Project conventions
+      description: |
+        The cross-cutting code-quality and architecture rules every change
+        follows.
+      file_paths:
+        - .trellis/spec/guides/code-quality.md
+        - .trellis/spec/guides/architecture.md
+      include:
+        - lib/**
+        - plugins/**
+        - android/**
+        - tool/**
+        - analysis_options.yaml
+    - name: Tests
+      description: |
+        A change's test growth is capped by its lib growth (spec TEST-05):
+        do not ask for tests of colour, spacing, order or copy, or for
+        tests of how a refactor or optimisation works inside (TEST-12). A
+        fix's test belongs beside the tests of its behaviour (TEST-01).
+        Pruning a passing test is fine when its commit names the case that
+        still covers its behaviour, or TEST-12 when it asserts only a
+        mechanism no user can observe (TEST-13); flag a prune that names
+        neither, a test that also checked observable behaviour pruned on
+        TEST-12 alone, a merge that keeps a replaced case's checks but not
+        the state it started from, or a test loosened to pass. Tests of
+        removed or changed behaviour go with that change (TEST-04). The
+        system under test always runs for real; only network, disk, clock
+        and third-party boundaries may be faked.
+      include:
+        - test/**
+    - name: Changelog
+      description: |
+        Written for users in Chinese and English, following Keep a
+        Changelog; check that each entry matches the app's wording in
+        lib/l10n/app_zh.arb and app_en.arb.
+      include:
+        - CHANGELOG.md
+    - name: Pull request title
+      description: |
+        The title follows Conventional Commits and matches the commit
+        messages, e.g. "fix(network): keep the bootstrap tier to image
+        hosts".
+
+# The pull request description feeds CHANGELOG.md; leave it as written.
+pr_descriptions:
+  generate: false
+
+# Commits from the bot would break the single-author rule.
+issues:
+  fix_with_cubic_buttons: false
+  pr_comment_fixes: false
+  auto_fix: "off"

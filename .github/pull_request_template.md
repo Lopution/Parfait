@@ -35,6 +35,6 @@ and migrations, downloads, release and signing, CI workflows.
 Suggested for high-risk changes, not required: one read-only Codex run,
 `codex exec -s read-only "<prompt>"`, whose adversarial prompt has it
 read and attack `git diff main...HEAD` itself. List each finding and how it was handled (fixed, or why not), or say why
-the review was skipped. CodeRabbit comments on every non-draft pull
+the review was skipped. cubic comments on every non-draft pull
 request: answer its findings here or in its threads.
 -->
