@@ -16,6 +16,7 @@ class ReviewDevice {
     this.statusBar = 0,
     this.navigationBar = 0,
     this.cutout = 0,
+    this.display,
   });
 
   final Size physicalSize;
@@ -23,6 +24,13 @@ class ReviewDevice {
   final double statusBar;
   final double navigationBar;
   final double cutout;
+
+  /// The whole display in logical pixels, which tells a phone from a
+  /// larger screen (`AppBreakpoints.isPhoneDisplay`). Null: the window
+  /// fills the display.
+  final Size? display;
+
+  Size get displaySize => display ?? physicalSize / dpr;
 }
 
 /// The screens `PARFAIT_REVIEW_DEVICE` names. `phone` is the user's
@@ -74,8 +82,51 @@ const reviewDevices = <String, ReviewDevice>{
     statusBar: 24,
     navigationBar: 16,
   ),
-  // 1440 x 900, a desktop window: no system bars.
-  'desktop': ReviewDevice(physicalSize: Size(2880, 1800), dpr: 2),
+  // 1440 x 900, a desktop window on a 1920 x 1080 monitor: no system bars.
+  'desktop': ReviewDevice(
+    physicalSize: Size(2880, 1800),
+    dpr: 2,
+    display: Size(1920, 1080),
+  ),
+  // 344 x 882, a book-style foldable's cover screen: narrower than any
+  // phone, about 23:9.
+  'fold-cover': ReviewDevice(
+    physicalSize: Size(903, 2315),
+    dpr: 2.625,
+    statusBar: 32,
+    navigationBar: 16,
+  ),
+  // 841 x 701, a book-style foldable opened and turned: wider than tall
+  // but nearly square.
+  'fold-landscape': ReviewDevice(
+    physicalSize: Size(2208, 1840),
+    dpr: 2.625,
+    statusBar: 32,
+    navigationBar: 16,
+  ),
+  // 360 x 374, a flip phone's outer screen running the app.
+  'flip-cover': ReviewDevice(
+    physicalSize: Size(1080, 1122),
+    dpr: 3,
+    statusBar: 24,
+    navigationBar: 16,
+  ),
+  // 600 x 960, an 8-inch tablet upright: exactly the rail breakpoint.
+  'tablet-small-portrait': ReviewDevice(
+    physicalSize: Size(1200, 1920),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 16,
+  ),
+  // 924 x 1480, a 14-inch tablet upright.
+  'tablet-large-portrait': ReviewDevice(
+    physicalSize: Size(1848, 2960),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 16,
+  ),
+  // 1920 x 1080, a maximised desktop window: the extended rail.
+  'desktop-large': ReviewDevice(physicalSize: Size(2880, 1620), dpr: 1.5),
 };
 
 /// The device of this run, from `PARFAIT_REVIEW_DEVICE` (default `phone`).
@@ -83,11 +134,28 @@ final reviewDeviceName =
     Platform.environment['PARFAIT_REVIEW_DEVICE'] ?? 'phone';
 final ReviewDevice reviewDevice =
     reviewDevices[reviewDeviceName] ??
+    _sizedDevice(reviewDeviceName) ??
     (throw ArgumentError.value(
       reviewDeviceName,
       'PARFAIT_REVIEW_DEVICE',
-      'one of ${reviewDevices.keys.join(', ')}',
+      'one of ${reviewDevices.keys.join(', ')}, or <width>x<height>',
     ));
+
+/// `<width>x<height>` in logical pixels: a size sweep's window, filling
+/// its display (so 740x360 is a phone and 1024x600 is not), at density 2
+/// with phone-like system bars.
+ReviewDevice? _sizedDevice(String name) {
+  final match = RegExp(r'^(\d+)x(\d+)$').firstMatch(name);
+  if (match == null) return null;
+  final width = double.parse(match[1]!);
+  final height = double.parse(match[2]!);
+  return ReviewDevice(
+    physicalSize: Size(width * 2, height * 2),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 16,
+  );
+}
 
 /// Where fonts, PNGs, films and the manifest land: `PARFAIT_REVIEW_OUT`,
 /// else `~/parfait-ux4-review`. Outside the repo, so review output never
@@ -96,8 +164,8 @@ final reviewOutDir =
     Platform.environment['PARFAIT_REVIEW_OUT'] ??
     '${Platform.environment['HOME']}/parfait-ux4-review';
 
-/// Applies [device] (by default [reviewDevice]): panel size, density,
-/// system bar insets, the [locale] as the system locale, font scale,
+/// Applies [device] (by default [reviewDevice]): panel and display size,
+/// density, system bar insets, the [locale] as the system locale, font scale,
 /// system [brightness] (the app's theme setting follows the system by
 /// default), and the engine's `accessibleNavigation` stuck on — the state
 /// GKD leaves it in on the user's phone — and Android as the platform, for
@@ -117,8 +185,10 @@ void applyReviewDevice(
   // In a tear-down, not [resetReviewDevice]: a view change gives the render
   // view a new root layer, and one made in the test body outlives it.
   addTearDown(view.reset);
+  addTearDown(view.display.resetSize);
   view.physicalSize = device.physicalSize;
   view.devicePixelRatio = device.dpr;
+  view.display.size = device.displaySize * view.display.devicePixelRatio;
   final insets = FakeViewPadding(
     left: device.cutout * device.dpr,
     top: device.statusBar * device.dpr,

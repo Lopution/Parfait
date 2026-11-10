@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/touch_exploration_scope.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
@@ -40,8 +41,10 @@ Future<GoRouter> _pumpHome(
   bool reduceMotion = false,
   Stream<bool> touchExploration = const Stream.empty(),
   bool firstFrameOnly = false,
+  Size? display,
 }) async {
   setViewSize(tester, Size(width, height));
+  if (display != null) setDisplaySize(tester, display);
   final router = pixivRouter(location);
   Widget app = localizedRouterApp(
     router,
@@ -522,8 +525,35 @@ void main() {
     }
   });
 
-  testWidgets('a turned phone gets a scrolling icon rail', (tester) async {
-    await _pumpHome(tester, width: 896, height: 411);
+  testWidgets('a turned phone keeps the bottom bar', (tester) async {
+    await _pumpHome(
+      tester,
+      width: 896,
+      height: 411,
+      display: const Size(411, 896),
+    );
+
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(FuncShellBottomNav), findsOneWidget);
+    // No rail to subtract: pages lay out for the whole window, so the
+    // detail page's two panes stay.
+    expect(
+      HomeShellChrome.contentSizeOf(
+        tester.element(find.byType(RecommendedHomePage)),
+      ),
+      const Size(896, 411),
+    );
+  });
+
+  testWidgets('a short window on a tablet gets a scrolling icon rail', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      width: 896,
+      height: 411,
+      display: const Size(1280, 800),
+    );
 
     // Five labelled destinations overflowed 411dp before the rail scrolled.
     expect(tester.takeException(), isNull);

@@ -308,18 +308,24 @@ reviewed: 2026-10-17
 
 ## Wide windows
 
-### NAV-20 Wide windows get a scrolling icon rail
-- **Rule:** From 600dp wide the shell swaps the bar for a
-  `NavigationRail`: an 80dp icon rail with labels below 1600dp, the 256dp
-  extended rail from 1600dp. The rail scrolls when the window is too short
-  for its items. Pages size themselves from `HomeShellChrome.contentSizeOf`
-  (the window less the rail), not the window. An immersive page hides the
-  rail through `shellRailHiddenProvider` while its route is current (the
-  novel reader); it releases the rail after the frame, never in dispose.
+### NAV-20 A phone keeps the bar; larger screens get a scrolling icon rail
+- **Rule:** User decision (11-09): a phone, a display whose shortest side
+  is under 600dp (`AppBreakpoints.isPhoneDisplay`, read from
+  `View.display`; Android's sw600dp line), always shows the bottom bar,
+  turned or not. On a larger display the shell swaps
+  the bar for a `NavigationRail` from 600dp wide: an 80dp icon rail with
+  labels below 1600dp, the 256dp extended rail from 1600dp. The rail
+  scrolls when the window is too short for its items. Pages size
+  themselves from `HomeShellChrome.contentSizeOf` (the window less the
+  rail), not the window. An immersive page hides the rail through
+  `shellRailHiddenProvider` while its route is current (the novel reader);
+  it releases the rail after the frame, never in dispose.
 - **Why:** On a turned phone five labelled items overflowed 411dp; the
-  extended rail took 256dp from content on tablets; the reader showed the
-  rail beside the text.
-- **Check:** `test/home_branch_stack_test.dart` "a turned phone gets a scrolling icon rail"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail"; `test/layout_breakpoints_test.dart` "extended rail waits for the extra-large boundary"
+  scrolling rail that fixed it took 80dp of a phone's width, and the user
+  wanted phones, touch tablets and desktops told apart rather than one
+  width ladder for all; the extended rail took 256dp from content on
+  tablets; the reader showed the rail beside the text.
+- **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar"; `test/home_branch_stack_test.dart` "a short window on a tablet gets a scrolling icon rail"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail"; `test/layout_breakpoints_test.dart` "extended rail waits for the extra-large boundary"
 - **Code:** `lib/app/layout/app_breakpoints.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place

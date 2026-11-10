@@ -10,7 +10,8 @@
 # PARFAIT_REVIEW_OUT  output root (default ~/parfait-ux4-review)
 # PARFAIT_REVIEW_RUN  run name (default: a timestamp)
 # PARFAIT_REVIEW_DEVICE  screen(s) to render on (default phone): a name from
-#                     test/review/review_device.dart, a comma-separated list,
+#                     test/review/review_device.dart, <width>x<height> in
+#                     logical pixels, a comma-separated list,
 #                     or all. Devices other than phone land in <run>/<device>/
 #                     with their own manifest.
 # REVIEW_CONCURRENCY  test files rendered at once (default 4; each holds a
