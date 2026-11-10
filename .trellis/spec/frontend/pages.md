@@ -237,7 +237,7 @@ reviewed: 2026-10-17
   a stretch of focus, kept per orientation and width across restarts
   (`KeyboardHeights`, 160dp up to 60% of the screen; an inset outside
   that sizes nothing); 280dp over the navigation bar stands in before
-  any. A panel rises and folds on the
+  any, at most half the window (a turned phone). A panel rises and folds on the
   sheet spring, top edge first, and stays built offstage once opened;
   one replacing the keyboard starts at the keyboard's height. A panel
   giving way to the keyboard holds its height until the keyboard has
@@ -249,7 +249,7 @@ reviewed: 2026-10-17
   bottom and climbed back with every switch to the keyboard. User report
   (10-21): a panel opened before the keyboard stood 280dp tall, and over
   the navigation bar it stood a bar higher than the keyboard.
-- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels" "panels stand exactly where the keyboard stood" "keyboard heights persist per screen shape"
+- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels" "panels stand exactly where the keyboard stood" "keyboard heights persist per screen shape" "a turned phone keeps the panel to half the window"
 - **Code:** `lib/app/widgets/comment_composer.dart`, `lib/core/settings/keyboard_heights.dart`
 
 ## Library and management lists
