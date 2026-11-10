@@ -851,10 +851,9 @@ void main() {
     expect(_selectedTabIndex(tester), 1);
   });
 
-  testWidgets('a phone held sideways lays the tab out under the header', (
+  testWidgets('a phone held sideways shows the tabs and the works at once', (
     tester,
   ) async {
-    // The expanded header and tabs end at 344: the tab gets a 16dp strip.
     setViewSize(tester, const Size(816, 360));
     final repository = UserApi(
       works: _works(30),
@@ -862,11 +861,40 @@ void main() {
     );
     final container = await makeProfileWorld(users: repository);
     await _pumpProfile(tester, container);
-
-    // The works total row is clipped with its tab, never squeezed into an
-    // overflow.
     expect(tester.takeException(), isNull);
     expect(find.textContaining('30', skipOffstage: false), findsWidgets);
+
+    // A toolbar-high banner and a one-row identity: the tabs and the top
+    // of the first row of works fit on the first screen.
+    expect(
+      tester.getRect(find.byKey(const ValueKey('profile-expanded-avatar'))).top,
+      greaterThanOrEqualTo(kToolbarHeight),
+    );
+    expect(tester.getRect(find.byType(TabBar)).bottom, lessThan(360));
+    expect(
+      tester.getRect(find.byType(IllustCard).first).top,
+      lessThanOrEqualTo(360 - 120),
+    );
+    Rect rectOf(String key) => tester.getRect(find.byKey(ValueKey(key)));
+    const avatar = 'profile-expanded-avatar';
+    const stat = 'profile-stat-following-header';
+    final inRow = rectOf(avatar);
+    expect(rectOf(stat).center.dy, inInclusiveRange(inRow.top, inRow.bottom));
+
+    // The counters join the row only when they fit beside the name.
+    setViewSize(tester, const Size(600, 360));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        locale: const Locale('ru'),
+        home: const UserPage(userId: 42),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(rectOf(stat).center.dy, greaterThan(rectOf(avatar).bottom));
   });
 
   testWidgets('header height tracks the drag without jumps', (tester) async {

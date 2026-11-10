@@ -239,10 +239,15 @@ class FeedEmpty extends StatelessWidget {
     );
     // Always the result of a state change (loading → empty): fade in. An
     // error's details expand, so a short or large-text screen scrolls to
-    // the buttons, as FeedError does.
+    // the buttons, as FeedError does. Without one it scrolls only when a
+    // short window (a turned phone) cannot hold it: a page's scroll that
+    // lays it out at its own height keeps the drag (pull to refresh).
     final content = StateFade.onMount(
       child: _StatusCenter(
-        child: error == null ? column : SingleChildScrollView(child: column),
+        child: SingleChildScrollView(
+          physics: error == null ? const _OverflowScrollPhysics() : null,
+          child: column,
+        ),
       ),
     );
     final refresh = onRefresh;
@@ -361,6 +366,22 @@ class FeedError extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Takes a drag only while its content overflows; otherwise the drag goes
+/// to the scroll around it.
+class _OverflowScrollPhysics extends ScrollPhysics {
+  const _OverflowScrollPhysics({super.parent});
+
+  @override
+  _OverflowScrollPhysics applyTo(ScrollPhysics? ancestor) =>
+      _OverflowScrollPhysics(parent: buildParent(ancestor));
+
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) =>
+      allowUserScrolling &&
+      (position.pixels != 0 ||
+          position.minScrollExtent != position.maxScrollExtent);
 }
 
 /// The icon of an empty or error state, on a disc so it carries the view

@@ -489,7 +489,12 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     final order = [...arrangement.shown, ...arrangement.hidden];
     _barBranches = [for (final d in arrangement.shown) d.branchIndex];
     final width = MediaQuery.sizeOf(context).width;
-    final rail = _rail = AppBreakpoints.useNavigationRail(width);
+    final rail = _rail = AppBreakpoints.useNavigationRail(
+      width,
+      phone: AppBreakpoints.isPhoneDisplay(
+        AppBreakpoints.displaySizeOf(context),
+      ),
+    );
     // An immersive page (the novel reader) takes the rail's room too, as it
     // covers the bottom bar on a phone.
     final railShown = rail && !ref.watch(shellRailHiddenProvider);

@@ -22,6 +22,7 @@ import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/localized_app.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/view_size.dart';
 
 /// Stage-level test with a recording progress binding: pins the D1 write
 /// gate — only user-committed turns reach `save`.
@@ -148,6 +149,46 @@ void main() {
       expect(binding.saves, hasLength(1));
     },
   );
+
+  testWidgets('a turned phone fits the progress and settings sheets', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(896, 411));
+    final binding = _RecordingBinding();
+    await tester.pumpWidget(_stageApp(binding, chapters: true));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tapAt(const Offset(448, 200));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('阅读进度'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final sheet = tester.getRect(find.byType(BottomSheet));
+    expect(sheet.contains(tester.getCenter(find.text('确定'))), isTrue);
+    expect(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('第 1 章'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('阅读设置'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // The last row, the reading theme, scrolls into reach.
+    await tester.ensureVisible(find.text('夜间'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getRect(find.byType(BottomSheet))
+          .contains(tester.getCenter(find.text('夜间'))),
+      isTrue,
+    );
+  });
 
   testWidgets('progress sheet: cancel leaves the reader untouched', (
     tester,

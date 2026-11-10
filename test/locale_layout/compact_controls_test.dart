@@ -13,6 +13,7 @@ import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/features/ranking/ranking_date.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/lookup.dart';
 
 import '../helpers/fake_account.dart';
@@ -93,6 +94,28 @@ Future<void> _pumpControl(
   await settleLayout(tester);
 }
 
+Future<void> _pumpBottomBar(WidgetTester tester, Locale locale) async {
+  await tester.pumpWidget(
+    localeLayoutApp(
+      locale: locale,
+      home: Scaffold(
+        bottomNavigationBar: FuncBottomNav(
+          destinations: [
+            for (final key in _bottomBar)
+              FuncBottomNavDestination(
+                icon: Icons.circle_outlined,
+                label: l10nLookupFor(locale, key),
+              ),
+          ],
+          selectedIndex: 0,
+          onSelected: (_) {},
+        ),
+      ),
+    ),
+  );
+  await settleLayout(tester);
+}
+
 void main() {
   for (final MapEntry(key: name, value: keys) in _tabGroups.entries) {
     localeLayoutMatrix('tab bar: $name', (tester, locale, profile) async {
@@ -109,26 +132,28 @@ void main() {
   }
 
   localeLayoutMatrix('bottom bar', (tester, locale, profile) async {
-    await tester.pumpWidget(
-      localeLayoutApp(
-        locale: locale,
-        home: Scaffold(
-          bottomNavigationBar: FuncBottomNav(
-            destinations: [
-              for (final key in _bottomBar)
-                FuncBottomNavDestination(
-                  icon: Icons.circle_outlined,
-                  label: l10nLookupFor(locale, key),
-                ),
-            ],
-            selectedIndex: 0,
-            onSelected: (_) {},
-          ),
-        ),
-      ),
-    );
-    await settleLayout(tester);
+    await _pumpBottomBar(tester, locale);
     expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
+  });
+
+  testWidgets('a turned phone\'s bottom bar keeps every label whole', (
+    tester,
+  ) async {
+    // The narrowest side-by-side bar at the largest label scale.
+    tester.view
+      ..physicalSize = const Size(600, 360)
+      ..devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    for (final locale in AppLocalizations.supportedLocales) {
+      await _pumpBottomBar(tester, locale);
+      expectLocaleLayoutIntact(
+        tester,
+        locale: locale,
+        profile: LayoutProfile.regular,
+      );
+    }
   });
 
   localeLayoutMatrix('ranking date bar', (tester, locale, profile) async {

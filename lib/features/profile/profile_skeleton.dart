@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/layout/app_breakpoints.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/skeleton/func_skeleton.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
@@ -12,7 +13,8 @@ import 'profile_illust_feed.dart';
 /// the tab slot, then the works grid — instead of a bare spinner.
 ///
 /// The bones follow `_ProfileExpandedIdentity`'s vertical rhythm so the
-/// name, stats and grid do not jump when the real header replaces them.
+/// name, stats and grid do not jump when the real header replaces them; on
+/// a short window, its one row under a toolbar-high banner.
 ///
 /// The banner is structure, not a bone: it keeps the real header's
 /// `surfaceContainerHigh` and sits beneath [FuncSkeleton] so the shimmer
@@ -24,14 +26,56 @@ class ProfileSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.viewPaddingOf(context).top;
-    const avatarRadius = ReplicaProfileHeaderGeometry.avatarRadius;
+    final window = MediaQuery.sizeOf(context);
+    final short = ReplicaProfileHeaderGeometry.isShortWindow(window);
+    final statsInRow = short && AppBreakpoints.useSideBySideForm(window);
+    final avatarRadius = short
+        ? ReplicaProfileHeaderGeometry.shortAvatarRadius
+        : ReplicaProfileHeaderGeometry.avatarRadius;
+    final avatar = SkeletonBone.circle(
+      key: const ValueKey('profile-skeleton-avatar'),
+      diameter: avatarRadius * 2,
+    );
     final bannerHeight =
         topInset +
         kToolbarHeight +
-        ReplicaProfileHeaderGeometry.bannerBelowToolbar;
+        (short ? 0 : ReplicaProfileHeaderGeometry.bannerBelowToolbar);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final canPop = Navigator.maybeOf(context)?.canPop() ?? false;
+    // The counters: figure-over-label blocks, at least 48dp tall, as in the
+    // real header.
+    final statBones = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final width in const [48.0, 56.0])
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: kMinInteractiveDimension,
+            ),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(
+                top: FuncSpacing.xxs,
+                bottom: FuncSpacing.xxs,
+                end: FuncSpacing.lg,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBone.text(
+                    width: width * 0.6,
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SkeletonBone.text(width: width, style: textTheme.labelMedium),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
 
     return Stack(
       children: [
@@ -55,14 +99,23 @@ class ProfileSkeleton extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SizedBox(height: bannerHeight),
-                      // The avatar's lower half.
-                      const SizedBox(height: avatarRadius + FuncSpacing.sm),
+                      // The avatar's lower half; on a short window the row
+                      // starts under the banner.
+                      SizedBox(
+                        height: short
+                            ? FuncSpacing.sm
+                            : ReplicaProfileHeaderGeometry.nameRowBelowBanner,
+                      ),
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: FuncSpacing.lg,
                         ),
                         child: Row(
                           children: [
+                            if (short) ...[
+                              avatar,
+                              const SizedBox(width: FuncSpacing.md),
+                            ],
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,6 +140,7 @@ class ProfileSkeleton extends StatelessWidget {
                                 ],
                               ),
                             ),
+                            if (statsInRow) statBones,
                             // The share button's slot sets the row's
                             // minimum height, as in the real header.
                             const SizedBox.square(
@@ -95,51 +149,16 @@ class ProfileSkeleton extends StatelessWidget {
                           ],
                         ),
                       ),
-                      // The counters: figure-over-label blocks, at least
-                      // 48dp tall, as in the real header.
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          FuncSpacing.lg,
-                          FuncSpacing.xs,
-                          FuncSpacing.lg,
-                          0,
+                      if (!statsInRow)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            FuncSpacing.lg,
+                            FuncSpacing.xs,
+                            FuncSpacing.lg,
+                            0,
+                          ),
+                          child: statBones,
                         ),
-                        child: Row(
-                          children: [
-                            for (final width in const [48.0, 56.0]) ...[
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  minHeight: kMinInteractiveDimension,
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsetsDirectional.only(
-                                    top: FuncSpacing.xxs,
-                                    bottom: FuncSpacing.xxs,
-                                    end: FuncSpacing.lg,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SkeletonBone.text(
-                                        width: width * 0.6,
-                                        style: textTheme.titleLarge?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      SkeletonBone.text(
-                                        width: width,
-                                        style: textTheme.labelMedium,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: FuncSpacing.sm),
                       // The tab strip's slot: the band stays empty — fake tab
                       // captions would read as content, not placeholder.
@@ -157,14 +176,12 @@ class ProfileSkeleton extends StatelessWidget {
                   ),
                   // Avatar centred on the banner's bottom edge, as in the
                   // real header.
-                  Positioned(
-                    left: FuncSpacing.lg,
-                    top: bannerHeight - avatarRadius,
-                    child: const SkeletonBone.circle(
-                      key: ValueKey('profile-skeleton-avatar'),
-                      diameter: avatarRadius * 2,
+                  if (!short)
+                    Positioned(
+                      left: FuncSpacing.lg,
+                      top: bannerHeight - avatarRadius,
+                      child: avatar,
                     ),
-                  ),
                 ],
               ),
             ),

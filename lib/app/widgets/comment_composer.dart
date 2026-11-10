@@ -133,6 +133,11 @@ class CommentComposerState extends State<CommentComposer>
   /// known — close to a typical soft keyboard's.
   static const _fallbackPanelHeight = 280.0;
 
+  /// Before a keyboard height is known, the panel takes at most this share
+  /// of the window, as a soft keyboard on a turned phone does: the comments
+  /// above it keep room.
+  static const _fallbackPanelMaxShare = 0.5;
+
   late final _controller = TextEditingController(text: widget.initialText);
   final _focusNode = FocusNode();
   CommentComposerInputState _inputState = CommentComposerInputState.none;
@@ -324,7 +329,11 @@ class CommentComposerState extends State<CommentComposer>
         ? _keyboardHeight
         : memory.heightFor(MediaQuery.sizeOf(context));
     return known ??
-        _fallbackPanelHeight + MediaQuery.viewPaddingOf(context).bottom;
+        math.min(
+              _fallbackPanelHeight,
+              MediaQuery.sizeOf(context).height * _fallbackPanelMaxShare,
+            ) +
+            MediaQuery.viewPaddingOf(context).bottom;
   }
 
   /// Reply-pill entry point: converge to the keyboard leg — an open panel is

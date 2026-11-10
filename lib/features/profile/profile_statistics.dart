@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/format/app_format.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/fit_label.dart';
 
 @immutable
 class ProfileStatisticData {
@@ -77,6 +80,32 @@ class ProfileStatRow extends StatelessWidget {
 
   final List<ProfileHeaderStat> stats;
 
+  /// The width [stats] take on one line under [context].
+  static double widthOf(BuildContext context, List<ProfileHeaderStat> stats) {
+    final theme = Theme.of(context);
+    final ambient = DefaultTextStyle.of(context).style;
+    double measure(String text, TextStyle? style) => LabelFit.measureLabel(
+      text,
+      LabelFit.paintedStyle(context, ambient.merge(style)),
+      MediaQuery.textScalerOf(context),
+      Directionality.of(context),
+      locale: Localizations.maybeLocaleOf(context),
+    );
+    var width = FuncSpacing.sm * math.max(0, stats.length - 1);
+    for (final stat in stats) {
+      width +=
+          2 * FuncSpacing.xs +
+          math.max(
+            measure(
+              AppFormat.count(context, stat.value),
+              _ProfileStatBlock.figureStyle(theme),
+            ),
+            measure(stat.label, _ProfileStatBlock.labelStyle(theme)),
+          );
+    }
+    return width;
+  }
+
   @override
   Widget build(BuildContext context) => Wrap(
     spacing: FuncSpacing.sm,
@@ -88,6 +117,12 @@ class _ProfileStatBlock extends StatelessWidget {
   const _ProfileStatBlock({required this.stat});
 
   final ProfileHeaderStat stat;
+
+  static TextStyle? figureStyle(ThemeData theme) =>
+      theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700).tabular;
+
+  static TextStyle? labelStyle(ThemeData theme) => theme.textTheme.labelMedium
+      ?.copyWith(color: theme.colorScheme.onSurfaceVariant);
 
   @override
   Widget build(BuildContext context) {
@@ -116,18 +151,8 @@ class _ProfileStatBlock extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    figure,
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w700)
-                        .tabular,
-                  ),
-                  Text(
-                    stat.label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  Text(figure, style: figureStyle(theme)),
+                  Text(stat.label, style: labelStyle(theme)),
                 ],
               ),
             ),

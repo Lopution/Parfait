@@ -65,18 +65,13 @@ void main() {
     location: detail,
     variants: {ShotVariant.dark},
     before: (tester, router) async {
-      final position = tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position;
-      position.jumpTo(900);
       // The section asks once on screen; the entry comes with the answer.
-      await settleReview(tester, settle: true);
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(const Key('illust-comment-entry')),
-          matching: find.byType(IconButton),
-        ),
+      final entry = find.descendant(
+        of: find.byKey(const Key('illust-comment-entry')),
+        matching: find.byType(IconButton),
       );
+      await revealForReview(tester, entry);
+      await tester.tap(entry);
     },
   );
   // The caption's translate button pressed while translation is off: the
@@ -85,13 +80,9 @@ void main() {
     'illust/detail-translate',
     location: detail,
     before: (tester, router) async {
-      tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position
-          .jumpTo(240);
-      // The detail page keeps animating images; pump instead of settle.
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.tap(find.byIcon(Icons.translate).first);
+      final translate = find.byIcon(Icons.translate);
+      await revealForReview(tester, translate);
+      await tester.tap(translate.first);
     },
   );
   // The tag menu after a long press, with its translate row asked.
@@ -99,11 +90,7 @@ void main() {
     'illust/detail-tag-menu',
     location: detail,
     before: (tester, router) async {
-      tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position
-          .jumpTo(400);
-      await tester.pump(const Duration(milliseconds: 500));
+      await revealForReview(tester, find.byType(TagChip));
       await tester.longPress(find.byType(TagChip).first);
       await tester.pump(const Duration(seconds: 1));
       await tester.tap(find.byIcon(Icons.translate).last);

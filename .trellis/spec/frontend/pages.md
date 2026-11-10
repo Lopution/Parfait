@@ -237,7 +237,7 @@ reviewed: 2026-10-17
   a stretch of focus, kept per orientation and width across restarts
   (`KeyboardHeights`, 160dp up to 60% of the screen; an inset outside
   that sizes nothing); 280dp over the navigation bar stands in before
-  any. A panel rises and folds on the
+  any, at most half the window (a turned phone). A panel rises and folds on the
   sheet spring, top edge first, and stays built offstage once opened;
   one replacing the keyboard starts at the keyboard's height. A panel
   giving way to the keyboard holds its height until the keyboard has
@@ -249,7 +249,7 @@ reviewed: 2026-10-17
   bottom and climbed back with every switch to the keyboard. User report
   (10-21): a panel opened before the keyboard stood 280dp tall, and over
   the navigation bar it stood a bar higher than the keyboard.
-- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels" "panels stand exactly where the keyboard stood" "keyboard heights persist per screen shape"
+- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels" "panels stand exactly where the keyboard stood" "keyboard heights persist per screen shape" "a turned phone keeps the panel to half the window"
 - **Code:** `lib/app/widgets/comment_composer.dart`, `lib/core/settings/keyboard_heights.dart`
 
 ## Library and management lists
@@ -326,13 +326,21 @@ reviewed: 2026-10-17
 ### PAGE-17 Short windows keep the primary action and the tab body
 - **Rule:** Below 480dp tall and from 600dp wide, `ScrollableFormShell`
   (welcome, language, login) puts the header beside the form so the
-  primary action is on the first screen. A profile tab is laid out at
-  least 160dp tall and clipped to what the expanded header leaves, with
-  the same tree at every height.
+  primary action is on the first screen. Below 480dp tall a profile's
+  (one's own or another's) banner fills only the toolbar's band and the
+  identity is one row under it: a 56dp avatar, the name and @account,
+  share and the main action, with the counters in the row from 600dp
+  wide when they fit beside a 96dp name and the main action at its
+  widest, and under it otherwise; the loading skeleton follows. The tabs
+  and the top of the works show on the first screen. A profile tab is
+  laid out at least 160dp tall and clipped to what the expanded header
+  leaves, with the same tree at every height.
 - **Why:** On a phone held sideways the start and login buttons sat below
-  the fold, and the profile's works-total row overflowed a 16dp strip.
-- **Check:** `test/onboarding_pages_test.dart` "a phone held sideways shows the welcome action at once"; `test/user_profile_test.dart` "a phone held sideways lays the tab out under the header"
-- **Code:** `lib/app/widgets/scrollable_form_shell.dart`, `lib/features/profile/user_page.dart`
+  the fold, and the profile's works-total row overflowed a 16dp strip;
+  the profile's header and tabs then filled the first screen, the works
+  starting below it.
+- **Check:** `test/onboarding_pages_test.dart` "a phone held sideways shows the welcome action at once"; `test/user_profile_test.dart` "a phone held sideways shows the tabs and the works at once"
+- **Code:** `lib/app/widgets/scrollable_form_shell.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/features/profile/profile_skeleton.dart`
 
 ### PAGE-18 A mouse gets right-click, hover and scrollbars
 - **Rule:** Wherever a long press acts (work cards, novel and user rows,

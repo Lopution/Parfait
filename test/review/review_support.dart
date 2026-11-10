@@ -195,6 +195,45 @@ Future<bool> settleReview(
   return !tester.binding.hasScheduledFrame;
 }
 
+/// Scrolls the page's main vertical scroll — the one with the most to
+/// scroll: in a two-pane detail the information column, not the artwork —
+/// half a viewport at a time until [target] is on screen, then brings it
+/// to the middle of the view. A shot that taps a widget reaches it this way, not by a fixed
+/// offset, which misses it on a short window or in another layout.
+Future<void> revealForReview(WidgetTester tester, Finder target) async {
+  ScrollableState? main;
+  for (final state in tester.stateList<ScrollableState>(
+    find.byType(Scrollable),
+  )) {
+    if (state.position.axis != Axis.vertical) continue;
+    if (main == null ||
+        state.position.maxScrollExtent > main.position.maxScrollExtent) {
+      main = state;
+    }
+  }
+  if (main == null) {
+    if (target.evaluate().isEmpty) fail('no vertical scroll to reveal $target');
+    await Scrollable.ensureVisible(tester.element(target.first));
+    return;
+  }
+  final position = main.position;
+  while (target.evaluate().isEmpty &&
+      position.pixels < position.maxScrollExtent) {
+    position.jumpTo(
+      (position.pixels + position.viewportDimension / 2).clamp(
+        0,
+        position.maxScrollExtent,
+      ),
+    );
+    // A section scrolled into view asks for its content once on screen.
+    await settleReview(tester, limit: const Duration(seconds: 1));
+  }
+  if (target.evaluate().isEmpty) fail('$target is not on the page');
+  // Mid-viewport: at an edge a bar over the page takes the tap.
+  await Scrollable.ensureVisible(tester.element(target.first), alignment: 0.5);
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
 /// [count] turns of the real event loop, each followed by a frame that
 /// delivers what completed.
 Future<void> _ioTurns(WidgetTester tester, int count) async {
