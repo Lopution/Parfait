@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/layout/app_breakpoints.dart';
+import 'package:parfait/app/layout/form_factor.dart';
+import 'package:parfait/app/widgets/shell_rail.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 
@@ -14,11 +18,16 @@ void main() {
     variants: {...ShotVariant.values},
   );
   // The PC shell: the rail collapsed under its menu button, then opened
-  // into the labelled panel. A phone keeps its bottom bar.
+  // into the labelled panel. A phone keeps its bottom bar. The review
+  // device is Android, where the interface form ignores the setting, so
+  // these scenes replace both the framework platform and the platform
+  // caps with Windows before the app builds.
   for (final open in [false, true]) {
     testShot(
       'home/recommended-pc${open ? '-open' : ''}',
       location: '/recommended',
+      platform: TargetPlatform.windows,
+      setup: const ReviewSetup(platformCaps: PlatformCaps(isWindows: true)),
       variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
       before: (tester, router) async {
         final container = ProviderScope.containerOf(
@@ -30,6 +39,28 @@ void main() {
           await settings.setRailExpanded(open);
         });
         await tester.pumpAndSettle();
+        // The expected form comes from the preset device, not the tree:
+        // a phone display is a phone whatever the platform; a desk-sized
+        // one on Windows is the PC shell. The rail follows the preset
+        // window width, so an unexpected phone fallback cannot pass.
+        final display = reviewDevice.displaySize;
+        final expectedForm = AppBreakpoints.isPhoneDisplay(display)
+            ? FormFactor.phone
+            : FormFactor.pc;
+        expect(
+          FormFactor.of(tester.element(find.byType(Scaffold).first)),
+          expectedForm,
+        );
+        if (!expectedForm.hasRail(
+          (reviewDevice.physicalSize / reviewDevice.dpr).width,
+        )) {
+          expect(find.byType(ShellRail), findsNothing);
+        } else {
+          expect(
+            tester.getSize(find.byType(ShellRail)).width,
+            open ? ShellRail.expandedWidth : ShellRail.width,
+          );
+        }
       },
     );
   }

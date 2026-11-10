@@ -238,7 +238,7 @@ class ReviewWorld {
         localNovelRepositoryProvider.overrideWithValue(novelRepo),
         downloadManagerProvider.overrideWithValue(manager),
         platformCapsProvider.overrideWithValue(
-          const PlatformCaps(isAndroid: true),
+          setup.platformCaps ?? const PlatformCaps(isAndroid: true),
         ),
         // The keystore is a platform channel.
         translationCredentialStoreProvider.overrideWithValue(
@@ -301,6 +301,7 @@ class ReviewSetup {
     this.accounts = 1,
     this.touchExploration = false,
     this.searchHistory = const [],
+    this.platformCaps,
     this.overrides = const [],
   });
 
@@ -325,6 +326,12 @@ class ReviewSetup {
   /// Recent search keywords, newest first.
   final List<String> searchHistory;
 
+  /// What the platform reports; absent is this run's Android device. A
+  /// scene that draws another platform (the PC shell) passes its caps
+  /// here rather than overriding the provider again — the world already
+  /// owns that override.
+  final PlatformCaps? platformCaps;
+
   final List<Override> overrides;
 
   ReviewSetup copyWith({bool? touchExploration}) => ReviewSetup(
@@ -338,6 +345,7 @@ class ReviewSetup {
     accounts: accounts,
     touchExploration: touchExploration ?? this.touchExploration,
     searchHistory: searchHistory,
+    platformCaps: platformCaps,
     overrides: overrides,
   );
 }

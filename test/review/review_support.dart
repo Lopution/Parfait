@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,6 +81,7 @@ Future<GoRouter> pumpReviewApp(
   double textScale = 1.0,
   bool semanticsDebugger = false,
   ReviewDevice? device,
+  TargetPlatform? platform,
   List<String>? fontFamilyFallback,
 }) async {
   applyReviewDevice(
@@ -88,6 +91,10 @@ Future<GoRouter> pumpReviewApp(
     brightness: brightness,
     device: device,
   );
+  // A scene that needs another framework platform (the PC shell) replaces
+  // the review device's Android before the app builds; the matching
+  // `platformCapsProvider` override comes from the scene's [ReviewSetup].
+  if (platform != null) debugDefaultTargetPlatformOverride = platform;
   // The app language is a setting that a first run seeds from the system
   // locale. AppSettings.defaults reads the engine's dispatcher, which a
   // test leaves at en_US, so the harness makes the first run's choice.
@@ -338,6 +345,7 @@ void testShot(
   ReviewSetup setup = const ReviewSetup(),
   Set<ShotVariant> variants = const {ShotVariant.dark},
   bool semanticsDebugger = false,
+  TargetPlatform? platform,
   ShotSteps? before,
 }) {
   for (final variant in <ShotVariant?>[null, ...variants]) {
@@ -362,6 +370,7 @@ void testShot(
         },
         textScale: variant == ShotVariant.largeText ? 1.3 : 1.0,
         semanticsDebugger: semanticsDebugger,
+        platform: platform,
         before: before,
       );
     }, tags: reviewTags);
@@ -380,6 +389,7 @@ Future<void> reviewShot(
   Locale locale = zhCN,
   double textScale = 1.0,
   bool semanticsDebugger = false,
+  TargetPlatform? platform,
   ShotSteps? before,
 }) async {
   final settle = state != 'loading';
@@ -393,6 +403,7 @@ Future<void> reviewShot(
       locale: locale,
       textScale: textScale,
       semanticsDebugger: semanticsDebugger,
+      platform: platform,
     );
     var rested = await settleReview(tester, settle: settle);
     if (before != null) {

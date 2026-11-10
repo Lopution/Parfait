@@ -52,8 +52,15 @@ Future<void> loadReviewFonts() async {
       ByteData.sublistView(File('${dir.path}/$name').readAsBytesSync());
   final loaders = [
     // `monospace` (the frame probe's figures) has no test font of its own;
-    // proportional digits beat tofu for a layout review.
-    for (final family in const ['Roboto', 'Noto Sans SC', 'monospace'])
+    // proportional digits beat tofu for a layout review. `Segoe UI` is
+    // what Material's Windows typography names, so a scene rendered on
+    // that platform (the PC shell) gets this same family.
+    for (final family in const [
+      'Roboto',
+      'Noto Sans SC',
+      'monospace',
+      'Segoe UI',
+    ])
       FontLoader(family)
         ..addFont(bytes('NotoSansSC-Regular.otf'))
         ..addFont(bytes('NotoSansSC-Medium.otf'))
