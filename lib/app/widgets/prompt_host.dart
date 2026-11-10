@@ -252,6 +252,7 @@ class PromptHostState extends State<PromptHost>
                       anchors: _anchors,
                       padding: MediaQuery.paddingOf(context),
                       viewInsets: MediaQuery.viewInsetsOf(context),
+                      textDirection: Directionality.of(context),
                     ),
                     child: _CoveredByModals(
                       cover: _cover,
@@ -307,7 +308,8 @@ class _PromptHostScope extends InheritedWidget {
       !identical(host, oldWidget.host);
 }
 
-/// Bottom-anchored placement: centered, at most [_maxWidth] wide, resting
+/// Bottom-anchored placement: centered on the content beside the rail (the
+/// start anchor), as sheets are, at most [_maxWidth] wide, resting
 /// [_margin] above the tallest of the anchored chrome, the safe area and
 /// the keyboard.
 class _PromptLayout extends SingleChildLayoutDelegate {
@@ -315,6 +317,7 @@ class _PromptLayout extends SingleChildLayoutDelegate {
     required this.anchors,
     required this.padding,
     required this.viewInsets,
+    required this.textDirection,
   }) : super(relayout: anchors);
 
   /// Compose M3's snackbar container width cap.
@@ -324,6 +327,19 @@ class _PromptLayout extends SingleChildLayoutDelegate {
   final PromptAnchors anchors;
   final EdgeInsets padding;
   final EdgeInsets viewInsets;
+  final TextDirection textDirection;
+
+  /// The room the prompt centres in, from either side: the safe area or
+  /// the rail, whichever reaches further in.
+  double get _left => math.max(
+    padding.left,
+    textDirection == TextDirection.ltr ? anchors.startExtent : 0,
+  );
+
+  double get _right => math.max(
+    padding.right,
+    textDirection == TextDirection.rtl ? anchors.startExtent : 0,
+  );
 
   double get _bottom =>
       math.max(anchors.extent, math.max(padding.bottom, viewInsets.bottom)) +
@@ -333,7 +349,7 @@ class _PromptLayout extends SingleChildLayoutDelegate {
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
     final width = math.min(
       _maxWidth,
-      constraints.maxWidth - padding.horizontal - 2 * _margin,
+      constraints.maxWidth - _left - _right - 2 * _margin,
     );
     return BoxConstraints.tightFor(width: math.max(0, width)).copyWith(
       minHeight: 0,
@@ -346,9 +362,9 @@ class _PromptLayout extends SingleChildLayoutDelegate {
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
-    final room = size.width - padding.horizontal;
+    final room = size.width - _left - _right;
     return Offset(
-      padding.left + (room - childSize.width) / 2,
+      _left + (room - childSize.width) / 2,
       size.height - _bottom - childSize.height,
     );
   }
@@ -357,7 +373,8 @@ class _PromptLayout extends SingleChildLayoutDelegate {
   bool shouldRelayout(_PromptLayout oldDelegate) =>
       !identical(anchors, oldDelegate.anchors) ||
       padding != oldDelegate.padding ||
-      viewInsets != oldDelegate.viewInsets;
+      viewInsets != oldDelegate.viewInsets ||
+      textDirection != oldDelegate.textDirection;
 }
 
 /// The Material 3 floating snackbar card, themed by `SnackBarThemeData`;
