@@ -1138,7 +1138,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
               ),
               // The meta column owns the window's right edge, so its
               // scrollbar lands where the main scrollbar belongs. The
-              // action bar centres on this column, clear of the divider.
+              // action bar centres on this column, clear of the artwork.
               secondary: Stack(
                 fit: StackFit.expand,
                 children: [

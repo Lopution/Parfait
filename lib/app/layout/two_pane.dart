@@ -6,7 +6,10 @@ import 'package:material_ui/material_ui.dart';
 /// The [secondary] column takes [secondaryFraction] of the width, kept
 /// between [secondaryMinWidth] and [secondaryMaxWidth] so text stays
 /// readable on a turned phone and does not sprawl on a desktop; [primary]
-/// takes the rest after a 1px divider. Each pane is its own scroll region.
+/// takes the rest. No line between them: the artwork pane's own ground
+/// (its ambient wash) sets it off from the page the information sits on,
+/// as the bars set themselves off without hairlines. Each pane is its own
+/// scroll region.
 class TwoPane extends StatelessWidget {
   const TwoPane({
     super.key,
@@ -26,8 +29,6 @@ class TwoPane extends StatelessWidget {
   final double secondaryMinWidth;
   final double secondaryMaxWidth;
 
-  static const double _dividerWidth = 1;
-
   /// The secondary column's width inside a [width]-wide two-pane layout.
   double secondaryWidthFor(double width) =>
       (width * secondaryFraction).clamp(secondaryMinWidth, secondaryMaxWidth);
@@ -39,7 +40,6 @@ class TwoPane extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: primary),
-          const VerticalDivider(thickness: _dividerWidth, width: _dividerWidth),
           SizedBox(
             width: secondaryWidthFor(constraints.maxWidth),
             child: secondary,
