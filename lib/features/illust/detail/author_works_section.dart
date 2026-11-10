@@ -43,7 +43,7 @@ class AuthorWorksSlivers extends ConsumerWidget {
     );
     return OnDemandSliver(
       id: 'author-works-${entity.id}',
-      alreadyRequested: () => ref.exists(feed),
+      alreadyRequested: () => ref.read(feed.exists),
       placeholder: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -1048,7 +1048,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         // the first page to land. A list the filters hid entirely loads on
         // only from its button (FEED-22).
         final related = relatedIllustControllerProvider(widget.illustId);
-        if (ref.exists(related) &&
+        if (ref.read(related.exists) &&
             ref.read(related).value?.isAllHidden == false) {
           unawaited(ref.read(related.notifier).loadMore());
         }

@@ -122,7 +122,7 @@ release goes through these steps in order:
 `release.yml` automates steps 1–4 below; use them when the workflow
 cannot run.
 
-1. Build the two split APKs: see above, `github` flavor. Flutter 3.47.7
+1. Build the two split APKs: see above, `github` flavor. Flutter 3.47.9
    names them `app-arm64-v8a-github-release.apk` and
    `app-armeabi-v7a-github-release.apk`.
 2. Check that both signer certificate fingerprints match:
@@ -156,7 +156,7 @@ cannot run.
    `.github/workflows/release.yml` for the automated path. Release builds
    are not obfuscated (the source is public); the symbols zip turns a
    user's native stack trace back into Dart frames. `flutter symbolize`
-   on Flutter 3.47.7 bundles `native_stack_traces` 0.6.1, which cannot
+   on Flutter 3.47.9 bundles `native_stack_traces` 0.6.1, which cannot
    read this engine's snapshots ("Cannot locate isolate instructions
    section"); 0.7.0 can:
    ```bash
