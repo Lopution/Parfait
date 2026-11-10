@@ -612,7 +612,7 @@ class _ProfileBackground extends StatelessWidget {
 /// on the left, share and the main action on the right — and the
 /// counters. On a short window the avatar sits at the start of the name
 /// row, under the banner, and on a medium-wide one the counters join the
-/// row too. The measured height of this widget drives
+/// row when they fit beside the name and the buttons. The measured height of this widget drives
 /// [ReplicaProfileHeaderDelegate.expandedExtent].
 class _ExpandedIdentity extends StatelessWidget {
   const _ExpandedIdentity({
@@ -653,62 +653,108 @@ class _ExpandedIdentity extends StatelessWidget {
       key: const ValueKey('profile-expanded-avatar'),
       child: _Avatar(user: user, radius: avatarRadius),
     );
-    final statsInRow =
-        shortWindow &&
-        stats.isNotEmpty &&
-        AppBreakpoints.useSideBySideForm(MediaQuery.sizeOf(context));
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(
+        context,
+        theme: theme,
+        rowWidth: constraints.maxWidth - 2 * FuncSpacing.lg,
+        avatar: avatar,
+        avatarRadius: avatarRadius,
+        share: share,
+        main: main,
+      ),
+    );
+  }
+
+  /// The least room the name keeps when the counters join its row.
+  static const _minNameWidth = 96.0;
+
+  /// Whether a short window's counters fit in the name row beside the
+  /// name, the share button and the main action at its widest.
+  bool _statsFitInRow(
+    BuildContext context,
+    double rowWidth, {
+    required bool share,
+    required bool main,
+  }) {
+    if (!shortWindow ||
+        stats.isEmpty ||
+        !AppBreakpoints.useSideBySideForm(MediaQuery.sizeOf(context))) {
+      return false;
+    }
+    final taken =
+        2 * ReplicaProfileHeaderGeometry.shortAvatarRadius +
+        FuncSpacing.md +
+        (share ? kMinInteractiveDimension : 0) +
+        (main ? FuncSpacing.xs + rowWidth * mainActionMaxShare : 0) +
+        FuncSpacing.sm;
+    return ProfileStatRow.widthOf(context, stats) <=
+        rowWidth - taken - _minNameWidth;
+  }
+
+  Widget _build(
+    BuildContext context, {
+    required ThemeData theme,
+    required double rowWidth,
+    required Widget avatar,
+    required double avatarRadius,
+    required _ProfileHeaderAction? share,
+    required _ProfileHeaderAction? main,
+  }) {
+    final statsInRow = _statsFitInRow(
+      context,
+      rowWidth,
+      share: share?.buildInline != null,
+      main: main?.buildInline != null,
+    );
     final nameRow = Padding(
       padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-      child: LayoutBuilder(
-        builder: (context, constraints) => Row(
-          children: [
-            if (shortWindow) ...[avatar, const SizedBox(width: FuncSpacing.md)],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
+      child: Row(
+        children: [
+          if (shortWindow) ...[avatar, const SizedBox(width: FuncSpacing.md)],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  key: const ValueKey('profile-expanded-name'),
+                  user.name,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (user.account.isNotEmpty)
                   Text(
-                    key: const ValueKey('profile-expanded-name'),
-                    user.name,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    '@${user.account}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (user.account.isNotEmpty)
-                    Text(
-                      '@${user.account}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
+              ],
+            ),
+          ),
+          if (statsInRow)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: FuncSpacing.sm),
+              child: ProfileStatRow(stats: stats),
+            ),
+          if (share?.buildInline != null) share!.buildInline!(context),
+          if (main?.buildInline != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: FuncSpacing.xs),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: rowWidth * mainActionMaxShare,
+                ),
+                child: main!.buildInline!(context),
               ),
             ),
-            if (statsInRow)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(end: FuncSpacing.sm),
-                child: ProfileStatRow(stats: stats),
-              ),
-            if (share?.buildInline != null) share!.buildInline!(context),
-            if (main?.buildInline != null)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: FuncSpacing.xs,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: constraints.maxWidth * mainActionMaxShare,
-                  ),
-                  child: main!.buildInline!(context),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
     final column = Column(

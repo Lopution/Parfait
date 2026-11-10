@@ -330,7 +330,8 @@ reviewed: 2026-10-17
   (one's own or another's) banner fills only the toolbar's band and the
   identity is one row under it: a 56dp avatar, the name and @account,
   share and the main action, with the counters in the row from 600dp
-  wide and under it below that; the loading skeleton follows. The tabs
+  wide when they fit beside a 96dp name and the main action at its
+  widest, and under it otherwise; the loading skeleton follows. The tabs
   and the top of the works show on the first screen. A profile tab is
   laid out at least 160dp tall and clipped to what the expanded header
   leaves, with the same tree at every height.
