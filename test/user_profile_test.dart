@@ -875,43 +875,26 @@ void main() {
       tester.getRect(find.byType(IllustCard).first).top,
       lessThanOrEqualTo(360 - 120),
     );
-    final avatarRect = tester.getRect(
-      find.byKey(const ValueKey('profile-expanded-avatar')),
-    );
-    final statCentre = tester
-        .getCenter(find.byKey(const ValueKey('profile-stat-following-header')))
-        .dy;
-    expect(statCentre, inInclusiveRange(avatarRect.top, avatarRect.bottom));
+    Rect rectOf(String key) => tester.getRect(find.byKey(ValueKey(key)));
+    const avatar = 'profile-expanded-avatar';
+    const stat = 'profile-stat-following-header';
+    final inRow = rectOf(avatar);
+    expect(rectOf(stat).center.dy, inInclusiveRange(inRow.top, inRow.bottom));
 
     // The counters join the row only when they fit beside the name.
     setViewSize(tester, const Size(600, 360));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(
       localizedApp(
         container: container,
         locale: const Locale('ru'),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: const TextScaler.linear(2)),
-          child: child!,
-        ),
         home: const UserPage(userId: 42),
       ),
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(
-      tester
-          .getCenter(
-            find.byKey(const ValueKey('profile-stat-following-header')),
-          )
-          .dy,
-      greaterThan(
-        tester
-            .getRect(find.byKey(const ValueKey('profile-expanded-avatar')))
-            .bottom,
-      ),
-    );
+    expect(rectOf(stat).center.dy, greaterThan(rectOf(avatar).bottom));
   });
 
   testWidgets('header height tracks the drag without jumps', (tester) async {
