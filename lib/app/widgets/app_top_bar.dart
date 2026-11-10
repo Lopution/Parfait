@@ -7,6 +7,7 @@ import '../motion/hero_transition.dart'
 import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'app_tab_bar.dart';
 import 'artwork_controls.dart';
 
 /// The single entry point for page top bars: an [AppBar] that keeps the
@@ -26,12 +27,17 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
     this.titleSpacing,
     this.actions,
     this.bottom,
+    this.tabsBesideTitle = false,
     this.backgroundColor,
     this.notificationPredicate = defaultScrollNotificationPredicate,
     this.immersion,
     this.overArtwork = true,
     this.entrance,
-  });
+  }) : assert(
+         !tabsBesideTitle || (title != null && bottom is AppTabBar),
+         'tabsBesideTitle puts the bottom AppTabBar beside the title: '
+         'pass a title and an AppTabBar as bottom',
+       );
 
   final Widget? leading;
   final bool automaticallyImplyLeading;
@@ -39,6 +45,12 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   final double? titleSpacing;
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
+
+  /// Whether [bottom]'s tabs sit on the title's row instead of under it,
+  /// filling the width after the title (the shell's larger forms, NAV-20:
+  /// `PageHeader.isWide`). Requires a [title] and an [AppTabBar] [bottom];
+  /// the bar is then one toolbar high.
+  final bool tabsBesideTitle;
 
   /// Null keeps the themed page colour; the selection bar sets its own.
   /// A change of colour is a change of mode (entering or leaving
@@ -77,8 +89,11 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   bool get occludesContent => (immersion?.value ?? 1) > 0;
 
   @override
-  Size get preferredSize =>
-      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
+  Size get preferredSize => Size.fromHeight(
+    tabsBesideTitle
+        ? kToolbarHeight
+        : kToolbarHeight + (bottom?.preferredSize.height ?? 0),
+  );
 
   @override
   State<AppTopBar> createState() => _AppTopBarState();
@@ -166,7 +181,28 @@ class _AppTopBarState extends State<AppTopBar> {
             ArtworkControls.iconTheme(context, halo: surface),
             lift,
           );
+    final bottom = widget.bottom;
     final title = widget.title;
+    // On the larger forms the tabs take the toolbar's free width, so the
+    // bar is one row high; the whole row fades together when immersed.
+    // The bar would make the whole row the page's heading: only the title
+    // is, the tabs stay tabs beside it.
+    final toolbarTitle = !widget.tabsBesideTitle
+        ? title
+        : Row(
+            children: [
+              Semantics(
+                header: true,
+                namesRoute: switch (defaultTargetPlatform) {
+                  TargetPlatform.iOS || TargetPlatform.macOS => null,
+                  _ => true,
+                },
+                child: title,
+              ),
+              const SizedBox(width: FuncSpacing.xl),
+              Expanded(child: bottom!),
+            ],
+          );
     final statusInset = MediaQuery.paddingOf(context).top;
     final toolbar = ValueListenableBuilder(
       valueListenable: _scrolledUnder,
@@ -175,12 +211,13 @@ class _AppTopBarState extends State<AppTopBar> {
       child: AppBar(
         leading: widget.leading,
         automaticallyImplyLeading: widget.automaticallyImplyLeading,
-        title: title == null || !immersed
-            ? title
-            : Opacity(opacity: drawn, child: title),
+        title: toolbarTitle == null || !immersed
+            ? toolbarTitle
+            : Opacity(opacity: drawn, child: toolbarTitle),
+        excludeHeaderSemantics: widget.tabsBesideTitle,
         titleSpacing: widget.titleSpacing,
         actions: widget.actions,
-        bottom: widget.bottom,
+        bottom: widget.tabsBesideTitle ? null : bottom,
         backgroundColor: immersed
             ? surface.withValues(alpha: surface.a * drawn)
             : widget.backgroundColor,

@@ -12,6 +12,7 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
+import '../../app/widgets/page_header.dart';
 
 /// The signed-in user's bookmark tag collection (`/v1/user/bookmark-tags/`)
 /// of one [kind] in two tabs, public and private. Tapping a tag opens the
@@ -66,6 +67,7 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
     return Scaffold(
       appBar: AppTopBar(
         title: Text(l10n.bookmarkTags),
+        tabsBesideTitle: PageHeader.isWide(context),
         // The lists sit inside the TabBarView's page view.
         notificationPredicate: (notification) => notification.depth == 1,
         bottom: AppTabBar(
