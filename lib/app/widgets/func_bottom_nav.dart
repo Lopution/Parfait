@@ -145,23 +145,30 @@ class FuncBottomNav extends StatelessWidget {
                       );
                       final itemWidth =
                           constraints.maxWidth / destinations.length;
-                      final sideBySide =
-                          constraints.maxWidth >= AppBreakpoints.medium;
-                      final labelSlot = sideBySide
-                          ? _rowLabelSlot(itemWidth)
-                          : _labelSlot(itemWidth);
                       // Uniform label scale: every destination shares one
                       // size, shrunk until the widest translation fits its
                       // slot, down to LabelFit.minScale; past that the labels
                       // ellipsize.
-                      final fit = LabelFit.group(
+                      LabelFit fitIn(double slotWidth) => LabelFit.group(
                         labels: [for (final d in destinations) d.label],
                         style: LabelFit.paintedStyle(context, measureStyle),
                         textScaler: MediaQuery.textScalerOf(context),
                         textDirection: Directionality.of(context),
-                        slotWidth: labelSlot,
+                        slotWidth: slotWidth,
                         locale: Localizations.maybeLocaleOf(context),
                       );
+                      // A wide bar puts each label beside its icon unless a
+                      // label would not fit there; then the items stack, as
+                      // on a narrow bar, and the labels get the cell's width.
+                      var sideBySide =
+                          constraints.maxWidth >= AppBreakpoints.medium;
+                      var labelSlot = _rowLabelSlot(itemWidth);
+                      var fit = fitIn(labelSlot);
+                      if (!sideBySide || fit.truncates) {
+                        sideBySide = false;
+                        labelSlot = _labelSlot(itemWidth);
+                        fit = fitIn(labelSlot);
+                      }
                       Widget item(int i) => MergeSemantics(
                         child: Semantics(
                           role: ui.SemanticsRole.tab,

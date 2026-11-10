@@ -124,12 +124,14 @@ reviewed: 2026-10-17
   From 600dp wide (a turned phone, NAV-20) each destination puts its icon
   beside its label, as wide as both, and the group is centred (Compose's
   `ShortNavigationBar` in a medium window); the ripple is a pill the bar's
-  height. Narrower, the destinations share the width, icon over label.
+  height. Narrower, or when a label would not fit beside its icon at
+  `LabelFit.minScale` (Japanese at 1.3x on 600dp), the destinations
+  share the width, icon over label.
 - **Why:** User decision after comparing with Shaft: no capsule or
   segmented bar; a shadow over a hairline on every bottom bar (10-25).
   On a turned phone five equal cells left 180dp between items; the user
   chose the side-by-side items (11-10).
-- **Check:** `test/locale_layout/compact_controls_test.dart`; `test/func_bottom_nav_test.dart` "a wide bar puts each icon beside its label, centred"
+- **Check:** `test/locale_layout/compact_controls_test.dart` "a turned phone's bottom bar keeps every label whole"; `test/func_bottom_nav_test.dart` "a wide bar puts each icon beside its label, centred"
 - **Code:** `lib/app/widgets/func_bottom_nav.dart`
 
 ### NAV-08 Bar geometry is published, never measured
