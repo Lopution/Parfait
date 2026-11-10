@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/translation/translation_service.dart';
+import 'package:parfait/features/novel/novel_illustration.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
 
 import 'review_support.dart';
@@ -69,8 +70,24 @@ void main() {
       await tester.tap(find.byIcon(Icons.info_outline));
     },
   );
+
+  /// A point on the reader's text, not on an illustration: a tap on one
+  /// opens it instead of the reader's bars.
+  Offset readerTextSpot(WidgetTester tester) {
+    final reader = tester.getRect(find.byType(NovelReader));
+    final images = [
+      for (final element in find.byType(NovelIllustration).evaluate())
+        tester.getRect(find.byWidget(element.widget)),
+    ];
+    for (final share in const [0.5, 0.25, 0.75, 0.1, 0.9]) {
+      final spot = Offset(reader.center.dx, reader.top + reader.height * share);
+      if (!images.any((image) => image.contains(spot))) return spot;
+    }
+    return reader.center;
+  }
+
   Future<void> openReaderSettings(WidgetTester tester) async {
-    await tester.tapAt(tester.getCenter(find.byType(NovelReader)));
+    await tester.tapAt(readerTextSpot(tester));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.tune_outlined));
   }
@@ -92,7 +109,7 @@ void main() {
       await tester.tapAt(const Offset(200, 60));
       await tester.pumpAndSettle();
       final reader = tester.getRect(find.byType(NovelReader));
-      await tester.tapAt(reader.center);
+      await tester.tapAt(readerTextSpot(tester));
       await tester.pumpAndSettle();
       await tester.tapAt(reader.centerRight - const Offset(8, 0));
     },
