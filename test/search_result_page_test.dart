@@ -10,7 +10,7 @@ import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
-import 'package:parfait/features/search/search_field_button.dart';
+import 'package:parfait/app/widgets/search_field_button.dart';
 
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';

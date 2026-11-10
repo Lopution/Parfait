@@ -30,7 +30,7 @@ import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/navigation/routes.dart';
-import 'search_field_button.dart';
+import '../../app/widgets/search_field_button.dart';
 import 'search_filter_labels.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';

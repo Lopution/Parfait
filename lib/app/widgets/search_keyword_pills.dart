@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../app/theme/func_semantic_tokens.dart';
+import '../theme/func_semantic_tokens.dart';
 import '../../core/search/search_keywords.dart';
 
 /// A pill's padding beside its keyword.
