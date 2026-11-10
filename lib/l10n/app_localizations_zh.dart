@@ -1711,6 +1711,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeStartPage => '启动页';
 
   @override
+  String get interfaceForm => '界面形态';
+
+  @override
+  String get interfaceFormAuto => '自动';
+
+  @override
+  String get interfaceFormTouch => '触控大屏';
+
+  @override
+  String get interfaceFormPc => 'PC';
+
+  @override
+  String get railExpand => '展开侧栏';
+
+  @override
+  String get railCollapse => '收起侧栏';
+
+  @override
+  String get railBookmarks => '收藏';
+
+  @override
+  String get railDownloads => '下载';
+
+  @override
   String get homeStartFirstVisible => '底栏第一项';
 
   @override

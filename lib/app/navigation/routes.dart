@@ -80,6 +80,7 @@ import 'func_page.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
+import '../layout/form_factor.dart';
 import '../widgets/home_branch_stack.dart';
 import '../widgets/feed/feed_grid.dart';
 import '../widgets/feed/feed_states.dart' show FeedError;
@@ -585,6 +586,7 @@ List<RouteBase> _commonBranchRoutes(
   required GlobalKey<NavigatorState> rootNavigatorKey,
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
   bool includeSearch = true,
+  bool includeAppPages = false,
 }) {
   final routes = <RouteBase>[
     GoRoute(
@@ -919,8 +921,28 @@ List<RouteBase> _commonBranchRoutes(
   if (includeSearch) {
     routes.addAll(_searchRoutes(branchObserver, prefix: 'search/'));
   }
+  if (includeAppPages) {
+    // The app-level pages, opened inside a branch beside the rail
+    // (_appPageLocation).
+    routes.addAll([
+      GoRoute(
+        path: 'me',
+        pageBuilder: (context, state) =>
+            _page(context, state, branchObserver, _mePage(state)),
+      ),
+      GoRoute(
+        path: 'downloads',
+        pageBuilder: (context, state) =>
+            _page(context, state, branchObserver, const DownloadTasksPage()),
+      ),
+    ]);
+  }
   return routes;
 }
+
+MePage _mePage(GoRouterState state) => MePage(
+  initialTab: MeTab.values.asNameMap()[state.uri.queryParameters['tab']],
+);
 
 GoRoute _overlayRoute(
   String path, {
@@ -1138,6 +1160,7 @@ StatefulShellBranch _branch({
     rootNavigatorKey: rootNavigatorKey,
     rootObserver: rootObserver,
     includeSearch: includeSearch,
+    includeAppPages: true,
   );
   return StatefulShellBranch(
     navigatorKey: navigatorKey,
@@ -1288,24 +1311,17 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           ),
         ),
       ),
-      // The personal profile is an app-level flow pushed on the root
-      // navigator, not a home tab: /me renders over the home shell so the
-      // settings branch stays reachable even while the account/profile
-      // cannot load. Common routes stay mounted so the shared facade keeps
-      // working from inside profile pages.
+      // The personal profile is an app-level page, not a home tab. On a
+      // phone /me renders over the home shell; beside a rail it opens in
+      // the current branch instead (_appPageLocation). Common routes stay
+      // mounted so the shared facade keeps working from inside profile
+      // pages.
       _overlayRoute(
         '/me',
         rootNavigatorKey: appRootNavigatorKey,
         rootObserver: appRootRouteObserver,
-        pageBuilder: (context, state) => _page(
-          context,
-          state,
-          appRootRouteObserver,
-          MePage(
-            initialTab: MeTab.values
-                .asNameMap()[state.uri.queryParameters['tab']],
-          ),
-        ),
+        pageBuilder: (context, state) =>
+            _page(context, state, appRootRouteObserver, _mePage(state)),
       ),
       _overlayRoute(
         '/downloads',
@@ -1607,14 +1623,38 @@ Future<void> openSpotlightArticle(
 enum MeTab { bookmarks, following }
 
 Future<void> openMe(BuildContext context, {MeTab? tab}) async {
-  // The profile is an app-level page now: it pushes over whatever stack is
+  // The profile is an app-level page: it opens on whatever stack is
   // showing (the settings branch included) instead of switching branches.
   await context.push<void>(
     Uri(
-      path: '/me',
+      path: _appPageLocation(
+        GoRouter.of(context),
+        'me',
+        rail: _hasRail(context),
+      ),
       queryParameters: tab == null ? null : {'tab': tab.name},
     ).toString(),
   );
+}
+
+/// Whether the shell shows the rail at this window's width.
+bool _hasRail(BuildContext context) =>
+    FormFactor.of(context).hasRail(MediaQuery.sizeOf(context).width);
+
+/// Where an app-level page ([leaf]: `me`, `downloads`) opens. Beside a
+/// [rail], inside the branch on screen, so the rail stays (the reason the
+/// root overlay had, that the settings branch stays reachable while the
+/// profile cannot load, holds there by itself); over everything on the
+/// root navigator on a phone, or while a root page (the viewer) is on top.
+String _appPageLocation(GoRouter router, String leaf, {required bool rail}) {
+  if (rail) {
+    final root = _stackRootOf(router.state.uri.path);
+    final inBranch = '$root/$leaf';
+    if (_branchRoots.contains(root) && pushStaysInStack(router, inBranch)) {
+      return inBranch;
+    }
+  }
+  return '/$leaf';
 }
 
 /// App settings are the fifth home destination: opening them switches the
@@ -1663,9 +1703,16 @@ Future<void> openNewNovels(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/new-novels');
 }
 
-/// Download tasks are an app-level page over the current stack.
+/// Download tasks are an app-level page on the current stack.
 Future<void> openDownloadTasks(BuildContext context) async {
-  await _push(context, '/downloads');
+  await _push(
+    context,
+    _appPageLocation(
+      GoRouter.of(context),
+      'downloads',
+      rail: _hasRail(context),
+    ),
+  );
 }
 
 /// Binds the prompt action to the router while the submitting page is
@@ -1675,6 +1722,7 @@ void showDownloadSubmittedSnackBar(
   bool alreadyQueued = false,
 }) {
   final router = GoRouter.maybeOf(context);
+  final rail = _hasRail(context);
   final l10n = context.l10n;
   if (!alreadyQueued) AppHaptics.success();
   showAppSnackBar(
@@ -1684,7 +1732,11 @@ void showDownloadSubmittedSnackBar(
         ? null
         : PromptAction(
             label: l10n.downloadViewResult,
-            onPressed: () => unawaited(router.push<void>('/downloads')),
+            onPressed: () => unawaited(
+              router.push<void>(
+                _appPageLocation(router, 'downloads', rail: rail),
+              ),
+            ),
           ),
   );
 }

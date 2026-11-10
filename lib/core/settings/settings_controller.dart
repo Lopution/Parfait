@@ -198,6 +198,12 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setLastHomeDestination(String name) =>
       _update((settings) => settings.copyWith(lastHomeDestination: name));
 
+  Future<void> setInterfaceForm(InterfaceForm form) =>
+      _update((settings) => settings.copyWith(interfaceForm: form));
+
+  Future<void> setRailExpanded(bool expanded) =>
+      _update((settings) => settings.copyWith(railExpanded: expanded));
+
   /// Whole-object replace used by backup import. Per-field validation
   /// already happened in [AppSettings.fromJson]; the write goes through
   /// the same serialized persistence path as every other change.
@@ -239,6 +245,13 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
     settingsProvider.select(
       (async) => async.value?.themeMode ?? ThemeMode.system,
     ),
+  );
+});
+
+/// The PC rail as the user last left it; null until toggled.
+final railExpandedProvider = Provider<bool?>((ref) {
+  return ref.watch(
+    settingsProvider.select((async) => async.value?.railExpanded),
   );
 });
 

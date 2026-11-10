@@ -86,13 +86,14 @@ reviewed: 2026-10-17
   `replaceCurrent: false` (ordered steps). The dwell starts after the
   entrance and goes through the platform's recommended timeout; an action
   pins the prompt only under touch exploration. Chrome registers a
-  `PromptAnchor` so prompts rest above it. A prompt whose message stops
+  `PromptAnchor` so prompts rest above it; the shell rail registers one
+  on its start edge, so prompts centre on the content beside it. A prompt whose message stops
   being true before its dwell ends takes itself down through the callback
   `showAppSnackBar` returns (the exit hint, NAV-03).
 - **Why:** Prompts died with their page; action prompts stayed forever for
   users of always-on accessibility services. The dwell runs past the
   entrance and the platform timeout, so it cannot time a window.
-- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another", `test/navigation_router_test.dart` "a second back at the start exits"
+- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits"
 - **Code:** `lib/app/widgets/prompt_host.dart`, `lib/app/widgets/prompt_anchor.dart`
 
 ## Undo

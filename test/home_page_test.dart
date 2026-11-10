@@ -59,7 +59,7 @@ Future<void> _pumpHome(
   Locale? locale,
 }) async {
   // Pin a compact surface so the shell renders the bottom navigation bar
-  // rather than the wide NavigationRail.
+  // rather than the wide layout's rail.
   setViewSize(tester, const Size(390, 844));
   await seedAccounts(const [testerAccount], currentId: testerAccount.id);
   await tester.pumpWidget(_homeApp(intentSource: intentSource, locale: locale));

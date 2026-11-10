@@ -905,6 +905,38 @@
     "description": "Subtitle of the Me item in the bottom bar editor: it cannot be hidden because the settings are there"
   },
   "homeStartPage": "启动页",
+  "interfaceForm": "界面形态",
+  "@interfaceForm": {
+    "description": "Desktop setting: which large-screen shell the app shows"
+  },
+  "interfaceFormAuto": "自动",
+  "@interfaceFormAuto": {
+    "description": "Interface choice: the platform's own shell, a PC on a desktop"
+  },
+  "interfaceFormTouch": "触控大屏",
+  "@interfaceFormTouch": {
+    "description": "Interface choice: the touch large-screen shell (tablets)"
+  },
+  "interfaceFormPc": "PC",
+  "@interfaceFormPc": {
+    "description": "Interface choice: the desktop shell with a rail that opens"
+  },
+  "railExpand": "展开侧栏",
+  "@railExpand": {
+    "description": "Tooltip of the PC rail's menu button while the rail is collapsed"
+  },
+  "railCollapse": "收起侧栏",
+  "@railCollapse": {
+    "description": "Tooltip of the PC rail's menu button while the rail is open"
+  },
+  "railBookmarks": "收藏",
+  "@railBookmarks": {
+    "description": "Rail shortcut under the destinations: opens your bookmarks"
+  },
+  "railDownloads": "下载",
+  "@railDownloads": {
+    "description": "Rail shortcut under the destinations: opens the download tasks"
+  },
   "homeStartFirstVisible": "底栏第一项",
   "@homeStartFirstVisible": {
     "description": "Start page choice: open the first item of the bottom bar"

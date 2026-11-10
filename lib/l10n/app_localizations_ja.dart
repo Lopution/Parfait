@@ -1735,6 +1735,30 @@ class AppLocalizationsJa extends AppLocalizations {
   String get homeStartPage => '起動時のページ';
 
   @override
+  String get interfaceForm => 'インターフェース';
+
+  @override
+  String get interfaceFormAuto => '自動';
+
+  @override
+  String get interfaceFormTouch => 'タッチ画面';
+
+  @override
+  String get interfaceFormPc => 'PC';
+
+  @override
+  String get railExpand => 'サイドバーを開く';
+
+  @override
+  String get railCollapse => 'サイドバーを閉じる';
+
+  @override
+  String get railBookmarks => 'ブックマーク';
+
+  @override
+  String get railDownloads => 'ダウンロード';
+
+  @override
   String get homeStartFirstVisible => 'バーの最初の項目';
 
   @override

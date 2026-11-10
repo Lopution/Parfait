@@ -792,16 +792,12 @@ void main() {
       expect(find.byType(DetailPageCounter), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
-      // The action bar stays inside the meta column, clear of the divider.
-      final divider = tester.getRect(
-        find.descendant(
-          of: find.byType(TwoPane),
-          matching: find.byType(VerticalDivider),
-        ),
-      );
+      // The action bar stays inside the meta column, clear of the artwork.
       expect(
         tester.getRect(find.byType(DetailActionBar)).left,
-        greaterThanOrEqualTo(divider.right),
+        greaterThanOrEqualTo(
+          tester.getRect(find.byType(DetailImagePager)).right,
+        ),
       );
     });
 

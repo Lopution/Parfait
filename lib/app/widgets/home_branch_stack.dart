@@ -9,14 +9,18 @@ import '../../core/platform/app_root_pipeline_owner.dart';
 import '../../core/log.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/settings/settings_controller.dart';
-import '../layout/app_breakpoints.dart';
+import '../layout/form_factor.dart';
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
 import '../motion/still_work.dart';
 import '../motion/swipe_paging.dart';
 import '../pull_to_refresh.dart';
 import '../navigation/home_shell_metrics.dart';
+import '../navigation/routes.dart';
 import 'func_bottom_nav.dart';
+import 'prompt_anchor.dart';
+import 'settings/persist_settings.dart';
+import 'shell_rail.dart';
 
 /// Broadcast signal for branch-level re-taps — a tap on the already-selected
 /// home destination returns that branch to its root and asks the visible page
@@ -56,7 +60,9 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
 /// retains its navigator stack and scroll state; a switch slides the
 /// outgoing and incoming branch side by side, toward where the chosen
 /// destination sits on the bar. The bar and rail show the user's
-/// destinations in their order.
+/// destinations in their order. Larger screens get the [ShellRail] from
+/// 600dp wide ([FormFactor.hasRail]); a PC's opens and closes, as the user
+/// last left it.
 ///
 /// On a phone, a swipe on a branch's root page moves to the destination
 /// beside it on the bar ([SwipePaging]; user decision, against Material's
@@ -119,6 +125,9 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   int _switchGeneration = 0;
   final ReTapChannel _reTap = ReTapChannel();
   final ValueNotifier<double> _navBarVisibleExtent = ValueNotifier(0);
+
+  /// The rail's width, for prompts to centre beside it.
+  final ValueNotifier<double> _railExtent = ValueNotifier(0);
   int _current = 0;
   int? _outgoing;
 
@@ -246,6 +255,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     _idleSnapshot.dispose();
     _navVisibility.dispose();
     _navBarVisibleExtent.dispose();
+    _railExtent.dispose();
     super.dispose();
   }
 
@@ -405,25 +415,23 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   Widget _buildRail(
     BuildContext context,
     List<HomeDestination> shown, {
-    required bool extended,
+    required FormFactor form,
+    required bool expanded,
   }) {
-    return NavigationRail(
+    return ShellRail(
+      destinations: homeDestinations(context, shown),
       selectedIndex: homeBarIndexOf(shown, _current),
-      onDestinationSelected: (index) => _select(shown[index].branchIndex),
-      extended: extended,
-      minWidth: HomeShellChrome.railWidth,
-      minExtendedWidth: HomeShellChrome.extendedRailWidth,
-      // A landscape phone, a large text scale or a short desktop window
-      // can be too short for every destination.
-      scrollable: true,
-      labelType: extended ? null : NavigationRailLabelType.all,
-      destinations: [
-        for (final d in homeDestinations(context, shown))
-          NavigationRailDestination(
-            icon: Icon(d.icon, size: 26),
-            label: Text(d.label),
-          ),
-      ],
+      onSelected: (index) => _select(shown[index].branchIndex),
+      form: form,
+      expanded: expanded,
+      onToggle: () => unawaited(
+        persistSettings(
+          context,
+          () => ref.read(settingsProvider.notifier).setRailExpanded(!expanded),
+        ),
+      ),
+      onBookmarks: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
+      onDownloads: () => unawaited(openDownloadTasks(context)),
     );
   }
 
@@ -489,16 +497,19 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     final order = [...arrangement.shown, ...arrangement.hidden];
     _barBranches = [for (final d in arrangement.shown) d.branchIndex];
     final width = MediaQuery.sizeOf(context).width;
-    final rail = _rail = AppBreakpoints.useNavigationRail(
-      width,
-      phone: AppBreakpoints.isPhoneDisplay(
-        AppBreakpoints.displaySizeOf(context),
-      ),
-    );
+    final form = FormFactor.of(context);
+    final rail = _rail = form.hasRail(width);
     // An immersive page (the novel reader) takes the rail's room too, as it
     // covers the bottom bar on a phone.
     final railShown = rail && !ref.watch(shellRailHiddenProvider);
-    final extended = AppBreakpoints.useExtendedRail(width);
+    final expanded = form.railExpanded(
+      width,
+      choice: ref.watch(railExpandedProvider),
+    );
+    final railWidth = railShown
+        ? (expanded ? ShellRail.expandedWidth : ShellRail.width)
+        : 0.0;
+    _railExtent.value = railWidth;
     final bottomBarExtent = _bottomBarExtent = rail
         ? 0.0
         : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
@@ -538,28 +549,40 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     );
     return HomeShellChrome(
       bottomBarExtent: bottomBarExtent,
-      railExtent: railShown
-          ? (extended
-                    ? HomeShellChrome.extendedRailWidth
-                    : HomeShellChrome.railWidth) +
-                _railDividerWidth
-          : 0,
+      railExtent: railWidth,
       bottomBarVisibleExtent: _navBarVisibleExtent,
       bottomBarVisibility: _navVisibility,
       onBranchRootScroll: _onBranchRootScroll,
       child: _HomeBranchScope(
         channel: _reTap,
+        // The rail lies over the branches' edge so its shadow falls on
+        // them; the branches keep their place in the tree whether the rail
+        // shows or not (NAV-21).
         child: rail
-            ? Row(
+            ? Stack(
+                fit: StackFit.expand,
                 children: [
-                  if (railShown) ...[
-                    _buildRail(context, arrangement.shown, extended: extended),
-                    const VerticalDivider(
-                      thickness: _railDividerWidth,
-                      width: _railDividerWidth,
+                  Padding(
+                    padding: EdgeInsetsDirectional.only(start: railWidth),
+                    child: strip,
+                  ),
+                  if (railShown)
+                    PositionedDirectional(
+                      start: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: railWidth,
+                      child: PromptAnchor(
+                        extent: _railExtent,
+                        edge: PromptAnchorEdge.start,
+                        child: _buildRail(
+                          context,
+                          arrangement.shown,
+                          form: form,
+                          expanded: expanded,
+                        ),
+                      ),
                     ),
-                  ],
-                  Expanded(child: strip),
                 ],
               )
             : strip,
@@ -569,8 +592,6 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
 }
 
 const _still = AlwaysStoppedAnimation<Offset>(Offset.zero);
-
-const double _railDividerWidth = 1;
 
 class _HomeBranchScope extends InheritedWidget {
   const _HomeBranchScope({required this.channel, required super.child});

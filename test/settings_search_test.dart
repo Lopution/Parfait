@@ -41,6 +41,7 @@ final _pages = <SettingsPageRef?, Widget>{
   SettingsPageRef.translate: const TranslateSettingsPage(),
   SettingsPageRef.motion: const MotionSettingsPage(),
   SettingsPageRef.browse: const BrowseSettingsPage(),
+  SettingsPageRef.navigation: const NavigationSettingsPage(),
   SettingsPageRef.muted: const MutedItemsPage(),
   SettingsPageRef.network: const NetworkSettingsPage(),
   SettingsPageRef.networkAdvanced: const NetworkAdvancedSettingsPage(),
@@ -138,81 +139,93 @@ void main() {
 
   group('every catalog entry is on its page', () {
     for (final MapEntry(key: ref, value: page) in _pages.entries) {
-      testWidgets(ref?.name ?? 'settings index', (tester) async {
-        // Tall enough that the lazy lists build every row.
-        setViewSize(tester, const Size(800, 8000));
-        await tester.pumpWidget(
-          localizedApp(
-            overrides: _overrides(),
-            builder: promptHostBuilder,
-            home: page,
-          ),
-        );
-        for (var i = 0; i < 10; i++) {
-          await tester.pump(const Duration(milliseconds: 100));
-        }
-
-        if (ref != null) {
-          expect(
-            find.descendant(
-              of: find.byType(AppTopBar),
-              matching: find.text(ref.title(zh)),
+      testWidgets(
+        ref?.name ?? 'settings index',
+        (tester) async {
+          // Tall enough that the lazy lists build every row.
+          setViewSize(tester, const Size(800, 8000));
+          await tester.pumpWidget(
+            localizedApp(
+              overrides: _overrides(),
+              builder: promptHostBuilder,
+              home: page,
             ),
-            findsOneWidget,
-            reason: 'the catalog names the page as its title bar does',
           );
-        }
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
 
-        final anchors = tester.widgetList<SettingAnchor>(
-          find.byType(SettingAnchor),
-        );
-        expect({for (final anchor in anchors) anchor.entry}, _expectedOn(ref));
-        expect(
-          anchors.length,
-          anchors.map((anchor) => anchor.entry).toSet().length,
-          reason: 'each entry is anchored once',
-        );
-
-        // The anchor shows what the index finds it by.
-        for (final anchor in find.byType(SettingAnchor).evaluate()) {
-          final entry = (anchor.widget as SettingAnchor).entry;
-          final shown = _shownTexts(anchor);
-          final title = entry.title(zh);
-          if (title != null) {
+          if (ref != null) {
             expect(
-              shown.any((text) => text.contains(title)),
-              isTrue,
-              reason: '${entry.id} shows its title',
+              find.descendant(
+                of: find.byType(AppTopBar),
+                matching: find.text(ref.title(zh)),
+              ),
+              findsOneWidget,
+              reason: 'the catalog names the page as its title bar does',
             );
           }
-          if (entry is! Setting) continue;
-          for (final option in entry.options(zh)) {
-            expect(
-              shown.any((text) => text.contains(option)),
-              isTrue,
-              reason: '${entry.id} shows $option',
-            );
-          }
-        }
 
-        // No settings row escapes the index.
-        final rows = find.byWidgetPredicate(
-          (w) =>
-              w is SettingsTile ||
-              w is SettingsControl ||
-              w is SettingsMenuTile ||
-              w is SettingsActionTile ||
-              w is SettingsGroupContent ||
-              w is SettingsChoiceTile,
-        );
-        for (final row in rows.evaluate()) {
+          final anchors = tester.widgetList<SettingAnchor>(
+            find.byType(SettingAnchor),
+          );
+          expect({
+            for (final anchor in anchors) anchor.entry,
+          }, _expectedOn(ref));
           expect(
-            _isAnchored(row),
-            isTrue,
-            reason: '${row.widget} is not anchored to a catalog entry',
+            anchors.length,
+            anchors.map((anchor) => anchor.entry).toSet().length,
+            reason: 'each entry is anchored once',
           );
-        }
-      });
+
+          // The anchor shows what the index finds it by.
+          for (final anchor in find.byType(SettingAnchor).evaluate()) {
+            final entry = (anchor.widget as SettingAnchor).entry;
+            final shown = _shownTexts(anchor);
+            final title = entry.title(zh);
+            if (title != null) {
+              expect(
+                shown.any((text) => text.contains(title)),
+                isTrue,
+                reason: '${entry.id} shows its title',
+              );
+            }
+            if (entry is! Setting) continue;
+            for (final option in entry.options(zh)) {
+              expect(
+                shown.any((text) => text.contains(option)),
+                isTrue,
+                reason: '${entry.id} shows $option',
+              );
+            }
+          }
+
+          // No settings row escapes the index.
+          final rows = find.byWidgetPredicate(
+            (w) =>
+                w is SettingsTile ||
+                w is SettingsControl ||
+                w is SettingsMenuTile ||
+                w is SettingsActionTile ||
+                w is SettingsGroupContent ||
+                w is SettingsChoiceTile,
+          );
+          for (final row in rows.evaluate()) {
+            expect(
+              _isAnchored(row),
+              isTrue,
+              reason: '${row.widget} is not anchored to a catalog entry',
+            );
+          }
+        },
+        // The interface form is a desktop setting; the page shows it there.
+        variant: ref == SettingsPageRef.navigation
+            ? TargetPlatformVariant({
+                TargetPlatform.android,
+                TargetPlatform.windows,
+              })
+            : const DefaultTestVariant(),
+      );
     }
   });
 

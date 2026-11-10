@@ -4,14 +4,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-/// Bottom chrome that prompts must clear, registered by the widgets that
-/// draw it — the MDC `setAnchorView` equivalent for the app-wide
-/// `PromptHost`.
+/// Which window edge an anchor's chrome lies along.
+enum PromptAnchorEdge {
+  /// Bottom chrome prompts rest above (the bottom bar, an action bar).
+  bottom,
+
+  /// Side chrome at the start edge prompts centre beside (the rail).
+  start,
+}
+
+/// Chrome that prompts must clear, registered by the widgets that draw it
+/// — the MDC `setAnchorView` equivalent for the app-wide `PromptHost`.
 ///
-/// [extent] is the largest live contribution: each anchor reports the
-/// height it covers at the screen bottom right now, scaled by how present
-/// its route is (see [PromptAnchor]). A hidden or covered anchor reports 0,
-/// so the max settles on whatever chrome is actually on screen.
+/// [extent] is the largest live bottom contribution: each anchor reports
+/// the height it covers at the screen bottom right now, scaled by how
+/// present its route is (see [PromptAnchor]). A hidden or covered anchor
+/// reports 0, so the max settles on whatever chrome is actually on screen.
+/// [startExtent] is the same for the width covered at the start edge.
 ///
 /// Listeners are notified whenever a contribution changes — from animation
 /// ticks and from unmounting — so they must only schedule layout (a layout
@@ -46,10 +55,14 @@ class PromptAnchors extends ChangeNotifier {
     super.dispose();
   }
 
-  double get extent {
+  double get extent => _extentAlong(PromptAnchorEdge.bottom);
+
+  double get startExtent => _extentAlong(PromptAnchorEdge.start);
+
+  double _extentAlong(PromptAnchorEdge edge) {
     var extent = 0.0;
     for (final entry in _entries) {
-      extent = math.max(extent, entry.contribution);
+      if (entry.edge == edge) extent = math.max(extent, entry.contribution);
     }
     return extent;
   }
@@ -57,8 +70,9 @@ class PromptAnchors extends ChangeNotifier {
   _AnchorEntry _add(
     ValueListenable<double> extent,
     ModalRoute<dynamic>? route,
+    PromptAnchorEdge edge,
   ) {
-    final entry = _AnchorEntry(extent, route, _changed);
+    final entry = _AnchorEntry(extent, route, edge, _changed);
     _entries.add(entry);
     _changed();
     return entry;
@@ -72,7 +86,7 @@ class PromptAnchors extends ChangeNotifier {
 }
 
 class _AnchorEntry {
-  _AnchorEntry(this.extent, this.route, this._onChanged) {
+  _AnchorEntry(this.extent, this.route, this.edge, this._onChanged) {
     for (final source in _sources) {
       source.addListener(_onChanged);
     }
@@ -80,6 +94,7 @@ class _AnchorEntry {
 
   final ValueListenable<double> extent;
   final ModalRoute<dynamic>? route;
+  final PromptAnchorEdge edge;
   final VoidCallback _onChanged;
 
   Iterable<Listenable> get _sources => [
@@ -88,7 +103,7 @@ class _AnchorEntry {
     ?route?.secondaryAnimation,
   ];
 
-  /// The covered height, faded with the route: it rises as the route
+  /// The covered height or width, faded with the route: it rises as the route
   /// enters and sinks as a page route covers it. Flutter only drives
   /// `secondaryAnimation` for page-over-page transitions, so a sheet or
   /// dialog on top leaves the anchor in place.
@@ -136,9 +151,15 @@ class PromptAnchorScope extends InheritedWidget {
 /// page route covers it. Outside a prompt host (tests, previews) the
 /// anchor does nothing.
 class PromptAnchor extends StatefulWidget {
-  const PromptAnchor({super.key, required this.extent, required this.child});
+  const PromptAnchor({
+    super.key,
+    required this.extent,
+    this.edge = PromptAnchorEdge.bottom,
+    required this.child,
+  });
 
   final ValueListenable<double> extent;
+  final PromptAnchorEdge edge;
   final Widget child;
 
   @override
@@ -158,7 +179,10 @@ class _PromptAnchorState extends State<PromptAnchor> {
   @override
   void didUpdateWidget(PromptAnchor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.extent, widget.extent)) _register();
+    if (!identical(oldWidget.extent, widget.extent) ||
+        oldWidget.edge != widget.edge) {
+      _register();
+    }
   }
 
   void _register() {
@@ -168,12 +192,13 @@ class _PromptAnchorState extends State<PromptAnchor> {
     if (identical(anchors, _anchors) &&
         entry != null &&
         identical(entry.route, route) &&
-        identical(entry.extent, widget.extent)) {
+        identical(entry.extent, widget.extent) &&
+        entry.edge == widget.edge) {
       return;
     }
     _unregister();
     _anchors = anchors;
-    _entry = anchors?._add(widget.extent, route);
+    _entry = anchors?._add(widget.extent, route, widget.edge);
   }
 
   void _unregister() {

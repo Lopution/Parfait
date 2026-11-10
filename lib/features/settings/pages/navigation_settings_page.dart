@@ -4,15 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
 import '../../../app/widgets/ranking_category_sheet.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_menu_tile.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../core/navigation/home_destination.dart';
 import '../../../core/ranking/ranking_catalog.dart';
 import '../../../core/ranking/ranking_category.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_catalog.dart';
@@ -44,6 +47,13 @@ class NavigationSettingsPage extends ConsumerWidget {
             bottom: FuncSpacing.xl,
           ),
           children: [
+            // Desktop only: phones and Android tablets get their own shell.
+            if (Setting.interfaceForm.available)
+              SettingsGroup(
+                children: [
+                  _InterfaceFormTile(form: state.value!.interfaceForm),
+                ],
+              ),
             SettingsGroup(
               title: Text(context.l10n.navigationBottomBar),
               children: const [_BottomBarTile()],
@@ -88,6 +98,37 @@ class _CategoriesTile<M extends RankingCategory> extends ConsumerWidget {
       ),
       onTap: () =>
           unawaited(showRankingCategorySheet(context, catalog: catalog)),
+    );
+  }
+}
+
+/// The shell a desktop shows: its own (a PC) or the touch large-screen
+/// one. Takes effect at once; the open pages stay (NAV-21).
+class _InterfaceFormTile extends ConsumerWidget {
+  const _InterfaceFormTile({required this.form});
+
+  final InterfaceForm form;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    return SettingsMenuTile<InterfaceForm>(
+      setting: Setting.interfaceForm,
+      value: form,
+      options: [
+        for (final (value, label) in [
+          (InterfaceForm.auto, l10n.interfaceFormAuto),
+          (InterfaceForm.touch, l10n.interfaceFormTouch),
+          (InterfaceForm.pc, l10n.interfaceFormPc),
+        ])
+          AppMenuEntry<InterfaceForm>(value: value, label: label),
+      ],
+      onChanged: (value) => unawaited(
+        persistSettings(
+          context,
+          () => ref.read(settingsProvider.notifier).setInterfaceForm(value),
+        ),
+      ),
     );
   }
 }

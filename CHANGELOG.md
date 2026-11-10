@@ -10,10 +10,15 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 - **主题色：** 主题色改为更柔和的樱花粉；浅色模式的页面和卡片带一点淡粉，深色模式的文字和图标强调色更浅，应用图标同步更新。
 - **横屏手机的导航栏：** 手机横过来时保留底部导航栏，不再换成占去一截屏幕高度的侧边导航栏；导航项改为图标与文字并排，整组居中。
+- **平板和电脑的侧边栏：** 平板、展开的折叠屏和电脑的侧边栏换了新样式：选中项是一块淡色底，侧边栏投下浅阴影代替分隔线，导航项下面多了「收藏」和「下载」两个快捷入口。从侧边栏打开个人主页或下载页时，侧边栏不再被盖住。
+- **电脑上展开侧边栏：** 电脑上点侧边栏顶部的菜单按钮可以把侧边栏展开成带文字的面板，再点一次收起；窗口很宽时默认展开，之后记住你的选择。「设置 → 导航与布局」新增「界面形态」，可以在电脑上改用平板式的界面。
+- **平板上的提示：** 提示条在侧边栏旁边的内容区域居中，不再按整个窗口居中。
 - **横屏的个人主页：** 窗口较矮时，个人主页的头部收成一行，头像缩小，名字、分享和关注按钮并排，较宽的窗口里关注和好P友的数量也在这一行；第一屏就能看到标签页和作品。
 
 ### 修复
 
+- 平板上在小说阅读器里打开面板时，侧边栏会出现在正文旁边。
+- 平板横屏的作品详情页，图片和信息栏之间多一条分隔线。
 - 手机横屏时，小说阅读器的「阅读设置」面板显示不全，「阅读进度」面板超出屏幕底部。
 - 手机横屏时，还没弹出过键盘就打开评论的表情面板，面板几乎占满屏幕，上方只剩一条。
 - 手机横屏时，带筛选栏的搜索没有结果，提示里的按钮被挤出屏幕。
@@ -22,10 +27,15 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 - **Theme color:** The theme color is now a softer cherry-blossom pink. In light mode, pages and cards carry a faint pink; in dark mode, accented text and icons are lighter; the app icon matches.
 - **Navigation on a turned phone:** A phone held sideways keeps the bottom navigation bar instead of switching to a side rail that took up part of an already short screen. Each item now shows its icon beside its label, and the items are centered.
+- **Sidebar on tablets and computers:** The sidebar on tablets, unfolded foldables and computers has a new look: the selected item sits on a light tint, the sidebar casts a soft shadow instead of a divider line, and Bookmarks and Downloads shortcuts sit below the destinations. Opening your profile or the downloads from the sidebar no longer covers it.
+- **Expanding the sidebar on a computer:** On a computer, the menu button at the top of the sidebar opens it into a labeled panel, and a second click closes it. It opens by itself in a very wide window and then remembers your choice. A new Interface setting under Settings → Navigation & layout lets a computer use the tablet layout instead.
+- **Messages on tablets:** Messages now center on the content next to the sidebar rather than on the whole window.
 - **Profiles in a short window:** In a short window, the profile header fits into one row: a smaller avatar with the name, share and follow buttons beside it, and the counts too when the window is wide enough. The tabs and works now show on the first screen.
 
 ### Fixed
 
+- On a tablet, opening a panel in the novel reader showed the sidebar next to the text.
+- On a tablet held sideways, a divider line ran between the image and the information column on artwork pages.
 - On a phone held sideways, the novel reader's Reading settings panel was cut off, and the Reading progress panel ran past the bottom of the screen.
 - On a phone held sideways, opening the emoji panel in comments before the keyboard had appeared filled almost the whole screen, leaving a sliver above it.
 - On a phone held sideways, when a search with a filter bar had no results, the buttons in its message were pushed off the screen.

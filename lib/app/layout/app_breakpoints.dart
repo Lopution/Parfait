@@ -3,20 +3,21 @@ import 'package:flutter/widgets.dart';
 /// Width-based layout breakpoints shared by the shell and content pages,
 /// on Material 3's window classes: compact < 600 ≤ medium < 840 ≤ expanded
 /// < 1200 ≤ large < 1600 ≤ extra-large. They are pure width thresholds — the
-/// shell's NavigationRail, gallery columns and content-width caps all read
-/// the same ladder so a resize cannot put chrome and content on different
-/// rules. The one exception is the phone tier ([isPhoneDisplay]), read from
-/// the display: it keeps a turned phone on the bottom bar.
+/// shell's rail, gallery columns and content-width caps all read the same
+/// ladder so a resize cannot put chrome and content on different rules.
+/// The one exception is the phone tier ([isPhoneDisplay]), read from the
+/// display: it keeps a turned phone on the bottom bar (`FormFactor`).
 abstract final class AppBreakpoints {
-  /// At and above this the shell swaps the bottom bar for a NavigationRail.
+  /// At and above this the shell swaps the bottom bar for the rail, except
+  /// on a phone (`FormFactor.hasRail`).
   static const double medium = 600;
 
   static const double expanded = 840;
 
   static const double large = 1200;
 
-  /// At and above this the rail widens into a labelled side column; below
-  /// it the icon rail leaves the room to the content.
+  /// At and above this a PC's rail opens into its labelled panel until the
+  /// user toggles it (`FormFactor.railExpanded`).
   static const double extraLarge = 1600;
 
   /// The logical size of the whole display the app is on: the most room
@@ -36,13 +37,6 @@ abstract final class AppBreakpoints {
   /// the window. An unknown display ([displaySizeOf] null) is not one.
   static bool isPhoneDisplay(Size? display) =>
       display != null && display.shortestSide < medium;
-
-  /// Shell navigation form factor: the rail on a [medium]+ window, except
-  /// on a phone ([isPhoneDisplay]), which always keeps the bottom bar.
-  static bool useNavigationRail(double width, {required bool phone}) =>
-      !phone && width >= medium;
-
-  static bool useExtendedRail(double width) => width >= extraLarge;
 
   /// Below this height a window is short (Material 3's compact height): a
   /// phone held sideways.

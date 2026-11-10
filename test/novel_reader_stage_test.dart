@@ -309,15 +309,29 @@ void main() {
     expect(reader(), same(opened));
   });
 
-  testWidgets('the current reader hides the shell rail', (tester) async {
+  testWidgets('the current reader hides the shell rail, under its panels '
+      'too', (tester) async {
     await tester.pumpWidget(_stageApp(_RecordingBinding()));
     await tester.pump();
     final stage = find.byType(NovelReaderStage);
     final container = ProviderScope.containerOf(tester.element(stage));
     expect(container.read(shellRailHiddenProvider), isTrue);
 
-    // A route over the reader hands the rail back until it pops.
+    // A dialog over the reader leaves the text where it is.
     final navigator = Navigator.of(tester.element(stage));
+    unawaited(
+      showDialog<void>(
+        context: tester.element(stage),
+        useRootNavigator: false,
+        builder: (_) => const SizedBox(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(container.read(shellRailHiddenProvider), isTrue);
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    // A page over the reader hands the rail back until it pops.
     unawaited(
       navigator.push(MaterialPageRoute<void>(builder: (_) => const SizedBox())),
     );

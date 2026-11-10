@@ -68,7 +68,9 @@ reviewed: 2026-10-17
 - **Rule:** A page opened from a page stays on that page's stack; only the
   bottom bar and rail switch branches. Route facades push through `_push`,
   whose debug assertion rejects a push into another branch. Overlay routes
-  (`/me`, `/reverse-image`, `/downloads`) may open from any stack. The
+  (`/me`, `/reverse-image`, `/downloads`) may open from any stack; beside
+  a rail `/me` and `/downloads` open on the current stack instead
+  (NAV-20), except from the viewer. The
   viewer opens only overlay destinations, and "back to the work" closes the
   viewer instead of pushing a second detail page.
 - **Why:** Pushing into another branch switched tabs under the user and
@@ -119,8 +121,8 @@ reviewed: 2026-10-17
   selection is a tint (icon and label to `primary`, label weight up) on
   `effectsFast`; nothing moves or resizes. It casts `barShadow` up over
   the content (no hairline), as the comment composer does. Do not swap
-  it for the M3 `NavigationBar`; the wide layout's `NavigationRail` keeps
-  the M3 rail. Labels share one `LabelFit` capped at 1.3x text scale.
+  it for the M3 `NavigationBar`; the rail is the same style turned on
+  its side (NAV-20). Labels share one `LabelFit` capped at 1.3x text scale.
   From 600dp wide (a turned phone, NAV-20) each destination puts its icon
   beside its label, as wide as both, and the group is centred (Compose's
   `ShortNavigationBar` in a medium window); the ripple is a pill the bar's
@@ -316,25 +318,39 @@ reviewed: 2026-10-17
 
 ## Wide windows
 
-### NAV-20 A phone keeps the bar; larger screens get a scrolling icon rail
-- **Rule:** User decision (11-09): a phone, a display whose shortest side
-  is under 600dp (`AppBreakpoints.isPhoneDisplay`, read from
-  `View.display`; Android's sw600dp line), always shows the bottom bar,
-  turned or not. On a larger display the shell swaps
-  the bar for a `NavigationRail` from 600dp wide: an 80dp icon rail with
-  labels below 1600dp, the 256dp extended rail from 1600dp. The rail
-  scrolls when the window is too short for its items. Pages size
-  themselves from `HomeShellChrome.contentSizeOf` (the window less the
-  rail), not the window. An immersive page hides the rail through
-  `shellRailHiddenProvider` while its route is current (the novel reader);
-  it releases the rail after the frame, never in dispose.
+### NAV-20 Three forms: a phone's bar, a touch rail, a PC rail
+- **Rule:** User decision: the shell is laid out for a `FormFactor`
+  (`lib/app/layout/form_factor.dart`), published by `FormFactorScope` in
+  `AppChrome`. A phone, a display whose shortest side is under 600dp
+  (`AppBreakpoints.isPhoneDisplay`, read from `View.display`; Android's
+  sw600dp line), always shows the bottom bar, turned or not. A larger
+  touch screen is `touch`; a desktop (Windows, Linux, macOS) is `pc`
+  unless the user picks the touch shell under 「界面形态」, a setting
+  only desktops offer. From 600dp wide both swap the bar for `ShellRail`,
+  after Shaft's tablet rail: a header, the destinations from the top as
+  one tab group, a short rule, then shortcuts to the bookmarks and the
+  downloads, which open their pages without taking the selection. The
+  selected entry sits on `primary` at 15%; the rail casts `barShadow`
+  over the content instead of a divider, and scrolls when the window is
+  too short. A touch rail is always the 88dp icon-over-label column under
+  the app's icon. A PC rail's header is a menu button that opens the
+  256dp labelled panel; it opens by itself from 1600dp until the user
+  toggles it, then stays as left (`AppSettings.railExpanded`). Beside a
+  rail, `/me` and `/downloads` open on the current branch's stack, so the
+  rail stays; from the viewer they stay overlays (NAV-04). Pages size themselves from `HomeShellChrome.contentSizeOf`
+  (the window less the rail), not the window. An immersive page hides the
+  rail through `shellRailHiddenProvider` while its route is current or
+  only popups (sheets, dialogs) cover it (the novel reader); it releases
+  the rail after the frame, never in dispose.
 - **Why:** On a turned phone five labelled items overflowed 411dp; the
   scrolling rail that fixed it took 80dp of a phone's width, and the user
   wanted phones, touch tablets and desktops told apart rather than one
-  width ladder for all; the extended rail took 256dp from content on
-  tablets; the reader showed the rail beside the text.
-- **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar"; `test/home_branch_stack_test.dart` "a short window on a tablet gets a scrolling icon rail"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail"; `test/layout_breakpoints_test.dart` "extended rail waits for the extra-large boundary"
-- **Code:** `lib/app/layout/app_breakpoints.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`
+  width ladder for all. The extended rail took 256dp from content on
+  tablets; a desktop user wants to choose. Opening the profile or the
+  downloads as overlays covered the rail; the reader showed the rail
+  beside the text whenever a sheet opened over it.
+- **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar" "a short window on a tablet gets a scrolling icon rail" "a PC rail opens from extra-large widths until the user" "the interface form changes the shell at once and keeps the" "beside the rail, the downloads and the profile open in the"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail, under its panels"; `test/layout_breakpoints_test.dart` "a phone, a touch screen or a PC, by display and platform"
+- **Code:** `lib/app/layout/form_factor.dart`, `lib/app/widgets/shell_rail.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place
 - **Rule:** Turning, folding or dragging the window keeps the shell's

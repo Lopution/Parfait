@@ -426,6 +426,10 @@ void main() {
     testWidgets('downloads return to $origin with one home shell', (
       tester,
     ) async {
+      // On a phone the downloads open over the shell; beside a rail they
+      // open on the branch (home_branch_stack_test).
+      setViewSize(tester, const Size(390, 844));
+      setDisplaySize(tester, const Size(390, 844));
       final overlay = ['/me', '/reverse-image', '/downloads'].contains(origin);
       final router = await pumpRouter(
         tester,
