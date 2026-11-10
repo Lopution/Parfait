@@ -291,6 +291,13 @@ void main() {
     await drag.moveBy(const Offset(0, 40));
     await tester.pump();
     expect(page.offset, lessThan(0));
+    final inner = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byType(FeedEmpty),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(inner.position.pixels, 0);
     await drag.up();
     await tester.pumpAndSettle();
   });
