@@ -211,9 +211,11 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   Size? _insetsSize;
 
   /// Reading takes the whole window: on rail layouts the shell's rail
-  /// steps aside while this route is the current one.
+  /// steps aside while this route is the current one or under a popup
+  /// ([_syncShellRail]).
   late final ShellRailHiddenNotifier _shellRail;
   bool _hidesRail = false;
+  ModalRoute<Object?>? _route;
 
   NovelEntity get novel => widget.spec.novel;
 
@@ -248,14 +250,30 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
     _insetsSize = size;
     if (next != _stableInsets) _stableInsets = next;
-    final hidesRail = ModalRoute.isCurrentOf(context) ?? false;
-    if (hidesRail != _hidesRail) {
-      _hidesRail = hidesRail;
-      // Providers cannot change while widgets build.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _shellRail.setHidden(this, _hidesRail);
-      });
+    final route = ModalRoute.of(context);
+    if (route != _route) {
+      _route?.secondaryAnimation?.removeStatusListener(_syncShellRail);
+      _route = route;
+      route?.secondaryAnimation?.addStatusListener(_syncShellRail);
     }
+    _syncShellRail();
+  }
+
+  /// Hides the rail while the reader is the current route or only popups
+  /// (a panel, a dialog, a menu) lie over it: a popup does not drive the
+  /// route below's secondary animation, a page pushed over it does, and
+  /// then the rail comes back. The text keeps its width under a panel.
+  void _syncShellRail([AnimationStatus? _]) {
+    final route = _route;
+    final hidesRail =
+        route != null &&
+        (route.isCurrent || (route.secondaryAnimation?.isDismissed ?? true));
+    if (hidesRail == _hidesRail) return;
+    _hidesRail = hidesRail;
+    // Providers cannot change while widgets build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _shellRail.setHidden(this, _hidesRail);
+    });
   }
 
   static EdgeInsets _maxEdges(EdgeInsets a, EdgeInsets b) => EdgeInsets.only(
@@ -273,6 +291,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
     // Providers cannot change while the tree is finalized either; release
     // after the frame (a pending hide above checks `mounted` and skips).
+    _route?.secondaryAnimation?.removeStatusListener(_syncShellRail);
     final rail = _shellRail;
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => rail.setHidden(this, false),
