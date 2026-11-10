@@ -85,7 +85,7 @@ jobs:
         run: python3 tool/test_budget.py --base HEAD^1 --summary "$GITHUB_STEP_SUMMARY"
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.7"
+          flutter-version: "3.47.9"
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
@@ -112,7 +112,7 @@ jobs:
             --index ${{ matrix.shard }} > "$RUNNER_TEMP/shard-files.txt"
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.7"
+          flutter-version: "3.47.9"
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
@@ -166,7 +166,7 @@ jobs:
           cache: gradle
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.7"
+          flutter-version: "3.47.9"
           channel: "stable"
           cache: true
       - run: rustup toolchain install
@@ -287,7 +287,7 @@ jobs:
           cache: gradle
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.7"
+          flutter-version: "3.47.9"
           channel: "stable"
           cache: true
       - run: rustup toolchain install
@@ -333,7 +333,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.7"
+          flutter-version: "3.47.9"
           channel: "stable"
           cache: true
       - run: rustup toolchain install
@@ -366,7 +366,7 @@ jobs:
           cache: gradle
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.7"
+          flutter-version: "3.47.9"
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
@@ -383,7 +383,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.7"
+          flutter-version: "3.47.9"
           channel: "stable"
           cache: true
       - run: rustup toolchain install

@@ -10,7 +10,7 @@ version: 1.1.1+5
 
 environment:
   sdk: ^3.11.0
-  flutter: '>=3.47.0'
+  flutter: '>=3.47.8'
 
 dependencies:
   archive: ^4.2.0
