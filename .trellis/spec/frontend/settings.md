@@ -120,9 +120,12 @@ reviewed: 2026-10-17
 - **Rule:** `/settings/motion` holds animation speed,
   reduced motion, press feedback and haptic strength. Credential export
   is in account management. History switches and delete-all are in the
-  history page's overflow menu; there is no history settings page.
+  history page's overflow menu; there is no history settings page. The
+  interface form (NAV-20) heads `/settings/navigation` and, like the
+  haptic strength, exists only where `Setting.available` says so: the row
+  and its search entry alike.
 - **Why:** The same setting on two pages drifted apart.
-- **Check:** `test/settings_search_test.dart`
+- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page"
 - **Code:** `lib/features/settings/settings_catalog.dart`
 
 ## Me tab

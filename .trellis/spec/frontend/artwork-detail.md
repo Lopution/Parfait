@@ -211,10 +211,11 @@ reviewed: 2026-10-17
   `HomeShellChrome.contentSizeOf`) is at least 600dp wide and wider than
   tall, the detail page is a `TwoPane`: the image pager on a
   `surfaceContainerLow` stage, the info column at 0.38 of the width kept
-  within 320–480dp. The action capsule centers in the info column.
+  within 320–480dp, with no divider: the stage's ground sets the image
+  off. The action capsule centers in the info column.
 - **Why:** On a turned phone the single column showed half an image; on
   wide screens the capsule straddled the divider over the comments.
-- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"
+- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"
 - **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### DETAIL-10 The download button listens to the manager itself
