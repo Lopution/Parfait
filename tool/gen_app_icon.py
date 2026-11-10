@@ -41,11 +41,11 @@ SUPERSAMPLE = 4
 
 # ------------------------------------------------------------------ colour --
 
-BAND = [(0, "#FFA3C0"), (0.16, "#FF7A9F"), (0.32, "#F4507F"), (0.48, "#FF6A92"),
-        (0.7, "#F04B7F"), (0.88, "#DA3A70"), (1, "#C02A62")]
-STEM = [(0, "#FF8FAE"), (0.45, "#FF6289"), (0.82, "#E4467A"), (1, "#C73068")]
+BAND = [(0, "#F7A4D4"), (0.16, "#F67CBC"), (0.32, "#EB53A2"), (0.48, "#F66CB2"),
+        (0.7, "#E64FA2"), (0.88, "#D13E91"), (1, "#B72F80")]
+STEM = [(0, "#F790C7"), (0.45, "#F664AB"), (0.82, "#DB4A9B"), (1, "#BE3587")]
 STAR = [(0, "#FFD867"), (1, "#FFB930")]
-SHADOW = "#7A0E36"
+SHADOW = "#75124B"
 FOLD_SHADOW = 0.3  # stem darkening under the band that folds over it
 TUCK_SHADOW = 0.34  # band darkening where it tucks under the stem
 CROSS_SHADE = 0.03  # OKLab lightness change across the band width
