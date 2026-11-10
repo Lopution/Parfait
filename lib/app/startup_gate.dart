@@ -256,17 +256,27 @@ class _PipelineWarmupState extends State<PipelineWarmup> {
   /// get this one, whose pipeline is compiled, not a second copy.
   static Future<ui.FragmentProgram>? _sparkleProgram;
 
-  /// [InkSparkle]'s uniforms set to draw nothing: no colour, no alpha, and
-  /// no zero divisor.
-  static const _sparkleUniforms = <double>[
-    0, 0, 0, 0, // colour
-    0, 0, 1, 1, // alpha, sparkle alpha, blur, radius scale
-    4, 4, 4, // centre, maximum radius
-    1 / 8, 1 / 8, 1, 1, 0, // resolution scale, noise scale, noise phase
-    0, 0, 0, 0, 0, 0, // turbulence circles
-    1, 0, 1, 0, 1, 0, // turbulence rotations
-  ];
   static const _sparkleSize = Size.square(8);
+
+  /// Sets [InkSparkle]'s uniforms to draw nothing: no colour, no alpha, and
+  /// no zero divisor. By name, as [InkSparkle] sets them: a renamed or
+  /// reordered uniform throws here instead of drawing a stray ripple.
+  static void _setInvisibleSparkle(ui.FragmentShader shader) {
+    shader.getUniformVec4('u_color').set(0, 0, 0, 0);
+    // Alpha, sparkle alpha, blur, radius scale.
+    shader.getUniformVec4('u_composite_1').set(0, 0, 1, 1);
+    shader.getUniformVec2('u_center').set(4, 4);
+    shader.getUniformFloat('u_max_radius').set(4);
+    shader.getUniformVec2('u_resolution_scale').set(1 / 8, 1 / 8);
+    shader.getUniformVec2('u_noise_scale').set(1, 1);
+    shader.getUniformFloat('u_noise_phase').set(0);
+    for (final circle in ['u_circle1', 'u_circle2', 'u_circle3']) {
+      shader.getUniformVec2(circle).set(0, 0);
+    }
+    for (final rotation in ['u_rotation1', 'u_rotation2', 'u_rotation3']) {
+      shader.getUniformVec2(rotation).set(1, 0);
+    }
+  }
 
   ui.FragmentShader? _sparkle;
 
@@ -303,9 +313,7 @@ class _PipelineWarmupState extends State<PipelineWarmup> {
   void _warmSparkle(ui.FragmentProgram program) {
     if (!mounted) return;
     final shader = program.fragmentShader();
-    for (final (index, value) in _sparkleUniforms.indexed) {
-      shader.setFloat(index, value);
-    }
+    _setInvisibleSparkle(shader);
     setState(() {
       _sparkle = shader;
       _framesLeft = math.max(_framesLeft, 1);
