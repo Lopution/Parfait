@@ -131,10 +131,12 @@ BANNER_SCALE = 2
 BANNER_RADIUS = 28
 INK = (43, 26, 34)
 INK_MUTED = (110, 88, 98)
-BRAND = (228, 70, 122)
-CHIP_BORDER = (247, 182, 203)
-SHADOW = (122, 14, 54)  # the icon's shadow colour
-WASH = ((255, 248, 251), (255, 226, 236))  # top-left -> bottom-right
+# The icon's brand pink at its lightness, warmed a little (356° in OKLCH)
+# so the headline keeps 3.18:1 on the wash's darker corner.
+BRAND = (223, 72, 142)
+CHIP_BORDER = (245, 182, 208)
+SHADOW = (117, 18, 75)  # the icon's shadow colour
+WASH = ((254, 248, 250), (255, 226, 237))  # top-left -> bottom-right
 
 
 @dataclass(frozen=True)
@@ -166,7 +168,7 @@ PHONES = (  # (shot, centre x, centre y, height, angle), back to front
     ("home", 955, 350, 590, 0),
 )
 PHONE_SHADOW_BLUR, PHONE_SHADOW_OPACITY = 24, 0.22
-GLOW = (255, 196, 216)  # soft spot of brand colour behind the phones
+GLOW = (254, 196, 219)  # soft spot of brand colour behind the phones
 GLOW_CENTER, GLOW_RADIUS = (955, 330), 420
 SOCIAL_JPEG_QUALITY = 90
 
