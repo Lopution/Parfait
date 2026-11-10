@@ -8,6 +8,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ### 变更
 
+- **主题色：** 主题色改为更柔和的樱花粉；浅色模式的页面和卡片带一点淡粉，深色模式的文字和图标强调色更浅，应用图标同步更新。
 - **横屏手机的导航栏：** 手机横过来时保留底部导航栏，不再换成占去一截屏幕高度的侧边导航栏；导航项改为图标与文字并排，整组居中。
 - **横屏的个人主页：** 窗口较矮时，个人主页的头部收成一行，头像缩小，名字、分享和关注按钮并排，较宽的窗口里关注和好P友的数量也在这一行；第一屏就能看到标签页和作品。
 
@@ -19,6 +20,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ### Changed
 
+- **Theme color:** The theme color is now a softer cherry-blossom pink. In light mode, pages and cards carry a faint pink; in dark mode, accented text and icons are lighter; the app icon matches.
 - **Navigation on a turned phone:** A phone held sideways keeps the bottom navigation bar instead of switching to a side rail that took up part of an already short screen. Each item now shows its icon beside its label, and the items are centered.
 - **Profiles in a short window:** In a short window, the profile header fits into one row: a smaller avatar with the name, share and follow buttons beside it, and the counts too when the window is wide enough. The tabs and works now show on the first screen.
 

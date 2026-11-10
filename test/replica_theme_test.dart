@@ -47,12 +47,37 @@ void main() {
     }
   });
 
-  test('the light accent reads at 4.5:1 up to the sheet tier', () {
-    final scheme = replicaTheme(Brightness.light).colorScheme;
+  test('the accent reads at 4.5:1 up to the sheet tier, on dark on all', () {
+    final light = replicaTheme(Brightness.light).colorScheme;
     // Dialogs and the highest tier fall short: a known trade (THEME-06).
-    for (final background in _surfaces(scheme).take(4)) {
+    for (final background in _surfaces(light).take(4)) {
       expect(
-        contrastRatio(scheme.primary, background),
+        contrastRatio(light.primary, background),
+        greaterThanOrEqualTo(4.5),
+      );
+    }
+    final dark = replicaTheme(Brightness.dark).colorScheme;
+    for (final background in _surfaces(dark)) {
+      expect(
+        contrastRatio(dark.primary, background),
+        greaterThanOrEqualTo(4.5),
+      );
+    }
+  });
+
+  test('selection and the snackbar action read at 4.5:1 in both themes', () {
+    for (final brightness in Brightness.values) {
+      final scheme = replicaTheme(brightness).colorScheme;
+      expect(
+        contrastRatio(scheme.onPrimaryContainer, scheme.primaryContainer),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        contrastRatio(scheme.inversePrimary, scheme.inverseSurface),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        contrastRatio(scheme.onInverseSurface, scheme.inverseSurface),
         greaterThanOrEqualTo(4.5),
       );
     }

@@ -39,7 +39,10 @@ final _comment = RegExp(r'//[^\n]*|/\*.*?\*/', dotAll: true);
 final _dateFormat = RegExp(r'\bDateFormat\b');
 final _dateInterpolation = RegExp(r'\$\{[^}]*\.(?:year|month|day)\}');
 final _numberFormat = RegExp(r'\bNumberFormat\b');
-final _brandPrimary = RegExp(r'\bFuncTokens\.(primary|lightAccent)\b');
+final _brandPrimary = RegExp(
+  r'\bFuncTokens\.(primary|lightAccent|darkAccent|'
+  r'(light|dark)(On)?PrimaryContainer|(light|dark)InversePrimary)\b',
+);
 final _labelMeasure = RegExp(r'\bLabelFit\.(group|measureLabel)\(');
 final _identifier = RegExp(r'^[A-Za-z_]\w*$');
 
