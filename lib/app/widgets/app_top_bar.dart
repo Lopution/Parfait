@@ -183,6 +183,9 @@ class _AppTopBarState extends State<AppTopBar> {
           );
     final bottom = widget.bottom;
     final title = widget.title;
+    // A tab row standing in the title is the bar's leading content, not a
+    // heading: there is no title text to mark, and the tabs stay tabs.
+    final titleIsTabs = title is AppTabBar;
     // On the larger forms the tabs take the toolbar's free width, so the
     // bar is one row high; the whole row fades together when immersed.
     // The bar would make the whole row the page's heading: only the title
@@ -214,7 +217,7 @@ class _AppTopBarState extends State<AppTopBar> {
         title: toolbarTitle == null || !immersed
             ? toolbarTitle
             : Opacity(opacity: drawn, child: toolbarTitle),
-        excludeHeaderSemantics: widget.tabsBesideTitle,
+        excludeHeaderSemantics: widget.tabsBesideTitle || titleIsTabs,
         titleSpacing: widget.titleSpacing,
         actions: widget.actions,
         bottom: widget.tabsBesideTitle ? null : bottom,

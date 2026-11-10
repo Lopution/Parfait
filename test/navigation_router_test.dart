@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart' show SemanticsNode;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ import 'package:parfait/features/novel/novel_page.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
+import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
@@ -23,7 +25,10 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/app/widgets/app_tab_bar.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/app/widgets/search_field_button.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
@@ -208,6 +213,135 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/ranking');
+  });
+
+  testWidgets('a destination bar ends in the search field', (tester) async {
+    final semantics = tester.ensureSemantics();
+    setViewSize(tester, const Size(1280, 800));
+    await pumpRouter(tester, '/recommended');
+
+    final bar = find.descendant(
+      of: find.byType(RecommendedHomePage),
+      matching: find.byType(AppTopBar),
+    );
+    // One toolbar row: the type tabs lead it, the search field ends it.
+    expect(tester.getSize(bar).height, kToolbarHeight);
+    final field = find.descendant(
+      of: bar,
+      matching: find.byType(SearchFieldButton),
+    );
+    expect(field, findsOneWidget);
+    expect(tester.getSize(field).width, 360);
+    expect(
+      tester
+          .getRect(find.descendant(of: bar, matching: find.byType(AppTabBar)))
+          .right,
+      lessThan(tester.getRect(field).left),
+    );
+    // The field is a button named for search; the tabs are not a heading.
+    expect(
+      tester.getSemantics(find.descendant(of: bar, matching: find.text('搜索'))),
+      isSemantics(label: '搜索', isButton: true),
+    );
+    for (
+      SemanticsNode? node = tester.getSemantics(
+        find.descendant(of: bar, matching: find.text('插画')),
+      );
+      node != null;
+      node = node.parent
+    ) {
+      expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
+    }
+
+    // A phone keeps its bar as it was: no search entry at all.
+    setViewSize(tester, const Size(390, 844));
+    setDisplaySize(tester, const Size(390, 844));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: bar, matching: find.byTooltip('搜索')),
+      findsNothing,
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('ranking and new end their wide bars in the search field', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(1280, 800));
+    for (final location in ['/ranking', '/new']) {
+      await pumpRouter(tester, location);
+      expect(find.byType(SearchFieldButton), findsOneWidget, reason: location);
+    }
+  });
+
+  testWidgets('a page pushed over a destination root has no search entry', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(1280, 800));
+    final router = await pumpRouter(tester, '/new');
+    unawaited(router.push('/new/new-novels'));
+    await tester.pumpAndSettle();
+
+    // The novel feed covers the root; both are NewPage, only the pushed
+    // one is on stage.
+    final pushed = find.byType(NewPage);
+    expect(pushed, findsOneWidget);
+    final bar = find.descendant(of: pushed, matching: find.byType(AppTopBar));
+    // Not a branch root: the header's search widgets are there but draw
+    // nothing (R8).
+    expect(
+      find.descendant(of: bar, matching: find.byType(SearchFieldButton)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: bar, matching: find.byTooltip('搜索')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a search destination off the bar still reaches search from '
+      'the recommended header on either window class', (tester) async {
+    setViewSize(tester, const Size(1280, 800));
+    final router = pixivRouter('/recommended');
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        overrides: [
+          homeArrangementProvider.overrideWithValue(
+            HomeDestination.defaultArrangement.hide(HomeDestination.search),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final bar = find.descendant(
+      of: find.byType(RecommendedHomePage),
+      matching: find.byType(AppTopBar),
+    );
+    // Wide: the header's own field replaces the off-bar icon.
+    expect(
+      find.descendant(of: bar, matching: find.byType(SearchFieldButton)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: bar, matching: find.byIcon(AppIcons.search)),
+      findsNothing,
+    );
+
+    // A phone keeps the off-bar icon and the header draws no field.
+    setViewSize(tester, const Size(390, 844));
+    setDisplaySize(tester, const Size(390, 844));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: bar, matching: find.byType(SearchFieldButton)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: bar, matching: find.byTooltip('搜索')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('branch pushes are rejected outside the visible branch', (

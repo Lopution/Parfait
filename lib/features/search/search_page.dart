@@ -15,6 +15,7 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/home_branch_stack.dart';
+import '../../app/widgets/page_header.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
 import '../../app/widgets/skeleton/func_skeleton.dart';
@@ -169,34 +170,45 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final tabs = AppTabBar(
+      controller: _tabController,
+      onTap: _onTabTap,
+      labels: [for (final type in _types) searchText(context, type.labelKey)],
+    );
+    final camera = IconButton(
+      tooltip: l10n.searchReverseImage,
+      onPressed: () => openReverseImageSearch(context),
+      icon: const Icon(Icons.photo_camera_outlined),
+    );
+    // The wide header puts the kind tabs on the title row and the shared
+    // search field next to the camera (R7); a phone keeps the field over
+    // the tabs.
+    final wide = PageHeader.isWide(context);
     return Scaffold(
       // Root pages own no inline composer: leaving the default `true`
       // would subscribe this whole subtree to per-frame viewInsets churn
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(
-        title: SearchFieldButton(
-          // The input page body spells out what can be searched.
-          text: l10n.searchBarHint,
-          isHint: true,
-          onTap: () => openSearchInput(context, type: _active),
-        ),
-        actions: [
-          IconButton(
-            tooltip: l10n.searchReverseImage,
-            onPressed: () => openReverseImageSearch(context),
-            icon: const Icon(Icons.photo_camera_outlined),
-          ),
-        ],
-        bottom: AppTabBar(
-          controller: _tabController,
-          onTap: _onTabTap,
-          labels: [
-            for (final type in _types) searchText(context, type.labelKey),
-          ],
-        ),
-      ),
+      appBar: wide
+          ? AppTopBar(
+              titleSpacing: 0,
+              title: tabs,
+              actions: [
+                camera,
+                HeaderSearch(type: _active),
+              ],
+            )
+          : AppTopBar(
+              title: SearchFieldButton(
+                // The input page body spells out what can be searched.
+                text: l10n.searchBarHint,
+                isHint: true,
+                onTap: () => openSearchInput(context, type: _active),
+              ),
+              actions: [camera],
+              bottom: tabs,
+            ),
       body: Builder(
         builder: (context) {
           _notificationContext = context;

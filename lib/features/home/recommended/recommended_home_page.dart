@@ -24,6 +24,7 @@ import '../../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../../app/widgets/app_tab_bar.dart';
 import '../../../app/widgets/home_branch_stack.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
+import '../../../app/widgets/page_header.dart';
 import '../../../app/widgets/tab_swipe_switcher.dart';
 import '../../../app/widgets/author_summary.dart';
 import '../../../app/widgets/novel_entry.dart';
@@ -39,6 +40,13 @@ import '../../../app/widgets/feed/load_more_listener.dart';
 String _recommendedText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
 }
+
+String _recommendedLabelKey(RecommendedContentType type) => switch (type) {
+  RecommendedContentType.illust => 'recommendedIllust',
+  RecommendedContentType.manga => 'recommendedManga',
+  RecommendedContentType.novel => 'recommendedNovel',
+  RecommendedContentType.user => 'recommendedUser',
+};
 
 /// Home recommended tab with the beta56 content selector:
 /// 插画 / 漫画 / 小说 / 用户. The active type is route-durable
@@ -208,8 +216,8 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
         titleSpacing: 0,
-        actions: const [_OffBarSearchAction()],
-        title: _RecommendedTypeSelector(
+        actions: const [_OffBarSearchAction(), HeaderSearch()],
+        title: AppTabBar(
           controller: _tabController,
           onTap: (index) {
             // _changeIndex early-returns on a same-index tap, so
@@ -219,6 +227,10 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
               reTapScrollToTop(context, _scrollControllerFor(_types[index]));
             }
           },
+          labels: [
+            for (final value in RecommendedContentType.values)
+              _recommendedText(context, _recommendedLabelKey(value)),
+          ],
         ),
       ),
       body: Builder(
@@ -249,38 +261,6 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       ),
     );
   }
-}
-
-class _RecommendedTypeSelector extends StatelessWidget {
-  const _RecommendedTypeSelector({
-    required this.controller,
-    required this.onTap,
-  });
-
-  final TabController controller;
-  final ValueChanged<int> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Same chrome as Ranking/New/Search: a bare AppTabBar inside the
-    // AppBar title (no extra Material/SizedBox — the AppBar constrains
-    // height and provides the surface).
-    return AppTabBar(
-      controller: controller,
-      onTap: onTap,
-      labels: [
-        for (final value in RecommendedContentType.values)
-          _recommendedText(context, _labelKey(value)),
-      ],
-    );
-  }
-
-  static String _labelKey(RecommendedContentType type) => switch (type) {
-    RecommendedContentType.illust => 'recommendedIllust',
-    RecommendedContentType.manga => 'recommendedManga',
-    RecommendedContentType.novel => 'recommendedNovel',
-    RecommendedContentType.user => 'recommendedUser',
-  };
 }
 
 /// One keyed recommended feed body. Watches [recommendedFeedProvider] and
@@ -541,6 +521,8 @@ class _OffBarSearchAction extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The wide header's own search field is the way in there (R7).
+    if (PageHeader.isWide(context)) return const SizedBox.shrink();
     final offBar = ref.watch(
       homeArrangementProvider.select(
         (arrangement) => !arrangement.shown.contains(HomeDestination.search),

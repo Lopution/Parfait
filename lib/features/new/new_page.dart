@@ -19,6 +19,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/page_header.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
@@ -222,6 +223,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               onPressed: () => openNewNovels(context),
               icon: const Icon(Icons.menu_book_outlined),
             ),
+          const HeaderSearch(),
         ],
       ),
       body: Builder(

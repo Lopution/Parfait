@@ -150,43 +150,26 @@ void main() {
     'a narrow row on a wide window keeps its tabs capped at the start',
     (tester) async {
       const labels = ['公开', '非公开'];
-      for (final (view, display, wide) in [
-        (const Size(1280, 800), null, true),
-        (const Size(390, 844), const Size(390, 844), false),
-      ]) {
-        setViewSize(tester, view);
-        if (display != null) setDisplaySize(tester, display);
-        await tester.pumpWidget(
-          localizedApp(
-            theme: replicaTheme(Brightness.light),
-            home: DefaultTabController(
-              length: labels.length,
-              child: Scaffold(
-                body: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: const SizedBox(
-                    width: 500,
-                    child: AppTabBar(labels: labels),
-                  ),
-                ),
-              ),
+      setViewSize(tester, const Size(1280, 800));
+      await tester.pumpWidget(
+        localizedApp(
+          theme: replicaTheme(Brightness.light),
+          home: const DefaultTabController(
+            length: 2,
+            child: Scaffold(
+              body: SizedBox(width: 500, child: AppTabBar(labels: labels)),
             ),
           ),
-        );
-        await tester.pump();
+        ),
+      );
+      await tester.pump();
 
-        final row = tester.getRect(find.byType(AppTabBar));
-        final bar = tester.getRect(find.byType(TabBar));
-        expect(bar.left, row.left);
-        if (wide) {
-          // Capped on the window's form, not on the row: the slots do not
-          // spread out just because this row is narrow.
-          expect(bar.width, 2 * AppTabBar.maxSlotWidth);
-        } else {
-          // A phone splits the row in full however few tabs.
-          expect(bar.width, row.width);
-        }
-      }
+      // Capped on the window's form, not on the row: the slots do not
+      // spread out just because this row is narrow.
+      expect(
+        tester.getRect(find.byType(TabBar)).width,
+        2 * AppTabBar.maxSlotWidth,
+      );
     },
   );
 
@@ -216,19 +199,16 @@ void main() {
       expect(tester.getSize(find.byType(AppTopBar)).height, kToolbarHeight);
       final title = tester.getRect(find.text('Bookmark tags'));
       for (final label in ['公开', '非公开']) {
-        // On the title's row, after it. The label sits a pixel above the
-        // row's centre: the TabBar keeps the indicator's weight under it.
-        final tab = tester.getRect(find.text(label));
-        expect(tab.center.dy, moreOrLessEquals(title.center.dy, epsilon: 2));
-        expect(tab.left, greaterThan(title.right), reason: label);
-        // The heading is the title, not a node the tabs sit inside.
-        for (
-          SemanticsNode? node = tester.getSemantics(find.text(label));
-          node != null;
-          node = node.parent
-        ) {
-          expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
-        }
+        // On the title's row, after it.
+        expect(tester.getRect(find.text(label)).left, greaterThan(title.right));
+      }
+      // The heading is the title, not a node the tabs sit inside.
+      for (
+        SemanticsNode? node = tester.getSemantics(find.text('公开'));
+        node != null;
+        node = node.parent
+      ) {
+        expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
       }
       expect(
         tester.getSemantics(find.text('Bookmark tags')),

@@ -692,8 +692,10 @@ void main() {
 
     await tester.tap(find.widgetWithText(Tab, '小说'));
     await tester.pumpAndSettle();
+    // The wide header's search entry sits at the bar's end; at this width
+    // (content area under 840) it is the icon.
     await tester.tap(
-      find.descendant(of: find.byType(AppBar), matching: find.text('搜索')),
+      find.descendant(of: find.byType(AppBar), matching: find.byTooltip('搜索')),
     );
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/search/input');

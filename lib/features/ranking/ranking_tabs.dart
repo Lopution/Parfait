@@ -12,6 +12,7 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/home_branch_stack.dart';
+import '../../app/widgets/page_header.dart';
 import '../../app/widgets/ranking_category_sheet.dart';
 import '../../app/widgets/settings/persist_settings.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
@@ -507,6 +508,7 @@ class _RankingTabsState<M extends RankingCategory>
             onPressed: _openSheet,
             icon: const Icon(Icons.grid_view_outlined),
           ),
+          const HeaderSearch(),
         ],
         title: AppTabBar(
           controller: _tabController,
