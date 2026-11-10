@@ -264,3 +264,17 @@ reviewed: 2026-10-29
   about one review an hour for this repository.
 - **Check:** manual
 - **Code:** `.github/pull_request_template.md`, `cubic.yaml`
+
+### REL-19 CI lints the workflows and scans added commits for secrets
+- **Rule:** CI's `workflows-and-secrets` job runs actionlint over
+  `.github/workflows/` and gitleaks over the commits a change adds
+  (`HEAD^1..HEAD`, so a secret added and removed again inside a PR still
+  fails). `analyze-and-test` requires it. Both tools are release binaries
+  pinned by version and SHA-256 in the job; Dependabot does not bump
+  them. A finding that is not a secret goes into `.gitleaksignore` by
+  fingerprint with a comment saying why, never by widening a rule.
+- **Why:** Nothing else checked either once the AI reviewer that ran
+  them as a side effect was replaced. The repository is public, so a
+  pushed secret is exposed even after a revert.
+- **Check:** `.github/workflows/ci.yml` (the workflows-and-secrets job)
+- **Code:** `.github/workflows/ci.yml`, `.gitleaksignore`

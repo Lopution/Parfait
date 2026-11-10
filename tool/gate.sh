@@ -4,9 +4,11 @@
 # and the Android and Rust jobs.
 #
 # Usage: tool/gate.sh [--full | --no-tests] [--base REF] [test files...]
-#   (default)   the test files that changed or import a changed file; a
-#               change to dependencies or to shared test configuration runs
-#               the whole suite
+#   (default)   the test files that changed or import a changed file, plus
+#               the architecture scans in test/architecture/ (they read
+#               the whole tree, so any change can break them); a change to
+#               dependencies or to shared test configuration runs the
+#               whole suite
 #   --full      the whole suite
 #   --no-tests  checks only
 #   --base REF  what the change is measured from: the merge base of HEAD
@@ -17,8 +19,8 @@
 # failed, 2 on a usage error. Flutter and Dart must be on PATH.
 #
 # Where systemd-run is available the tests run under a memory cap
-# (GATE_TEST_MEMORY; default 4G, 8G above 10 files or for the whole
-# suite). A killed child (frontend_server, flutter_tester) still leaves
+# (GATE_TEST_MEMORY; default 4G, 8G above 10 files besides the
+# architecture scans or for the whole suite). A killed child (frontend_server, flutter_tester) still leaves
 # `flutter test` exiting 0, so the log is read for "did not complete" and
 # "No tests ran." and the kernel log for an out-of-memory kill.
 set -uo pipefail
@@ -122,9 +124,12 @@ select_tests() {
 }
 
 run_tests() {
-  local memory="${GATE_TEST_MEMORY:-}" log since status=0
+  local memory="${GATE_TEST_MEMORY:-}" log since status=0 file heavy=0
   if [[ -z "$memory" ]]; then
-    if [[ ${#tests[@]} -eq 0 || ${#tests[@]} -gt 10 ]]; then memory=8G; else memory=4G; fi
+    for file in "${tests[@]}"; do
+      [[ "$file" == test/architecture/* ]] || heavy=$((heavy + 1))
+    done
+    if [[ ${#tests[@]} -eq 0 || $heavy -gt 10 ]]; then memory=8G; else memory=4G; fi
   fi
   log="$(mktemp -t gate-test.XXXXXX.log)"
   since="$(date +%s)"
@@ -180,7 +185,9 @@ case "$mode" in
       whole_suite_trigger
       if [[ -z "$whole_suite_reason" ]]; then
         selection="$(mktemp -t gate-selection.XXXXXX)"
-        if ! select_tests > "$selection" || ! sort -u -o "$selection" "$selection"; then
+        if ! select_tests > "$selection" ||
+          ! printf '%s\n' test/architecture/*_test.dart >> "$selection" ||
+          ! sort -u -o "$selection" "$selection"; then
           results+=("FAIL  test selection (could not read test/)")
           failed=1
         fi
@@ -189,8 +196,6 @@ case "$mode" in
     fi
     if [[ -n "$whole_suite_reason" ]]; then
       step "tests (whole suite: $whole_suite_reason)" run_tests
-    elif [[ ${#tests[@]} -eq 0 ]]; then
-      results+=("skip  tests (none changed or import a changed file; CI runs the suite)")
     else
       step "tests (${#tests[@]} files)" run_tests
     fi
