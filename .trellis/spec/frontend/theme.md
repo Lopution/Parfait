@@ -52,9 +52,10 @@ reviewed: 2026-10-21
 ### THEME-04 The accent comes from the color scheme
 - **Rule:** Everything that paints the accent reads
   `colorScheme.primary` (text, icons, indicators) or
-  `FuncSemanticTokens.brand` (fills, THEME-18). `FuncTokens.primary` and
-  `FuncTokens.lightAccent` appear only in `func_tokens.dart` and
-  `replica_theme.dart`.
+  `FuncSemanticTokens.brand` (fills, THEME-18). The accent tokens
+  (`FuncTokens.primary`, `lightAccent`, `darkAccent`, the primary
+  container and inverse primary ones) appear only in `func_tokens.dart`
+  and `replica_theme.dart`.
 - **Why:** With "follow system colors" on, the accent is the system palette;
   the constant would keep painting the brand pink.
 - **Check:** `test/architecture/format_and_font_test.dart` "the accent comes from the theme, not the brand constant"
@@ -64,12 +65,17 @@ reviewed: 2026-10-21
 - **Rule:** A system palette supplies `primary`, `onPrimary`,
   `primaryContainer`, `onPrimaryContainer`, `inversePrimary` and
   `surfaceTint`; `brand` / `onBrand` become its `primary` / `onPrimary`.
-  Neutrals and the surface ladder stay on `FuncTokens`: the app's own
-  neutrals, warm grays that carry the brand hue at a very low chroma.
-  Status colors and the bookmarked heart stay fixed too.
+  Neutrals and the surface ladder stay on `FuncTokens`: text, dividers
+  and the inverse surfaces are warm grays that carry the brand hue at a
+  very low chroma; the page and container ladder carries the brand pink
+  at a little more (OKLCH chroma 0.012–0.020, hue 346° light, 350° dark),
+  at the grays' lightness. Status colors and the bookmarked heart stay
+  fixed too.
 - **Why:** The surface ladder and text contrast are tuned and tested on the
   app's own neutrals; a wallpaper palette would break them. User decision:
-  the cold grays read as foreign next to the pink.
+  the cold grays read as foreign next to the pink. User decision (11-09):
+  the pages and cards carry the pink in both themes; a hue-only shift of
+  the grays changed nothing visible.
 - **Check:** `test/replica_theme_test.dart` "a system palette replaces only the accent roles"
 - **Code:** `lib/app/theme/system_colors.dart`, `lib/app/theme/replica_theme.dart`
 
@@ -79,18 +85,21 @@ reviewed: 2026-10-21
   themes. Meta text on a selected row uses `onPrimaryContainer` at alpha
   0.8, not the caption gray. The light theme's text accent (`primary`,
   THEME-18) keeps 4.5:1 on the page and up to `surfaceContainer` (sheets);
-  on `surfaceContainerHigh` (dialogs) it measures about 4.3:1 and on the
-  highest tier about 4.1:1.
+  on `surfaceContainerHigh` (dialogs) it measures about 4.4:1 and on the
+  highest tier about 4.1:1. The dark theme's keeps 4.5:1 on every tier.
+  Selection text (`onPrimaryContainer` on `primaryContainer`), the
+  SnackBar's action and text keep 4.5:1 in both themes.
 - **Why:** The caption gray measured about 3.9:1 on a selected dark row.
   User decision: a deeper accent that clears every tier read darker than
   the rose chosen, so dialogs and the highest tier are a known shortfall.
-- **Check:** `test/replica_theme_test.dart` "text stays >= 4.5:1 on every surface tier in both themes", "the light accent reads at 4.5:1 up to the sheet tier"
+- **Check:** `test/replica_theme_test.dart` "text stays >= 4.5:1 on every surface tier in both themes", "the accent reads at 4.5:1 up to the sheet tier, on dark on all", "selection and the snackbar action read at 4.5:1 in both themes"
 - **Code:** `lib/app/theme/func_tokens.dart`, `lib/app/widgets/entity_row.dart`
 
 ### THEME-07 Pink is for actions, selection and indicators
 - **Rule:** `primary` marks primary actions, selected states and
-  indicators only. `secondary` and `secondaryContainer` are neutral grays:
-  tonal buttons and progress tracks are not pink. Group titles use
+  indicators only. `secondary` and `secondaryContainer` are neutrals:
+  tonal buttons and progress tracks take the ladder's highest tier
+  (faintly pink with it, THEME-05), never the accent. Group titles use
   `onSurfaceVariant`, never `primary`. Selected controls use
   `primaryContainer` / `onPrimaryContainer`. Category tones
   (`categoryTone`) are not the accent: they color only the icon circles
@@ -119,17 +128,22 @@ reviewed: 2026-10-21
 
 ### THEME-18 The accent is two colors: text and fill
 - **Rule:** With the default palette, `colorScheme.primary` paints text,
-  small icons, indicators and outlines: #D61C59 on the light theme,
-  #FF6289 on the dark. `FuncSemanticTokens.brand` (#FF6289 in both) under
+  small icons, indicators and outlines: #B44673 on the light theme,
+  #EBA6C6 on the dark. `FuncSemanticTokens.brand` (#E077A6 in both) under
   `onBrand` (white) paints fills: `FilledButton` through
   `filledButtonTheme`, the follow button, the solid `ReplicaButton`.
-  `primaryContainer` stays M3's pale container under dark text, for
-  selection; it is never the fill. A system palette paints both from its
-  `primary`.
+  Selection is a pale container under dark text on the light theme
+  (#F5D6E4 / #6D3047) and a deep one under light text on the dark
+  (#5C3443 / #FEE8F3); it is never the fill. These, and
+  `inversePrimary`, are tokens, not M3's generated tones. A system
+  palette paints all of them from its own roles.
 - **Why:** The brand pink measured about 2.9:1 as text on the light page.
   User decision: fills keep the brand pink with white text
   (2.85:1, accepted); M3's own deeper tones read as berry red, and a pink
-  container under dark text was rejected.
+  container under dark text was rejected. User decision (11-09): the pink
+  is a soft cherry-blossom pink taken from an illustration's hair, the
+  text tier deepened along its shading, which warms as it darkens; M3's
+  generated selection tones drifted toward purple.
 - **Check:** `test/replica_theme_test.dart` "fills are the brand pink under white; selection stays tonal"
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/func_tokens.dart`
 

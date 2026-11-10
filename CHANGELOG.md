@@ -6,6 +6,14 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### 变更
+
+- **主题色：** 主题色改为更柔和的樱花粉；浅色模式的页面和卡片带一点淡粉，深色模式的文字和图标强调色更浅，应用图标同步更新。
+
+### Changed
+
+- **Theme color:** The theme color is now a softer cherry-blossom pink. In light mode, pages and cards carry a faint pink; in dark mode, accented text and icons are lighter; the app icon matches.
+
 ## [1.1.1] - 2026-11-06
 
 ### 修复

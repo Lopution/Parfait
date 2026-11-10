@@ -1,19 +1,40 @@
 import 'package:material_ui/material_ui.dart';
 
 abstract final class FuncTokens {
-  /// The brand pink: fills (filled buttons, the follow button) under white
-  /// text, and the accent of the dark theme.
-  static const Color primary = Color(0xFFFF6289);
+  /// The brand pink, a cherry-blossom pink taken from an illustration's
+  /// hair: fills (filled buttons, the follow button) under white text, in
+  /// both themes.
+  static const Color primary = Color(0xFFE077A6);
 
-  /// The light theme's accent for text, icons and indicators: [primary] is
-  /// too light to read on the warm white page.
-  static const Color lightAccent = Color(0xFFD61C59);
+  /// The light theme's accent for text, icons and indicators: [primary]
+  /// deepened the way the illustration shades it, warmer as it darkens, so
+  /// it reads on the page.
+  static const Color lightAccent = Color(0xFFB44673);
+
+  /// The dark theme's accent for text, icons and indicators: the hair's own
+  /// pink, lighter than the fill.
+  static const Color darkAccent = Color(0xFFEBA6C6);
+
+  /// Selection (`primaryContainer` / `onPrimaryContainer`): the hair's
+  /// midtone under a deep rose on the light theme, a deep rose under the
+  /// hair's highlight on the dark. Tokens, not M3's generated tones, which
+  /// drift toward purple.
+  static const Color lightPrimaryContainer = Color(0xFFF5D6E4);
+  static const Color lightOnPrimaryContainer = Color(0xFF6D3047);
+  static const Color darkPrimaryContainer = Color(0xFF5C3443);
+  static const Color darkOnPrimaryContainer = Color(0xFFFEE8F3);
+
+  /// The accent on the inverse surface (a SnackBar's action).
+  static const Color lightInversePrimary = darkAccent;
+  static const Color darkInversePrimary = lightOnPrimaryContainer;
 
   static const Color white = Color(0xFFFFFFFF);
 
-  /// The neutrals carry [primary]'s hue at a very low chroma (warm grays);
-  /// their lightness, and so every contrast ratio, is the plain grays'.
-  static const Color darkBackground = Color(0xFF1A1718);
+  /// The text neutrals carry the brand's hue at a very low chroma (warm
+  /// grays); their lightness, and so every contrast ratio, is the plain
+  /// grays'. The page and container ladder carries the hair's pink at a
+  /// little more chroma, so the pages read pink; lightness unchanged.
+  static const Color darkBackground = Color(0xFF1C1619);
   static const Color darkText = Color(0xFFD8D4D4);
   static const Color darkSubdued = Color(0xFF655F60);
 
@@ -21,7 +42,7 @@ abstract final class FuncTokens {
   /// for borders/dividers and were never meant to carry glyphs).
   static const Color darkTextSecondary = Color(0xFFADA7A8);
 
-  static const Color lightBackground = Color(0xFFFFFBFC);
+  static const Color lightBackground = Color(0xFFFFF9FE);
   static const Color lightText = Color(0xFF3B3737);
   static const Color lightSubdued = Color(0x403B3737);
   static const Color lightTextSecondary = Color(0xFF696364);
@@ -33,20 +54,22 @@ abstract final class FuncTokens {
   /// also `surface`/`surfaceContainerLowest`). Each higher step moves away
   /// from the page — darker in light, lighter in dark — so layered surfaces
   /// (cards → dialogs → pickers) stay distinguishable on both themes.
-  static const Color lightContainerLow = Color(0xFFFCF8F8);
-  static const Color lightContainer = Color(0xFFF7F2F2);
-  static const Color lightContainerHigh = Color(0xFFF2EBEC);
-  static const Color lightContainerHighest = Color(0xFFEDE5E6);
-  static const Color darkContainerLow = Color(0xFF231F1F);
-  static const Color darkContainer = Color(0xFF292525);
-  static const Color darkContainerHigh = Color(0xFF353030);
-  static const Color darkContainerHighest = Color(0xFF40393A);
+  static const Color lightContainerLow = Color(0xFFFFF6FB);
+  static const Color lightContainer = Color(0xFFFCEFF6);
+  static const Color lightContainerHigh = Color(0xFFF7E9F0);
+  static const Color lightContainerHighest = Color(0xFFF2E2EA);
+  static const Color darkContainerLow = Color(0xFF261E21);
+  static const Color darkContainer = Color(0xFF2C2327);
+  static const Color darkContainerHigh = Color(0xFF392E33);
+  static const Color darkContainerHighest = Color(0xFF44373C);
 
   /// Inverted surface for transient chrome (SnackBar) so it stands apart
   /// from both the page and the containers on it.
   static const Color lightInverseSurface = Color(0xFF342F30);
   static const Color darkInverseSurface = Color(0xFFE8E3E4);
-  static const Color lightOnInverseSurface = lightContainer;
+
+  /// A warm gray, not a ladder step: the SnackBar's text stays untinted.
+  static const Color lightOnInverseSurface = Color(0xFFF7F2F2);
   static const Color darkOnInverseSurface = lightInverseSurface;
 
   /// Hairline separators; intentionally fainter than the subdued text tint.

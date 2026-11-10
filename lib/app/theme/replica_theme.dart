@@ -23,8 +23,9 @@ const double _layerElevation = 6;
 ///
 /// The default accent is split: `colorScheme.primary` paints text, icons
 /// and indicators (a deeper rose on the light page, where the brand pink
-/// is too light to read), and [FuncSemanticTokens.brand] fills, the brand
-/// pink under white in both themes. A system palette paints both.
+/// is too light to read; a lighter pink on the dark), and
+/// [FuncSemanticTokens.brand] fills, the brand pink under white in both
+/// themes. A system palette paints both.
 ThemeData replicaTheme(
   Brightness brightness, {
   ColorScheme? systemColors,
@@ -58,7 +59,7 @@ ThemeData replicaTheme(
 
   final accent =
       systemColors?.primary ??
-      (dark ? FuncTokens.primary : FuncTokens.lightAccent);
+      (dark ? FuncTokens.darkAccent : FuncTokens.lightAccent);
   final brand = systemColors?.primary ?? FuncTokens.primary;
   final onBrand = systemColors?.onPrimary ?? FuncTokens.white;
 
@@ -72,10 +73,19 @@ ThemeData replicaTheme(
   );
   final colorScheme = seeded.copyWith(
     primary: accent,
-    primaryContainer: systemColors?.primaryContainer ?? seeded.primaryContainer,
+    primaryContainer:
+        systemColors?.primaryContainer ??
+        (dark
+            ? FuncTokens.darkPrimaryContainer
+            : FuncTokens.lightPrimaryContainer),
     onPrimaryContainer:
-        systemColors?.onPrimaryContainer ?? seeded.onPrimaryContainer,
-    inversePrimary: systemColors?.inversePrimary ?? seeded.inversePrimary,
+        systemColors?.onPrimaryContainer ??
+        (dark
+            ? FuncTokens.darkOnPrimaryContainer
+            : FuncTokens.lightOnPrimaryContainer),
+    inversePrimary:
+        systemColors?.inversePrimary ??
+        (dark ? FuncTokens.darkInversePrimary : FuncTokens.lightInversePrimary),
     surfaceTint: systemColors?.surfaceTint ?? seeded.surfaceTint,
     secondary: textSecondary,
     surface: background,
