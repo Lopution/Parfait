@@ -270,6 +270,21 @@ class _IllustCardBody extends ConsumerWidget {
           AppHaptics.longPress();
           unawaited(showCardActionSheet(context, entity));
         };
+    // The card's secondary click: on a PC the same actions open beside the
+    // pointer (R11); elsewhere (a pen's right-click on a touch screen) the
+    // long-press presentation runs as before. A caller's own long press
+    // (history's selection entry) owns the gesture on every form.
+    void secondaryTap(TapUpDetails details) {
+      if (onLongPress case final override?) {
+        override();
+        return;
+      }
+      AppHaptics.longPress();
+      unawaited(
+        showCardActionsMenu(context, ref, entity, details.globalPosition),
+      );
+    }
+
     return PressScale(
       child: Semantics(
         container: true,
@@ -307,7 +322,7 @@ class _IllustCardBody extends ConsumerWidget {
           onTapCancel: muted ? null : pressWarmup.stop,
           onTap: muted ? reveal : openDetail,
           onLongPress: longPress,
-          onSecondaryTap: longPress,
+          onSecondaryTapUp: secondaryTap,
           // No outer ClipRRect: the Hero child already clips the image to
           // the same 12px radius and every badge sits 7px inside the
           // bounds, so the extra clip only cost a saveLayer per card per

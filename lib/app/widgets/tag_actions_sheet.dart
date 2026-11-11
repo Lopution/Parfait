@@ -10,6 +10,7 @@ import '../clipboard.dart';
 import '../haptics/app_haptics.dart';
 import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'display_actions.dart';
 import 'errors/error_details.dart';
 import 'inline_translation.dart';
 import 'unmute_undo.dart';
@@ -26,9 +27,10 @@ Future<void> showTagActionsSheet(
   bool muted = false,
   VoidCallback? onToggleMute,
   VoidCallback? onMuteMode,
+  Offset? position,
 }) {
   AppHaptics.longPress();
-  return showAppBottomSheet<void>(
+  Future<void> sheet({bool translate = false}) => showAppBottomSheet<void>(
     context: context,
     showDragHandle: true,
     builder: (sheetContext) => _TagActions(
@@ -40,7 +42,51 @@ Future<void> showTagActionsSheet(
       ),
       onToggleMute: onToggleMute,
       onMuteMode: onMuteMode,
+      autoTranslate: translate,
     ),
+  );
+  if (position == null) return sheet();
+  // A PC's secondary click: the same entries as the panel, beside the
+  // pointer (R11). Translation needs the panel's inline result, so that
+  // entry opens the panel already translating.
+  final l10n = context.l10n;
+  return showDisplayActions(
+    context,
+    position: position,
+    onLongPress: () => unawaited(sheet()),
+    actions: [
+      DisplayAction(
+        icon: Icons.search,
+        label: l10n.tagActionSearch,
+        onSelected: onSearch,
+      ),
+      DisplayAction(
+        icon: Icons.copy_outlined,
+        label: l10n.tagActionCopy,
+        onSelected: () => unawaited(
+          copyToClipboard(context, tag, message: context.l10n.tagCopied),
+        ),
+      ),
+      DisplayAction(
+        icon: Icons.translate,
+        label: l10n.tagActionTranslate,
+        onSelected: () => unawaited(sheet(translate: true)),
+      ),
+      if (onToggleMute != null)
+        DisplayAction(
+          icon: muted
+              ? Icons.visibility_outlined
+              : Icons.visibility_off_outlined,
+          label: muted ? l10n.tagActionUnmute : l10n.tagActionMute,
+          onSelected: onToggleMute,
+        ),
+      if (onMuteMode != null)
+        DisplayAction(
+          icon: Icons.playlist_add_check,
+          label: l10n.tagActionMuteMode,
+          onSelected: onMuteMode,
+        ),
+    ],
   );
 }
 
@@ -71,6 +117,7 @@ class _TagActions extends ConsumerStatefulWidget {
     required this.onCopy,
     this.onToggleMute,
     this.onMuteMode,
+    this.autoTranslate = false,
   });
 
   final String tag;
@@ -80,12 +127,24 @@ class _TagActions extends ConsumerStatefulWidget {
   final VoidCallback? onToggleMute;
   final VoidCallback? onMuteMode;
 
+  /// The panel is the translation result surface: open it already asking.
+  final bool autoTranslate;
+
   @override
   ConsumerState<_TagActions> createState() => _TagActionsState();
 }
 
 class _TagActionsState extends ConsumerState<_TagActions>
     with InlineTranslation {
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.autoTranslate) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(toggleTranslation([widget.tag]));
+    });
+  }
+
   /// Closes the sheet, then runs [action] against the page below.
   VoidCallback _closing(VoidCallback action) => () {
     Navigator.of(context).pop();

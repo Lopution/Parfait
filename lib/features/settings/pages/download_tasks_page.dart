@@ -15,6 +15,7 @@ import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/app_top_bar.dart';
+import '../../../app/widgets/display_actions.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/selection_app_bar.dart';
@@ -838,7 +839,20 @@ class _DownloadTaskRow extends StatelessWidget {
               ? onToggle
               : () => unawaited(openIllust(context, task.illustId)),
           onLongPress: managing ? null : onEnterManaging,
-          onSecondaryTap: managing ? null : onEnterManaging,
+          onSecondaryTapUp: managing
+              ? null
+              : (details) => showDisplayActions(
+                  context,
+                  position: details.globalPosition,
+                  onLongPress: onEnterManaging,
+                  actions: [
+                    DisplayAction(
+                      icon: Icons.checklist_outlined,
+                      label: l10n.manage,
+                      onSelected: onEnterManaging,
+                    ),
+                  ],
+                ),
           // Entering management plays AppHaptics.confirm and toggles play
           // select; the ink response's own vibration would double them.
           enableFeedback: false,

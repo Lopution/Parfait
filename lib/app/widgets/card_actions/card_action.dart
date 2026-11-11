@@ -19,7 +19,13 @@ abstract class CardAction {
 
   String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n);
 
-  /// Runs after the sheet has been popped. [context] is the card's own —
-  /// the sheet's context is already unmounted at this point.
-  Future<void> run(BuildContext context, WidgetRef ref, IllustEntity entity);
+  /// Runs after the sheet or menu has been popped. [context] is the card's
+  /// own — the presentation's context is already unmounted at this point —
+  /// and [container] outlives the card, so a refresh landing underneath the
+  /// open presentation cannot take the providers away.
+  Future<void> run(
+    BuildContext context,
+    ProviderContainer container,
+    IllustEntity entity,
+  );
 }

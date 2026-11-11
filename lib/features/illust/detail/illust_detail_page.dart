@@ -1349,7 +1349,9 @@ class _DetailMoreMenu extends ConsumerWidget {
     return AppMenuButton<Object>(
       onSelected: (buttonContext, action) => switch (action) {
         final _DetailMenuAction own => onSelected(buttonContext, own),
-        final CardAction card => unawaited(card.run(context, ref, entity)),
+        final CardAction card => unawaited(
+          card.run(context, ProviderScope.containerOf(context), entity),
+        ),
         _ => throw ArgumentError.value(action, 'action', 'not a menu action'),
       },
       entries: [for (final action in actions) entryOf(action)],

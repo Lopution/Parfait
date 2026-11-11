@@ -34,6 +34,7 @@ class TagChip extends StatefulWidget {
     this.translated,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTapAt,
     this.blockMode = false,
     this.blocked = false,
   });
@@ -42,6 +43,11 @@ class TagChip extends StatefulWidget {
   final String? translated;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// The secondary click's global position, where the host offers its
+  /// actions beside the pointer on a PC (R11); without it the right-click
+  /// runs [onLongPress].
+  final ValueChanged<Offset>? onSecondaryTapAt;
   final bool blockMode;
   final bool blocked;
 
@@ -130,7 +136,12 @@ class _TagChipState extends State<TagChip> {
       child: InkWell(
         onTap: widget.onTap,
         onLongPress: widget.onLongPress,
-        onSecondaryTap: widget.onLongPress,
+        onSecondaryTapUp: widget.onSecondaryTapAt == null
+            ? null
+            : (details) => widget.onSecondaryTapAt!(details.globalPosition),
+        onSecondaryTap: widget.onSecondaryTapAt == null
+            ? widget.onLongPress
+            : null,
         onFocusChange: (focused) => setState(() => _focused = focused),
         // A long-press host plays its own AppHaptics role; the ink
         // response's vibration would double it.

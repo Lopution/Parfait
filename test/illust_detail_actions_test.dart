@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -778,6 +780,45 @@ void main() {
         expect(find.byType(TagSearchPage), findsOneWidget);
       },
     );
+
+    testWidgets('a PC opens the tag entries as a menu beside the chip', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final (container, _, _) = await makeWorld();
+        await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+        await tester.scrollUntilVisible(
+          originalTagChip(),
+          400,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        final chip = originalTagChip();
+        final at = tester.getCenter(chip);
+        await tester.tap(
+          chip,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.widgetWithText(ListTile, '搜索该标签'), findsNothing);
+        for (final label in ['搜索该标签', '复制标签名', '翻译标签名', '屏蔽该标签', '批量屏蔽标签']) {
+          expect(
+            find.widgetWithText(PopupMenuItem<void>, label),
+            findsOneWidget,
+            reason: 'menu should offer "$label"',
+          );
+        }
+        final item = tester.getTopLeft(
+          find.widgetWithText(PopupMenuItem<void>, '搜索该标签'),
+        );
+        expect(item.dx, closeTo(at.dx, 1));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
   });
 
   group('two-pane layout (landscape, medium and wider)', () {

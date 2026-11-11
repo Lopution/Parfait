@@ -13,6 +13,7 @@ import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/display_actions.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/page_header.dart';
@@ -708,7 +709,20 @@ class _TrendingTagTile extends ConsumerWidget {
             ),
           ),
           onLongPress: openWork,
-          onSecondaryTap: openWork,
+          onSecondaryTapUp: openWork == null
+              ? null
+              : (details) => showDisplayActions(
+                  context,
+                  position: details.globalPosition,
+                  onLongPress: openWork,
+                  actions: [
+                    DisplayAction(
+                      icon: Icons.open_in_new,
+                      label: context.l10n.downloadOpenWork,
+                      onSelected: openWork,
+                    ),
+                  ],
+                ),
           child: ClipRRect(
             borderRadius: FuncShape.card,
             child: ColoredBox(
@@ -1365,6 +1379,18 @@ class _SearchStart extends ConsumerWidget {
                     translated: tag.translatedName,
                     onTap: () => onSearch(tag.name),
                     onLongPress: () => fillWithHaptic(tag.name),
+                    onSecondaryTapAt: (position) => showDisplayActions(
+                      context,
+                      position: position,
+                      onLongPress: () => fillWithHaptic(tag.name),
+                      actions: [
+                        DisplayAction(
+                          icon: Icons.north_west,
+                          label: l10n.searchSuggestionFill,
+                          onSelected: () => fillWithHaptic(tag.name),
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -1436,7 +1462,18 @@ class _HistoryChip extends StatelessWidget {
     onLongPressHint: context.l10n.searchSuggestionFill,
     child: GestureDetector(
       onLongPress: onLongPress,
-      onSecondaryTap: onLongPress,
+      onSecondaryTapUp: (details) => showDisplayActions(
+        context,
+        position: details.globalPosition,
+        onLongPress: onLongPress,
+        actions: [
+          DisplayAction(
+            icon: Icons.north_west,
+            label: context.l10n.searchSuggestionFill,
+            onSelected: onLongPress,
+          ),
+        ],
+      ),
       child: InputChip(
         avatar: const Icon(Icons.history),
         label: Text(keyword),

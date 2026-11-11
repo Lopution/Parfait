@@ -243,6 +243,25 @@ class _TagsSection extends ConsumerWidget {
     // official /v1/mute list instead of the legacy local-only pref.
     final mutedTags = ref.watch(muteStoreProvider.select((s) => s.tags));
     final muteStore = ref.read(muteStoreProvider.notifier);
+    // The same entries as the long-press panel, beside the pointer on a PC
+    // (R11).
+    void showTagActions(IllustTag tag, {Offset? position}) {
+      final muted = mutedTags.contains(tag.name);
+      unawaited(
+        showTagActionsSheet(
+          context,
+          tag: tag.name,
+          muted: muted,
+          position: position,
+          onSearch: () => openTagSearch(context, tag.name),
+          onToggleMute: () => unawaited(
+            toggleTagMute(context, muteStore, tag.name, muted: muted),
+          ),
+          onMuteMode: onToggleBlockMode,
+        ),
+      );
+    }
+
     return _Section(
       heading: context.l10n.detailSectionTags,
       child: TagChips(
@@ -270,23 +289,9 @@ class _TagsSection extends ConsumerWidget {
               // Long-press opens the direct action menu (search /
               // copy / mute / batch-mute entry) instead of silently
               // flipping the block mode.
-              onLongPress: () => unawaited(
-                showTagActionsSheet(
-                  context,
-                  tag: tag.name,
-                  muted: mutedTags.contains(tag.name),
-                  onSearch: () => openTagSearch(context, tag.name),
-                  onToggleMute: () => unawaited(
-                    toggleTagMute(
-                      context,
-                      muteStore,
-                      tag.name,
-                      muted: mutedTags.contains(tag.name),
-                    ),
-                  ),
-                  onMuteMode: onToggleBlockMode,
-                ),
-              ),
+              onLongPress: () => showTagActions(tag),
+              onSecondaryTapAt: (position) =>
+                  showTagActions(tag, position: position),
             ),
         ],
       ),

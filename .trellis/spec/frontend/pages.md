@@ -347,14 +347,27 @@ reviewed: 2026-10-17
 - **Rule:** Wherever a long press acts (work cards, novel and user rows,
   tags, history and selection tiles, detail images, the bookmark heart,
   download tasks, search history and trending tags, ranking tabs), a
-  right-click does the same through `onSecondaryTap`. A work card shows
-  the M3 hover state layer and a click cursor (`InkWell` rows have their
-  own). While a mouse is connected, vertical lists show a `Scrollbar`
-  (`mouseScrollbar`, also in EasyRefresh feeds); NestedScrollView's
-  coordinated views stay bare, and the list keeps its subtree when the
-  scrollbar comes or goes.
+  right-click does the same. On a PC it opens a context menu beside the
+  pointer through `showDisplayActions`: the entries are the long-press
+  panel's, in the same order with the same icons and labels (the card's
+  registered actions, the tag panel's search/copy/translate/mute entries,
+  the bookmark sheet's create/edit entry, the tab menu's entries). A gesture
+  whose long press is one direct action (entering management, selecting
+  pages, filling the search box, opening a work) offers that action as
+  its one entry; a selection mode already on screen keeps toggling
+  directly. Selecting an entry runs it after the menu closes; Arrow keys
+  move between entries and Esc closes the menu. On a touch screen a long
+  press keeps its bottom panel and a right-click (a pen's) opens the same
+  panel; where the panel's content cannot be a menu (the tag panel's
+  inline translation result, the bookmark edit form) the PC entry opens
+  that panel. A work card shows the M3 hover state layer and a click
+  cursor (`InkWell` rows have their own). While a mouse is connected,
+  vertical lists show a `Scrollbar` (`mouseScrollbar`, also in
+  EasyRefresh feeds); NestedScrollView's coordinated views stay bare, and
+  the list keeps its subtree when the scrollbar comes or goes.
 - **Why:** On a tablet or Chromebook with a mouse a long press is
   awkward, cards gave no sign they open, and a wheel gives no sense of a
-  list's length.
-- **Check:** `test/card_action_test.dart` "a mouse lights the card on hover and opens it on right-click"; `test/scroll_behavior_test.dart` "a mouse brings a scrollbar and keeps the list as it was"
-- **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`, `lib/app/widgets/feed/illust_card.dart`
+  list's length. On a desktop the long-press panel rose from the bottom
+  of the window, far from the pointer.
+- **Check:** `test/card_action_test.dart` "a PC opens the card actions as a menu beside the pointer" "a mouse lights the card on hover and opens it on right-click"; `test/illust_detail_actions_test.dart` "a PC opens the tag entries as a menu beside the chip"; `test/scroll_behavior_test.dart` "a mouse brings a scrollbar and keeps the list as it was"
+- **Code:** `lib/app/widgets/display_actions.dart`, `lib/app/motion/app_overlays.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/tag_actions_sheet.dart`, `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`

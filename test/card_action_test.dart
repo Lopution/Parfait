@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart' show ImageFilterLayer;
 import 'package:material_ui/material_ui.dart';
@@ -74,6 +75,47 @@ void main() {
       expect(find.bySemanticsLabel(label), findsWidgets);
     }
     expect(find.widgetWithText(ListTile, '收藏'), findsNothing);
+  });
+
+  testWidgets('a PC opens the card actions as a menu beside the pointer', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      final (container, _, _) = await makeCardWorld();
+      await tester.pumpWidget(
+        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+      );
+      final card = find.byType(IllustCard);
+      final at = tester.getCenter(card);
+      await tester.tap(
+        card,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      // The same five entries, as a menu instead of the bottom sheet.
+      expect(find.widgetWithText(ListTile, '分享'), findsNothing);
+      for (final label in ['下载', '稍后再看', '屏蔽此作品', '屏蔽作者', '分享']) {
+        expect(
+          find.widgetWithText(PopupMenuItem<void>, label),
+          findsOneWidget,
+          reason: 'menu should offer "$label"',
+        );
+      }
+      expect(find.bySemanticsLabel('分享'), findsOneWidget);
+
+      // Beside the pointer: the menu's panel starts where the click was
+      // (the items sit one menu padding below its top edge).
+      final item = tester.getTopLeft(
+        find.widgetWithText(PopupMenuItem<void>, '下载'),
+      );
+      expect(item.dx, closeTo(at.dx, 1));
+      expect(item.dy, closeTo(at.dy + 8, 1));
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('a mouse lights the card on hover and opens it on right-click', (

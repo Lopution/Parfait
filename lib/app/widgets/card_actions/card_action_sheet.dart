@@ -10,8 +10,43 @@ import '../../../l10n/context.dart';
 import '../../motion/app_overlays.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
+import '../display_actions.dart';
 import '../feed/muted_cover.dart';
 import 'illust_card_actions.dart';
+
+/// The card's secondary click on a PC: the registered [CardAction]s as a
+/// context menu beside the pointer (R11). On a touch form the same call
+/// falls back to the long-press sheet, so a pen's right-click keeps the
+/// bottom panel.
+Future<void> showCardActionsMenu(
+  BuildContext context,
+  WidgetRef ref,
+  IllustEntity entity,
+  Offset position,
+) {
+  final providers = ProviderScope.containerOf(context);
+  final navigator = Navigator.of(context).context;
+  final l10n = context.l10n;
+  return showDisplayActions(
+    context,
+    position: position,
+    onLongPress: () => unawaited(showCardActionSheet(context, entity)),
+    actions: [
+      for (final action in providers.read(illustCardActionsProvider))
+        DisplayAction(
+          icon: action.iconFor(ref, entity),
+          label: action.labelFor(ref, entity, l10n),
+          onSelected: () => unawaited(
+            action.run(
+              context.mounted ? context : navigator,
+              providers,
+              entity,
+            ),
+          ),
+        ),
+    ],
+  );
+}
 
 /// Card long-press menu: names the work at the top, then renders the
 /// registered [CardAction]s as a modal bottom sheet. Presentation curve and
@@ -30,6 +65,7 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
     builder: (sheetContext) => Consumer(
       builder: (sheetContext, ref, _) {
         final actions = ref.watch(illustCardActionsProvider);
+        final providers = ProviderScope.containerOf(sheetContext);
         final l10n = sheetContext.l10n;
         return SafeArea(
           top: false,
@@ -57,7 +93,7 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
                         unawaited(
                           action.run(
                             context.mounted ? context : navigator,
-                            ref,
+                            providers,
                             entity,
                           ),
                         );
