@@ -11,6 +11,7 @@ import 'helpers/view_size.dart';
 /// and a short landscape viewport.
 const _viewports = [
   Size(320, 568),
+  Size(360, 374), // folded cover screen: shortest realistic window
   Size(390, 844),
   Size(600, 960),
   Size(840, 1180),
@@ -43,9 +44,18 @@ Widget _shell({double? contentMaxWidth}) {
   );
 }
 
-Widget _wrap({required Widget child, double textScale = 1}) {
+Widget _wrap({
+  required Widget child,
+  double textScale = 1,
+  EdgeInsets padding = EdgeInsets.zero,
+  EdgeInsets viewInsets = EdgeInsets.zero,
+}) {
   return MediaQuery(
-    data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+    data: MediaQueryData(
+      textScaler: TextScaler.linear(textScale),
+      padding: padding,
+      viewInsets: viewInsets,
+    ),
     child: MaterialApp(theme: replicaTheme(Brightness.light), home: child),
   );
 }
@@ -75,5 +85,46 @@ void main() {
         expect(action.width, lessThanOrEqualTo(ContentWidths.form));
       });
     }
+  }
+
+  // The body constraints subtract the bottom inset from the maximum; the
+  // minimum must yield it too, or a short window with a system bar (a
+  // folded cover screen) or an open keyboard makes minHeight exceed
+  // maxHeight and BoxConstraints asserts.
+  const insetCases = [
+    (
+      'folded cover screen with a system bar',
+      Size(360, 374),
+      EdgeInsets.only(bottom: 24),
+      EdgeInsets.zero,
+    ),
+    (
+      'phone with a system bar',
+      Size(411, 896),
+      EdgeInsets.only(bottom: 16),
+      EdgeInsets.zero,
+    ),
+    (
+      'phone with the keyboard up',
+      Size(411, 896),
+      EdgeInsets.zero,
+      EdgeInsets.only(bottom: 300),
+    ),
+    (
+      'landscape phone with both',
+      Size(896, 411),
+      EdgeInsets.only(bottom: 16),
+      EdgeInsets.only(bottom: 200),
+    ),
+  ];
+  for (final (reason, size, padding, viewInsets) in insetCases) {
+    testWidgets('insets keep the constraints valid: $reason', (tester) async {
+      setViewSize(tester, size);
+      await tester.pumpWidget(
+        _wrap(child: _shell(), padding: padding, viewInsets: viewInsets),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: reason);
+    });
   }
 }
