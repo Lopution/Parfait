@@ -9,8 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/layout/two_pane.dart';
 import '../../../app/motion/motion_tokens.dart';
 import '../../../app/motion/still_work.dart';
+import '../../../app/motion/swipe_paging.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/scroll_behavior.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
@@ -307,41 +309,50 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
         // The paging slop: a swipe leaning towards vertical scrolls the
         // detail instead of turning the page.
         child: PagingSlop(
-          child: PageView.builder(
-            controller: _controller,
-            physics: const PageSnapPhysics(),
-            // Keep adjacent pages built ahead of the swipe — their entities
-            // are already in IllustStore from the feed fetch, so the
-            // incoming page lands rendered instead of spinning up on first
-            // contact. [_ready] decides which of them build a real detail.
-            allowImplicitScrolling: true,
-            itemCount: ids.length,
-            onPageChanged: _onPageChanged,
-            // A feed page landing mid-paging can shift the list: built pages
-            // move with their work instead of rebuilding as another one.
-            findChildIndexCallback: (key) {
-              if (key is! ValueKey<int>) return null;
-              final index = widget.source.ids.indexOf(key.value);
-              return index < 0 ? null : index;
+          // A two-pane page's image pager takes a swipe at its first or
+          // last image and hands it on to the next or previous work (B7).
+          child: SwipePagerScope(
+            canPage: (forward) {
+              final ids = widget.source.ids;
+              final index = _index.value;
+              return forward ? index < ids.length - 1 : index > 0;
             },
-            itemBuilder: (context, index) {
-              final landing = ids[index] == _initialId;
-              return PagingSlopPage(
-                key: ValueKey(ids[index]),
-                child: _PagerSlot(
-                  index: index,
-                  ready: _ready,
-                  current: _index,
-                  activeId: _activeId,
-                  illustId: ids[index],
-                  heroScope: widget.heroScope,
-                  heroImageUrl: landing ? widget.heroImageUrl : null,
-                  heroImageDecodeWidth: landing
-                      ? widget.heroImageDecodeWidth
-                      : null,
-                ),
-              );
-            },
+            child: PageView.builder(
+              controller: _controller,
+              physics: const PageSnapPhysics(),
+              // Keep adjacent pages built ahead of the swipe — their entities
+              // are already in IllustStore from the feed fetch, so the
+              // incoming page lands rendered instead of spinning up on first
+              // contact. [_ready] decides which of them build a real detail.
+              allowImplicitScrolling: true,
+              itemCount: ids.length,
+              onPageChanged: _onPageChanged,
+              // A feed page landing mid-paging can shift the list: built pages
+              // move with their work instead of rebuilding as another one.
+              findChildIndexCallback: (key) {
+                if (key is! ValueKey<int>) return null;
+                final index = widget.source.ids.indexOf(key.value);
+                return index < 0 ? null : index;
+              },
+              itemBuilder: (context, index) {
+                final landing = ids[index] == _initialId;
+                return PagingSlopPage(
+                  key: ValueKey(ids[index]),
+                  child: _PagerSlot(
+                    index: index,
+                    ready: _ready,
+                    current: _index,
+                    activeId: _activeId,
+                    illustId: ids[index],
+                    heroScope: widget.heroScope,
+                    heroImageUrl: landing ? widget.heroImageUrl : null,
+                    heroImageDecodeWidth: landing
+                        ? widget.heroImageDecodeWidth
+                        : null,
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -557,8 +568,11 @@ class _PagerSlotState extends State<_PagerSlot>
 /// it ([detailFirstImageFrame]: below the status bar, past a short image's
 /// band, a panorama cropped to its viewport) from a decode the feed
 /// already made, so a fast swipe shows the artwork in place instead of an
-/// empty surface. Bare surface when nothing of it was decoded, and in the
-/// two-pane layout.
+/// empty surface. Bare surface when nothing of it was decoded.
+///
+/// The two-pane layout draws the same image on its stage, fitted as the
+/// image pager fits a page, and leaves the info column as the page's
+/// ground — a fast swipe never lands on a blank stage (C10).
 class _SlotStandIn extends ConsumerWidget {
   const _SlotStandIn({required this.illustId});
 
@@ -568,19 +582,40 @@ class _SlotStandIn extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final background = Theme.of(context).scaffoldBackgroundColor;
     final entity = ref.read(illustStoreProvider).get(illustId);
-    if (entity == null ||
-        AppBreakpoints.useTwoPaneDetail(
-          HomeShellChrome.contentSizeOf(context),
-        )) {
-      return ColoredBox(color: background);
-    }
+    final twoPane = AppBreakpoints.useTwoPaneDetail(
+      HomeShellChrome.contentSizeOf(context),
+    );
     // Cover: a panorama's viewport shows the middle of the image at its
     // height; any other frame has the image's own ratio.
-    final image = PixivImage.decodedStandIn(
-      context,
-      entity.imageTierKeyAt(0),
-      fit: BoxFit.cover,
-    );
+    final image = entity == null
+        ? null
+        : PixivImage.decodedStandIn(
+            context,
+            entity.imageTierKeyAt(0),
+            fit: BoxFit.cover,
+          );
+    if (twoPane) {
+      final stage = Theme.of(context).colorScheme.surfaceContainerLow;
+      return TwoPane(
+        primary: ColoredBox(
+          key: ValueKey('pager-slot-image-$illustId'),
+          color: stage,
+          child: entity == null || image == null
+              ? null
+              : Center(
+                  child: AspectRatio(
+                    aspectRatio: entity.pageAspectRatioAt(0),
+                    child: image,
+                  ),
+                ),
+        ),
+        secondary: ColoredBox(
+          key: ValueKey('pager-slot-info-$illustId'),
+          color: background,
+        ),
+      );
+    }
+    if (entity == null) return ColoredBox(color: background);
     final frame = detailFirstImageFrame(context, entity);
     return ColoredBox(
       color: background,

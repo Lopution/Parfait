@@ -126,6 +126,12 @@ mixin SwipePaging<T extends StatefulWidget> on State<T>, TickerProvider {
   double get _extent =>
       (context.findRenderObject() as RenderBox?)?.size.width ?? 0;
 
+  /// The gesture settings of the paging drag: the device's by default; a
+  /// pager that takes the paging slop ([pagingGestureSettings]) overrides.
+  @protected
+  DeviceGestureSettings? pagingGestureSettingsOf(BuildContext context) =>
+      MediaQuery.maybeGestureSettingsOf(context);
+
   /// [child] under the paging drag.
   Widget swipeGestures({
     required Widget child,
@@ -147,7 +153,7 @@ mixin SwipePaging<T extends StatefulWidget> on State<T>, TickerProvider {
                 ..onEnd = _onDragEnd
                 ..onCancel = _onDragCancel
                 ..multitouchDragStrategy = multitouch
-                ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context)
+                ..gestureSettings = pagingGestureSettingsOf(context)
                 ..yieldsTo = yieldsTo
                 ..allowsPointer = allowsPointer,
             ),

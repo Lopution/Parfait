@@ -3,8 +3,13 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/entity/illust_store.dart';
@@ -12,11 +17,13 @@ import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/connectivity_channels.dart';
 import 'helpers/detail_world.dart';
+import 'helpers/image_network.dart';
 import 'helpers/history_world.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/touch.dart';
@@ -495,6 +502,183 @@ void main() {
       await tester.pump(IllustDetailPagerPage.activeDwell);
       await tester.pump();
       expect(log, [42, 43]);
+    });
+  });
+
+  group('two-pane detail', () {
+    /// The image pager inside the detail page, beside the work pager.
+    Finder imagePager() => find.descendant(
+      of: find.byType(DetailImagePager),
+      matching: find.byType(PageView),
+    );
+
+    PageController outerController(WidgetTester tester) =>
+        tester.widget<PageView>(find.byType(PageView).first).controller!;
+
+    PageController imageController(WidgetTester tester) =>
+        tester.widget<PageView>(imagePager()).controller!;
+
+    /// Pumps works 42 and 43, two images each, in the two-pane layout,
+    /// starting at [initialId].
+    Future<void> pumpTwoPage(WidgetTester tester, int initialId) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          for (final id in const [42, 43])
+            id: illustJson(id, pageCount: 2, withMetaPages: true),
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        for (final id in const [42, 43])
+          parseIllust(illustJson(id, pageCount: 2, withMetaPages: true)),
+      ]);
+      await _pumpPager(
+        tester,
+        container,
+        source: IllustPagerSource()..update(const [42, 43]),
+        initialId: initialId,
+        surface: const Size(1400, 900),
+      );
+    }
+
+    testWidgets(
+      'an image pager at its last page hands the swipe to the work pager',
+      (tester) async {
+        await pumpTwoPage(tester, 42);
+        expect(imagePager(), findsOneWidget);
+        expect(imageController(tester).page, 0);
+        expect(outerController(tester).page, 0);
+        final origin = tester.getCenter(imagePager());
+
+        // In the middle of the set a swipe only turns the image.
+        await tester.flingFrom(origin, const Offset(-260, 0), 900);
+        await tester.pumpAndSettle();
+        expect(imageController(tester).page, 1);
+        expect(outerController(tester).page, 0);
+
+        // Past the last image the same swipe goes on to the next work.
+        await tester.flingFrom(origin, const Offset(-260, 0), 900);
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, 1);
+        // The next work opens on its own first image.
+        expect(imageController(tester).page, 0);
+      },
+    );
+
+    testWidgets(
+      'an image pager at its first image hands a backward swipe to the work pager, then follows the finger',
+      (tester) async {
+        await pumpTwoPage(tester, 43);
+        expect(outerController(tester).page, 1);
+        expect(imageController(tester).page, 0);
+        final origin = tester.getCenter(imagePager());
+
+        // Back from the first image the swipe goes on to the previous work.
+        await tester.flingFrom(origin, const Offset(260, 0), 900);
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, 0);
+        expect(imageController(tester).page, 0);
+
+        // With no work further back, the pane follows every move.
+        double offset() => tester
+            .widget<FractionalTranslation>(
+              find.descendant(
+                of: find.byType(DetailImagePager),
+                matching: find.byType(FractionalTranslation),
+              ),
+            )
+            .translation
+            .dx;
+        final gesture = await tester.startGesture(origin);
+        await gesture.moveBy(const Offset(50, 0));
+        await tester.pump();
+        await gesture.moveBy(const Offset(60, 0));
+        await tester.pump();
+        final first = offset();
+        await gesture.moveBy(const Offset(60, 0));
+        await tester.pump();
+        expect(offset(), greaterThan(first));
+        await gesture.up();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('a two-pane stand-in paints the grid image on the stage', (
+      tester,
+    ) async {
+      final worker = inProcessImageWorker(
+        () => MockClient(
+          (request) async => http.Response.bytes(onePixelPng, 200),
+        ),
+      );
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(42, pageCount: 2, withMetaPages: true),
+          44: illustJson(44, pageCount: 2, withMetaPages: true),
+        },
+        extraOverrides: [imageWorkerProvider.overrideWithValue(worker)],
+      );
+      container.read(illustStoreProvider).mergeAll([
+        for (final id in [42, 43, 44])
+          parseIllust(illustJson(id, pageCount: 2, withMetaPages: true)),
+      ]);
+      final entity = container.read(illustStoreProvider).get(44)!;
+      // The feed decoded this work's image at its card width.
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          home: Center(
+            child: SizedBox(
+              width: 200,
+              child: PixivImage(
+                url: entity.imageUrls.large,
+                memCacheWidth: 200,
+                tierKey: entity.imageTierKeyAt(0),
+                tier: IllustImageTier.large,
+              ),
+            ),
+          ),
+        ),
+      );
+      await pumpIoUntil(
+        tester,
+        () => tester
+            .widgetList<RawImage>(find.byType(RawImage))
+            .any((image) => image.image != null),
+      );
+
+      final source = IllustPagerSource()..update(const [42, 43, 44]);
+      await _pumpPager(
+        tester,
+        container,
+        source: source,
+        initialId: 42,
+        surface: const Size(1400, 900),
+      );
+      // One page past the built neighbour lands on a page not built yet.
+      unawaited(
+        outerController(tester).animateToPage(
+          2,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.linear,
+        ),
+      );
+      final standIn = find.byKey(const ValueKey('pager-slot-image-44'));
+      await _pumpUntil(tester, () => standIn.evaluate().isNotEmpty);
+      // The stage holds the decoded image rather than a blank ground.
+      expect(
+        find.descendant(of: standIn, matching: find.byType(Image)),
+        findsOneWidget,
+      );
+      // The info column stays the page's own ground.
+      expect(
+        tester
+            .widget<ColoredBox>(
+              find.byKey(const ValueKey('pager-slot-info-44')),
+            )
+            .color,
+        Theme.of(tester.element(standIn)).scaffoldBackgroundColor,
+      );
+      await unmountPastReleaseGrace(tester);
     });
   });
 }

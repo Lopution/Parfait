@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart' show ImageFilterLayer;
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
@@ -460,4 +462,117 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets(
+    'a card takes focus, opens on Enter and shows its actions on the menu keys',
+    (tester) async {
+      final (container, _, _) = await makeCardWorld();
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 300,
+                  child: IllustCard(entity: parseIllust(illustJson(7))),
+                ),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/recommended/illust/:id',
+            builder: (context, state) =>
+                const Scaffold(body: Text('work page')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<IllustCard>(),
+        isNotNull,
+        reason: 'Tab reaches the card',
+      );
+      // A visible focus ring over the preview.
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).border != null,
+        ),
+        findsOneWidget,
+      );
+
+      // Enter opens the work.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('work page'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+
+      // Shift+F10 runs the long press: the same actions as a finger's. The
+      // key simulator cannot deliver a function key to the focus tree, so
+      // the card's shortcut table and the action it maps to are checked
+      // directly; the keyboard's menu key maps to the same intent.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final shortcutMap = tester
+          .widget<Shortcuts>(
+            find
+                .descendant(
+                  of: find.byType(IllustCard),
+                  matching: find.byType(Shortcuts),
+                )
+                .first,
+          )
+          .shortcuts;
+      const f10 = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.f10,
+        logicalKey: LogicalKeyboardKey.f10,
+        timeStamp: Duration.zero,
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      final menuActivators = shortcutMap.entries
+          .where((entry) => entry.key.accepts(f10, HardwareKeyboard.instance))
+          .toList();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      expect(menuActivators, hasLength(1), reason: 'Shift+F10 is bound');
+      final menuIntent = menuActivators.single.value;
+      // The keyboard's menu key runs the same intent as Shift+F10.
+      const menuKey = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.contextMenu,
+        logicalKey: LogicalKeyboardKey.contextMenu,
+        timeStamp: Duration.zero,
+      );
+      final menuKeys = shortcutMap.entries.where(
+        (entry) => entry.key.accepts(menuKey, HardwareKeyboard.instance),
+      );
+      expect(menuKeys, hasLength(1));
+      expect(identical(menuKeys.single.value, menuIntent), isTrue);
+      final cardActions = tester
+          .widgetList<Actions>(
+            find.descendant(
+              of: find.byType(IllustCard),
+              matching: find.byType(Actions),
+            ),
+          )
+          .firstWhere(
+            (actions) => actions.actions.values.any(
+              (action) => action.intentType == menuIntent.runtimeType,
+            ),
+          );
+      // ignore: invalid_use_of_protected_member
+      cardActions.actions[menuIntent.runtimeType]!.invoke(menuIntent);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ListTile, '下载'), findsOneWidget);
+    },
+  );
 }

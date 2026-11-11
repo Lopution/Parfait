@@ -212,11 +212,20 @@ reviewed: 2026-11-11
   tall, the detail page is a `TwoPane`: the image pager on a
   `surfaceContainerLow` stage, the info column at 0.38 of the width kept
   within 320–480dp, with no divider: the stage's ground sets the image
-  off. The action capsule centers in the info column.
+  off. The action capsule centers in the info column. The image pager
+  takes a sideways swipe at twice the device's touch slop
+  (`pagingGestureSettings`); at its first or last image it hands the
+  swipe on to the work pager around it through `SwipePagerScope`, and a
+  swipe between images only turns the image. A work not built yet draws
+  the image the grid already decoded on the stage, fitted as the pager
+  fits a page, with the info column on the page's ground (C10).
 - **Why:** On a turned phone the single column showed half an image; on
-  wide screens the capsule straddled the divider over the comments.
-- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"
-- **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+  wide screens the capsule straddled the divider over the comments. The
+  image pager and the work pager both turn sideways, and the inner one
+  took every swipe, so the last image could not lead on to the next work;
+  a page not built showed a blank stage.
+- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
+- **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### DETAIL-18 Single-column detail text keeps the article width
 - **Rule:** In the single-column layout, when the page's content area is

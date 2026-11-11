@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -299,69 +300,73 @@ class _IllustCardBody extends ConsumerWidget {
       );
     }
 
-    return PressScale(
-      child: Semantics(
-        container: true,
-        button: true,
-        image: true,
-        // The one stop for the work: the title and author lines under the
-        // image are left out of semantics, so the label carries them (and
-        // the rank) instead of a screen reader reading them twice.
-        label: muted
-            ? context.l10n.labelValue(
-                context.l10n.mutedContent,
-                '${entity.title}, ${entity.user.name}',
-              )
-            : [
-                if (rank case final rank?) context.l10n.rankLabel(rank),
-                entity.title,
-                entity.user.name,
-              ].join(', '),
-        onTap: muted ? reveal : openDetail,
-        onLongPress: longPress,
-        child: GestureDetector(
-          excludeFromSemantics: true,
-          onTapDown: muted
-              ? null
-              : (_) {
-                  _preloadTransitionImages(
-                    context,
-                    ref,
-                    preview,
-                    cardDecodeWidth,
-                    standInUrl: standInUrl,
-                  );
-                  pressWarmup.start(context, entity);
-                },
-          onTapCancel: muted ? null : pressWarmup.stop,
+    return _CardFocus(
+      onActivate: muted ? reveal : openDetail,
+      onMenu: longPress,
+      child: PressScale(
+        child: Semantics(
+          container: true,
+          button: true,
+          image: true,
+          // The one stop for the work: the title and author lines under the
+          // image are left out of semantics, so the label carries them (and
+          // the rank) instead of a screen reader reading them twice.
+          label: muted
+              ? context.l10n.labelValue(
+                  context.l10n.mutedContent,
+                  '${entity.title}, ${entity.user.name}',
+                )
+              : [
+                  if (rank case final rank?) context.l10n.rankLabel(rank),
+                  entity.title,
+                  entity.user.name,
+                ].join(', '),
           onTap: muted ? reveal : openDetail,
           onLongPress: longPress,
-          onSecondaryTapUp: secondaryTap,
-          // No outer ClipRRect: the Hero child already clips the image to
-          // the same 12px radius and every badge sits 7px inside the
-          // bounds, so the extra clip only cost a saveLayer per card per
-          // frame while scrolling.
-          child: _HoverLayer(
-            child: SizedBox(
-              width: cardWidth,
-              height: previewHeight,
-              child: muted
-                  ? MutedCover(reasonLabel: mutedHit.label, child: image)
-                  : Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (standInUrl case final url?)
-                          _StandInPrefetch(url: url, child: image)
-                        else
-                          image,
-                        HeroChrome(
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: _buildBadges(context),
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            onTapDown: muted
+                ? null
+                : (_) {
+                    _preloadTransitionImages(
+                      context,
+                      ref,
+                      preview,
+                      cardDecodeWidth,
+                      standInUrl: standInUrl,
+                    );
+                    pressWarmup.start(context, entity);
+                  },
+            onTapCancel: muted ? null : pressWarmup.stop,
+            onTap: muted ? reveal : openDetail,
+            onLongPress: longPress,
+            onSecondaryTapUp: secondaryTap,
+            // No outer ClipRRect: the Hero child already clips the image to
+            // the same 12px radius and every badge sits 7px inside the
+            // bounds, so the extra clip only cost a saveLayer per card per
+            // frame while scrolling.
+            child: _HoverLayer(
+              child: SizedBox(
+                width: cardWidth,
+                height: previewHeight,
+                child: muted
+                    ? MutedCover(reasonLabel: mutedHit.label, child: image)
+                    : Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (standInUrl case final url?)
+                            _StandInPrefetch(url: url, child: image)
+                          else
+                            image,
+                          HeroChrome(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: _buildBadges(context),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
@@ -674,4 +679,83 @@ class _HoverLayerState extends State<_HoverLayer> {
       ),
     );
   }
+}
+
+/// A card's keyboard stop: Tab and the arrow keys reach it, Enter opens the
+/// work, and the menu key (or Shift+F10) runs its long press — the same
+/// actions a mouse and a finger get (PAGE-18). The focus ring is drawn over
+/// the preview in the theme's primary colour, the way a button's focus
+/// state reads.
+class _CardFocus extends StatefulWidget {
+  const _CardFocus({
+    required this.onActivate,
+    required this.onMenu,
+    required this.child,
+  });
+
+  final VoidCallback onActivate;
+  final VoidCallback onMenu;
+  final Widget child;
+
+  @override
+  State<_CardFocus> createState() => _CardFocusState();
+}
+
+class _CardFocusState extends State<_CardFocus> {
+  var _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusableActionDetector(
+      onShowFocusHighlight: (show) => setState(() => _focused = show),
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.contextMenu): _CardMenuIntent(),
+        SingleActivator(LogicalKeyboardKey.f10, shift: true): _CardMenuIntent(),
+      },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onActivate();
+            return null;
+          },
+        ),
+        _CardMenuIntent: CallbackAction<_CardMenuIntent>(
+          onInvoke: (_) {
+            widget.onMenu();
+            return null;
+          },
+        ),
+      },
+      // The ring is a background decoration above the preview: the hover
+      // layer owns the card's one foreground decoration.
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          widget.child,
+          if (_focused)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                    borderRadius: FuncShape.card,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The keyboard's menu key and Shift+F10: the card's long press.
+class _CardMenuIntent extends Intent {
+  const _CardMenuIntent();
 }

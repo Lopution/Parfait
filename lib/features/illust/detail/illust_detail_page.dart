@@ -231,6 +231,19 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// move a counter.
   final ValueNotifier<int?> _topVisiblePage = ValueNotifier<int?>(null);
 
+  /// The image the reader is on, shared by the two layouts: the top image
+  /// in view in the single column, the image pager's page in the two-pane
+  /// layout. A switch between them opens on the same image (NAV-21).
+  int _imageIndex = 0;
+
+  /// The layout the last build used; a switch to the single column brings
+  /// its list back to [_imageIndex].
+  bool? _lastTwoPane;
+
+  /// One key per image page, so the single column can be brought to an
+  /// image the two-pane layout was showing.
+  final Map<int, GlobalKey> _pageKeys = {};
+
   /// Whether the collapse button after the last page is on screen: the
   /// floating one under the count steps aside then, so only one shows.
   /// Read from the button's box, not a VisibilityDetector: a sliver child
@@ -421,6 +434,39 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     _topVisiblePage.value = _visiblePages.isEmpty
         ? null
         : _visiblePages.reduce(math.min);
+    // Scrolled into the meta tail, the last image read stays the one a
+    // switch to the two-pane layout opens on.
+    final top = _topVisiblePage.value;
+    if (top != null) _imageIndex = top;
+  }
+
+  /// The image at the top of the single column right now, read from the
+  /// pages already laid out. The visibility trackers report on their own
+  /// timer, so a switch to the two-pane layout cannot wait for them
+  /// (NAV-21); the boxes still hold the single column's last frame.
+  int? _narrowTopImage(_FirstImageLayout layout) {
+    int? top;
+    for (final entry in _pageKeys.entries) {
+      final box = entry.value.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) continue;
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      final visible =
+          rect.bottom > layout.topChrome && rect.top < _narrowBottom;
+      if (!visible) continue;
+      if (top == null || entry.key < top) top = entry.key;
+    }
+    return top;
+  }
+
+  /// The bottom of the single column's viewport in global coordinates.
+  double get _narrowBottom {
+    if (!_narrowScroll.hasClients) return MediaQuery.sizeOf(context).height;
+    final viewport = _narrowScroll.position.context.notificationContext
+        ?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.hasSize) {
+      return MediaQuery.sizeOf(context).height;
+    }
+    return viewport.localToGlobal(Offset.zero).dy + viewport.size.height;
   }
 
   /// The ⋮ menu's artwork-info item scrolls the InfoBlock into view.
@@ -448,6 +494,56 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     await Scrollable.ensureVisible(
       anchor,
       duration: MotionTokens.resolve(anchor, MotionTokens.spatial),
+    );
+  }
+
+  bool _revealScheduled = false;
+
+  /// A switch from the two-pane layout to the single column brings its
+  /// list back to the image the pager was showing (NAV-21). The list is
+  /// lazy, so the target page is walked into view first; a collapsed set
+  /// opens before the page exists at all.
+  void _scheduleNarrowReveal(IllustEntity entity) {
+    if (_revealScheduled) return;
+    _revealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _revealScheduled = false;
+      if (!mounted) return;
+      final index = _imageIndex;
+      if (index <= 0) return;
+      final layout = _FirstImageLayout.of(
+        context,
+        entity,
+        expanded: _pagesExpanded,
+      );
+      if (index >= layout.shownPages) {
+        setState(() => _pagesExpanded = true);
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+      }
+      await _revealNarrowPage(index);
+    });
+  }
+
+  Future<void> _revealNarrowPage(int index) async {
+    while (mounted && _narrowScroll.hasClients) {
+      final page = _pageKeys[index]?.currentContext;
+      if (page != null && page.mounted) break;
+      final position = _narrowScroll.position;
+      if (position.pixels >= position.maxScrollExtent) break;
+      position.jumpTo(
+        math.min(
+          position.pixels + position.viewportDimension,
+          position.maxScrollExtent,
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    final page = _pageKeys[index]?.currentContext;
+    if (page == null || !page.mounted) return;
+    await Scrollable.ensureVisible(
+      page,
+      duration: MotionTokens.resolve(page, MotionTokens.spatial),
     );
   }
 
@@ -940,37 +1036,43 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) => TickerPartition(
-              child: Padding(
-                padding: index == shownPages - 1
-                    ? EdgeInsets.zero
-                    : const EdgeInsets.only(bottom: FuncSpacing.sm),
-                child: VisibilityDetector(
-                  key: ValueKey('illust-visibility-${entity.id}-$index'),
-                  onVisibilityChanged: (info) => _onPageVisibility(index, info),
-                  child: DetailPageImage(
-                    key: ValueKey<Object?>('illust-page-${entity.id}-$index'),
-                    entity: entity,
-                    index: index,
-                    heroTag: index == 0
-                        ? illustHeroTag(widget.heroScope, entity.id)
-                        : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
-                    heroScope: widget.heroScope,
-                    heroImageUrl: index == 0 ? widget.heroImageUrl : null,
-                    heroImageDecodeWidth: index == 0
-                        ? widget.heroImageDecodeWidth
-                        : null,
-                    detailUrl: detailUrlFor(index),
-                    downloadMode: _downloadMode,
-                    selected: _selectedPages?.contains(index) ?? false,
-                    onToggleSelect: () => _togglePageSelected(index),
-                    onLongPress: _enterDownloadMode,
-                    placeholderOnly: !detailReady && index > 0,
-                    overlayTopInset: index == 0
-                        ? layout.artworkUnderBarExtent
-                        : 0,
-                    imageSlotHeight: index == 0 && slotsFirstImage
-                        ? firstImageExtent
-                        : null,
+              // A switch back from the two-pane layout brings the list to
+              // the image the pager was on (NAV-21).
+              child: KeyedSubtree(
+                key: _pageKeys.putIfAbsent(index, () => GlobalKey()),
+                child: Padding(
+                  padding: index == shownPages - 1
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.only(bottom: FuncSpacing.sm),
+                  child: VisibilityDetector(
+                    key: ValueKey('illust-visibility-${entity.id}-$index'),
+                    onVisibilityChanged: (info) =>
+                        _onPageVisibility(index, info),
+                    child: DetailPageImage(
+                      key: ValueKey<Object?>('illust-page-${entity.id}-$index'),
+                      entity: entity,
+                      index: index,
+                      heroTag: index == 0
+                          ? illustHeroTag(widget.heroScope, entity.id)
+                          : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
+                      heroScope: widget.heroScope,
+                      heroImageUrl: index == 0 ? widget.heroImageUrl : null,
+                      heroImageDecodeWidth: index == 0
+                          ? widget.heroImageDecodeWidth
+                          : null,
+                      detailUrl: detailUrlFor(index),
+                      downloadMode: _downloadMode,
+                      selected: _selectedPages?.contains(index) ?? false,
+                      onToggleSelect: () => _togglePageSelected(index),
+                      onLongPress: _enterDownloadMode,
+                      placeholderOnly: !detailReady && index > 0,
+                      overlayTopInset: index == 0
+                          ? layout.artworkUnderBarExtent
+                          : 0,
+                      imageSlotHeight: index == 0 && slotsFirstImage
+                          ? firstImageExtent
+                          : null,
+                    ),
                   ),
                 ),
               ),
@@ -1087,6 +1189,17 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     final twoPane = AppBreakpoints.useTwoPaneDetail(
       HomeShellChrome.contentSizeOf(context),
     );
+    // A switch between the layouts opens on the image the other one showed.
+    final wasTwoPane = _lastTwoPane;
+    _lastTwoPane = twoPane;
+    if (wasTwoPane == true && !twoPane) {
+      _scheduleNarrowReveal(entity);
+    } else if (wasTwoPane == false && twoPane) {
+      // Read the image on screen now, not the trackers' last report: they
+      // run on their own timer and may not have reached this build yet.
+      final index = _narrowTopImage(layout);
+      if (index != null) _imageIndex = index;
+    }
     // Hidden, not removed, in the download mode: it slides out and back.
     final actionBar = Positioned(
       left: 0,
@@ -1146,6 +1259,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                     onLongPress: _enterDownloadMode,
                     heroTag: illustHeroTag(widget.heroScope, entity.id),
                     heroScope: widget.heroScope,
+                    initialPage: _imageIndex,
+                    onPageChanged: (page) => _imageIndex = page,
                     heroImageUrl: widget.heroImageUrl,
                     heroImageDecodeWidth: widget.heroImageDecodeWidth,
                   ),

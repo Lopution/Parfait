@@ -81,6 +81,7 @@ Future<void> pumpDetail(
   ProviderContainer container, {
   bool seedStore = true,
   int illustId = 42,
+  int pageCount = 2,
   Locale? locale,
   bool useRouter = false,
   bool reduceMotion = false,
@@ -91,7 +92,9 @@ Future<void> pumpDetail(
   setViewSize(tester, surface);
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
-      parseIllust(illustJson(illustId, pageCount: 2, withMetaPages: true)),
+      parseIllust(
+        illustJson(illustId, pageCount: pageCount, withMetaPages: true),
+      ),
     ]);
   }
   final router = useRouter

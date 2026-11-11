@@ -861,5 +861,61 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('1 / 2'), findsOneWidget);
     });
+
+    testWidgets(
+      'a switch between the single column and two panes keeps the image, read from the screen',
+      (tester) async {
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {
+            42: illustJson(42, pageCount: 3, withMetaPages: true),
+          },
+        );
+        await pumpDetail(
+          tester,
+          container,
+          surface: const Size(1400, 900),
+          pageCount: 3,
+        );
+        // Two panes: page the image pager to the third image.
+        for (var i = 0; i < 2; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+        }
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // A turned phone: the single column brings that image into view.
+        setViewSize(tester, const Size(390, 844));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // Turned back: the image pager opens on the same image.
+        setViewSize(tester, const Size(1400, 900));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // The trackers report on a timer: scrolled back to the first image,
+        // a switch right away still reads the image on screen.
+        setViewSize(tester, const Size(390, 844));
+        await tester.pumpAndSettle();
+        VisibilityDetectorController.instance.updateInterval = const Duration(
+          seconds: 1,
+        );
+        await tester.drag(
+          find.bySubtype<CustomScrollView>(),
+          const Offset(0, 2000),
+        );
+        await tester.pump();
+        setViewSize(tester, const Size(1400, 900));
+        await tester.pump();
+        expect(find.text('1 / 3'), findsOneWidget);
+        // Drop the trackers, then let their scheduled report fire.
+        await tester.pumpWidget(const SizedBox());
+        VisibilityDetectorController.instance.updateInterval = Duration.zero;
+        await tester.pump(const Duration(seconds: 1));
+      },
+    );
   });
 }
