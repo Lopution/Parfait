@@ -82,15 +82,27 @@ class ScrollableFormShell extends StatelessWidget {
         media.padding.bottom,
         media.viewInsets.bottom,
       );
+      // Both bounds yield the body's share of the window: the toolbar and
+      // the bottom inset are not available to the form. The minimum can
+      // therefore exceed the maximum on a short window with a bottom
+      // inset (a folded cover screen, a phone with the keyboard up); a
+      // non-normalized BoxConstraints would assert inside
+      // `bodyConstraints.biggest`. Clamp the minimum to the maximum so
+      // the pair stays valid.
+      final bodyMaxHeight = math.max(
+        0.0,
+        constraints.maxHeight - kToolbarHeight - bottomInset,
+      );
+      final bodyMinHeight = math.max(
+        0.0,
+        math.min(
+          constraints.minHeight - kToolbarHeight - bottomInset,
+          bodyMaxHeight,
+        ),
+      );
       final bodyConstraints = constraints.copyWith(
-        minHeight: (constraints.minHeight - kToolbarHeight).clamp(
-          0.0,
-          double.infinity,
-        ),
-        maxHeight: (constraints.maxHeight - kToolbarHeight - bottomInset).clamp(
-          0.0,
-          double.infinity,
-        ),
+        minHeight: bodyMinHeight,
+        maxHeight: bodyMaxHeight,
       );
       final beside = AppBreakpoints.useSideBySideForm(bodyConstraints.biggest);
       final form = beside
