@@ -28,6 +28,7 @@ import '../../../core/settings/server_display_settings.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 String _accountSubtitle(BuildContext context, Account account) =>
     context.l10n.labelValue(context.l10n.accountId, account.id);
@@ -92,6 +93,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
       appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
         title: Text(context.l10n.accountManagement),
         actions: [
           IconButton(

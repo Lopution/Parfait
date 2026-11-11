@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../app/layout/app_breakpoints.dart';
+import '../../app/layout/content_widths.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/motion/hero_transition.dart' show LiftableBar;
@@ -669,6 +670,11 @@ class _ExpandedIdentity extends StatelessWidget {
   /// The least room the name keeps when the counters join its row.
   static const _minNameWidth = 96.0;
 
+  /// On a large window the identity block keeps this content width, so the
+  /// name and the buttons stay together instead of sitting at the window's
+  /// two edges (B3). Left-aligned with the works grid below (LAYOUT-14).
+  static const _wideIdentityWidth = ContentWidths.management;
+
   /// Whether a short window's counters fit in the name row beside the
   /// name, the share button and the main action at its widest.
   bool _statsFitInRow(
@@ -707,54 +713,77 @@ class _ExpandedIdentity extends StatelessWidget {
       share: share?.buildInline != null,
       main: main?.buildInline != null,
     );
+    // A large window keeps the identity in one readable block: the buttons
+    // follow the name instead of being pushed to the window's far edge.
+    final wide =
+        !shortWindow && rowWidth + 2 * FuncSpacing.lg >= AppBreakpoints.large;
+    final nameColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          key: const ValueKey('profile-expanded-name'),
+          user.name,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (user.account.isNotEmpty)
+          Text(
+            '@${user.account}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+      ],
+    );
     final nameRow = Padding(
       padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-      child: Row(
-        children: [
-          if (shortWindow) ...[avatar, const SizedBox(width: FuncSpacing.md)],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  key: const ValueKey('profile-expanded-name'),
-                  user.name,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (user.account.isNotEmpty)
-                  Text(
-                    '@${user.account}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: wide
+                ? _wideIdentityWidth - 2 * FuncSpacing.lg
+                : double.infinity,
           ),
-          if (statsInRow)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: FuncSpacing.sm),
-              child: ProfileStatRow(stats: stats),
-            ),
-          if (share?.buildInline != null) share!.buildInline!(context),
-          if (main?.buildInline != null)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(start: FuncSpacing.xs),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: rowWidth * mainActionMaxShare,
+          child: Row(
+            children: [
+              if (shortWindow) ...[
+                avatar,
+                const SizedBox(width: FuncSpacing.md),
+              ],
+              if (wide)
+                Flexible(fit: FlexFit.loose, child: nameColumn)
+              else
+                Expanded(child: nameColumn),
+              if (statsInRow)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    end: FuncSpacing.sm,
+                  ),
+                  child: ProfileStatRow(stats: stats),
                 ),
-                child: main!.buildInline!(context),
-              ),
-            ),
-        ],
+              if (share?.buildInline != null) share!.buildInline!(context),
+              if (main?.buildInline != null)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    start: FuncSpacing.xs,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: rowWidth * mainActionMaxShare,
+                    ),
+                    child: main!.buildInline!(context),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
     final column = Column(

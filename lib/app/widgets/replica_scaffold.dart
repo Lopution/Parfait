@@ -12,6 +12,7 @@ class ReplicaScaffold extends StatelessWidget {
     this.bottom,
     this.floatingActionButton,
     this.upLocation,
+    this.contentWidth,
   });
 
   final Widget child;
@@ -19,6 +20,10 @@ class ReplicaScaffold extends StatelessWidget {
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
   final Widget? floatingActionButton;
+
+  /// The content column the page below caps itself at, for the top bar's
+  /// alignment (`AppTopBar.contentWidth`).
+  final double? contentWidth;
 
   /// Where back leads when the page was opened with nothing under it (a
   /// direct link or a restored route), so it still has a way out. Without
@@ -35,6 +40,7 @@ class ReplicaScaffold extends StatelessWidget {
         automaticallyImplyLeading: false,
         actions: actions,
         bottom: bottom,
+        contentWidth: contentWidth,
         leading: canPop || up != null
             ? IconButton(
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,

@@ -18,6 +18,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 class TranslateSettingsPage extends ConsumerStatefulWidget {
   const TranslateSettingsPage({super.key});
@@ -108,7 +109,10 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
       (TranslationProvider.google, context.l10n.translateGoogle),
     ];
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.translateSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.translateSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

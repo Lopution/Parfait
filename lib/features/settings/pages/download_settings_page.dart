@@ -19,6 +19,7 @@ import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/widgets/app_slider.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Template variables in the order the chips list them: the work, its
 /// pages, the file, dates, then the series. Covers
@@ -119,7 +120,10 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     return guardDraft(
       dirty: _templateDirty,
       child: Scaffold(
-        appBar: AppTopBar(title: Text(context.l10n.downloadSettings)),
+        appBar: AppTopBar(
+          contentWidth: ContentWidths.settings,
+          title: Text(context.l10n.downloadSettings),
+        ),
         body: settingsNarrowBody(
           ListView(
             padding: const EdgeInsets.only(

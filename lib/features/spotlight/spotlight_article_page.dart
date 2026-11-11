@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:octo_image/octo_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/layout/app_breakpoints.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/spring_size.dart';
 import '../../app/navigation/routes.dart';
@@ -115,60 +116,87 @@ class SpotlightArticlePage extends ConsumerWidget {
     );
   }
 
+  /// The cover takes at most this share of the page's height, so a landscape
+  /// window still opens on the article's first lines instead of a
+  /// full-screen image. It is the page body's viewport, bar excluded.
+  static const coverViewportShare = 0.5;
+
   Widget _articleBody(
     BuildContext context,
     SpotlightArticleBody body,
     String? coverUrl,
-  ) => Align(
-    alignment: Alignment.topCenter,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: ContentWidths.article),
-      // One selection region for the whole article: text is plain Text, so
-      // no paragraph owns a Scrollable the app-wide bouncing physics could
-      // leak into, and a selection can span paragraphs.
-      child: SelectionArea(
-        child: ListView(
-          key: PageStorageKey('spotlight-article-$articleId'),
-          padding: const EdgeInsets.fromLTRB(
-            FuncSpacing.lg,
-            FuncSpacing.sm,
-            FuncSpacing.lg,
-            FuncSpacing.xxl,
+  ) => LayoutBuilder(
+    builder: (context, constraints) {
+      // Phone portraits keep their established cover treatment; tablet and
+      // desktop surfaces cap it in either orientation so the first lines
+      // remain on the opening screen.
+      final coverMaxHeight = constraints.maxWidth >= AppBreakpoints.medium
+          ? constraints.maxHeight * coverViewportShare
+          : null;
+      return Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: ContentWidths.article),
+          // One selection region for the whole article: text is plain Text,
+          // so no paragraph owns a Scrollable the app-wide bouncing physics
+          // could leak into, and a selection can span paragraphs.
+          child: SelectionArea(
+            child: ListView(
+              key: PageStorageKey('spotlight-article-$articleId'),
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.lg,
+                FuncSpacing.sm,
+                FuncSpacing.lg,
+                FuncSpacing.xxl,
+              ),
+              children: [
+                if (body.title.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
+                    child: Text(
+                      body.title,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                if (body.description != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: FuncSpacing.md),
+                    child: Text(
+                      body.description!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                for (final block in body.blocks)
+                  _SpotlightBlockView(
+                    block: block,
+                    coverUrl: coverUrl,
+                    coverMaxHeight: coverMaxHeight,
+                  ),
+              ],
+            ),
           ),
-          children: [
-            if (body.title.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
-                child: Text(
-                  body.title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ),
-            if (body.description != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: FuncSpacing.md),
-                child: Text(
-                  body.description!,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            for (final block in body.blocks)
-              _SpotlightBlockView(block: block, coverUrl: coverUrl),
-          ],
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
 class _SpotlightBlockView extends StatefulWidget {
-  const _SpotlightBlockView({required this.block, this.coverUrl});
+  const _SpotlightBlockView({
+    required this.block,
+    this.coverUrl,
+    this.coverMaxHeight,
+  });
 
   final SpotlightBlock block;
 
   /// The list entry's pximg cover; a deep-linked article has none and keeps
   /// the page's own.
   final String? coverUrl;
+
+  /// Height cap for the article's cover image; null leaves it at its own
+  /// ratio.
+  final double? coverMaxHeight;
 
   @override
   State<_SpotlightBlockView> createState() => _SpotlightBlockViewState();
@@ -219,7 +247,10 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
         // Rounded like the work images further down.
         child: ClipRRect(
           borderRadius: FuncShape.card,
-          child: _ArticleImage(url: cover ? widget.coverUrl ?? url : url),
+          child: _ArticleImage(
+            url: cover ? widget.coverUrl ?? url : url,
+            maxHeight: cover ? widget.coverMaxHeight : null,
+          ),
         ),
       ),
       final SpotlightIllustCard card => _SpotlightIllustCardView(card: card),
@@ -272,9 +303,14 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
 /// crossfade: the placeholder dissolving over an image of another height
 /// read as the image loading in bands.
 class _ArticleImage extends ConsumerWidget {
-  const _ArticleImage({required this.url});
+  const _ArticleImage({required this.url, this.maxHeight});
 
   final String url;
+
+  /// The tallest the image (and its placeholder) may be drawn: the cover's
+  /// height cap. The image keeps its ratio at that height and centres in
+  /// the column; null draws it at its own ratio, full column width.
+  final double? maxHeight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -285,7 +321,7 @@ class _ArticleImage extends ConsumerWidget {
       ),
     );
     final host = Uri.tryParse(url)?.host ?? '';
-    return SpringSize(
+    final image = SpringSize(
       child: host.endsWith('pximg.net')
           ? PixivImage(
               url: url,
@@ -307,6 +343,17 @@ class _ArticleImage extends ConsumerWidget {
               fadeInDuration: Duration.zero,
               fadeOutDuration: Duration.zero,
             ),
+    );
+    final maxHeight = this.maxHeight;
+    if (maxHeight == null) return image;
+    // Both paths size themselves within a bounded height (AspectFitBox for
+    // the pixels, AspectRatio for the placeholder), so the same cap holds
+    // the loading box; centring keeps the narrower image in the column.
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: image,
+      ),
     );
   }
 }

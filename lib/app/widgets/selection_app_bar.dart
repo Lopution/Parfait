@@ -14,6 +14,7 @@ AppTopBar selectionAppBar(
   required int count,
   required VoidCallback onClose,
   required List<Widget> actions,
+  double? contentWidth,
 }) {
   return AppTopBar(
     backgroundColor: Theme.of(context).colorScheme.primaryContainer,
@@ -24,5 +25,6 @@ AppTopBar selectionAppBar(
     ),
     title: Text('$count', semanticsLabel: context.l10n.selectedCount(count)),
     actions: actions,
+    contentWidth: contentWidth,
   );
 }

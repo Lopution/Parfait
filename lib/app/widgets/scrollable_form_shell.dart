@@ -49,8 +49,9 @@ class ScrollableFormShell extends StatelessWidget {
   final Widget content;
 
   /// Bottom-anchored primary action. When the content is shorter than the
-  /// viewport it pins to the bottom edge; on short viewports it flows
-  /// after the content so it always remains reachable by scrolling.
+  /// viewport it pins to the bottom edge on a compact window, and centres
+  /// with the rest of the group on a large one; on short viewports it
+  /// flows after the content so it always remains reachable by scrolling.
   final Widget primaryAction;
 
   /// Optional secondary affordance rendered under [primaryAction]
@@ -72,28 +73,48 @@ class ScrollableFormShell extends StatelessWidget {
   final bool brandGlow;
 
   @override
-  Widget build(BuildContext context) {
-    return ReplicaScaffold(
-      title: title,
-      actions: actions,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final beside = AppBreakpoints.useSideBySideForm(constraints.biggest);
-          final form = beside
-              ? _sideBySide(constraints)
-              : _stacked(constraints);
-          if (!brandGlow) return form;
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              _BrandGlow(beside: beside, maxExtent: contentMaxWidth),
-              form,
-            ],
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // The outer layout includes the toolbar; use the same body height the
+      // Scaffold will give the form so short-window geometry is unchanged.
+      final media = MediaQuery.of(context);
+      final bottomInset = math.max(
+        media.padding.bottom,
+        media.viewInsets.bottom,
+      );
+      final bodyConstraints = constraints.copyWith(
+        minHeight: (constraints.minHeight - kToolbarHeight).clamp(
+          0.0,
+          double.infinity,
+        ),
+        maxHeight: (constraints.maxHeight - kToolbarHeight - bottomInset).clamp(
+          0.0,
+          double.infinity,
+        ),
+      );
+      final beside = AppBreakpoints.useSideBySideForm(bodyConstraints.biggest);
+      final form = beside
+          ? _sideBySide(bodyConstraints)
+          : _stacked(bodyConstraints);
+      final body = !brandGlow
+          ? form
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                _BrandGlow(beside: beside, maxExtent: contentMaxWidth),
+                form,
+              ],
+            );
+      return ReplicaScaffold(
+        title: title,
+        actions: actions,
+        // The form occupies the right half in a short side-by-side window;
+        // a centred full-page inset would put the bar over neither column.
+        contentWidth: beside ? null : contentMaxWidth,
+        child: body,
+      );
+    },
+  );
 
   /// Proportional horizontal padding, capped so ultra-wide surfaces stop
   /// growing margins.
@@ -107,6 +128,7 @@ class ScrollableFormShell extends StatelessWidget {
 
   Widget _stacked(BoxConstraints constraints) {
     final horizontal = _horizontalPadding(constraints.maxWidth);
+    final centered = constraints.maxWidth >= AppBreakpoints.expanded;
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         horizontal,
@@ -120,23 +142,38 @@ class ScrollableFormShell extends StatelessWidget {
             maxWidth: contentMaxWidth,
             minHeight: _minColumnHeight(constraints.maxHeight),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: FuncSpacing.xxxl),
-                  header,
-                  const SizedBox(height: FuncSpacing.xxxl),
-                  content,
-                ],
-              ),
-              _actionColumn(),
-            ],
-          ),
+          // On a large window header, form and action read as one group,
+          // centred instead of pinned to the window's two edges (C7); the
+          // compact forms keep the action at the bottom, where a thumb
+          // reaches it. A group taller than the window still scrolls.
+          child: centered
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    const SizedBox(height: FuncSpacing.xl),
+                    content,
+                    _actionColumn(gap: FuncSpacing.xl),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: FuncSpacing.xxxl),
+                        header,
+                        const SizedBox(height: FuncSpacing.xxxl),
+                        content,
+                      ],
+                    ),
+                    _actionColumn(),
+                  ],
+                ),
         ),
       ),
     );
@@ -183,11 +220,11 @@ class ScrollableFormShell extends StatelessWidget {
     );
   }
 
-  Widget _actionColumn() => Column(
+  Widget _actionColumn({double gap = FuncSpacing.xxxl}) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const SizedBox(height: FuncSpacing.xxxl),
+      SizedBox(height: gap),
       primaryAction,
       if (secondary != null) ...[
         const SizedBox(height: FuncSpacing.sm),

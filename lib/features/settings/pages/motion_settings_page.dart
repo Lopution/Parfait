@@ -17,6 +17,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Motion and haptics: page transition style, animation speed, reduce
 /// motion, press feedback and the Android haptic strength picker.
@@ -36,7 +37,10 @@ class MotionSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.motionSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.motionSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

@@ -28,6 +28,7 @@ import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/clipboard.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 class AboutSettingsPage extends ConsumerStatefulWidget {
   const AboutSettingsPage({super.key});
@@ -94,7 +95,10 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
     final appName = 'Parfait';
     final updateService = ref.watch(updateServiceProvider);
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.aboutSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.aboutSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

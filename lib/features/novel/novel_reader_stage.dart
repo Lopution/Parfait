@@ -434,23 +434,47 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                 // paint and semantics tree. The chrome owns the interactive
                 // progress readout while it is visible; the hint returns when
                 // the reader is immersive again.
-                // It starts on the body text's edge.
+                // It starts on the body text's edge: the same centred
+                // article column the page's lines fill (R4).
                 if (_chromeHidden)
                   Positioned(
-                    left:
-                        _stableInsets.left +
-                        const NovelLayoutStyle().horizontalPadding,
-                    right:
-                        _stableInsets.right +
-                        const NovelLayoutStyle().horizontalPadding,
+                    left: 0,
+                    right: 0,
                     bottom: 4 + _stableInsets.bottom,
                     child: IgnorePointer(
-                      child: Text(
-                        '${novel.title} · ${_page + 1}/$_pageCount · $percent%'
-                        '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _hintStyle(context, palette),
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: _stableInsets.left,
+                          end: _stableInsets.right,
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final style = NovelLayoutStyle(
+                              fontSize: _settings.fontSize,
+                            );
+                            final width = style.contentWidth(
+                              availableWidth: constraints.maxWidth,
+                              textScaler: MediaQuery.textScalerOf(context),
+                            );
+                            return Center(
+                              child: SizedBox(
+                                width: width,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: style.horizontalPadding,
+                                  ),
+                                  child: Text(
+                                    '${novel.title} · ${_page + 1}/$_pageCount · $percent%'
+                                    '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _hintStyle(context, palette),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

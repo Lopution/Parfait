@@ -26,6 +26,24 @@ abstract final class CardColumns {
       (count + columns - 1) ~/ columns;
 }
 
+/// The column count of the cell a card is laid out in. A row inside a
+/// several-column list reads it to spread its facts across the cell
+/// instead of stacking them in the narrow leading text column.
+class CardCellScope extends InheritedWidget {
+  const CardCellScope({super.key, required this.columns, required super.child});
+
+  final int columns;
+
+  /// The enclosing cell's columns; 1 outside a card list or in a
+  /// single-column one.
+  static int columnsOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<CardCellScope>()?.columns ?? 1;
+
+  @override
+  bool updateShouldNotify(CardCellScope oldWidget) =>
+      oldWidget.columns != columns;
+}
+
 /// Row [row] of a [columns]-wide card list: the cards side by side, top
 /// aligned; a short last row keeps its cards at column width. Each row is
 /// a [TickerPartition].
@@ -54,7 +72,10 @@ class CardRow extends StatelessWidget {
                 for (var column = 0; column < columns; column++)
                   Expanded(
                     child: row * columns + column < count
-                        ? itemBuilder(context, row * columns + column)
+                        ? CardCellScope(
+                            columns: columns,
+                            child: itemBuilder(context, row * columns + column),
+                          )
                         : const SizedBox.shrink(),
                   ),
               ],

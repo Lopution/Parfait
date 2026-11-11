@@ -15,6 +15,7 @@ import '../../../core/platform/saf_tree.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Platform file open for backup import. Behind a provider so widget tests
 /// can inject bytes without a platform file picker.
@@ -204,7 +205,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppTopBar(title: Text(l10n.backupSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(l10n.backupSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

@@ -14,6 +14,7 @@ import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/clipboard.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Dev-only frame probe page: record timings while scrolling a feed, then
 /// copy the build/raster percentile report for offline analysis. Only
@@ -127,7 +128,10 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.frameProbeTitle)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.frameProbeTitle),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.all(FuncSpacing.lg),

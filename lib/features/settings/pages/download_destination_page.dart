@@ -15,6 +15,7 @@ import '../saf_tree_name.dart';
 import '../settings_helpers.dart';
 import '../../../app/clipboard.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Single-entry save location chooser (D5): album vs SAF folder. Album
 /// defaults to the built-in Parfait album with an optional custom name;
@@ -90,7 +91,10 @@ class _DownloadDestinationPageState
     return guardDraft(
       dirty: _albumDirty,
       child: Scaffold(
-        appBar: AppTopBar(title: Text(context.l10n.saveLocation)),
+        appBar: AppTopBar(
+          contentWidth: ContentWidths.settings,
+          title: Text(context.l10n.saveLocation),
+        ),
         body: settingsNarrowBody(
           ListView(
             padding: const EdgeInsets.only(

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/scroll_behavior.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/onboarding/language_page.dart';
@@ -144,6 +145,41 @@ void main() {
     final start = tester.getRect(find.byType(ReplicaButton));
     expect(start.bottom, lessThanOrEqualTo(411));
     expect(start.left, greaterThan(896 / 2));
+  });
+
+  group('welcome group placement', () {
+    final mark = find.byWidgetPredicate(
+      (widget) => widget is Image && widget.width == 96,
+    );
+
+    testWidgets('a large window centres the mark and the action as a group', (
+      tester,
+    ) async {
+      await pumpPage(tester, const Size(1280, 800), const WelcomePage());
+
+      final icon = tester.getRect(mark);
+      final start = tester.getRect(find.byType(ReplicaButton));
+      final scroll = tester.getRect(find.byType(SingleChildScrollView));
+      // The freed space splits evenly above and below the group (the
+      // action column ends in one xl spacer): neither the mark nor the
+      // button is pinned to an edge (C7).
+      final above = icon.top - scroll.top;
+      final below = scroll.bottom - (start.bottom + FuncSpacing.xl);
+      expect(above - below, closeTo(0, 4));
+      expect(above, greaterThan(100));
+      expect(start.bottom, lessThan(700));
+    });
+
+    testWidgets('a phone keeps the action at the bottom, as before', (
+      tester,
+    ) async {
+      await pumpPage(tester, const Size(390, 844), const WelcomePage());
+
+      final start = tester.getRect(find.byType(ReplicaButton));
+      final viewport = tester.getRect(find.byType(SingleChildScrollView));
+      // The compact stacked form still pins the action under the thumb.
+      expect(start.bottom, closeTo(viewport.bottom - 48, 2));
+    });
   });
 
   group('user agreement', () {

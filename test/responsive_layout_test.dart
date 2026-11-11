@@ -6,10 +6,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/layout/sliver_width_builder.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
+import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 
 void main() {
@@ -64,6 +67,53 @@ void main() {
     expect(card(1).left, card(0).right);
     expect(card(2).top, card(0).bottom);
     expect(card(2).width, 500);
+  });
+
+  testWidgets('a several-column row spreads its facts across the cell', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(1200, 600));
+    await tester.pumpWidget(
+      localizedApp(
+        theme: replicaTheme(Brightness.light),
+        home: CustomScrollView(
+          slivers: [
+            SliverCardList(
+              itemCount: 3,
+              itemBuilder: (context, index) => EntityRow(
+                leading: SizedBox(
+                  key: ValueKey('cover-$index'),
+                  width: 40,
+                  height: 56,
+                ),
+                title: '小说标题 $index',
+                subtitle: '作者名',
+                meta: '6000 字',
+                footnote: '#标签',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Three columns of 400: the row spans its cell instead of hugging the
+    // leading text column (PAGE-16).
+    final row = tester.getRect(find.byType(EntityRow).first);
+    expect(row.width, 400);
+    final author = tester.getRect(find.text('作者名').first);
+    final tags = tester.getRect(find.text('#标签').first);
+    expect(author.left, lessThan(row.left + row.width * 0.25));
+    expect(
+      tags.right,
+      greaterThan(row.right - 2 * FuncSpacing.md),
+      reason: 'the tag line ends on the cell edge, not mid-cell',
+    );
+    // The author sits on the cell's inner left edge and the tag line on
+    // its inner right edge: the row uses the whole cell, not the old
+    // ~200dp leading text column.
+    expect(author.left, lessThan(row.left + 100));
+    expect(tags.left, greaterThan(row.center.dx));
   });
 
   testWidgets('a width-built sliver takes taps after a scroll and follows a '

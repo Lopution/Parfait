@@ -9,6 +9,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 class LanguageSettingsPage extends ConsumerWidget {
   const LanguageSettingsPage({super.key});
@@ -26,7 +27,10 @@ class LanguageSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.languageSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.languageSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

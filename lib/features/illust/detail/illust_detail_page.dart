@@ -58,6 +58,8 @@ import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
 import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/layout/content_widths.dart';
+import '../../../app/layout/sliver_width_builder.dart';
 import '../../../app/layout/deferred_cache_scroll_view.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
@@ -999,34 +1001,47 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     // entry among uniform wrappers would shift every section after it onto
     // a different child.
     final metaSlivers = [
-      for (final section in <Widget>[
+      for (final (section, readable) in <(Widget, bool)>[
         // Official client behaviour: when the work belongs to an
         // illust series, the series card sits between the image pages
         // and the info block (name, 第 N 话, prev/next navigation).
-        IllustSeriesSection(
-          illustId: widget.illustId,
-          outsideSeries: entity.outsideSeries,
+        (
+          IllustSeriesSection(
+            illustId: widget.illustId,
+            outsideSeries: entity.outsideSeries,
+          ),
+          false,
         ),
         // The ⋮ menu's artwork-info item scrolls to the anchor
         // (ensureVisible by context — no controller takeover, risks R9).
-        InfoBlock(
-          anchorKey: _infoAnchorKey,
-          entity: entity,
-          blockMode: _blockMode,
-          onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
+        // The caption reads in the article column on a wide single
+        // scroll, like the comments below (R5).
+        (
+          InfoBlock(
+            anchorKey: _infoAnchorKey,
+            entity: entity,
+            blockMode: _blockMode,
+            onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
+          ),
+          true,
         ),
         // Comment preview and the author's other works; like related works,
         // each asks for its data only once it is on screen.
-        CommentsPreviewSlivers(
-          illustId: widget.illustId,
-          onCompose: _openComposer,
+        (
+          CommentsPreviewSlivers(
+            illustId: widget.illustId,
+            onCompose: _openComposer,
+          ),
+          true,
         ),
-        AuthorWorksSlivers(entity: entity),
+        (AuthorWorksSlivers(entity: entity), false),
         // Official client behaviour: "関連作品" below the caption/tags,
         // paginated as the user scrolls to the bottom of the page.
-        RelatedIllustsSlivers(illustId: widget.illustId),
+        (RelatedIllustsSlivers(illustId: widget.illustId), false),
       ])
-        TickerPartition(child: section),
+        TickerPartition(
+          child: readable ? _ArticleTextWidth(child: section) : section,
+        ),
       // The page's end clears the floating action bar.
       SliverToBoxAdapter(
         child: SizedBox(height: DetailActionBar.restingExtent(context)),
@@ -1236,6 +1251,28 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       ),
     );
   }
+}
+
+/// Centres a section's sliver at the article text width when the scroll is
+/// wider than it. A single-column detail on a wide surface keeps its
+/// caption and comments at a readable line length while the images stay
+/// full width; a two-pane info column is already narrower, so nothing
+/// changes there.
+class _ArticleTextWidth extends StatelessWidget {
+  const _ArticleTextWidth({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => SliverWidthBuilder(
+    builder: (context, width) {
+      final inset = (width - ContentWidths.article) / 2;
+      return SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: inset > 0 ? inset : 0),
+        sliver: child,
+      );
+    },
+  );
 }
 
 /// Under the first image of a collapsed illustration set: shows the rest.

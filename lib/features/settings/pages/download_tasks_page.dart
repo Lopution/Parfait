@@ -314,6 +314,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                 context,
                 count: _selected.length,
                 onClose: _exitManaging,
+                contentWidth: ContentWidths.management,
                 actions: [
                   IconButton(
                     tooltip: context.l10n.selectAll,
@@ -339,6 +340,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                 ],
               )
             : AppTopBar(
+                contentWidth: ContentWidths.management,
                 title: Text(context.l10n.downloaderSettings),
                 actions: [
                   // Spelled out: an icon alone did not read as "manage".

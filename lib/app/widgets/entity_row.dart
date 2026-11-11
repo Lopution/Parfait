@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../format/content_locale.dart';
+import '../layout/card_columns.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import 'feed/feed_text_warmup.dart';
@@ -153,6 +154,71 @@ class EntityRow extends StatelessWidget {
       );
     }
 
+    // Several cards share the width: the row spreads its lines across the
+    // whole cell instead of leaving the author, tags and counts in the
+    // leading text column (PAGE-16). One card keeps the stacked row.
+    final spread = CardCellScope.columnsOf(context) > 1;
+    final titleLineWidget = _titleLine(
+      Text(
+        title,
+        locale: contentLocale(context, title),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: _titleStyle(titleStyle, color: selected ? selectedText : null),
+      ),
+    );
+    final overlineText = overline == null
+        ? null
+        : Text(
+            overline!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium!
+                .copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? selectedSecondary
+                      : colorScheme.onSurfaceVariant,
+                )
+                .tabular,
+          );
+    final subtitleText = subtitle == null
+        ? null
+        : Text(
+            subtitle!,
+            locale: contentLocale(context, subtitle!),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: selected
+                ? tokens.caption.copyWith(color: selectedSecondary)
+                : tokens.caption,
+          );
+    final metaText = meta == null
+        ? null
+        : EntityMetaText(meta!, color: selected ? selectedSecondary : null);
+    final footnoteText = footnote == null
+        ? null
+        : EntityMetaText(footnote!, color: selected ? selectedSecondary : null);
+    final facts =
+        subtitleText != null || metaText != null || footnoteText != null
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (subtitleText != null) Expanded(child: subtitleText),
+              if (metaText != null || footnoteText != null) ...[
+                if (subtitleText != null) const SizedBox(width: FuncSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [?metaText, ?footnoteText],
+                  ),
+                ),
+              ],
+            ],
+          )
+        : null;
+
     return Semantics(
       container: true,
       button: onTap != null || onLongPress != null,
@@ -195,63 +261,33 @@ class EntityRow extends StatelessWidget {
                 Expanded(
                   child: ExcludeSemantics(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: spread
+                          ? CrossAxisAlignment.stretch
+                          : CrossAxisAlignment.start,
                       children: [
-                        if (overline != null) ...[
-                          Text(
-                            overline!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelMedium!
-                                .copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: selected
-                                      ? selectedSecondary
-                                      : colorScheme.onSurfaceVariant,
-                                )
-                                .tabular,
-                          ),
+                        if (overlineText != null) ...[
+                          overlineText,
                           const SizedBox(height: FuncSpacing.xxs),
                         ],
-                        _titleLine(
-                          Text(
-                            title,
-                            locale: contentLocale(context, title),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: _titleStyle(
-                              titleStyle,
-                              color: selected ? selectedText : null,
-                            ),
-                          ),
-                        ),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: FuncSpacing.xs),
-                          Text(
-                            subtitle!,
-                            locale: contentLocale(context, subtitle!),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: selected
-                                ? tokens.caption.copyWith(
-                                    color: selectedSecondary,
-                                  )
-                                : tokens.caption,
-                          ),
-                        ],
-                        if (meta != null) ...[
-                          const SizedBox(height: FuncSpacing.xs),
-                          EntityMetaText(
-                            meta!,
-                            color: selected ? selectedSecondary : null,
-                          ),
-                        ],
-                        if (footnote != null) ...[
-                          const SizedBox(height: FuncSpacing.xs),
-                          EntityMetaText(
-                            footnote!,
-                            color: selected ? selectedSecondary : null,
-                          ),
+                        titleLineWidget,
+                        if (spread) ...[
+                          if (facts != null) ...[
+                            const SizedBox(height: FuncSpacing.xs),
+                            facts,
+                          ],
+                        ] else ...[
+                          if (subtitleText != null) ...[
+                            const SizedBox(height: FuncSpacing.xs),
+                            subtitleText,
+                          ],
+                          if (metaText != null) ...[
+                            const SizedBox(height: FuncSpacing.xs),
+                            metaText,
+                          ],
+                          if (footnoteText != null) ...[
+                            const SizedBox(height: FuncSpacing.xs),
+                            footnoteText,
+                          ],
                         ],
                         if (progress != null) ...[
                           const SizedBox(height: FuncSpacing.xs),

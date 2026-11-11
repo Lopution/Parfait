@@ -70,7 +70,10 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       // Manual insets: the composer reserves the IME/panel extent in layout
       // instead of letting the Scaffold squeeze the whole body.
       resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(title: Text(context.l10n.commentTitle)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.management,
+        title: Text(context.l10n.commentTitle),
+      ),
       body: ContentWidthCap(
         maxWidth: ContentWidths.management,
         child: Column(
@@ -229,7 +232,10 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     }
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(title: Text(context.l10n.commentReplies)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.management,
+        title: Text(context.l10n.commentReplies),
+      ),
       body: ContentWidthCap(
         maxWidth: ContentWidths.management,
         child: Column(
@@ -365,7 +371,10 @@ class _ClosedCommentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppTopBar(title: Text(title)),
+    appBar: AppTopBar(
+      contentWidth: ContentWidths.management,
+      title: Text(title),
+    ),
     body: FeedEmpty(
       icon: Icons.comments_disabled_outlined,
       title: context.l10n.commentsClosed,

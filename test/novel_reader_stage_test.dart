@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
@@ -307,6 +308,21 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(reader(), same(opened));
+  });
+
+  testWidgets('the immersive progress hint stays on the article column', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(1200, 800));
+    await tester.pumpWidget(_stageApp(_RecordingBinding()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final hint = tester.getRect(find.textContaining('A novel ·'));
+    const columnLeft = (1200 - ContentWidths.article) / 2;
+    expect(hint.left, greaterThanOrEqualTo(columnLeft));
+    expect(hint.right, lessThanOrEqualTo(1200 - columnLeft));
+    expect(hint.center.dx, closeTo(600, .5));
   });
 
   testWidgets('the current reader hides the shell rail, under its panels '

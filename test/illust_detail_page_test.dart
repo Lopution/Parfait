@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/widgets/ambient_wash.dart';
@@ -31,6 +32,7 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/comment_world.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'helpers/prompt_host.dart';
 
@@ -995,6 +997,60 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(ImageViewerPage), findsOneWidget);
+    });
+  });
+
+  group('single-column text width (C6)', () {
+    testWidgets('text keeps the article column on a large portrait', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        commentOverrides: {
+          42: [commentJson(sampleComment(1, workId: 42))],
+        },
+      );
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: const Size(924, 1480),
+      );
+      await tester.pumpAndSettle();
+
+      // The artwork still runs the window's full width.
+      expect(tester.getRect(workImages.first).width, closeTo(924, .5));
+
+      await tester.scrollUntilVisible(
+        find.byType(CaptionRichText),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      // The info text sits in the 700dp column centred on the window,
+      // inset by the block's own page margin (LAYOUT-14).
+      final caption = tester.getRect(find.byType(CaptionRichText).first);
+      const columnLeft = (924 - ContentWidths.article) / 2;
+      expect(
+        caption.width,
+        closeTo(ContentWidths.article - 2 * FuncSpacing.lg, .5),
+      );
+      expect(caption.left, closeTo(columnLeft + FuncSpacing.lg, .5));
+      expect(caption.center.dx, closeTo(924 / 2, .5));
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('illust-comments-preview')),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      final comments = tester.getRect(
+        find.byKey(const Key('illust-comments-preview')),
+      );
+      expect(
+        comments.width,
+        closeTo(ContentWidths.article - 2 * FuncSpacing.lg, .5),
+      );
+      expect(comments.center.dx, closeTo(924 / 2, .5));
     });
   });
 }

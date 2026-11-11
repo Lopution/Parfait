@@ -24,6 +24,7 @@ import '../../core/settings/shared_preferences.dart';
 import '../../l10n/context.dart';
 import 'settings_catalog.dart';
 import 'settings_helpers.dart';
+import '../../app/layout/content_widths.dart';
 
 export 'pages/about_settings_page.dart';
 export 'pages/account_settings_page.dart';
@@ -65,6 +66,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final query = _query.text;
     return Scaffold(
       appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
         title: Text(context.l10n.settingsTitle),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(_searchBarExtent),

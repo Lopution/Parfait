@@ -35,6 +35,17 @@ class NovelLayoutStyle {
   /// Space between a paragraph and its translation (bilingual reading).
   final double translationGap;
 
+  /// The reader's centred text column for a viewport and system text scale.
+  /// The stage's passive status hint uses this same width, so it follows the
+  /// body when the font slider changes (R4).
+  double contentWidth({
+    required double availableWidth,
+    required TextScaler textScaler,
+  }) => math.min(
+    availableWidth,
+    textScaler.scale(fontSize) * 40 + horizontalPadding * 2,
+  );
+
   /// A translation reads a step smaller and lighter than its paragraph.
   static const double _translationScale = 0.9;
   static const double _translationAlpha = 0.7;
