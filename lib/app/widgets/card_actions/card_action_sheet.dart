@@ -12,6 +12,7 @@ import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../display_actions.dart';
 import '../feed/muted_cover.dart';
+import 'card_action.dart';
 import 'illust_card_actions.dart';
 
 /// The card's secondary click on a PC: the registered [CardAction]s as a
@@ -20,11 +21,11 @@ import 'illust_card_actions.dart';
 /// bottom panel.
 Future<void> showCardActionsMenu(
   BuildContext context,
-  WidgetRef ref,
   IllustEntity entity,
   Offset position,
 ) {
   final providers = ProviderScope.containerOf(context);
+  final state = CardActionState.ofContainer(providers);
   final navigator = Navigator.of(context).context;
   final l10n = context.l10n;
   return showDisplayActions(
@@ -34,8 +35,8 @@ Future<void> showCardActionsMenu(
     actions: [
       for (final action in providers.read(illustCardActionsProvider))
         DisplayAction(
-          icon: action.iconFor(ref, entity),
-          label: action.labelFor(ref, entity, l10n),
+          icon: action.iconFor(state, entity),
+          label: action.labelFor(state, entity, l10n),
           onSelected: () => unawaited(
             action.run(
               context.mounted ? context : navigator,
@@ -65,6 +66,7 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
     builder: (sheetContext) => Consumer(
       builder: (sheetContext, ref, _) {
         final actions = ref.watch(illustCardActionsProvider);
+        final state = CardActionState.ofRef(ref);
         final providers = ProviderScope.containerOf(sheetContext);
         final l10n = sheetContext.l10n;
         return SafeArea(
@@ -84,10 +86,10 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
                 for (final action in actions)
                   Semantics(
                     button: true,
-                    label: action.labelFor(ref, entity, l10n),
+                    label: action.labelFor(state, entity, l10n),
                     child: ListTile(
-                      leading: Icon(action.iconFor(ref, entity)),
-                      title: Text(action.labelFor(ref, entity, l10n)),
+                      leading: Icon(action.iconFor(state, entity)),
+                      title: Text(action.labelFor(state, entity, l10n)),
                       onTap: () {
                         Navigator.of(sheetContext).pop();
                         unawaited(

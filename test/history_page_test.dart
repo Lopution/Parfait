@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_feed_controller.dart';
@@ -14,6 +17,7 @@ import 'package:parfait/features/history/history_page.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/history_world.dart';
+import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
@@ -28,10 +32,11 @@ Future<ProviderContainer> _seedPage(
   WidgetTester tester,
   List<HistoryRecord> records, {
   IllustStore? illustStore,
+  Size surface = const Size(390, 844),
 }) async {
   // Phone-sized surface: the confirm sheet's 0.35-height fraction box
   // overflows on the 800x600 default viewport and pushes the buttons out.
-  setViewSize(tester, const Size(390, 844));
+  setViewSize(tester, surface);
   late ProviderContainer container;
   await tester.runAsync(() async {
     final repository = await openHistoryRepository(records);
@@ -148,6 +153,39 @@ void main() {
     await tester.pump();
     expect(_selectionTitle('已选 1 项'), findsNothing);
     expect(find.text('历史记录'), findsOneWidget);
+  });
+
+  testWidgets('a PC right-click on a card offers Manage, then enters', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      // The work is known, so the row renders the shared IllustCard — the
+      // gesture under test — rather than a snapshot frame.
+      final illustrations = IllustStore()
+        ..mergeAll([parseIllust(illustJson(1))]);
+      // Wide enough for the PC form.
+      await _seedPage(
+        tester,
+        [historyRecord(1)],
+        illustStore: illustrations,
+        surface: const Size(1000, 800),
+      );
+      await tester.tap(
+        find.byType(IllustCard),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      final manage = find.widgetWithText(PopupMenuItem<void>, '管理');
+      expect(manage, findsOneWidget);
+      await tester.tap(manage);
+      await tester.pumpAndSettle();
+      expect(_selectionTitle('已选 1 项'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('manage action enters mode; select-all then delete clears', (

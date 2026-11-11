@@ -711,17 +711,19 @@ class _TrendingTagTile extends ConsumerWidget {
           onLongPress: openWork,
           onSecondaryTapUp: openWork == null
               ? null
-              : (details) => showDisplayActions(
-                  context,
-                  position: details.globalPosition,
-                  onLongPress: openWork,
-                  actions: [
-                    DisplayAction(
-                      icon: Icons.open_in_new,
-                      label: context.l10n.downloadOpenWork,
-                      onSelected: openWork,
-                    ),
-                  ],
+              : (details) => unawaited(
+                  showDisplayActions(
+                    context,
+                    position: details.globalPosition,
+                    onLongPress: openWork,
+                    actions: [
+                      DisplayAction(
+                        icon: Icons.open_in_new,
+                        label: context.l10n.downloadOpenWork,
+                        onSelected: openWork,
+                      ),
+                    ],
+                  ),
                 ),
           child: ClipRRect(
             borderRadius: FuncShape.card,
@@ -1379,17 +1381,19 @@ class _SearchStart extends ConsumerWidget {
                     translated: tag.translatedName,
                     onTap: () => onSearch(tag.name),
                     onLongPress: () => fillWithHaptic(tag.name),
-                    onSecondaryTapAt: (position) => showDisplayActions(
-                      context,
-                      position: position,
-                      onLongPress: () => fillWithHaptic(tag.name),
-                      actions: [
-                        DisplayAction(
-                          icon: Icons.north_west,
-                          label: l10n.searchSuggestionFill,
-                          onSelected: () => fillWithHaptic(tag.name),
-                        ),
-                      ],
+                    onSecondaryTapAt: (position) => unawaited(
+                      showDisplayActions(
+                        context,
+                        position: position,
+                        onLongPress: () => fillWithHaptic(tag.name),
+                        actions: [
+                          DisplayAction(
+                            icon: Icons.north_west,
+                            label: l10n.searchSuggestionFill,
+                            onSelected: () => fillWithHaptic(tag.name),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],
@@ -1462,17 +1466,19 @@ class _HistoryChip extends StatelessWidget {
     onLongPressHint: context.l10n.searchSuggestionFill,
     child: GestureDetector(
       onLongPress: onLongPress,
-      onSecondaryTapUp: (details) => showDisplayActions(
-        context,
-        position: details.globalPosition,
-        onLongPress: onLongPress,
-        actions: [
-          DisplayAction(
-            icon: Icons.north_west,
-            label: context.l10n.searchSuggestionFill,
-            onSelected: onLongPress,
-          ),
-        ],
+      onSecondaryTapUp: (details) => unawaited(
+        showDisplayActions(
+          context,
+          position: details.globalPosition,
+          onLongPress: onLongPress,
+          actions: [
+            DisplayAction(
+              icon: Icons.north_west,
+              label: context.l10n.searchSuggestionFill,
+              onSelected: onLongPress,
+            ),
+          ],
+        ),
       ),
       child: InputChip(
         avatar: const Icon(Icons.history),

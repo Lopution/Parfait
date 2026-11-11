@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/context.dart';
@@ -45,17 +47,19 @@ class SelectableTile extends StatelessWidget {
             ? (details) => onToggle()
             : onLongPress == null
             ? null
-            : (details) => showDisplayActions(
-                context,
-                position: details.globalPosition,
-                onLongPress: onLongPress!,
-                actions: [
-                  DisplayAction(
-                    icon: Icons.checklist_outlined,
-                    label: context.l10n.manage,
-                    onSelected: onLongPress!,
-                  ),
-                ],
+            : (details) => unawaited(
+                showDisplayActions(
+                  context,
+                  position: details.globalPosition,
+                  onLongPress: onLongPress!,
+                  actions: [
+                    DisplayAction(
+                      icon: Icons.checklist_outlined,
+                      label: context.l10n.manage,
+                      onSelected: onLongPress!,
+                    ),
+                  ],
+                ),
               ),
         child: Stack(
           children: [

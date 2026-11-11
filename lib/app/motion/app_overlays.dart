@@ -74,8 +74,13 @@ AnimationStyle _sheetAnimationStyle(BuildContext context) {
 
 /// Pointer-anchored menu entry: the context menu a secondary click opens
 /// on a PC (PAGE-18). The M3 popup menu at [position], with the app's own
-/// width cap applied by the caller; the menu's own barrier closes it on an
-/// outside click and Esc.
+/// width cap applied by the caller.
+///
+/// This one keeps Material's own popup route: its barrier closes on an
+/// outside tap and Esc, not on the release-to-dismiss gesture of
+/// [showAppBottomSheet] and [showAppPanel] (FB-02). QUAL-05's scene comes
+/// from the caller's rows (see `showDisplayActions`), since the popup
+/// route's class is private to Material.
 Future<T?> showAppContextMenu<T>({
   required BuildContext context,
   required RelativeRect position,

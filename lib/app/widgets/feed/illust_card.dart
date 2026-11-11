@@ -21,6 +21,7 @@ import '../../pixiv_image.dart';
 import '../../image_tier_cache.dart';
 import '../../widgets/bookmark_switch_button.dart';
 import '../card_actions/card_action_sheet.dart';
+import '../display_actions.dart';
 import '../entity_row.dart';
 import 'feed_grid.dart';
 import 'feed_text_warmup.dart';
@@ -273,15 +274,28 @@ class _IllustCardBody extends ConsumerWidget {
     // The card's secondary click: on a PC the same actions open beside the
     // pointer (R11); elsewhere (a pen's right-click on a touch screen) the
     // long-press presentation runs as before. A caller's own long press
-    // (history's selection entry) owns the gesture on every form.
+    // (history's selection entry) stays the card's one entry here too, so
+    // the right-click does not fall through to the card actions.
     void secondaryTap(TapUpDetails details) {
-      if (onLongPress case final override?) {
-        override();
+      final own = onLongPress;
+      if (own == null) {
+        AppHaptics.longPress();
+        unawaited(showCardActionsMenu(context, entity, details.globalPosition));
         return;
       }
-      AppHaptics.longPress();
       unawaited(
-        showCardActionsMenu(context, ref, entity, details.globalPosition),
+        showDisplayActions(
+          context,
+          position: details.globalPosition,
+          onLongPress: own,
+          actions: [
+            DisplayAction(
+              icon: Icons.checklist_outlined,
+              label: context.l10n.manage,
+              onSelected: own,
+            ),
+          ],
+        ),
       );
     }
 

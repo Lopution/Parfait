@@ -244,19 +244,26 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
           ? widget.onToggleSelect
           : () => _openViewer(context, quality: viewQuality),
       onLongPress: isPagePlaceholder ? null : widget.onLongPress,
+      // The selection mode already on screen keeps toggling, as a tap and
+      // a long press do; outside it the PC offers the mode as one entry
+      // beside the pointer (R11).
       onSecondaryTapUp: isPagePlaceholder
           ? null
-          : (details) => showDisplayActions(
-              context,
-              position: details.globalPosition,
-              onLongPress: widget.onLongPress,
-              actions: [
-                DisplayAction(
-                  icon: Icons.checklist_outlined,
-                  label: context.l10n.downloadSelectPages,
-                  onSelected: widget.onLongPress,
-                ),
-              ],
+          : downloadMode
+          ? (details) => widget.onToggleSelect()
+          : (details) => unawaited(
+              showDisplayActions(
+                context,
+                position: details.globalPosition,
+                onLongPress: widget.onLongPress,
+                actions: [
+                  DisplayAction(
+                    icon: Icons.checklist_outlined,
+                    label: context.l10n.downloadSelectPages,
+                    onSelected: widget.onLongPress,
+                  ),
+                ],
+              ),
             ),
       // Loose stack: the loaded image sizes itself to its intrinsic aspect
       // ratio at full width. The app API's meta_pages never carries

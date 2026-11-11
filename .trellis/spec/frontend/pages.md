@@ -11,15 +11,23 @@ applies_to:
   - lib/features/watchlater/**
   - lib/features/spotlight/**
   - lib/app/widgets/author_row.dart
+  - lib/app/widgets/bookmark_switch_button.dart
+  - lib/app/widgets/card_actions/**
+  - lib/app/widgets/display_actions.dart
   - lib/app/widgets/expandable_text.dart
+  - lib/app/widgets/feed/illust_card.dart
   - lib/app/widgets/inline_translation.dart
   - lib/app/widgets/search_keyword_pills.dart
   - lib/app/widgets/selectable_tile.dart
+  - lib/app/widgets/tag_actions_sheet.dart
+  - lib/app/widgets/tag_chips.dart
   - lib/app/widgets/sliver_surface_list.dart
   - lib/app/layout/card_columns.dart
   - lib/app/layout/content_widths.dart
   - lib/app/widgets/scrollable_form_shell.dart
   - lib/app/scroll_behavior.dart
+  - lib/features/illust/detail/**
+  - lib/features/novel/novel_page.dart
 reviewed: 2026-10-17
 ---
 
@@ -369,5 +377,5 @@ reviewed: 2026-10-17
   awkward, cards gave no sign they open, and a wheel gives no sense of a
   list's length. On a desktop the long-press panel rose from the bottom
   of the window, far from the pointer.
-- **Check:** `test/card_action_test.dart` "a PC opens the card actions as a menu beside the pointer" "a mouse lights the card on hover and opens it on right-click"; `test/illust_detail_actions_test.dart` "a PC opens the tag entries as a menu beside the chip"; `test/scroll_behavior_test.dart` "a mouse brings a scrollbar and keeps the list as it was"
+- **Check:** `test/card_action_test.dart` "a PC opens the card actions as a menu beside the pointer" "the PC menu reads the state when it opens, outside build" "a mouse lights the card on hover and opens it on right-click"; `test/illust_detail_actions_test.dart` "a PC opens the tag entries as a menu beside the chip"; `test/history_page_test.dart` "a PC right-click on a card offers Manage, then enters"; `test/illust_detail_download_test.dart` "a PC right-click offers the selection mode, then toggles"; `test/scroll_behavior_test.dart` "a mouse brings a scrollbar and keeps the list as it was"
 - **Code:** `lib/app/widgets/display_actions.dart`, `lib/app/motion/app_overlays.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/tag_actions_sheet.dart`, `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`

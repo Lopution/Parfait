@@ -1306,6 +1306,8 @@ class _DetailMoreMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final container = ProviderScope.containerOf(context);
+    final cardState = CardActionState.ofRef(ref);
     // Named as the sheet it opens is. The heart skips its sheet while a
     // request is in flight; so does the menu.
     final (bookmarked: bookmarked, unsettled: bookmarkUnsettled) = ref.watch(
@@ -1341,8 +1343,8 @@ class _DetailMoreMenu extends ConsumerWidget {
       ),
       final CardAction card => AppMenuEntry(
         value: card,
-        icon: card.iconFor(ref, entity),
-        label: card.labelFor(ref, entity, l10n),
+        icon: card.iconFor(cardState, entity),
+        label: card.labelFor(cardState, entity, l10n),
       ),
       _ => throw ArgumentError.value(action, 'action', 'not a menu action'),
     };
@@ -1350,7 +1352,7 @@ class _DetailMoreMenu extends ConsumerWidget {
       onSelected: (buttonContext, action) => switch (action) {
         final _DetailMenuAction own => onSelected(buttonContext, own),
         final CardAction card => unawaited(
-          card.run(context, ProviderScope.containerOf(context), entity),
+          card.run(context, container, entity),
         ),
         _ => throw ArgumentError.value(action, 'action', 'not a menu action'),
       },

@@ -48,12 +48,15 @@ class _DownloadAction extends CardAction {
   String get id => 'download';
 
   @override
-  IconData iconFor(WidgetRef ref, IllustEntity entity) =>
+  IconData iconFor(CardActionState state, IllustEntity entity) =>
       Icons.download_outlined;
 
   @override
-  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
-      l10n.cardActionDownload;
+  String labelFor(
+    CardActionState state,
+    IllustEntity entity,
+    AppLocalizations l10n,
+  ) => l10n.cardActionDownload;
 
   @override
   Future<void> run(
@@ -89,14 +92,18 @@ class _WatchLaterAction extends CardAction {
   String get id => 'watch-later';
 
   @override
-  IconData iconFor(WidgetRef ref, IllustEntity entity) {
-    final saved = _saved(ref, entity);
+  IconData iconFor(CardActionState state, IllustEntity entity) {
+    final saved = _saved(state, entity);
     return saved ? Icons.bookmark : Icons.bookmark_border;
   }
 
   @override
-  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) {
-    return _saved(ref, entity)
+  String labelFor(
+    CardActionState state,
+    IllustEntity entity,
+    AppLocalizations l10n,
+  ) {
+    return _saved(state, entity)
         ? l10n.cardActionRemoveWatchLater
         : l10n.cardActionWatchLater;
   }
@@ -114,7 +121,7 @@ class _WatchLaterAction extends CardAction {
       action: context.l10n.watchLaterSaveFailed,
     );
     try {
-      if (_savedNow(container, entity)) {
+      if (_saved(CardActionState.ofContainer(container), entity)) {
         // The removal keeps the entry's original addedAt and its account:
         // undo puts it back in place, and only on that account's list.
         final removal = await store.removeAll([entity.id]);
@@ -138,15 +145,8 @@ class _WatchLaterAction extends CardAction {
     }
   }
 
-  bool _saved(WidgetRef ref, IllustEntity entity) {
-    return ref.watch(
-      watchLaterStoreProvider.select((async) => _contains(async.value, entity)),
-    );
-  }
-
-  /// The same check for a run that outlives the card: one snapshot read.
-  bool _savedNow(ProviderContainer container, IllustEntity entity) =>
-      _contains(container.read(watchLaterStoreProvider).value, entity);
+  bool _saved(CardActionState state, IllustEntity entity) =>
+      _contains(state.watch(watchLaterStoreProvider).value, entity);
 
   static bool _contains(List<WatchLaterEntry>? entries, IllustEntity entity) =>
       (entries ?? const []).any((entry) => entry.entity.id == entity.id);
@@ -160,17 +160,21 @@ class _MuteWorkAction extends CardAction {
   @override
   String get id => 'mute-work';
 
-  bool _muted(WidgetRef ref, IllustEntity entity) =>
-      ref.watch(muteStoreProvider.select((s) => s.isWorkMuted(entity.id)));
+  bool _muted(CardActionState state, IllustEntity entity) =>
+      state.watch(muteStoreProvider.select((s) => s.isWorkMuted(entity.id)));
 
   @override
-  IconData iconFor(WidgetRef ref, IllustEntity entity) => _muted(ref, entity)
+  IconData iconFor(CardActionState state, IllustEntity entity) =>
+      _muted(state, entity)
       ? Icons.visibility_off
       : Icons.visibility_off_outlined;
 
   @override
-  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
-      _muted(ref, entity) ? l10n.unmuteWork : l10n.muteWork;
+  String labelFor(
+    CardActionState state,
+    IllustEntity entity,
+    AppLocalizations l10n,
+  ) => _muted(state, entity) ? l10n.unmuteWork : l10n.muteWork;
 
   @override
   Future<void> run(
@@ -216,16 +220,20 @@ class _MuteUserAction extends CardAction {
   @override
   String get id => 'mute-user';
 
-  bool _muted(WidgetRef ref, IllustEntity entity) =>
-      ref.watch(muteStoreProvider.select((s) => s.isUserMuted(entity.user.id)));
+  bool _muted(CardActionState state, IllustEntity entity) => state.watch(
+    muteStoreProvider.select((s) => s.isUserMuted(entity.user.id)),
+  );
 
   @override
-  IconData iconFor(WidgetRef ref, IllustEntity entity) =>
-      _muted(ref, entity) ? Icons.person_off : Icons.person_off_outlined;
+  IconData iconFor(CardActionState state, IllustEntity entity) =>
+      _muted(state, entity) ? Icons.person_off : Icons.person_off_outlined;
 
   @override
-  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
-      _muted(ref, entity) ? l10n.unmuteAuthor : l10n.muteAuthor;
+  String labelFor(
+    CardActionState state,
+    IllustEntity entity,
+    AppLocalizations l10n,
+  ) => _muted(state, entity) ? l10n.unmuteAuthor : l10n.muteAuthor;
 
   @override
   Future<void> run(
@@ -250,11 +258,15 @@ class _ShareAction extends CardAction {
   String get id => 'share';
 
   @override
-  IconData iconFor(WidgetRef ref, IllustEntity entity) => Icons.share_outlined;
+  IconData iconFor(CardActionState state, IllustEntity entity) =>
+      Icons.share_outlined;
 
   @override
-  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
-      l10n.cardActionShare;
+  String labelFor(
+    CardActionState state,
+    IllustEntity entity,
+    AppLocalizations l10n,
+  ) => l10n.cardActionShare;
 
   /// Opens the platform share sheet; on platforms
   /// without one the service falls back to the clipboard and we confirm the

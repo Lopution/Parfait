@@ -118,6 +118,34 @@ void main() {
     }
   });
 
+  testWidgets('the PC menu reads the state when it opens, outside build', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      final (container, _, _) = await makeCardWorld();
+      await container
+          .read(muteStoreProvider.notifier)
+          .muteWork(const MutedWork(illustId: 7));
+      await tester.pumpWidget(
+        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+      );
+
+      await tester.tap(
+        find.byType(IllustCard),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(PopupMenuItem<void>, '解除屏蔽此作品'),
+        findsOneWidget,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('a mouse lights the card on hover and opens it on right-click', (
     tester,
   ) async {

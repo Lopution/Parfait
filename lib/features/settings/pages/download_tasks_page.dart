@@ -841,17 +841,19 @@ class _DownloadTaskRow extends StatelessWidget {
           onLongPress: managing ? null : onEnterManaging,
           onSecondaryTapUp: managing
               ? null
-              : (details) => showDisplayActions(
-                  context,
-                  position: details.globalPosition,
-                  onLongPress: onEnterManaging,
-                  actions: [
-                    DisplayAction(
-                      icon: Icons.checklist_outlined,
-                      label: l10n.manage,
-                      onSelected: onEnterManaging,
-                    ),
-                  ],
+              : (details) => unawaited(
+                  showDisplayActions(
+                    context,
+                    position: details.globalPosition,
+                    onLongPress: onEnterManaging,
+                    actions: [
+                      DisplayAction(
+                        icon: Icons.checklist_outlined,
+                        label: l10n.manage,
+                        onSelected: onEnterManaging,
+                      ),
+                    ],
+                  ),
                 ),
           // Entering management plays AppHaptics.confirm and toggles play
           // select; the ink response's own vibration would double them.

@@ -488,19 +488,22 @@ class _RankingTabsState<M extends RankingCategory>
         },
         // A PC's secondary click opens the same entries at the pointer
         // (R11); a touch form keeps the menu under the tab.
-        onSecondaryTapUp: (details) => showDisplayActions(
-          context,
-          position: details.globalPosition,
-          onLongPress: toggle,
-          actions: [
-            for (final entry in entries)
-              DisplayAction(
-                icon: entry.icon ?? Icons.more_horiz,
-                label: entry.label,
-                enabled: entry.enabled,
-                onSelected: () => _onTabAction(mode, entry.value, arrangement),
-              ),
-          ],
+        onSecondaryTapUp: (details) => unawaited(
+          showDisplayActions(
+            context,
+            position: details.globalPosition,
+            onLongPress: toggle,
+            actions: [
+              for (final entry in entries)
+                DisplayAction(
+                  icon: entry.icon ?? Icons.more_horiz,
+                  label: entry.label,
+                  enabled: entry.enabled,
+                  onSelected: () =>
+                      _onTabAction(mode, entry.value, arrangement),
+                ),
+            ],
+          ),
         ),
         child: label,
       ),
