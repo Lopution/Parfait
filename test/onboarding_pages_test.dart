@@ -176,8 +176,9 @@ void main() {
       await pumpPage(tester, const Size(390, 844), const WelcomePage());
 
       final start = tester.getRect(find.byType(ReplicaButton));
+      final viewport = tester.getRect(find.byType(SingleChildScrollView));
       // The compact stacked form still pins the action under the thumb.
-      expect(start.bottom, closeTo(844 - 48, 2));
+      expect(start.bottom, closeTo(viewport.bottom - 48, 2));
     });
   });
 

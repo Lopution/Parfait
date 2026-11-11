@@ -32,6 +32,7 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/comment_world.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'helpers/prompt_host.dart';
 
@@ -1003,7 +1004,11 @@ void main() {
     testWidgets('text keeps the article column on a large portrait', (
       tester,
     ) async {
-      final (container, _, _) = await makeWorld();
+      final (container, _, _) = await makeWorld(
+        commentOverrides: {
+          42: [commentJson(sampleComment(1, workId: 42))],
+        },
+      );
       await pumpDetail(
         tester,
         container,
@@ -1013,10 +1018,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The artwork still runs the window's full width.
-      expect(
-        tester.getRect(workImages.first).width,
-        greaterThan(ContentWidths.article),
-      );
+      expect(tester.getRect(workImages.first).width, closeTo(924, .5));
 
       await tester.scrollUntilVisible(
         find.byType(CaptionRichText),
@@ -1034,6 +1036,21 @@ void main() {
       );
       expect(caption.left, closeTo(columnLeft + FuncSpacing.lg, .5));
       expect(caption.center.dx, closeTo(924 / 2, .5));
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('illust-comments-preview')),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      final comments = tester.getRect(
+        find.byKey(const Key('illust-comments-preview')),
+      );
+      expect(
+        comments.width,
+        closeTo(ContentWidths.article - 2 * FuncSpacing.lg, .5),
+      );
+      expect(comments.center.dx, closeTo(924 / 2, .5));
     });
   });
 }

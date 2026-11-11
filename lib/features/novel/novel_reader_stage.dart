@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../../app/layout/app_breakpoints.dart';
-import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
@@ -448,28 +447,33 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                           start: _stableInsets.left,
                           end: _stableInsets.right,
                         ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: ContentWidths.article,
-                            ),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: const NovelLayoutStyle()
-                                      .horizontalPadding,
-                                ),
-                                child: Text(
-                                  '${novel.title} · ${_page + 1}/$_pageCount · $percent%'
-                                  '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _hintStyle(context, palette),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final style = NovelLayoutStyle(
+                              fontSize: _settings.fontSize,
+                            );
+                            final width = style.contentWidth(
+                              availableWidth: constraints.maxWidth,
+                              textScaler: MediaQuery.textScalerOf(context),
+                            );
+                            return Center(
+                              child: SizedBox(
+                                width: width,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: style.horizontalPadding,
+                                  ),
+                                  child: Text(
+                                    '${novel.title} · ${_page + 1}/$_pageCount · $percent%'
+                                    '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _hintStyle(context, palette),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ),
                     ),

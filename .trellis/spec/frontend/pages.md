@@ -370,7 +370,8 @@ reviewed: 2026-11-11
 ### PAGE-23 A constrained page's top bar follows its content column
 - **Rule:** A page whose content sits in a capped, centred column passes
   that width to `AppTopBar` (`contentWidth`, through `ReplicaScaffold`):
-  the settings and download pages at `ContentWidths.settings`, comments
+  the settings and download-settings pages at `ContentWidths.settings`, the
+  download-tasks page at `ContentWidths.management`, comments
   and bookmark tags at `ContentWidths.management`, the welcome and login
   forms at `ContentWidths.form`. The toolbar's back target then starts on the
   column's left edge, its title just past the back control, and its

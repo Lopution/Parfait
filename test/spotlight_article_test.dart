@@ -490,6 +490,41 @@ void main() {
       );
     });
 
+    testWidgets('a tall tablet also caps the cover before the first lines', (
+      tester,
+    ) async {
+      await pumpArticle(
+        tester,
+        size: const Size(900, 1200),
+        html:
+            '<article><header><h1 class="am__title">特辑标题</h1></header>'
+            '<div class="am__body">'
+            '<p><img class="aie__image" src="$cdn"></p>'
+            '<p>竖屏开篇</p></div></article>',
+        images: {
+          cdn: http.Response.bytes(
+            img.encodePng(img.Image(width: 40, height: 200)),
+            200,
+          ),
+        },
+      );
+      await pumpIoUntil(tester, () => painted(tester));
+      await tester.pumpAndSettle();
+
+      final list = tester.getRect(find.byType(ListView));
+      final cover = tester.getRect(find.byType(AspectFitBox));
+      expect(
+        cover.height,
+        lessThanOrEqualTo(
+          list.height * SpotlightArticlePage.coverViewportShare + .5,
+        ),
+      );
+      expect(
+        tester.getRect(find.textContaining('竖屏开篇')).top,
+        lessThan(list.bottom),
+      );
+    });
+
     testWidgets('the cover comes from the list entry on pximg', (tester) async {
       const thumbnail = 'https://i.pximg.net/c/w1200/spotlight/101.jpg';
       await pumpArticle(

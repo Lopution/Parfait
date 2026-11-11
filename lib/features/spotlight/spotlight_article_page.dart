@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:octo_image/octo_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/layout/app_breakpoints.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/spring_size.dart';
 import '../../app/navigation/routes.dart';
@@ -126,10 +127,10 @@ class SpotlightArticlePage extends ConsumerWidget {
     String? coverUrl,
   ) => LayoutBuilder(
     builder: (context, constraints) {
-      // A window taller than wide already fits the cover above the first
-      // lines, and its phone layout stays as it was; the cap is for the
-      // windows that turned the cover into a screen of its own.
-      final coverMaxHeight = constraints.maxWidth > constraints.maxHeight
+      // Phone portraits keep their established cover treatment; tablet and
+      // desktop surfaces cap it in either orientation so the first lines
+      // remain on the opening screen.
+      final coverMaxHeight = constraints.maxWidth >= AppBreakpoints.medium
           ? constraints.maxHeight * coverViewportShare
           : null;
       return Align(

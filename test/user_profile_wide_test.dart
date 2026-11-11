@@ -44,7 +44,10 @@ void main() {
     final share = tester.getRect(find.byIcon(Icons.share_outlined).first);
     final follow = tester.getRect(find.byType(FollowSwitchButton));
     expect(share.left, lessThan(follow.left));
-    expect(share.left - name.right, lessThan(200));
+    expect(
+      share.left - name.right,
+      allOf(greaterThanOrEqualTo(0), lessThan(200)),
+    );
     expect(
       follow.right - name.left,
       lessThanOrEqualTo(ContentWidths.management),

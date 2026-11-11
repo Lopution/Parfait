@@ -1267,9 +1267,8 @@ class _ArticleTextWidth extends StatelessWidget {
   Widget build(BuildContext context) => SliverWidthBuilder(
     builder: (context, width) {
       final inset = (width - ContentWidths.article) / 2;
-      if (inset <= 0) return child;
       return SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: inset),
+        padding: EdgeInsets.symmetric(horizontal: inset > 0 ? inset : 0),
         sliver: child,
       );
     },

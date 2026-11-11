@@ -519,9 +519,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         // on wide screens (a 390dp phone is narrower than 17*40+48).
         // The body follows the system font size like any text.
         final textScaler = MediaQuery.textScalerOf(context);
-        final layoutWidth = math.min(
-          constraints.maxWidth,
-          textScaler.scale(_style.fontSize) * 40 + _style.horizontalPadding * 2,
+        final layoutWidth = _style.contentWidth(
+          availableWidth: constraints.maxWidth,
+          textScaler: textScaler,
         );
         final viewport = Size(layoutWidth, constraints.maxHeight);
         _scheduleLayout(

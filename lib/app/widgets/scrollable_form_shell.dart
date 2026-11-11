@@ -73,30 +73,43 @@ class ScrollableFormShell extends StatelessWidget {
   final bool brandGlow;
 
   @override
-  Widget build(BuildContext context) {
-    return ReplicaScaffold(
-      title: title,
-      actions: actions,
-      // The bar lines up with the form column the page caps itself at.
-      contentWidth: contentMaxWidth,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final beside = AppBreakpoints.useSideBySideForm(constraints.biggest);
-          final form = beside
-              ? _sideBySide(constraints)
-              : _stacked(constraints);
-          if (!brandGlow) return form;
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              _BrandGlow(beside: beside, maxExtent: contentMaxWidth),
-              form,
-            ],
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // The outer layout includes the toolbar; use the same body height the
+      // Scaffold will give the form so short-window geometry is unchanged.
+      final bodyConstraints = constraints.copyWith(
+        minHeight: (constraints.minHeight - kToolbarHeight).clamp(
+          0.0,
+          double.infinity,
+        ),
+        maxHeight: (constraints.maxHeight - kToolbarHeight).clamp(
+          0.0,
+          double.infinity,
+        ),
+      );
+      final beside = AppBreakpoints.useSideBySideForm(bodyConstraints.biggest);
+      final form = beside
+          ? _sideBySide(bodyConstraints)
+          : _stacked(bodyConstraints);
+      final body = !brandGlow
+          ? form
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                _BrandGlow(beside: beside, maxExtent: contentMaxWidth),
+                form,
+              ],
+            );
+      return ReplicaScaffold(
+        title: title,
+        actions: actions,
+        // The form occupies the right half in a short side-by-side window;
+        // a centred full-page inset would put the bar over neither column.
+        contentWidth: beside ? null : contentMaxWidth,
+        child: body,
+      );
+    },
+  );
 
   /// Proportional horizontal padding, capped so ultra-wide surfaces stop
   /// growing margins.
