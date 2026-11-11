@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../../app/layout/app_breakpoints.dart';
+import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
@@ -434,23 +435,42 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                 // paint and semantics tree. The chrome owns the interactive
                 // progress readout while it is visible; the hint returns when
                 // the reader is immersive again.
-                // It starts on the body text's edge.
+                // It starts on the body text's edge: the same centred
+                // article column the page's lines fill (R4).
                 if (_chromeHidden)
                   Positioned(
-                    left:
-                        _stableInsets.left +
-                        const NovelLayoutStyle().horizontalPadding,
-                    right:
-                        _stableInsets.right +
-                        const NovelLayoutStyle().horizontalPadding,
+                    left: 0,
+                    right: 0,
                     bottom: 4 + _stableInsets.bottom,
                     child: IgnorePointer(
-                      child: Text(
-                        '${novel.title} · ${_page + 1}/$_pageCount · $percent%'
-                        '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _hintStyle(context, palette),
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: _stableInsets.left,
+                          end: _stableInsets.right,
+                        ),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: ContentWidths.article,
+                            ),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: const NovelLayoutStyle()
+                                      .horizontalPadding,
+                                ),
+                                child: Text(
+                                  '${novel.title} · ${_page + 1}/$_pageCount · $percent%'
+                                  '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: _hintStyle(context, palette),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
