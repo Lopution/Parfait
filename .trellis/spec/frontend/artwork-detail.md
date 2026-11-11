@@ -2,7 +2,7 @@
 prefix: DETAIL
 applies_to:
   - lib/features/illust/**
-reviewed: 2026-10-17
+reviewed: 2026-11-11
 ---
 
 # Artwork detail page and viewer
@@ -217,6 +217,19 @@ reviewed: 2026-10-17
   wide screens the capsule straddled the divider over the comments.
 - **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"
 - **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+
+### DETAIL-18 Single-column detail text keeps the article width
+- **Rule:** In the single-column layout, when the page's content area is
+  wider than `ContentWidths.article` (700dp), the info block and the
+  comments preview sit in a centred 700dp column (their own page margin
+  inside it) so a line holds roughly 40–60 characters; the artwork pages
+  and the related-works grid stay at the page's full width. Narrower
+  pages are unchanged.
+- **Why:** On a large portrait window the caption and comments ran the
+  window's ~900dp width in one line each, hard to read and unlike the
+  feed's text columns.
+- **Check:** `test/illust_detail_page_test.dart` "text keeps the article column on a large portrait"
+- **Code:** `lib/features/illust/detail/illust_detail_page.dart`, `lib/app/layout/sliver_width_builder.dart`
 
 ### DETAIL-10 The download button listens to the manager itself
 - **Rule:** The detail download button subscribes to

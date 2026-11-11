@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/widgets/ambient_wash.dart';
@@ -995,6 +996,44 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(ImageViewerPage), findsOneWidget);
+    });
+  });
+
+  group('single-column text width (C6)', () {
+    testWidgets('text keeps the article column on a large portrait', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: const Size(924, 1480),
+      );
+      await tester.pumpAndSettle();
+
+      // The artwork still runs the window's full width.
+      expect(
+        tester.getRect(workImages.first).width,
+        greaterThan(ContentWidths.article),
+      );
+
+      await tester.scrollUntilVisible(
+        find.byType(CaptionRichText),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      // The info text sits in the 700dp column centred on the window,
+      // inset by the block's own page margin (LAYOUT-14).
+      final caption = tester.getRect(find.byType(CaptionRichText).first);
+      const columnLeft = (924 - ContentWidths.article) / 2;
+      expect(
+        caption.width,
+        closeTo(ContentWidths.article - 2 * FuncSpacing.lg, .5),
+      );
+      expect(caption.left, closeTo(columnLeft + FuncSpacing.lg, .5));
+      expect(caption.center.dx, closeTo(924 / 2, .5));
     });
   });
 }
