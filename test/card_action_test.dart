@@ -124,12 +124,16 @@ void main() {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     try {
       final (container, _, _) = await makeCardWorld();
-      await container
-          .read(muteStoreProvider.notifier)
-          .muteWork(const MutedWork(illustId: 7));
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
       );
+
+      // Mute after the first frame: the menu must read the state when it
+      // opens, not a snapshot taken while the card was built.
+      await container
+          .read(muteStoreProvider.notifier)
+          .muteWork(const MutedWork(illustId: 7));
+      await tester.pumpAndSettle();
 
       await tester.tap(
         find.byType(IllustCard),
