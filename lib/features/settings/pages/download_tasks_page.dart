@@ -339,6 +339,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                 ],
               )
             : AppTopBar(
+                contentWidth: ContentWidths.management,
                 title: Text(context.l10n.downloaderSettings),
                 actions: [
                   // Spelled out: an icon alone did not read as "manage".

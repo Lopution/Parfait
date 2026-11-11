@@ -21,6 +21,7 @@ import '../../l10n/lookup.dart';
 import 'settings_helpers.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/clipboard.dart';
+import '../../app/layout/content_widths.dart';
 
 String _probeText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -260,7 +261,10 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.networkProbeTitle)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.networkProbeTitle),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.all(FuncSpacing.lg),

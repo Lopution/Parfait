@@ -21,6 +21,7 @@ import '../../../core/mute/mute_store.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Muted items management: tags and users mirror the official client's
 /// `/v1/mute` list; works are local-only (no official endpoint). Removing
@@ -136,7 +137,10 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
     // Works muted before titles were kept fall back to a loaded copy.
     final illusts = ref.watch(illustStoreProvider);
     return Scaffold(
-      appBar: AppTopBar(title: Text(l10n.mutedItemsSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(l10n.mutedItemsSettings),
+      ),
       body: RemovalScope(
         controller: _removals,
         child: settingsNarrowBody(

@@ -24,11 +24,13 @@ applies_to:
   - lib/app/widgets/sliver_surface_list.dart
   - lib/app/layout/card_columns.dart
   - lib/app/layout/content_widths.dart
+  - lib/app/widgets/app_top_bar.dart
+  - lib/app/widgets/replica_scaffold.dart
   - lib/app/widgets/scrollable_form_shell.dart
   - lib/app/scroll_behavior.dart
   - lib/features/illust/detail/**
   - lib/features/novel/novel_page.dart
-reviewed: 2026-10-17
+reviewed: 2026-11-11
 ---
 
 # Page-specific rules
@@ -322,20 +324,32 @@ reviewed: 2026-10-17
 ### PAGE-16 Card lists add columns; text lists stop growing
 - **Rule:** Lists of novel, user and series-episode cards lay out through
   `SliverCardList` (or `CardRow` in a `ListView`): a column per 400dp of
-  the list's own width, at most three. Text lists (comments and their
+  the list's own width, at most three. In a several-column list each
+  card's row uses its whole cell: the title takes the cell's width and
+  the author, meta and tags spread across it (author from the inner left
+  edge, the tag line ending on the inner right edge) instead of stacking
+  in the narrow leading text column; `CardCellScope` tells the row how
+  many columns its cell is in, and a single-column list keeps the stacked
+  row. Text lists (comments and their
   composer, search suggestions, bookmark tags, a profile's About tab) sit
   in `ContentWidthCap` at `ContentWidths.management`; the search field
   stops at the same width; the reverse image search flow at
   `ContentWidths.form`, its engine pages full width.
 - **Why:** On wide windows a single row ran the name at one edge and its
-  button or date at the other; the comment field was 1300dp wide.
-- **Check:** `test/responsive_layout_test.dart` "card lists take a column per 400dp, at most three" "a wide card list puts neighbouring cards side by side" "a capped column centres at its width on a wide window"
-- **Code:** `lib/app/layout/card_columns.dart`, `lib/app/layout/content_widths.dart`
+  button or date at the other; the comment field was 1300dp wide. In a
+  three-column list a card's author, tags and counts sat in a ~200dp
+  strip at the card's left while the cell was 400dp wide.
+- **Check:** `test/responsive_layout_test.dart` "card lists take a column per 400dp, at most three" "a wide card list puts neighbouring cards side by side" "a capped column centres at its width on a wide window" "a several-column row spreads its facts across the cell"
+- **Code:** `lib/app/layout/card_columns.dart`, `lib/app/layout/content_widths.dart`, `lib/app/widgets/entity_row.dart`
 
 ### PAGE-17 Short windows keep the primary action and the tab body
 - **Rule:** Below 480dp tall and from 600dp wide, `ScrollableFormShell`
   (welcome, language, login) puts the header beside the form so the
-  primary action is on the first screen. Below 480dp tall a profile's
+  primary action is on the first screen. Otherwise, from 840dp wide, the
+  stacked header, form and action are one group centred in the window —
+  the free space above the header and below the action is even — instead
+  of the mark at the top and the action at the bottom; below 840dp the
+  stacked form keeps the action at the bottom edge. Below 480dp tall a profile's
   (one's own or another's) banner fills only the toolbar's band and the
   identity is one row under it: a 56dp avatar, the name and @account,
   share and the main action, with the counters in the row from 600dp
@@ -347,9 +361,28 @@ reviewed: 2026-10-17
 - **Why:** On a phone held sideways the start and login buttons sat below
   the fold, and the profile's works-total row overflowed a 16dp strip;
   the profile's header and tabs then filled the first screen, the works
-  starting below it.
-- **Check:** `test/onboarding_pages_test.dart` "a phone held sideways shows the welcome action at once"; `test/user_profile_test.dart` "a phone held sideways shows the tabs and the works at once"
+  starting below it. On a desktop window the welcome mark sat against the
+  top edge and its button against the bottom edge, two unrelated
+  fragments a screen apart.
+- **Check:** `test/onboarding_pages_test.dart` "a phone held sideways shows the welcome action at once" "a large window centres the mark and the action as a group" "a phone keeps the action at the bottom, as before"; `test/user_profile_test.dart` "a phone held sideways shows the tabs and the works at once"
 - **Code:** `lib/app/widgets/scrollable_form_shell.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/features/profile/profile_skeleton.dart`
+
+### PAGE-23 A constrained page's top bar follows its content column
+- **Rule:** A page whose content sits in a capped, centred column passes
+  that width to `AppTopBar` (`contentWidth`, through `ReplicaScaffold`):
+  the settings and download pages at `ContentWidths.settings`, comments
+  and bookmark tags at `ContentWidths.management`, the welcome and login
+  forms at `ContentWidths.form`. The toolbar's back target then starts on the
+  column's left edge, its title just past the back control, and its
+  actions end on the column's right edge; the bookmark tags page's
+  public/private switch in the title row follows the same edges. The
+  bar's surface and shadow still span the whole window, and below the
+  column width the bar keeps its page-edge layout.
+- **Why:** On a wide window the back button and the page's actions sat at
+  the window's edges while the page content was a 600–840dp column in
+  the middle, so the bar no longer read as the page's own header.
+- **Check:** `test/shared_widgets_test.dart` "a capped top bar follows the content column"
+- **Code:** `lib/app/widgets/app_top_bar.dart`, `lib/app/widgets/replica_scaffold.dart`, `lib/app/layout/content_widths.dart`
 
 ### PAGE-18 A mouse gets right-click, hover and scrollbars
 - **Rule:** Wherever a long press acts (work cards, novel and user rows,

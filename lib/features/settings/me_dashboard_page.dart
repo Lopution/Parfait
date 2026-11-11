@@ -34,6 +34,7 @@ import '../../l10n/context.dart';
 import 'settings_catalog.dart';
 import 'settings_helpers.dart';
 import 'settings_page.dart' show settingsPageIcons;
+import '../../app/layout/content_widths.dart';
 
 /// The "me" destination, YouTube's way: who is signed in, what they saw
 /// last, the places of their own content as a list, then settings and
@@ -51,7 +52,10 @@ class MeDashboardPage extends ConsumerWidget {
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
       // Settings open from the row at the page's end, not the bar.
-      appBar: AppTopBar(title: Text(context.l10n.homeMe)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.homeMe),
+      ),
       body: _body(context, ref, accounts),
     );
   }

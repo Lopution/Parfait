@@ -15,6 +15,7 @@ import '../../../core/translation/translation_credentials.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/layout/content_widths.dart';
 
 class TranslationCredentialsPage extends ConsumerStatefulWidget {
   const TranslationCredentialsPage({super.key, required this.baidu});
@@ -274,6 +275,7 @@ class _TranslationCredentialsPageState
       dirty: _dirty,
       child: Scaffold(
         appBar: AppTopBar(
+          contentWidth: ContentWidths.settings,
           title: Text(
             settingsText(
               context,

@@ -29,6 +29,7 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
     this.bottom,
     this.tabsBesideTitle = false,
     this.backgroundColor,
+    this.contentWidth,
     this.notificationPredicate = defaultScrollNotificationPredicate,
     this.immersion,
     this.overArtwork = true,
@@ -56,6 +57,13 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   /// A change of colour is a change of mode (entering or leaving
   /// selection): the bar cross-fades into the new one.
   final Color? backgroundColor;
+
+  /// The width of the centred content column the page below caps itself
+  /// at (`ContentWidthCap`, `ContentWidths`). The toolbar's leading,
+  /// title and actions then line up with that column's edges while the
+  /// bar's surface and shadow still span the page (R3). Null keeps the
+  /// toolbar at the page's edges.
+  final double? contentWidth;
 
   /// Which scroll notifications count; tab bodies one level down pass
   /// `(n) => n.depth == 1`.
@@ -139,11 +147,11 @@ class _AppTopBarState extends State<AppTopBar> {
   Widget build(BuildContext context) {
     final immersion = widget.immersion;
     final bar = immersion == null
-        ? _buildBar(context, 1)
+        ? _buildBarWithInset(context, 1)
         : ValueListenableBuilder(
             valueListenable: immersion,
             builder: (context, value, _) =>
-                _buildBar(context, value.clamp(0.0, 1.0).toDouble()),
+                _buildBarWithInset(context, value.clamp(0.0, 1.0).toDouble()),
           );
     return LiftableBar(
       child: AnimatedSwitcher(
@@ -161,8 +169,25 @@ class _AppTopBarState extends State<AppTopBar> {
     final entrance => FadeTransition(opacity: entrance, child: child),
   };
 
+  /// The page's width, so a [AppTopBar.contentWidth] cap can centre the
+  /// toolbar over the content column the page below lays out.
+  Widget _buildBarWithInset(BuildContext context, double drawn) =>
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final width = widget.contentWidth;
+          final inset = width == null
+              ? 0.0
+              : ((constraints.maxWidth - width) / 2).clamp(
+                  0.0,
+                  double.infinity,
+                );
+          return _buildBar(context, drawn, inset);
+        },
+      );
+
   /// [drawn] is the bar's presence: 1 the normal bar, 0 fully immersed.
-  Widget _buildBar(BuildContext context, double drawn) {
+  /// [inset] is the space between the page's edge and the content column.
+  Widget _buildBar(BuildContext context, double drawn, double inset) {
     final theme = Theme.of(context);
     final barTheme = theme.appBarTheme;
     final surface =
@@ -183,6 +208,45 @@ class _AppTopBarState extends State<AppTopBar> {
           );
     final bottom = widget.bottom;
     final title = widget.title;
+    // A content column centres the toolbar: the back target starts on the
+    // column's left edge, the actions end on its right edge, and the
+    // surface and shadow still span the page.
+    Widget? leading = widget.leading;
+    var automaticallyImplyLeading = widget.automaticallyImplyLeading;
+    List<Widget>? actions = widget.actions;
+    EdgeInsetsGeometry? actionsPadding;
+    if (inset > 0) {
+      if (leading == null && automaticallyImplyLeading) {
+        // Build the implied back button here so it can take the inset;
+        // the AppBar's own would sit on the page's edge.
+        if (ModalRoute.of(context)?.impliesAppBarDismissal ?? false) {
+          leading = BackButton(onPressed: () => Navigator.maybePop(context));
+          automaticallyImplyLeading = false;
+        }
+      }
+      if (leading != null) {
+        leading = Padding(
+          padding: EdgeInsetsDirectional.only(start: inset),
+          child: leading,
+        );
+      }
+      if (actions == null || actions.isEmpty) {
+        if (widget.tabsBesideTitle) {
+          // No glyphs to inset; an empty trailing gutter stops the tabs
+          // (the title row's expanded share) on the column's right edge.
+          actions = [
+            SizedBox(
+              width: (inset - NavigationToolbar.kMiddleSpacing).clamp(
+                0.0,
+                double.infinity,
+              ),
+            ),
+          ];
+        }
+      } else {
+        actionsPadding = EdgeInsetsDirectional.only(end: inset);
+      }
+    }
     // A tab row standing in the title is the bar's leading content, not a
     // heading: there is no title text to mark, and the tabs stay tabs.
     final titleIsTabs = title is AppTabBar;
@@ -217,14 +281,18 @@ class _AppTopBarState extends State<AppTopBar> {
       builder: (context, scrolledUnder, bar) =>
           ScrollEdgeShadow(visible: scrolledUnder && !immersed, child: bar!),
       child: AppBar(
-        leading: widget.leading,
-        automaticallyImplyLeading: widget.automaticallyImplyLeading,
+        leading: leading,
+        automaticallyImplyLeading: automaticallyImplyLeading,
+        leadingWidth: inset > 0 ? inset + kToolbarHeight : null,
         title: toolbarTitle == null || !immersed
             ? toolbarTitle
             : Opacity(opacity: drawn, child: toolbarTitle),
         excludeHeaderSemantics: widget.tabsBesideTitle || titleIsTabs,
-        titleSpacing: widget.titleSpacing,
-        actions: widget.actions,
+        titleSpacing: inset > 0 && leading == null
+            ? inset + (widget.titleSpacing ?? NavigationToolbar.kMiddleSpacing)
+            : widget.titleSpacing,
+        actions: actions,
+        actionsPadding: actionsPadding,
         bottom: widget.tabsBesideTitle ? null : bottom,
         backgroundColor: immersed
             ? surface.withValues(alpha: surface.a * drawn)

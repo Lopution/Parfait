@@ -89,7 +89,10 @@ Widget settingsUnavailable(
   required String titleKey,
 }) {
   return Scaffold(
-    appBar: AppTopBar(title: Text(settingsText(context, titleKey))),
+    appBar: AppTopBar(
+      contentWidth: ContentWidths.settings,
+      title: Text(settingsText(context, titleKey)),
+    ),
     body: state.when(
       loading: () => const FeedLoading(),
       error: (error, _) => SettingsLoadError(

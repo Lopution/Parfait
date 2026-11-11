@@ -12,6 +12,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 class BrowseSettingsPage extends ConsumerWidget {
   const BrowseSettingsPage({super.key});
@@ -29,7 +30,10 @@ class BrowseSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.browseSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.browseSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

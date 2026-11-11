@@ -20,6 +20,13 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ### 修复
 
+- 横屏窗口里的特辑文章，封面按原比例限高并居中，打开文章就能看到正文开头；加载中的占位也守住同一高度。
+- 宽屏的个人主页，名字、分享和关注按钮收在一个内容宽度里，不再分处窗口两端。
+- 设置、下载、评论、收藏标签和登录这些限宽页面，宽窗口里顶栏的返回键和操作按钮与内容列对齐。
+- 平板竖屏的作品详情，简介和评论限宽居中，不再一行排满大半个窗口。
+- 宽屏多列的小说和系列列表，每一格的作者、标签和统计用满格子宽度，不再挤在左侧一小条里。
+- 大窗口的欢迎页和登录页，标志、说明和按钮作为一组居中排列，按钮不再贴底、标志不再贴顶。
+- 宽屏的小说阅读器，底部进度提示跟随正文列，不再贴在窗口最左边。
 - 平板上在小说阅读器里打开面板时，侧边栏会出现在正文旁边。
 - 平板横屏的作品详情页，图片和信息栏之间多一条分隔线。
 - 手机横屏时，小说阅读器的「阅读设置」面板显示不全，「阅读进度」面板超出屏幕底部。
@@ -40,6 +47,13 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ### Fixed
 
+- In a landscape window, a spotlight article's cover keeps its ratio at a capped height and is centred, so the article opens on its first lines; the loading placeholder keeps the same height.
+- On a wide profile, the name, share and follow controls stay within one content width instead of sitting at the window's two edges.
+- On wide windows, the top bars of the width-capped pages (settings, downloads, comments, bookmark tags, sign-in) line their back button and actions up with the content column.
+- On a tablet held upright, artwork captions and comments keep a centred reading width instead of running much of the window's width.
+- In several-column novel and series lists, each card's author, tags and counts use the whole cell instead of a narrow strip at its left.
+- In a large window, the welcome and sign-in pages centre the mark, text and button as one group instead of pinning them to the top and bottom edges.
+- In a wide window, the novel reader's bottom progress hint follows the text column instead of sitting at the window's left edge.
 - On a tablet, opening a panel in the novel reader showed the sidebar next to the text.
 - On a tablet held sideways, a divider line ran between the image and the information column on artwork pages.
 - On a phone held sideways, the novel reader's Reading settings panel was cut off, and the Reading progress panel ran past the bottom of the screen.

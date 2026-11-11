@@ -13,6 +13,7 @@ import '../../../core/settings/arrangement.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Which destinations sit on the bottom bar, in what order. Those on the
 /// bar come first and move by their handle (screen readers get move
@@ -32,7 +33,10 @@ class BottomBarSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.bottomBarItems)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.bottomBarItems),
+      ),
       body: settingsNarrowBody(const _BottomBarEditor()),
     );
   }

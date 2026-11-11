@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
@@ -222,6 +223,47 @@ void main() {
       expect(tabbed, moreOrLessEquals(plain));
     },
   );
+
+  testWidgets('a capped top bar follows the content column', (tester) async {
+    setViewSize(tester, const Size(1400, 800));
+    await tester.pumpWidget(
+      localizedApp(
+        theme: replicaTheme(Brightness.light),
+        home: Scaffold(
+          appBar: AppTopBar(
+            contentWidth: ContentWidths.settings,
+            leading: IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.arrow_back),
+            ),
+            title: const Text('设置'),
+            actions: [
+              IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+            ],
+          ),
+          body: const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 600-wide column in a 1400 window: 400 free on each side.
+    const inset = 400.0;
+    final back = tester.getRect(find.byIcon(Icons.arrow_back));
+    final action = tester.getRect(find.byIcon(Icons.more_vert));
+    final title = tester.getRect(find.text('设置'));
+    expect(back.left, greaterThanOrEqualTo(inset));
+    expect(back.center.dx, lessThan(inset + kToolbarHeight));
+    expect(action.right, lessThanOrEqualTo(1400 - inset));
+    expect(action.right, greaterThan(1400 - inset - kToolbarHeight));
+    // The title starts just past the back control, inside the column.
+    expect(
+      title.left,
+      closeTo(inset + kToolbarHeight + NavigationToolbar.kMiddleSpacing, .5),
+    );
+    // Only the controls move in: the bar's surface still spans the page.
+    expect(tester.getRect(find.byType(AppBar)).width, 1400);
+  });
 
   testWidgets('an empty state scrolls only when the window cannot hold it', (
     tester,

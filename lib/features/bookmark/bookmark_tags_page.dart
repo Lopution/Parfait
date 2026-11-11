@@ -66,6 +66,7 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
     final l10n = context.l10n;
     return Scaffold(
       appBar: AppTopBar(
+        contentWidth: ContentWidths.management,
         title: Text(l10n.bookmarkTags),
         tabsBesideTitle: PageHeader.isWide(context),
         // The lists sit inside the TabBarView's page view.

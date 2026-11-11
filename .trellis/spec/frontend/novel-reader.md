@@ -3,7 +3,7 @@ prefix: NOVEL
 applies_to:
   - lib/features/novel/**
   - lib/core/novel/**
-reviewed: 2026-11-02
+reviewed: 2026-11-11
 ---
 
 # Novel markup and reader
@@ -170,15 +170,20 @@ reviewed: 2026-11-02
 ### NOVEL-10 The progress hint and pill keep their contrast on every palette
 - **Rule:** The bottom progress hint uses `bodySmall` and the page's text
   color at `novelReaderHintAlpha`, set no fainter than keeps 4.5:1 on the
-  system and every reader palette. In the chrome's bottom bar the
+  system and every reader palette. It starts on the article column the
+  page's lines fill — centred, at `ContentWidths.article` and the
+  layout's horizontal padding — not on the window's left edge. In the
+  chrome's bottom bar the
   progress readout is an outlined pill ending in an expand glyph, which
   opens the progress sheet; its outline is the text color at
   `novelReaderPillOutlineAlpha`, no fainter than keeps 3:1 on every
   palette.
 - **Why:** An 11sp hint at 45% of the text color measured about 2.9:1.
   The readout as bare text did not show it opened anything (user report,
-  10-25).
-- **Check:** `test/novel_reader_settings_test.dart` "the progress hint keeps 4.5:1 and the pill outline 3:1 on every palette"
+  10-25). On a wide window the hint sat at the window's left edge while
+  the text column was centred, so it no longer read as the page's
+  caption.
+- **Check:** `test/novel_reader_settings_test.dart` "the progress hint keeps 4.5:1 and the pill outline 3:1 on every palette"; `test/novel_reader_stage_test.dart` "the immersive progress hint stays on the article column"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
 
 ### NOVEL-13 Scroll mode is one column over the same pages

@@ -20,6 +20,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_catalog.dart';
 import '../settings_helpers.dart';
+import '../../../app/layout/content_widths.dart';
 
 /// Where the app's navigation is arranged: the bottom bar and the page the
 /// app opens on, then the ranking categories, each row opening that
@@ -39,7 +40,10 @@ class NavigationSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.navigationSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.navigationSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

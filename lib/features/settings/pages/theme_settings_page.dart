@@ -12,6 +12,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
+import '../../../app/layout/content_widths.dart';
 
 class ThemeSettingsPage extends ConsumerWidget {
   const ThemeSettingsPage({super.key});
@@ -35,7 +36,10 @@ class ThemeSettingsPage extends ConsumerWidget {
       (AppSettings.darkTheme, context.l10n.dark),
     ];
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.themeSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.themeSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

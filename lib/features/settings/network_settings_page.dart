@@ -33,6 +33,7 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import 'settings_helpers.dart';
 import 'settings_catalog.dart';
+import '../../app/layout/content_widths.dart';
 
 String _networkText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -45,7 +46,10 @@ Widget _networkUnavailable(
   required String titleKey,
 }) {
   return Scaffold(
-    appBar: AppTopBar(title: Text(_networkText(context, titleKey))),
+    appBar: AppTopBar(
+      contentWidth: ContentWidths.settings,
+      title: Text(_networkText(context, titleKey)),
+    ),
     body: state.when(
       loading: () => const FeedLoading(),
       error: (error, _) => SettingsLoadError(
@@ -76,7 +80,10 @@ class NetworkSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppTopBar(title: Text(context.l10n.networkSettings)),
+      appBar: AppTopBar(
+        contentWidth: ContentWidths.settings,
+        title: Text(context.l10n.networkSettings),
+      ),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(
@@ -539,7 +546,10 @@ class _NetworkAdvancedSettingsPageState
     return guardDraft(
       dirty: _dirty,
       child: Scaffold(
-        appBar: AppTopBar(title: Text(context.l10n.networkAdvanced)),
+        appBar: AppTopBar(
+          contentWidth: ContentWidths.settings,
+          title: Text(context.l10n.networkAdvanced),
+        ),
         body: settingsNarrowBody(
           ListView(
             padding: const EdgeInsets.only(
