@@ -448,6 +448,48 @@ void main() {
       expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
     });
 
+    testWidgets('a landscape window caps the cover, so the first lines show', (
+      tester,
+    ) async {
+      await pumpArticle(
+        tester,
+        size: const Size(900, 500),
+        html:
+            '<article><header><h1 class="am__title">特辑标题</h1></header>'
+            '<div class="am__body">'
+            '<p><img class="aie__image" src="$cdn"></p>'
+            '<p>开篇段落</p></div></article>',
+        images: {
+          cdn: http.Response.bytes(
+            // A tall cover: unconstrained it would fill the window.
+            img.encodePng(img.Image(width: 40, height: 200)),
+            200,
+          ),
+        },
+      );
+      await pumpIoUntil(tester, () => painted(tester));
+      await tester.pumpAndSettle();
+
+      final list = tester.getRect(find.byType(ListView));
+      final cover = tester.getRect(find.byType(AspectFitBox));
+      expect(
+        cover.height,
+        lessThanOrEqualTo(
+          list.height * SpotlightArticlePage.coverViewportShare + .5,
+        ),
+      );
+      expect(cover.height, greaterThan(list.height * .25));
+      // The cover keeps its ratio in the column instead of being cropped
+      // to full width.
+      expect(cover.width, lessThan(list.width));
+      expect(cover.center.dx, closeTo(list.center.dx, .5));
+      // The article opens on the first lines of its body.
+      expect(
+        tester.getRect(find.textContaining('开篇段落')).top,
+        lessThan(list.bottom),
+      );
+    });
+
     testWidgets('the cover comes from the list entry on pximg', (tester) async {
       const thumbnail = 'https://i.pximg.net/c/w1200/spotlight/101.jpg';
       await pumpArticle(
