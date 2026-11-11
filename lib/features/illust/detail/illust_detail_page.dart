@@ -440,6 +440,35 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (top != null) _imageIndex = top;
   }
 
+  /// The image at the top of the single column right now, read from the
+  /// pages already laid out. The visibility trackers report on their own
+  /// timer, so a switch to the two-pane layout cannot wait for them
+  /// (NAV-21); the boxes still hold the single column's last frame.
+  int? _narrowTopImage(_FirstImageLayout layout) {
+    int? top;
+    for (final entry in _pageKeys.entries) {
+      final box = entry.value.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) continue;
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      final visible =
+          rect.bottom > layout.topChrome && rect.top < _narrowBottom;
+      if (!visible) continue;
+      if (top == null || entry.key < top) top = entry.key;
+    }
+    return top;
+  }
+
+  /// The bottom of the single column's viewport in global coordinates.
+  double get _narrowBottom {
+    if (!_narrowScroll.hasClients) return MediaQuery.sizeOf(context).height;
+    final viewport = _narrowScroll.position.context.notificationContext
+        ?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.hasSize) {
+      return MediaQuery.sizeOf(context).height;
+    }
+    return viewport.localToGlobal(Offset.zero).dy + viewport.size.height;
+  }
+
   /// The ⋮ menu's artwork-info item scrolls the InfoBlock into view.
   /// The InfoBlock's parts are built
   /// lazily below the page list, so on long works the narrow scroll first
@@ -1163,7 +1192,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     // A switch between the layouts opens on the image the other one showed.
     final wasTwoPane = _lastTwoPane;
     _lastTwoPane = twoPane;
-    if (wasTwoPane == true && !twoPane) _scheduleNarrowReveal(entity);
+    if (wasTwoPane == true && !twoPane) {
+      _scheduleNarrowReveal(entity);
+    } else if (wasTwoPane == false && twoPane) {
+      // Read the image on screen now, not the trackers' last report: they
+      // run on their own timer and may not have reached this build yet.
+      final index = _narrowTopImage(layout);
+      if (index != null) _imageIndex = index;
+    }
     // Hidden, not removed, in the download mode: it slides out and back.
     final actionBar = Positioned(
       left: 0,

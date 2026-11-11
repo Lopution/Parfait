@@ -546,6 +546,17 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       expect(menuActivators, hasLength(1), reason: 'Shift+F10 is bound');
       final menuIntent = menuActivators.single.value;
+      // The keyboard's menu key runs the same intent as Shift+F10.
+      const menuKey = KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.contextMenu,
+        logicalKey: LogicalKeyboardKey.contextMenu,
+        timeStamp: Duration.zero,
+      );
+      final menuKeys = shortcutMap.entries.where(
+        (entry) => entry.key.accepts(menuKey, HardwareKeyboard.instance),
+      );
+      expect(menuKeys, hasLength(1));
+      expect(identical(menuKeys.single.value, menuIntent), isTrue);
       final cardActions = tester
           .widgetList<Actions>(
             find.descendant(

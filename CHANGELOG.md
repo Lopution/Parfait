@@ -17,7 +17,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **平板和电脑的顶栏：** 推荐、排行、新作和搜索页的标签靠左，页面自己的操作靠右，最右端是搜索框；内容区较窄时搜索框收成搜索图标。搜索结果页的类型标签移到标题一行，筛选按钮和关键词框在右侧，筛选摘要仍在下方。
 - **平板和电脑的搜索面板：** 点顶栏的搜索框（或搜索图标），输入面板就在它下方展开，历史、联想、类型和筛选都在面板里；回车直接看结果。从结果页改关键词会替换当前结果。在输入框里按 Esc 先取消焦点，再按一次收起面板；点面板外或返回键也收起。窗口变窄成手机布局时自动换成整页输入，已输入的内容和筛选都不丢。
 - **电脑上的右键菜单：** 在电脑上右键作品卡片、标签、收藏心形、下载任务、图片、搜索历史上的关键词、推荐标签和排行标签时，菜单在指针旁弹出，条目与长按面板相同；选「翻译」或「编辑收藏」时仍打开原来的面板。触控设备上右键与长按执行同一个动作：有面板的弹出原来的面板，没有的直接执行（例如填进搜索框）。
-- **平板和横屏手机上的作品详情：** 两栏布局里多图作品翻到最后一张后继续横滑，会切到下一个作品；在第一张反向滑动则切到上一个作品。翻图途中横滑仍然只翻图。
+- **平板和横屏手机上的作品详情：** 从带作品分页的列表或作品流打开的两栏详情，多图作品翻到最后一张后继续横滑，会切到下一个作品；在第一张反向滑动则切到上一个作品。翻图途中横滑仍然只翻图。
 - **键盘操作作品卡片：** 作品卡片可以用 Tab 和方向键走到，选中时有可见的焦点框；回车打开作品，菜单键或 Shift+F10 打开与长按相同的操作。
 - **窗口开合时保留图片：** 详情在单栏和两栏布局之间切换（折叠屏开合、平板转向、拖动窗口）时，保留当前看到的那张图，两个方向都一样。
 - **两栏详情的占位：** 快速滑到还没加载好的作品时，图片区先显示网格里已加载的图，不再是一片空白底色。
@@ -48,7 +48,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **Top bars on tablets and computers:** On Recommended, Ranking, New and Search, the tabs now sit at the left, the page's own actions at the right, and a search field at the far end; a narrow content area shrinks the field to a search icon. On search results, the type tabs share the title row, the filter button and the query field sit at the right, and the filter summary stays below.
 - **Search on tablets and computers:** Tapping the search field (or the search icon) opens the input as a panel under it, with history, suggestions, kinds and filters inside; Enter shows the results. Editing the query from the results replaces them. In the field, Esc first leaves the field and a second press closes the panel; a tap outside the panel or the back button also closes it. As the window narrows to the phone layout, the input becomes a full page with what you typed and your filters kept.
 - **Right-click menus on a computer:** On a computer, right-clicking a work card, tag, bookmark heart, download task, image, search history entry, trending tag or ranking tab opens a menu beside the pointer with the same entries as the long-press panel; Translate and Edit bookmark still open their original panels. On touch screens a right-click does what a long press does: it opens the same panel where there is one, and otherwise runs the action itself (filling the search box, for example).
-- **Artwork pages on tablets and turned phones:** In the two-pane layout, swiping on past a multi-page work's last image moves on to the next work, and swiping back from the first image moves to the previous one; a swipe in the middle still only turns the image.
+- **Artwork pages on tablets and turned phones:** In a two-pane detail opened from a list or feed that pages through works, swiping on past a multi-page work's last image moves on to the next work, and swiping back from the first image moves to the previous one; a swipe in the middle still only turns the image.
 - **Work cards with a keyboard:** Tab and the arrow keys reach a work card, which shows a visible focus ring; Enter opens the work, and the menu key or Shift+F10 opens the same actions as a long press.
 - **Keeping the image when the window changes:** When the detail page switches between the single column and the two-pane layout (a foldable opening or closing, a tablet turning, a dragged window), it keeps the image you were on, in both directions.
 - **Two-pane placeholders:** Swiping quickly to a work that has not loaded yet shows the image already decoded for the grid in the image pane instead of a blank ground.

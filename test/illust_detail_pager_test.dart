@@ -518,27 +518,32 @@ void main() {
     PageController imageController(WidgetTester tester) =>
         tester.widget<PageView>(imagePager()).controller!;
 
+    /// Pumps works 42 and 43, two images each, in the two-pane layout,
+    /// starting at [initialId].
+    Future<void> pumpTwoPage(WidgetTester tester, int initialId) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          for (final id in const [42, 43])
+            id: illustJson(id, pageCount: 2, withMetaPages: true),
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        for (final id in const [42, 43])
+          parseIllust(illustJson(id, pageCount: 2, withMetaPages: true)),
+      ]);
+      await _pumpPager(
+        tester,
+        container,
+        source: IllustPagerSource()..update(const [42, 43]),
+        initialId: initialId,
+        surface: const Size(1400, 900),
+      );
+    }
+
     testWidgets(
       'an image pager at its last page hands the swipe to the work pager',
       (tester) async {
-        final (container, _, _) = await makeWorld(
-          detailOverrides: {
-            42: illustJson(42, pageCount: 2, withMetaPages: true),
-            43: illustJson(43, pageCount: 2, withMetaPages: true),
-          },
-        );
-        container.read(illustStoreProvider).mergeAll([
-          parseIllust(illustJson(42, pageCount: 2, withMetaPages: true)),
-          parseIllust(illustJson(43, pageCount: 2, withMetaPages: true)),
-        ]);
-        final source = IllustPagerSource()..update(const [42, 43]);
-        await _pumpPager(
-          tester,
-          container,
-          source: source,
-          initialId: 42,
-          surface: const Size(1400, 900),
-        );
+        await pumpTwoPage(tester, 42);
         expect(imagePager(), findsOneWidget);
         expect(imageController(tester).page, 0);
         expect(outerController(tester).page, 0);
@@ -556,6 +561,44 @@ void main() {
         expect(outerController(tester).page, 1);
         // The next work opens on its own first image.
         expect(imageController(tester).page, 0);
+      },
+    );
+
+    testWidgets(
+      'an image pager at its first image hands a backward swipe to the work pager, then follows the finger',
+      (tester) async {
+        await pumpTwoPage(tester, 43);
+        expect(outerController(tester).page, 1);
+        expect(imageController(tester).page, 0);
+        final origin = tester.getCenter(imagePager());
+
+        // Back from the first image the swipe goes on to the previous work.
+        await tester.flingFrom(origin, const Offset(260, 0), 900);
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, 0);
+        expect(imageController(tester).page, 0);
+
+        // With no work further back, the pane follows every move.
+        double offset() => tester
+            .widget<FractionalTranslation>(
+              find.descendant(
+                of: find.byType(DetailImagePager),
+                matching: find.byType(FractionalTranslation),
+              ),
+            )
+            .translation
+            .dx;
+        final gesture = await tester.startGesture(origin);
+        await gesture.moveBy(const Offset(50, 0));
+        await tester.pump();
+        await gesture.moveBy(const Offset(60, 0));
+        await tester.pump();
+        final first = offset();
+        await gesture.moveBy(const Offset(60, 0));
+        await tester.pump();
+        expect(offset(), greaterThan(first));
+        await gesture.up();
+        await tester.pumpAndSettle();
       },
     );
 

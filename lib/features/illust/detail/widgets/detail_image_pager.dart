@@ -87,8 +87,10 @@ class _DetailImagePagerState extends State<DetailImagePager>
 
   @override
   double get pagePosition {
-    if (!_controller.hasClients) return _page.toDouble();
-    return _controller.page ?? _page.toDouble();
+    final inRange = _controller.hasClients
+        ? (_controller.page ?? _page.toDouble())
+        : _page.toDouble();
+    return inRange + _overscroll.value;
   }
 
   @override

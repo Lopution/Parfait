@@ -14,7 +14,8 @@ applies_to:
   - lib/features/home/**
   - lib/features/search/docked_search.dart
   - lib/features/search/search_page.dart
-reviewed: 2026-10-17
+  - lib/features/illust/detail/illust_detail_page.dart
+reviewed: 2026-11-11
 ---
 
 # Navigation, shell and tabs
@@ -425,13 +426,15 @@ reviewed: 2026-10-17
   between the single column and the two panes keeps the image the reader
   was on: the single column's top image in view opens the image pager on
   that page, and the image pager's page brings the single column's list
-  back to it (opening a collapsed set first). The detail page keeps that
-  image index across the switch, never the layouts' own scroll state.
+  back to it (opening a collapsed set first). The image on screen is read
+  from the pages already laid out at the switch, never from a visibility
+  tracker's delayed report. The detail page keeps that image index across
+  the switch, never the layouts' own scroll state.
 - **Why:** Desktop-class windows resize all the time; losing the open page
   or the scroll on each resize would make the rail unusable. A turned
   phone or a folding tablet changes the detail page's whole layout, and
   the reader lost the image they were looking at.
-- **Check:** `test/home_branch_stack_test.dart` "a resize keeps every branch, its stack and its scroll"; `test/illust_detail_actions_test.dart` "arrow keys page the image pane; a resize keeps the page" "a switch between the single column and two panes keeps the image"
+- **Check:** `test/home_branch_stack_test.dart` "a resize keeps every branch, its stack and its scroll"; `test/illust_detail_actions_test.dart` "arrow keys page the image pane; a resize keeps the page" "a switch between the single column and two panes keeps the image, read from the screen"
 - **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### NAV-22 Esc goes back

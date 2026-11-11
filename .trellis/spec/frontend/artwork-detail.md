@@ -224,7 +224,7 @@ reviewed: 2026-11-11
   image pager and the work pager both turn sideways, and the inner one
   took every swipe, so the last image could not lead on to the next work;
   a page not built showed a blank stage.
-- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "a two-pane stand-in paints the grid image on the stage"
+- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
 - **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### DETAIL-18 Single-column detail text keeps the article width
