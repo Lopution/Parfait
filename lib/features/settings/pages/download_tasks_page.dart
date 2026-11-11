@@ -314,6 +314,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                 context,
                 count: _selected.length,
                 onClose: _exitManaging,
+                contentWidth: ContentWidths.management,
                 actions: [
                   IconButton(
                     tooltip: context.l10n.selectAll,

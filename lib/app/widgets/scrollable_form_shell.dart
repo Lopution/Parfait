@@ -77,12 +77,17 @@ class ScrollableFormShell extends StatelessWidget {
     builder: (context, constraints) {
       // The outer layout includes the toolbar; use the same body height the
       // Scaffold will give the form so short-window geometry is unchanged.
+      final media = MediaQuery.of(context);
+      final bottomInset = math.max(
+        media.padding.bottom,
+        media.viewInsets.bottom,
+      );
       final bodyConstraints = constraints.copyWith(
         minHeight: (constraints.minHeight - kToolbarHeight).clamp(
           0.0,
           double.infinity,
         ),
-        maxHeight: (constraints.maxHeight - kToolbarHeight).clamp(
+        maxHeight: (constraints.maxHeight - kToolbarHeight - bottomInset).clamp(
           0.0,
           double.infinity,
         ),
