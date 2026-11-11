@@ -229,6 +229,29 @@ class NovelPage extends ConsumerWidget {
       );
     }
 
+    // The same entries as the long-press panel, beside the pointer on a
+    // PC (R11).
+    void showTagActions(NovelTag tag, {Offset? position}) {
+      final muted = ref.read(muteStoreProvider).tags.contains(tag.name);
+      unawaited(
+        showTagActionsSheet(
+          sheetContext,
+          tag: tag.name,
+          muted: muted,
+          position: position,
+          onSearch: () => searchTag(tag.name),
+          onToggleMute: () => unawaited(
+            toggleTagMute(
+              sheetContext,
+              ref.read(muteStoreProvider.notifier),
+              tag.name,
+              muted: muted,
+            ),
+          ),
+        ),
+      );
+    }
+
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.5,
@@ -283,28 +306,9 @@ class NovelPage extends ConsumerWidget {
                     label: tag.name,
                     translated: tag.translatedName,
                     onTap: () => searchTag(tag.name),
-                    onLongPress: () {
-                      final muted = ref
-                          .read(muteStoreProvider)
-                          .tags
-                          .contains(tag.name);
-                      unawaited(
-                        showTagActionsSheet(
-                          context,
-                          tag: tag.name,
-                          muted: muted,
-                          onSearch: () => searchTag(tag.name),
-                          onToggleMute: () => unawaited(
-                            toggleTagMute(
-                              context,
-                              ref.read(muteStoreProvider.notifier),
-                              tag.name,
-                              muted: muted,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                    onLongPress: () => showTagActions(tag),
+                    onSecondaryTapAt: (position) =>
+                        showTagActions(tag, position: position),
                   ),
               ],
             ),

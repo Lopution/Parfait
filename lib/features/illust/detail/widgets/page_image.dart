@@ -12,6 +12,7 @@ import '../../../../app/navigation/route_animation.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
 import '../../../../app/widgets/ambient_wash.dart';
+import '../../../../app/widgets/display_actions.dart';
 import '../../../../app/widgets/feed/illust_card_layout.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/illust/illust_download_controller.dart';
@@ -243,7 +244,27 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
           ? widget.onToggleSelect
           : () => _openViewer(context, quality: viewQuality),
       onLongPress: isPagePlaceholder ? null : widget.onLongPress,
-      onSecondaryTap: isPagePlaceholder ? null : widget.onLongPress,
+      // The selection mode already on screen keeps toggling, as a tap and
+      // a long press do; outside it the PC offers the mode as one entry
+      // beside the pointer (R11).
+      onSecondaryTapUp: isPagePlaceholder
+          ? null
+          : downloadMode
+          ? (details) => widget.onToggleSelect()
+          : (details) => unawaited(
+              showDisplayActions(
+                context,
+                position: details.globalPosition,
+                onLongPress: widget.onLongPress,
+                actions: [
+                  DisplayAction(
+                    icon: Icons.checklist_outlined,
+                    label: context.l10n.downloadSelectPages,
+                    onSelected: widget.onLongPress,
+                  ),
+                ],
+              ),
+            ),
       // Loose stack: the loaded image sizes itself to its intrinsic aspect
       // ratio at full width. The app API's meta_pages never carries
       // per-page width/height, so a fixed AspectRatio always resolved to the

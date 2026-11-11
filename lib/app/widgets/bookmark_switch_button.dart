@@ -23,8 +23,9 @@ import '../theme/func_tokens.dart';
 import '../widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
-import 'settings/settings_control.dart';
 import 'app_choice_chip.dart';
+import 'display_actions.dart';
+import 'settings/settings_control.dart';
 
 String _bookmarkText(BuildContext context, String key) =>
     l10nLookup(context.l10n, key);
@@ -198,6 +199,33 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
     // Long-press opens the sheet in both directions: create for a fresh work,
     // edit (prefilled from bookmark detail) for an already-bookmarked one.
     final onLongPress = unsettled ? null : _showBookmarkSheet;
+    // A PC's secondary click offers the same sheet as one menu entry beside
+    // the pointer (R11); on touch forms the right-click opens it directly.
+    void secondaryTap(Offset position) {
+      final open = onLongPress;
+      if (open == null) return;
+      unawaited(
+        showDisplayActions(
+          context,
+          position: position,
+          onLongPress: open,
+          actions: [
+            DisplayAction(
+              icon: bookmarked
+                  ? Icons.edit_outlined
+                  : Icons.bookmark_add_outlined,
+              label: bookmarked
+                  ? context.l10n.bookmarkEditTitle
+                  : widget.isNovel
+                  ? context.l10n.bookmarkNovel
+                  : context.l10n.bookmarkIllust,
+              onSelected: open,
+            ),
+          ],
+        ),
+      );
+    }
+
     final heart = Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
@@ -236,7 +264,9 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         child: GestureDetector(
           excludeFromSemantics: true,
           onLongPress: onLongPress,
-          onSecondaryTap: onLongPress,
+          onSecondaryTapUp: onLongPress == null
+              ? null
+              : (details) => secondaryTap(details.globalPosition),
           child: ExcludeSemantics(
             child: IconButton(
               splashRadius: 24,
@@ -258,7 +288,9 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
       child: GestureDetector(
         excludeFromSemantics: true,
         onLongPress: onLongPress,
-        onSecondaryTap: onLongPress,
+        onSecondaryTapUp: onLongPress == null
+            ? null
+            : (details) => secondaryTap(details.globalPosition),
         onTap: _toggle,
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.sm),

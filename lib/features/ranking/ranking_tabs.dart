@@ -9,6 +9,7 @@ import '../../app/haptics/app_haptics.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/display_actions.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/home_branch_stack.dart';
@@ -457,34 +458,53 @@ class _RankingTabsState<M extends RankingCategory>
     final mode = _modes[index];
     final canHide =
         _modes.length > 1 && (mode == _routeExtra || arrangement.canHide);
+    final entries = [
+      AppMenuEntry(
+        value: _TabAction.moveToFront,
+        label: l10n.rankingMoveToFront,
+        icon: Icons.first_page,
+        enabled: index > 0,
+      ),
+      AppMenuEntry(
+        value: _TabAction.hide,
+        label: l10n.rankingHideCategory,
+        icon: Icons.visibility_off_outlined,
+        enabled: canHide,
+      ),
+      AppMenuEntry(
+        value: _TabAction.edit,
+        label: l10n.rankingEditCategories,
+        icon: Icons.edit_outlined,
+      ),
+    ];
     return AppMenuButton<_TabAction>(
       edge: AppMenuEdge.start,
-      entries: [
-        AppMenuEntry(
-          value: _TabAction.moveToFront,
-          label: l10n.rankingMoveToFront,
-          icon: Icons.first_page,
-          enabled: index > 0,
-        ),
-        AppMenuEntry(
-          value: _TabAction.hide,
-          label: l10n.rankingHideCategory,
-          icon: Icons.visibility_off_outlined,
-          enabled: canHide,
-        ),
-        AppMenuEntry(
-          value: _TabAction.edit,
-          label: l10n.rankingEditCategories,
-          icon: Icons.edit_outlined,
-        ),
-      ],
+      entries: entries,
       onSelected: (_, action) => _onTabAction(mode, action, arrangement),
       anchorBuilder: (context, toggle) => GestureDetector(
         onLongPress: () {
           AppHaptics.longPress();
           toggle();
         },
-        onSecondaryTap: toggle,
+        // A PC's secondary click opens the same entries at the pointer
+        // (R11); a touch form keeps the menu under the tab.
+        onSecondaryTapUp: (details) => unawaited(
+          showDisplayActions(
+            context,
+            position: details.globalPosition,
+            onLongPress: toggle,
+            actions: [
+              for (final entry in entries)
+                DisplayAction(
+                  icon: entry.icon ?? Icons.more_horiz,
+                  label: entry.label,
+                  enabled: entry.enabled,
+                  onSelected: () =>
+                      _onTabAction(mode, entry.value, arrangement),
+                ),
+            ],
+          ),
+        ),
         child: label,
       ),
     );

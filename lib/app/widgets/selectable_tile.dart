@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/context.dart';
 import '../motion/state_icon_switcher.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'display_actions.dart';
 
 /// A grid tile that becomes a selection unit in a list's management mode
 /// (history, watch later). While [managing], the whole tile toggles on tap
@@ -36,7 +40,27 @@ class SelectableTile extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: managing ? onToggle : null,
         onLongPress: managing ? onToggle : onLongPress,
-        onSecondaryTap: managing ? onToggle : onLongPress,
+        // A selection is already on screen in management mode, so the
+        // right-click keeps toggling; outside it the PC offers the entry
+        // beside the pointer (R11).
+        onSecondaryTapUp: managing
+            ? (details) => onToggle()
+            : onLongPress == null
+            ? null
+            : (details) => unawaited(
+                showDisplayActions(
+                  context,
+                  position: details.globalPosition,
+                  onLongPress: onLongPress!,
+                  actions: [
+                    DisplayAction(
+                      icon: Icons.checklist_outlined,
+                      label: context.l10n.manage,
+                      onSelected: onLongPress!,
+                    ),
+                  ],
+                ),
+              ),
         child: Stack(
           children: [
             AbsorbPointer(absorbing: managing, child: child),

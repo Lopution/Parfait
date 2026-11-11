@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -145,6 +147,42 @@ void main() {
         );
       },
     );
+
+    testWidgets('a PC right-click offers the selection mode, then toggles', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final (container, _, _) = await makeWorld();
+        await pumpDetail(tester, container, surface: const Size(1000, 800));
+
+        // Outside the mode the menu offers entering it (R11).
+        await tester.tap(
+          workImages.first,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        final entry = find.text('Select pages to download');
+        expect(entry, findsOneWidget);
+        await tester.tap(entry);
+        await tester.pumpAndSettle();
+        expect(selectionCount(tester), '0');
+
+        // In the mode the right-click toggles the page, as a tap does, and
+        // offers no entry that would only re-enter the mode.
+        await tester.tap(
+          workImages.first,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(selectionCount(tester), '1');
+        expect(find.text('Select pages to download'), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
 
     testWidgets('select-all + cancel keeps the mode a pure selection layer', (
       tester,
