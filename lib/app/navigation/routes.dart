@@ -555,17 +555,27 @@ List<RouteBase> _searchRoutes(
   return [
     GoRoute(
       path: '${prefix}input',
-      pageBuilder: (context, state) => _page(
-        context,
-        state,
-        observer,
-        SearchInputPage(
-          initialKeyword: state.uri.queryParameters['q'] ?? '',
-          initialType: _searchType(state.uri.queryParameters['type']),
-          onTypeChanged: (keyword, type) =>
-              replaceSearchInput(context, keyword: keyword, type: type),
-        ),
-      ),
+      pageBuilder: (context, state) {
+        // The docked panel narrowing hands over its session — the text as
+        // typed and the filter drafts — as the location's extra (R10).
+        final draft = state.extra;
+        final carried = draft is _SearchInputDraft ? draft : null;
+        return _page(
+          context,
+          state,
+          observer,
+          SearchInputPage(
+            initialKeyword:
+                carried?.keyword ?? state.uri.queryParameters['q'] ?? '',
+            initialType:
+                carried?.type ?? _searchType(state.uri.queryParameters['type']),
+            initialIllustFilters: carried?.illustFilters,
+            initialNovelFilters: carried?.novelFilters,
+            onTypeChanged: (keyword, type) =>
+                replaceSearchInput(context, keyword: keyword, type: type),
+          ),
+        );
+      },
     ),
     GoRoute(
       path: '${prefix}results',
@@ -1817,20 +1827,23 @@ Future<void> openBookmarkTagFeed(
 }
 
 /// Opens the search input. On the wide shell [anchor] — the search entry's
-/// global rectangle — docks the input under it as a panel (R10); without
-/// one, or on a phone's layout, the full input page opens.
+/// global rectangle, asked again whenever the panel re-lays out — docks the
+/// input under it as a panel (R10); without one, or on a phone's layout,
+/// the full input page opens.
 Future<void> openSearchInput(
   BuildContext context, {
   String initialKeyword = '',
   SearchResultType type = SearchResultType.illust,
-  Rect? anchor,
+  Rect? Function()? anchor,
 }) async {
   final router = GoRouter.of(context);
   final root = _stackRootOf(router.state.uri.path);
-  if (anchor != null && _hasRail(context)) {
+  final trigger = anchor?.call();
+  if (trigger != null && _hasRail(context)) {
     final outcome = await showDockedSearch(
       context,
-      anchor: anchor,
+      anchor: trigger,
+      anchorOf: anchor,
       initialKeyword: initialKeyword,
       type: type,
     );
@@ -1838,12 +1851,27 @@ Future<void> openSearchInput(
       case DockedSearchSubmitted(:final query):
         // The destination stays under the results it opens.
         await _moveToSearchResults(router, root, query);
-      case DockedSearchNarrowed(:final keyword, :final type):
+      case DockedSearchShortcut(:final shortcut):
+        await _openSearchShortcut(router, root, shortcut);
+      case DockedSearchNarrowed(
+        :final keyword,
+        :final type,
+        :final illustFilters,
+        :final novelFilters,
+      ):
         // The header's search entry is gone from the phone layout, so the
         // widget's context may be too; the router is not.
         final location = _searchInputLocationFor(root, keyword, type);
         assert(pushStaysInStack(router, location));
-        await router.push<void>(location);
+        await router.push<void>(
+          location,
+          extra: _SearchInputDraft(
+            keyword: keyword,
+            type: type,
+            illustFilters: illustFilters,
+            novelFilters: novelFilters,
+          ),
+        );
       case null:
         break;
     }
@@ -1857,31 +1885,64 @@ Future<void> openSearchInput(
 /// (NAV-06); elsewhere the input page takes the results' place.
 Future<void> editSearchFromResults(
   BuildContext context, {
-  required Rect? anchor,
+  required Rect? Function()? anchor,
   required String keyword,
   required SearchResultType type,
 }) async {
-  if (anchor == null || !_hasRail(context)) {
+  final trigger = anchor?.call();
+  if (trigger == null || !_hasRail(context)) {
     return swapToSearchInput(context, keyword: keyword, type: type);
   }
   final router = GoRouter.of(context);
   final root = _stackRootOf(router.state.uri.path);
   final outcome = await showDockedSearch(
     context,
-    anchor: anchor,
+    anchor: trigger,
+    anchorOf: anchor,
     initialKeyword: keyword,
     type: type,
   );
   switch (outcome) {
     case DockedSearchSubmitted(:final query):
       await _moveToSearchResults(router, root, query, replaceCurrent: true);
-    case DockedSearchNarrowed(:final keyword, :final type):
+    case DockedSearchShortcut(:final shortcut):
+      await _openSearchShortcut(router, root, shortcut, replaceCurrent: true);
+    case DockedSearchNarrowed(
+      :final keyword,
+      :final type,
+      :final illustFilters,
+      :final novelFilters,
+    ):
       final location = _searchInputLocationFor(root, keyword, type);
       assert(pushStaysInStack(router, location));
-      await router.pushReplacement<void>(location);
+      await router.pushReplacement<void>(
+        location,
+        extra: _SearchInputDraft(
+          keyword: keyword,
+          type: type,
+          illustFilters: illustFilters,
+          novelFilters: novelFilters,
+        ),
+      );
     case null:
       break;
   }
+}
+
+/// The docked panel's handed-over session (R10 narrow): the text exactly as
+/// typed, the kind and the filter drafts cross the location as its extra.
+class _SearchInputDraft {
+  const _SearchInputDraft({
+    required this.keyword,
+    required this.type,
+    this.illustFilters,
+    this.novelFilters,
+  });
+
+  final String keyword;
+  final SearchResultType type;
+  final IllustSearchFilters? illustFilters;
+  final NovelSearchFilters? novelFilters;
 }
 
 void replaceSearchInput(
@@ -2002,12 +2063,36 @@ Future<void> _moveToSearchResults(
   final keyword = query.keyword.trim();
   // An id or a pixiv link opens what it names instead of searching.
   final shortcut = searchShortcutFor(keyword, query.type);
-  final location = shortcut == null
-      ? Uri(
-          path: _searchLeafPath(root, 'results'),
-          queryParameters: _searchQueryParameters(query),
-        ).toString()
-      : _shortcutLocation(root ?? '/recommended', shortcut);
+  if (shortcut != null) {
+    return _openSearchShortcut(
+      router,
+      root,
+      shortcut,
+      replaceCurrent: replaceCurrent,
+    );
+  }
+  final location = Uri(
+    path: _searchLeafPath(root, 'results'),
+    queryParameters: _searchQueryParameters(query),
+  ).toString();
+  assert(pushStaysInStack(router, location));
+  if (replaceCurrent) {
+    await router.pushReplacement<void>(location);
+  } else {
+    await router.push<void>(location);
+  }
+}
+
+/// Opens what the draft names, once the docked panel that showed it has
+/// closed. From a destination the page is pushed over it; from the results
+/// it takes their place (NAV-06).
+Future<void> _openSearchShortcut(
+  GoRouter router,
+  String? root,
+  SearchShortcut shortcut, {
+  bool replaceCurrent = false,
+}) async {
+  final location = _shortcutLocation(root ?? '/recommended', shortcut);
   assert(pushStaysInStack(router, location));
   if (replaceCurrent) {
     await router.pushReplacement<void>(location);

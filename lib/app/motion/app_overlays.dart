@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart' show HitTestResult, PointerUpEvent;
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/debug/frame_probe.dart';
 import '../widgets/prompt_host.dart';
 import 'motion_tokens.dart';
 
@@ -182,6 +183,38 @@ class _AppPanelRoute<T> extends PopupRoute<T> {
     opacity: animation.drive(CurveTween(curve: Curves.easeOut)),
     child: child,
   );
+
+  var _probed = false;
+
+  @override
+  void install() {
+    super.install();
+    animation?.addStatusListener(_probeFade);
+  }
+
+  /// QUAL-05: the panel's fade is a scene a recording should name, in and
+  /// out alike. Paired enter/exit, so the scene never leaks into the next
+  /// frame's timing.
+  void _probeFade(AnimationStatus status) {
+    final active =
+        status == AnimationStatus.forward || status == AnimationStatus.reverse;
+    if (!FrameProbe.available || active == _probed) return;
+    _probed = active;
+    final probe = FrameProbe.instance;
+    if (active) {
+      probe
+        ..enter('panel')
+        ..mark('panel ${status == AnimationStatus.forward ? 'in' : 'out'}');
+    } else {
+      probe.exit('panel');
+    }
+  }
+
+  @override
+  void dispose() {
+    animation?.removeStatusListener(_probeFade);
+    super.dispose();
+  }
 }
 
 class _AppDialogRoute<T> extends DialogRoute<T> {

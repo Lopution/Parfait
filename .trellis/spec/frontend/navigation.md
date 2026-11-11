@@ -394,19 +394,27 @@ reviewed: 2026-10-17
   it — with a scrim over the page. The panel anchors under the trigger's
   global rectangle
   (`PageHeader.anchorOf`), as wide as it but at least 360dp, right-aligned
-  when the trigger is narrower, and runs to the content area's bottom.
+  when the trigger is narrower, and runs to the content area's bottom. A
+  window resize re-anchors it: the trigger is asked again
+  (`PageHeader.anchorOf`, null once it leaves the tree) and the layer
+  rebuilds after the page below has laid out.
   It holds the full page's `SearchInputEngine` pieces — the editable field,
   the kind tabs, the filter button and the history/suggestion body — and a
   kind switch stays in the panel (the URL does not change). Submitting
-  follows NAV-06. Esc follows NAV-22 (the first leaves the field, the
-  second closes), and the scrim or the system back closes it too. When the
-  window narrows to a layout without the rail, the panel closes and the
-  full input page opens on the same stack with the typed draft. A phone
+  follows NAV-06. An id or a link opens what it names after the panel has
+  closed, so the page is never left under the panel. Esc follows NAV-22
+  (the first leaves the field, the second closes), and the scrim or the
+  system back closes it too. When the window narrows to a layout without
+  the rail, the panel closes — a filter sheet it opened closes first — and
+  the full input page opens on the same stack with the draft as typed
+  (trailing spaces included) and the session's filter drafts. A phone
   never docks anything.
 - **Why:** A page push on a desktop-sized window threw the destination away
   and retyped the query into a full screen; the field the user tapped is
-  where the input belongs, and the page under it should stay in sight.
-- **Check:** `test/docked_search_test.dart` "a wide header docks the input under the field" "editing the query on a wide result bar replaces the results" "Esc leaves the field first, a second Esc closes the panel" "the scrim and the system back close the panel" "narrowing carries the draft to the full page" "a phone keeps the full input page" "the panel offers history, kinds and filters"
+  where the input belongs, and the page under it should stay in sight. A
+  stale rectangle left the panel away from a resized window's field, and a
+  handover that trimmed or dropped the drafts lost what the user typed.
+- **Check:** `test/docked_search_test.dart` "a wide header docks the input under the field" "editing the query on a wide result bar replaces the results" "Esc leaves the field first, a second Esc closes the panel" "the scrim and the system back close the panel" "a resize re-anchors the panel under the entry" "narrowing carries the draft to the full page" "narrowing keeps the typed text and the filter drafts" "narrowing with the filter sheet open closes both layers" "a shortcut closes the panel before the page it names" "the panel and its fade are marked as scenes" "a phone keeps the full input page" "the panel offers history, kinds and filters"
 - **Code:** `lib/features/search/docked_search.dart`, `lib/app/widgets/page_header.dart`, `lib/app/navigation/routes.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place

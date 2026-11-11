@@ -291,7 +291,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
     unawaited(
       editSearchFromResults(
         context,
-        anchor: PageHeader.anchorOf(fieldContext),
+        anchor: () => PageHeader.anchorOf(fieldContext),
         keyword: widget.query.keyword,
         type: _selectedType,
       ),

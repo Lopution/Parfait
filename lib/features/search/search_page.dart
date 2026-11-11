@@ -775,11 +775,19 @@ class SearchInputEngine extends ConsumerStatefulWidget {
     required this.builder,
     this.initialKeyword = '',
     this.initialType = SearchResultType.illust,
+    this.initialIllustFilters,
+    this.initialNovelFilters,
     this.onTypeChanged,
+    this.onShortcut,
   });
 
   final String initialKeyword;
   final SearchResultType initialType;
+
+  /// Drafts handed over from another input surface (the docked panel
+  /// narrowing into this page, R10); the persisted defaults otherwise.
+  final IllustSearchFilters? initialIllustFilters;
+  final NovelSearchFilters? initialNovelFilters;
 
   /// The host rewrites its own route when the kind changes (the full page
   /// keeps its URL's type current); the docked panel changes nothing.
@@ -788,6 +796,10 @@ class SearchInputEngine extends ConsumerStatefulWidget {
   /// The user searched [query]. Autocomplete is cancelled and the keyword
   /// is in the history already; the host moves to the results.
   final ValueChanged<SearchQuery> onSubmit;
+
+  /// What an id or a link in the draft opens; the docked panel handles it
+  /// itself so the panel can close first (R10).
+  final ValueChanged<SearchShortcut>? onShortcut;
 
   final SearchInputEngineBuilder builder;
 
@@ -823,8 +835,9 @@ class SearchInputEngineState extends ConsumerState<SearchInputEngine>
 
   static const _types = SearchResultType.values;
 
-  /// The draft's text, trimmed, as a submit would read it.
-  String get keyword => _textController.text.trim();
+  /// The draft exactly as typed, trailing spaces included: handing it to
+  /// another input surface must not rewrite it. Submitting trims instead.
+  String get draft => _textController.text;
 
   /// The kind the field is on.
   SearchResultType get type => _types[_selectedIndex];
@@ -923,12 +936,18 @@ class SearchInputEngineState extends ConsumerState<SearchInputEngine>
   }
 
   /// Per-type filter drafts for this input session. Seeded from the
-  /// persisted defaults on first access; edits stay in the session (this
-  /// draft is what the submitted query carries — nothing else writes it).
-  late IllustSearchFilters _illustFilters = ref.read(
-    searchIllustFiltersProvider,
-  );
-  late NovelSearchFilters _novelFilters = ref.read(searchNovelFiltersProvider);
+  /// persisted defaults — or from the surface that handed the session over
+  /// (R10) — and edited in place: the submitted query carries this draft,
+  /// nothing else writes it.
+  late IllustSearchFilters _illustFilters =
+      widget.initialIllustFilters ?? ref.read(searchIllustFiltersProvider);
+  late NovelSearchFilters _novelFilters =
+      widget.initialNovelFilters ?? ref.read(searchNovelFiltersProvider);
+
+  /// The two drafts, for a host handing the session to another input
+  /// surface (R10 narrowing).
+  IllustSearchFilters get illustFilters => _illustFilters;
+  NovelSearchFilters get novelFilters => _novelFilters;
 
   SearchFilters get _filters =>
       type == SearchResultType.novel ? _novelFilters : _illustFilters;
@@ -1067,6 +1086,7 @@ class SearchInputEngineState extends ConsumerState<SearchInputEngine>
             onSearch: _search,
             onFill: _fill,
             onComplete: _edit,
+            onShortcut: widget.onShortcut,
           ),
         ),
       ),
@@ -1080,11 +1100,15 @@ class SearchInputPage extends StatelessWidget {
     super.key,
     this.initialKeyword = '',
     this.initialType = SearchResultType.illust,
+    this.initialIllustFilters,
+    this.initialNovelFilters,
     this.onTypeChanged,
   });
 
   final String initialKeyword;
   final SearchResultType initialType;
+  final IllustSearchFilters? initialIllustFilters;
+  final NovelSearchFilters? initialNovelFilters;
   final void Function(String keyword, SearchResultType type)? onTypeChanged;
 
   @override
@@ -1092,6 +1116,8 @@ class SearchInputPage extends StatelessWidget {
     return SearchInputEngine(
       initialKeyword: initialKeyword,
       initialType: initialType,
+      initialIllustFilters: initialIllustFilters,
+      initialNovelFilters: initialNovelFilters,
       onTypeChanged: onTypeChanged,
       // Submitting replaces the input with the results (NAV-06).
       onSubmit: (query) =>
@@ -1139,6 +1165,7 @@ class _SearchInputBody extends ConsumerWidget {
     required this.onSearch,
     required this.onFill,
     required this.onComplete,
+    this.onShortcut,
   });
 
   final TextEditingValue value;
@@ -1146,6 +1173,10 @@ class _SearchInputBody extends ConsumerWidget {
   final ValueChanged<String> onSearch;
   final ValueChanged<String> onFill;
   final ValueChanged<TextEditingValue> onComplete;
+
+  /// The host's own handling of an id or a link; the full page swaps itself
+  /// for what it names, the docked panel closes first (R10).
+  final ValueChanged<SearchShortcut>? onShortcut;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1164,7 +1195,13 @@ class _SearchInputBody extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.open_in_new),
             title: Text(_shortcutLabel(context, shortcut)),
-            onTap: () => unawaited(swapToSearchShortcut(context, shortcut)),
+            onTap: () {
+              if (onShortcut case final open?) {
+                open(shortcut);
+              } else {
+                unawaited(swapToSearchShortcut(context, shortcut));
+              }
+            },
           ),
         ],
       );

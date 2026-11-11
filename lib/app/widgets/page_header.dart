@@ -31,10 +31,15 @@ abstract final class PageHeader {
       fitsSearchField(context) ? 360 : 240;
 
   /// The global rectangle of the widget [context] builds — where the docked
-  /// search panel anchors (R10). Null before its first layout.
+  /// search panel anchors (R10). Asked again on every layout, so the panel
+  /// follows a window resize; null once the widget left the tree or before
+  /// its first layout.
   static Rect? anchorOf(BuildContext context) {
+    // A resize can take the entry out of the tree before the panel's next
+    // pass asks for it.
+    if (!context.mounted) return null;
     final box = context.findRenderObject();
-    if (box is! RenderBox || !box.hasSize) return null;
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
     return box.localToGlobal(Offset.zero) & box.size;
   }
 }
@@ -72,7 +77,7 @@ class HeaderSearch extends StatelessWidget {
             openSearchInput(
               entryContext,
               type: type,
-              anchor: PageHeader.anchorOf(entryContext),
+              anchor: () => PageHeader.anchorOf(entryContext),
             ),
           );
           return PageHeader.fitsSearchField(entryContext)
