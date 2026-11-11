@@ -861,5 +861,41 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('1 / 2'), findsOneWidget);
     });
+
+    testWidgets(
+      'a switch between the single column and two panes keeps the image',
+      (tester) async {
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {
+            42: illustJson(42, pageCount: 3, withMetaPages: true),
+          },
+        );
+        await pumpDetail(
+          tester,
+          container,
+          surface: const Size(1400, 900),
+          pageCount: 3,
+        );
+        // Two panes: page the image pager to the third image.
+        for (var i = 0; i < 2; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+        }
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // A turned phone: the single column brings that image into view.
+        setViewSize(tester, const Size(390, 844));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // Turned back: the image pager opens on the same image.
+        setViewSize(tester, const Size(1400, 900));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsOneWidget);
+      },
+    );
   });
 }

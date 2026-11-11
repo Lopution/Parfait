@@ -421,11 +421,18 @@ reviewed: 2026-10-17
 - **Rule:** Turning, folding or dragging the window keeps the shell's
   branches, their pushed pages and scroll offsets: switching between the
   bar and the rail reparents the branch Navigators (their GlobalKeys)
-  instead of rebuilding them. A two-pane detail keeps its page.
+  instead of rebuilding them. A two-pane detail keeps its page. A switch
+  between the single column and the two panes keeps the image the reader
+  was on: the single column's top image in view opens the image pager on
+  that page, and the image pager's page brings the single column's list
+  back to it (opening a collapsed set first). The detail page keeps that
+  image index across the switch, never the layouts' own scroll state.
 - **Why:** Desktop-class windows resize all the time; losing the open page
-  or the scroll on each resize would make the rail unusable.
-- **Check:** `test/home_branch_stack_test.dart` "a resize keeps every branch, its stack and its scroll"; `test/illust_detail_actions_test.dart` "arrow keys page the image pane; a resize keeps the page"
-- **Code:** `lib/app/widgets/home_branch_stack.dart`
+  or the scroll on each resize would make the rail unusable. A turned
+  phone or a folding tablet changes the detail page's whole layout, and
+  the reader lost the image they were looking at.
+- **Check:** `test/home_branch_stack_test.dart` "a resize keeps every branch, its stack and its scroll"; `test/illust_detail_actions_test.dart` "arrow keys page the image pane; a resize keeps the page" "a switch between the single column and two panes keeps the image"
+- **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### NAV-22 Esc goes back
 - **Rule:** `KeyboardBack` maps Esc to the router's `popRoute`, the path

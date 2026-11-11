@@ -403,13 +403,19 @@ reviewed: 2026-11-11
   panel; where the panel's content cannot be a menu (the tag panel's
   inline translation result, the bookmark edit form) the PC entry opens
   that panel. A work card shows the M3 hover state layer and a click
-  cursor (`InkWell` rows have their own). While a mouse is connected,
-  vertical lists show a `Scrollbar` (`mouseScrollbar`, also in
+  cursor (`InkWell` rows have their own). A work card is also a keyboard
+  stop (`FocusableActionDetector`): Tab and the arrow keys reach it and
+  it draws a 2dp focus ring in the theme's primary colour over the
+  preview; Enter or Space opens the work, and the menu key or Shift+F10
+  runs the card's long press. `InkWell` rows (novel and user rows) keep
+  their own focus state and Enter activation; only the card, which is a
+  bare `GestureDetector`, had no keyboard stop. While a mouse is
+  connected, vertical lists show a `Scrollbar` (`mouseScrollbar`, also in
   EasyRefresh feeds); NestedScrollView's coordinated views stay bare, and
   the list keeps its subtree when the scrollbar comes or goes.
 - **Why:** On a tablet or Chromebook with a mouse a long press is
   awkward, cards gave no sign they open, and a wheel gives no sense of a
   list's length. On a desktop the long-press panel rose from the bottom
   of the window, far from the pointer.
-- **Check:** `test/card_action_test.dart` "a PC opens the card actions as a menu beside the pointer" "the PC menu reads the state when it opens, outside build" "a mouse lights the card on hover and opens it on right-click"; `test/illust_detail_actions_test.dart` "a PC opens the tag entries as a menu beside the chip"; `test/history_page_test.dart` "a PC right-click on a card offers Manage, then enters"; `test/illust_detail_download_test.dart` "a PC right-click offers the selection mode, then toggles"; `test/scroll_behavior_test.dart` "a mouse brings a scrollbar and keeps the list as it was"
+- **Check:** `test/card_action_test.dart` "a PC opens the card actions as a menu beside the pointer" "the PC menu reads the state when it opens, outside build" "a mouse lights the card on hover and opens it on right-click" "a card takes focus, opens on Enter and shows its actions on the menu keys"; `test/illust_detail_actions_test.dart` "a PC opens the tag entries as a menu beside the chip"; `test/history_page_test.dart` "a PC right-click on a card offers Manage, then enters"; `test/illust_detail_download_test.dart` "a PC right-click offers the selection mode, then toggles"; `test/scroll_behavior_test.dart` "a mouse brings a scrollbar and keeps the list as it was"
 - **Code:** `lib/app/widgets/display_actions.dart`, `lib/app/motion/app_overlays.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/tag_actions_sheet.dart`, `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
