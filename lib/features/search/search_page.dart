@@ -761,10 +761,18 @@ class _TrendingTagTile extends ConsumerWidget {
   }
 }
 
-/// Search input with the three beta56 result tabs and cancellable suggestions.
-class SearchInputPage extends ConsumerStatefulWidget {
-  const SearchInputPage({
+/// Search input with the three beta56 result tabs and cancellable
+/// suggestions, shared by the full input page and the docked panel (R10).
+///
+/// The engine owns the text, the kind tabs, the filter drafts and the
+/// autocomplete subscription; [builder] places the four pieces it produces —
+/// the field, the tabs, the filter button and the history/suggestion body —
+/// in the host's own chrome.
+class SearchInputEngine extends ConsumerStatefulWidget {
+  const SearchInputEngine({
     super.key,
+    required this.onSubmit,
+    required this.builder,
     this.initialKeyword = '',
     this.initialType = SearchResultType.illust,
     this.onTypeChanged,
@@ -772,13 +780,40 @@ class SearchInputPage extends ConsumerStatefulWidget {
 
   final String initialKeyword;
   final SearchResultType initialType;
+
+  /// The host rewrites its own route when the kind changes (the full page
+  /// keeps its URL's type current); the docked panel changes nothing.
   final void Function(String keyword, SearchResultType type)? onTypeChanged;
 
+  /// The user searched [query]. Autocomplete is cancelled and the keyword
+  /// is in the history already; the host moves to the results.
+  final ValueChanged<SearchQuery> onSubmit;
+
+  final SearchInputEngineBuilder builder;
+
   @override
-  ConsumerState<SearchInputPage> createState() => _SearchInputPageState();
+  ConsumerState<SearchInputEngine> createState() => SearchInputEngineState();
 }
 
-class _SearchInputPageState extends ConsumerState<SearchInputPage>
+/// The controls the engine wires up, for the host to place.
+class SearchInputEngineParts {
+  const SearchInputEngineParts({
+    required this.field,
+    required this.tabs,
+    required this.filterButton,
+    required this.body,
+  });
+
+  final Widget field;
+  final PreferredSizeWidget tabs;
+  final Widget filterButton;
+  final Widget body;
+}
+
+typedef SearchInputEngineBuilder =
+    Widget Function(BuildContext context, SearchInputEngineParts parts);
+
+class SearchInputEngineState extends ConsumerState<SearchInputEngine>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final SearchKeywordController _textController;
@@ -787,6 +822,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   Animation<double>? _routeAnimation;
 
   static const _types = SearchResultType.values;
+
+  /// The draft's text, trimmed, as a submit would read it.
+  String get keyword => _textController.text.trim();
+
+  /// The kind the field is on.
+  SearchResultType get type => _types[_selectedIndex];
 
   @override
   void initState() {
@@ -808,7 +849,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _complete();
-      // The page exists to type a query: focus the field on arrival so the
+      // The field exists to type a query: focus it on arrival so the
       // keyboard is up without a second tap (pre-go_router behaviour).
       // But not mid-transition: _RoutePopSnapshot freezes the page into a
       // fixed-size texture while the IME animates viewInsets, so a keyboard
@@ -861,22 +902,20 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     _search(keyword);
   }
 
-  /// Searches [keyword] with this page's filter drafts. An id or a pixiv
-  /// link opens what it names instead (see [openSearchResults]) and stays
-  /// out of the history.
+  /// Searches [keyword] with this session's filter drafts. An id or a pixiv
+  /// link stays out of the history; the host's navigation opens what it
+  /// names (see [openSearchResults]).
   void _search(String keyword) {
     ref.read(searchAutocompleteProvider.notifier).cancel();
-    if (searchShortcutFor(keyword, _types[_selectedIndex]) == null) {
+    if (searchShortcutFor(keyword, type) == null) {
       unawaited(ref.read(searchHistoryProvider.notifier).record(keyword));
     }
-    unawaited(
-      openSearchResults(context, _query(keyword), replaceCurrent: true),
-    );
+    widget.onSubmit(_query(keyword));
   }
 
   SearchQuery _query(String keyword) {
     return searchQueryForType(
-      _types[_selectedIndex],
+      type,
       keyword: keyword,
       illustFilters: _illustFilters,
       novelFilters: _novelFilters,
@@ -884,16 +923,15 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   }
 
   /// Per-type filter drafts for this input session. Seeded from the
-  /// persisted defaults on first access; edits stay on the page (this
+  /// persisted defaults on first access; edits stay in the session (this
   /// draft is what the submitted query carries — nothing else writes it).
   late IllustSearchFilters _illustFilters = ref.read(
     searchIllustFiltersProvider,
   );
   late NovelSearchFilters _novelFilters = ref.read(searchNovelFiltersProvider);
 
-  SearchFilters get _filters => _types[_selectedIndex] == SearchResultType.novel
-      ? _novelFilters
-      : _illustFilters;
+  SearchFilters get _filters =>
+      type == SearchResultType.novel ? _novelFilters : _illustFilters;
 
   Future<void> _editFilters() async {
     final result = await showSearchFilterSheet(context, initial: _filters);
@@ -916,9 +954,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   void _complete() {
     final value = _textController.value;
     final range = keywordAtCaret(value);
-    final query =
-        range == null ||
-            searchShortcutFor(value.text, _types[_selectedIndex]) != null
+    final query = range == null || searchShortcutFor(value.text, type) != null
         ? ''
         : completionQueryOf(range.textInside(value.text));
     // A caret moving within the keyword asks nothing new.
@@ -960,7 +996,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
 
   /// M3 SearchBar look, inline behaviour: no SearchAnchor view. The type
   /// tabs and the filter button must stay visible while typing, and the
-  /// suggestions render in the page body exactly like the pre-M3 page did.
+  /// suggestions render in the host's body exactly like the pre-M3 page did.
   ///
   /// Keywords a space has closed sit on pills ([SearchKeywordPills]); the
   /// pills lie between the field's fill and its text, so the bar paints
@@ -1002,52 +1038,85 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
 
   @override
   Widget build(BuildContext context) {
-    final supportsFilters = _selectedIndex != 2;
-    return Scaffold(
-      // The keyboard overlays the page instead of squeezing the body into
-      // the strip above it; the suggestion list below gets a viewInsets
-      // bottom pad so its tail can still scroll clear of the IME.
-      resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(
-        leading: IconButton(
-          tooltip: context.l10n.searchCancel,
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back),
-        ),
-        titleSpacing: 0,
-        title: _buildSearchBar(context),
-        // The same slot as the result page's filter button, so the field
-        // keeps its place across the push.
-        actions: [
-          SearchFilterButton(
-            filters: supportsFilters ? _filters : IllustSearchFilters.defaults,
-            muted: !supportsFilters,
-            onPressed: supportsFilters
-                ? _editFilters
-                : () => showAppSnackBar(
-                    context,
-                    context.l10n.searchUserFiltersUnavailable,
-                  ),
-          ),
-        ],
-        bottom: AppTabBar(
+    final supportsFilters = type != SearchResultType.user;
+    return widget.builder(
+      context,
+      SearchInputEngineParts(
+        field: _buildSearchBar(context),
+        tabs: AppTabBar(
           controller: _tabController,
           labels: [
             for (final type in _types) searchText(context, type.labelKey),
           ],
         ),
-      ),
-      body: ContentWidthCap(
-        maxWidth: ContentWidths.management,
-        child: ValueListenableBuilder<TextEditingValue>(
+        filterButton: SearchFilterButton(
+          filters: supportsFilters ? _filters : IllustSearchFilters.defaults,
+          muted: !supportsFilters,
+          onPressed: supportsFilters
+              ? _editFilters
+              : () => showAppSnackBar(
+                  context,
+                  context.l10n.searchUserFiltersUnavailable,
+                ),
+        ),
+        body: ValueListenableBuilder<TextEditingValue>(
           valueListenable: _textController,
           builder: (context, value, _) => _SearchInputBody(
             value: value,
-            type: _types[_selectedIndex],
+            type: type,
             onSearch: _search,
             onFill: _fill,
             onComplete: _edit,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The full-page search input: the engine in a page's own chrome.
+class SearchInputPage extends StatelessWidget {
+  const SearchInputPage({
+    super.key,
+    this.initialKeyword = '',
+    this.initialType = SearchResultType.illust,
+    this.onTypeChanged,
+  });
+
+  final String initialKeyword;
+  final SearchResultType initialType;
+  final void Function(String keyword, SearchResultType type)? onTypeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SearchInputEngine(
+      initialKeyword: initialKeyword,
+      initialType: initialType,
+      onTypeChanged: onTypeChanged,
+      // Submitting replaces the input with the results (NAV-06).
+      onSubmit: (query) =>
+          unawaited(openSearchResults(context, query, replaceCurrent: true)),
+      builder: (context, parts) => Scaffold(
+        // The keyboard overlays the page instead of squeezing the body into
+        // the strip above it; the suggestion list below gets a viewInsets
+        // bottom pad so its tail can still scroll clear of the IME.
+        resizeToAvoidBottomInset: false,
+        appBar: AppTopBar(
+          leading: IconButton(
+            tooltip: context.l10n.searchCancel,
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back),
+          ),
+          titleSpacing: 0,
+          title: parts.field,
+          // The same slot as the result page's filter button, so the field
+          // keeps its place across the push.
+          actions: [parts.filterButton],
+          bottom: parts.tabs,
+        ),
+        body: ContentWidthCap(
+          maxWidth: ContentWidths.management,
+          child: parts.body,
         ),
       ),
     );

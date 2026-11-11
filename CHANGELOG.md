@@ -15,6 +15,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **平板上的提示：** 提示条在侧边栏旁边的内容区域居中，不再按整个窗口居中。
 - **横屏的个人主页：** 窗口较矮时，个人主页的头部收成一行，头像缩小，名字、分享和关注按钮并排，较宽的窗口里关注和好P友的数量也在这一行；第一屏就能看到标签页和作品。
 - **平板和电脑的顶栏：** 推荐、排行、新作和搜索页的标签靠左，页面自己的操作靠右，最右端是搜索框；内容区较窄时搜索框收成搜索图标。搜索结果页的类型标签移到标题一行，筛选按钮和关键词框在右侧，筛选摘要仍在下方。
+- **平板和电脑的搜索面板：** 点顶栏的搜索框（或搜索图标），输入面板就在它下方展开，历史、联想、类型和筛选都在面板里；回车直接看结果。从结果页改关键词会替换当前结果。按 Esc、点面板外或返回键收起；窗口变窄成手机布局时自动换成整页输入，已输入的内容不丢。
 
 ### 修复
 
@@ -33,6 +34,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **Messages on tablets:** Messages now center on the content next to the sidebar rather than on the whole window.
 - **Profiles in a short window:** In a short window, the profile header fits into one row: a smaller avatar with the name, share and follow buttons beside it, and the counts too when the window is wide enough. The tabs and works now show on the first screen.
 - **Top bars on tablets and computers:** On Recommended, Ranking, New and Search, the tabs now sit at the left, the page's own actions at the right, and a search field at the far end; a narrow content area shrinks the field to a search icon. On search results, the type tabs share the title row, the filter button and the query field sit at the right, and the filter summary stays below.
+- **Search on tablets and computers:** Tapping the search field (or the search icon) opens the input as a panel under it, with history, suggestions, kinds and filters inside; Enter shows the results. Editing the query from the results replaces them. Esc, a tap outside the panel or the back button closes it; as the window narrows to the phone layout, the input becomes a full page with what you typed kept.
 
 ### Fixed
 

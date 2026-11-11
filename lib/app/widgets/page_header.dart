@@ -29,6 +29,14 @@ abstract final class PageHeader {
   /// content area [fitsSearchField], the narrow one below it (R9).
   static double searchFieldWidth(BuildContext context) =>
       fitsSearchField(context) ? 360 : 240;
+
+  /// The global rectangle of the widget [context] builds — where the docked
+  /// search panel anchors (R10). Null before its first layout.
+  static Rect? anchorOf(BuildContext context) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
 }
 
 /// A destination's way into the search input on the shell's larger forms
@@ -57,20 +65,32 @@ class HeaderSearch extends StatelessWidget {
     final l10n = context.l10n;
     return Padding(
       padding: _padding,
-      child: PageHeader.fitsSearchField(context)
-          ? SizedBox(
-              width: PageHeader.searchFieldWidth(context),
-              child: SearchFieldButton(
-                text: l10n.searchBarHint,
-                isHint: true,
-                onTap: () => unawaited(openSearchInput(context, type: type)),
-              ),
-            )
-          : IconButton(
-              tooltip: l10n.searchTitle,
-              icon: const Icon(AppIcons.search),
-              onPressed: () => unawaited(openSearchInput(context, type: type)),
+      // The entry's own rectangle anchors the docked panel (R10).
+      child: Builder(
+        builder: (entryContext) {
+          void open() => unawaited(
+            openSearchInput(
+              entryContext,
+              type: type,
+              anchor: PageHeader.anchorOf(entryContext),
             ),
+          );
+          return PageHeader.fitsSearchField(entryContext)
+              ? SizedBox(
+                  width: PageHeader.searchFieldWidth(entryContext),
+                  child: SearchFieldButton(
+                    text: l10n.searchBarHint,
+                    isHint: true,
+                    onTap: open,
+                  ),
+                )
+              : IconButton(
+                  tooltip: l10n.searchTitle,
+                  icon: const Icon(AppIcons.search),
+                  onPressed: open,
+                );
+        },
+      ),
     );
   }
 }

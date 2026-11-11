@@ -21,6 +21,7 @@ import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
+import 'package:parfait/features/search/docked_search.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
@@ -258,13 +259,16 @@ void main() {
       expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
     }
 
-    // The field opens the search input on this stack, and leaving the
-    // input lands back on the destination.
+    // The field docks the input under the bar (R10); dismissing it lands
+    // back on the destination.
     await tester.tap(field);
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/recommended/search/input');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byType(DockedSearchPanel), findsOneWidget);
+    expect(router.state.uri.path, '/recommended');
     await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(router.state.uri.path, '/recommended');
 
     // A phone keeps its bar as it was: no search entry at all.

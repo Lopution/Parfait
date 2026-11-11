@@ -58,6 +58,7 @@ import '../../features/profile/profile_edit_page.dart';
 import '../../features/profile/user_page.dart';
 import '../../features/ranking/novel_ranking_page.dart';
 import '../../features/ranking/ranking_page.dart';
+import '../../features/search/docked_search.dart';
 import '../../features/search/reverse_image_search_page.dart';
 import '../../features/search/search_page.dart';
 import '../../features/search/search_result_page.dart';
@@ -1509,9 +1510,12 @@ String _currentStackRoot(BuildContext context) {
   return _stackRootOf(path) ?? '/recommended';
 }
 
-String _searchPath(BuildContext context, String leaf) {
-  final path = GoRouter.of(context).state.uri.path;
-  final root = _stackRootOf(path);
+String _searchPath(BuildContext context, String leaf) =>
+    _searchLeafPath(_stackRootOf(GoRouter.of(context).state.uri.path), leaf);
+
+/// Search leaves live under the search branch itself and under every other
+/// branch's `/search`.
+String _searchLeafPath(String? root, String leaf) {
   if (root == null) return '/search/$leaf';
   return root == '/search' ? '/search/$leaf' : '$root/search/$leaf';
 }
@@ -1812,16 +1816,72 @@ Future<void> openBookmarkTagFeed(
   await _push(context, location);
 }
 
+/// Opens the search input. On the wide shell [anchor] — the search entry's
+/// global rectangle — docks the input under it as a panel (R10); without
+/// one, or on a phone's layout, the full input page opens.
 Future<void> openSearchInput(
   BuildContext context, {
   String initialKeyword = '',
   SearchResultType type = SearchResultType.illust,
+  Rect? anchor,
 }) async {
-  final location = Uri(
-    path: _searchPath(context, 'input'),
-    queryParameters: {'q': initialKeyword, 'type': type.name},
-  ).toString();
-  await _push(context, location);
+  final router = GoRouter.of(context);
+  final root = _stackRootOf(router.state.uri.path);
+  if (anchor != null && _hasRail(context)) {
+    final outcome = await showDockedSearch(
+      context,
+      anchor: anchor,
+      initialKeyword: initialKeyword,
+      type: type,
+    );
+    switch (outcome) {
+      case DockedSearchSubmitted(:final query):
+        // The destination stays under the results it opens.
+        await _moveToSearchResults(router, root, query);
+      case DockedSearchNarrowed(:final keyword, :final type):
+        // The header's search entry is gone from the phone layout, so the
+        // widget's context may be too; the router is not.
+        final location = _searchInputLocationFor(root, keyword, type);
+        assert(pushStaysInStack(router, location));
+        await router.push<void>(location);
+      case null:
+        break;
+    }
+    return;
+  }
+  await _push(context, _searchInputLocationFor(root, initialKeyword, type));
+}
+
+/// The result page's query field (R9): on the wide shell the docked input
+/// opens under [anchor] and submitting replaces the results in place
+/// (NAV-06); elsewhere the input page takes the results' place.
+Future<void> editSearchFromResults(
+  BuildContext context, {
+  required Rect? anchor,
+  required String keyword,
+  required SearchResultType type,
+}) async {
+  if (anchor == null || !_hasRail(context)) {
+    return swapToSearchInput(context, keyword: keyword, type: type);
+  }
+  final router = GoRouter.of(context);
+  final root = _stackRootOf(router.state.uri.path);
+  final outcome = await showDockedSearch(
+    context,
+    anchor: anchor,
+    initialKeyword: keyword,
+    type: type,
+  );
+  switch (outcome) {
+    case DockedSearchSubmitted(:final query):
+      await _moveToSearchResults(router, root, query, replaceCurrent: true);
+    case DockedSearchNarrowed(:final keyword, :final type):
+      final location = _searchInputLocationFor(root, keyword, type);
+      assert(pushStaysInStack(router, location));
+      await router.pushReplacement<void>(location);
+    case null:
+      break;
+  }
 }
 
 void replaceSearchInput(
@@ -1844,8 +1904,18 @@ String _searchInputLocation(
   BuildContext context,
   String keyword,
   SearchResultType type,
+) => _searchInputLocationFor(
+  _stackRootOf(GoRouter.of(context).state.uri.path),
+  keyword,
+  type,
+);
+
+String _searchInputLocationFor(
+  String? root,
+  String keyword,
+  SearchResultType type,
 ) => Uri(
-  path: _searchPath(context, 'input'),
+  path: _searchLeafPath(root, 'input'),
   queryParameters: {'q': keyword, 'type': type.name},
 ).toString();
 
@@ -1907,47 +1977,62 @@ Future<void> openSearchResults(
   SearchQuery query, {
   bool replaceCurrent = false,
 }) async {
-  final keyword = query.keyword.trim();
-  if (keyword.isEmpty) {
+  if (query.keyword.trim().isEmpty) {
     showAppSnackBar(context, context.l10n.searchInputEmpty);
     return;
   }
+  final router = GoRouter.of(context);
+  await _moveToSearchResults(
+    router,
+    _stackRootOf(router.state.uri.path),
+    query,
+    replaceCurrent: replaceCurrent,
+  );
+}
+
+/// Pushes the results, or replaces the current page with them, without a
+/// widget context: the docked panel's host may be gone from the tree by the
+/// time it closes (R10).
+Future<void> _moveToSearchResults(
+  GoRouter router,
+  String? root,
+  SearchQuery query, {
+  bool replaceCurrent = false,
+}) async {
+  final keyword = query.keyword.trim();
   // An id or a pixiv link opens what it names instead of searching.
   final shortcut = searchShortcutFor(keyword, query.type);
-  if (shortcut != null) {
-    if (replaceCurrent) {
-      await swapToSearchShortcut(context, shortcut);
-    } else {
-      await openSearchShortcut(context, shortcut);
-    }
-    return;
-  }
-  final location = Uri(
-    path: _searchPath(context, 'results'),
-    queryParameters: _searchQueryParameters(query),
-  ).toString();
+  final location = shortcut == null
+      ? Uri(
+          path: _searchLeafPath(root, 'results'),
+          queryParameters: _searchQueryParameters(query),
+        ).toString()
+      : _shortcutLocation(root ?? '/recommended', shortcut);
+  assert(pushStaysInStack(router, location));
   if (replaceCurrent) {
-    await _pushReplacement(context, location);
+    await router.pushReplacement<void>(location);
   } else {
-    await _push(context, location);
+    await router.push<void>(location);
   }
+}
+
+String _shortcutLocation(String root, SearchShortcut shortcut) {
+  final path = switch (shortcut.kind) {
+    SearchShortcutKind.illust => 'illust',
+    SearchShortcutKind.novel => 'novel',
+    SearchShortcutKind.user => 'user',
+  };
+  return '$root/$path/${shortcut.id}';
 }
 
 /// Opens what an id or pixiv link names in place of the search input page.
 Future<void> swapToSearchShortcut(
   BuildContext context,
   SearchShortcut shortcut,
-) {
-  final path = switch (shortcut.kind) {
-    SearchShortcutKind.illust => 'illust',
-    SearchShortcutKind.novel => 'novel',
-    SearchShortcutKind.user => 'user',
-  };
-  return _pushReplacement(
-    context,
-    '${_currentStackRoot(context)}/$path/${shortcut.id}',
-  );
-}
+) => _pushReplacement(
+  context,
+  _shortcutLocation(_currentStackRoot(context), shortcut),
+);
 
 void replaceSearchResults(BuildContext context, SearchQuery query) {
   final keyword = query.keyword.trim();
@@ -1961,15 +2046,6 @@ void replaceSearchResults(BuildContext context, SearchQuery query) {
   ).toString();
   context.replace(location);
 }
-
-Future<void> openSearchShortcut(
-  BuildContext context,
-  SearchShortcut shortcut,
-) => switch (shortcut.kind) {
-  SearchShortcutKind.illust => openIllust(context, shortcut.id),
-  SearchShortcutKind.novel => openNovel(context, shortcut.id),
-  SearchShortcutKind.user => openUser(context, shortcut.id),
-};
 
 Future<void> openReverseImageSearch(
   BuildContext context, {

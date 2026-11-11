@@ -106,6 +106,84 @@ Future<T?> showAppDialog<T>({
   );
 }
 
+/// A modal surface that places itself — the docked search input (NAV-25).
+/// It is a transparent popup over the root navigator, under the app's
+/// release-to-dismiss scrim and the same reduced-motion gate as a dialog;
+/// [builder] lays out the page, which positions its own panel.
+Future<T?> showAppPanel<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  required String barrierLabel,
+  Color? barrierColor,
+  bool useRootNavigator = true,
+}) {
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  return navigator.push(
+    _AppPanelRoute<T>(
+      builder: builder,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+      barrierLabel: barrierLabel,
+      barrierColor: barrierColor ?? Colors.black54,
+      duration: MotionTokens.enabled(context)
+          ? MotionTokens.resolve(context, MotionTokens.dialog)
+          : Duration.zero,
+    ),
+  );
+}
+
+class _AppPanelRoute<T> extends PopupRoute<T> {
+  _AppPanelRoute({
+    required this.builder,
+    required this.themes,
+    required String barrierLabel,
+    required Color barrierColor,
+    required this.duration,
+  }) : _barrierLabel = barrierLabel,
+       _barrierColor = barrierColor;
+
+  final WidgetBuilder builder;
+  final CapturedThemes themes;
+  final String _barrierLabel;
+  final Color _barrierColor;
+  final Duration duration;
+
+  @override
+  Duration get transitionDuration => duration;
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  Color? get barrierColor => _barrierColor;
+
+  @override
+  String? get barrierLabel => _barrierLabel;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => themes.wrap(builder(context));
+
+  @override
+  Widget buildModalBarrier() => PromptCover(
+    animation: animation!,
+    child: _ReleaseDismissBarrier(route: this),
+  );
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => FadeTransition(
+    opacity: animation.drive(CurveTween(curve: Curves.easeOut)),
+    child: child,
+  );
+}
+
 class _AppDialogRoute<T> extends DialogRoute<T> {
   _AppDialogRoute({
     required super.context,

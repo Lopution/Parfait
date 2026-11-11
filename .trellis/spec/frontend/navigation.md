@@ -12,6 +12,8 @@ applies_to:
   - lib/app/motion/scroll_hide.dart
   - lib/app/touch_exploration_scope.dart
   - lib/features/home/**
+  - lib/features/search/docked_search.dart
+  - lib/features/search/search_page.dart
 reviewed: 2026-10-17
 ---
 
@@ -87,13 +89,16 @@ reviewed: 2026-10-17
 - **Code:** `lib/app/widgets/replica_scaffold.dart`
 
 ### NAV-06 Search swaps routes instead of stacking them
-- **Rule:** Submitting search input replaces the input route with the
-  results (`pushReplacement`), and editing the query replaces results with
-  input. `context.replace` is only for a page updating its own query (tab
-  or type), because it keeps the page key and skips the transition.
+- **Rule:** Submitting the full input page replaces it with the results
+  (`pushReplacement`), and editing the query replaces results with the
+  input page. On a wide shell the input is a docked panel instead (NAV-25):
+  submitting closes the panel first, then pushes the results from a
+  destination or replaces the results when the panel was opened from them.
+  `context.replace` is only for a page updating its own query (tab or
+  type), because it keeps the page key and skips the transition.
 - **Why:** Stacked search routes made back walk through every query.
-- **Check:** `test/navigation_router_test.dart` "search input and results stay on the requesting stack"
-- **Code:** `lib/app/navigation/routes.dart`, `lib/features/search/search_result_page.dart`
+- **Check:** `test/navigation_router_test.dart` "search input and results stay on the requesting stack"; `test/docked_search_test.dart` "a wide header docks the input under the field" "editing the query on a wide result bar replaces the results"
+- **Code:** `lib/app/navigation/routes.dart`, `lib/features/search/search_result_page.dart`, `lib/features/search/docked_search.dart`
 
 ### NAV-23 The startup gate rescues only an auth stack
 - **Rule:** Signed in, `StartupGate` sends the user home only when both
@@ -363,7 +368,7 @@ reviewed: 2026-10-17
   `SearchFieldButton` 360dp wide while the content area
   (`HomeShellChrome.contentSizeOf`, the window less the rail) is at least
   `AppBreakpoints.expanded` (840dp), otherwise a search icon; either
-  opens the search input route on the kind shown. Only a destination's
+  opens the docked search input (NAV-25) on the kind shown. Only a destination's
   own root shows one — `HeaderSearch` renders nothing without
   `BranchRootScope`, so a pushed page, including the novel new and novel
   ranking pages that reuse these widgets, has none (R8). The recommended
@@ -380,6 +385,29 @@ reviewed: 2026-10-17
   its icon when the content area cannot hold it.
 - **Check:** `test/navigation_router_test.dart` "a destination bar ends in the search field" "ranking and new bars end in the search field" "a page pushed over a destination root has no search entry" "the off-bar search entry still reaches search"; `test/search_catalog_test.dart` "the guide camera opens reverse image search; the novel tab"; `test/search_result_page_test.dart` "wide result bar splits kinds, query, filters"
 - **Code:** `lib/app/widgets/page_header.dart`, `lib/features/home/recommended/recommended_home_page.dart`, `lib/features/new/new_page.dart`, `lib/features/ranking/ranking_tabs.dart`, `lib/features/search/search_page.dart`, `lib/features/search/search_result_page.dart`
+
+### NAV-25 A wide shell docks the search input under its trigger
+- **Rule:** Where the rail shows (NAV-20), the destination's `HeaderSearch`
+  and the result page's query field open the input as a docked panel, not a
+  page: `showAppPanel` (FB-02) on the root navigator — a transparent
+  popup over the whole shell, so the rail cannot switch branches beneath
+  it — with a scrim over the page. The panel anchors under the trigger's
+  global rectangle
+  (`PageHeader.anchorOf`), as wide as it but at least 360dp, right-aligned
+  when the trigger is narrower, and runs to the content area's bottom.
+  It holds the full page's `SearchInputEngine` pieces — the editable field,
+  the kind tabs, the filter button and the history/suggestion body — and a
+  kind switch stays in the panel (the URL does not change). Submitting
+  follows NAV-06. Esc follows NAV-22 (the first leaves the field, the
+  second closes), and the scrim or the system back closes it too. When the
+  window narrows to a layout without the rail, the panel closes and the
+  full input page opens on the same stack with the typed draft. A phone
+  never docks anything.
+- **Why:** A page push on a desktop-sized window threw the destination away
+  and retyped the query into a full screen; the field the user tapped is
+  where the input belongs, and the page under it should stay in sight.
+- **Check:** `test/docked_search_test.dart` "a wide header docks the input under the field" "editing the query on a wide result bar replaces the results" "Esc leaves the field first, a second Esc closes the panel" "the scrim and the system back close the panel" "narrowing carries the draft to the full page" "a phone keeps the full input page" "the panel offers history, kinds and filters"
+- **Code:** `lib/features/search/docked_search.dart`, `lib/app/widgets/page_header.dart`, `lib/app/navigation/routes.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place
 - **Rule:** Turning, folding or dragging the window keeps the shell's
