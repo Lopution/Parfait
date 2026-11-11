@@ -49,8 +49,9 @@ class ScrollableFormShell extends StatelessWidget {
   final Widget content;
 
   /// Bottom-anchored primary action. When the content is shorter than the
-  /// viewport it pins to the bottom edge; on short viewports it flows
-  /// after the content so it always remains reachable by scrolling.
+  /// viewport it pins to the bottom edge on a compact window, and centres
+  /// with the rest of the group on a large one; on short viewports it
+  /// flows after the content so it always remains reachable by scrolling.
   final Widget primaryAction;
 
   /// Optional secondary affordance rendered under [primaryAction]
@@ -76,6 +77,8 @@ class ScrollableFormShell extends StatelessWidget {
     return ReplicaScaffold(
       title: title,
       actions: actions,
+      // The bar lines up with the form column the page caps itself at.
+      contentWidth: contentMaxWidth,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final beside = AppBreakpoints.useSideBySideForm(constraints.biggest);
@@ -107,6 +110,7 @@ class ScrollableFormShell extends StatelessWidget {
 
   Widget _stacked(BoxConstraints constraints) {
     final horizontal = _horizontalPadding(constraints.maxWidth);
+    final centered = constraints.maxWidth >= AppBreakpoints.expanded;
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         horizontal,
@@ -120,23 +124,38 @@ class ScrollableFormShell extends StatelessWidget {
             maxWidth: contentMaxWidth,
             minHeight: _minColumnHeight(constraints.maxHeight),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: FuncSpacing.xxxl),
-                  header,
-                  const SizedBox(height: FuncSpacing.xxxl),
-                  content,
-                ],
-              ),
-              _actionColumn(),
-            ],
-          ),
+          // On a large window header, form and action read as one group,
+          // centred instead of pinned to the window's two edges (C7); the
+          // compact forms keep the action at the bottom, where a thumb
+          // reaches it. A group taller than the window still scrolls.
+          child: centered
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    const SizedBox(height: FuncSpacing.xl),
+                    content,
+                    _actionColumn(gap: FuncSpacing.xl),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: FuncSpacing.xxxl),
+                        header,
+                        const SizedBox(height: FuncSpacing.xxxl),
+                        content,
+                      ],
+                    ),
+                    _actionColumn(),
+                  ],
+                ),
         ),
       ),
     );
@@ -183,11 +202,11 @@ class ScrollableFormShell extends StatelessWidget {
     );
   }
 
-  Widget _actionColumn() => Column(
+  Widget _actionColumn({double gap = FuncSpacing.xxxl}) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const SizedBox(height: FuncSpacing.xxxl),
+      SizedBox(height: gap),
       primaryAction,
       if (secondary != null) ...[
         const SizedBox(height: FuncSpacing.sm),
