@@ -13,6 +13,7 @@ applies_to:
   - lib/app/widgets/author_row.dart
   - lib/app/widgets/expandable_text.dart
   - lib/app/widgets/inline_translation.dart
+  - lib/app/widgets/search_keyword_pills.dart
   - lib/app/widgets/selectable_tile.dart
   - lib/app/widgets/sliver_surface_list.dart
   - lib/app/layout/card_columns.dart

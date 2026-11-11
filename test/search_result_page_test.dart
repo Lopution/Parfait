@@ -254,8 +254,7 @@ void main() {
     expect(router.state.uri.path, '/search/results');
   });
 
-  testWidgets('the wide result bar keeps the kind tabs on its title row, the '
-      'query in its actions and the filter summary under it', (tester) async {
+  testWidgets('wide result bar splits kinds, query, filters', (tester) async {
     // The 88dp rail leaves 1312 and 712 of content: the query field takes
     // its full 360, or the 240 narrow one under 840 (R9).
     for (final (view, fieldWidth) in const [

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/search/search_models.dart';
@@ -61,13 +63,13 @@ class HeaderSearch extends StatelessWidget {
               child: SearchFieldButton(
                 text: l10n.searchBarHint,
                 isHint: true,
-                onTap: () => openSearchInput(context, type: type),
+                onTap: () => unawaited(openSearchInput(context, type: type)),
               ),
             )
           : IconButton(
               tooltip: l10n.searchTitle,
               icon: const Icon(AppIcons.search),
-              onPressed: () => openSearchInput(context, type: type),
+              onPressed: () => unawaited(openSearchInput(context, type: type)),
             ),
     );
   }

@@ -378,7 +378,7 @@ reviewed: 2026-10-17
   One row puts the tabs where the user looks and gives every destination
   the same single search entry at the same edge; the field falls back to
   its icon when the content area cannot hold it.
-- **Check:** `test/navigation_router_test.dart` "a destination bar ends in the search field" "ranking and new end their wide bars in the search field" "a page pushed over a destination root has no search entry" "a search destination off the bar still reaches search from"; `test/search_catalog_test.dart` "the guide camera opens reverse image search; the novel tab"; `test/search_result_page_test.dart` "the wide result bar keeps the kind tabs on its title row, the"
+- **Check:** `test/navigation_router_test.dart` "a destination bar ends in the search field" "ranking and new bars end in the search field" "a page pushed over a destination root has no search entry" "the off-bar search entry still reaches search"; `test/search_catalog_test.dart` "the guide camera opens reverse image search; the novel tab"; `test/search_result_page_test.dart` "wide result bar splits kinds, query, filters"
 - **Code:** `lib/app/widgets/page_header.dart`, `lib/features/home/recommended/recommended_home_page.dart`, `lib/features/new/new_page.dart`, `lib/features/ranking/ranking_tabs.dart`, `lib/features/search/search_page.dart`, `lib/features/search/search_result_page.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place

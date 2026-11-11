@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
@@ -138,9 +139,13 @@ void main() {
     });
   }
 
-  Future<GoRouter> pumpRouter(WidgetTester tester, String location) async {
+  Future<GoRouter> pumpRouter(
+    WidgetTester tester,
+    String location, {
+    List<Override> overrides = const [],
+  }) async {
     final router = pixivRouter(location);
-    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
+    await tester.pumpWidget(localizedRouterApp(router, overrides: overrides));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     return router;
@@ -218,7 +223,7 @@ void main() {
   testWidgets('a destination bar ends in the search field', (tester) async {
     final semantics = tester.ensureSemantics();
     setViewSize(tester, const Size(1280, 800));
-    await pumpRouter(tester, '/recommended');
+    final router = await pumpRouter(tester, '/recommended');
 
     final bar = find.descendant(
       of: find.byType(RecommendedHomePage),
@@ -253,6 +258,15 @@ void main() {
       expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
     }
 
+    // The field opens the search input on this stack, and leaving the
+    // input lands back on the destination.
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended/search/input');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended');
+
     // A phone keeps its bar as it was: no search entry at all.
     setViewSize(tester, const Size(390, 844));
     setDisplaySize(tester, const Size(390, 844));
@@ -264,9 +278,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('ranking and new end their wide bars in the search field', (
-    tester,
-  ) async {
+  testWidgets('ranking and new bars end in the search field', (tester) async {
     setViewSize(tester, const Size(1280, 800));
     for (final location in ['/ranking', '/new']) {
       await pumpRouter(tester, location);
@@ -299,22 +311,15 @@ void main() {
     );
   });
 
-  testWidgets('a search destination off the bar still reaches search from '
-      'the recommended header on either window class', (tester) async {
+  testWidgets('the off-bar search entry still reaches search', (tester) async {
     setViewSize(tester, const Size(1280, 800));
-    final router = pixivRouter('/recommended');
-    await tester.pumpWidget(
-      localizedRouterApp(
-        router,
-        overrides: [
-          homeArrangementProvider.overrideWithValue(
-            HomeDestination.defaultArrangement.hide(HomeDestination.search),
-          ),
-        ],
-      ),
+    const destination = HomeDestination.search;
+    final hidden = HomeDestination.defaultArrangement.hide(destination);
+    final router = await pumpRouter(
+      tester,
+      '/recommended',
+      overrides: [homeArrangementProvider.overrideWithValue(hidden)],
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     final bar = find.descendant(
       of: find.byType(RecommendedHomePage),
@@ -338,10 +343,14 @@ void main() {
       find.descendant(of: bar, matching: find.byType(SearchFieldButton)),
       findsNothing,
     );
-    expect(
-      find.descendant(of: bar, matching: find.byTooltip('搜索')),
-      findsOneWidget,
-    );
+    final offBarIcon = find.descendant(of: bar, matching: find.byTooltip('搜索'));
+    expect(offBarIcon, findsOneWidget);
+
+    // The off-bar icon is the destination's shortcut, not this stack's
+    // input: it switches to the search destination.
+    await tester.tap(offBarIcon);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/search');
   });
 
   testWidgets('branch pushes are rejected outside the visible branch', (

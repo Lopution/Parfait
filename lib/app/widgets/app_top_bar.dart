@@ -194,13 +194,18 @@ class _AppTopBarState extends State<AppTopBar> {
         ? title
         : Row(
             children: [
-              Semantics(
-                header: true,
-                namesRoute: switch (defaultTargetPlatform) {
-                  TargetPlatform.iOS || TargetPlatform.macOS => null,
-                  _ => true,
-                },
-                child: title,
+              // The title takes the share the tabs leave it and is cut to
+              // that width (ellipsis) rather than pushing them out — large
+              // text and actions leave very little toolbar width.
+              Flexible(
+                child: Semantics(
+                  header: true,
+                  namesRoute: switch (defaultTargetPlatform) {
+                    TargetPlatform.iOS || TargetPlatform.macOS => null,
+                    _ => true,
+                  },
+                  child: title,
+                ),
               ),
               const SizedBox(width: FuncSpacing.xl),
               Expanded(child: bottom!),

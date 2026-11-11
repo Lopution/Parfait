@@ -15,6 +15,7 @@ import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
+import '../../core/search/search_models.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
@@ -223,7 +224,15 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               onPressed: () => openNewNovels(context),
               icon: const Icon(Icons.menu_book_outlined),
             ),
-          const HeaderSearch(),
+          HeaderSearch(
+            // The header searches the kind this page shows. The pushed
+            // novel page draws no entry (no branch root), but the kind it
+            // would open must still match its feeds.
+            type: switch (widget.type) {
+              NewFeedType.illust => SearchResultType.illust,
+              NewFeedType.novel => SearchResultType.novel,
+            },
+          ),
         ],
       ),
       body: Builder(

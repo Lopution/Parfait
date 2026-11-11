@@ -165,11 +165,12 @@ void main() {
       await tester.pump();
 
       // Capped on the window's form, not on the row: the slots do not
-      // spread out just because this row is narrow.
-      expect(
-        tester.getRect(find.byType(TabBar)).width,
-        2 * AppTabBar.maxSlotWidth,
-      );
+      // spread out just because this row is narrow, and the capped row
+      // still starts with the row's edge rather than centring in it.
+      final row = tester.getRect(find.byType(AppTabBar));
+      final bar = tester.getRect(find.byType(TabBar));
+      expect(bar.width, 2 * AppTabBar.maxSlotWidth);
+      expect(bar.left, row.left);
     },
   );
 
@@ -177,43 +178,52 @@ void main() {
     'tabs beside the title share its row, the title alone the heading',
     (tester) async {
       final semantics = tester.ensureSemantics();
-      setViewSize(tester, const Size(1280, 800));
-      await tester.pumpWidget(
-        localizedApp(
-          theme: replicaTheme(Brightness.light),
-          home: const DefaultTabController(
-            length: 2,
-            child: Scaffold(
-              appBar: AppTopBar(
-                title: Text('Bookmark tags'),
-                tabsBesideTitle: true,
-                bottom: AppTabBar(labels: ['公开', '非公开']),
+      for (final size in const [Size(1280, 800), Size(520, 800)]) {
+        // The narrow run adds the system's largest text and pointer chrome.
+        final big = size.width < 600;
+        setViewSize(tester, size);
+        await tester.pumpWidget(
+          localizedApp(
+            theme: replicaTheme(Brightness.light),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(big ? 3 : 1)),
+              child: DefaultTabController(
+                length: 2,
+                child: Scaffold(
+                  appBar: AppTopBar(
+                    leading: big ? const BackButton() : null,
+                    title: const Text('Bookmark tags'),
+                    tabsBesideTitle: true,
+                    actions: big ? const [CloseButton()] : null,
+                    bottom: const AppTabBar(labels: ['公开', '非公开']),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // One toolbar row: the tabs did not add a second row under the title.
-      expect(tester.getSize(find.byType(AppTopBar)).height, kToolbarHeight);
-      final title = tester.getRect(find.text('Bookmark tags'));
-      for (final label in ['公开', '非公开']) {
-        // On the title's row, after it.
-        expect(tester.getRect(find.text(label)).left, greaterThan(title.right));
+        // One toolbar row: the title gave way rather than overflowed it.
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(AppTopBar)).height, kToolbarHeight);
+        Rect tab(String label) => tester.getRect(find.text(label));
+        for (final label in const ['公开', '非公开']) {
+          expect(tab(label).left, greaterThan(tab('Bookmark tags').right));
+        }
+        // The heading is the title, not a node the tabs sit inside.
+        for (
+          SemanticsNode? node = tester.getSemantics(find.text('公开'));
+          node != null;
+          node = node.parent
+        ) {
+          expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
+        }
+        expect(
+          tester.getSemantics(find.text('Bookmark tags')),
+          isSemantics(label: 'Bookmark tags', isHeader: true, namesRoute: true),
+        );
       }
-      // The heading is the title, not a node the tabs sit inside.
-      for (
-        SemanticsNode? node = tester.getSemantics(find.text('公开'));
-        node != null;
-        node = node.parent
-      ) {
-        expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
-      }
-      expect(
-        tester.getSemantics(find.text('Bookmark tags')),
-        isSemantics(label: 'Bookmark tags', isHeader: true, namesRoute: true),
-      );
       semantics.dispose();
     },
   );
