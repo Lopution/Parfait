@@ -284,12 +284,14 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
   }
 
   /// The result-page header keeps "what am I looking at" live: tapping the
-  /// keyword reopens the input page prefilled with this query so editing a
-  /// search never means retyping it.
-  void _editQuery() {
+  /// keyword reopens the input prefilled with this query so editing a
+  /// search never means retyping it. On the wide shell the input docks
+  /// under the field and submitting replaces these results (R10).
+  void _editQuery(BuildContext fieldContext) {
     unawaited(
-      swapToSearchInput(
+      editSearchFromResults(
         context,
+        anchor: () => PageHeader.anchorOf(fieldContext),
         keyword: widget.query.keyword,
         type: _selectedType,
       ),
@@ -363,10 +365,12 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
               context.l10n.searchUserFiltersUnavailable,
             ),
     );
-    final keywordField = SearchFieldButton(
+    // The Builder's rectangle is the field's own: the docked input anchors
+    // under it (R10).
+    Widget keywordField(BuildContext fieldContext) => SearchFieldButton(
       text: widget.query.keyword.trim(),
       tapHint: context.l10n.searchModifyQuery,
-      onTap: _editQuery,
+      onTap: () => _editQuery(fieldContext),
     );
     // The wide header keeps the type tabs on the title row and the query
     // at the end of the bar (R9); the filter summary still sits under it.
@@ -380,7 +384,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
         titleSpacing: 0,
-        title: wide ? tabBar : keywordField,
+        title: wide ? tabBar : Builder(builder: keywordField),
         bottom: wide
             ? (summary == null
                   ? null
@@ -407,7 +411,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
               ),
               child: SizedBox(
                 width: PageHeader.searchFieldWidth(context),
-                child: keywordField,
+                child: Builder(builder: keywordField),
               ),
             ),
         ],

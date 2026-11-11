@@ -10,6 +10,7 @@ import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/features/search/docked_search.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/app/widgets/search_field_button.dart';
@@ -284,9 +285,18 @@ void main() {
           tester.getRect(find.widgetWithText(ActionChip, '最早发布')).top,
           greaterThanOrEqualTo(kToolbarHeight),
         );
+        // R10: the query opens docked under the field, not as a page.
         await tester.tap(field);
-        await tester.pumpAndSettle();
-        expect(find.byType(SearchInputPage), findsOneWidget);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.byType(SearchInputPage), findsNothing);
+        final panel = find.byType(DockedSearchPanel);
+        expect(panel, findsOneWidget);
+        expect(tester.getRect(panel).width, greaterThanOrEqualTo(360));
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(panel, findsNothing);
       }
       await tester.pumpWidget(const SizedBox());
     }

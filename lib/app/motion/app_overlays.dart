@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart' show HitTestResult, PointerUpEvent;
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/debug/frame_probe.dart';
 import '../widgets/prompt_host.dart';
 import 'motion_tokens.dart';
 
@@ -104,6 +105,116 @@ Future<T?> showAppDialog<T>({
           : AnimationStyle.noAnimation,
     ),
   );
+}
+
+/// A modal surface that places itself — the docked search input (NAV-25).
+/// It is a transparent popup over the root navigator, under the app's
+/// release-to-dismiss scrim and the same reduced-motion gate as a dialog;
+/// [builder] lays out the page, which positions its own panel.
+Future<T?> showAppPanel<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  required String barrierLabel,
+  Color? barrierColor,
+  bool useRootNavigator = true,
+}) {
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  return navigator.push(
+    _AppPanelRoute<T>(
+      builder: builder,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+      barrierLabel: barrierLabel,
+      barrierColor: barrierColor ?? Colors.black54,
+      duration: MotionTokens.enabled(context)
+          ? MotionTokens.resolve(context, MotionTokens.dialog)
+          : Duration.zero,
+    ),
+  );
+}
+
+class _AppPanelRoute<T> extends PopupRoute<T> {
+  _AppPanelRoute({
+    required this.builder,
+    required this.themes,
+    required String barrierLabel,
+    required Color barrierColor,
+    required this.duration,
+  }) : _barrierLabel = barrierLabel,
+       _barrierColor = barrierColor;
+
+  final WidgetBuilder builder;
+  final CapturedThemes themes;
+  final String _barrierLabel;
+  final Color _barrierColor;
+  final Duration duration;
+
+  @override
+  Duration get transitionDuration => duration;
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  Color? get barrierColor => _barrierColor;
+
+  @override
+  String? get barrierLabel => _barrierLabel;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => themes.wrap(builder(context));
+
+  @override
+  Widget buildModalBarrier() => PromptCover(
+    animation: animation!,
+    child: _ReleaseDismissBarrier(route: this),
+  );
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => FadeTransition(
+    opacity: animation.drive(CurveTween(curve: Curves.easeOut)),
+    child: child,
+  );
+
+  var _probed = false;
+
+  @override
+  void install() {
+    super.install();
+    animation?.addStatusListener(_probeFade);
+  }
+
+  /// QUAL-05: the panel's fade is a scene a recording should name, in and
+  /// out alike. Paired enter/exit, so the scene never leaks into the next
+  /// frame's timing.
+  void _probeFade(AnimationStatus status) {
+    final active =
+        status == AnimationStatus.forward || status == AnimationStatus.reverse;
+    if (!FrameProbe.available || active == _probed) return;
+    _probed = active;
+    final probe = FrameProbe.instance;
+    if (active) {
+      probe
+        ..enter('panel')
+        ..mark('panel ${status == AnimationStatus.forward ? 'in' : 'out'}');
+    } else {
+      probe.exit('panel');
+    }
+  }
+
+  @override
+  void dispose() {
+    animation?.removeStatusListener(_probeFade);
+    super.dispose();
+  }
 }
 
 class _AppDialogRoute<T> extends DialogRoute<T> {

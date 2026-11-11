@@ -21,6 +21,7 @@ import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
+import 'package:parfait/features/search/docked_search.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
@@ -697,8 +698,17 @@ void main() {
     await tester.tap(
       find.descendant(of: find.byType(AppBar), matching: find.byTooltip('搜索')),
     );
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/input');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    // R10: the wide header docks the input under its entry, on the novel
+    // kind the guide's tab is on.
+    expect(find.byType(DockedSearchPanel), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'cat');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/search/results');
+    expect(router.state.uri.queryParameters['q'], 'cat');
     expect(router.state.uri.queryParameters['type'], 'novel');
   });
 
@@ -960,16 +970,21 @@ void main() {
 
     expect(find.byType(SearchResultPage), findsOneWidget);
     await tester.tap(find.text('风景'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.byType(SearchInputPage), findsOneWidget);
-    expect(router.state.uri.path, '/search/input');
-    expect(router.state.uri.queryParameters['q'], '风景');
-    expect(router.state.uri.queryParameters['type'], 'illust');
+    // R10: the wide result bar docks the input, prefilled with the query.
+    expect(find.byType(DockedSearchPanel), findsOneWidget);
+    expect(router.state.uri.path, '/search/results');
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
       '风景',
     );
+    // Close it so no field or debounce timer outlives the test.
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(DockedSearchPanel), findsNothing);
   });
 
   testWidgets('an empty result keeps the header and offers modify-search', (

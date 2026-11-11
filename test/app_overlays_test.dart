@@ -5,6 +5,7 @@ import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/scroll_behavior.dart';
+import 'package:parfait/core/debug/trace_marks.dart';
 import 'helpers/view_size.dart';
 
 const _page = Size(400, 800);
@@ -156,6 +157,35 @@ void main() {
     await tester.tap(find.text('open'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(taps, 1);
+  });
+
+  testWidgets('the panel fade is marked as a scene, in and out', (
+    tester,
+  ) async {
+    final marks = <String>[];
+    TraceMarks.sink = marks.add;
+    addTearDown(TraceMarks.debugReset);
+    final navigatorKey = await _pumpPage(
+      tester,
+      open: (context) => showAppPanel<void>(
+        context: context,
+        barrierLabel: 'close',
+        builder: (_) => const SizedBox(height: 200, child: Text('overlay')),
+      ),
+    );
+    expect(find.text('overlay'), findsOneWidget);
+    expect(
+      marks,
+      containsAllInOrder(['enter panel', 'event panel in', 'exit panel']),
+    );
+
+    navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('overlay'), findsNothing);
+    expect(
+      marks,
+      containsAllInOrder(['enter panel', 'event panel out', 'exit panel']),
+    );
   });
 
   group('sheet content that fits drags the sheet closed', () {
