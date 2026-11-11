@@ -14,6 +14,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **电脑上展开侧边栏：** 电脑上点侧边栏顶部的菜单按钮可以把侧边栏展开成带文字的面板，再点一次收起；窗口很宽时默认展开，之后记住你的选择。「设置 → 导航与布局」新增「界面形态」，可以在电脑上改用平板式的界面。
 - **平板上的提示：** 提示条在侧边栏旁边的内容区域居中，不再按整个窗口居中。
 - **横屏的个人主页：** 窗口较矮时，个人主页的头部收成一行，头像缩小，名字、分享和关注按钮并排，较宽的窗口里关注和好P友的数量也在这一行；第一屏就能看到标签页和作品。
+- **平板和电脑的顶栏：** 推荐、排行、新作和搜索页的标签靠左，页面自己的操作靠右，最右端是搜索框；内容区较窄时搜索框收成搜索图标。搜索结果页的类型标签移到标题一行，筛选按钮和关键词框在右侧，筛选摘要仍在下方。
 
 ### 修复
 
@@ -31,6 +32,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - **Expanding the sidebar on a computer:** On a computer, the menu button at the top of the sidebar opens it into a labeled panel, and a second click closes it. It opens by itself in a very wide window and then remembers your choice. A new Interface setting under Settings → Navigation & layout lets a computer use the tablet layout instead.
 - **Messages on tablets:** Messages now center on the content next to the sidebar rather than on the whole window.
 - **Profiles in a short window:** In a short window, the profile header fits into one row: a smaller avatar with the name, share and follow buttons beside it, and the counts too when the window is wide enough. The tabs and works now show on the first screen.
+- **Top bars on tablets and computers:** On Recommended, Ranking, New and Search, the tabs now sit at the left, the page's own actions at the right, and a search field at the far end; a narrow content area shrinks the field to a search icon. On search results, the type tabs share the title row, the filter button and the query field sit at the right, and the filter summary stays below.
 
 ### Fixed
 

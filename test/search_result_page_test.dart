@@ -5,12 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/widgets/app_tab_bar.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
-import 'package:parfait/features/search/search_field_button.dart';
+import 'package:parfait/app/widgets/search_field_button.dart';
 
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
@@ -27,10 +29,12 @@ Future<GoRouter> _pumpRouter(
   required String initialLocation,
   Locale locale = const Locale('zh', 'CN'),
   Map<String, ApiRoute> routes = const {},
+  Size view = const Size(1400, 800),
 }) async {
   final router = pixivRouter(initialLocation);
-  // Wide surface: the whole chip row fits, so every chip is on screen.
-  setViewSize(tester, const Size(1400, 800));
+  // Wide surface by default: the whole chip row fits, so every chip is on
+  // screen.
+  setViewSize(tester, view);
   await tester.pumpWidget(
     localizedRouterApp(
       router,
@@ -248,5 +252,43 @@ void main() {
     expect(find.text('用户搜索没有筛选'), findsOneWidget);
     // Keep the router alive until the prompt has been painted.
     expect(router.state.uri.path, '/search/results');
+  });
+
+  testWidgets('wide result bar splits kinds, query, filters', (tester) async {
+    // The 88dp rail leaves 1312 and 712 of content: the query field takes
+    // its full 360, or the 240 narrow one under 840 (R9).
+    for (final (view, fieldWidth) in const [
+      (Size(1400, 800), 360.0),
+      (Size(800, 800), 240.0),
+    ]) {
+      await _pumpRouter(
+        tester,
+        initialLocation: '/search/results?q=cat&type=illust&sort=date_asc',
+        view: view,
+      );
+
+      final bar = find.descendant(
+        of: find.byType(SearchResultPage),
+        matching: find.byType(AppTopBar),
+      );
+      final field = find.descendant(
+        of: bar,
+        matching: find.byType(SearchFieldButton),
+      );
+      final tabs = find.descendant(of: bar, matching: find.byType(AppTabBar));
+      // One toolbar row of kinds, then the active filter's summary under it.
+      expect(tester.getRect(tabs).bottom, lessThanOrEqualTo(kToolbarHeight));
+      expect(tester.getRect(field).width, fieldWidth);
+      if (fieldWidth == 360) {
+        expect(
+          tester.getRect(find.widgetWithText(ActionChip, '最早发布')).top,
+          greaterThanOrEqualTo(kToolbarHeight),
+        );
+        await tester.tap(field);
+        await tester.pumpAndSettle();
+        expect(find.byType(SearchInputPage), findsOneWidget);
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 }

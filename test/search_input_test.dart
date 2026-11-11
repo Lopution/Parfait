@@ -10,7 +10,7 @@ import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_shortcut.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
-import 'package:parfait/features/search/search_keyword_pills.dart';
+import 'package:parfait/app/widgets/search_keyword_pills.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 

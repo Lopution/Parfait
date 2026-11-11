@@ -158,6 +158,10 @@ void main() {
       tester.widget<RankingPage>(find.byType(RankingPage)).initialMode,
       RankingMode.week,
     );
+    // The search entry at the bar's end narrows the tab row: the last
+    // visible tab is partly clipped, so bring it into view first.
+    await tester.ensureVisible(find.byType(Tab).at(9));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(Tab).at(9));
     await tester.pumpAndSettle();
 

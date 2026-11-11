@@ -9,6 +9,7 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
+import '../../app/widgets/page_header.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../core/network/api_error.dart';
@@ -98,6 +99,7 @@ class _SpotlightFeedPageState extends State<SpotlightFeedPage>
     return Scaffold(
       appBar: AppTopBar(
         title: Text(context.l10n.spotlightTitle),
+        tabsBesideTitle: PageHeader.isWide(context),
         bottom: AppTabBar(
           controller: _tabController,
           labels: [

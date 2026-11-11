@@ -13,6 +13,7 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/entity_row.dart';
+import '../../app/widgets/page_header.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
@@ -41,6 +42,7 @@ class WatchlistPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppTopBar(
           title: Text(context.l10n.watchlistTitle),
+          tabsBesideTitle: PageHeader.isWide(context),
           // The feeds sit one Scrollable deep inside the TabBarView's
           // PageView, so their notifications arrive at depth 1.
           notificationPredicate: (notification) => notification.depth == 1,

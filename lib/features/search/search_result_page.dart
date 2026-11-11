@@ -26,11 +26,12 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/settings/persist_settings.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
+import '../../app/widgets/page_header.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/navigation/routes.dart';
-import 'search_field_button.dart';
+import '../../app/widgets/search_field_button.dart';
 import 'search_filter_labels.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
@@ -322,6 +323,55 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
           searchText(context, type.labelKey),
       ],
     );
+    // One chip per active filter under the tabs; tapping one reopens the
+    // sheet. With nothing active the row is gone and the badged button
+    // alone says so.
+    final showSummary =
+        _filterSummaryLabels.isNotEmpty &&
+        (_filterSummaryVisible || _filterSummaryController.value > 0);
+    final summary = showSummary
+        ? ClipRect(
+            child: Align(
+              heightFactor: _filterSummaryController.value,
+              alignment: Alignment.topCenter,
+              child: IgnorePointer(
+                ignoring: !_filterSummaryVisible,
+                child: _FilterSummaryBar(
+                  labels: _filterSummaryLabels,
+                  onEdit: _editFilters,
+                  // Clearing resets this tab to its type's empty set —
+                  // the persisted defaults stay untouched.
+                  onClear: () => _replaceFilters(
+                    _selectedType == SearchResultType.novel
+                        ? NovelSearchFilters.defaults
+                        : IllustSearchFilters.defaults,
+                  ),
+                ),
+              ),
+            ),
+          )
+        : null;
+    final filterButton = SearchFilterButton(
+      filters: showFilters
+          ? _filtersFor(_selectedType)
+          : IllustSearchFilters.defaults,
+      muted: !showFilters,
+      onPressed: showFilters
+          ? _editFilters
+          : () => showAppSnackBar(
+              context,
+              context.l10n.searchUserFiltersUnavailable,
+            ),
+    );
+    final keywordField = SearchFieldButton(
+      text: widget.query.keyword.trim(),
+      tapHint: context.l10n.searchModifyQuery,
+      onTap: _editQuery,
+    );
+    // The wide header keeps the type tabs on the title row and the query
+    // at the end of the bar (R9); the filter summary still sits under it.
+    // A phone keeps the query in the title over the tabs.
+    final wide = PageHeader.isWide(context);
     return Scaffold(
       // No inline composer: a `true` here would subscribe this page (and
       // every live branch page) to per-frame viewInsets churn while the
@@ -330,60 +380,36 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
         titleSpacing: 0,
-        title: SearchFieldButton(
-          text: widget.query.keyword.trim(),
-          tapHint: context.l10n.searchModifyQuery,
-          onTap: _editQuery,
-        ),
-        // One chip per active filter under the tabs; tapping one reopens
-        // the sheet. With nothing active the row is gone and the badged
-        // button alone says so.
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(
-            tabBar.preferredSize.height + summaryHeight,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              tabBar,
-              if (_filterSummaryLabels.isNotEmpty &&
-                  (_filterSummaryVisible || _filterSummaryController.value > 0))
-                ClipRect(
-                  child: Align(
-                    heightFactor: _filterSummaryController.value,
-                    alignment: Alignment.topCenter,
-                    child: IgnorePointer(
-                      ignoring: !_filterSummaryVisible,
-                      child: _FilterSummaryBar(
-                        labels: _filterSummaryLabels,
-                        onEdit: _editFilters,
-                        // Clearing resets this tab to its type's empty set —
-                        // the persisted defaults stay untouched.
-                        onClear: () => _replaceFilters(
-                          _selectedType == SearchResultType.novel
-                              ? NovelSearchFilters.defaults
-                              : IllustSearchFilters.defaults,
-                        ),
-                      ),
-                    ),
-                  ),
+        title: wide ? tabBar : keywordField,
+        bottom: wide
+            ? (summary == null
+                  ? null
+                  : PreferredSize(
+                      preferredSize: Size.fromHeight(summaryHeight),
+                      child: summary,
+                    ))
+            : PreferredSize(
+                preferredSize: Size.fromHeight(
+                  tabBar.preferredSize.height + summaryHeight,
                 ),
-            ],
-          ),
-        ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [tabBar, ?summary],
+                ),
+              ),
         actions: [
-          SearchFilterButton(
-            filters: showFilters
-                ? _filtersFor(_selectedType)
-                : IllustSearchFilters.defaults,
-            muted: !showFilters,
-            onPressed: showFilters
-                ? _editFilters
-                : () => showAppSnackBar(
-                    context,
-                    context.l10n.searchUserFiltersUnavailable,
-                  ),
-          ),
+          filterButton,
+          if (wide)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: FuncSpacing.sm,
+                end: FuncSpacing.lg,
+              ),
+              child: SizedBox(
+                width: PageHeader.searchFieldWidth(context),
+                child: keywordField,
+              ),
+            ),
         ],
       ),
       body: Builder(

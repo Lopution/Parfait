@@ -13,6 +13,7 @@ applies_to:
   - lib/app/widgets/author_row.dart
   - lib/app/widgets/expandable_text.dart
   - lib/app/widgets/inline_translation.dart
+  - lib/app/widgets/search_keyword_pills.dart
   - lib/app/widgets/selectable_tile.dart
   - lib/app/widgets/sliver_surface_list.dart
   - lib/app/layout/card_columns.dart
@@ -105,7 +106,7 @@ reviewed: 2026-10-17
   chip widgets, whose extra states and gestures were too complex. pixiv's
   web search completes the last word the same way.
 - **Check:** `test/search_input_test.dart` "suggestions complete the keyword at the caret" "a suggestion replaces the keyword, keeping its minus"
-- **Code:** `lib/core/search/search_keywords.dart`, `lib/features/search/search_keyword_pills.dart`
+- **Code:** `lib/core/search/search_keywords.dart`, `lib/app/widgets/search_keyword_pills.dart`
 
 ### PAGE-05 Work strips omit hidden works
 - **Rule:** A user row (`UserPreviewRow`: recommended users, artist

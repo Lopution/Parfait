@@ -251,7 +251,10 @@ reviewed: 2026-10-17
   row 600dp or wider caps each share at 120dp, or the widest label plus
   its padding when that is wider, and keeps to the start edge; a narrower
   one is always split in full. Otherwise the row scrolls from the start
-  edge with a 48dp `ScrollEdgeFade`. Labels are measured in the style
+  edge with a 48dp `ScrollEdgeFade`. On a wide window a page's tabs may
+  share the title's row (`AppTopBar.tabsBesideTitle`, NAV-24); the shares
+  still cap at the widest label and keep to the start edge, however
+  narrow the row. Labels are measured in the style
   `TabBar` paints: `titleSmall` merged with the theme's label style, under
   the system's text settings (LAYOUT-04).
 - **Why:** Shrunk labels became unreadable in long languages; on wide
@@ -351,6 +354,32 @@ reviewed: 2026-10-17
   beside the text whenever a sheet opened over it.
 - **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar" "a short window on a tablet gets a scrolling icon rail" "a PC rail opens from extra-large widths until the user" "the interface form changes the shell at once and keeps the" "beside the rail, the downloads and the profile open in the"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail, under its panels"; `test/layout_breakpoints_test.dart` "a phone, a touch screen or a PC, by display and platform"
 - **Code:** `lib/app/layout/form_factor.dart`, `lib/app/widgets/shell_rail.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`
+
+### NAV-24 A wide destination bar: tabs, actions, then search
+- **Rule:** Where the shell shows a rail (`PageHeader.isWide`, NAV-20), a
+  destination root's top bar is one toolbar row: the page's `AppTabBar`
+  takes the title slot at the leading edge, its own actions follow, and a
+  search entry ends the row. That entry is `HeaderSearch`: a
+  `SearchFieldButton` 360dp wide while the content area
+  (`HomeShellChrome.contentSizeOf`, the window less the rail) is at least
+  `AppBreakpoints.expanded` (840dp), otherwise a search icon; either
+  opens the search input route on the kind shown. Only a destination's
+  own root shows one — `HeaderSearch` renders nothing without
+  `BranchRootScope`, so a pushed page, including the novel new and novel
+  ranking pages that reuse these widgets, has none (R8). The recommended
+  page's off-bar search icon (`_OffBarSearchAction`) hides while its bar
+  is wide; the header's entry replaces it. 「我的」 keeps its title alone.
+  On the result page the type tabs take the title slot, the filter button
+  and a query field (`PageHeader.searchFieldWidth`: 360dp, or 240dp under
+  an 840dp content area) end the row, and the active-filter summary keeps
+  its own row under the bar.
+- **Why:** The destination bars differed page by page — one empty, one
+  with an off-bar icon — and on a rail each page decided its own width.
+  One row puts the tabs where the user looks and gives every destination
+  the same single search entry at the same edge; the field falls back to
+  its icon when the content area cannot hold it.
+- **Check:** `test/navigation_router_test.dart` "a destination bar ends in the search field" "ranking and new bars end in the search field" "a page pushed over a destination root has no search entry" "the off-bar search entry still reaches search"; `test/search_catalog_test.dart` "the guide camera opens reverse image search; the novel tab"; `test/search_result_page_test.dart` "wide result bar splits kinds, query, filters"
+- **Code:** `lib/app/widgets/page_header.dart`, `lib/features/home/recommended/recommended_home_page.dart`, `lib/features/new/new_page.dart`, `lib/features/ranking/ranking_tabs.dart`, `lib/features/search/search_page.dart`, `lib/features/search/search_result_page.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place
 - **Rule:** Turning, folding or dragging the window keeps the shell's
