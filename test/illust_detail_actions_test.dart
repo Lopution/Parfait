@@ -833,13 +833,35 @@ void main() {
       expect(find.byType(DetailPageCounter), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
-      // The action bar stays inside the meta column, clear of the artwork.
-      expect(
-        tester.getRect(find.byType(DetailActionBar)).left,
-        greaterThanOrEqualTo(
-          tester.getRect(find.byType(DetailImagePager)).right,
-        ),
-      );
+      // The action bar centres on the artwork pane, clear of the meta
+      // column.
+      final pager = tester.getRect(find.byType(DetailImagePager));
+      final bar = tester.getRect(find.byType(DetailActionBar));
+      expect(bar.left, greaterThanOrEqualTo(pager.left));
+      expect(bar.right, lessThanOrEqualTo(pager.right));
+    });
+
+    testWidgets('a layout switch fades the page in rather than swapping it', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, surface: const Size(1400, 900));
+      expect(find.byType(TwoPane), findsOneWidget);
+      double fade() => tester
+          .widget<FadeTransition>(
+            find.byKey(const ValueKey('detail-layout-fade')),
+          )
+          .opacity
+          .value;
+      expect(fade(), 1);
+
+      setViewSize(tester, const Size(390, 844));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(TwoPane), findsNothing);
+      expect(fade(), inExclusiveRange(0, 1));
+      await tester.pumpAndSettle();
+      expect(fade(), 1);
     });
 
     testWidgets('arrow keys page the image pane; a resize keeps the page', (

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/context.dart';
 import '../layout/form_factor.dart';
+import '../motion/motion_tokens.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'fit_label.dart';
 import 'func_bottom_nav.dart';
@@ -92,16 +93,57 @@ class ShellRail extends StatelessWidget {
         // The labels stop growing past the bottom bar's 1.3 ceiling.
         child: MediaQuery.withClampedTextScaling(
           maxScaleFactor: 1.3,
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: expanded ? FuncSpacing.md : 0,
-                    vertical: FuncSpacing.sm,
+          // The rail lays its content out at the wider form's width even
+          // while the shell animates the rail's width between the two, and
+          // the collapsed form keeps to its own column at the start edge.
+          // The shell clips the overflow, so the panel slides out from that
+          // edge instead of being squeezed into the narrower one.
+          child: OverflowBox(
+            alignment: AlignmentDirectional.centerStart,
+            minWidth: expandedWidth,
+            maxWidth: expandedWidth,
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: expanded ? FuncSpacing.md : 0,
+                      vertical: FuncSpacing.sm,
+                    ),
+                    // The column and the panel cross-fade while the rail's
+                    // width animates; the clip keeps the wider form from
+                    // spilling past the still-narrow edge.
+                    child: ClipRect(
+                      child: AnimatedSwitcher(
+                        duration: MotionTokens.resolve(
+                          context,
+                          MotionTokens.chrome,
+                        ),
+                        switchInCurve: MotionTokens.chromeCurve,
+                        switchOutCurve: MotionTokens.chromeCurve,
+                        layoutBuilder: (current, previous) => Stack(
+                          alignment: AlignmentDirectional.centerStart,
+                          children: [
+                            for (final child in previous) child,
+                            ?current,
+                          ],
+                        ),
+                        child: KeyedSubtree(
+                          key: ValueKey(expanded),
+                          child: expanded
+                              ? _panel(context)
+                              : Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: SizedBox(
+                                    width: width,
+                                    child: _column(context),
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: expanded ? _panel(context) : _column(context),
                 ),
               ),
             ),

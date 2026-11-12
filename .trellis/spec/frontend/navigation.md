@@ -344,7 +344,11 @@ reviewed: 2026-11-11
   too short. A touch rail is always the 88dp icon-over-label column under
   the app's icon. A PC rail's header is a menu button that opens the
   256dp labelled panel; it opens by itself from 1600dp until the user
-  toggles it, then stays as left (`AppSettings.railExpanded`). Beside a
+  toggles it, then stays as left (`AppSettings.railExpanded`). The panel
+  opens and closes by animating the rail's width (`MotionTokens.chrome`)
+  and the room the branches give up together, the two forms cross-fading
+  inside the moving edge; the shell's form itself still changes at once
+  when a resize crosses the 600dp line. Beside a
   rail, `/me` and `/downloads` open on the current branch's stack, so the
   rail stays; from the viewer they stay overlays (NAV-04). Pages size themselves from `HomeShellChrome.contentSizeOf`
   (the window less the rail), not the window. An immersive page hides the
@@ -358,7 +362,7 @@ reviewed: 2026-11-11
   tablets; a desktop user wants to choose. Opening the profile or the
   downloads as overlays covered the rail; the reader showed the rail
   beside the text whenever a sheet opened over it.
-- **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar" "a short window on a tablet gets a scrolling icon rail" "a PC rail opens from extra-large widths until the user" "the interface form changes the shell at once and keeps the" "beside the rail, the downloads and the profile open in the"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail, under its panels"; `test/layout_breakpoints_test.dart` "a phone, a touch screen or a PC, by display and platform"
+- **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar" "a short window on a tablet gets a scrolling icon rail" "a PC rail opens from extra-large widths until the user" "the PC rail opens and closes by width rather than in one frame" "with reduced motion the PC rail changes width at once" "the interface form changes the shell at once and keeps the" "beside the rail, the downloads and the profile open in the"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail, under its panels"; `test/layout_breakpoints_test.dart` "a phone, a touch screen or a PC, by display and platform"
 - **Code:** `lib/app/layout/form_factor.dart`, `lib/app/widgets/shell_rail.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`
 
 ### NAV-24 A wide destination bar: tabs, actions, then search
