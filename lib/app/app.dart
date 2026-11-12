@@ -29,11 +29,12 @@ import 'system_ui.dart';
 import 'navigation/keyboard_back.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
-import 'touch_exploration_scope.dart';
 import 'theme/replica_theme.dart';
 import 'theme/system_colors.dart';
+import 'touch_exploration_scope.dart';
 import 'widgets/prompt_host.dart';
 import 'widgets/settings_load_error.dart';
+import 'window/desktop_window.dart';
 import '../l10n/context.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
@@ -297,30 +298,32 @@ class AppChrome extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FormFactorScope(
-      choice: settings.interfaceForm,
-      child: FuncSystemBars(
-        background: Theme.of(context).brightness,
-        child: MotionScope(
-          reduce: settings.reduceMotion,
-          speed: settings.animationSpeed,
-          pressFeedback: settings.pressFeedback,
-          // octo_image, flutter_staggered_grid_view and the WebView plugins
-          // still build package:flutter/material widgets; the bridge hands
-          // them this theme until they move to material_ui.
-          // ignore: deprecated_member_use
-          child: MaterialUiCompatibilityBridge(
-            child: TouchExplorationScope(
-              // Above the bridge so intent failures can prompt from its own
-              // context; below the motion and touch-exploration scopes it
-              // reads.
-              child: PromptHost(
-                key: promptHostKey,
-                accessibility: ref.watch(appAccessibilityProvider),
-                child: ExternalIntentBridge(
-                  router: router,
-                  intentSource: intentSource,
-                  child: KeyboardBack(router: router, child: child),
+    return DesktopWindowBinding(
+      child: FormFactorScope(
+        choice: settings.interfaceForm,
+        child: FuncSystemBars(
+          background: Theme.of(context).brightness,
+          child: MotionScope(
+            reduce: settings.reduceMotion,
+            speed: settings.animationSpeed,
+            pressFeedback: settings.pressFeedback,
+            // octo_image, flutter_staggered_grid_view and the WebView plugins
+            // still build package:flutter/material widgets; the bridge hands
+            // them this theme until they move to material_ui.
+            // ignore: deprecated_member_use
+            child: MaterialUiCompatibilityBridge(
+              child: TouchExplorationScope(
+                // Above the bridge so intent failures can prompt from its own
+                // context; below the motion and touch-exploration scopes it
+                // reads.
+                child: PromptHost(
+                  key: promptHostKey,
+                  accessibility: ref.watch(appAccessibilityProvider),
+                  child: ExternalIntentBridge(
+                    router: router,
+                    intentSource: intentSource,
+                    child: KeyboardBack(router: router, child: child),
+                  ),
                 ),
               ),
             ),

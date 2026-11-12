@@ -128,6 +128,12 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
 
   /// The rail's width, for prompts to centre beside it.
   final ValueNotifier<double> _railExtent = ValueNotifier(0);
+
+  /// The rail's open progress: 0 collapsed, 1 expanded. The width it takes
+  /// from the branches and the panel it shows follow it every frame.
+  late final AnimationController _railOpen = AnimationController(vsync: this);
+  double _railOpenTarget = 0;
+  bool _railOpenInitialized = false;
   int _current = 0;
   int? _outgoing;
 
@@ -255,6 +261,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     _idleSnapshot.dispose();
     _navVisibility.dispose();
     _navBarVisibleExtent.dispose();
+    _railOpen.dispose();
     _railExtent.dispose();
     super.dispose();
   }
@@ -506,10 +513,37 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
       width,
       choice: ref.watch(railExpandedProvider),
     );
-    final railWidth = railShown
-        ? (expanded ? ShellRail.expandedWidth : ShellRail.width)
-        : 0.0;
-    _railExtent.value = railWidth;
+    // The rail opens and closes by width, not in one frame (MOTION-14):
+    // the row it takes from the branches and the panel it reveals move
+    // together. The first layout starts at its end value, and an
+    // immersive page still takes the room at once.
+    final railTarget = expanded ? 1.0 : 0.0;
+    final railDuration = MotionTokens.resolve(context, MotionTokens.chrome);
+    if (!_railOpenInitialized) {
+      _railOpen.value = railTarget;
+      _railOpenTarget = railTarget;
+      _railOpenInitialized = true;
+    } else if (_railOpenTarget != railTarget ||
+        (railDuration == Duration.zero && _railOpen.value != railTarget)) {
+      _railOpenTarget = railTarget;
+      if (railDuration == Duration.zero) {
+        // Reduced motion turned on mid-slide lands the rail at once.
+        _railOpen.value = railTarget;
+      } else {
+        FrameProbe.instance
+          ..enter('rail switch')
+          ..mark('rail switch ${expanded ? 'open' : 'close'}');
+        final slide = _railOpen.animateTo(
+          railTarget,
+          duration: railDuration,
+          curve: MotionTokens.chromeCurve,
+        );
+        slide.whenCompleteOrCancel(
+          () => FrameProbe.instance.exit('rail switch'),
+        );
+        unawaited(slide);
+      }
+    }
     final bottomBarExtent = _bottomBarExtent = rail
         ? 0.0
         : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
@@ -547,46 +581,56 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
       onNotification: trackStillScroll,
       child: branches,
     );
-    return HomeShellChrome(
-      bottomBarExtent: bottomBarExtent,
-      railExtent: railWidth,
-      bottomBarVisibleExtent: _navBarVisibleExtent,
-      bottomBarVisibility: _navVisibility,
-      onBranchRootScroll: _onBranchRootScroll,
-      child: _HomeBranchScope(
-        channel: _reTap,
-        // The rail lies over the branches' edge so its shadow falls on
-        // them; the branches keep their place in the tree whether the rail
-        // shows or not (NAV-21).
-        child: rail
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  Padding(
-                    padding: EdgeInsetsDirectional.only(start: railWidth),
-                    child: strip,
-                  ),
-                  if (railShown)
-                    PositionedDirectional(
-                      start: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: railWidth,
-                      child: PromptAnchor(
-                        extent: _railExtent,
-                        edge: PromptAnchorEdge.start,
-                        child: _buildRail(
-                          context,
-                          arrangement.shown,
-                          form: form,
-                          expanded: expanded,
-                        ),
+    return AnimatedBuilder(
+      animation: _railOpen,
+      builder: (context, _) {
+        final railWidth = railShown
+            ? ShellRail.width +
+                  (ShellRail.expandedWidth - ShellRail.width) * _railOpen.value
+            : 0.0;
+        _railExtent.value = railWidth;
+        return HomeShellChrome(
+          bottomBarExtent: bottomBarExtent,
+          railExtent: railWidth,
+          bottomBarVisibleExtent: _navBarVisibleExtent,
+          bottomBarVisibility: _navVisibility,
+          onBranchRootScroll: _onBranchRootScroll,
+          child: _HomeBranchScope(
+            channel: _reTap,
+            // The rail lies over the branches' edge so its shadow falls on
+            // them; the branches keep their place in the tree whether the rail
+            // shows or not (NAV-21).
+            child: rail
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Padding(
+                        padding: EdgeInsetsDirectional.only(start: railWidth),
+                        child: strip,
                       ),
-                    ),
-                ],
-              )
-            : strip,
-      ),
+                      if (railShown)
+                        PositionedDirectional(
+                          start: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: railWidth,
+                          child: PromptAnchor(
+                            extent: _railExtent,
+                            edge: PromptAnchorEdge.start,
+                            child: _buildRail(
+                              context,
+                              arrangement.shown,
+                              form: form,
+                              expanded: expanded,
+                            ),
+                          ),
+                        ),
+                    ],
+                  )
+                : strip,
+          ),
+        );
+      },
     );
   }
 }

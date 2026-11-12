@@ -304,6 +304,11 @@ class AppSettings {
     this.lastHomeDestination,
     this.interfaceForm = InterfaceForm.auto,
     this.railExpanded,
+    this.windowWidth,
+    this.windowHeight,
+    this.windowX,
+    this.windowY,
+    this.windowMaximized = false,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -457,6 +462,21 @@ class AppSettings {
   /// Whether the PC rail is open, as the user last left it; null until the
   /// user toggles it, when the window's width decides.
   final bool? railExpanded;
+
+  /// The desktop window's last size, in logical pixels; null until the
+  /// window has been restored or resized once. Validated finite here,
+  /// fitted to a display's work area when restored.
+  final double? windowWidth;
+  final double? windowHeight;
+
+  /// The window's top-left corner in the global screen space (negative on
+  /// a display left of the primary one); null until saved once.
+  final double? windowX;
+  final double? windowY;
+
+  /// Whether the window was maximized when it last closed; the size and
+  /// position above stay the pre-maximize place.
+  final bool windowMaximized;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -627,6 +647,11 @@ class AppSettings {
         {'railExpanded': final bool? expanded} => expanded,
         _ => base.railExpanded,
       },
+      windowWidth: _nullableDouble(json, 'windowWidth', base.windowWidth),
+      windowHeight: _nullableDouble(json, 'windowHeight', base.windowHeight),
+      windowX: _nullableDouble(json, 'windowX', base.windowX),
+      windowY: _nullableDouble(json, 'windowY', base.windowY),
+      windowMaximized: _bool(json['windowMaximized'], base.windowMaximized),
     );
   }
 
@@ -679,6 +704,11 @@ class AppSettings {
       'lastHomeDestination': lastHomeDestination,
       'interfaceForm': interfaceForm.name,
       'railExpanded': railExpanded,
+      'windowWidth': windowWidth,
+      'windowHeight': windowHeight,
+      'windowX': windowX,
+      'windowY': windowY,
+      'windowMaximized': windowMaximized,
     };
   }
 
@@ -827,6 +857,11 @@ class AppSettings {
     String? lastHomeDestination,
     InterfaceForm? interfaceForm,
     bool? railExpanded,
+    Object? windowWidth = _unset,
+    Object? windowHeight = _unset,
+    Object? windowX = _unset,
+    Object? windowY = _unset,
+    bool? windowMaximized,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -902,11 +937,44 @@ class AppSettings {
       lastHomeDestination: lastHomeDestination ?? this.lastHomeDestination,
       interfaceForm: interfaceForm ?? this.interfaceForm,
       railExpanded: railExpanded ?? this.railExpanded,
+      windowWidth: identical(windowWidth, _unset)
+          ? this.windowWidth
+          : (windowWidth as num?)?.toDouble(),
+      windowHeight: identical(windowHeight, _unset)
+          ? this.windowHeight
+          : (windowHeight as num?)?.toDouble(),
+      windowX: identical(windowX, _unset)
+          ? this.windowX
+          : (windowX as num?)?.toDouble(),
+      windowY: identical(windowY, _unset)
+          ? this.windowY
+          : (windowY as num?)?.toDouble(),
+      windowMaximized: windowMaximized ?? this.windowMaximized,
     );
   }
 
   static bool _bool(Object? value, bool fallback) =>
       value is bool ? value : fallback;
+
+  /// A finite number, or [fallback] for anything else the store may hand
+  /// over (a string, NaN, an infinity).
+  static double? _finiteDouble(Object? value, double? fallback) =>
+      value is num && value.isFinite ? value.toDouble() : fallback;
+
+  /// A nullable number as a stored field: missing keeps [fallback], an
+  /// explicit null clears it (a backup without a window place must not
+  /// inherit the one this device saved), and a damaged value keeps
+  /// [fallback].
+  static double? _nullableDouble(
+    Map<String, dynamic> json,
+    String key,
+    double? fallback,
+  ) {
+    if (!json.containsKey(key)) return fallback;
+    final value = json[key];
+    if (value == null) return null;
+    return _finiteDouble(value, fallback);
+  }
 
   static String _language(Object? value, String fallback) =>
       value is String ? canonicalLanguageTag(value) : fallback;

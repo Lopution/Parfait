@@ -127,6 +127,9 @@ const _durationCensus = <String, int>{
   // The platform's recommended prompt dwell, converted from its
   // millisecond answer: a timeout, not an animation.
   'lib/app/widgets/prompt_host.dart': 1,
+  // How long a drag, resize or maximize settles before the window's place
+  // is written: a save debounce, not an animation.
+  'lib/app/window/desktop_window.dart': 1,
   'lib/app/haptics/app_haptics.dart': 3,
   'lib/app/widgets/smooth_wheel_scroll.dart': 2,
   // Show delay of the image progress ring: a debounce, not an animation.

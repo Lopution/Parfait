@@ -56,12 +56,14 @@ dependencies:
   path_provider: ^2.1.5
   rhttp:
     path: plugins/rhttp/rhttp
+  screen_retriever: ^0.2.2
   share_plus: ^13.3.0
   shared_preferences: ^2.5.0
   sqflite: ^2.4.3
   sqflite_common_ffi: ^2.3.5
   url_launcher: ^6.3.2
   visibility_detector: ^0.4.0
+  window_manager: ^0.5.2
 dependency_overrides:
   # Vendored fork: an AGP 9 build fix and the reverse-image file chooser
   # slot. plugins/flutter_inappwebview_android/UPSTREAM.md lists every

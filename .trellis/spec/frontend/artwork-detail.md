@@ -212,7 +212,11 @@ reviewed: 2026-11-11
   tall, the detail page is a `TwoPane`: the image pager on a
   `surfaceContainerLow` stage, the info column at 0.38 of the width kept
   within 320–480dp, with no divider: the stage's ground sets the image
-  off. The action capsule centers in the info column. The image pager
+  off. The action capsule centers on the artwork pane, clear of the info
+  column. A resize across the two-pane line fades the page in over
+  `MotionTokens.branchSwitch` rather than swapping it in one frame; only
+  one layout is ever in the tree, since both show the same work and one
+  route cannot hold the same hero tag twice. The image pager
   takes a sideways swipe at twice the device's touch slop
   (`pagingGestureSettings`); at its first or last image it hands the
   swipe on to the work pager around it through `SwipePagerScope`, and a
@@ -220,11 +224,12 @@ reviewed: 2026-11-11
   the image the grid already decoded on the stage, fitted as the pager
   fits a page, with the info column on the page's ground (C10).
 - **Why:** On a turned phone the single column showed half an image; on
-  wide screens the capsule straddled the divider over the comments. The
+  wide screens the capsule, centred on the page, straddled the divider
+  over the comments, so it now centres on the artwork side. The
   image pager and the work pager both turn sideways, and the inner one
   took every swipe, so the last image could not lead on to the next work;
   a page not built showed a blank stage.
-- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
+- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column" "a layout switch fades the page in rather than swapping it"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
 - **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### DETAIL-18 Single-column detail text keeps the article width

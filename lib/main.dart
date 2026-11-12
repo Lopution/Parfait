@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
 
 import 'app/app.dart';
+import 'app/window/desktop_window.dart';
 import 'core/debug/frame_probe.dart';
 import 'core/debug/trace_marks.dart';
 import 'core/image/legacy_image_cache.dart';
@@ -162,6 +163,15 @@ Future<void> _run() async {
   if (kPixivFrameProbe) FrameProbe.instance.start();
   TraceMarks.trackPointers();
   if (PlatformCaps.system().isAndroid) unawaited(freeRasterThreads());
+  // The desktop window is placed before the first frame: the saved size and
+  // position, fitted to a display's work area, instead of the runner's
+  // phone-adjacent default. A failure keeps the runner's window and is
+  // logged; it must not stop the app from starting.
+  try {
+    await prepareDesktopWindow();
+  } on Object catch (error) {
+    log('window: desktop window setup failed: $error');
+  }
   runApp(const ProviderScope(child: ParfaitApp()));
   unawaited(_deleteLegacyImageCache());
   unawaited(_warmUpNativeChannels());

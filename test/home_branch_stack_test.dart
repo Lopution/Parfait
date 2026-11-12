@@ -630,6 +630,70 @@ void main() {
     expect(railWidth(), ShellRail.expandedWidth);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
+  testWidgets(
+    'the PC rail opens and closes by width rather than in one frame',
+    (tester) async {
+      await _pumpHome(tester, width: 1600, height: 900);
+      final rail = find.byType(ShellRail);
+      double railWidth() => tester.getSize(rail).width;
+      expect(railWidth(), ShellRail.expandedWidth);
+
+      await tester.tap(find.byTooltip('收起侧栏'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        railWidth(),
+        inExclusiveRange(ShellRail.width, ShellRail.expandedWidth),
+      );
+      await tester.pumpAndSettle();
+      expect(railWidth(), ShellRail.width);
+
+      await tester.tap(find.byTooltip('展开侧栏'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        railWidth(),
+        inExclusiveRange(ShellRail.width, ShellRail.expandedWidth),
+      );
+      await tester.pumpAndSettle();
+      expect(railWidth(), ShellRail.expandedWidth);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets('with reduced motion the PC rail changes width at once', (
+    tester,
+  ) async {
+    await _pumpHome(tester, width: 1600, height: 900, reduceMotion: true);
+    final rail = find.byType(ShellRail);
+    await tester.tap(find.byTooltip('收起侧栏'));
+    await tester.pump();
+    expect(tester.getSize(rail).width, ShellRail.width);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets('turning reduced motion on mid-slide lands the PC rail at once', (
+    tester,
+  ) async {
+    await _pumpHome(tester, width: 1600, height: 900);
+    final rail = find.byType(ShellRail);
+    double railWidth() => tester.getSize(rail).width;
+    await tester.tap(find.byTooltip('收起侧栏'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      railWidth(),
+      inExclusiveRange(ShellRail.width, ShellRail.expandedWidth),
+    );
+
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+    await tester.pump();
+    expect(railWidth(), ShellRail.width);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
   testWidgets('the interface form changes the shell at once and keeps the '
       'open page', (tester) async {
     final router = await _pumpHome(tester, width: 1280, height: 800);

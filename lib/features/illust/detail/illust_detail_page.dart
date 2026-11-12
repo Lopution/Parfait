@@ -20,6 +20,7 @@ import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
     show DownloadEvent, DownloadGroupSubmission;
+import '../../../core/debug/frame_probe.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/history/history_models.dart';
@@ -302,6 +303,19 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// Whether the route has started showing the page.
   bool _entered = false;
 
+  /// The layout switch's fade: a window crossing the two-pane breakpoint
+  /// fades the page in instead of swapping it in one frame. Running from
+  /// part-way when a drag crosses back and forth, so the page does not
+  /// flash between the two layouts.
+  late final AnimationController _layoutFade = AnimationController(
+    vsync: this,
+    value: 1,
+  );
+  late final Animation<double> _layoutFadeOpacity = Tween(
+    begin: 0.55,
+    end: 1.0,
+  ).animate(_layoutFade);
+
   @override
   void initState() {
     super.initState();
@@ -499,6 +513,26 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 
   bool _revealScheduled = false;
 
+  /// Plays the layout switch's fade. A switch while one is still running
+  /// continues from the current opacity rather than restarting, so a drag
+  /// back and forth over the breakpoint does not flash the page.
+  void _fadeLayoutIn(BuildContext context) {
+    final duration = MotionTokens.resolve(context, MotionTokens.branchSwitch);
+    if (duration == Duration.zero) {
+      _layoutFade.value = 1;
+      return;
+    }
+    if (_layoutFade.value >= 1) _layoutFade.value = 0;
+    FrameProbe.instance.enter('detail layout');
+    final fade = _layoutFade.animateTo(
+      1,
+      duration: duration,
+      curve: MotionTokens.branchSwitchCurve,
+    );
+    fade.whenCompleteOrCancel(() => FrameProbe.instance.exit('detail layout'));
+    unawaited(fade);
+  }
+
   /// A switch from the two-pane layout to the single column brings its
   /// list back to the image the pager was showing (NAV-21). The list is
   /// lazy, so the target page is walked into view first; a collapsed set
@@ -564,6 +598,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     _immersion.dispose();
     _routeAnimation?.removeStatusListener(_onRouteStatus);
     _topBarEntrance.dispose();
+    _layoutFade.dispose();
     super.dispose();
   }
 
@@ -1186,24 +1221,34 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       ),
     );
 
-    final twoPane = AppBreakpoints.useTwoPaneDetail(
-      HomeShellChrome.contentSizeOf(context),
-    );
+    final contentSize = HomeShellChrome.contentSizeOf(context);
+    final twoPane = AppBreakpoints.useTwoPaneDetail(contentSize);
+    // Reduced motion turned on mid-fade lands the page at once (MOTION-02):
+    // the preference only rebuilds, and the fade starts on a layout switch.
+    if (_layoutFade.value < 1 &&
+        MotionTokens.resolve(context, MotionTokens.branchSwitch) ==
+            Duration.zero) {
+      _layoutFade.value = 1;
+    }
     // A switch between the layouts opens on the image the other one showed.
     final wasTwoPane = _lastTwoPane;
     _lastTwoPane = twoPane;
     if (wasTwoPane == true && !twoPane) {
       _scheduleNarrowReveal(entity);
+      _fadeLayoutIn(context);
     } else if (wasTwoPane == false && twoPane) {
       // Read the image on screen now, not the trackers' last report: they
       // run on their own timer and may not have reached this build yet.
       final index = _narrowTopImage(layout);
       if (index != null) _imageIndex = index;
+      _fadeLayoutIn(context);
     }
     // Hidden, not removed, in the download mode: it slides out and back.
-    final actionBar = Positioned(
-      left: 0,
-      right: 0,
+    // On a two-pane layout it sits inside the artwork pane, so the bar is
+    // centred on the images rather than on the information column.
+    final actionBar = PositionedDirectional(
+      start: 0,
+      end: 0,
       bottom: 0,
       // Out of the way of a flight over it.
       child: HeroChrome(
@@ -1264,6 +1309,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                     heroImageUrl: widget.heroImageUrl,
                     heroImageDecodeWidth: widget.heroImageDecodeWidth,
                   ),
+                  actionBar,
                 ],
               ),
               // The meta column owns the window's right edge, so its
@@ -1281,7 +1327,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                       child: metaScroll,
                     ),
                   ),
-                  actionBar,
                   if (_composing) composerLayer,
                 ],
               ),
@@ -1334,12 +1379,21 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
               ],
             ),
     );
-    final page = twoPane
-        ? content
-        : Stack(
-            fit: StackFit.expand,
-            children: [content, actionBar, if (_composing) composerLayer],
-          );
+    // The two layouts are different trees (the single column scrolls the
+    // information under the images, the two-pane one gives it its own
+    // column), so a switch fades the page in rather than swapping it in one
+    // frame. Only the new tree is in the widget tree: both show the same
+    // work and one route cannot hold the same hero tag twice.
+    final page = FadeTransition(
+      key: const ValueKey('detail-layout-fade'),
+      opacity: _layoutFadeOpacity,
+      child: twoPane
+          ? content
+          : Stack(
+              fit: StackFit.expand,
+              children: [content, actionBar, if (_composing) composerLayer],
+            ),
+    );
     final container = ProviderScope.containerOf(context, listen: false);
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return page;
