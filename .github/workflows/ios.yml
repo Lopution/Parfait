@@ -1,0 +1,47 @@
+name: iOS build
+
+# Compile-only guard for the iOS port, like windows.yml and macos.yml:
+# proves the Runner, the rhttp Apple toolchain and the plugin registration
+# all link. Unsigned (--no-codesign): signing and TestFlight stay manual.
+#
+# Not a required check, so a workflow-level paths filter is safe: unrelated
+# PRs never trigger it and no required check is left pending.
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'plugins/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/ios.yml'
+  schedule:
+    # Nightly safety net on the default branch: a Dart-only change that
+    # breaks the iOS compile surfaces here at the latest.
+    - cron: '53 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.9"
+          channel: "stable"
+          cache: true
+      # cargokit builds the Rust client for the device architecture; the
+      # repo toolchain pins the Android/Windows targets only.
+      - run: rustup target add aarch64-apple-ios
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # build_pod.sh hands cargokit $TARGET_TEMP_DIR as --target-dir, which
+          # Flutter's ios build puts under the Pods intermediates.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/ios/Intermediates.noindex/Pods.build/Release-iphoneos/rhttp.build
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parfait-ios-unsigned
+          path: build/ios/iphoneos/Runner.app
