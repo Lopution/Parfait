@@ -41,6 +41,10 @@ jobs:
           workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/ios/Intermediates.noindex/Pods.build/Release-iphoneos/rhttp.build
       - run: flutter pub get --enforce-lockfile
       - run: flutter build ios --release --no-codesign
+        env:
+          # cargokit folds cargo's output into the Xcode log; verbose keeps
+          # the Rust compiler's own errors in the job log.
+          CARGOKIT_VERBOSE: "1"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parfait-ios-unsigned
