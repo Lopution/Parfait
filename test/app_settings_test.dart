@@ -100,11 +100,12 @@ void main() {
   });
 
   test('the desktop window place round-trips; damage falls back', () {
+    // Whole-number sizes reach copyWith as ints from adapters and tests.
     final saved = baseTestSettings().copyWith(
-      windowWidth: 1280.0,
-      windowHeight: 800.0,
-      windowX: -160.0,
-      windowY: 48.0,
+      windowWidth: 1280,
+      windowHeight: 800,
+      windowX: -160,
+      windowY: 48,
       windowMaximized: true,
     );
     final restored = AppSettings.fromJson(
@@ -133,6 +134,14 @@ void main() {
     expect(cleared.windowWidth, isNull);
     expect(cleared.windowY, isNull);
     expect(cleared.windowHeight, 800);
+
+    // An explicit null is a value, not a missing field: importing a backup
+    // without a window place clears this device's instead of keeping it.
+    final imported = AppSettings.fromJson({
+      'windowWidth': null,
+    }, fallback: saved);
+    expect(imported.windowWidth, isNull);
+    expect(imported.windowHeight, 800);
   });
 
   test('ranking and bottom-bar arrangements round-trip; damage falls back', () {

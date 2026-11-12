@@ -647,10 +647,10 @@ class AppSettings {
         {'railExpanded': final bool? expanded} => expanded,
         _ => base.railExpanded,
       },
-      windowWidth: _finiteDouble(json['windowWidth'], base.windowWidth),
-      windowHeight: _finiteDouble(json['windowHeight'], base.windowHeight),
-      windowX: _finiteDouble(json['windowX'], base.windowX),
-      windowY: _finiteDouble(json['windowY'], base.windowY),
+      windowWidth: _nullableDouble(json, 'windowWidth', base.windowWidth),
+      windowHeight: _nullableDouble(json, 'windowHeight', base.windowHeight),
+      windowX: _nullableDouble(json, 'windowX', base.windowX),
+      windowY: _nullableDouble(json, 'windowY', base.windowY),
       windowMaximized: _bool(json['windowMaximized'], base.windowMaximized),
     );
   }
@@ -939,12 +939,16 @@ class AppSettings {
       railExpanded: railExpanded ?? this.railExpanded,
       windowWidth: identical(windowWidth, _unset)
           ? this.windowWidth
-          : windowWidth as double?,
+          : (windowWidth as num?)?.toDouble(),
       windowHeight: identical(windowHeight, _unset)
           ? this.windowHeight
-          : windowHeight as double?,
-      windowX: identical(windowX, _unset) ? this.windowX : windowX as double?,
-      windowY: identical(windowY, _unset) ? this.windowY : windowY as double?,
+          : (windowHeight as num?)?.toDouble(),
+      windowX: identical(windowX, _unset)
+          ? this.windowX
+          : (windowX as num?)?.toDouble(),
+      windowY: identical(windowY, _unset)
+          ? this.windowY
+          : (windowY as num?)?.toDouble(),
       windowMaximized: windowMaximized ?? this.windowMaximized,
     );
   }
@@ -956,6 +960,21 @@ class AppSettings {
   /// over (a string, NaN, an infinity).
   static double? _finiteDouble(Object? value, double? fallback) =>
       value is num && value.isFinite ? value.toDouble() : fallback;
+
+  /// A nullable number as a stored field: missing keeps [fallback], an
+  /// explicit null clears it (a backup without a window place must not
+  /// inherit the one this device saved), and a damaged value keeps
+  /// [fallback].
+  static double? _nullableDouble(
+    Map<String, dynamic> json,
+    String key,
+    double? fallback,
+  ) {
+    if (!json.containsKey(key)) return fallback;
+    final value = json[key];
+    if (value == null) return null;
+    return _finiteDouble(value, fallback);
+  }
 
   static String _language(Object? value, String fallback) =>
       value is String ? canonicalLanguageTag(value) : fallback;

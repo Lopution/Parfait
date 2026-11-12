@@ -20,6 +20,7 @@ import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
     show DownloadEvent, DownloadGroupSubmission;
+import '../../../core/debug/frame_probe.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/history/history_models.dart';
@@ -516,14 +517,20 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// continues from the current opacity rather than restarting, so a drag
   /// back and forth over the breakpoint does not flash the page.
   void _fadeLayoutIn(BuildContext context) {
+    final duration = MotionTokens.resolve(context, MotionTokens.branchSwitch);
+    if (duration == Duration.zero) {
+      _layoutFade.value = 1;
+      return;
+    }
     if (_layoutFade.value >= 1) _layoutFade.value = 0;
-    unawaited(
-      _layoutFade.animateTo(
-        1,
-        duration: MotionTokens.resolve(context, MotionTokens.branchSwitch),
-        curve: MotionTokens.branchSwitchCurve,
-      ),
+    FrameProbe.instance.enter('detail layout');
+    final fade = _layoutFade.animateTo(
+      1,
+      duration: duration,
+      curve: MotionTokens.branchSwitchCurve,
     );
+    fade.whenCompleteOrCancel(() => FrameProbe.instance.exit('detail layout'));
+    unawaited(fade);
   }
 
   /// A switch from the two-pane layout to the single column brings its

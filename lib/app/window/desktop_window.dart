@@ -3,6 +3,7 @@
 // for `flutter test`. The 0.5.x/0.2.x line is the same API over plain
 // platform plugins, so every checkout and CI image keeps running without
 // extra system packages; revisit when that line stops being published.
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -26,31 +27,22 @@ bool get desktopWindowSupported =>
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS);
 
-/// Prepares the desktop window before `runApp`: initializes the plugin,
-/// restores the saved place on its work area (or the default place on a
-/// first launch) and only then shows the window, so no frame paints at the
-/// phone-shaped runner default and then jumps.
+/// Prepares the desktop window before `runApp`: restores the saved place on
+/// its work area (or the default place on a first launch) and sizes the
+/// window before the runner shows it on its first frame, so no frame paints
+/// at the runner's phone-shaped default and then jumps.
 ///
-/// A setting that cannot be read opens the default place; the failure is
-/// logged, never hidden behind a made-up success.
+/// A failure leaves the runner's window in place; the error travels to the
+/// caller, which logs it rather than hiding it behind a made-up success.
 Future<void> prepareDesktopWindow() async {
   if (!desktopWindowSupported) return;
   await windowManager.ensureInitialized();
   final settings = await _readSettings();
   final geometry = await _restoreGeometry(settings);
-  final options = WindowOptions(
-    size: geometry.size,
-    minimumSize: minimumWindowSize,
-    center: false,
-  );
-  await windowManager.waitUntilReadyToShow(options, () async {
-    await windowManager.setMinimumSize(minimumWindowSize);
-    await windowManager.setSize(geometry.size);
-    await windowManager.setPosition(geometry.position);
-    if (settings.windowMaximized) await windowManager.maximize();
-    await windowManager.show();
-    await windowManager.focus();
-  });
+  await windowManager.setMinimumSize(minimumWindowSize);
+  await windowManager.setSize(geometry.size);
+  await windowManager.setPosition(geometry.position);
+  if (settings.windowMaximized) await windowManager.maximize();
 }
 
 Future<AppSettings> _readSettings() async {
@@ -123,11 +115,18 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding>
 
   Timer? _saveTimer;
 
+  /// The latest ordinary (not maximized, not full-screen) place, read as
+  /// soon as the window moves: the debounced write and the place saved
+  /// under a maximized window both use it, so a maximize inside the
+  /// debounce still keeps the size the user had.
+  WindowGeometry? _ordinary;
+
   @override
   void initState() {
     super.initState();
     if (!desktopWindowSupported) return;
     windowManager.addListener(this);
+    unawaited(_captureOrdinary());
   }
 
   @override
@@ -138,6 +137,9 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding>
   }
 
   void _scheduleSave() {
+    // Read the place at once: the write waits for the drag to settle, and
+    // a maximize inside that window must not lose the size before it.
+    unawaited(_captureOrdinary());
     _saveTimer?.cancel();
     _saveTimer = Timer(_saveDelay, () => unawaited(_save()));
   }
@@ -154,6 +156,27 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding>
   @override
   void onWindowUnmaximize() => _scheduleSave();
 
+  @override
+  void onWindowClose() {
+    // The debounce would drop a move made just before the close.
+    _saveTimer?.cancel();
+    unawaited(_save());
+  }
+
+  Future<void> _captureOrdinary() async {
+    try {
+      if (await windowManager.isFullScreen() ||
+          await windowManager.isMaximized()) {
+        return;
+      }
+      final size = await windowManager.getSize();
+      final position = await windowManager.getPosition();
+      _ordinary = WindowGeometry(size: size, position: position);
+    } on Object catch (error) {
+      log('window: could not read the place: $error');
+    }
+  }
+
   Future<void> _save() async {
     try {
       if (await windowManager.isFullScreen()) return;
@@ -161,8 +184,10 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding>
       final size = await windowManager.getSize();
       final position = await windowManager.getPosition();
       final place = maximized
-          ? _ordinaryPlace(size, position)
-          : WindowGeometry(size: size, position: position);
+          ? _ordinary ??
+                _savedPlace() ??
+                WindowGeometry(size: size, position: position)
+          : _ordinary = WindowGeometry(size: size, position: position);
       await ref
           .read(settingsProvider.notifier)
           .setWindowGeometry(
@@ -177,9 +202,9 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding>
     }
   }
 
-  /// The place to keep under a maximized window: the last saved ordinary
-  /// one, or the current size when nothing was saved yet.
-  WindowGeometry _ordinaryPlace(Size fallbackSize, Offset fallbackPosition) {
+  /// The place last written to the settings, for a maximized window whose
+  /// ordinary place this run never saw.
+  WindowGeometry? _savedPlace() {
     final settings = ref.read(settingsProvider).value;
     final width = settings?.windowWidth;
     final height = settings?.windowHeight;
@@ -188,7 +213,7 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding>
     if (width != null && height != null && x != null && y != null) {
       return WindowGeometry(size: Size(width, height), position: Offset(x, y));
     }
-    return WindowGeometry(size: fallbackSize, position: fallbackPosition);
+    return null;
   }
 
   @override

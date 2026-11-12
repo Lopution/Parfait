@@ -518,19 +518,31 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     // together. The first layout starts at its end value, and an
     // immersive page still takes the room at once.
     final railTarget = expanded ? 1.0 : 0.0;
+    final railDuration = MotionTokens.resolve(context, MotionTokens.chrome);
     if (!_railOpenInitialized) {
       _railOpen.value = railTarget;
       _railOpenTarget = railTarget;
       _railOpenInitialized = true;
-    } else if (_railOpenTarget != railTarget) {
+    } else if (_railOpenTarget != railTarget ||
+        (railDuration == Duration.zero && _railOpen.value != railTarget)) {
       _railOpenTarget = railTarget;
-      unawaited(
-        _railOpen.animateTo(
+      if (railDuration == Duration.zero) {
+        // Reduced motion turned on mid-slide lands the rail at once.
+        _railOpen.value = railTarget;
+      } else {
+        FrameProbe.instance
+          ..enter('rail switch')
+          ..mark('rail switch ${expanded ? 'open' : 'close'}');
+        final slide = _railOpen.animateTo(
           railTarget,
-          duration: MotionTokens.resolve(context, MotionTokens.chrome),
+          duration: railDuration,
           curve: MotionTokens.chromeCurve,
-        ),
-      );
+        );
+        slide.whenCompleteOrCancel(
+          () => FrameProbe.instance.exit('rail switch'),
+        );
+        unawaited(slide);
+      }
     }
     final bottomBarExtent = _bottomBarExtent = rail
         ? 0.0

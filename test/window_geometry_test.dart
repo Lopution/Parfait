@@ -93,11 +93,18 @@ void main() {
   test('a saved place picks the display it overlaps most', () {
     const left = Rect.fromLTWH(-1920, 0, 1920, 1080);
     const right = Rect.fromLTWH(0, 0, 1920, 1080);
-    final saved = const WindowGeometry(
+    // Across both displays, mostly on the left one.
+    final mostlyLeft = const WindowGeometry(
       size: Size(1280, 800),
-      position: Offset(-1400, 100),
+      position: Offset(-800, 100),
     );
-    expect(workAreaFor(saved, [right, left]), left);
+    expect(workAreaFor(mostlyLeft, [right, left]), left);
+    // Across both displays, mostly on the right one.
+    final mostlyRight = const WindowGeometry(
+      size: Size(1280, 800),
+      position: Offset(-300, 100),
+    );
+    expect(workAreaFor(mostlyRight, [right, left]), right);
   });
 
   test('a saved place whose display went away belongs to none', () {

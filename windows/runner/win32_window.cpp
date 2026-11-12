@@ -217,9 +217,14 @@ Win32Window::MessageHandler(HWND hwnd,
       // Matches minimumWindowSize in lib/app/window/window_geometry.dart:
       // the collapsed rail plus a readable column. Below it the client
       // stops being usable, so the shell owns a hard minimum window size.
+      // The track sizes are physical pixels, so scale the logical minimum
+      // by the display's DPI; window_manager's own minimum-size message
+      // replaces this once Dart has run.
       auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize.x = 480;
-      info->ptMinTrackSize.y = 640;
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      const double scale = FlutterDesktopGetDpiForMonitor(monitor) / 96.0;
+      info->ptMinTrackSize.x = static_cast<LONG>(480 * scale);
+      info->ptMinTrackSize.y = static_cast<LONG>(640 * scale);
       return 0;
     }
 

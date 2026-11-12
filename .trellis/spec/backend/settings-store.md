@@ -2,6 +2,7 @@
 prefix: PREF
 applies_to:
   - lib/core/settings/**
+  - lib/app/window/**
   - lib/core/auth/credential_store.dart
   - lib/core/translation/**
   - lib/core/auth/account_transfer*.dart

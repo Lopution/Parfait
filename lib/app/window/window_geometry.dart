@@ -66,24 +66,24 @@ WindowGeometry defaultWindowGeometry(Rect workArea) => fitToWorkArea(
 );
 
 /// A display's work area (its visible size excluding the taskbar), or its
-/// full size where the platform reports no visible rectangle.
+/// full size where the platform reports no visible rectangle. Either way
+/// the rectangle keeps the display's own origin, so a window restored to a
+/// secondary display is not mistaken for one on the primary display.
 Rect workAreaOf({
   required Size size,
   Offset? visiblePosition,
   Size? visibleSize,
 }) {
-  if (visibleSize != null &&
-      visiblePosition != null &&
-      visibleSize.width > 0 &&
-      visibleSize.height > 0) {
+  final origin = visiblePosition ?? Offset.zero;
+  if (visibleSize != null && visibleSize.width > 0 && visibleSize.height > 0) {
     return Rect.fromLTWH(
-      visiblePosition.dx,
-      visiblePosition.dy,
+      origin.dx,
+      origin.dy,
       visibleSize.width,
       visibleSize.height,
     );
   }
-  return Rect.fromLTWH(0, 0, size.width, size.height);
+  return Rect.fromLTWH(origin.dx, origin.dy, size.width, size.height);
 }
 
 /// Fits [desired] into [workArea]: at most 90% of it, never below

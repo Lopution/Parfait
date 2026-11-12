@@ -839,6 +839,7 @@ void main() {
       final bar = tester.getRect(find.byType(DetailActionBar));
       expect(bar.left, greaterThanOrEqualTo(pager.left));
       expect(bar.right, lessThanOrEqualTo(pager.right));
+      expect(bar.center.dx, closeTo(pager.center.dx, 0.5));
     });
 
     testWidgets('a layout switch fades the page in rather than swapping it', (
