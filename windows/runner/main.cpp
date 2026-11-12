@@ -26,9 +26,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
-  // Phone-adjacent default: the content-first client reads best in a tall
-  // window, and the 600dp rail breakpoint is exercised by resizing.
-  Win32Window::Size size(460, 860);
+  // Desktop default: wide enough for the expanded rail and a content column
+  // (see lib/app/window/window_geometry.dart, which fits the saved place to
+  // a display's work area before the window is shown).
+  Win32Window::Size size(1280, 800);
   if (!window.Create(L"Parfait", origin, size)) {
     return EXIT_FAILURE;
   }

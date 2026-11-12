@@ -214,11 +214,12 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_GETMINMAXINFO: {
-      // The feed layouts floor at ~400 logical px; below that the client
+      // Matches minimumWindowSize in lib/app/window/window_geometry.dart:
+      // the collapsed rail plus a readable column. Below it the client
       // stops being usable, so the shell owns a hard minimum window size.
       auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize.x = 400;
-      info->ptMinTrackSize.y = 600;
+      info->ptMinTrackSize.x = 480;
+      info->ptMinTrackSize.y = 640;
       return 0;
     }
 

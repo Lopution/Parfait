@@ -10,6 +10,14 @@ reviewed: 2026-10-14
 
 # Settings persistence and secrets
 
+## Contents
+
+- [Migration and writes](#migration-and-writes)
+- [Secrets and transfer](#secrets-and-transfer)
+- [Editable state](#editable-state)
+
+## Migration and writes
+
 ### PREF-01 Settings migrate field by field and keep their sources
 - **Rule:** `SettingsRepository` reads the allowlisted preference map once
   into the immutable `AppSettings`, validates each field against its own
@@ -28,6 +36,8 @@ reviewed: 2026-10-14
   not.
 - **Check:** `test/app_settings_test.dart` "controller serializes writes and exposes the old value on failure"
 - **Code:** `lib/core/settings/settings_controller.dart`
+
+## Secrets and transfer
 
 ### PREF-03 Each secret family has its own store and never enters settings
 - **Rule:** Every secret family has its own secure-storage namespace and
@@ -76,6 +86,8 @@ reviewed: 2026-10-14
 - **Check:** `test/account_transfer_service_test.dart` "exported envelope carries only the account credential, never translation secrets"
 - **Code:** `lib/core/auth/account_transfer.dart`, `lib/core/auth/account_transfer_service.dart`
 
+## Editable state
+
 ### PREF-07 A user-ordered list is an Arrangement saved only when edited
 - **Rule:** Every list the user orders and hides (ranking categories, the
   bottom bar) persists as `Arrangement` entries `[{id, visible}]` and
@@ -88,3 +100,20 @@ reviewed: 2026-10-14
   or reorders by default would never reach users who never edited.
 - **Check:** `test/ranking_categories_test.dart` "unknown and repeated ids are skipped, unmentioned items appended" "a payload hiding every known item still shows one"; `test/home_destination_test.dart` "a saved bar keeps Me and two destinations whatever it says"
 - **Code:** `lib/core/settings/arrangement.dart`, `lib/core/ranking/ranking_catalog.dart`, `lib/core/navigation/home_destination.dart`
+
+### PREF-08 The desktop window's place is a setting like any other
+- **Rule:** The desktop window's size, position and maximized flag live in
+  the same `AppSettings` JSON (`windowWidth`/`windowHeight`/`windowX`/
+  `windowY`/`windowMaximized`); reads validate finite numbers and fall back
+  to `null`, which means "open at the default place on the primary
+  display". A restored place is fitted to the work area it belongs to
+  (`lib/app/window/window_geometry.dart`: at most 90% of it, never below
+  `480x640`, centred when under 30px remains on screen). A maximized window
+  saves the ordinary place it had before, and a write is debounced 400ms
+  after the last move; that delay is a save debounce, not a motion token.
+- **Why:** A window that reopened at the runner's phone-shaped default, or
+  off a display that had been unplugged, forced the user to place it again
+  every launch; writing on every drag event cost a preferences write per
+  frame.
+- **Check:** `test/window_geometry_test.dart` "a first launch opens at the default size" "a saved place mostly off the work area is centred instead" "a saved place picks the display it overlaps most"; `test/app_settings_test.dart` "the desktop window place round-trips; damage falls back"
+- **Code:** `lib/app/window/desktop_window.dart`, `lib/app/window/window_geometry.dart`, `lib/core/settings/app_settings.dart`, `lib/core/settings/settings_controller.dart`

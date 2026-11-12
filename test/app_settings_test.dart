@@ -99,6 +99,42 @@ void main() {
     expect(settings.translateIndex, 1);
   });
 
+  test('the desktop window place round-trips; damage falls back', () {
+    final saved = baseTestSettings().copyWith(
+      windowWidth: 1280.0,
+      windowHeight: 800.0,
+      windowX: -160.0,
+      windowY: 48.0,
+      windowMaximized: true,
+    );
+    final restored = AppSettings.fromJson(
+      jsonDecode(jsonEncode(saved.toJson())) as Map<String, Object?>,
+    );
+    expect(restored.windowWidth, 1280);
+    expect(restored.windowHeight, 800);
+    expect(restored.windowX, -160);
+    expect(restored.windowY, 48);
+    expect(restored.windowMaximized, isTrue);
+
+    final damaged = AppSettings.fromJson({
+      'windowWidth': 'wide',
+      'windowHeight': double.infinity,
+      'windowX': null,
+      'windowY': double.nan,
+      'windowMaximized': 'yes',
+    }, fallback: baseTestSettings());
+    expect(damaged.windowWidth, isNull);
+    expect(damaged.windowHeight, isNull);
+    expect(damaged.windowX, isNull);
+    expect(damaged.windowY, isNull);
+    expect(damaged.windowMaximized, isFalse);
+
+    final cleared = saved.copyWith(windowWidth: null, windowY: null);
+    expect(cleared.windowWidth, isNull);
+    expect(cleared.windowY, isNull);
+    expect(cleared.windowHeight, 800);
+  });
+
   test('ranking and bottom-bar arrangements round-trip; damage falls back', () {
     final saved = baseTestSettings().copyWith(
       illustRankingArrangement: [(id: 'week', visible: true)],
