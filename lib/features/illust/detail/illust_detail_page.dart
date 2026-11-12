@@ -1223,6 +1223,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 
     final contentSize = HomeShellChrome.contentSizeOf(context);
     final twoPane = AppBreakpoints.useTwoPaneDetail(contentSize);
+    // Reduced motion turned on mid-fade lands the page at once (MOTION-02):
+    // the preference only rebuilds, and the fade starts on a layout switch.
+    if (_layoutFade.value < 1 &&
+        MotionTokens.resolve(context, MotionTokens.branchSwitch) ==
+            Duration.zero) {
+      _layoutFade.value = 1;
+    }
     // A switch between the layouts opens on the image the other one showed.
     final wasTwoPane = _lastTwoPane;
     _lastTwoPane = twoPane;

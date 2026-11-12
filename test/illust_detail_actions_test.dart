@@ -865,6 +865,32 @@ void main() {
       expect(fade(), 1);
     });
 
+    testWidgets('turning reduced motion on mid-fade lands the layout at once', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, surface: const Size(1400, 900));
+      double fade() => tester
+          .widget<FadeTransition>(
+            find.byKey(const ValueKey('detail-layout-fade')),
+          )
+          .opacity
+          .value;
+
+      setViewSize(tester, const Size(390, 844));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(fade(), inExclusiveRange(0, 1));
+
+      tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      expect(fade(), 1);
+    });
+
     testWidgets('arrow keys page the image pane; a resize keeps the page', (
       tester,
     ) async {
