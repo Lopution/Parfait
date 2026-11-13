@@ -1,0 +1,49 @@
+name: Linux build
+
+# Compile-only guard for the Linux port, like windows.yml and macos.yml:
+# proves the GTK runner, the rhttp Linux toolchain and the plugin
+# registration all link.
+#
+# Not a required check, so a workflow-level paths filter is safe:
+# unrelated PRs never trigger it and no required check is left pending.
+on:
+  pull_request:
+    paths:
+      - 'linux/**'
+      - 'plugins/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/linux.yml'
+  schedule:
+    # Nightly safety net on the default branch: a Dart-only change that
+    # breaks the Linux compile surfaces here at the latest.
+    - cron: '31 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  linux-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.47.9"
+          channel: "stable"
+          cache: true
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # cargokit.cmake builds into <plugin build dir>/cargokit_build.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/linux/x64/release/plugins/rhttp/cargokit_build
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build linux --release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parfait-linux-x64
+          path: build/linux/x64/release/bundle
