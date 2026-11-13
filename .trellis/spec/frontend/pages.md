@@ -6,6 +6,7 @@ applies_to:
   - lib/features/ranking/**
   - lib/features/comments/**
   - lib/features/settings/pages/download_tasks_page.dart
+  - lib/features/settings/pages/download_task_rows.dart
   - lib/features/settings/pages/muted_items_page.dart
   - lib/features/history/**
   - lib/features/watchlater/**
@@ -317,7 +318,7 @@ reviewed: 2026-11-11
   groups all above the single items, put a new download at the bottom
   (user report).
 - **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "the newest submission comes first, groups among tasks" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in"
-- **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/app/widgets/sliver_surface_list.dart`
+- **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/features/settings/pages/download_task_rows.dart`, `lib/app/widgets/sliver_surface_list.dart`
 
 ## Wide and short windows
 
