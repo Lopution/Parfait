@@ -1401,5 +1401,14 @@
     }
   },
   "meOpenProfile": "Открыть профиль",
-  "premiumBadge": "Premium"
+  "premiumBadge": "Premium",
+  "windowMinimize": "Свернуть",
+  "windowMaximize": "Развернуть",
+  "windowRestore": "Восстановить",
+  "windowClose": "Закрыть",
+  "trayShowWindow": "Показать окно",
+  "trayDownloads": "Загрузки",
+  "trayQuit": "Выйти",
+  "closeToTray": "Сворачивать в трей при закрытии",
+  "closeToTrayHint": "Скрывать окно в системный трей вместо выхода при закрытии"
 }

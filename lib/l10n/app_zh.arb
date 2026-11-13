@@ -1923,5 +1923,41 @@
   "premiumBadge": "Premium",
   "@premiumBadge": {
     "description": "Badge beside the signed-in name on the Me page for a pixiv Premium account"
+  },
+  "windowMinimize": "最小化",
+  "@windowMinimize": {
+    "description": "Tooltip of the desktop window minimize button"
+  },
+  "windowMaximize": "最大化",
+  "@windowMaximize": {
+    "description": "Tooltip of the desktop window maximize button"
+  },
+  "windowRestore": "还原",
+  "@windowRestore": {
+    "description": "Tooltip of the desktop window restore button when maximized"
+  },
+  "windowClose": "关闭窗口",
+  "@windowClose": {
+    "description": "Tooltip of the desktop window close button"
+  },
+  "trayShowWindow": "显示主窗口",
+  "@trayShowWindow": {
+    "description": "Desktop system tray menu item that restores and focuses the main window"
+  },
+  "trayDownloads": "下载任务",
+  "@trayDownloads": {
+    "description": "Desktop system tray menu item that opens the downloads page"
+  },
+  "trayQuit": "退出应用",
+  "@trayQuit": {
+    "description": "Desktop system tray menu item that terminates the application"
+  },
+  "closeToTray": "关闭窗口时最小化到托盘",
+  "@closeToTray": {
+    "description": "Desktop setting toggle title: hide the window to the system tray instead of exiting when closing the window"
+  },
+  "closeToTrayHint": "隐藏主窗口并在系统托盘中保持运行",
+  "@closeToTrayHint": {
+    "description": "Desktop setting subtitle explaining the minimize-to-tray behavior"
   }
 }

@@ -170,6 +170,7 @@ enum Setting implements SettingsEntry {
     'interfaceForm',
     optionKeys: ['interfaceFormAuto', 'interfaceFormTouch', 'interfaceFormPc'],
   ),
+  closeToTray(SettingsPageRef.navigation, 'closeToTray'),
   homeStartPage(
     SettingsPageRef.navigation,
     'homeStartPage',
@@ -268,7 +269,7 @@ enum Setting implements SettingsEntry {
   /// under the same condition.
   bool get available => switch (this) {
     hapticStrength => defaultTargetPlatform == TargetPlatform.android,
-    interfaceForm => _desktop,
+    interfaceForm || closeToTray => _desktop,
     aboutDisplayRefreshRate =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
     _ => true,

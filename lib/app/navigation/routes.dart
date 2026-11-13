@@ -381,3 +381,41 @@ Future<void> routeExternalIntent(
       break;
   }
 }
+
+/// Opens the download tasks screen from process-level triggers (tray menu).
+void openDownloadsFromRouter(GoRouter router, {bool? rail}) {
+  final path = _livePathOf(router);
+  if (_isPreHomePath(path)) return;
+  if (path == '/downloads' || path.endsWith('/downloads')) return;
+  final effectiveRail = rail ?? _hasRailFromRouter(router);
+  unawaited(
+    router.push<void>(
+      _appPageLocation(router, 'downloads', rail: effectiveRail),
+    ),
+  );
+}
+
+String _livePathOf(GoRouter router) {
+  try {
+    return router.state.uri.path;
+  } on Object {
+    final config = router.routerDelegate.currentConfiguration;
+    if (config.isNotEmpty) return config.uri.path;
+    return router.routeInformationProvider.value.uri.path;
+  }
+}
+
+bool _isPreHomePath(String path) =>
+    path == '/' ||
+    path == '/splash' ||
+    path == '/user-agreement' ||
+    path == '/welcome' ||
+    path.startsWith('/welcome/') ||
+    path == '/login' ||
+    path.startsWith('/login/');
+
+bool _hasRailFromRouter(GoRouter router) {
+  final navContext = router.routerDelegate.navigatorKey.currentContext;
+  if (navContext == null) return false;
+  return FormFactor.of(navContext).hasRail(MediaQuery.sizeOf(navContext).width);
+}

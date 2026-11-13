@@ -6010,6 +6010,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'Premium'**
   String get premiumBadge;
+
+  /// Tooltip of the desktop window minimize button
+  ///
+  /// In zh, this message translates to:
+  /// **'最小化'**
+  String get windowMinimize;
+
+  /// Tooltip of the desktop window maximize button
+  ///
+  /// In zh, this message translates to:
+  /// **'最大化'**
+  String get windowMaximize;
+
+  /// Tooltip of the desktop window restore button when maximized
+  ///
+  /// In zh, this message translates to:
+  /// **'还原'**
+  String get windowRestore;
+
+  /// Tooltip of the desktop window close button
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭窗口'**
+  String get windowClose;
+
+  /// Desktop system tray menu item that restores and focuses the main window
+  ///
+  /// In zh, this message translates to:
+  /// **'显示主窗口'**
+  String get trayShowWindow;
+
+  /// Desktop system tray menu item that opens the downloads page
+  ///
+  /// In zh, this message translates to:
+  /// **'下载任务'**
+  String get trayDownloads;
+
+  /// Desktop system tray menu item that terminates the application
+  ///
+  /// In zh, this message translates to:
+  /// **'退出应用'**
+  String get trayQuit;
+
+  /// Desktop setting toggle title: hide the window to the system tray instead of exiting when closing the window
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭窗口时最小化到托盘'**
+  String get closeToTray;
+
+  /// Desktop setting subtitle explaining the minimize-to-tray behavior
+  ///
+  /// In zh, this message translates to:
+  /// **'隐藏主窗口并在系统托盘中保持运行'**
+  String get closeToTrayHint;
 }
 
 class _AppLocalizationsDelegate

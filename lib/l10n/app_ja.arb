@@ -1401,5 +1401,14 @@
     }
   },
   "meOpenProfile": "プロフィールを開く",
-  "premiumBadge": "プレミアム"
+  "premiumBadge": "プレミアム",
+  "windowMinimize": "最小化",
+  "windowMaximize": "最大化",
+  "windowRestore": "元に戻す",
+  "windowClose": "閉じる",
+  "trayShowWindow": "ウィンドウを表示",
+  "trayDownloads": "ダウンロード",
+  "trayQuit": "終了",
+  "closeToTray": "閉じるボタンでトレイに最小化",
+  "closeToTrayHint": "ウィンドウを閉じてもシステムトレイに常駐します"
 }

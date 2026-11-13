@@ -87,10 +87,19 @@ class Win32Window {
   // Retrieves a class instance pointer for |window|
   static Win32Window* GetThisFromHandle(HWND const window) noexcept;
 
+  // Sets whether the window is currently in native borderless fullscreen mode.
+  void SetFullscreenState(bool fullscreen) noexcept {
+    is_fullscreen_ = fullscreen;
+  }
+
+  // Returns whether native borderless fullscreen mode is currently active.
+  bool IsFullscreenState() const noexcept { return is_fullscreen_; }
+
   // Update the window frame's theme to match the system theme.
   static void UpdateTheme(HWND const window);
 
   bool quit_on_close_ = false;
+  bool is_fullscreen_ = false;
 
   // window handle for top level window.
   HWND window_handle_ = nullptr;

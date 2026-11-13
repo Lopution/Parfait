@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +9,7 @@ import '../motion/hero_transition.dart'
 import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
+import '../window/desktop_title_bar.dart';
 import 'app_tab_bar.dart';
 import 'artwork_controls.dart';
 
@@ -275,7 +278,9 @@ class _AppTopBarState extends State<AppTopBar> {
               Expanded(child: bottom!),
             ],
           );
-    final statusInset = MediaQuery.paddingOf(context).top;
+    final chromeTop =
+        DesktopChromeMetrics.maybeOf(context)?.effectiveTopInset ?? 0;
+    final statusInset = math.max(MediaQuery.paddingOf(context).top, chromeTop);
     final toolbar = ValueListenableBuilder(
       valueListenable: _scrolledUnder,
       builder: (context, scrolledUnder, bar) =>
