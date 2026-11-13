@@ -3,13 +3,14 @@
 # the tests of what changed. CI still runs the whole suite (spec TEST-06)
 # and the Android and Rust jobs.
 #
-# Usage: tool/gate.sh [--full | --no-tests] [--base REF] [test files...]
+# Usage: tool/gate.sh [--full | --fast | --no-tests] [--base REF] [test files...]
 #   (default)   the test files that changed or import a changed file, plus
 #               the architecture scans in test/architecture/ (they read
 #               the whole tree, so any change can break them); a change to
 #               dependencies or to shared test configuration runs the
 #               whole suite
 #   --full      the whole suite
+#   --fast      checks, architecture scans, and any explicit test files only
 #   --no-tests  checks only
 #   --base REF  what the change is measured from: the merge base of HEAD
 #               and REF (default origin/main)
@@ -34,6 +35,7 @@ explicit=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --full) mode=full ;;
+    --fast) mode=fast ;;
     --no-tests) mode=none ;;
     --base)
       [[ $# -ge 2 ]] || { echo "gate: --base needs a ref" >&2; exit 2; }
@@ -177,6 +179,20 @@ case "$mode" in
   full)
     whole_suite_reason="--full"
     step "tests (whole suite)" run_tests
+    ;;
+  fast)
+    selection="$(mktemp -t gate-selection.XXXXXX)"
+    if ! {
+      printf '%s\n' test/architecture/*_test.dart
+      if [[ ${#explicit[@]} -gt 0 ]]; then
+        printf '%s\n' "${explicit[@]}"
+      fi
+    } | sort -u > "$selection"; then
+      results+=("FAIL  test selection (fast)")
+      failed=1
+    fi
+    mapfile -t tests < "$selection"
+    step "tests (fast: ${#tests[@]} files)" run_tests
     ;;
   changed)
     if [[ ${#explicit[@]} -gt 0 ]]; then

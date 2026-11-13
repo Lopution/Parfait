@@ -1,11 +1,8 @@
 name: Linux build
 
-# Compile-only guard for the Linux port, like windows.yml and macos.yml:
+# Compile-only guard for the Linux port, like windows.yml and apple.yml:
 # proves the GTK runner, the rhttp Linux toolchain and the plugin
 # registration all link.
-#
-# Not a required check, so a workflow-level paths filter is safe:
-# unrelated PRs never trigger it and no required check is left pending.
 on:
   pull_request:
     paths:
@@ -16,14 +13,38 @@ on:
       - 'rust-toolchain.toml'
       - '.github/workflows/linux.yml'
   schedule:
-    # Nightly safety net on the default branch: a Dart-only change that
-    # breaks the Linux compile surfaces here at the latest.
+    # Nightly safety net on the default branch: warms the debug rust-cache for
+    # PRs and verifies full --release AOT builds.
     - cron: '31 18 * * *'
   workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Build profile'
+        required: false
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   linux-build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        profile: >-
+          ${{
+            github.event_name == 'schedule' && fromJSON('["debug", "release"]') ||
+            github.event_name == 'pull_request' && fromJSON('["debug"]') ||
+            inputs.profile == 'debug' && fromJSON('["debug"]') ||
+            fromJSON('["release"]')
+          }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install Linux desktop dependencies
@@ -38,12 +59,29 @@ jobs:
           channel: "stable"
           cache: true
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: matrix.profile == 'debug'
         with:
           # cargokit.cmake builds into <plugin build dir>/cargokit_build.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/linux/x64/debug/plugins/rhttp/cargokit_build
+          shared-key: linux-debug
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: matrix.profile == 'release'
+        with:
           workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/linux/x64/release/plugins/rhttp/cargokit_build
+          shared-key: linux-release
       - run: flutter pub get --enforce-lockfile
-      - run: flutter build linux --release
+      - name: Build Linux (debug)
+        if: matrix.profile == 'debug'
+        env:
+          CARGO_PROFILE_DEV_DEBUG: "0"
+          CARGO_PROFILE_DEV_OPT_LEVEL: "0"
+          CARGOKIT_VERBOSE: "1"
+        run: flutter build linux --debug
+      - name: Build Linux (release)
+        if: matrix.profile == 'release'
+        run: flutter build linux --release
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.profile == 'release' && github.event_name != 'pull_request'
         with:
           name: parfait-linux-x64
           path: build/linux/x64/release/bundle
