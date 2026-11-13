@@ -108,7 +108,7 @@ reviewed: 2026-10-29
   was wrong on one of them, and a first-byte race says nothing of the
   body.
 - **Check:** `test/image_route_scores_test.dart` "visible loads settle on a good route within six and stay there" "a route that turns slow loses the choice within minutes" "another route takes over only when 15 % cheaper" "prefetches explore one stale route at a time, visible loads never" "a snapshot seeds the next visit to the network", `test/restricted_compat_image_test.dart` "pixiv images walk their candidates, then dohRealSni and direct, " "a stalled body counts against its route; one given up does " "a body given up after a stall counts against its route" "a request aborted with no headers after the stall gap counts " "a prefetch may try another route; a visible load never" "a network starts on the route that served it last time", `test/settings_test.dart` "effective routes list the image worker's hosts and route ", `test/network_fast_route_test.dart` "a failed origin address gives way to the next, where the next "
-- **Code:** `lib/core/network/compat/image_route_scores.dart`, `lib/core/network/compat/image_route_score_store.dart`, `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`
+- **Code:** `lib/core/network/compat/image_route_scores.dart`, `lib/core/network/compat/image_route_score_store.dart`, `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_idle_guard.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ### NET-20 Each network finds its own Cloudflare fronts
 - **Rule:** After the up to three public fronts the ECH config names, each
@@ -290,7 +290,7 @@ reviewed: 2026-10-29
   source's cancel held the idle timeout until Rust's next event: stalled
   images failed 15–30 s late.
 - **Check:** `test/restricted_compat_image_test.dart` "a body error after the idle timeout is dropped" "a cancel completes though the body errs after it" "a mapped body errors after an idle gap though its cancel waits"
-- **Code:** `lib/core/network/compat/network_policy.dart`
+- **Code:** `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_idle_guard.dart`
 
 ## Clients and diagnostics
 
