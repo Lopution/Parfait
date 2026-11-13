@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/core/auth/account_transfer_service.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_recovery.dart';
@@ -12,13 +14,17 @@ import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/resume_anchor.dart';
 import 'package:parfait/core/platform/account_transfer_clipboard.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
+import 'package:parfait/core/platform/android_platform_interfaces.dart';
 import 'package:parfait/core/platform/desktop_clipboard.dart';
 import 'package:parfait/core/platform/desktop_file_sink.dart';
 import 'package:parfait/core/platform/intent_router.dart';
+import 'package:parfait/core/platform/ios_photo_library.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
 import 'package:parfait/core/reverse_image/reverse_image_external.dart';
 import 'package:parfait/core/updater/update_platform.dart';
+
+import 'helpers/test_preferences.dart';
 
 const _windows = PlatformCaps(isWindows: true);
 const _android = PlatformCaps(isAndroid: true);
@@ -437,4 +443,237 @@ void main() {
       }
     });
   });
+
+  group('multiplatform storage, haptics, and clipboard persistence', () {
+    test(
+      'sanitizeDesktopFileName handles reserved names, trailing dots/spaces, and control chars',
+      () {
+        expect(sanitizeDesktopFileName('CON.png'), '_CON.png');
+        expect(sanitizeDesktopFileName('nul'), '_nul');
+        expect(sanitizeDesktopFileName('com9.txt'), '_com9.txt');
+        expect(sanitizeDesktopFileName('LPT1'), '_LPT1');
+        expect(sanitizeDesktopFileName('photo.jpg. . '), 'photo.jpg');
+        expect(sanitizeDesktopFileName('a<b>c\x07.png'), 'a_b_c_.png');
+        expect(sanitizeDesktopFileName('...  '), 'download');
+      },
+    );
+
+    test(
+      'PlatformCaps routes iOS haptics and macOS bookmark providers',
+      () async {
+        final ios = _container(const PlatformCaps(isIOS: true));
+        final macos = _container(const PlatformCaps(isMacOS: true));
+        final driver = ios.read(hapticsDriverProvider);
+        expect(driver, isA<IosHapticsDriver>());
+        expect(
+          await driver.capability(),
+          const HapticsCapability(
+            tier: HapticsTier.predefined,
+            systemOff: false,
+          ),
+        );
+        expect(
+          macos.read(safTreePickerProvider),
+          isA<MacosBookmarkDirectoryPicker>(),
+        );
+        expect(
+          macos.read(safDocumentSinkFactoryProvider),
+          isA<MacosBookmarkSafDocumentSinkFactory>(),
+        );
+      },
+    );
+
+    test(
+      'IosPhotoLibraryMediaStoreSession stages chunks, commits via channel, and resumes detached .part',
+      () async {
+        final tempRoot = await Directory.systemTemp.createTemp(
+          'parfait_ios_photo_test_',
+        );
+        addTearDown(() => tempRoot.delete(recursive: true));
+        const channel = MethodChannel('parfait/ios_photos_test');
+        final recordedCalls = <MethodCall>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              recordedCalls.add(call);
+              return 'ph:///LOCAL-ID-1';
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, null);
+        });
+
+        final session = IosPhotoLibraryMediaStoreSession(
+          channel: channel,
+          stagingDirectory: () async => tempRoot,
+        );
+        final handle =
+            await session.begin(
+                  displayName: 'CON.png',
+                  mimeType: 'image/png',
+                  relativePath: 'Pictures/Custom',
+                )
+                as ResumableMediaStoreHandle;
+        await handle.write([1, 2, 3]);
+        final locator = await handle.detach();
+        expect(File(locator).existsSync(), isTrue);
+
+        final resumed = await session.resumePendingPath(locator);
+        expect(resumed, isNotNull);
+        expect(resumed!.storedBytes, 3);
+        await resumed.handle.write([4, 5]);
+        final uri = await resumed.handle.finalize();
+        expect(uri.toString(), 'ph:///LOCAL-ID-1');
+        expect(recordedCalls.single.method, 'saveImage');
+        final args = Map<Object?, Object?>.from(
+          recordedCalls.single.arguments as Map,
+        );
+        expect(args['album'], 'Custom');
+        expect(args['displayName'], '_CON.png');
+        expect(File(args['path']! as String).existsSync(), isFalse);
+      },
+    );
+
+    test(
+      'MacosBookmarkDirectoryPicker and sink factory require bookmarks and pair startAccess/stopAccess',
+      () async {
+        final tempRoot = await Directory.systemTemp.createTemp(
+          'parfait_macos_bm_test_',
+        );
+        addTearDown(() => tempRoot.delete(recursive: true));
+        const channel = MethodChannel('parfait/macos_bookmarks_test');
+        final events = <String>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              events.add(call.method);
+              switch (call.method) {
+                case 'saveBookmark':
+                  return 'bm_token_v1';
+                case 'startAccess':
+                  return tempRoot.path;
+                case 'stopAccess':
+                  return null;
+              }
+              return null;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, null);
+        });
+
+        final picker = MacosBookmarkDirectoryPicker(
+          channel,
+          _FakePicker(tempRoot.path),
+        );
+        final bookmark = await picker.pickTree();
+        expect(bookmark, 'bm_token_v1');
+
+        final factory = MacosBookmarkSafDocumentSinkFactory(channel);
+        expect(
+          () => factory.create(
+            treeUri: '',
+            displayName: 'a.png',
+            mimeType: 'image/png',
+          ),
+          throwsStateError,
+        );
+        expect(
+          () => factory.resumeSaf(uri: '/raw/path.part'),
+          throwsStateError,
+        );
+
+        final sink =
+            await factory.create(
+                  treeUri: bookmark!,
+                  displayName: 'sample.png',
+                  mimeType: 'image/png',
+                )
+                as ResumableSafDocument;
+        await sink.write([10, 20]);
+        final locator = sink.resumeLocator;
+        await sink.detachSaf();
+        expect(events, ['saveBookmark', 'startAccess', 'stopAccess']);
+
+        final resumed = await factory.resumeSaf(uri: locator);
+        expect(resumed, isNotNull);
+        expect(resumed!.storedBytes, 2);
+        await resumed.sink.write([30]);
+        await resumed.sink.close();
+        expect(events, [
+          'saveBookmark',
+          'startAccess',
+          'stopAccess',
+          'startAccess',
+          'stopAccess',
+        ]);
+        expect(await File('${tempRoot.path}/sample.png').readAsBytes(), [
+          10,
+          20,
+          30,
+        ]);
+      },
+    );
+
+    test(
+      'FlutterTransferClipboard sweepExpired clears expired persisted payload across restarts',
+      () async {
+        installPreferencesForTest(memoryPreferences());
+        String? clipboardText;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+              switch (call.method) {
+                case 'Clipboard.setData':
+                  clipboardText = (call.arguments as Map)['text'] as String?;
+                  return null;
+                case 'Clipboard.getData':
+                  return <String, dynamic>{'text': clipboardText};
+              }
+              return null;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null);
+        });
+
+        var clock = DateTime.utc(2026, 11, 13, 12, 0);
+        final prefs = SharedPreferencesAsync();
+        final writer = FlutterTransferClipboard(
+          preferences: prefs,
+          now: () => clock,
+        );
+        await writer.write(
+          'secret-bundle',
+          clearAfter: const Duration(minutes: 2),
+        );
+        expect(clipboardText, 'secret-bundle');
+
+        // Simulating relaunch before expiry leaves clipboard intact.
+        clock = clock.add(const Duration(seconds: 30));
+        final earlySweeper = FlutterTransferClipboard(
+          preferences: prefs,
+          now: () => clock,
+        );
+        expect(await earlySweeper.sweepExpired(), isFalse);
+        expect(clipboardText, 'secret-bundle');
+        earlySweeper.dispose();
+
+        // Simulating resume after expiry clears owned clipboard content.
+        clock = clock.add(const Duration(minutes: 2));
+        final lateSweeper = FlutterTransferClipboard(
+          preferences: prefs,
+          now: () => clock,
+        );
+        expect(await lateSweeper.sweepExpired(), isTrue);
+        expect(clipboardText, '');
+      },
+    );
+  });
+}
+
+class _FakePicker implements SafTreePicker {
+  const _FakePicker(this.path);
+
+  final String path;
+
+  @override
+  Future<String?> pickTree() async => path;
 }

@@ -47,6 +47,16 @@ abstract interface class TransferClipboard {
   Future<TransferClipboardCapabilities> capabilities();
 }
 
+/// Optional extension for clipboards that persist expiration metadata across
+/// process restarts and sweep stale transfer payloads on resume/startup.
+abstract interface class ExpirableTransferClipboard
+    implements TransferClipboard {
+  /// Clears the clipboard if a persisted transfer payload has already expired,
+  /// or re-arms the in-process timer if time remains. Returns `true` if a
+  /// stale owned payload was actually cleared from the clipboard.
+  Future<bool> sweepExpired();
+}
+
 abstract final class TransferClipboardMethods {
   static const channel = 'parfait/account_transfer_clipboard';
   static const write = 'write';

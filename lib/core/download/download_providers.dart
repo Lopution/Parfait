@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../settings/shared_preferences.dart';
 
 import '../auth/account_store.dart';
+import '../platform/android_platform_interfaces.dart';
 import '../platform/desktop_file_sink.dart';
+import '../platform/ios_photo_library.dart';
 import '../platform/media_store_channel.dart';
 import '../platform/platform_caps.dart';
 import '../platform/saf_tree.dart';
@@ -38,12 +40,17 @@ final downloadSinkFactoryProvider = Provider<DownloadSinkFactory>((ref) {
   // setting would dispose the app-scoped manager whenever the user changes
   // the destination, losing queued/recoverable jobs. The manager passes the
   // captured destination to every begin call instead.
+  final caps = ref.watch(platformCapsProvider);
+  final MediaStoreSession mediaStoreSession;
+  if (caps.supportsMediaStore) {
+    mediaStoreSession = const MethodChannelMediaStoreSession();
+  } else if (caps.supportsPhotoLibrary) {
+    mediaStoreSession = const IosPhotoLibraryMediaStoreSession();
+  } else {
+    mediaStoreSession = const DesktopFileMediaStoreSession();
+  }
   return DestinationAwareSinkFactory(
-    mediaStore: MediaStoreSinkFactory(
-      ref.watch(platformCapsProvider).supportsMediaStore
-          ? const MethodChannelMediaStoreSession()
-          : const DesktopFileMediaStoreSession(),
-    ),
+    mediaStore: MediaStoreSinkFactory(mediaStoreSession),
     saf: ref.watch(safDocumentSinkFactoryProvider),
   );
 });

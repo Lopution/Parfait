@@ -97,6 +97,52 @@ final class AndroidHapticsDriver implements HapticsDriver {
   }
 }
 
+/// iOS haptics backed by Flutter's `HapticFeedback` (UIKit feedback
+/// generators).
+final class IosHapticsDriver implements HapticsDriver {
+  const IosHapticsDriver();
+
+  @override
+  void play(HapticRole role, HapticStrength strength) {
+    if (strength == HapticStrength.off) return;
+    final Future<void> call = switch (role) {
+      HapticRole.select ||
+      HapticRole.tick ||
+      HapticRole.toggleOff ||
+      HapticRole.thresholdOff => HapticFeedback.selectionClick(),
+      HapticRole.toggleOn ||
+      HapticRole.thresholdOn ||
+      HapticRole.confirm => switch (strength) {
+        HapticStrength.light => HapticFeedback.lightImpact(),
+        HapticStrength.standard => HapticFeedback.mediumImpact(),
+        HapticStrength.strong => HapticFeedback.heavyImpact(),
+        HapticStrength.off => Future<void>.value(),
+      },
+      HapticRole.longPress =>
+        strength == HapticStrength.strong
+            ? HapticFeedback.heavyImpact()
+            : HapticFeedback.mediumImpact(),
+      HapticRole.success =>
+        strength == HapticStrength.light
+            ? HapticFeedback.lightImpact()
+            : HapticFeedback.mediumImpact(),
+      HapticRole.error =>
+        strength == HapticStrength.light
+            ? HapticFeedback.mediumImpact()
+            : HapticFeedback.heavyImpact(),
+    };
+    unawaited(
+      call.catchError((Object error) {
+        log('haptics: iOS play ${role.name} failed: $error');
+      }),
+    );
+  }
+
+  @override
+  Future<HapticsCapability> capability() async =>
+      const HapticsCapability(tier: HapticsTier.predefined, systemOff: false);
+}
+
 /// Desktop: no haptics hardware.
 final class NoHapticsDriver implements HapticsDriver {
   const NoHapticsDriver();
@@ -108,11 +154,12 @@ final class NoHapticsDriver implements HapticsDriver {
   Future<HapticsCapability> capability() async => HapticsCapability.none;
 }
 
-final hapticsDriverProvider = Provider<HapticsDriver>(
-  (ref) => ref.watch(platformCapsProvider).isAndroid
-      ? const AndroidHapticsDriver()
-      : const NoHapticsDriver(),
-);
+final hapticsDriverProvider = Provider<HapticsDriver>((ref) {
+  final caps = ref.watch(platformCapsProvider);
+  if (caps.isAndroid) return const AndroidHapticsDriver();
+  if (caps.isIOS) return const IosHapticsDriver();
+  return const NoHapticsDriver();
+});
 
 final hapticsCapabilityProvider = FutureProvider<HapticsCapability>(
   (ref) => ref.watch(hapticsDriverProvider).capability(),
