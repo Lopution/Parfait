@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Land a pull request using the repository's required noreply author identity,
+# verify the merge commit author, and fast-forward local main.
+#
+# Usage: tool/land.sh [<pr-number>] [--wait | --auto]
+#   <pr-number>  Pull request number (defaults to the current branch's PR).
+#   --wait       Wait for required checks, merge, verify author, sync main (default).
+#   --auto       Enable GitHub auto-merge with the noreply author email and exit.
+set -euo pipefail
+
+NOREPLY_EMAIL="70460628+Lopution@users.noreply.github.com"
+
+usage() {
+  sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'
+}
+
+pr=""
+mode="wait"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --wait) mode="wait" ;;
+    --auto) mode="auto" ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "land: unknown option $1" >&2
+      exit 2
+      ;;
+    *)
+      if [[ -n "$pr" ]]; then
+        echo "land: unexpected argument $1" >&2
+        exit 2
+      fi
+      pr="$1"
+      ;;
+  esac
+  shift
+done
+
+for tool in git gh; do
+  command -v "$tool" >/dev/null || { echo "land: $tool is not on PATH" >&2; exit 2; }
+done
+
+if [[ -z "$pr" ]]; then
+  pr="$(gh pr view --json number -q .number)" || {
+    echo "land: could not determine PR for current branch (pass <pr-number>)" >&2
+    exit 2
+  }
+fi
+
+if ! [[ "$pr" =~ ^[0-9]+$ ]]; then
+  echo "land: invalid PR number '$pr'" >&2
+  exit 2
+fi
+
+IFS=$'\t' read -r state merge_state head_ref < <(
+  gh pr view "$pr" --json state,mergeStateStatus,headRefName \
+    --jq '[.state, (.mergeStateStatus // "UNKNOWN"), .headRefName] | @tsv'
+)
+
+if [[ "$state" == "MERGED" ]]; then
+  echo "land: PR #$pr ($head_ref) is already merged; verifying merge commit and syncing main"
+elif [[ "$state" != "OPEN" ]]; then
+  echo "land: PR #$pr is in state '$state' (expected OPEN)" >&2
+  exit 1
+else
+  case "$merge_state" in
+    BEHIND | DIRTY)
+      echo "land: PR #$pr ($head_ref) is $merge_state relative to main; run 'git fetch origin main && git merge origin/main && git push' first (never gh pr update-branch)" >&2
+      exit 1
+      ;;
+  esac
+
+  if [[ "$mode" == "auto" ]]; then
+    if ! gh pr merge "$pr" --auto --merge --author-email "$NOREPLY_EMAIL"; then
+      echo "land: failed to enable auto-merge (check repo allow_auto_merge or PR state)" >&2
+      exit 1
+    fi
+    echo "land: auto-merge enabled for PR #$pr ($head_ref) with author $NOREPLY_EMAIL"
+    exit 0
+  fi
+
+  echo "land: waiting for required checks on PR #$pr ($head_ref)..."
+  gh pr checks "$pr" --required --watch --interval 15
+
+  echo "land: merging PR #$pr ($head_ref)..."
+  gh pr merge "$pr" --merge --author-email "$NOREPLY_EMAIL"
+fi
+
+merge_sha="$(gh pr view "$pr" --json mergeCommit -q '.mergeCommit.oid // empty')"
+if [[ -z "$merge_sha" ]]; then
+  echo "land: mergeCommit.oid unavailable for PR #$pr" >&2
+  exit 1
+fi
+
+git fetch origin main
+if ! git cat-file -e "${merge_sha}^{commit}" 2>/dev/null; then
+  echo "land: merge commit $merge_sha not found on origin/main after fetch" >&2
+  exit 1
+fi
+
+emails="$(git log -1 --format='%ae %ce' "$merge_sha")"
+if [[ "$emails" != "$NOREPLY_EMAIL $NOREPLY_EMAIL" ]]; then
+  echo "land: unexpected commit identity on $merge_sha: '$emails' (expected '$NOREPLY_EMAIL $NOREPLY_EMAIL')" >&2
+  exit 1
+fi
+
+main_wt=""
+current_wt=""
+while IFS= read -r line; do
+  case "$line" in
+    "worktree "*) current_wt="${line#worktree }" ;;
+    "branch refs/heads/main") main_wt="$current_wt" ;;
+  esac
+done < <(git worktree list --porcelain)
+
+if [[ -n "$main_wt" ]]; then
+  if [[ -z "$(git -C "$main_wt" status --porcelain)" ]]; then
+    git -C "$main_wt" merge --ff-only origin/main
+  else
+    echo "land: warning: main worktree at $main_wt is dirty; skipped ff-only update" >&2
+  fi
+else
+  git fetch origin main:main
+fi
+
+short_merge="$(git rev-parse --short "$merge_sha")"
+parent_list="$(git rev-list --no-merges --abbrev-commit "${merge_sha}^1..${merge_sha}^2" | paste -sd, - || true)"
+echo "land: PR #$pr verified on origin/main"
+echo "merge_commit: $short_merge"
+if [[ -n "$parent_list" ]]; then
+  echo "pr_commits: $parent_list"
+fi

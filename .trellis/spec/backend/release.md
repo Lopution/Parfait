@@ -16,7 +16,7 @@ applies_to:
   - rust-toolchain.toml
   - CHANGELOG.md
   - .github/pull_request_template.md
-reviewed: 2026-10-29
+reviewed: 2026-11-14
 ---
 
 # Release artifacts, updater and toolchain
@@ -117,26 +117,31 @@ reviewed: 2026-10-29
 ## CI
 
 ### REL-08 The Rust cache names cargokit's target directory
-- **Rule:** cargokit builds into `build/rhttp/build` (Android) and
-  `build/windows/x64/plugins/rhttp/cargokit_build` (Windows), not
-  `rust/target`; the `Swatinem/rust-cache` `workspaces` entry must name
-  that directory. `ci.yml` and `release.yml` share `shared-key: android`.
+- **Rule:** cargokit builds into `build/rhttp/build` (Android),
+  `build/windows/x64/plugins/rhttp/cargokit_build` (Windows),
+  `build/linux/x64/<mode>/plugins/rhttp/cargokit_build` (Linux) and the Xcode
+  Pods `rhttp.build` intermediates (macOS/iOS), not `rust/target`; the
+  `Swatinem/rust-cache` `workspaces` entry must name those directories and
+  separate `shared-key` by build profile. `ci.yml` and `release.yml` share
+  `shared-key: android`.
 - **Why:** Naming `rust/target` gave cache hits that rebuilt rhttp from
   scratch.
 - **Check:** manual
-- **Code:** `.github/workflows/ci.yml`, `.github/workflows/windows.yml`, `.github/workflows/linux.yml`, `.github/workflows/macos.yml`, `.github/workflows/ios.yml`
+- **Code:** `.github/workflows/ci.yml`, `.github/workflows/windows.yml`, `.github/workflows/linux.yml`, `.github/workflows/apple.yml`
 
-### REL-09 Windows builds run on dispatch before a release
-- **Rule:** `windows.yml` runs on PRs touching Windows, plugins, pubspec,
-  the Rust toolchain or `windows.yml` itself, nightly on `main`, and on
-  dispatch. Pushes to `main` do not run it; dispatch it on the release ref
-  before publishing. A path joins its trigger only if the Windows build
+### REL-09 Platform compile guards run debug on PRs and release on schedule
+- **Rule:** `windows.yml`, `linux.yml` and `apple.yml` run `--debug` guards
+  on matching PRs (with `apple.yml` covering changed macOS/iOS targets on one
+  runner), both `--debug` and `--release` nightly on `main` (warming the
+  debug Rust cache while keeping release coverage), and `--release` by
+  default on `workflow_dispatch`. PR runs cancel stale in-progress runs per
+  branch; `main` and dispatch runs do not. Dispatch `windows.yml` on the
+  release ref before publishing. A path joins its trigger only if that build
   reads it.
-- **Why:** A release shipped without a Windows build check; listing
-  `ci.yml` made every CI tweak wait 11 minutes for a build that does not
-  read it.
+- **Why:** Running full release builds and competing macOS jobs on every PR
+  doubled wall clock and hit runner queue timeouts.
 - **Check:** manual
-- **Code:** `.github/workflows/windows.yml`, `.github/workflows/linux.yml`, `.github/workflows/macos.yml`, `.github/workflows/ios.yml`
+- **Code:** `.github/workflows/windows.yml`, `.github/workflows/linux.yml`, `.github/workflows/apple.yml`, `.github/workflows/ci.yml`
 
 ### REL-13 Dart-only PRs skip the APK build; main is the size backstop
 - **Rule:** User decision: on PRs, `android-release`, `android-size` and
