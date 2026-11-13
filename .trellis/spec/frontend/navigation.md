@@ -441,7 +441,7 @@ reviewed: 2026-11-11
   phone or a folding tablet changes the detail page's whole layout, and
   the reader lost the image they were looking at.
 - **Check:** `test/home_branch_stack_test.dart` "a resize keeps every branch, its stack and its scroll"; `test/illust_detail_actions_test.dart` "arrow keys page the image pane; a resize keeps the page" "a switch between the single column and two panes keeps the image, read from the screen"
-- **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+- **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`
 
 ### NAV-22 Esc goes back
 - **Rule:** `KeyboardBack` maps Esc to the router's `popRoute`, the path

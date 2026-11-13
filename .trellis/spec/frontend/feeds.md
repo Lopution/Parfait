@@ -72,7 +72,7 @@ reviewed: 2026-10-31
   "no results" and dropped the paging trigger while more remained (user
   decision 10-28).
 - **Check:** `test/search_result_page_test.dart` "loaded pages all filtered: a note offers loading more (B9)"; `test/illust_detail_page_test.dart` "related works all filtered: the section offers loading on"
-- **Code:** `lib/app/widgets/feed/feed_states.dart`, `lib/features/illust/detail/related_illusts_section.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+- **Code:** `lib/app/widgets/feed/feed_states.dart`, `lib/features/illust/detail/related_illusts_section.dart`, `lib/features/illust/detail/illust_detail_content.dart`
 
 ### FEED-03 Failures retry once when the network returns
 - **Rule:** An error with a retry button is `FeedError`, `FeedTail`, or
@@ -180,7 +180,7 @@ reviewed: 2026-10-31
   A detail page's first frame is its push. Data landing or a page
   appended later built the half screen in one frame (13.7–16.8 ms).
 - **Check:** `test/sliver_cache_ramp_test.dart`; when each frame builds the cache area is manual (TEST-12)
-- **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/layout/sliver_cache_ramp.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+- **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/layout/sliver_cache_ramp.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/illust_detail_content.dart`
 
 ### FEED-21 A built card rebuilds only when its own inputs change
 - **Rule:** Feed lists pass `items` (the entity behind each card) and
