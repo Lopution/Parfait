@@ -140,4 +140,4 @@ reviewed: 2026-10-14
   `Fetch.requestPaused`, which aborted Pixiv's authorize → login redirect
   chain mid-way; server-side redirects there can skip `onLoadStart`.
 - **Check:** `test/login_navigation_test.dart` "an invalid OAuth callback ends the attempt" "Windows stops the callback as it starts or lands in history"
-- **Code:** `lib/app/widgets/web_navigation_guard.dart`, `lib/features/login/login_webview_page.dart`, `lib/features/search/reverse_image_search_page.dart`
+- **Code:** `lib/app/widgets/web_navigation_guard.dart`, `lib/features/login/login_webview_page.dart`, `lib/features/search/reverse_image_search_page.dart`, `lib/features/search/reverse_image_search_widgets.dart`
