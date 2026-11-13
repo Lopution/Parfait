@@ -3,6 +3,7 @@ prefix: HIST
 applies_to:
   - lib/core/history/**
   - lib/features/history/**
+  - lib/core/sqlite/**
   - lib/core/paging/feed_database.dart
   - lib/core/watchlater/watch_later_database.dart
   - lib/core/localnovel/local_novel_database.dart
@@ -43,7 +44,7 @@ reviewed: 2026-10-30
   newer tables, so the newer build, back again, re-ran a migration it had
   run and the database stopped opening.
 - **Check:** `test/database_downgrade_test.dart` "a database a newer build left behind"
-- **Code:** `lib/core/history/history_database.dart`, `lib/core/paging/feed_database.dart`, `lib/core/watchlater/watch_later_database.dart`, `lib/core/localnovel/local_novel_database.dart`
+- **Code:** `lib/core/sqlite/sqlite_database.dart`, `lib/core/history/history_database.dart`, `lib/core/paging/feed_database.dart`, `lib/core/watchlater/watch_later_database.dart`, `lib/core/localnovel/local_novel_database.dart`
 
 ### HIST-02 Store a compact snapshot, never payloads
 - **Rule:** A record holds typed content kind and id, UTC time, account,
@@ -94,8 +95,8 @@ reviewed: 2026-10-30
   `databasePath` to `HistoryDatabase`.
 - **Why:** Parallel test isolates sharing the default FFI path corrupted
   each other's data.
-- **Check:** `test/history_persistence_test.dart`
-- **Code:** `lib/core/history/history_database.dart`
+- **Check:** `test/history_persistence_test.dart`, `test/sqlite_database_test.dart` "routes default path to memory in test and <databasesPath>/<name> when enabled"
+- **Code:** `lib/core/sqlite/sqlite_database.dart`, `lib/core/history/history_database.dart`
 
 ### HIST-07 Writes to the local rows announce themselves
 - **Rule:** `HistoryRepository.changes` fires after each write that
