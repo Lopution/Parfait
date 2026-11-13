@@ -54,7 +54,7 @@ reviewed: 2026-11-11
   lost a swipe made while layout ran, and an unconditional jump cut the
   swipe short.
 - **Check:** `test/novel_markup_hardening_test.dart` "reader gate rejects stale chapter and disposed layout results", `test/novel_reader_test.dart` "anchor notifications distinguish echoes from user turns" "scroll mode: open restores the line, a settle reports once,"
-- **Code:** `lib/features/novel/novel_reader.dart`
+- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_handle.dart`
 
 ### NOVEL-04 Translations add lines, never characters
 - **Rule:** Bilingual reading lays each translation under its paragraph,
@@ -165,7 +165,7 @@ reviewed: 2026-11-11
   trace, Shaft 1). Each reveal re-created both bars and laid out their
   text again (4 ms on device).
 - **Check:** `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
-- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`, `lib/app/widgets/feed/feed_text_warmup.dart`
+- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_views.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`, `lib/app/widgets/feed/feed_text_warmup.dart`
 
 ### NOVEL-10 The progress hint and pill keep their contrast on every palette
 - **Rule:** The bottom progress hint uses `bodySmall` and the page's text
@@ -205,7 +205,7 @@ reviewed: 2026-11-11
 - **Why:** Pages turned left and right were the only way to read; long
   novels and phones read by scrolling (user request, 11-01).
 - **Check:** `test/novel_reader_settings_test.dart` "theme falls back to system, page turn to scroll"; `test/novel_reader_test.dart` "the scroll column runs pages on, with a rule at a new page and a gap" "scroll mode: a tap toggles the chrome or opens an image; one"; `test/novel_reader_stage_test.dart` "scroll mode: open writes nothing, a settle writes once;"
-- **Code:** `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`
+- **Code:** `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_views.dart`, `lib/features/novel/novel_reader_stage.dart`
 
 ### NOVEL-14 An author's links lead where they say
 - **Rule:** A body's `[newpage]` markers split it into Pixiv pages
@@ -222,7 +222,7 @@ reviewed: 2026-11-11
 - **Why:** Choose-your-path novels branch by `[jump:N]`, which showed
   as raw text and led nowhere (user request, 11-02).
 - **Check:** `test/novel_markup_hardening_test.dart` "a page jump counts Pixiv pages; one past the last reads as written"; `test/novel_reader_test.dart` "an author's links: a page jump brings its Pixiv page in "
-- **Code:** `lib/core/novel/novel_entity.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/app/widgets/caption_rich_text.dart`
+- **Code:** `lib/core/novel/novel_entity.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_views.dart`, `lib/app/widgets/caption_rich_text.dart`
 
 ### NOVEL-15 The progress sheet holds the place, the bookmark and the chapters
 - **Rule:** Under the slider, the progress sheet shows the account's
