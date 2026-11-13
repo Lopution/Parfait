@@ -218,7 +218,7 @@ final class MacosIntentBridge:
   }
 
   @objc(handleOpenURLs:)
-  func handleOpenURLs(_ urls: [URL]) -> Bool {
+  func handleOpen(_ urls: [URL]) -> Bool {
     var handled = false
     for url in urls {
       if recordIncoming(url: url) {
