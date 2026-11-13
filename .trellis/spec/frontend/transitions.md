@@ -368,7 +368,7 @@ reviewed: 2026-10-29
 - **Why:** A thumb drifting vertically lost the arena to the dismiss drag;
   an overlay inserted before the slider rebuilt it and killed the drag.
 - **Check:** `test/illust_detail_viewer_test.dart` "scrubbing jumps to the target page without building crossed pages"
-- **Code:** `lib/app/motion/drag_to_dismiss.dart`
+- **Code:** `lib/app/motion/drag_to_dismiss.dart`, `lib/features/illust/viewer/image_viewer_chrome.dart`
 
 ## Image hand-off
 

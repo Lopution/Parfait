@@ -73,7 +73,7 @@ reviewed: 2026-11-11
 - **Why:** Jumping while the modal still blocked semantics tripped the
   semantics flush assertion (`node.built`).
 - **Check:** `test/illust_detail_viewer_test.dart`
-- **Code:** `lib/features/illust/viewer/image_viewer_page.dart`
+- **Code:** `lib/features/illust/viewer/image_viewer_page.dart`, `lib/features/illust/viewer/image_viewer_chrome.dart`
 
 ## Sections below the work
 
