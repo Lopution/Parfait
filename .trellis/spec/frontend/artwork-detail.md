@@ -208,8 +208,9 @@ reviewed: 2026-11-11
 
 ### DETAIL-14 Landscape detail is a stage and an info column
 - **Rule:** When the area the page gets (the window less the shell rail,
-  `HomeShellChrome.contentSizeOf`) is at least 600dp wide and wider than
-  tall, the detail page is a `TwoPane`: the image pager on a
+  `HomeShellChrome.contentSizeOf`) is at least 600dp wide, wider than
+  tall, and at least 480dp (`AppBreakpoints.compactHeight`) tall, the
+  detail page is a `TwoPane`: the image pager on a
   `surfaceContainerLow` stage, the info column at 0.38 of the width kept
   within 320–480dp, with no divider: the stage's ground sets the image
   off. The action capsule centers on the artwork pane, clear of the info

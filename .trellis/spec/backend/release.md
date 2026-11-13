@@ -124,7 +124,7 @@ reviewed: 2026-10-29
 - **Why:** Naming `rust/target` gave cache hits that rebuilt rhttp from
   scratch.
 - **Check:** manual
-- **Code:** `.github/workflows/ci.yml`, `.github/workflows/windows.yml`
+- **Code:** `.github/workflows/ci.yml`, `.github/workflows/windows.yml`, `.github/workflows/linux.yml`, `.github/workflows/macos.yml`, `.github/workflows/ios.yml`
 
 ### REL-09 Windows builds run on dispatch before a release
 - **Rule:** `windows.yml` runs on PRs touching Windows, plugins, pubspec,
@@ -136,7 +136,7 @@ reviewed: 2026-10-29
   `ci.yml` made every CI tweak wait 11 minutes for a build that does not
   read it.
 - **Check:** manual
-- **Code:** `.github/workflows/windows.yml`
+- **Code:** `.github/workflows/windows.yml`, `.github/workflows/linux.yml`, `.github/workflows/macos.yml`, `.github/workflows/ios.yml`
 
 ### REL-13 Dart-only PRs skip the APK build; main is the size backstop
 - **Rule:** User decision: on PRs, `android-release`, `android-size` and

@@ -4,7 +4,7 @@ applies_to:
   - lib/app/theme/**
   - lib/app/widgets/**
   - lib/app/app.dart
-reviewed: 2026-10-21
+reviewed: 2026-11-12
 ---
 
 # Theme, color and type
@@ -79,6 +79,16 @@ reviewed: 2026-10-21
   the grays changed nothing visible.
 - **Check:** `test/replica_theme_test.dart` "a system palette replaces only the accent roles"
 - **Code:** `lib/app/theme/system_colors.dart`, `lib/app/theme/replica_theme.dart`
+
+### THEME-21 No system palette is a fallback, not an error
+- **Rule:** `systemColorSchemesProvider` reads `MissingPluginException`
+  from the palette and accent channels as "the platform has no system
+  palette" and returns null. Startup and the fixed theme keep working.
+  A platform without a `dynamic_color` implementation keeps this fallback.
+- **Why:** `dynamic_color` has no iOS implementation; an uncaught platform
+  exception on startup would leave the app unthemed.
+- **Check:** `test/system_colors_test.dart` "a platform without a dynamic colour plugin has no system colours"
+- **Code:** `lib/app/theme/system_colors.dart`
 
 ### THEME-06 Text keeps 4.5:1 on every surface tier
 - **Rule:** The six container tiers stay monotonic and distinguishable, and
