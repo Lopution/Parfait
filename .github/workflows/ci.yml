@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     # Path gate for the heavy build jobs: docs-only changes (.trellis, *.md)
@@ -42,7 +46,8 @@ jobs:
               - 'l10n.yaml'
               - 'rust-toolchain.toml'
               - 'tool/**'
-              - '.github/workflows/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
             # PR gate for the APK build and the Kotlin tests: everything that
             # changes the Android side except Dart code. A Dart-only PR skips
             # them; the push to main still builds and size-checks every merge
@@ -55,7 +60,8 @@ jobs:
               - 'pubspec.lock'
               - 'rust-toolchain.toml'
               - 'tool/apk_size_report.py'
-              - '.github/workflows/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
             plugin:
               - 'plugins/**'
               - 'rust-toolchain.toml'

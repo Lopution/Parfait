@@ -6,7 +6,7 @@ applies_to:
   - tool/test_budget.py
   - tool/test_budget.json
   - dart_test.yaml
-reviewed: 2026-10-30
+reviewed: 2026-11-14
 ---
 
 # Tests
@@ -188,7 +188,8 @@ reviewed: 2026-10-30
   case still sets up its own state, so `--plain-name` runs it alone.
   Locally `tool/gate.sh` runs the analyze job's checks, the architecture
   scans in `test/architecture/` and the test files that changed or import
-  a changed file; the whole suite runs in CI.
+  a changed file (`tool/gate.sh --fast` skips the reverse-import scan during
+  iteration); the whole suite runs in CI.
 - **Why:** `--total-shards` splits cases inside every file, so each shard
   compiled and loaded almost the whole suite and extra shards bought
   little; case-level splitting also broke cases that relied on an earlier
