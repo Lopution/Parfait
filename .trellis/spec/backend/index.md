@@ -21,6 +21,7 @@ file are in the [spec root](../index.md).
 |---|---|
 | [stores.md](./stores.md) | Entity stores, bookmarks, follows, optimistic toggles, mutations, account boundaries. |
 | [paging.md](./paging.md) | Feed controllers, cursors, load-more pacing, the commit gate, the data worker. |
+| [sqlite.md](./sqlite.md) | Shared SQLite factory selection, connection lifecycle, and downgrade policy. |
 | [history.md](./history.md) | Browsing history, its database and the Pixiv history outbox. |
 | [images.md](./images.md) | Image loading, decoding, the image worker, caches, ugoira and GIF export. |
 | [network.md](./network.md) | Pixiv transport, routes, ECH, auth refresh, rate limits, continued downloads. |

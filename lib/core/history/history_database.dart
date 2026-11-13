@@ -1,32 +1,12 @@
 /// SQLite connection and schema owner for the local `history.db` database.
-/// [HistoryDatabase] owns the lazy connection and factory choice; CRUD and
-/// outbox behavior belongs to [HistoryRepository]. See `backend/history.md`.
+/// [HistoryDatabase] owns the schema; connection lifecycle and factory choice
+/// live in [SqliteDatabase], and CRUD/outbox behavior belongs to
+/// [HistoryRepository]. See `backend/sqlite.md` and `backend/history.md`.
 library;
 
-import 'dart:io';
+import 'package:sqflite/sqflite.dart';
 
-import 'package:meta/meta.dart';
-import 'package:path/path.dart' as path;
-import 'package:sqflite/sqflite.dart' as sqflite;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-/// Chooses the history SQLite factory without reading [Platform].
-///
-/// Production calls this with `useMobileSqflite: Platform.isAndroid ||
-/// Platform.isIOS`. Tests pass the flag directly because `flutter test`
-/// always reports a desktop [Platform].
-@visibleForTesting
-DatabaseFactory historyDatabaseFactory({required bool useMobileSqflite}) {
-  if (useMobileSqflite) return sqflite.databaseFactory;
-  sqfliteFfiInit();
-  // The isolate-backed factory's port replies never reach the fake-async
-  // zone of `testWidgets`; the no-isolate variant answers through
-  // microtasks that `tester.pump` flushes (same rationale as feeds.db).
-  if (Platform.environment['FLUTTER_TEST'] == 'true') {
-    return databaseFactoryFfiNoIsolate;
-  }
-  return databaseFactoryFfi;
-}
+import '../sqlite/sqlite_database.dart';
 
 /// Owns the one SQLite connection used by the history feature.
 ///
@@ -35,61 +15,31 @@ DatabaseFactory historyDatabaseFactory({required bool useMobileSqflite}) {
 /// temporary path without changing the production lifecycle.
 class HistoryDatabase {
   HistoryDatabase({DatabaseFactory? factory, String? databasePath})
-    : _factory = factory ?? _platformDatabaseFactory(),
-      _databasePath = databasePath;
+    : _sqlite = SqliteDatabase(
+        databaseName: databaseName,
+        schemaVersion: schemaVersion,
+        closedMessage: 'history database is closed',
+        factory: factory,
+        databasePath: databasePath,
+        onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+        onCreate: (db, _) => _createSchema(db),
+        onUpgrade: _upgrade,
+        onDowngrade: SqliteDatabase.refuseDowngrade(databaseName),
+      );
 
   static const databaseName = 'history.db';
   static const historyTable = 'history_records';
   static const outboxTable = 'pixiv_history_outbox';
   static const schemaVersion = 2;
 
-  final DatabaseFactory _factory;
-  final String? _databasePath;
-  Future<Database>? _databaseFuture;
-  bool _closed = false;
-
-  static DatabaseFactory _platformDatabaseFactory() {
-    return historyDatabaseFactory(
-      useMobileSqflite: Platform.isAndroid || Platform.isIOS,
-    );
-  }
+  final SqliteDatabase _sqlite;
 
   /// The single connection future also serializes concurrent first access.
-  Future<Database> get database {
-    if (_closed) {
-      return Future<Database>.error(StateError('history database is closed'));
-    }
-    return _databaseFuture ??= _open();
-  }
+  Future<Database> get database => _sqlite.database;
 
-  Future<Database> _open() async {
-    final databasePath = _databasePath ?? await _defaultPath();
-    return _factory.openDatabase(
-      databasePath,
-      options: OpenDatabaseOptions(
-        version: schemaVersion,
-        // The factory hands every opener of a path the same database,
-        // `:memory:` included; each in-memory database must be its own.
-        singleInstance: databasePath != sqflite.inMemoryDatabasePath,
-        onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
-        onCreate: (db, version) => _createSchema(db),
-        onUpgrade: _upgrade,
-        onDowngrade: _refuseDowngrade,
-      ),
-    );
-  }
+  Future<void> close() => _sqlite.close();
 
-  /// Under `flutter test` each database is in memory: one a page opens in
-  /// a widget test leaves no file in the test file's databases directory
-  /// and no rows for the next case. Production resolves the real path.
-  Future<String> _defaultPath() async {
-    if (Platform.environment['FLUTTER_TEST'] == 'true') {
-      return sqflite.inMemoryDatabasePath;
-    }
-    return path.join(await _factory.getDatabasesPath(), databaseName);
-  }
-
-  Future<void> _createSchema(DatabaseExecutor db) async {
+  static Future<void> _createSchema(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE $historyTable (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -134,7 +84,11 @@ class HistoryDatabase {
     ''');
   }
 
-  Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+  static Future<void> _upgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
     // Version 1 already had the compact history and outbox tables. Version 2
     // adds an explicit snapshot format marker so future readers can migrate a
     // row without storing the original Pixiv JSON.
@@ -148,29 +102,5 @@ class HistoryDatabase {
         'ADD COLUMN snapshot_version INTEGER NOT NULL DEFAULT 1',
       );
     }
-  }
-
-  /// A newer build's schema is left alone: lowering the version would make
-  /// that build re-run a migration it already ran, and the database would
-  /// stop opening. The feature reports the failed open instead.
-  static Future<void> _refuseDowngrade(Database db, int from, int to) {
-    throw StateError(
-      '$databaseName is schema $from; this build reads up to $to',
-    );
-  }
-
-  Future<void> close() async {
-    if (_closed) return;
-    _closed = true;
-    final future = _databaseFuture;
-    if (future == null) return;
-    final Database db;
-    try {
-      db = await future;
-    } on Object {
-      // The open failed (a newer schema): nothing to close.
-      return;
-    }
-    if (db.isOpen) await db.close();
   }
 }
