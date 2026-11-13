@@ -101,9 +101,12 @@ if ! git cat-file -e "${merge_sha}^{commit}" 2>/dev/null; then
   exit 1
 fi
 
-emails="$(git log -1 --format='%ae %ce' "$merge_sha")"
-if [[ "$emails" != "$NOREPLY_EMAIL $NOREPLY_EMAIL" ]]; then
-  echo "land: unexpected commit identity on $merge_sha: '$emails' (expected '$NOREPLY_EMAIL $NOREPLY_EMAIL')" >&2
+IFS=$'\t' read -r author_email committer_email < <(
+  git log -1 --format=$'%ae\t%ce' "$merge_sha"
+)
+if [[ "$author_email" != "$NOREPLY_EMAIL" ]] ||
+  [[ "$committer_email" != "noreply@github.com" && "$committer_email" != "$NOREPLY_EMAIL" ]]; then
+  echo "land: unexpected commit identity on $merge_sha: author='$author_email' committer='$committer_email'" >&2
   exit 1
 fi
 
