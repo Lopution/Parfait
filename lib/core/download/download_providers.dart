@@ -40,7 +40,7 @@ final downloadSinkFactoryProvider = Provider<DownloadSinkFactory>((ref) {
   // captured destination to every begin call instead.
   return DestinationAwareSinkFactory(
     mediaStore: MediaStoreSinkFactory(
-      ref.watch(platformCapsProvider).isAndroid
+      ref.watch(platformCapsProvider).supportsMediaStore
           ? const MethodChannelMediaStoreSession()
           : const DesktopFileMediaStoreSession(),
     ),
@@ -58,7 +58,7 @@ final captionExporterProvider = Provider<CaptionExporter?>((ref) {
   return CaptionExporter(
     sinkFactory: factory as RawDownloadSinkFactory,
     preferences: ref.watch(sharedPreferencesProvider),
-    isAndroid: ref.watch(platformCapsProvider).isAndroid,
+    isAndroid: ref.watch(platformCapsProvider).supportsMediaStore,
   );
 });
 

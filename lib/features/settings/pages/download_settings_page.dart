@@ -115,7 +115,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final destination = settings.downloadDestination;
     final captionFitsHere = captionFits(
       destination,
-      isAndroid: ref.watch(platformCapsProvider).isAndroid,
+      isAndroid: ref.watch(platformCapsProvider).supportsMediaStore,
     );
     return guardDraft(
       dirty: _templateDirty,

@@ -28,7 +28,7 @@ const _updaterSubmissionContext = DownloadSubmissionContext(
 /// The updater has its own exact-host transport and recovery namespace. It
 /// never inherits Pixiv cookies, account ownership or image CDN policy.
 final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
-  final platform = ref.watch(platformCapsProvider).isAndroid
+  final platform = ref.watch(platformCapsProvider).supportsSelfUpdater
       ? MethodChannelUpdatePlatform()
       : const UnsupportedUpdatePlatform();
   final capability = await platform.capability();

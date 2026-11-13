@@ -48,8 +48,11 @@ abstract final class AppBreakpoints {
       window.height < compactHeight && window.width >= medium;
 
   /// Detail pages put the artwork and its information side by side when
-  /// the area they get (the window less the rail) is wider than tall and at
-  /// least medium wide; otherwise they keep the single scroll.
+  /// the area they get (the window less the rail) is wider than tall, at
+  /// least medium wide and at least [compactHeight] tall; otherwise they
+  /// keep the single scroll.
   static bool useTwoPaneDetail(Size content) =>
-      content.width >= medium && content.width > content.height;
+      content.width >= medium &&
+      content.width > content.height &&
+      content.height >= compactHeight;
 }

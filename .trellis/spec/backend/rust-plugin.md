@@ -3,7 +3,7 @@ prefix: RHTTP
 applies_to:
   - plugins/rhttp/**
   - tool/frb_check.sh
-reviewed: 2026-10-14
+reviewed: 2026-11-12
 ---
 
 # The rhttp fork
@@ -79,3 +79,13 @@ reviewed: 2026-10-14
   app-wide network security config for CRL downloads.
 - **Check:** manual
 - **Code:** `plugins/rhttp/rhttp/android/build.gradle.kts`, `plugins/rhttp/rhttp/rust/src/api/client.rs`
+
+### RHTTP-08 iOS builds need libc 0.2.191 or newer
+- **Rule:** Keep `libc` at 0.2.191 or newer in the plugin's `Cargo.lock`.
+  With 0.2.190 the iOS build fails: `backtrace` 0.3.76 calls the `_dyld_*`
+  functions on every Apple target, and only 0.2.191 declares them outside
+  macOS.
+- **Why:** The first iOS CI build stopped on four E0425 errors in
+  `backtrace`; a patch-level `libc` update fixed it.
+- **Check:** manual — the ios-build job fails on an older libc.
+- **Code:** `plugins/rhttp/rhttp/rust/Cargo.lock`

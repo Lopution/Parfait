@@ -3,11 +3,12 @@ import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
-/// Single probe point for platform capability branching.
+/// Single probe point for platform capability branching across the five
+/// first-class targets (Android, iOS, Windows, macOS, and Linux).
 ///
 /// Business code never scatters `Platform.isWindows`; every selection site
 /// reads this record and every provider can override it in tests — a Linux
-/// `flutter test` therefore covers the Windows branches too.
+/// `flutter test` therefore covers every platform's branches too.
 class PlatformCaps {
   const PlatformCaps({
     this.isAndroid = false,
@@ -29,7 +30,7 @@ class PlatformCaps {
 
   /// What [PlatformCaps.system] reports instead of the host, for widgets
   /// that read it without a provider scope. The UX review harness renders
-  /// the Android app on a Linux host with it; it must be reset after use.
+  /// a device preset on any host with it; it must be reset after use.
   @visibleForTesting
   static PlatformCaps? debugSystemOverride;
 
@@ -39,19 +40,52 @@ class PlatformCaps {
   final bool isMacOS;
   final bool isIOS;
 
-  /// Desktop windowing platforms (Windows is the only supported desktop
-  /// target; Linux/macOS are listed so dev hosts keep working in tests).
+  /// Mobile touch platforms (Android and iOS).
+  bool get isMobile => isAndroid || isIOS;
+
+  /// Apple platforms (iOS and macOS).
+  bool get isApple => isIOS || isMacOS;
+
+  /// Desktop windowing platforms (Windows, Linux and macOS).
   bool get isDesktop => isWindows || isLinux || isMacOS;
 
   /// Android MediaStore/SAF document semantics.
   bool get supportsMediaStore => isAndroid;
 
-  /// APK side-load self-update (github flavor). Desktop builds are
+  /// iOS PHPhotoLibrary image/video saving semantics.
+  bool get supportsPhotoLibrary => isIOS;
+
+  /// Native tactile haptics feedback (Android and iOS).
+  bool get supportsHaptics => isMobile;
+
+  /// Desktop window geometry & frame management (`window_manager`).
+  bool get supportsWindowManager => isDesktop;
+
+  /// Desktop system tray integration.
+  bool get supportsSystemTray => isDesktop;
+
+  /// Desktop single-instance wakeup IPC.
+  bool get supportsSingleInstance => isDesktop;
+
+  /// macOS sandbox security-scoped file/directory bookmarks.
+  bool get supportsSecurityScopedBookmarks => isMacOS;
+
+  /// Embedded `flutter_inappwebview` support (Linux lacks a stable backend).
+  bool get supportsInAppWebView => isAndroid || isIOS || isWindows || isMacOS;
+
+  /// Custom URL scheme (`pixiv://`) OAuth / deep-link callback support.
+  bool get supportsCustomSchemeCallback => isAndroid || isIOS || isMacOS;
+
+  /// Loopback HTTP server (`127.0.0.1`) OAuth callback support.
+  bool get supportsLoopbackCallback => isDesktop;
+
+  /// APK side-load self-update (github flavor). Other platforms are
   /// store/asset managed — the updater reports storeManaged instead.
   bool get supportsSelfUpdater => isAndroid;
 
-  /// ACTION_* inbound intents (deep-link share/receive).
-  bool get supportsInboundIntents => isAndroid;
+  /// Inbound deep-link / share routing across all five platforms.
+  bool get supportsInboundIntents =>
+      isAndroid || isIOS || isWindows || isMacOS || isLinux;
 }
 
 final platformCapsProvider = Provider<PlatformCaps>(

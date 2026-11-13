@@ -18,11 +18,12 @@ void main() {
     });
 
     test('two-pane detail needs a landscape area at least medium wide', () {
-      // A turned phone (the bar, no rail); a small tablet turned, less the
-      // rail.
-      expect(AppBreakpoints.useTwoPaneDetail(const Size(896, 411)), isTrue);
+      // Landscape tablet or tall enough desktop window, less the rail.
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(896, 480)), isTrue);
       expect(AppBreakpoints.useTwoPaneDetail(const Size(919, 640)), isTrue);
-      // Portrait tablet, unfolded foldable, landscape split screen.
+      // Short phone landscape (< 480dp height), portrait tablet, unfolded
+      // foldable, and landscape split screen keep single scroll.
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(896, 411)), isFalse);
       expect(AppBreakpoints.useTwoPaneDetail(const Size(720, 1280)), isFalse);
       expect(AppBreakpoints.useTwoPaneDetail(const Size(620, 840)), isFalse);
       expect(AppBreakpoints.useTwoPaneDetail(const Size(599, 300)), isFalse);

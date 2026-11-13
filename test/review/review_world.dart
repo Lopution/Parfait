@@ -44,6 +44,7 @@ import '../helpers/memory_feed_snapshot_store.dart';
 import '../helpers/series_world.dart';
 import '../helpers/settings_world.dart';
 import '../helpers/test_preferences.dart';
+import 'review_device.dart';
 import 'review_fixtures.dart';
 
 /// One API response for a path the review world serves.
@@ -237,8 +238,11 @@ class ReviewWorld {
         watchLaterRepositoryProvider.overrideWithValue(watchRepo),
         localNovelRepositoryProvider.overrideWithValue(novelRepo),
         downloadManagerProvider.overrideWithValue(manager),
-        platformCapsProvider.overrideWithValue(
-          setup.platformCaps ?? const PlatformCaps(isAndroid: true),
+        platformCapsProvider.overrideWith(
+          (ref) =>
+              setup.platformCaps ??
+              PlatformCaps.debugSystemOverride ??
+              reviewDevice.platformCaps,
         ),
         // The keystore is a platform channel.
         translationCredentialStoreProvider.overrideWithValue(
