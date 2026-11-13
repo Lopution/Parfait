@@ -9,7 +9,8 @@ import '../../app/widgets/page_header.dart';
 import '../../core/debug/frame_probe.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_shortcut.dart';
-import 'search_page.dart' show SearchInputEngine, SearchInputEngineState;
+import 'search_input_engine.dart'
+    show SearchInputEngine, SearchInputEngineState;
 
 /// What the docked search panel decided when it closed.
 sealed class DockedSearchOutcome {

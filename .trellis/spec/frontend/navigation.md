@@ -13,6 +13,8 @@ applies_to:
   - lib/app/touch_exploration_scope.dart
   - lib/features/home/**
   - lib/features/search/docked_search.dart
+  - lib/features/search/search_input_engine.dart
+  - lib/features/search/search_input_page.dart
   - lib/features/search/search_page.dart
   - lib/features/illust/detail/illust_detail_page.dart
 reviewed: 2026-11-11
@@ -420,7 +422,7 @@ reviewed: 2026-11-11
   stale rectangle left the panel away from a resized window's field, and a
   handover that trimmed or dropped the drafts lost what the user typed.
 - **Check:** `test/docked_search_test.dart` "a wide header docks the input under the field" "editing the query on a wide result bar replaces the results" "Esc leaves the field first, a second Esc closes the panel" "the scrim and the system back close the panel" "a resize re-anchors the panel under the entry" "narrowing carries the draft to the full page" "narrowing keeps the typed text and the filter drafts" "narrowing with the filter sheet open closes both layers" "a shortcut closes the panel before the page it names" "the panel and its fade are marked as scenes" "a phone keeps the full input page" "the panel offers history, kinds and filters"
-- **Code:** `lib/features/search/docked_search.dart`, `lib/app/widgets/page_header.dart`, `lib/app/navigation/routes.dart`
+- **Code:** `lib/features/search/docked_search.dart`, `lib/features/search/search_input_engine.dart`, `lib/app/widgets/page_header.dart`, `lib/app/navigation/routes.dart`
 
 ### NAV-21 A resize keeps every branch, its stack and its place
 - **Rule:** Turning, folding or dragging the window keeps the shell's
