@@ -1,7 +1,7 @@
 /// SQLite connection and schema owner for the local `local_novels.db`
 /// database. [LocalNovelDatabase] owns the schema; connection lifecycle and
 /// factory choice live in [SqliteDatabase], and CRUD belongs to
-/// [LocalNovelRepository]. See `backend/history.md`.
+/// [LocalNovelRepository]. See `backend/sqlite.md`.
 library;
 
 import 'package:sqflite/sqflite.dart';

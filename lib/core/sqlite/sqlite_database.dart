@@ -77,7 +77,7 @@ class SqliteDatabase {
   }
 
   /// Returns an `onDowngrade` handler that refuses to open a database left by
-  /// a newer app build so its schema stays intact (`HIST-09`).
+  /// a newer app build so its schema stays intact (`SQLITE-02`).
   static sqflite.OnDatabaseVersionChangeFn refuseDowngrade(
     String databaseName,
   ) {

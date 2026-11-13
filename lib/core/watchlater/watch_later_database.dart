@@ -1,7 +1,7 @@
 /// SQLite connection and schema owner for the local `watchlater.db`
 /// database. [WatchLaterDatabase] owns the schema; connection lifecycle and
 /// factory choice live in [SqliteDatabase], and CRUD belongs to
-/// [WatchLaterRepository]. See `backend/history.md`.
+/// [WatchLaterRepository]. See `backend/sqlite.md`.
 library;
 
 import 'package:sqflite/sqflite.dart';

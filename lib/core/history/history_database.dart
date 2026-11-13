@@ -1,7 +1,7 @@
 /// SQLite connection and schema owner for the local `history.db` database.
 /// [HistoryDatabase] owns the schema; connection lifecycle and factory choice
 /// live in [SqliteDatabase], and CRUD/outbox behavior belongs to
-/// [HistoryRepository]. See `backend/history.md`.
+/// [HistoryRepository]. See `backend/sqlite.md` and `backend/history.md`.
 library;
 
 import 'package:sqflite/sqflite.dart';

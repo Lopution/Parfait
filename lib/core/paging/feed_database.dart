@@ -1,7 +1,7 @@
 /// SQLite connection and schema owner for the local `feeds.db` database.
 /// [FeedDatabase] owns the schema; connection lifecycle and factory choice
 /// live in [SqliteDatabase], and snapshot CRUD and eviction policy belong to
-/// [FeedSnapshotStore]. See `backend/history.md`.
+/// [FeedSnapshotStore]. See `backend/sqlite.md`.
 library;
 
 import 'package:sqflite/sqflite.dart';
