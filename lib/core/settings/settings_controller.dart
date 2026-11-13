@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'shared_preferences.dart';
@@ -27,19 +29,43 @@ class SettingsWriteException implements Exception {
 
 class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> _writeTail = Future<void>.value();
-  late AppSettings _current;
+  AppSettings? _current;
+  Future<AppSettings>? _loading;
+  Completer<void>? _disposedSignal;
 
   @override
-  Future<AppSettings> build() async {
-    final settings = await ref.watch(settingsRepositoryProvider).load();
-    _current = settings;
+  Future<AppSettings> build() {
+    final buildRef = ref;
+    final repository = buildRef.watch(settingsRepositoryProvider);
+    final disposed = _disposedSignal = Completer<void>();
+    buildRef.onDispose(() {
+      if (!disposed.isCompleted) disposed.complete();
+    });
+    _current = null;
+    final load = _loadSettings(repository, buildRef);
+    _loading = load;
+    return load;
+  }
+
+  Future<AppSettings> _loadSettings(
+    SettingsRepository repository,
+    Ref buildRef,
+  ) async {
+    final settings = await repository.load();
+    if (buildRef.mounted) {
+      _current = settings;
+    }
     return settings;
   }
 
   /// Re-hydrates settings after a visible read failure.
   Future<void> reload() async {
+    final operationRef = ref;
+    if (!operationRef.mounted) return;
     state = const AsyncLoading<AppSettings>();
-    state = await AsyncValue.guard(build);
+    final next = await AsyncValue.guard(build);
+    if (!operationRef.mounted) return;
+    state = next;
   }
 
   Future<void> selectLanguage(String languageTag) =>
@@ -228,14 +254,56 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   /// the same serialized persistence path as every other change.
   Future<void> replaceAll(AppSettings settings) => _update((_) => settings);
 
+  Future<AppSettings?> _readyCurrent(Ref operationRef) {
+    if (_current case final ready?) return Future<AppSettings?>.value(ready);
+    final loading = _loading;
+    if (loading == null) return Future<AppSettings?>.value(null);
+    final outcome = Completer<AppSettings?>();
+    unawaited(
+      loading.then(
+        (settings) {
+          if (!outcome.isCompleted) outcome.complete(settings);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!outcome.isCompleted) {
+            if (!operationRef.mounted) {
+              outcome.complete(null);
+            } else {
+              outcome.completeError(error, stackTrace);
+            }
+          }
+        },
+      ),
+    );
+    if (_disposedSignal case final disposed?) {
+      unawaited(
+        disposed.future.then((_) {
+          if (!outcome.isCompleted) outcome.complete(null);
+        }),
+      );
+    }
+    return outcome.future;
+  }
+
   Future<void> _update(AppSettings Function(AppSettings) transform) {
+    final operationRef = ref;
+    if (!operationRef.mounted) return Future<void>.value();
+    final repository = operationRef.read(settingsRepositoryProvider);
+
     final operation = _writeTail.then((_) async {
-      final candidate = transform(_current);
+      if (!operationRef.mounted) return;
+      final current = await _readyCurrent(operationRef);
+      if (current == null || !operationRef.mounted) return;
+      final candidate = transform(current);
       try {
-        await ref.read(settingsRepositoryProvider).save(candidate);
+        await repository.save(candidate);
       } on Object catch (error, stackTrace) {
+        // Container/notifier disposal during teardown cancels listeners; do not
+        // report teardown races as storage write errors.
+        if (!operationRef.mounted) return;
         throw SettingsWriteException(error, stackTrace);
       }
+      if (!operationRef.mounted) return;
       _current = candidate;
       state = AsyncData(candidate);
     });
