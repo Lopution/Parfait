@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/actionqueue/action_bootstrap.dart';
 import '../core/auth/account_store.dart';
+import '../core/auth/account_transfer_service.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
 import '../core/log.dart';
@@ -17,6 +18,7 @@ import '../core/updater/update_service.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
 import '../core/platform/accessibility.dart';
+import '../core/platform/account_transfer_clipboard.dart';
 import '../core/platform/android_intent_channel.dart';
 import '../core/platform/local_network.dart';
 import 'external_intent_bridge.dart';
@@ -96,6 +98,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // becomes current; the resumed hook below repeats it on foreground.
     ref.read(actionQueuePumpProvider);
     unawaited(_retireLegacyTranslationSession());
+    _sweepExpiredTransferClipboard();
     // R2: one delayed background update check per throttle window.
     // Failure and no-update stay silent.
     unawaited(
@@ -135,12 +138,25 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     );
   }
 
+  void _sweepExpiredTransferClipboard() {
+    final clipboard = ref.read(transferClipboardProvider);
+    if (clipboard is ExpirableTransferClipboard) {
+      unawaited(
+        clipboard.sweepExpired().catchError((Object error, _) {
+          log('transfer clipboard sweep failed: $error');
+          return false;
+        }),
+      );
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       // The local network permission may have changed in the system
       // settings meanwhile.
       ref.read(localNetworkBlockedHostsProvider.notifier).refresh();
+      _sweepExpiredTransferClipboard();
       // Returning to the foreground is connectivity evidence: replay any
       // mutations that were queued while offline.
       final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;

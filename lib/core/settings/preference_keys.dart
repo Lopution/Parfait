@@ -70,4 +70,8 @@ abstract final class PreferenceKeys {
   /// Recent search keywords, newest first (`SearchHistoryNotifier`).
   /// Device-local and shared by every account on the device.
   static const String searchHistory = 'parfait.search.history.v1';
+
+  /// Pending auto-clear fingerprint + expiry for [FlutterTransferClipboard].
+  static const String transferClipboardState =
+      'parfait.transfer.clipboard.state.v1';
 }

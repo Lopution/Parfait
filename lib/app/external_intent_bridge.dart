@@ -38,7 +38,7 @@ class _ExternalIntentBridgeState extends State<ExternalIntentBridge> {
     super.initState();
     _intentSource =
         widget.intentSource ??
-        (PlatformCaps.system().isAndroid
+        (PlatformCaps.system().supportsInboundIntents
             ? const MethodChannelAndroidIntentSource()
             : const NoopAndroidIntentSource());
     _intentSubscription = _intentSource.onNewIntent.listen(

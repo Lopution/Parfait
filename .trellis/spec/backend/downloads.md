@@ -139,3 +139,38 @@ reviewed: 2026-10-26
   named after the download, so a late drop deleted the new attempt's file.
 - **Check:** `test/download_resume_test.dart` "retry sends Range and appends on 206" "network failure preserves bytes; retry resumes" "a retry under another account starts a new file" "a new manager waits for the old one"
 - **Code:** `lib/core/download/download_manager.dart`
+
+### DL-12 Desktop download filenames strip Windows/POSIX hazards
+- **Rule:** Before opening a staged `.part` file or album subdirectory on
+  desktop, sanitize every name segment with `sanitizeDesktopFileName`:
+  replace `[<>:"/\\|?*\x00-\x1F]` with `_`, strip trailing dots/spaces,
+  substitute `download` (or `_defaultAlbum`) for `.`/`..`/empty strings,
+  and prefix Windows reserved device stems (`CON`, `PRN`, `AUX`, `NUL`,
+  `COM1`–`COM9`, `LPT1`–`LPT9`, case-insensitive) with `_`.
+- **Why:** Windows silently strips trailing dots/spaces and opens reserved
+  device handles instead of regular files, failing or corrupting writes.
+- **Check:** `test/windows_capability_test.dart` "sanitizeDesktopFileName handles reserved names, trailing dots/spaces, and control chars"
+- **Code:** `lib/core/platform/desktop_file_sink.dart`
+
+### DL-13 iOS Photo Library commits staged files explicitly
+- **Rule:** On iOS (`supportsPhotoLibrary`), downloads stream into an
+  isolated temporary `.part` file under a per-album, per-transfer directory
+  and commit into `PHPhotoLibrary` via `parfait/ios_photos` (`saveImage`) on
+  `finalize()`, cleaning staging files in a `finally` block; permission
+  denials or native failures raise an error rather than faking success.
+- **Why:** iOS does not expose a shared writable Pictures folder or MediaStore
+  API; staging keeps chunked writes and resume anchors working without
+  leaving half-written assets in the Photos library.
+- **Check:** `test/windows_capability_test.dart` "IosPhotoLibraryMediaStoreSession stages chunks, commits via channel, and resumes detached .part"
+- **Code:** `lib/core/platform/ios_photo_library.dart`, `ios/Runner/AppDelegate.swift`
+
+### DL-14 macOS sandboxed tree destinations require security-scoped bookmarks
+- **Rule:** When `supportsSecurityScopedBookmarks` is enabled, picked custom
+  directories persist a base64 security-scoped bookmark token (`saveBookmark`)
+  as `treeUri`, wrap I/O with reference-counted `startAccess`/`stopAccess`,
+  and embed the token in resume locators. Missing or stale/denied bookmarks
+  throw an explicit error instead of silently falling back to raw paths.
+- **Why:** Under macOS App Sandbox, raw paths outside Downloads lose read/write
+  access after app restart or outside user-selected single-use sessions.
+- **Check:** `test/windows_capability_test.dart` "MacosBookmarkDirectoryPicker and sink factory require bookmarks and pair startAccess/stopAccess"
+- **Code:** `lib/core/platform/desktop_file_sink.dart`, `macos/Runner/MainFlutterWindow.swift`

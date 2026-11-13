@@ -6,6 +6,7 @@ import '../network/pixiv_http_client.dart';
 import '../platform/account_transfer_clipboard.dart';
 import '../platform/desktop_clipboard.dart';
 import '../platform/platform_caps.dart';
+import '../settings/shared_preferences.dart';
 import '../user/user_entity.dart';
 import 'account.dart';
 import 'account_store.dart';
@@ -338,9 +339,14 @@ class AccountTransferService {
 }
 
 final transferClipboardProvider = Provider<TransferClipboard>((ref) {
-  return ref.watch(platformCapsProvider).isAndroid
-      ? MethodChannelTransferClipboard()
-      : FlutterTransferClipboard();
+  if (ref.watch(platformCapsProvider).isAndroid) {
+    return MethodChannelTransferClipboard();
+  }
+  final clipboard = FlutterTransferClipboard(
+    preferences: ref.watch(sharedPreferencesProvider),
+  );
+  ref.onDispose(clipboard.dispose);
+  return clipboard;
 });
 
 final _transferCredentialVerifierProvider =

@@ -114,5 +114,20 @@ void main() {
         expect(IntentRouter.route(uri), isA<UnknownRoute>(), reason: '$uri');
       }
     });
+
+    test('accepts pixiv://account/login and optional via query parameter', () {
+      final route = IntentRouter.route(
+        Uri.parse('pixiv://account/login?code=abc123&state=pkce1&via=login'),
+      );
+      expect(route, isA<AccountCallbackRoute>());
+      final callback = route as AccountCallbackRoute;
+      expect(callback.code, 'abc123');
+      expect(callback.state, 'pkce1');
+
+      expect(
+        IntentRouter.route(Uri.parse('pixiv://account/other?code=abc123')),
+        isA<UnknownRoute>(),
+      );
+    });
   });
 }

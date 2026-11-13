@@ -1,13 +1,59 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../download/download_recovery.dart';
 import '../download/resume_anchor.dart';
 import 'android_platform_interfaces.dart';
 import 'saf_tree.dart';
+
+const _windowsReservedNames = <String>{
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL',
+  'COM1',
+  'COM2',
+  'COM3',
+  'COM4',
+  'COM5',
+  'COM6',
+  'COM7',
+  'COM8',
+  'COM9',
+  'LPT1',
+  'LPT2',
+  'LPT3',
+  'LPT4',
+  'LPT5',
+  'LPT6',
+  'LPT7',
+  'LPT8',
+  'LPT9',
+};
+
+/// Sanitizes a single filename or directory segment for Windows/POSIX filesystems:
+/// replaces reserved punctuation & ASCII control chars, strips trailing dots/spaces,
+/// avoids empty names / `.` / `..`, and prefixes Windows reserved device names.
+String sanitizeDesktopFileName(String rawName, {String fallback = 'download'}) {
+  var cleaned = rawName.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_');
+  cleaned = cleaned.replaceAll(RegExp(r'[. ]+$'), '');
+  cleaned = cleaned.trimLeft();
+  if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') {
+    return fallback;
+  }
+  final dotIndex = cleaned.indexOf('.');
+  final stem = (dotIndex == -1 ? cleaned : cleaned.substring(0, dotIndex))
+      .toUpperCase();
+  if (_windowsReservedNames.contains(stem)) {
+    cleaned = '_$cleaned';
+  }
+  return cleaned;
+}
 
 /// Desktop equivalent of the SAF tree picker: the platform file dialog
 /// returns a filesystem path, which plays the role of the opaque tree URI.
@@ -63,7 +109,7 @@ class _StagedFileSink
     required String directory,
     required String displayName,
   }) async {
-    final safeName = displayName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final safeName = sanitizeDesktopFileName(displayName);
     final dir = Directory(directory);
     await dir.create(recursive: true);
     final target = File('${dir.path}${Platform.pathSeparator}$safeName');
@@ -254,9 +300,9 @@ class DesktopFileMediaStoreSession
         .split(RegExp(r'[/\\]'))
         .where((s) => s.trim().isNotEmpty)
         .toList();
-    return segments.isEmpty
-        ? _defaultAlbum
-        : (segments.length == 1 ? segments.first : segments.last);
+    if (segments.isEmpty) return _defaultAlbum;
+    final raw = segments.length == 1 ? segments.first : segments.last;
+    return sanitizeDesktopFileName(raw, fallback: _defaultAlbum);
   }
 
   Future<MediaStoreHandle> _open({
@@ -304,5 +350,205 @@ class DesktopFileMediaStoreSession
       handle: resumed.sink,
       storedBytes: resumed.storedBytes,
     );
+  }
+}
+
+/// MethodChannel bridge for macOS App Sandbox security-scoped bookmarks.
+const MethodChannel _macosBookmarksChannel = MethodChannel(
+  'parfait/macos_bookmarks',
+);
+
+/// Desktop directory picker wrapped with macOS security-scoped bookmark
+/// persistence. Returns the opaque base64 bookmark token as [pickTree]'s result,
+/// throwing explicitly if bookmark creation fails rather than silently falling
+/// back to a raw unbookmarked path.
+class MacosBookmarkDirectoryPicker implements SafTreePicker {
+  const MacosBookmarkDirectoryPicker([
+    this._channel = _macosBookmarksChannel,
+    this._delegate = const DesktopDirectoryPicker(),
+  ]);
+
+  final MethodChannel _channel;
+  final SafTreePicker _delegate;
+
+  @override
+  Future<String?> pickTree() async {
+    final path = await _delegate.pickTree();
+    if (path == null) return null;
+    final bookmark = await _channel.invokeMethod<String>('saveBookmark', {
+      'path': path,
+    });
+    if (bookmark == null || bookmark.isEmpty) {
+      throw StateError('macos saveBookmark returned an empty token');
+    }
+    return bookmark;
+  }
+}
+
+/// `SafDocumentSinkFactory` for sandboxed macOS builds where [treeUri] is a
+/// base64 security-scoped bookmark string produced by
+/// [MacosBookmarkDirectoryPicker]. Opens access via `startAccess` before I/O
+/// and pairs every close/abort/detach with `stopAccess`.
+class MacosBookmarkSafDocumentSinkFactory
+    implements SafDocumentSinkFactory, ResumableSafDocumentFactory {
+  const MacosBookmarkSafDocumentSinkFactory([
+    this._channel = _macosBookmarksChannel,
+  ]);
+
+  final MethodChannel _channel;
+  static const _resumePrefix = 'macos-bookmark-v1:';
+
+  Future<String> _startAccess(String bookmark) async {
+    if (bookmark.trim().isEmpty) {
+      throw StateError('macos security-scoped bookmark is empty');
+    }
+    final resolvedPath = await _channel.invokeMethod<String>('startAccess', {
+      'bookmark': bookmark,
+    });
+    if (resolvedPath == null || resolvedPath.isEmpty) {
+      throw StateError('macos startAccess failed for security-scoped bookmark');
+    }
+    return resolvedPath;
+  }
+
+  Future<void> _stopAccess(String bookmark) async {
+    try {
+      await _channel.invokeMethod<void>('stopAccess', {'bookmark': bookmark});
+    } catch (_) {
+      // Best-effort scope release; cleanup must not mask primary errors.
+    }
+  }
+
+  @override
+  Future<SafDocumentSink> create({
+    required String treeUri,
+    required String displayName,
+    required String mimeType,
+    DownloadOutputOwner? owner,
+    bool staged = false,
+  }) async {
+    final directory = await _startAccess(treeUri);
+    try {
+      final sink = await _StagedFileSink.create(
+        directory: directory,
+        displayName: displayName,
+      );
+      return _BookmarkedSafSink(
+        inner: sink,
+        bookmark: treeUri,
+        onRelease: () => _stopAccess(treeUri),
+      );
+    } catch (_) {
+      await _stopAccess(treeUri);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<({SafDocumentSink sink, int storedBytes})?> resumeSaf({
+    required String uri,
+    DownloadOutputOwner? owner,
+  }) async {
+    if (!uri.startsWith(_resumePrefix)) {
+      throw StateError(
+        'missing macos security-scoped bookmark in resume locator',
+      );
+    }
+    final decoded = jsonDecode(uri.substring(_resumePrefix.length));
+    if (decoded is! Map<String, Object?> ||
+        decoded['b'] is! String ||
+        decoded['p'] is! String) {
+      throw StateError('malformed macos bookmark resume locator');
+    }
+    final bookmark = decoded['b']! as String;
+    final stagedPath = decoded['p']! as String;
+    await _startAccess(bookmark);
+    try {
+      final resumed = await _StagedFileSink.resume(stagedPath);
+      if (resumed == null) {
+        await _stopAccess(bookmark);
+        return null;
+      }
+      return (
+        sink: _BookmarkedSafSink(
+          inner: resumed.sink,
+          bookmark: bookmark,
+          onRelease: () => _stopAccess(bookmark),
+        ),
+        storedBytes: resumed.storedBytes,
+      );
+    } catch (_) {
+      await _stopAccess(bookmark);
+      rethrow;
+    }
+  }
+}
+
+class _BookmarkedSafSink
+    implements SafDocumentSink, StagedSafDocument, ResumableSafDocument {
+  _BookmarkedSafSink({
+    required _StagedFileSink inner,
+    required String bookmark,
+    required Future<void> Function() onRelease,
+  }) : _inner = inner,
+       _bookmark = bookmark,
+       _onRelease = onRelease;
+
+  final _StagedFileSink _inner;
+  final String _bookmark;
+  final Future<void> Function() _onRelease;
+  bool _released = false;
+
+  Future<void> _releaseOnce() async {
+    if (_released) return;
+    _released = true;
+    await _onRelease();
+  }
+
+  @override
+  String get uri => _inner.uri;
+
+  @override
+  Future<void> write(List<int> bytes) => _inner.write(bytes);
+
+  @override
+  Future<void> close() async {
+    try {
+      await _inner.close();
+    } finally {
+      await _releaseOnce();
+    }
+  }
+
+  @override
+  Future<void> delete() async {
+    try {
+      await _inner.delete();
+    } finally {
+      await _releaseOnce();
+    }
+  }
+
+  @override
+  Future<String> commitStaged() async {
+    try {
+      return await _inner.commitStaged();
+    } finally {
+      await _releaseOnce();
+    }
+  }
+
+  @override
+  String get resumeLocator =>
+      '${MacosBookmarkSafDocumentSinkFactory._resumePrefix}'
+      '${jsonEncode({'b': _bookmark, 'p': _inner.stagedPath})}';
+
+  @override
+  Future<void> detachSaf() async {
+    try {
+      await _inner.detachSaf();
+    } finally {
+      await _releaseOnce();
+    }
   }
 }

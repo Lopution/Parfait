@@ -267,9 +267,12 @@ class _MethodChannelSafDocumentSink
 }
 
 final safTreePickerProvider = Provider<SafTreePicker>((ref) {
-  return ref.watch(platformCapsProvider).supportsMediaStore
-      ? const MethodChannelSafTree()
-      : const DesktopDirectoryPicker();
+  final caps = ref.watch(platformCapsProvider);
+  if (caps.supportsMediaStore) return const MethodChannelSafTree();
+  if (caps.supportsSecurityScopedBookmarks) {
+    return const MacosBookmarkDirectoryPicker();
+  }
+  return const DesktopDirectoryPicker();
 });
 
 final documentPickerProvider = Provider<DocumentPicker>((ref) {
@@ -279,9 +282,12 @@ final documentPickerProvider = Provider<DocumentPicker>((ref) {
 });
 
 final safDocumentSinkFactoryProvider = Provider<SafDocumentSinkFactory>((ref) {
-  return ref.watch(platformCapsProvider).supportsMediaStore
-      ? const MethodChannelSafTree()
-      : const DesktopSafDocumentSinkFactory();
+  final caps = ref.watch(platformCapsProvider);
+  if (caps.supportsMediaStore) return const MethodChannelSafTree();
+  if (caps.supportsSecurityScopedBookmarks) {
+    return const MacosBookmarkSafDocumentSinkFactory();
+  }
+  return const DesktopSafDocumentSinkFactory();
 });
 
 class _SafTreeChannelException implements Exception {

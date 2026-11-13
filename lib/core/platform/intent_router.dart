@@ -272,11 +272,12 @@ abstract final class IntentRouter {
   }
 
   static DeepLinkRoute _accountCallback(Uri uri) {
-    if (_hasUnsafeUriMetadata(uri) || uri.path.isNotEmpty) {
+    if (_hasUnsafeUriMetadata(uri) ||
+        (uri.path.isNotEmpty && uri.path != '/login')) {
       return const UnknownRoute('account callback has an invalid URI shape');
     }
     final keys = uri.queryParametersAll.keys.toSet();
-    if (!keys.every((key) => key == 'code' || key == 'state')) {
+    if (!keys.every((key) => key == 'code' || key == 'state' || key == 'via')) {
       return const UnknownRoute('account callback has unexpected parameters');
     }
     final codes = uri.queryParametersAll['code'];
