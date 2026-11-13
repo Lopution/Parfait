@@ -113,7 +113,7 @@ reviewed: 2026-11-11
 - **Why:** The hint painted under the exiting bottom bar. Text showing
   through see-through bars read as a smudge behind the controls.
 - **Check:** `test/novel_reader_chrome_test.dart` "the progress hint never overlaps the sliding bottom bar"
-- **Code:** `lib/features/novel/novel_reader_stage.dart`
+- **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`
 
 ### NOVEL-06 The series fetch is held by watch, once per session
 - **Rule:** The series provider is an `autoDispose` family the stage keeps
@@ -124,7 +124,7 @@ reviewed: 2026-11-11
   refetched on every chrome toggle; a resizing strip jumped under the
   bottom chrome.
 - **Check:** `test/novel_reader_chrome_test.dart` "the series fetch happens once across chrome toggles" "a failed series fetch shows localized text and retries"
-- **Code:** `lib/features/novel/novel_reader_stage.dart`
+- **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`
 
 ### NOVEL-07 Opening and toggling never write reading history
 - **Rule:** Opening the reader, toggling sheets and switching between
@@ -165,7 +165,7 @@ reviewed: 2026-11-11
   trace, Shaft 1). Each reveal re-created both bars and laid out their
   text again (4 ms on device).
 - **Check:** `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
-- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/app/widgets/feed/feed_text_warmup.dart`
+- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`, `lib/app/widgets/feed/feed_text_warmup.dart`
 
 ### NOVEL-10 The progress hint and pill keep their contrast on every palette
 - **Rule:** The bottom progress hint uses `bodySmall` and the page's text
@@ -244,7 +244,7 @@ reviewed: 2026-11-11
   a long table of contents showed four rows and no place in it (user
   request, 11-02). On a turned phone both sheets overflowed.
 - **Check:** `test/novel_reader_chrome_test.dart` "the account's bookmark: opened at without a place of your " "a one-page novel without a bookmark offers none"; `test/novel_reader_stage_test.dart` "progress sheet: the chapter you are in is marked and in "; `test/novel_reader_stage_test.dart` "a turned phone fits the progress and settings sheets"; `test/novel_webview_text_test.dart` "the account's marker: its page, none, or a parse error"
-- **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_page.dart`, `lib/core/novel/novel_store.dart`, `lib/core/novel/novel_webview_text.dart`
+- **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`, `lib/features/novel/novel_page.dart`, `lib/core/novel/novel_store.dart`, `lib/core/novel/novel_webview_text.dart`
 
 ### NOVEL-16 The info sheet states the novel's facts
 - **Rule:** Under the author, the info sheet links the novel's series
@@ -304,4 +304,4 @@ reviewed: 2026-11-11
   series had no contents; no other client continues a novel series, and
   novels are read over days (user request, 11-02).
 - **Check:** `test/novel_series_test.dart` "a series page: its facts, numbered novels past the first "; `test/watchlist_page_test.dart` "watchlist page lists entries under both type tabs; a novel "
-- **Code:** `lib/features/novel/novel_series_page.dart`, `lib/core/novel/novel_feed_controller.dart`, `lib/core/novel/novel_repository.dart`, `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_page.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/features/watchlist/watchlist_page.dart`, `lib/app/navigation/routes.dart`
+- **Code:** `lib/features/novel/novel_series_page.dart`, `lib/core/novel/novel_feed_controller.dart`, `lib/core/novel/novel_repository.dart`, `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_page.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`, `lib/features/watchlist/watchlist_page.dart`, `lib/app/navigation/routes.dart`
