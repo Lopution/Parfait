@@ -16,6 +16,7 @@ import '../../app/pixiv_image.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/press_scale.dart';
 import '../../app/motion/removal.dart';
+import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/haptics/app_haptics.dart';
@@ -790,9 +791,13 @@ class _SnapshotCover extends StatelessWidget {
                 color: Theme.of(context).colorScheme.surfaceContainer,
                 child: Icon(icon, size: 42),
               )
-            : PixivImage.feed(
-                record.snapshot.coverUrl!,
-                layoutWidth: MediaQuery.sizeOf(context).width / 2,
+            : LayoutBuilder(
+                builder: (context, constraints) => PixivImage.feed(
+                  record.snapshot.coverUrl!,
+                  layoutWidth: constraints.maxWidth.isFinite
+                      ? constraints.maxWidth
+                      : HomeShellChrome.contentSizeOf(context).width / 2,
+                ),
               ),
       ),
     );

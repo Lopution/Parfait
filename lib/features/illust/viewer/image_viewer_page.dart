@@ -12,6 +12,7 @@ import '../../../app/motion/drag_to_dismiss.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/motion_tokens.dart';
+import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/navigation/route_animation.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/motion/hero_transition.dart';
@@ -127,7 +128,7 @@ class ImageViewerPage extends ConsumerStatefulWidget {
   /// The decode width of a page's preview; [openImageViewer] warms the same.
   static int previewDecodeWidth(BuildContext context) =>
       PixivImage.decodeWidthFor(
-        MediaQuery.sizeOf(context).width * previewScale,
+        HomeShellChrome.contentSizeOf(context).width * previewScale,
         devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
       );
 
@@ -760,8 +761,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   /// Multiplicative zoom centered on the viewport — keyboard zooms have no
   /// pointer focal, so the screen center is the honest anchor.
-  void _zoomBy(double factor) =>
-      _zoomAt(MediaQuery.sizeOf(context).center(Offset.zero), factor);
+  void _zoomBy(double factor) => _zoomAt(
+    HomeShellChrome.contentSizeOf(context).center(Offset.zero),
+    factor,
+  );
 
   /// Keys and the wheel stay inside a pinch's bounds.
   void _zoomAt(Offset focal, double factor) {

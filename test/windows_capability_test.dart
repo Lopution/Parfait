@@ -60,6 +60,94 @@ void main() {
         expect(android.read(provider), onAndroid);
       }
     });
+
+    test('five-platform capability matrix exposes semantic gates', () {
+      const capsMatrix = [
+        (
+          PlatformCaps(isAndroid: true),
+          true,
+          false,
+          false,
+          true,
+          false,
+          false,
+          true,
+          true,
+          false,
+          true,
+        ),
+        (
+          PlatformCaps(isIOS: true),
+          true,
+          true,
+          false,
+          false,
+          true,
+          false,
+          true,
+          true,
+          false,
+          false,
+        ),
+        (
+          PlatformCaps(isWindows: true),
+          false,
+          false,
+          true,
+          false,
+          false,
+          false,
+          true,
+          false,
+          true,
+          false,
+        ),
+        (
+          PlatformCaps(isMacOS: true),
+          false,
+          true,
+          true,
+          false,
+          false,
+          true,
+          true,
+          true,
+          true,
+          false,
+        ),
+        (
+          PlatformCaps(isLinux: true),
+          false,
+          false,
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          false,
+        ),
+      ];
+      for (final c in capsMatrix) {
+        final caps = c.$1;
+        expect(caps.isMobile, c.$2);
+        expect(caps.isApple, c.$3);
+        expect(caps.isDesktop, c.$4);
+        expect(caps.supportsMediaStore, c.$5);
+        expect(caps.supportsPhotoLibrary, c.$6);
+        expect(caps.supportsHaptics, c.$2);
+        expect(caps.supportsWindowManager, c.$4);
+        expect(caps.supportsSystemTray, c.$4);
+        expect(caps.supportsSingleInstance, c.$4);
+        expect(caps.supportsSecurityScopedBookmarks, c.$7);
+        expect(caps.supportsInAppWebView, c.$8);
+        expect(caps.supportsCustomSchemeCallback, c.$9);
+        expect(caps.supportsLoopbackCallback, c.$10);
+        expect(caps.supportsSelfUpdater, c.$11);
+        expect(caps.supportsInboundIntents, isTrue);
+      }
+    });
   });
 
   group('UnsupportedUpdatePlatform', () {

@@ -17,6 +17,8 @@ class ReviewDevice {
     this.navigationBar = 0,
     this.cutout = 0,
     this.display,
+    this.targetPlatform = TargetPlatform.android,
+    this.platformCaps = const PlatformCaps(isAndroid: true),
   });
 
   final Size physicalSize;
@@ -29,6 +31,12 @@ class ReviewDevice {
   /// larger screen (`AppBreakpoints.isPhoneDisplay`). Null: the window
   /// fills the display.
   final Size? display;
+
+  /// The target platform this preset emulates.
+  final TargetPlatform targetPlatform;
+
+  /// The platform capability record this preset emulates.
+  final PlatformCaps platformCaps;
 
   Size get displaySize => display ?? physicalSize / dpr;
 }
@@ -87,6 +95,8 @@ const reviewDevices = <String, ReviewDevice>{
     physicalSize: Size(2880, 1800),
     dpr: 2,
     display: Size(1920, 1080),
+    targetPlatform: TargetPlatform.windows,
+    platformCaps: PlatformCaps(isWindows: true),
   ),
   // 344 x 882, a book-style foldable's cover screen: narrower than any
   // phone, about 23:9.
@@ -126,7 +136,12 @@ const reviewDevices = <String, ReviewDevice>{
     navigationBar: 16,
   ),
   // 1920 x 1080, a maximised desktop window: the extended rail.
-  'desktop-large': ReviewDevice(physicalSize: Size(2880, 1620), dpr: 1.5),
+  'desktop-large': ReviewDevice(
+    physicalSize: Size(2880, 1620),
+    dpr: 1.5,
+    targetPlatform: TargetPlatform.windows,
+    platformCaps: PlatformCaps(isWindows: true),
+  ),
 };
 
 /// The device of this run, from `PARFAIT_REVIEW_DEVICE` (default `phone`).
@@ -167,9 +182,9 @@ final reviewOutDir =
 /// Applies [device] (by default [reviewDevice]): panel and display size,
 /// density, system bar insets, the [locale] as the system locale, font scale,
 /// system [brightness] (the app's theme setting follows the system by
-/// default), and the engine's `accessibleNavigation` stuck on — the state
-/// GKD leaves it in on the user's phone — and Android as the platform, for
-/// the framework and for the widgets that read [PlatformCaps.system].
+/// default), the engine's `accessibleNavigation` stuck on — the state
+/// GKD leaves it in on the user's phone — and the device preset's platform,
+/// for the framework and for widgets that read [PlatformCaps.system].
 /// Shadows render as on the device: flutter_test otherwise draws every
 /// elevation as a solid black outline. Whether touch exploration is on is
 /// a provider, set by `ReviewWorld.open`.
@@ -204,8 +219,8 @@ void applyReviewDevice(
   dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
     accessibleNavigation: true,
   );
-  debugDefaultTargetPlatformOverride = TargetPlatform.android;
-  PlatformCaps.debugSystemOverride = const PlatformCaps(isAndroid: true);
+  debugDefaultTargetPlatformOverride = device.targetPlatform;
+  PlatformCaps.debugSystemOverride = device.platformCaps;
   debugDisableShadows = false;
 }
 

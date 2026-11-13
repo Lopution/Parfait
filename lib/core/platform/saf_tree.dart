@@ -267,19 +267,19 @@ class _MethodChannelSafDocumentSink
 }
 
 final safTreePickerProvider = Provider<SafTreePicker>((ref) {
-  return ref.watch(platformCapsProvider).isAndroid
+  return ref.watch(platformCapsProvider).supportsMediaStore
       ? const MethodChannelSafTree()
       : const DesktopDirectoryPicker();
 });
 
 final documentPickerProvider = Provider<DocumentPicker>((ref) {
-  return ref.watch(platformCapsProvider).isAndroid
+  return ref.watch(platformCapsProvider).supportsMediaStore
       ? const MethodChannelSafTree()
       : const DesktopDocumentPicker();
 });
 
 final safDocumentSinkFactoryProvider = Provider<SafDocumentSinkFactory>((ref) {
-  return ref.watch(platformCapsProvider).isAndroid
+  return ref.watch(platformCapsProvider).supportsMediaStore
       ? const MethodChannelSafTree()
       : const DesktopSafDocumentSinkFactory();
 });
