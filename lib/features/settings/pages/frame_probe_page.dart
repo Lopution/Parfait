@@ -1,15 +1,16 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../core/debug/frame_probe.dart';
 import '../../../core/debug/hero_anomaly_log.dart';
 import '../../../core/image/image_worker_providers.dart';
+import '../../../core/platform/platform_caps.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -105,8 +106,8 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
   /// The panel modes Android lists: MainActivity's surface vote asks for
   /// the highest rate here, so a list topping out above the reported
   /// refresh rate means the vote can pull the panel into a faster mode.
-  static Future<String> _describeDisplay() async {
-    if (!Platform.isAndroid) return '';
+  Future<String> _describeDisplay() async {
+    if (kIsWeb || !ref.read(platformCapsProvider).isAndroid) return '';
     try {
       final supported = await FlutterDisplayMode.supported;
       final active = await FlutterDisplayMode.active;
@@ -121,6 +122,8 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
           '@${active.refreshRate.toStringAsFixed(1)}\n';
     } on PlatformException catch (error) {
       return 'display modes: unavailable (${error.code})\n';
+    } on MissingPluginException {
+      return 'display modes: unavailable (missing plugin)\n';
     }
   }
 

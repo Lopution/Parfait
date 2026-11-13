@@ -218,8 +218,10 @@ void main() {
             );
           }
         },
-        // The interface form is a desktop setting; the page shows it there.
-        variant: ref == SettingsPageRef.navigation
+        // The interface form is a desktop setting and display refresh rate is
+        // Android-only; each page mirrors its catalog entry availability.
+        variant:
+            ref == SettingsPageRef.navigation || ref == SettingsPageRef.about
             ? TargetPlatformVariant({
                 TargetPlatform.android,
                 TargetPlatform.windows,

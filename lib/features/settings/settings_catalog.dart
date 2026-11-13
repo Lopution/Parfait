@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 
 import '../../app/widgets/settings/settings_anchor.dart';
@@ -271,7 +269,8 @@ enum Setting implements SettingsEntry {
   bool get available => switch (this) {
     hapticStrength => defaultTargetPlatform == TargetPlatform.android,
     interfaceForm => _desktop,
-    aboutDisplayRefreshRate => !kIsWeb && Platform.isAndroid,
+    aboutDisplayRefreshRate =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
     _ => true,
   };
 

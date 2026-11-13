@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
@@ -434,6 +436,45 @@ void main() {
       expect(headerText('SauceNAO'), findsOneWidget);
       expect(headerText('搜索失败'), findsOneWidget);
     });
+  });
+
+  testWidgets('reads platformCapsProvider instead of static host platform', (
+    tester,
+  ) async {
+    const channel = MethodChannel('parfait/reverse_image_input');
+    final methods = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      methods.add(call.method);
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [
+          platformCapsProvider.overrideWithValue(
+            const PlatformCaps(isAndroid: true),
+          ),
+        ],
+        home: ReverseImageSearchPage(
+          providers: {
+            ReverseImageEngine.sauceNao: UnavailableReverseImageProvider(
+              reason: 'unused',
+            ),
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择图片'));
+    await tester.pump();
+    expect(methods, ['pickImage']);
   });
 }
 
