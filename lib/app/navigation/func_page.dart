@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransition;
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart' show Theme;
 
@@ -121,8 +122,28 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     isDragging: () => _popGestureInProgress,
   );
 
+  final ValueNotifier<bool> _popGestureNotifier = ValueNotifier<bool>(false);
   _IosBackGestureController<T>? _activePopGesture;
+  bool _routeDisposed = false;
+
   bool get _popGestureInProgress => _activePopGesture != null;
+
+  void _setActivePopGesture(_IosBackGestureController<T>? gesture) {
+    _activePopGesture = gesture;
+    if (_routeDisposed) return;
+    final active = gesture != null;
+    if (_popGestureNotifier.value == active) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_routeDisposed) {
+          _popGestureNotifier.value = _activePopGesture != null;
+        }
+      });
+      return;
+    }
+    _popGestureNotifier.value = active;
+  }
 
   // A shared-element page's layers show over their part of an opening and
   // hide over their part of a leave, both of the route value, which runs
@@ -190,6 +211,9 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   @override
   void dispose() {
+    _routeDisposed = true;
+    _activePopGesture = null;
+    _popGestureNotifier.dispose();
     _uncover();
     // A page removed without a pop never finished leaving: left behind, its
     // entry would hold the page below still for good.
@@ -306,45 +330,76 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       );
     }
 
-    final isIos = platform == TargetPlatform.iOS;
+    if (platform == TargetPlatform.iOS) {
+      return FuncTransitionGuard(
+        animation: animation,
+        secondaryAnimation: secondary,
+        transition: (guardedChild) => ValueListenableBuilder<bool>(
+          valueListenable: _popGestureNotifier,
+          child: guardedChild,
+          builder: (context, popGestureInProgress, builtChild) {
+            final content = shared
+                ? _sharedElementStage(
+                    context,
+                    builtChild!,
+                    popGestureInProgress: popGestureInProgress,
+                  )
+                : builtChild!;
+            return IgnorePointer(
+              // Leaving, nothing of the page takes a touch, so the page below
+              // answers at once: while the image flies home, and where the
+              // sliding page still is. Opening, a shared-element page takes
+              // none until its content has shown.
+              ignoring:
+                  animation.status == AnimationStatus.reverse ||
+                  shared && !popGestureInProgress && _contentFade.value < 1,
+              // On iOS we attach our own 24dp edge-back detector inside
+              // CupertinoPageTransition (instead of CupertinoPageTransitionsBuilder)
+              // so horizontal drags inside DetailImagePager/PageView stay intact.
+              child: CupertinoPageTransition(
+                primaryRouteAnimation: shared && !popGestureInProgress
+                    ? kAlwaysCompleteAnimation
+                    : _linearSlideIn,
+                secondaryRouteAnimation: still
+                    ? kAlwaysDismissedAnimation
+                    : _linearSlideAside,
+                linearTransition: true,
+                child: _IosEdgeBackDetector<T>(route: this, child: content),
+              ),
+            );
+          },
+        ),
+        child: child,
+      );
+    }
+
     return FuncTransitionGuard(
       animation: animation,
       secondaryAnimation: secondary,
-      transition: (child) {
-        final content = shared ? _sharedElementStage(context, child) : child;
-        final stage = isIos
-            ? _IosEdgeBackDetector<T>(route: this, child: content)
-            : content;
-        return IgnorePointer(
-          // Leaving, nothing of the page takes a touch, so the page below
-          // answers at once: while the image flies home, and where the
-          // sliding page still is. Opening, a shared-element page takes
-          // none until its content has shown.
-          ignoring:
-              animation.status == AnimationStatus.reverse ||
-              shared && !_popGestureInProgress && _contentFade.value < 1,
-          // On iOS we attach our own 24dp edge-back detector inside
-          // CupertinoPageTransition (instead of CupertinoPageTransitionsBuilder)
-          // so horizontal drags inside DetailImagePager/PageView stay intact.
-          child: CupertinoPageTransition(
-            primaryRouteAnimation: shared && !_popGestureInProgress
-                ? kAlwaysCompleteAnimation
-                : (isIos ? _linearSlideIn : _slideIn),
-            secondaryRouteAnimation: still
-                ? kAlwaysDismissedAnimation
-                : (isIos ? _linearSlideAside : _slideAside),
-            linearTransition: true,
-            child: stage,
-          ),
-        );
-      },
+      transition: (child) => IgnorePointer(
+        ignoring:
+            animation.status == AnimationStatus.reverse ||
+            shared && _contentFade.value < 1,
+        child: CupertinoPageTransition(
+          primaryRouteAnimation: shared ? kAlwaysCompleteAnimation : _slideIn,
+          secondaryRouteAnimation: still
+              ? kAlwaysDismissedAnimation
+              : _slideAside,
+          linearTransition: true,
+          child: shared ? _sharedElementStage(context, child) : child,
+        ),
+      ),
       child: child,
     );
   }
 
-  Widget _sharedElementStage(BuildContext context, Widget child) {
+  Widget _sharedElementStage(
+    BuildContext context,
+    Widget child, {
+    bool popGestureInProgress = false,
+  }) {
     final content = FadeTransition(
-      opacity: _popGestureInProgress ? kAlwaysCompleteAnimation : _contentFade,
+      opacity: popGestureInProgress ? kAlwaysCompleteAnimation : _contentFade,
       child: HeroLiftHole(animation: controller!, child: child),
     );
     if (!_backdrop) return content;
@@ -353,7 +408,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       children: [
         Positioned.fill(
           child: FadeTransition(
-            opacity: _popGestureInProgress
+            opacity: popGestureInProgress
                 ? kAlwaysCompleteAnimation
                 : _backdropFade,
             child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
@@ -427,13 +482,8 @@ class _IosEdgeBackDetectorState<T> extends State<_IosEdgeBackDetector<T>> {
   void dispose() {
     _recognizer.dispose();
     if (_backGestureController case final active?) {
-      widget.route._activePopGesture = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (active.navigator.mounted) {
-          active.navigator.didStopUserGesture();
-        }
-      });
       _backGestureController = null;
+      active.cancelOnDispose();
     }
     super.dispose();
   }
@@ -452,20 +502,24 @@ class _IosEdgeBackDetectorState<T> extends State<_IosEdgeBackDetector<T>> {
     final navigator = route.navigator;
     final controller = route._routeController;
     if (navigator == null || controller == null) return;
-    final gestureController = _IosBackGestureController<T>(
+    late final _IosBackGestureController<T> gestureController;
+    gestureController = _IosBackGestureController<T>(
       navigator: navigator,
       controller: controller,
       getIsCurrent: () => route.isCurrent,
       getIsActive: () => route.isActive,
       dropDuration: MotionTokens.resolve(context, MotionTokens.chrome),
       onFinished: () {
-        if (identical(route._activePopGesture, _backGestureController)) {
-          route._activePopGesture = null;
+        if (identical(_backGestureController, gestureController)) {
+          _backGestureController = null;
+        }
+        if (identical(route._activePopGesture, gestureController)) {
+          route._setActivePopGesture(null);
         }
       },
     );
     _backGestureController = gestureController;
-    route._activePopGesture = gestureController;
+    route._setActivePopGesture(gestureController);
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -482,14 +536,12 @@ class _IosEdgeBackDetectorState<T> extends State<_IosEdgeBackDetector<T>> {
     final velocity = width > 0
         ? _convertToLogical(details.velocity.pixelsPerSecond.dx / width)
         : 0.0;
-    _backGestureController = null;
     active.dragEnd(velocity);
   }
 
   void _handleDragCancel() {
     final active = _backGestureController;
     if (active == null) return;
-    _backGestureController = null;
     active.dragEnd(0.0);
   }
 
@@ -579,11 +631,18 @@ class _IosBackGestureController<T> {
   final Duration dropDuration;
   final VoidCallback onFinished;
 
+  AnimationStatusListener? _statusListener;
+  bool _dragEnded = false;
+  bool _finished = false;
+
   void dragUpdate(double delta) {
+    if (_dragEnded || _finished) return;
     controller.value -= delta;
   }
 
   void dragEnd(double velocity) {
+    if (_dragEnded || _finished) return;
+    _dragEnded = true;
     const animationCurve = Curves.fastEaseInToSlowEaseOut;
     final isCurrent = getIsCurrent();
     final bool animateForward;
@@ -623,23 +682,44 @@ class _IosBackGestureController<T> {
     }
 
     if (controller.isAnimating) {
-      late AnimationStatusListener statusCallback;
-      statusCallback = (AnimationStatus status) {
+      _statusListener = (AnimationStatus status) {
         if (status == AnimationStatus.completed ||
             status == AnimationStatus.dismissed) {
-          onFinished();
-          if (navigator.mounted) {
-            navigator.didStopUserGesture();
-          }
-          controller.removeStatusListener(statusCallback);
+          _complete();
         }
       };
-      controller.addStatusListener(statusCallback);
+      controller.addStatusListener(_statusListener!);
     } else {
-      onFinished();
+      _complete();
+    }
+  }
+
+  void cancelOnDispose() {
+    if (_finished) return;
+    _finished = true;
+    _detachListener();
+    onFinished();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (navigator.mounted) {
         navigator.didStopUserGesture();
       }
+    });
+  }
+
+  void _complete() {
+    if (_finished) return;
+    _finished = true;
+    _detachListener();
+    onFinished();
+    if (navigator.mounted) {
+      navigator.didStopUserGesture();
+    }
+  }
+
+  void _detachListener() {
+    if (_statusListener case final listener?) {
+      _statusListener = null;
+      controller.removeStatusListener(listener);
     }
   }
 }

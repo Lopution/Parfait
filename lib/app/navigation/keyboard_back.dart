@@ -23,15 +23,15 @@ final _modifierLogicalKeys = <LogicalKeyboardKey>{
   LogicalKeyboardKey.metaRight,
 };
 
+const _overlayRoots = <String>['/me', '/reverse-image', '/downloads'];
+
 const _stackRoots = <String>[
   '/recommended',
   '/ranking',
   '/new',
   '/search',
   '/settings',
-  '/me',
-  '/reverse-image',
-  '/downloads',
+  ..._overlayRoots,
 ];
 
 bool _isEditingFocused() {
@@ -128,20 +128,26 @@ class KeyboardBack extends StatefulWidget {
 
 class _KeyboardBackState extends State<KeyboardBack>
     with WidgetsBindingObserver {
+  static Future<Object?> Function(MethodCall)? _activeChannelHandler;
   Future<Object?> Function(MethodCall)? _registeredHandler;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _registeredHandler = _handleNavigationCommand;
-    _navigationCommandsChannel.setMethodCallHandler(_registeredHandler);
+    final handler = _handleNavigationCommand;
+    _registeredHandler = handler;
+    _activeChannelHandler = handler;
+    _navigationCommandsChannel.setMethodCallHandler(handler);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _navigationCommandsChannel.setMethodCallHandler(null);
+    if (identical(_activeChannelHandler, _registeredHandler)) {
+      _activeChannelHandler = null;
+      _navigationCommandsChannel.setMethodCallHandler(null);
+    }
     _registeredHandler = null;
     super.dispose();
   }
@@ -176,17 +182,24 @@ class _KeyboardBackState extends State<KeyboardBack>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _releasePressedModifiers();
-    if (state == AppLifecycleState.resumed) {
-      unawaited(HardwareKeyboard.instance.syncKeyboardState());
+    switch (state) {
+      case AppLifecycleState.resumed:
+        HardwareKeyboard.instance.syncKeyboardState().ignore();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        _releasePressedModifiers();
     }
   }
 
   @override
   void didChangeViewFocus(ViewFocusEvent event) {
-    _releasePressedModifiers();
-    if (event.state == ViewFocusState.focused) {
-      unawaited(HardwareKeyboard.instance.syncKeyboardState());
+    switch (event.state) {
+      case ViewFocusState.focused:
+        HardwareKeyboard.instance.syncKeyboardState().ignore();
+      case ViewFocusState.unfocused:
+        _releasePressedModifiers();
     }
   }
 
@@ -276,23 +289,49 @@ class _BackAction extends Action<_BackIntent> {
   }
 }
 
+bool _canOpenSearchShortcut(GoRouter router) {
+  final focusContext = primaryFocus?.context;
+  if (focusContext != null) {
+    final focusRoute = ModalRoute.of(focusContext);
+    if (focusRoute is PopupRoute ||
+        (focusRoute != null && focusRoute.settings is! Page)) {
+      return false;
+    }
+  }
+  final config = router.routerDelegate.currentConfiguration;
+  final path = config.uri.path;
+  if (path.endsWith('/search/input')) return false;
+  final root = _stackRootOfPath(path);
+  if (root == null) return false;
+  // Root-navigator pushes inside a stack (e.g. fullscreen image viewers) sit
+  // above the branch navigator and must not push search behind or over them.
+  final lastMatch = config.lastOrNull;
+  if (lastMatch != null &&
+      lastMatch.route.parentNavigatorKey ==
+          router.routerDelegate.navigatorKey &&
+      !_overlayRoots.contains(path)) {
+    return false;
+  }
+  return true;
+}
+
 class _SearchAction extends Action<_SearchIntent> {
   _SearchAction(this.router);
 
   final GoRouter router;
 
   @override
-  bool isEnabled(_SearchIntent intent) => !_isEditingFocused();
+  bool isEnabled(_SearchIntent intent) =>
+      !_isEditingFocused() && _canOpenSearchShortcut(router);
 
   @override
   Object? invoke(_SearchIntent intent) {
+    if (!_canOpenSearchShortcut(router)) return null;
     if (_SearchShortcutAnchorState.triggerActive()) return null;
     final path = router.routerDelegate.currentConfiguration.uri.path;
-    if (path.endsWith('/search/input')) return null;
     final root = _stackRootOfPath(path);
-    final location = (root == null || root == '/search')
-        ? '/search/input'
-        : '$root/search/input';
+    if (root == null) return null;
+    final location = root == '/search' ? '/search/input' : '$root/search/input';
     unawaited(router.push<void>(location));
     return null;
   }

@@ -5,22 +5,26 @@ import 'package:parfait/app/widgets/feed/load_more_listener.dart';
 import 'package:parfait/app/widgets/smooth_wheel_scroll.dart';
 
 void main() {
-  Widget host(ScrollController controller) {
-    return MaterialApp(
-      home: Scaffold(
-        body: SmoothWheelScroll(
-          controller: controller,
-          builder: (context, c, physics) => ListView.builder(
-            controller: c,
-            physics: physics,
-            itemCount: 200,
-            itemBuilder: (context, index) =>
-                SizedBox(height: 40, child: Text('row $index')),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget app(Widget body) => MaterialApp(home: Scaffold(body: body));
+
+  Widget wheelList(
+    ScrollController c,
+    ScrollPhysics? p, {
+    int count = 200,
+    String prefix = 'row',
+  }) => ListView.builder(
+    controller: c,
+    physics: p,
+    itemCount: count,
+    itemBuilder: (_, i) => SizedBox(height: 40, child: Text('$prefix $i')),
+  );
+
+  Widget host(ScrollController controller) => app(
+    SmoothWheelScroll(
+      controller: controller,
+      builder: (_, c, p) => wheelList(c, p),
+    ),
+  );
 
   Future<TestPointer> wheelDown(
     WidgetTester tester,
@@ -114,25 +118,16 @@ void main() {
       final primary = ScrollController();
       addTearDown(primary.dispose);
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PrimaryScrollController(
-              controller: primary,
-              child: SmoothWheelScroll(
-                builder: (context, c, physics) => ListView.builder(
-                  controller: c,
-                  physics: physics,
-                  itemCount: 120,
-                  itemBuilder: (_, index) =>
-                      SizedBox(height: 40, child: Text('item $index')),
-                ),
-              ),
+        app(
+          PrimaryScrollController(
+            controller: primary,
+            child: SmoothWheelScroll(
+              builder: (_, c, p) => wheelList(c, p, count: 120),
             ),
           ),
         ),
       );
       await tester.pump();
-
       await wheelDown(tester, 120);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
@@ -148,21 +143,13 @@ void main() {
       addTearDown(controller.dispose);
       var loadMoreCalls = 0;
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: LoadMoreListener(
-              itemCount: 150,
-              onLoadMore: () => loadMoreCalls++,
-              child: SmoothWheelScroll(
-                controller: controller,
-                builder: (context, c, physics) => ListView.builder(
-                  controller: c,
-                  physics: physics,
-                  itemCount: 150,
-                  itemBuilder: (_, index) =>
-                      SizedBox(height: 40, child: Text('row $index')),
-                ),
-              ),
+        app(
+          LoadMoreListener(
+            itemCount: 150,
+            onLoadMore: () => loadMoreCalls++,
+            child: SmoothWheelScroll(
+              controller: controller,
+              builder: (_, c, p) => wheelList(c, p, count: 150),
             ),
           ),
         ),
@@ -188,17 +175,15 @@ void main() {
       addTearDown(controller.dispose);
       addTearDown(hovered.dispose);
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SmoothWheelScroll(
-              controller: controller,
-              builder: (context, c, physics) => ListView.builder(
-                controller: c,
-                physics: physics,
-                itemCount: 100,
-                itemBuilder: (_, index) {
-                  if (index == 0) {
-                    return ScrollAwareHoverRegion(
+        app(
+          SmoothWheelScroll(
+            controller: controller,
+            builder: (_, c, p) => ListView.builder(
+              controller: c,
+              physics: p,
+              itemCount: 100,
+              itemBuilder: (_, i) => i == 0
+                  ? ScrollAwareHoverRegion(
                       onHover: (v) => hovered.value = v,
                       child: ValueListenableBuilder<bool>(
                         valueListenable: hovered,
@@ -207,11 +192,8 @@ void main() {
                           child: Text('row 0 ${v ? "HOVER" : "IDLE"}'),
                         ),
                       ),
-                    );
-                  }
-                  return SizedBox(height: 60, child: Text('row $index'));
-                },
-              ),
+                    )
+                  : SizedBox(height: 60, child: Text('row $i')),
             ),
           ),
         ),
@@ -231,6 +213,130 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump();
       expect(find.text('row 0 HOVER'), findsOneWidget);
+    },
+  );
+
+  Future<void> settleWheel(WidgetTester tester, double dy) async {
+    await wheelDown(tester, dy);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  testWidgets(
+    'interrupting wheel animation via trackpad or jump resets accumulator cleanly',
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(host(controller));
+      await tester.pump();
+
+      await wheelDown(tester, 160);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+
+      final trackpad = TestPointer(2, PointerDeviceKind.trackpad);
+      await tester.sendEventToBinding(
+        trackpad.panZoomStart(const Offset(200, 200)),
+      );
+      await tester.sendEventToBinding(
+        trackpad.panZoomUpdate(
+          const Offset(200, 200),
+          pan: const Offset(0, -320),
+        ),
+      );
+      await tester.sendEventToBinding(trackpad.panZoomEnd());
+      await tester.pump();
+      final afterTrackpad = controller.offset;
+      expect(afterTrackpad, greaterThan(280));
+
+      await settleWheel(tester, 120);
+      expect(controller.offset, closeTo(afterTrackpad + 120, 2));
+
+      await wheelDown(tester, 120);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 30));
+      controller.jumpTo(700);
+      await tester.pump();
+      await settleWheel(tester, 100);
+      expect(controller.offset, closeTo(800, 2));
+    },
+  );
+
+  testWidgets(
+    'nested inner SmoothWheelScroll yields to outer when short or at edge, and PageView still loads more',
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    (tester) async {
+      final outer = ScrollController();
+      final inner = ScrollController();
+      final tabFeed = ScrollController();
+      final innerCount = ValueNotifier<int>(2);
+      addTearDown(outer.dispose);
+      addTearDown(inner.dispose);
+      addTearDown(tabFeed.dispose);
+      addTearDown(innerCount.dispose);
+      await tester.pumpWidget(
+        app(
+          SmoothWheelScroll(
+            controller: outer,
+            builder: (_, oc, op) => ListView(
+              controller: oc,
+              physics: op,
+              children: [
+                SizedBox(
+                  height: 200,
+                  child: SmoothWheelScroll(
+                    controller: inner,
+                    builder: (_, ic, ip) => ValueListenableBuilder<int>(
+                      valueListenable: innerCount,
+                      builder: (_, n, _) =>
+                          wheelList(ic, ip, count: n, prefix: 'in'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 1600),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await settleWheel(tester, 140);
+      expect(outer.offset, closeTo(140, 2));
+
+      innerCount.value = 20;
+      outer.jumpTo(0);
+      await tester.pump();
+      inner.jumpTo(inner.position.maxScrollExtent);
+      await tester.pump();
+      await settleWheel(tester, 120);
+      expect(outer.offset, closeTo(120, 2));
+
+      var loadMoreCalls = 0;
+      await tester.pumpWidget(
+        app(
+          PageView(
+            children: [
+              LoadMoreListener(
+                itemCount: 100,
+                onLoadMore: () => loadMoreCalls++,
+                child: SmoothWheelScroll(
+                  controller: tabFeed,
+                  builder: (_, c, p) =>
+                      wheelList(c, p, count: 100, prefix: 't'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      tabFeed.jumpTo(tabFeed.position.maxScrollExtent);
+      await tester.pump();
+      loadMoreCalls = 0;
+      await wheelDown(tester, 120);
+      await tester.pump();
+      expect(loadMoreCalls, greaterThan(0));
     },
   );
 }

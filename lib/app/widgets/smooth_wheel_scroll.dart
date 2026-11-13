@@ -42,8 +42,9 @@ import '../motion/motion_tokens.dart';
 ///   target nears a clamped edge. Downward wheel ticks while already at the
 ///   bottom edge dispatch a `ScrollUpdateNotification` so `LoadMoreListener`
 ///   can still request pagination.
-/// * Nested wrapped scrollables coordinate through [_ScrollWheelState]: the
-///   innermost wrapper under the pointer wins.
+/// * Nested scrollables resolve through the hit-test path: an outer wrapper
+///   yields only when an inner vertical [RenderViewportBase] under the pointer
+///   can actually move in the wheel's direction.
 ///
 /// On non-desktop platforms the widget is a transparent pass-through.
 class SmoothWheelScroll extends StatefulWidget {
@@ -71,14 +72,7 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
   ScrollController? _fallbackController;
   ScrollController? _activeController;
   double? _futurePosition;
-
-  // Nested-wrapper arbitration: a descendant SmoothWheelScroll under the
-  // pointer marks itself active in this scope, so this wrapper's own wheel
-  // handler stays out of the way.
-  final Set<int> _activeChildren = {};
-  _ScrollWheelState? _parent;
-  final int _id = _nextId++;
-  static int _nextId = 0;
+  int _scrollGeneration = 0;
 
   static const _animationDuration = MotionTokens.wheelScroll;
 
@@ -87,33 +81,41 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
       PrimaryScrollController.maybeOf(context) ??
       (_fallbackController ??= ScrollController());
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _parent = _ScrollWheelState.maybeOf(context);
+  void _interruptWheelScroll() {
+    _scrollGeneration++;
+    _futurePosition = null;
   }
 
   @override
   void didUpdateWidget(SmoothWheelScroll oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      _futurePosition = null;
+      _interruptWheelScroll();
     }
   }
 
   @override
   void dispose() {
-    _parent?.onChildInactive(_id);
     _fallbackController?.dispose();
     super.dispose();
+  }
+
+  static bool _hasVerticalScrollableAncestor(BuildContext context) {
+    var cursor = context;
+    while (true) {
+      final scrollable = cursor.findAncestorStateOfType<ScrollableState>();
+      if (scrollable == null) return false;
+      if (axisDirectionToAxis(scrollable.axisDirection) == Axis.vertical) {
+        return true;
+      }
+      cursor = scrollable.context;
+    }
   }
 
   bool _shouldInterceptScroll(PointerScrollEvent signal) {
     if (signal.kind != PointerDeviceKind.mouse) return false;
     if (HardwareKeyboard.instance.isShiftPressed) return false;
     if (signal.scrollDelta.dy == 0) return false;
-    // A wrapped descendant scrollable under the pointer owns the tick.
-    if (_activeChildren.isNotEmpty) return false;
     final controller = _activeController;
     if (controller == null || !controller.hasClients) return false;
 
@@ -126,7 +128,7 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
     // Assist pagination when already sitting at the bottom edge of a root feed.
     if (signal.scrollDelta.dy > 0 &&
         current >= position.maxScrollExtent &&
-        context.findAncestorStateOfType<ScrollableState>() == null) {
+        !_hasVerticalScrollableAncestor(context)) {
       return true;
     }
     return false;
@@ -149,9 +151,11 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
       position.minScrollExtent,
       position.maxScrollExtent,
     );
+    final generation = ++_scrollGeneration;
     _futurePosition = target;
     final distance = (target - current).abs();
     if (distance == 0) {
+      _futurePosition = null;
       if (event.scrollDelta.dy > 0 && current >= position.maxScrollExtent) {
         final notifyContext = position.context.notificationContext;
         if (notifyContext != null && notifyContext.mounted) {
@@ -183,12 +187,10 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
       controller
           .animateTo(target, duration: duration, curve: Curves.linear)
           .then((_) {
-            // The accumulator only clears when nothing newer superseded it —
-            // otherwise an old animation completing would drop queued ticks.
-            if (mounted &&
-                _futurePosition == target &&
-                controller.hasClients &&
-                controller.position.pixels == target) {
+            // Clear only when no newer wheel tick superseded this animation,
+            // so trackpad/scrollbar interruptions clear stale state while
+            // older cancelled wheel ticks cannot wipe newer queued targets.
+            if (mounted && _scrollGeneration == generation) {
               _futurePosition = null;
             }
           }),
@@ -206,45 +208,31 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
       return widget.builder(context, controller, widget.basePhysics);
     }
 
-    Widget child = _WheelSignalInterceptor(
-      onPointerDown: () => _futurePosition = null,
+    return _WheelSignalInterceptor(
+      onInterrupt: _interruptWheelScroll,
       shouldInterceptScroll: _shouldInterceptScroll,
       onHandleScroll: _handlePointerScroll,
-      child: _ScrollWheelState(
-        onChildActive: _activeChildren.add,
-        onChildInactive: _activeChildren.remove,
-        child: widget.builder(context, controller, widget.basePhysics),
-      ),
+      child: widget.builder(context, controller, widget.basePhysics),
     );
-
-    if (_parent != null) {
-      final parent = _parent!;
-      child = MouseRegion(
-        onEnter: (_) => parent.onChildActive(_id),
-        onExit: (_) => parent.onChildInactive(_id),
-        child: child,
-      );
-    }
-    return child;
   }
 }
 
 class _WheelSignalInterceptor extends SingleChildRenderObjectWidget {
   const _WheelSignalInterceptor({
-    required this.onPointerDown,
+    required this.onInterrupt,
     required this.shouldInterceptScroll,
     required this.onHandleScroll,
     required super.child,
   });
 
-  final VoidCallback onPointerDown;
+  final VoidCallback onInterrupt;
   final bool Function(PointerScrollEvent event) shouldInterceptScroll;
   final PointerSignalResolvedCallback onHandleScroll;
 
   @override
   _RenderWheelSignalInterceptor createRenderObject(BuildContext context) =>
       _RenderWheelSignalInterceptor(
-        onPointerDown: onPointerDown,
+        onInterrupt: onInterrupt,
         shouldInterceptScroll: shouldInterceptScroll,
         onHandleScroll: onHandleScroll,
       );
@@ -255,7 +243,7 @@ class _WheelSignalInterceptor extends SingleChildRenderObjectWidget {
     _RenderWheelSignalInterceptor renderObject,
   ) {
     renderObject
-      ..onPointerDown = onPointerDown
+      ..onInterrupt = onInterrupt
       ..shouldInterceptScroll = shouldInterceptScroll
       ..onHandleScroll = onHandleScroll;
   }
@@ -265,17 +253,17 @@ class _WheelHitTestEntry extends BoxHitTestEntry {
   _WheelHitTestEntry(super.target, super.localPosition);
 
   bool enabled = true;
-  bool innerVerticalScrollable = false;
+  List<RenderViewportBase> innerVerticalViewports = const [];
 }
 
 class _RenderWheelSignalInterceptor extends RenderProxyBox {
   _RenderWheelSignalInterceptor({
-    required this.onPointerDown,
+    required this.onInterrupt,
     required this.shouldInterceptScroll,
     required this.onHandleScroll,
   });
 
-  VoidCallback onPointerDown;
+  VoidCallback onInterrupt;
   bool Function(PointerScrollEvent event) shouldInterceptScroll;
   PointerSignalResolvedCallback onHandleScroll;
 
@@ -290,14 +278,14 @@ class _RenderWheelSignalInterceptor extends RenderProxyBox {
       entry.enabled = false;
       return false;
     }
-    entry.innerVerticalScrollable = _hasInnerVerticalScrollable(
+    entry.innerVerticalViewports = _collectInnerVerticalViewports(
       result.path,
       start,
     );
     return true;
   }
 
-  static bool _hasInnerVerticalScrollable(
+  static List<RenderViewportBase> _collectInnerVerticalViewports(
     Iterable<HitTestEntry> path,
     int startIndex,
   ) {
@@ -308,24 +296,35 @@ class _RenderWheelSignalInterceptor extends RenderProxyBox {
         viewports.add(entry.target as RenderAbstractViewport);
       }
     }
-    if (viewports.length < 2) return false;
+    if (viewports.length < 2) return const [];
     // The last viewport in deepest->outermost order is our wrapped scrollable;
-    // any earlier vertical scrollable that can actually scroll owns the tick.
+    // collect any earlier vertical viewports to arbitrate at signal time.
+    final inner = <RenderViewportBase>[];
     for (var idx = 0; idx < viewports.length - 1; idx++) {
       final vp = viewports[idx];
-      if (vp is RenderViewportBase) {
-        final isVertical =
-            vp.axisDirection == AxisDirection.down ||
-            vp.axisDirection == AxisDirection.up;
-        if (!isVertical) continue;
-        final offset = vp.offset;
-        if (offset is ScrollPosition &&
-            offset.hasContentDimensions &&
-            offset.maxScrollExtent <= offset.minScrollExtent) {
-          continue;
-        }
-        return true;
+      if (vp is RenderViewportBase &&
+          axisDirectionToAxis(vp.axisDirection) == Axis.vertical) {
+        inner.add(vp);
       }
+    }
+    return inner;
+  }
+
+  static bool _hasScrollableInnerViewport(
+    List<RenderViewportBase> viewports,
+    PointerScrollEvent event,
+  ) {
+    if (event.scrollDelta.dy == 0) return false;
+    for (final vp in viewports) {
+      final offset = vp.offset;
+      if (offset is! ScrollPosition) return true;
+      if (!offset.hasContentDimensions) continue;
+      if (!offset.physics.shouldAcceptUserOffset(offset)) continue;
+      final dy = vp.axisDirection == AxisDirection.up
+          ? -event.scrollDelta.dy
+          : event.scrollDelta.dy;
+      if (dy > 0 && offset.pixels < offset.maxScrollExtent) return true;
+      if (dy < 0 && offset.pixels > offset.minScrollExtent) return true;
     }
     return false;
   }
@@ -333,15 +332,21 @@ class _RenderWheelSignalInterceptor extends RenderProxyBox {
   @override
   void handleEvent(PointerEvent event, HitTestEntry entry) {
     if (entry is! _WheelHitTestEntry || !entry.enabled) return;
-    if (event is PointerDownEvent) {
-      onPointerDown();
-    } else if (event is PointerScrollEvent &&
-        !entry.innerVerticalScrollable &&
-        shouldInterceptScroll(event)) {
-      GestureBinding.instance.pointerSignalResolver.register(
+    if (event is PointerDownEvent || event is PointerPanZoomStartEvent) {
+      onInterrupt();
+    } else if (event is PointerScrollEvent) {
+      final hasScrollableInner = _hasScrollableInnerViewport(
+        entry.innerVerticalViewports,
         event,
-        onHandleScroll,
       );
+      if (!hasScrollableInner && shouldInterceptScroll(event)) {
+        GestureBinding.instance.pointerSignalResolver.register(
+          event,
+          onHandleScroll,
+        );
+      } else if (!hasScrollableInner) {
+        onInterrupt();
+      }
     }
   }
 }
@@ -477,23 +482,4 @@ class _ScrollAwareHoverRegionState extends State<ScrollAwareHoverRegion> {
     onExit: (_) => _setPointerInside(false),
     child: widget.child,
   );
-}
-
-/// Registers descendant [SmoothWheelScroll]s that currently sit under the
-/// pointer, so only the innermost wrapper animates on a wheel tick.
-class _ScrollWheelState extends InheritedWidget {
-  const _ScrollWheelState({
-    required this.onChildActive,
-    required this.onChildInactive,
-    required super.child,
-  });
-
-  final void Function(int id) onChildActive;
-  final void Function(int id) onChildInactive;
-
-  static _ScrollWheelState? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_ScrollWheelState>();
-
-  @override
-  bool updateShouldNotify(_ScrollWheelState oldWidget) => false;
 }

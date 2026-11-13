@@ -165,13 +165,23 @@ void main() {
       addTearDown(showAnchor.dispose);
       addTearDown(controller.dispose);
 
+      final rootNavKey = GlobalKey<NavigatorState>();
       late final GoRouter router;
       router = GoRouter(
+        navigatorKey: rootNavKey,
         initialLocation: '/recommended',
         routes: [
           GoRoute(
+            path: '/login',
+            builder: (_, _) => const Scaffold(body: Text('login')),
+          ),
+          GoRoute(
+            path: '/search/input',
+            builder: (_, _) => const Scaffold(body: Text('root search')),
+          ),
+          GoRoute(
             path: '/recommended',
-            builder: (_, _) => Scaffold(
+            builder: (ctx, _) => Scaffold(
               body: PullToRefresh(
                 onRefresh: () async => refreshes++,
                 child: ListView(
@@ -190,6 +200,15 @@ void main() {
                           unawaited(router.push('/recommended/detail')),
                       child: const Text('go detail'),
                     ),
+                    TextButton(
+                      onPressed: () => unawaited(
+                        showDialog<void>(
+                          context: ctx,
+                          builder: (_) => const AlertDialog(title: Text('dlg')),
+                        ),
+                      ),
+                      child: const Text('open dlg'),
+                    ),
                     TextField(controller: controller),
                     const SizedBox(height: 1200),
                   ],
@@ -205,19 +224,28 @@ void main() {
                 path: 'search/input',
                 builder: (_, _) => const Scaffold(body: Text('search route')),
               ),
+              GoRoute(
+                path: 'illust/1/viewer/0',
+                parentNavigatorKey: rootNavKey,
+                builder: (_, _) => const Scaffold(body: Text('viewer')),
+              ),
             ],
           ),
         ],
       );
       addTearDown(router.dispose);
+      Future<void> pumpKb(Key key) async {
+        await tester.pumpWidget(
+          localizedRouterApp(
+            router,
+            builder: (_, child) =>
+                KeyboardBack(key: key, router: router, child: child!),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
 
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          builder: (_, child) => KeyboardBack(router: router, child: child!),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await pumpKb(const ValueKey('kb1'));
 
       // Back via keyboard chord, mouse side button, and Windows channel.
       for (final trigger in [
@@ -262,6 +290,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(refreshes, 2);
 
+      // Blocked behind modal dialog & root viewer & on /login.
+      await tester.tap(find.text('open dlg'));
+      await tester.pumpAndSettle();
+      await _sendChord(tester, key: LogicalKeyboardKey.slash);
+      await tester.pumpAndSettle();
+      expect(anchorSearches, 2);
+      expect(find.text('search route'), findsNothing);
+      expect(await _invokeNavCommand('back'), isTrue);
+      await tester.pumpAndSettle();
+
       // While editing TextField: `/` does not search, Escape unfocuses only.
       await tester.tap(find.byType(TextField));
       await tester.pump();
@@ -273,13 +311,28 @@ void main() {
         primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>(),
         isNotNull,
       );
-
       await _sendChord(tester, key: LogicalKeyboardKey.escape);
       await tester.pump();
       expect(
         primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>(),
         isNull,
       );
+
+      // Root viewer & auth /login block search; replacing KeyboardBack keeps channel alive.
+      unawaited(router.push('/recommended/illust/1/viewer/0'));
+      await tester.pumpAndSettle();
+      await _sendChord(
+        tester,
+        key: LogicalKeyboardKey.keyF,
+        modifier: modifier,
+      );
+      await tester.pumpAndSettle();
+      expect(anchorSearches, 2);
+      expect(find.text('search route'), findsNothing);
+      await pumpKb(const ValueKey('kb2'));
+      expect(await _invokeNavCommand('back'), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('viewer'), findsNothing);
 
       // Anchor absent falls back to pushing /recommended/search/input.
       showAnchor.value = false;
@@ -292,8 +345,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('search route'), findsOneWidget);
 
-      // Window focus loss releases held modifier keys.
+      router.go('/login');
+      await tester.pumpAndSettle();
+      await _sendChord(
+        tester,
+        key: LogicalKeyboardKey.keyF,
+        modifier: modifier,
+      );
+      await _sendChord(tester, key: LogicalKeyboardKey.slash);
+      await tester.pumpAndSettle();
+      expect(find.text('login'), findsOneWidget);
+      expect(find.text('root search'), findsNothing);
+
+      // Focus gain keeps held modifiers; focus loss releases them.
       await tester.sendKeyDownEvent(backModifier);
+      WidgetsBinding.instance.handleViewFocusChanged(
+        const ViewFocusEvent(
+          viewId: 0,
+          state: ViewFocusState.focused,
+          direction: ViewFocusDirection.undefined,
+        ),
+      );
       expect(
         isMac
             ? HardwareKeyboard.instance.isMetaPressed

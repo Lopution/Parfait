@@ -85,14 +85,16 @@ Future<PageRoute<void>> _pushSecondPage(
   Duration duration = const Duration(milliseconds: 800),
   Widget? home,
   Widget second = const Text('page b'),
+  bool sharedElement = false,
   bool settle = true,
 }) async {
   late PageRoute<void> pushed;
   late BuildContext rootContext;
-  PageRoute<void> page(Widget child) =>
+  PageRoute<void> page(Widget child, {bool shared = false}) =>
       FuncPage<void>(
             transitionDuration: duration,
             reverseTransitionDuration: duration,
+            sharedElement: shared,
             child: child,
           ).createRoute(rootContext)
           as PageRoute<void>;
@@ -107,7 +109,7 @@ Future<PageRoute<void>> _pushSecondPage(
               Builder(
                 builder: (context) => TextButton(
                   onPressed: () {
-                    pushed = page(second);
+                    pushed = page(second, shared: sharedElement);
                     Navigator.of(context).push(pushed);
                   },
                   child: home ?? const Text('page a'),
@@ -936,6 +938,49 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
       expect(find.byType(HistoryPage), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
+    'iOS sharedElement route slides on edge-swipe and cleans up gesture on settle or removal',
+    (tester) async {
+      setViewSize(tester, const Size(400, 800));
+      final pushed = await _pushSecondPage(
+        tester,
+        sharedElement: true,
+        second: const ColoredBox(
+          color: Color(0xFFFFFFFF),
+          child: Align(alignment: Alignment.topLeft, child: Text('page b')),
+        ),
+      );
+      final nav = pushed.navigator!;
+      expect(tester.getTopLeft(find.text('page b')).dx, 0.0);
+
+      Future<TestGesture> startEdgeDrag() async {
+        final g = await tester.startGesture(const Offset(12, 300));
+        await g.moveBy(const Offset(30, 0));
+        await g.moveBy(const Offset(90, 0));
+        await tester.pump();
+        return g;
+      }
+
+      final drag = await startEdgeDrag();
+      expect(nav.userGestureInProgress, isTrue);
+      expect(tester.getTopLeft(find.text('page b')).dx, greaterThan(0.0));
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(nav.userGestureInProgress, isFalse);
+
+      final second = await startEdgeDrag();
+      await second.up();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(nav.userGestureInProgress, isTrue);
+
+      nav.removeRoute(pushed);
+      await tester.pumpAndSettle();
+      expect(nav.userGestureInProgress, isFalse);
+      expect(find.text('page a'), findsOneWidget);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
