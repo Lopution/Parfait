@@ -362,7 +362,7 @@ reviewed: 2026-10-29
   one connection on every measured network; no pixiv client splits an
   image.
 - **Check:** `test/continued_fetch_test.dart` "every continuation asks If-Range with the first ETag" " fails the transfer without appending or a retry" "a 200 to a continuation without If-Range is asked again elsewhere; " "streams " "cancelling closes the live connection", `test/restricted_compat_image_test.dart` "every range of a transfer keeps to the route of its first" "a resumed transfer tries last a route that sent a whole file ", `test/download_resume_test.dart` "a large file arrives on one connection, in order" "a retry after pause continues from the anchor", `test/image_worker_host_test.dart` "arrives whole on one range request, its progress against the "
-- **Code:** `lib/core/network/compat/continued_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/download/download_manager.dart`, `lib/core/image/image_worker_host.dart`
+- **Code:** `lib/core/network/compat/continued_fetch.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/download/download_manager.dart`, `lib/core/download/download_manager_adapters.dart`, `lib/core/image/image_worker_host.dart`
 
 ### NET-16 A stopped connection continues from its received byte
 - **Rule:** When no body bytes arrive for `ImageStall.body` (no headers
