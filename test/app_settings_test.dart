@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show Size;
 
@@ -277,6 +278,112 @@ void main() {
         container.read(settingsProvider).requireValue.previewQuality,
         PreviewQuality.medium,
       );
+    },
+  );
+
+  test(
+    'controller aborts queued and in-flight writes cleanly when disposed',
+    () async {
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      await seedSettings(baseTestSettings());
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(settingsProvider.notifier);
+      await container.read(settingsProvider.future);
+      final baselineWrites = preferences.writes;
+
+      final firstWrite = Completer<void>();
+      preferences.writeGate = firstWrite.future;
+
+      final inFlight = controller.selectTheme(AppSettings.darkTheme);
+      final queued = controller.setMaxDownloadCount(8);
+      await pumpEventQueue();
+      expect(preferences.writes, baselineWrites + 1);
+
+      // Disposing mid-save must not trigger the queued second write or surface
+      // a post-dispose Ref/SettingsWriteException on either pending future.
+      container.dispose();
+      firstWrite.complete();
+      await Future.wait([inFlight, queued]);
+      expect(preferences.writes, baselineWrites + 1);
+    },
+  );
+
+  test(
+    'controller swallows repository errors that resolve after disposal',
+    () async {
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      await seedSettings(baseTestSettings());
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(settingsProvider.notifier);
+      await container.read(settingsProvider.future);
+
+      final writeGate = Completer<void>();
+      preferences.writeGate = writeGate.future;
+      final pending = controller.selectTheme(AppSettings.darkTheme);
+      await pumpEventQueue();
+
+      container.dispose();
+      writeGate.completeError(StateError('disk full after dispose'));
+      await pending;
+    },
+  );
+
+  test(
+    'controller waits for initial load before applying an early write',
+    () async {
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      await seedSettings(baseTestSettings().copyWith(maxDownloadCount: 9));
+      final baselineWrites = preferences.writes;
+
+      final readGate = Completer<void>();
+      preferences.readGate = readGate.future;
+      final container = ProviderContainer.test();
+      final controller = container.read(settingsProvider.notifier);
+
+      final earlyWrite = controller.selectTheme(AppSettings.darkTheme);
+      await pumpEventQueue();
+      expect(preferences.writes, baselineWrites);
+
+      readGate.complete();
+      await earlyWrite;
+
+      final committed = container.read(settingsProvider).requireValue;
+      expect(committed.themeCode, AppSettings.darkTheme);
+      expect(committed.maxDownloadCount, 9);
+      final stored = await storedSettings().load();
+      expect(stored.themeCode, AppSettings.darkTheme);
+      expect(stored.maxDownloadCount, 9);
+    },
+  );
+
+  test(
+    'controller aborts early write cleanly if disposed during initial load',
+    () async {
+      final preferences = GatedPreferences();
+      installPreferencesForTest(preferences);
+      await seedSettings(baseTestSettings());
+      final baselineWrites = preferences.writes;
+
+      final readGate = Completer<void>();
+      preferences.readGate = readGate.future;
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(settingsProvider.notifier);
+
+      final earlyWrite = controller.selectTheme(AppSettings.darkTheme);
+      await pumpEventQueue();
+
+      container.dispose();
+      readGate.complete();
+      await earlyWrite;
+      expect(preferences.writes, baselineWrites);
     },
   );
 

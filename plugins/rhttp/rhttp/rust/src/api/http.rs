@@ -428,32 +428,11 @@ async fn make_http_request_helper(
             .map_err(|e| RhttpError::RhttpUnknownError(e.to_string()))?
     };
 
-    let response = client.client.execute(request).await.map_err(|e| {
-        if e.is_redirect() {
-            RhttpError::RhttpRedirectError
-        } else if e.is_timeout() {
-            RhttpError::RhttpTimeoutError
-        } else {
-            // We use the debug string because it contains more information
-            let inner = e.source();
-            let is_cert_error = match inner {
-                // TODO: This is a hacky way to check if the error is a certificate error
-                Some(inner) => format!("{:?}", inner).contains("InvalidCertificate"),
-                None => false,
-            };
-
-            if is_cert_error {
-                RhttpError::RhttpInvalidCertificateError(format!("{:?}", inner.unwrap()))
-            } else if e.is_connect() {
-                RhttpError::RhttpConnectionError(format!("{:?}", inner.unwrap()))
-            } else {
-                RhttpError::RhttpUnknownError(match inner {
-                    Some(inner) => format!("{inner:?}"),
-                    None => format!("{e:?}"),
-                })
-            }
-        }
-    })?;
+    let response = client
+        .client
+        .execute(request)
+        .await
+        .map_err(|e| map_reqwest_error(&e))?;
 
     if client.throw_on_status_code {
         let status = response.status();
@@ -500,4 +479,281 @@ pub fn cancel_request(token: &CancellationToken) {
 
 fn extract_ip(response: &Response) -> Option<String> {
     response.remote_addr().map(|addr| addr.ip().to_string())
+}
+
+/// Walks the error source chain (including `std::io::Error` custom payloads)
+/// to match typed `rustls` certificate verification failures rather than
+/// relying on `Debug` formatting substrings.
+fn is_cert_error(err: &(dyn Error + 'static)) -> bool {
+    let mut current: Option<&(dyn Error + 'static)> = Some(err);
+    while let Some(node) = current {
+        if let Some(tls_err) = node.downcast_ref::<rustls::Error>() {
+            if matches!(
+                tls_err,
+                rustls::Error::InvalidCertificate(_)
+                    | rustls::Error::NoCertificatesPresented
+                    | rustls::Error::InvalidCertRevocationList(_)
+            ) {
+                return true;
+            }
+        }
+        if let Some(io_err) = node.downcast_ref::<std::io::Error>() {
+            if let Some(inner) = io_err.get_ref() {
+                if is_cert_error(inner) {
+                    return true;
+                }
+            }
+        }
+        current = node.source();
+    }
+    false
+}
+
+fn map_reqwest_error(err: &reqwest::Error) -> RhttpError {
+    if err.is_redirect() {
+        return RhttpError::RhttpRedirectError;
+    }
+    if err.is_timeout() {
+        return RhttpError::RhttpTimeoutError;
+    }
+    // Format `source()` when present because it preserves the underlying TLS or
+    // transport cause rather than reqwest's generic send-error wrapper.
+    let inner = err.source();
+    let detail = match inner {
+        Some(inner) => format!("{inner:?}"),
+        None => format!("{err:?}"),
+    };
+    if is_cert_error(err) {
+        RhttpError::RhttpInvalidCertificateError(detail)
+    } else if err.is_connect() {
+        RhttpError::RhttpConnectionError(detail)
+    } else {
+        RhttpError::RhttpUnknownError(detail)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustls::pki_types::CertificateDer;
+    use rustls::sign::{CertifiedKey, SingleCertAndKey};
+    use rustls::{
+        CertRevocationListError, CertificateError, ClientConfig, Error as TlsError, OtherError,
+        RootCertStore, ServerConfig, ServerConnection, SignatureAlgorithm, SignatureScheme,
+    };
+    use std::fmt;
+    use std::io;
+    use std::net::TcpListener;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    #[derive(Debug)]
+    struct WrappedError {
+        label: &'static str,
+        source: Box<dyn Error + Send + Sync>,
+    }
+
+    impl fmt::Display for WrappedError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self.label)
+        }
+    }
+
+    impl Error for WrappedError {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            Some(&*self.source)
+        }
+    }
+
+    #[derive(Debug)]
+    struct OpaqueMessageError(&'static str);
+
+    impl fmt::Display for OpaqueMessageError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+
+    impl Error for OpaqueMessageError {}
+
+    #[derive(Debug)]
+    struct DummySigner(SignatureScheme);
+
+    impl rustls::sign::Signer for DummySigner {
+        fn sign(&self, _message: &[u8]) -> Result<Vec<u8>, TlsError> {
+            Ok(vec![0; 64])
+        }
+
+        fn scheme(&self) -> SignatureScheme {
+            self.0
+        }
+    }
+
+    #[derive(Debug)]
+    struct DummySigningKey;
+
+    impl rustls::sign::SigningKey for DummySigningKey {
+        fn choose_scheme(
+            &self,
+            offered: &[SignatureScheme],
+        ) -> Option<Box<dyn rustls::sign::Signer>> {
+            offered
+                .iter()
+                .copied()
+                .find(|s| {
+                    matches!(
+                        s,
+                        SignatureScheme::ECDSA_NISTP256_SHA256
+                            | SignatureScheme::ECDSA_NISTP384_SHA384
+                    )
+                })
+                .or_else(|| offered.first().copied())
+                .map(|s| Box::new(DummySigner(s)) as Box<dyn rustls::sign::Signer>)
+        }
+
+        fn algorithm(&self) -> SignatureAlgorithm {
+            SignatureAlgorithm::ECDSA
+        }
+    }
+
+    #[test]
+    fn recognizes_rustls_certificate_variants_through_nested_sources() {
+        let cases = [
+            TlsError::InvalidCertificate(CertificateError::UnknownIssuer),
+            TlsError::InvalidCertificate(CertificateError::NotValidForName),
+            TlsError::InvalidCertificate(CertificateError::Expired),
+            TlsError::InvalidCertificate(CertificateError::Revoked),
+            TlsError::InvalidCertificate(CertificateError::InvalidPurpose),
+            TlsError::InvalidCertificate(CertificateError::BadSignature),
+            TlsError::InvalidCertificate(CertificateError::Other(OtherError(Arc::new(
+                OpaqueMessageError("verifier rejected cert"),
+            )))),
+            TlsError::NoCertificatesPresented,
+            TlsError::InvalidCertRevocationList(CertRevocationListError::BadSignature),
+        ];
+
+        for tls_err in cases {
+            let io_wrapped = io::Error::new(io::ErrorKind::InvalidData, tls_err.clone());
+            let outer = WrappedError {
+                label: "tls connect failed",
+                source: Box::new(io_wrapped),
+            };
+            assert!(
+                is_cert_error(&outer),
+                "expected cert error classification for {tls_err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_certificate_errors_and_spoofed_debug_text() {
+        let spoofed_text = WrappedError {
+            label: "custom proxy failure",
+            source: Box::new(io::Error::other(OpaqueMessageError(
+                "InvalidCertificate literal in plain message",
+            ))),
+        };
+        assert!(
+            !is_cert_error(&spoofed_text),
+            "plain non-rustls error text must not trigger cert error classification"
+        );
+
+        let non_cert_tls_errors = [
+            TlsError::DecryptError,
+            TlsError::InappropriateHandshakeMessage {
+                expect_types: vec![],
+                got_type: rustls::HandshakeType::Finished,
+            },
+            TlsError::InvalidMessage(rustls::InvalidMessage::InvalidContentType),
+        ];
+        for tls_err in non_cert_tls_errors {
+            let io_wrapped = io::Error::new(io::ErrorKind::InvalidData, tls_err.clone());
+            assert!(
+                !is_cert_error(&io_wrapped),
+                "non-certificate rustls error must not match: {tls_err:?}"
+            );
+        }
+
+        let plain_reset = io::Error::new(io::ErrorKind::ConnectionReset, "connection reset");
+        assert!(!is_cert_error(&plain_reset));
+    }
+
+    #[tokio::test]
+    async fn reqwest_tls_untrusted_cert_maps_to_invalid_certificate_error() {
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let public_der = CertificateDer::from(
+            webpki_root_certs::TLS_SERVER_ROOT_CERTS[0]
+                .as_ref()
+                .to_vec(),
+        );
+        let certified_key = CertifiedKey::new(vec![public_der], Arc::new(DummySigningKey));
+        let server_cfg = Arc::new(
+            ServerConfig::builder_with_provider(provider.clone())
+                .with_safe_default_protocol_versions()
+                .expect("default protocol versions")
+                .with_no_client_auth()
+                .with_cert_resolver(Arc::new(SingleCertAndKey::from(certified_key))),
+        );
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
+        let addr = listener.local_addr().expect("local addr");
+        let server_handle = std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                if let Ok(mut conn) = ServerConnection::new(server_cfg) {
+                    let _ = conn.complete_io(&mut stream);
+                }
+            }
+        });
+
+        let client_tls = ClientConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .expect("client protocol versions")
+            .with_root_certificates(RootCertStore::empty())
+            .with_no_client_auth();
+        let client = reqwest::Client::builder()
+            .tls_backend_preconfigured(client_tls)
+            .timeout(Duration::from_secs(5))
+            .build()
+            .expect("build reqwest client");
+
+        let err = client
+            .get(format!("https://{addr}/"))
+            .send()
+            .await
+            .expect_err("untrusted loopback TLS server must fail handshake");
+        let _ = server_handle.join();
+
+        assert!(
+            matches!(
+                map_reqwest_error(&err),
+                RhttpError::RhttpInvalidCertificateError(_)
+            ),
+            "expected RhttpInvalidCertificateError, got {:?}",
+            map_reqwest_error(&err)
+        );
+    }
+
+    #[tokio::test]
+    async fn reqwest_tcp_connection_refused_maps_to_connection_error() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
+        let addr = listener.local_addr().expect("local addr");
+        drop(listener);
+
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .expect("build reqwest client");
+
+        let err = client
+            .get(format!("http://{addr}/"))
+            .send()
+            .await
+            .expect_err("closed loopback port must fail to connect");
+
+        assert!(
+            matches!(map_reqwest_error(&err), RhttpError::RhttpConnectionError(_)),
+            "expected RhttpConnectionError, got {:?}",
+            map_reqwest_error(&err)
+        );
+    }
 }
