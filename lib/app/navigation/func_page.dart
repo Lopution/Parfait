@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransition;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart' show Theme;
 
@@ -11,10 +12,16 @@ import '../motion/page_transitions.dart';
 import 'frozen_while_hidden.dart';
 import 'route_animation.dart';
 
-/// The app's standard route page: it slides in from the trailing edge over
-/// a darkened, parallaxed page below ([CupertinoPageTransition]) on every
-/// platform. Back, the button or the system gesture, pops it as one plain
-/// pop; nothing follows the finger.
+/// The app's standard route page, adapted per platform:
+///
+/// * **Android:** slides in from the trailing edge over a darkened, parallaxed
+///   page below ([CupertinoPageTransition]) with [TurnCurve]; system back never
+///   drives an in-app partial drag.
+/// * **iOS:** same [CupertinoPageTransition], plus an interactive left-edge
+///   (24dp zone) swipe-back gesture gated to the active visible route when
+///   `canPop` holds (`PopScope` dirty-form protection still blocks it).
+/// * **Desktop (Windows / macOS / Linux):** lightweight fade + subtle
+///   horizontal slide (`MotionTokens.desktopPageTransition`).
 ///
 /// A [sharedElement] page (one opened with a Hero from the page below)
 /// does not move while its Hero flies, the way shared-element transitions
@@ -98,6 +105,24 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     curve: Curves.linearToEaseOut,
     reverseCurve: Curves.easeInToLinear,
   );
+  late final Animation<double> _desktopMotion = TurnCurve.drive(
+    animation!,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  late final Animation<double> _linearSlideIn = _GestureLinearAnimation(
+    parent: animation!,
+    curved: _slideIn,
+    isDragging: () => _popGestureInProgress,
+  );
+  late final Animation<double> _linearSlideAside = _GestureLinearAnimation(
+    parent: secondaryAnimation!,
+    curved: _slideAside,
+    isDragging: () => _popGestureInProgress,
+  );
+
+  _IosBackGestureController<T>? _activePopGesture;
+  bool get _popGestureInProgress => _activePopGesture != null;
 
   // A shared-element page's layers show over their part of an opening and
   // hide over their part of a leave, both of the route value, which runs
@@ -177,6 +202,8 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   @override
   bool get barrierDismissible => _page.barrierDismissible;
 
+  AnimationController? get _routeController => controller;
+
   /// The slide darkens the page below like `CupertinoPageRoute`; a
   /// shared-element page leaves the page below as it is.
   @override
@@ -234,38 +261,90 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     final shared = _page.sharedElement;
     final still = underSharedElement(this);
     final secondary = still ? kAlwaysDismissedAnimation : secondaryAnimation;
+    final platform = Theme.of(context).platform;
+    final isDesktop = switch (platform) {
+      TargetPlatform.windows ||
+      TargetPlatform.macOS ||
+      TargetPlatform.linux => true,
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.fuchsia => false,
+    };
+
+    if (isDesktop) {
+      if (shared) {
+        return FuncTransitionGuard(
+          animation: animation,
+          secondaryAnimation: secondary,
+          transition: (child) => IgnorePointer(
+            ignoring:
+                animation.status == AnimationStatus.reverse ||
+                _contentFade.value < 1,
+            child: _sharedElementStage(context, child),
+          ),
+          child: child,
+        );
+      }
+      final rtl = Directionality.maybeOf(context) == TextDirection.rtl;
+      final begin = rtl ? const Offset(-0.04, 0) : const Offset(0.04, 0);
+      return FuncTransitionGuard(
+        animation: animation,
+        secondaryAnimation: secondary,
+        transition: (child) => IgnorePointer(
+          ignoring: animation.status == AnimationStatus.reverse,
+          child: FadeTransition(
+            opacity: _desktopMotion,
+            child: SlideTransition(
+              position: _desktopMotion.drive(
+                Tween<Offset>(begin: begin, end: Offset.zero),
+              ),
+              child: child,
+            ),
+          ),
+        ),
+        child: child,
+      );
+    }
+
+    final isIos = platform == TargetPlatform.iOS;
     return FuncTransitionGuard(
       animation: animation,
       secondaryAnimation: secondary,
-      transition: (child) => IgnorePointer(
-        // Leaving, nothing of the page takes a touch, so the page below
-        // answers at once: while the image flies home, and where the
-        // sliding page still is. Opening, a shared-element page takes
-        // none until its content has shown: a second tap on the card
-        // opened the viewer from content still faded out. The route's
-        // barrier takes that tap, so the card below gets none either.
-        ignoring:
-            animation.status == AnimationStatus.reverse ||
-            shared && _contentFade.value < 1,
-        // The transition widget, not CupertinoPageTransitionsBuilder: the
-        // builder adds an iOS edge-swipe back detector that would take
-        // horizontal drags from in-page pagers.
-        child: CupertinoPageTransition(
-          primaryRouteAnimation: shared ? kAlwaysCompleteAnimation : _slideIn,
-          secondaryRouteAnimation: still
-              ? kAlwaysDismissedAnimation
-              : _slideAside,
-          linearTransition: true,
-          child: shared ? _sharedElementStage(context, child) : child,
-        ),
-      ),
+      transition: (child) {
+        final content = shared ? _sharedElementStage(context, child) : child;
+        final stage = isIos
+            ? _IosEdgeBackDetector<T>(route: this, child: content)
+            : content;
+        return IgnorePointer(
+          // Leaving, nothing of the page takes a touch, so the page below
+          // answers at once: while the image flies home, and where the
+          // sliding page still is. Opening, a shared-element page takes
+          // none until its content has shown.
+          ignoring:
+              animation.status == AnimationStatus.reverse ||
+              shared && !_popGestureInProgress && _contentFade.value < 1,
+          // On iOS we attach our own 24dp edge-back detector inside
+          // CupertinoPageTransition (instead of CupertinoPageTransitionsBuilder)
+          // so horizontal drags inside DetailImagePager/PageView stay intact.
+          child: CupertinoPageTransition(
+            primaryRouteAnimation: shared && !_popGestureInProgress
+                ? kAlwaysCompleteAnimation
+                : (isIos ? _linearSlideIn : _slideIn),
+            secondaryRouteAnimation: still
+                ? kAlwaysDismissedAnimation
+                : (isIos ? _linearSlideAside : _slideAside),
+            linearTransition: true,
+            child: stage,
+          ),
+        );
+      },
       child: child,
     );
   }
 
   Widget _sharedElementStage(BuildContext context, Widget child) {
     final content = FadeTransition(
-      opacity: _contentFade,
+      opacity: _popGestureInProgress ? kAlwaysCompleteAnimation : _contentFade,
       child: HeroLiftHole(animation: controller!, child: child),
     );
     if (!_backdrop) return content;
@@ -274,7 +353,9 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       children: [
         Positioned.fill(
           child: FadeTransition(
-            opacity: _backdropFade,
+            opacity: _popGestureInProgress
+                ? kAlwaysCompleteAnimation
+                : _backdropFade,
             child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
           ),
         ),
@@ -287,6 +368,279 @@ class _FuncPageRoute<T> extends PageRoute<T> {
         content,
       ],
     );
+  }
+}
+
+/// Switches between the curved route animation and linear 1:1 tracking while
+/// an interactive iOS edge swipe-back is active.
+class _GestureLinearAnimation extends Animation<double>
+    with AnimationWithParentMixin<double> {
+  _GestureLinearAnimation({
+    required this.parent,
+    required this.curved,
+    required this.isDragging,
+  });
+
+  @override
+  final Animation<double> parent;
+  final Animation<double> curved;
+  final ValueGetter<bool> isDragging;
+
+  @override
+  double get value => isDragging() ? parent.value : curved.value;
+}
+
+const double _kIosBackEdgeWidth = 24.0;
+const double _kMinFlingVelocity = 1.0;
+
+class _IosEdgeBackDetector<T> extends StatefulWidget {
+  const _IosEdgeBackDetector({required this.route, required this.child});
+
+  final _FuncPageRoute<T> route;
+  final Widget child;
+
+  @override
+  State<_IosEdgeBackDetector<T>> createState() =>
+      _IosEdgeBackDetectorState<T>();
+}
+
+class _IosEdgeBackDetectorState<T> extends State<_IosEdgeBackDetector<T>> {
+  _IosBackGestureController<T>? _backGestureController;
+  late final _InwardHorizontalDragGestureRecognizer _recognizer =
+      _InwardHorizontalDragGestureRecognizer(debugOwner: this)
+        ..onStart = _handleDragStart
+        ..onUpdate = _handleDragUpdate
+        ..onEnd = _handleDragEnd
+        ..onCancel = _handleDragCancel;
+
+  bool get _enabled {
+    final route = widget.route;
+    if (Theme.of(context).platform != TargetPlatform.iOS) return false;
+    if (route.fullscreenDialog || !route.isCurrent) return false;
+    if (!route.popGestureEnabled) return false;
+    if (!TickerMode.getValuesNotifier(context).value.enabled) return false;
+    if (route.navigator?.userGestureInProgress ?? true) return false;
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _recognizer.dispose();
+    if (_backGestureController case final active?) {
+      widget.route._activePopGesture = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (active.navigator.mounted) {
+          active.navigator.didStopUserGesture();
+        }
+      });
+      _backGestureController = null;
+    }
+    super.dispose();
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (!_enabled) return;
+    _recognizer.inwardSign = Directionality.of(context) == TextDirection.rtl
+        ? -1.0
+        : 1.0;
+    _recognizer.addPointer(event);
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    if (!_enabled) return;
+    final route = widget.route;
+    final navigator = route.navigator;
+    final controller = route._routeController;
+    if (navigator == null || controller == null) return;
+    final gestureController = _IosBackGestureController<T>(
+      navigator: navigator,
+      controller: controller,
+      getIsCurrent: () => route.isCurrent,
+      getIsActive: () => route.isActive,
+      dropDuration: MotionTokens.resolve(context, MotionTokens.chrome),
+      onFinished: () {
+        if (identical(route._activePopGesture, _backGestureController)) {
+          route._activePopGesture = null;
+        }
+      },
+    );
+    _backGestureController = gestureController;
+    route._activePopGesture = gestureController;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    final active = _backGestureController;
+    final width = context.size?.width ?? 0;
+    if (active == null || width <= 0) return;
+    active.dragUpdate(_convertToLogical(details.primaryDelta! / width));
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    final active = _backGestureController;
+    final width = context.size?.width ?? 0;
+    if (active == null) return;
+    final velocity = width > 0
+        ? _convertToLogical(details.velocity.pixelsPerSecond.dx / width)
+        : 0.0;
+    _backGestureController = null;
+    active.dragEnd(velocity);
+  }
+
+  void _handleDragCancel() {
+    final active = _backGestureController;
+    if (active == null) return;
+    _backGestureController = null;
+    active.dragEnd(0.0);
+  }
+
+  double _convertToLogical(double value) =>
+      switch (Directionality.of(context)) {
+        TextDirection.rtl => -value,
+        TextDirection.ltr => value,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final padding = MediaQuery.paddingOf(context);
+    final edgePadding = switch (Directionality.of(context)) {
+      TextDirection.rtl => padding.right,
+      TextDirection.ltr => padding.left,
+    };
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        widget.child,
+        PositionedDirectional(
+          start: 0,
+          width: math.max(edgePadding, _kIosBackEdgeWidth),
+          top: 0,
+          bottom: 0,
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: _handlePointerDown,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Only competes for drags moving inward from the screen's leading edge, so
+/// an outward swipe inside a pager at the edge stays with the pager.
+class _InwardHorizontalDragGestureRecognizer
+    extends HorizontalDragGestureRecognizer {
+  _InwardHorizontalDragGestureRecognizer({super.debugOwner});
+
+  double inwardSign = 1.0;
+  double? _startX;
+  bool _decided = false;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _startX = event.position.dx;
+    _decided = false;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (!_decided && _startX != null && event is PointerMoveEvent) {
+      final dx = (event.position.dx - _startX!) * inwardSign;
+      final slop = gestureSettings?.touchSlop ?? kTouchSlop;
+      if (dx < -slop * 0.5) {
+        _decided = true;
+        resolve(GestureDisposition.rejected);
+        return;
+      }
+      if (dx > slop) {
+        _decided = true;
+      }
+    }
+    super.handleEvent(event);
+  }
+}
+
+class _IosBackGestureController<T> {
+  _IosBackGestureController({
+    required this.navigator,
+    required this.controller,
+    required this.getIsActive,
+    required this.getIsCurrent,
+    required this.dropDuration,
+    required this.onFinished,
+  }) {
+    navigator.didStartUserGesture();
+  }
+
+  final AnimationController controller;
+  final NavigatorState navigator;
+  final ValueGetter<bool> getIsActive;
+  final ValueGetter<bool> getIsCurrent;
+  final Duration dropDuration;
+  final VoidCallback onFinished;
+
+  void dragUpdate(double delta) {
+    controller.value -= delta;
+  }
+
+  void dragEnd(double velocity) {
+    const animationCurve = Curves.fastEaseInToSlowEaseOut;
+    final isCurrent = getIsCurrent();
+    final bool animateForward;
+    if (!isCurrent) {
+      animateForward = getIsActive();
+    } else if (velocity.abs() >= _kMinFlingVelocity) {
+      animateForward = velocity <= 0;
+    } else {
+      animateForward = controller.value > 0.5;
+    }
+
+    if (animateForward) {
+      if (dropDuration == Duration.zero) {
+        controller.value = 1.0;
+      } else {
+        controller.animateTo(
+          1.0,
+          duration: dropDuration,
+          curve: animationCurve,
+        );
+      }
+    } else {
+      if (isCurrent) {
+        navigator.pop();
+      }
+      if (controller.isAnimating) {
+        if (dropDuration == Duration.zero) {
+          controller.value = 0.0;
+        } else {
+          controller.animateBack(
+            0.0,
+            duration: dropDuration,
+            curve: animationCurve,
+          );
+        }
+      }
+    }
+
+    if (controller.isAnimating) {
+      late AnimationStatusListener statusCallback;
+      statusCallback = (AnimationStatus status) {
+        if (status == AnimationStatus.completed ||
+            status == AnimationStatus.dismissed) {
+          onFinished();
+          if (navigator.mounted) {
+            navigator.didStopUserGesture();
+          }
+          controller.removeStatusListener(statusCallback);
+        }
+      };
+      controller.addStatusListener(statusCallback);
+    } else {
+      onFinished();
+      if (navigator.mounted) {
+        navigator.didStopUserGesture();
+      }
+    }
   }
 }
 

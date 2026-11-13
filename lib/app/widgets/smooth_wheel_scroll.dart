@@ -1,15 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/platform/platform_caps.dart';
 import '../motion/motion_tokens.dart';
 
-/// Turns mouse-wheel ticks into an animated scroll instead of the default
-/// fixed-step jump (desktop UX: wheels without tick detents and precision
-/// pads both land mid-step). Touch/stylus input is untouched.
+/// Turns discrete mouse-wheel ticks into an animated scroll instead of the
+/// default fixed-step jump while keeping touch drags, Shift+wheel, and
+/// precision trackpad `PointerPanZoom` gestures 100% native.
 ///
 /// Usage:
 /// ```dart
@@ -26,25 +29,21 @@ import '../motion/motion_tokens.dart';
 ///
 /// How it works:
 ///
-/// * `Listener.onPointerSignal` is delivered to *every* Listener on the hit
-///   path, while `Scrollable` only registers its own wheel handler with the
-///   pointer-signal resolver when its physics accepts user offsets. So the
-///   wrapper keeps the scrollable on [NeverScrollableScrollPhysics] while
-///   the mouse is in "wheel mode" — the scrollable never registers, the
-///   ancestor Listener sees every tick, and there is no double-scroll.
-/// * The mouse moving over the scrollable, or a wheel tick, enters wheel
-///   mode; a pointer down drops it so touch, stylus and trackpad drags
-///   scroll normally. It starts off: on a touchscreen there is no hover,
-///   and a scrollable on [NeverScrollableScrollPhysics] has no drag
-///   recognizer, so the first touch would be lost. A tick that arrives
-///   before the wheel physics is built is the scrollable's own jump: its
-///   `pointerScroll` idles the animation started here.
+/// * `_WheelSignalInterceptor` places a [HitTestEntry] before children are
+///   processed during hit-testing and checks whether any inner vertical
+///   [RenderViewportBase] under the pointer can scroll. When no inner vertical
+///   scrollable claims the tick, `SmoothWheelScroll` registers discrete
+///   non-Shift mouse `PointerScrollEvent`s with
+///   [GestureBinding.instance.pointerSignalResolver] ahead of its wrapped
+///   [Scrollable], so `Scrollable`'s instant jump never runs and `basePhysics`
+///   never degrades to `NeverScrollableScrollPhysics`.
 /// * Consecutive ticks accumulate into one target ([_futurePosition]) so a
 ///   fast wheel stays continuous, and the animation duration shrinks as the
-///   target nears a clamped edge.
+///   target nears a clamped edge. Downward wheel ticks while already at the
+///   bottom edge dispatch a `ScrollUpdateNotification` so `LoadMoreListener`
+///   can still request pagination.
 /// * Nested wrapped scrollables coordinate through [_ScrollWheelState]: the
-///   innermost wrapper under the pointer wins, matching how nested
-///   scrollables resolve wheel events natively.
+///   innermost wrapper under the pointer wins.
 ///
 /// On non-desktop platforms the widget is a transparent pass-through.
 class SmoothWheelScroll extends StatefulWidget {
@@ -69,10 +68,8 @@ class SmoothWheelScroll extends StatefulWidget {
 }
 
 class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
-  late final ScrollController _controller =
-      widget.controller ?? ScrollController();
-
-  bool _wheelMode = false;
+  ScrollController? _fallbackController;
+  ScrollController? _activeController;
   double? _futurePosition;
 
   // Nested-wrapper arbitration: a descendant SmoothWheelScroll under the
@@ -85,6 +82,11 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
 
   static const _animationDuration = MotionTokens.wheelScroll;
 
+  ScrollController _resolveController(BuildContext context) =>
+      widget.controller ??
+      PrimaryScrollController.maybeOf(context) ??
+      (_fallbackController ??= ScrollController());
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -92,37 +94,79 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
   }
 
   @override
+  void didUpdateWidget(SmoothWheelScroll oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _futurePosition = null;
+    }
+  }
+
+  @override
   void dispose() {
     _parent?.onChildInactive(_id);
-    if (widget.controller == null) _controller.dispose();
+    _fallbackController?.dispose();
     super.dispose();
   }
 
-  void _onPointerSignal(PointerSignalEvent signal) {
-    if (signal is! PointerScrollEvent) return;
-    if (signal.kind != PointerDeviceKind.mouse) return;
-    if (HardwareKeyboard.instance.isShiftPressed) return;
+  bool _shouldInterceptScroll(PointerScrollEvent signal) {
+    if (signal.kind != PointerDeviceKind.mouse) return false;
+    if (HardwareKeyboard.instance.isShiftPressed) return false;
+    if (signal.scrollDelta.dy == 0) return false;
     // A wrapped descendant scrollable under the pointer owns the tick.
-    if (_activeChildren.isNotEmpty) return;
-    if (!_controller.hasClients) return;
+    if (_activeChildren.isNotEmpty) return false;
+    final controller = _activeController;
+    if (controller == null || !controller.hasClients) return false;
 
-    _enterWheelMode();
+    final position = controller.position;
+    final current = position.pixels;
+    final canMove = signal.scrollDelta.dy > 0
+        ? current < position.maxScrollExtent
+        : current > position.minScrollExtent;
+    if (canMove) return true;
+    // Assist pagination when already sitting at the bottom edge of a root feed.
+    if (signal.scrollDelta.dy > 0 &&
+        current >= position.maxScrollExtent &&
+        context.findAncestorStateOfType<ScrollableState>() == null) {
+      return true;
+    }
+    return false;
+  }
 
-    final position = _controller.position;
+  void _handlePointerScroll(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    final controller = _activeController;
+    if (controller == null || !controller.hasClients) return;
+
+    final position = controller.position;
     final current = position.pixels;
     _futurePosition ??= current;
 
     // Later ticks in the same stream reach progressively further, so a fast
     // wheel does not stall at a fixed per-tick distance.
     final k = (_futurePosition! - current).abs() / 1600 + 1;
-    final raw = _futurePosition! + signal.scrollDelta.dy * k;
+    final raw = _futurePosition! + event.scrollDelta.dy * k;
     final target = raw.clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
     );
     _futurePosition = target;
     final distance = (target - current).abs();
-    if (distance == 0) return;
+    if (distance == 0) {
+      if (event.scrollDelta.dy > 0 && current >= position.maxScrollExtent) {
+        final notifyContext = position.context.notificationContext;
+        if (notifyContext != null && notifyContext.mounted) {
+          ScrollUpdateNotification(
+            metrics: position.copyWith(),
+            context: notifyContext,
+            scrollDelta: 0.0,
+          ).dispatch(notifyContext);
+        }
+      }
+      event.respond(allowPlatformDefault: false);
+      return;
+    }
+
+    event.respond(allowPlatformDefault: false);
 
     // Shrink the animation when the clamped target is closer than the raw
     // accumulator implied, so edge hits feel crisp instead of slow.
@@ -136,59 +180,40 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
     }
 
     unawaited(
-      _controller
+      controller
           .animateTo(target, duration: duration, curve: Curves.linear)
           .then((_) {
             // The accumulator only clears when nothing newer superseded it —
             // otherwise an old animation completing would drop queued ticks.
-            if (_futurePosition == target &&
-                _controller.position.pixels == target) {
+            if (mounted &&
+                _futurePosition == target &&
+                controller.hasClients &&
+                controller.position.pixels == target) {
               _futurePosition = null;
             }
           }),
     );
   }
 
-  void _enterWheelMode() {
-    if (!_wheelMode) setState(() => _wheelMode = true);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final controller = _resolveController(context);
+    _activeController = controller;
+
     // Wheel smoothing is a desktop affordance; on touch platforms this is a
-    // transparent pass-through — including the scrollable's controller:
-    // handing it our private controller would detach it from the
-    // PrimaryScrollController the page relied on before this wrapper
-    // existed.
+    // transparent pass-through while preserving the controller fallback.
     if (!PlatformCaps.system().isDesktop) {
-      return widget.builder(
-        context,
-        widget.controller ??
-            PrimaryScrollController.maybeOf(context) ??
-            _controller,
-        widget.basePhysics,
-      );
+      return widget.builder(context, controller, widget.basePhysics);
     }
 
-    Widget child = Listener(
-      onPointerDown: (_) {
-        _futurePosition = null;
-        if (_wheelMode) setState(() => _wheelMode = false);
-      },
-      onPointerHover: (event) {
-        if (event.kind == PointerDeviceKind.mouse) _enterWheelMode();
-      },
-      onPointerSignal: _onPointerSignal,
+    Widget child = _WheelSignalInterceptor(
+      onPointerDown: () => _futurePosition = null,
+      shouldInterceptScroll: _shouldInterceptScroll,
+      onHandleScroll: _handlePointerScroll,
       child: _ScrollWheelState(
         onChildActive: _activeChildren.add,
         onChildInactive: _activeChildren.remove,
-        child: widget.builder(
-          context,
-          _controller,
-          _wheelMode
-              ? const NeverScrollableScrollPhysics()
-              : widget.basePhysics,
-        ),
+        child: widget.builder(context, controller, widget.basePhysics),
       ),
     );
 
@@ -202,6 +227,256 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
     }
     return child;
   }
+}
+
+class _WheelSignalInterceptor extends SingleChildRenderObjectWidget {
+  const _WheelSignalInterceptor({
+    required this.onPointerDown,
+    required this.shouldInterceptScroll,
+    required this.onHandleScroll,
+    required super.child,
+  });
+
+  final VoidCallback onPointerDown;
+  final bool Function(PointerScrollEvent event) shouldInterceptScroll;
+  final PointerSignalResolvedCallback onHandleScroll;
+
+  @override
+  _RenderWheelSignalInterceptor createRenderObject(BuildContext context) =>
+      _RenderWheelSignalInterceptor(
+        onPointerDown: onPointerDown,
+        shouldInterceptScroll: shouldInterceptScroll,
+        onHandleScroll: onHandleScroll,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderWheelSignalInterceptor renderObject,
+  ) {
+    renderObject
+      ..onPointerDown = onPointerDown
+      ..shouldInterceptScroll = shouldInterceptScroll
+      ..onHandleScroll = onHandleScroll;
+  }
+}
+
+class _WheelHitTestEntry extends BoxHitTestEntry {
+  _WheelHitTestEntry(super.target, super.localPosition);
+
+  bool enabled = true;
+  bool innerVerticalScrollable = false;
+}
+
+class _RenderWheelSignalInterceptor extends RenderProxyBox {
+  _RenderWheelSignalInterceptor({
+    required this.onPointerDown,
+    required this.shouldInterceptScroll,
+    required this.onHandleScroll,
+  });
+
+  VoidCallback onPointerDown;
+  bool Function(PointerScrollEvent event) shouldInterceptScroll;
+  PointerSignalResolvedCallback onHandleScroll;
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position)) return false;
+    final start = result.path.length + 1;
+    final entry = _WheelHitTestEntry(this, position);
+    result.add(entry);
+    final hitChild = hitTestChildren(result, position: position);
+    if (!hitChild) {
+      entry.enabled = false;
+      return false;
+    }
+    entry.innerVerticalScrollable = _hasInnerVerticalScrollable(
+      result.path,
+      start,
+    );
+    return true;
+  }
+
+  static bool _hasInnerVerticalScrollable(
+    Iterable<HitTestEntry> path,
+    int startIndex,
+  ) {
+    final viewports = <RenderAbstractViewport>[];
+    var i = 0;
+    for (final entry in path) {
+      if (i++ >= startIndex && entry.target is RenderAbstractViewport) {
+        viewports.add(entry.target as RenderAbstractViewport);
+      }
+    }
+    if (viewports.length < 2) return false;
+    // The last viewport in deepest->outermost order is our wrapped scrollable;
+    // any earlier vertical scrollable that can actually scroll owns the tick.
+    for (var idx = 0; idx < viewports.length - 1; idx++) {
+      final vp = viewports[idx];
+      if (vp is RenderViewportBase) {
+        final isVertical =
+            vp.axisDirection == AxisDirection.down ||
+            vp.axisDirection == AxisDirection.up;
+        if (!isVertical) continue;
+        final offset = vp.offset;
+        if (offset is ScrollPosition &&
+            offset.hasContentDimensions &&
+            offset.maxScrollExtent <= offset.minScrollExtent) {
+          continue;
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @override
+  void handleEvent(PointerEvent event, HitTestEntry entry) {
+    if (entry is! _WheelHitTestEntry || !entry.enabled) return;
+    if (event is PointerDownEvent) {
+      onPointerDown();
+    } else if (event is PointerScrollEvent &&
+        !entry.innerVerticalScrollable &&
+        shouldInterceptScroll(event)) {
+      GestureBinding.instance.pointerSignalResolver.register(
+        event,
+        onHandleScroll,
+      );
+    }
+  }
+}
+
+/// Retains pointer presence while suppressing hover highlight updates during
+/// active scrolling of any ancestor [Scrollable]. Once scrolling stops, a
+/// pointer resting inside becomes hovered without requiring mouse movement.
+class ScrollAwareHoverRegion extends StatefulWidget {
+  const ScrollAwareHoverRegion({
+    super.key,
+    required this.onHover,
+    required this.child,
+    this.cursor = MouseCursor.defer,
+  });
+
+  final ValueChanged<bool> onHover;
+  final Widget child;
+  final MouseCursor cursor;
+
+  @override
+  State<ScrollAwareHoverRegion> createState() => _ScrollAwareHoverRegionState();
+}
+
+class _ScrollAwareHoverRegionState extends State<ScrollAwareHoverRegion> {
+  final Set<ScrollPosition> _positions = {};
+  ValueListenable<TickerModeData>? _tickerMode;
+  bool _pointerInside = false;
+  bool _hovered = false;
+  bool _checkScheduled = false;
+
+  bool get _active => _tickerMode?.value.enabled ?? true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextTicker = TickerMode.getValuesNotifier(context);
+    if (!identical(nextTicker, _tickerMode)) {
+      _tickerMode?.removeListener(_onTickerChanged);
+      _tickerMode = nextTicker..addListener(_onTickerChanged);
+    }
+    if (_pointerInside) {
+      _syncScrollPositions();
+      _updateHover();
+    }
+  }
+
+  void _onTickerChanged() {
+    if (!_active) {
+      _clearScrollPositions();
+      if (_hovered) {
+        _hovered = false;
+        widget.onHover(false);
+      }
+    } else if (_pointerInside) {
+      _syncScrollPositions();
+      _updateHover();
+    }
+  }
+
+  void _syncScrollPositions() {
+    final positions = <ScrollPosition>{};
+    if (_active && _pointerInside) {
+      context.visitAncestorElements((element) {
+        if (element is StatefulElement && element.state is ScrollableState) {
+          positions.add((element.state as ScrollableState).position);
+        }
+        return true;
+      });
+    }
+    for (final position in _positions.difference(positions)) {
+      position.isScrollingNotifier.removeListener(_updateHover);
+    }
+    for (final position in positions.difference(_positions)) {
+      position.isScrollingNotifier.addListener(_updateHover);
+    }
+    _positions
+      ..clear()
+      ..addAll(positions);
+  }
+
+  void _clearScrollPositions() {
+    for (final position in _positions) {
+      position.isScrollingNotifier.removeListener(_updateHover);
+    }
+    _positions.clear();
+  }
+
+  void _updateHover() {
+    if (!mounted) return;
+    final hovered =
+        _pointerInside &&
+        _active &&
+        !_positions.any((position) => position.isScrollingNotifier.value);
+    if (hovered == _hovered) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      if (_checkScheduled) return;
+      _checkScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkScheduled = false;
+        if (mounted) _updateHover();
+      });
+      return;
+    }
+    _hovered = hovered;
+    widget.onHover(hovered);
+  }
+
+  void _setPointerInside(bool inside) {
+    if (_pointerInside == inside) return;
+    _pointerInside = inside;
+    _syncScrollPositions();
+    _updateHover();
+  }
+
+  @override
+  void deactivate() {
+    _clearScrollPositions();
+    super.deactivate();
+  }
+
+  @override
+  void dispose() {
+    _tickerMode?.removeListener(_onTickerChanged);
+    _clearScrollPositions();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: widget.cursor,
+    onEnter: (_) => _setPointerInside(true),
+    onExit: (_) => _setPointerInside(false),
+    child: widget.child,
+  );
 }
 
 /// Registers descendant [SmoothWheelScroll]s that currently sit under the

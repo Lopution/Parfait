@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -227,4 +228,105 @@ void main() {
       expect(controller.page, 1);
     });
   }
+
+  testWidgets(
+    'iOS restores bouncing momentum carry and 3.5px drag threshold',
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        localizedApp(
+          scrollBehavior: const FuncScrollBehavior(),
+          body: PullToRefresh(
+            onRefresh: () async {},
+            child: ListView.builder(
+              controller: controller,
+              itemCount: 100,
+              itemBuilder: (_, index) =>
+                  SizedBox(height: 80, child: Text('$index')),
+            ),
+          ),
+        ),
+      );
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      expect(position.physics.dragStartDistanceMotionThreshold, 3.5);
+
+      controller.jumpTo(800);
+      final drag = await tester.startGesture(const Offset(200, 300));
+      await drag.moveBy(const Offset(0, -(kTouchSlop + 1)));
+      await tester.pump();
+      expect(controller.offset, lessThan(800 + kTouchSlop + 1));
+      await drag.up();
+      await tester.pumpAndSettle();
+
+      controller.jumpTo(0);
+      Future<double> flick() async {
+        await tester.flingFrom(
+          const Offset(200, 400),
+          const Offset(0, -150),
+          2000,
+        );
+        await tester.pump();
+        final from = controller.offset;
+        await tester.pump(const Duration(milliseconds: 16));
+        return (controller.offset - from) / 0.016;
+      }
+
+      final alone = await flick();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(position.isScrollingNotifier.value, isTrue);
+      expect(await flick(), greaterThan(alone * 1.1));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'desktop removes mouse drag and splits Windows/Linux clamping from macOS bouncing',
+    variant: const TargetPlatformVariant({
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+      TargetPlatform.macOS,
+    }),
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        localizedApp(
+          scrollBehavior: const FuncScrollBehavior(),
+          body: ListView.builder(
+            controller: controller,
+            itemCount: 60,
+            itemBuilder: (_, index) =>
+                SizedBox(height: 80, child: Text('$index')),
+          ),
+        ),
+      );
+      final listElement = tester.element(find.byType(ListView));
+      final dragDevices = ScrollConfiguration.of(listElement).dragDevices;
+      expect(dragDevices, isNot(contains(PointerDeviceKind.mouse)));
+      expect(dragDevices, contains(PointerDeviceKind.touch));
+
+      await tester.drag(
+        find.byType(ListView),
+        const Offset(0, -160),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      expect(controller.offset, 0);
+
+      final overscrollDrag = await tester.startGesture(const Offset(200, 300));
+      await overscrollDrag.moveBy(const Offset(0, 120));
+      await tester.pump();
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
+        expect(controller.offset, lessThan(0));
+      } else {
+        expect(controller.offset, 0);
+      }
+      await overscrollDrag.up();
+      await tester.pumpAndSettle();
+    },
+  );
 }

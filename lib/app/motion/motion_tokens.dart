@@ -14,6 +14,9 @@ abstract final class MotionTokens {
   /// The page slide (`CupertinoPageRoute`'s duration), both ways.
   static const pageTransition = Duration(milliseconds: 500);
 
+  /// Lightweight desktop page transition (fade + subtle horizontal slide).
+  static const desktopPageTransition = Duration(milliseconds: 150);
+
   /// The viewer's slide away when a drag dismisses it.
   static const pageCurve = Curves.easeInOutCubic;
 

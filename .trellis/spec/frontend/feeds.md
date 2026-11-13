@@ -274,34 +274,33 @@ reviewed: 2026-10-31
 
 ## Scroll physics
 
-### FEED-11 One bouncing physics everywhere; flings stop at the edge
-- **Rule:** `FuncScrollBehavior` gives every page the feed's bouncing
-  physics with no overscroll glow; do not add a `ClampingScrollPhysics`
-  region. A fling stops at either edge; only a drag overscrolls.
-  `PullToRefresh` passes `notLoadFooter: NotLoadFooter(hitOver: false)`.
-  The scrollable inside a text control (`EditableText`) is not always
-  scrollable: every scroll behavior the app installs returns
-  `textScrollPhysics` for it first. Both the app's and the feed's physics
-  sit under `AndroidDragPhysics`: a list follows the finger from the
-  move that crosses the slop, and a fling started while it coasts gets
-  no carried momentum.
-- **Why:** Mixed physics felt different per page; a fling into the end of
-  a feed sprang back while the next page loaded, because EasyRefresh
-  copies `ClassicFooter`'s `hitOver: true` without `onLoad`. A text
-  control's scrollable takes the nearest behavior's physics; always
-  scrollable, a one-line selectable title followed the finger instead of
-  the page, and came back after LAYOUT-11 fixed two pages only. Bouncing
-  physics bring iOS's 3.5px start threshold: past the slop a slow drag
-  stuck before the list moved, which Android lists never do. Android's
-  clamping physics, an `OverScroller` fling with Android 12's stretch at
-  both ends, were tried on device and dropped: the user kept the bounce
-  past an end and the iOS fling (user decision 10-24). Bouncing physics
-  also add to a fling the square of the speed the list still coasts at,
-  more than that speed above about 1560 px/s and past the fling cap: a
-  few small flicks in a row shot the list off (11-05). Android's
-  RecyclerView and Compose lists, and PiliPlus and freepiv on Android,
-  carry nothing; the user dropped the carry and kept the rest (11-05).
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop" "a flick while the list coasts starts at its own speed", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
+### FEED-11 Per-platform scroll physics and drag devices; flings stop at the edge
+- **Rule:** `FuncScrollBehavior` and `PullToRefresh` configure drag devices and
+  scroll physics per platform while keeping `textScrollPhysics` first inside
+  `EditableText` controls so non-scrolling text never steals a page scroll:
+  - **Android:** `AndroidDragPhysics` over `FuncScrollPhysics` (bouncing
+    overscroll, edge-stop flings, zero drag dead zone, zero carried momentum)
+    and mouse drag enabled in `dragDevices` (with `mouseScrollbar`).
+  - **iOS:** `FuncScrollPhysics` directly (without `AndroidDragPhysics` or
+    scroll-behavior clamping), restoring native `BouncingScrollPhysics`
+    momentum carry and the 3.5px drag start threshold while flings stop at
+    ends.
+  - **Desktop (Windows / macOS / Linux):** `PointerDeviceKind.mouse` is
+    removed from global `dragDevices` (`platformDragDevices`) so mouse pointer
+    drags select text instead of scrolling lists; Windows and Linux use
+    `ClampingScrollPhysics` for lists (`FuncScrollBehavior`) with platform
+    scrollbars, and macOS uses bouncing physics (`FuncScrollPhysics`) with the
+    platform scrollbar.
+  - `PullToRefresh` keeps `notLoadFooter: NotLoadFooter(hitOver: false)` and
+    per-platform `_FeedScrollBehavior` wrapping.
+- **Why:** Android lists (RecyclerView / Compose) follow fingers immediately
+  past slop and never compound coasting flick velocities, while iOS users
+  expect native bouncing carry and threshold feel. Removing `mouse` from
+  desktop `dragDevices` allows `SelectionArea` / text selection to work instead
+  of pulling scrollables; Windows/Linux clamp edges natively while macOS
+  bounces. Keeping edge-stop flings and `hitOver: false` prevents feed tails
+  from bouncing back while next pages append.
+- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop" "a flick while the list coasts starts at its own speed" "iOS restores bouncing momentum carry and 3.5px drag threshold" "desktop removes mouse drag and splits Windows/Linux clamping from macOS bouncing", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab

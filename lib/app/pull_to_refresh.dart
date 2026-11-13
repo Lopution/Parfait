@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'haptics/app_haptics.dart';
@@ -38,11 +39,42 @@ class PullToRefresh extends StatefulWidget {
 
   /// Shows the indicator and refreshes the list [controller] scrolls, as a
   /// release past the trigger would — the bottom-bar re-tap on a list
-  /// already at the top (HCI 10). False when no mounted [PullToRefresh]
-  /// was given [controller].
+  /// already at the top (HCI 10). Checks explicit [scrollController]
+  /// registrations first, then active visible wrappers attached to a matching
+  /// [PrimaryScrollController]. False when no matching [PullToRefresh] is
+  /// mounted.
   static bool trigger(ScrollController controller) {
-    final state = _mounted[controller];
-    if (state == null) return false;
+    final explicit = _mounted[controller];
+    if (explicit != null && explicit.mounted) {
+      return _triggerState(explicit);
+    }
+    for (final state in _instances) {
+      if (state.mounted &&
+          state._effectiveController == controller &&
+          state._isActiveAndVisible()) {
+        return _triggerState(state);
+      }
+    }
+    return false;
+  }
+
+  /// Refreshes the currently active, visible [PullToRefresh], preferring
+  /// [focusContext]'s [PrimaryScrollController] when present. False when no
+  /// visible [PullToRefresh] is mounted.
+  static bool triggerActive([BuildContext? focusContext]) {
+    if (focusContext != null && focusContext.mounted) {
+      final primary = PrimaryScrollController.maybeOf(focusContext);
+      if (primary != null && trigger(primary)) return true;
+    }
+    for (final state in _instances) {
+      if (state.mounted && state._isActiveAndVisible()) {
+        return _triggerState(state);
+      }
+    }
+    return false;
+  }
+
+  static bool _triggerState(_PullToRefreshState state) {
     final duration = MotionTokens.resolve(state.context, MotionTokens.chrome);
     unawaited(
       state._controller.callRefresh(
@@ -61,8 +93,12 @@ class PullToRefresh extends StatefulWidget {
   /// the way an ordinary feed's list follows the finger.
   static const nestedHeader = HeaderLocator.sliver(clearExtent: false);
 
-  /// Mounted wrappers by the controller of the list they wrap.
+  /// Mounted wrappers by the explicit controller of the list they wrap.
   static final _mounted = Expando<_PullToRefreshState>();
+
+  /// All currently mounted wrappers, used to resolve visible feeds relying on
+  /// [PrimaryScrollController] or triggered via keyboard refresh.
+  static final _instances = <_PullToRefreshState>{};
 
   /// Mounted nested wrappers by their NestedScrollView's outer scrollable.
   static final _nestedByOuter = Expando<Set<_PullToRefreshState>>();
@@ -81,16 +117,24 @@ const _heldOpenModes = {IndicatorMode.processing, IndicatorMode.processed};
 class _PullToRefreshState extends State<PullToRefresh> {
   final _controller = EasyRefreshController();
   ScrollableState? _outer;
+  ScrollController? _primaryController;
+
+  ScrollController? get _effectiveController =>
+      widget.scrollController ?? _primaryController;
 
   @override
   void initState() {
     super.initState();
+    PullToRefresh._instances.add(this);
     _register(widget.scrollController);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _primaryController = widget.scrollController == null
+        ? PrimaryScrollController.maybeOf(context)
+        : null;
     _syncOuter();
   }
 
@@ -100,16 +144,32 @@ class _PullToRefreshState extends State<PullToRefresh> {
     if (oldWidget.scrollController != widget.scrollController) {
       _unregister(oldWidget.scrollController);
       _register(widget.scrollController);
+      _primaryController = widget.scrollController == null
+          ? PrimaryScrollController.maybeOf(context)
+          : null;
     }
     if (oldWidget.isNested != widget.isNested) _syncOuter();
   }
 
   @override
   void dispose() {
+    PullToRefresh._instances.remove(this);
     _unregister(widget.scrollController);
     _leaveOuter();
     _controller.dispose();
     super.dispose();
+  }
+
+  bool _isActiveAndVisible() {
+    if (!TickerMode.getValuesNotifier(context).value.enabled) return false;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+    final ro = context.findRenderObject();
+    if (ro is! RenderBox || !ro.hasSize || ro.size.isEmpty) return false;
+    final view = View.maybeOf(context);
+    if (view == null) return true;
+    final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+    return (ro.localToGlobal(Offset.zero) & ro.size).overlaps(screen);
   }
 
   /// Whether the user is dragging this nested feed's refresh header out, as
@@ -282,24 +342,29 @@ ScrollBehavior _nestedScrollBehavior(ScrollPhysics? physics) =>
       physics == null ? null : _AppFlingPhysics(parent: physics),
     );
 
-/// EasyRefresh's scroll behavior with the app's mouse scrollbar: its own
-/// shows one on desktop only, so feeds on a tablet with a mouse had none.
+/// EasyRefresh's scroll behavior with per-platform drag devices, physics, and
+/// mouse scrollbar: its own shows one on desktop only, so feeds on a tablet with
+/// a mouse had none.
 class _FeedScrollBehavior extends ERScrollBehavior {
-  _FeedScrollBehavior(ScrollPhysics? physics)
-    : super(
-        physics == null
-            ? const ScrollPhysics()
-            // Its _ERScrollPhysics is bouncing too. The refresh, edge and
-            // fling behaviour stay EasyRefresh's: it finds its own physics
-            // by walking the parent chain.
-            : AndroidDragPhysics(parent: physics),
-      );
+  const _FeedScrollBehavior([this._feedPhysics])
+    : super(_feedPhysics ?? const ScrollPhysics());
+
+  final ScrollPhysics? _feedPhysics;
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => platformDragDevices();
 
   /// A text control in the feed keeps the app's text physics instead of
   /// the refresh physics, which would let it drag (and arm the header).
   @override
-  ScrollPhysics getScrollPhysics(BuildContext context) =>
-      textScrollPhysics(context) ?? super.getScrollPhysics(context);
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    if (textScrollPhysics(context) case final text?) return text;
+    if (_feedPhysics == null) return const ScrollPhysics();
+    return switch (getPlatform(context)) {
+      TargetPlatform.iOS || TargetPlatform.macOS => _feedPhysics,
+      _ => AndroidDragPhysics(parent: _feedPhysics),
+    };
+  }
 
   /// No edge effect, as EasyRefresh's own; the feed holds semantics while
   /// it scrolls, as every app scrollable does.

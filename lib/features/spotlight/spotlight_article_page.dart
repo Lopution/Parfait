@@ -18,6 +18,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/author_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/network/http_client_providers.dart';
 import '../../core/network/api_error.dart';
 import '../../core/share/share_service.dart';
@@ -141,38 +142,42 @@ class SpotlightArticlePage extends ConsumerWidget {
           // so no paragraph owns a Scrollable the app-wide bouncing physics
           // could leak into, and a selection can span paragraphs.
           child: SelectionArea(
-            child: ListView(
-              key: PageStorageKey('spotlight-article-$articleId'),
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.lg,
-                FuncSpacing.sm,
-                FuncSpacing.lg,
-                FuncSpacing.xxl,
+            child: SmoothWheelScroll(
+              builder: (context, controller, physics) => ListView(
+                key: PageStorageKey('spotlight-article-$articleId'),
+                controller: controller,
+                physics: physics,
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.lg,
+                  FuncSpacing.sm,
+                  FuncSpacing.lg,
+                  FuncSpacing.xxl,
+                ),
+                children: [
+                  if (body.title.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
+                      child: Text(
+                        body.title,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                  if (body.description != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: FuncSpacing.md),
+                      child: Text(
+                        body.description!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  for (final block in body.blocks)
+                    _SpotlightBlockView(
+                      block: block,
+                      coverUrl: coverUrl,
+                      coverMaxHeight: coverMaxHeight,
+                    ),
+                ],
               ),
-              children: [
-                if (body.title.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
-                    child: Text(
-                      body.title,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ),
-                if (body.description != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: FuncSpacing.md),
-                    child: Text(
-                      body.description!,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                for (final block in body.blocks)
-                  _SpotlightBlockView(
-                    block: block,
-                    coverUrl: coverUrl,
-                    coverMaxHeight: coverMaxHeight,
-                  ),
-              ],
             ),
           ),
         ),
