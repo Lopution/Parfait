@@ -288,11 +288,24 @@ class _ControlledSauceNaoWebViewState
 
   @override
   Widget build(BuildContext context) {
+    final result = widget.webView;
+    if (!widget.caps.supportsInAppWebView) {
+      final externalUri =
+          result.resultUrl ??
+          Uri.parse(
+            widget.spec.resultBaseUrl ??
+                SauceNaoWebViewProvider.defaultEndpoint,
+          );
+      return _ExternalWebFallback(
+        message: context.l10n.searchReverseDone,
+        buttonLabel: context.l10n.openInBrowser,
+        onOpen: () => widget.onOpenExternal(externalUri),
+      );
+    }
     final error = _error;
     if (error != null) {
       return _webViewErrorBody(context, error);
     }
-    final result = widget.webView;
     return Stack(
       children: [
         InAppWebView(
@@ -336,11 +349,13 @@ class _ControlledSauceNaoWebViewState
 /// the page's own picker.
 class _UploadInAppWebView extends StatefulWidget {
   const _UploadInAppWebView({
+    required this.caps,
     required this.upload,
     required this.policy,
     required this.onOpenExternal,
   });
 
+  final PlatformCaps caps;
   final ReverseImageSearchWebUpload upload;
   final ReverseImageNavigationPolicy policy;
   final Future<void> Function(Uri uri) onOpenExternal;
@@ -365,6 +380,13 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.caps.supportsInAppWebView) {
+      return _ExternalWebFallback(
+        message: context.l10n.searchReverseUploadPickHint,
+        buttonLabel: context.l10n.searchReverseOpenInBrowser,
+        onOpen: () => widget.onOpenExternal(widget.upload.uploadPageUrl),
+      );
+    }
     final error = _error;
     if (error != null) {
       return _webViewErrorBody(context, error);
@@ -428,6 +450,43 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Fallback body shown when the platform has no embedded WebView (Linux),
+/// directing the user to complete or view the engine step in the system browser.
+class _ExternalWebFallback extends StatelessWidget {
+  const _ExternalWebFallback({
+    required this.message,
+    required this.buttonLabel,
+    required this.onOpen,
+  });
+
+  final String message;
+  final String buttonLabel;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(FuncSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.open_in_browser_outlined, size: 56),
+            const SizedBox(height: FuncSpacing.md),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: FuncSpacing.lg),
+            FilledButton.icon(
+              onPressed: onOpen,
+              icon: const Icon(Icons.open_in_browser_outlined),
+              label: Text(buttonLabel),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

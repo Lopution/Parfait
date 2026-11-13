@@ -89,6 +89,26 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginFailed => 'Не удалось войти';
 
   @override
+  String get loginExternalTitle => 'Завершите вход в браузере';
+
+  @override
+  String get loginExternalDescription =>
+      'Завершите вход в системном браузере, затем вставьте ниже ссылку перенаправления pixiv:// или код авторизации.';
+
+  @override
+  String get loginCallbackHint =>
+      'pixiv://account/login?code=… или код авторизации';
+
+  @override
+  String get loginPasteCallback => 'Вставить callback или код';
+
+  @override
+  String get loginCompleteButton => 'Завершить вход';
+
+  @override
+  String get loginBrowserLaunchFailed => 'Не удалось открыть системный браузер';
+
+  @override
   String get networkCompatibility => 'Совместимость с официальной сетью Pixiv';
 
   @override

@@ -88,6 +88,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginFailed => '登录失败';
 
   @override
+  String get loginExternalTitle => '在浏览器中完成登录';
+
+  @override
+  String get loginExternalDescription =>
+      '在系统浏览器中完成 Pixiv 登录后，复制重定向的 pixiv:// 链接或授权码粘贴到下方即可完成登录。';
+
+  @override
+  String get loginCallbackHint => 'pixiv://account/login?code=… 或授权码';
+
+  @override
+  String get loginPasteCallback => '粘贴回调链接或授权码';
+
+  @override
+  String get loginCompleteButton => '完成登录';
+
+  @override
+  String get loginBrowserLaunchFailed => '无法打开系统浏览器';
+
+  @override
   String get networkCompatibility => 'Pixiv 官方网络兼容';
 
   @override

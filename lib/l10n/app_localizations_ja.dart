@@ -88,6 +88,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginFailed => 'ログインに失敗しました';
 
   @override
+  String get loginExternalTitle => 'ブラウザでログインを完了';
+
+  @override
+  String get loginExternalDescription =>
+      'システムブラウザでログインを完了し、リダイレクト先の pixiv:// URL または認証コードを下に貼り付けてください。';
+
+  @override
+  String get loginCallbackHint => 'pixiv://account/login?code=… または認証コード';
+
+  @override
+  String get loginPasteCallback => 'コールバックURL・コードを貼り付け';
+
+  @override
+  String get loginCompleteButton => 'ログインを完了';
+
+  @override
+  String get loginBrowserLaunchFailed => 'システムブラウザを開けませんでした';
+
+  @override
   String get networkCompatibility => 'Pixiv互換接続';
 
   @override

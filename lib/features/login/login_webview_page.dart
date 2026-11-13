@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/motion/app_overlays.dart';
+import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/web_navigation_guard.dart';
 import '../../core/auth/account.dart';
@@ -43,6 +46,7 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
     required this.oauthService,
     this.create = false,
     this.title = 'Pixiv',
+    this.launchExternal,
   });
 
   final OAuthService oauthService;
@@ -50,6 +54,9 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
   /// When true, loads the signup page directly (beta56 register flow).
   final bool create;
   final String title;
+
+  /// Optional external browser launcher hook, primarily for tests.
+  final Future<bool> Function(Uri url)? launchExternal;
 
   @override
   ConsumerState<LoginWebViewPage> createState() => _LoginWebViewPageState();
@@ -59,6 +66,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     with WidgetsBindingObserver {
   InAppWebViewController? _controller;
   late final WebNavigationGuard _guard;
+  final TextEditingController _callbackController = TextEditingController();
   bool _exchanging = false;
   double? _progress;
   String? _error;
@@ -105,6 +113,11 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _startUrl = widget.oauthService.beginSession().authorizeUrl;
     }
     if (caps.isWindows) unawaited(_probeWebView2());
+    if (!caps.supportsInAppWebView) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openExternalBrowser());
+      });
+    }
   }
 
   /// WebView2 is a runtime dependency, not bundled: on systems without it
@@ -147,6 +160,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     WidgetsBinding.instance.removeObserver(this);
     // Cancellation and page disposal must never leave a live verifier behind.
     widget.oauthService.discardSession();
+    _callbackController.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -291,7 +305,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
 
   /// Restarts the OAuth attempt without leaving the page: beginSession()
   /// discards the dead verifier and the fresh authorize URL is loaded into
-  /// the same WebView.
+  /// the same WebView (or opened externally when no WebView exists).
   void _restartLogin() {
     final authorizeUrl = restartLoginSession(widget.oauthService);
     setState(() {
@@ -301,7 +315,78 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _fatal = false;
       _startUrl = authorizeUrl;
     });
+    if (!ref.read(platformCapsProvider).supportsInAppWebView) {
+      unawaited(_openExternalBrowser());
+      return;
+    }
     unawaited(_load(authorizeUrl));
+  }
+
+  Future<bool> _defaultLaunchExternal(Uri url) =>
+      launchUrl(url, mode: LaunchMode.externalApplication);
+
+  Future<void> _openExternalBrowser() async {
+    bool launched;
+    try {
+      launched = await (widget.launchExternal ?? _defaultLaunchExternal)(
+        _startUrl,
+      );
+    } on Object {
+      launched = false;
+    }
+    if (!mounted || launched) return;
+    showAppSnackBar(context, context.l10n.loginBrowserLaunchFailed);
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (!mounted || text == null || text.trim().isEmpty) return;
+    _callbackController.text = text.trim();
+  }
+
+  void _submitManualCallback(String raw) {
+    final normalized = normalizeManualPixivCallbackUri(raw);
+    if (normalized == null) {
+      if (mounted) showAppSnackBar(context, context.l10n.loginCallbackInvalid);
+      return;
+    }
+    _decideNavigation(normalized.toString());
+  }
+
+  Future<void> _showManualCallbackDialog(BuildContext context) async {
+    final submitted = await showAppDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.loginPasteCallback),
+        content: TextField(
+          controller: _callbackController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: context.l10n.loginCallbackHint,
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.content_paste_outlined),
+              tooltip: context.l10n.loginPasteCallback,
+              onPressed: _pasteFromClipboard,
+            ),
+          ),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_callbackController.text),
+            child: Text(context.l10n.loginCompleteButton),
+          ),
+        ],
+      ),
+    );
+    if (submitted == null || !mounted) return;
+    _submitManualCallback(submitted);
   }
 
   Widget _webView() => InAppWebView(
@@ -352,12 +437,83 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     ),
   );
 
+  Widget _externalBrowserView(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(FuncSpacing.xl),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.open_in_browser_outlined, size: 56),
+              const SizedBox(height: FuncSpacing.md),
+              Text(
+                l10n.loginExternalTitle,
+                style: theme.textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: FuncSpacing.sm),
+              Text(l10n.loginExternalDescription, textAlign: TextAlign.center),
+              const SizedBox(height: FuncSpacing.lg),
+              FilledButton.icon(
+                onPressed: _openExternalBrowser,
+                icon: const Icon(Icons.open_in_browser_outlined),
+                label: Text(l10n.openInBrowser),
+              ),
+              if (!widget.create) ...[
+                const SizedBox(height: FuncSpacing.xl),
+                TextField(
+                  controller: _callbackController,
+                  decoration: InputDecoration(
+                    hintText: l10n.loginCallbackHint,
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.content_paste_outlined),
+                      tooltip: l10n.loginPasteCallback,
+                      onPressed: _pasteFromClipboard,
+                    ),
+                  ),
+                  onSubmitted: _submitManualCallback,
+                ),
+                const SizedBox(height: FuncSpacing.md),
+                OutlinedButton(
+                  onPressed: _exchanging
+                      ? null
+                      : () => _submitManualCallback(_callbackController.text),
+                  child: Text(l10n.loginCompleteButton),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final supportsWebView = ref
+        .watch(platformCapsProvider)
+        .supportsInAppWebView;
     return Scaffold(
       appBar: AppTopBar(
         title: Text(widget.title),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_browser_outlined),
+            tooltip: context.l10n.openInBrowser,
+            onPressed: _openExternalBrowser,
+          ),
+          if (supportsWebView && !widget.create)
+            IconButton(
+              icon: const Icon(Icons.content_paste_outlined),
+              tooltip: context.l10n.loginPasteCallback,
+              onPressed: () => unawaited(_showManualCallbackDialog(context)),
+            ),
           IconButton(
             icon: const Icon(Icons.close),
             tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
@@ -373,7 +529,12 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       ),
       body: Stack(
         children: [
-          if (_webView2Missing) _webView2Prompt(context) else _webView(),
+          if (!supportsWebView)
+            _externalBrowserView(context)
+          else if (_webView2Missing)
+            _webView2Prompt(context)
+          else
+            _webView(),
           if (_exchanging)
             // This opaque black scrim is a deliberate replica loading
             // surface, independent of the app theme brightness.

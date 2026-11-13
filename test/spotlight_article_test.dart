@@ -17,7 +17,9 @@ import 'package:parfait/core/spotlight/spotlight_article_controller.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_repository.dart';
 import 'package:parfait/core/spotlight/spotlight_store.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/spotlight/spotlight_article_page.dart';
+import 'package:parfait/features/spotlight/spotlight_challenge_view.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/scroll_behavior.dart';
@@ -674,5 +676,29 @@ void main() {
       // The clipboard fallback is surfaced, never silent.
       expect(find.text('链接已复制'), findsOneWidget);
     });
+
+    testWidgets(
+      'SpotlightChallengeView skips WebView on unsupported platforms',
+      (tester) async {
+        await tester.pumpWidget(
+          localizedApp(
+            builder: promptHostBuilder,
+            overrides: [
+              platformCapsProvider.overrideWithValue(
+                const PlatformCaps(isLinux: true),
+              ),
+            ],
+            home: Scaffold(
+              body: SpotlightChallengeView(
+                uri: Uri.parse('https://www.pixivision.net/zh/a/101'),
+                contentBuilder: (_) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('在浏览器打开'), findsOneWidget);
+      },
+    );
   });
 }

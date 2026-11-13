@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
@@ -20,6 +22,7 @@ import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../core/logging/crash_log.dart';
+import '../../../core/platform/platform_caps.dart';
 import '../../../core/settings/shared_preferences.dart';
 import '../../../core/updater/update_manifest.dart';
 import '../../../core/updater/update_providers.dart';
@@ -171,7 +174,10 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                 SettingsActionTile(
                   icon: Icons.bug_report_outlined,
                   setting: Setting.aboutExportLogs,
-                  onTap: () => _exportCrashLog(context),
+                  onTap: () => _exportCrashLog(
+                    context,
+                    isDesktop: ref.read(platformCapsProvider).isDesktop,
+                  ),
                 ),
                 // Read-back of the display mode the engine actually got —
                 // OEM ROMs (MIUI/HyperOS, ColorOS) can keep a third-party
@@ -220,7 +226,10 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
   }
 }
 
-Future<void> _exportCrashLog(BuildContext context) async {
+Future<void> _exportCrashLog(
+  BuildContext context, {
+  required bool isDesktop,
+}) async {
   final directory = await getApplicationSupportDirectory();
   final file = CrashLog.fileFor(directory);
   final hasLog = await file.exists() && await file.length() > 0;
@@ -229,9 +238,24 @@ Future<void> _exportCrashLog(BuildContext context) async {
     showAppSnackBar(context, context.l10n.aboutNoLogs);
     return;
   }
-  await SharePlus.instance.share(
-    ShareParams(files: [XFile(file.path)], subject: 'parfait-crash.log'),
-  );
+  if (isDesktop) {
+    final location = await getSaveLocation(suggestedName: 'parfait-crash.log');
+    if (location == null) return;
+    try {
+      await File(location.path).writeAsBytes(await file.readAsBytes());
+      if (context.mounted) showAppSnackBar(context, context.l10n.saved);
+    } on Object {
+      if (context.mounted) showAppSnackBar(context, context.l10n.errorStorage);
+    }
+    return;
+  }
+  try {
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path)], subject: 'parfait-crash.log'),
+    );
+  } on Object {
+    if (context.mounted) showAppSnackBar(context, context.l10n.errorUnknown);
+  }
 }
 
 class _AboutUpdateSection extends StatefulWidget {

@@ -476,6 +476,31 @@ void main() {
     await tester.pump();
     expect(methods, ['pickImage']);
   });
+
+  testWidgets(
+    'shows browser fallback instead of InAppWebView when unsupported',
+    (tester) async {
+      await _pumpPage(
+        tester,
+        platform: platform,
+        caps: const PlatformCaps(isLinux: true),
+        providers: {
+          ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
+            ReverseImageSearchWebView(
+              resultUrl: Uri.parse('https://saucenao.com/search.php?url=x'),
+              observedAt: 'test',
+            ),
+          ),
+        },
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择图片'));
+      await pumpUntilVisible(tester, find.text('开始反向搜图'));
+      await tester.tap(find.text('开始反向搜图'));
+      await pumpUntilVisible(tester, find.text('在浏览器打开'));
+      expect(find.byType(InAppWebView), findsNothing);
+    },
+  );
 }
 
 class _PushedHost extends StatelessWidget {
@@ -529,10 +554,16 @@ Future<void> _pumpPage(
   ReverseImageInputReference? initialReference,
   ReverseImageEngine? initialEngine,
   ReverseImageUploadArmer? uploadArmer,
+  PlatformCaps? caps,
   Key? pageKey,
 }) {
   return tester.pumpWidget(
     ProviderScope(
+      overrides: [
+        platformCapsProvider.overrideWithValue(
+          caps ?? const PlatformCaps(isAndroid: true),
+        ),
+      ],
       child: MaterialApp(
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,

@@ -52,3 +52,50 @@ LoginNavigationDecision decideLoginNavigation(
     PixivCallbackOther() => LoginNavAllow(uri),
   };
 }
+
+/// Extracts an OAuth authorization code from pasted callback input.
+///
+/// Accepts:
+/// 1. `pixiv://account...` callback URIs,
+/// 2. `https://...` callback URIs containing a single non-empty `code` parameter,
+/// 3. a bare authorization code token (`[A-Za-z0-9_.-]{16,512}`).
+String? parsePixivCallbackCode(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+  if (!trimmed.contains(':') &&
+      !trimmed.contains('/') &&
+      !trimmed.contains('?') &&
+      RegExp(r'^[A-Za-z0-9_.-]{16,512}$').hasMatch(trimmed)) {
+    return trimmed;
+  }
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return null;
+  if (uri.scheme == 'pixiv') {
+    final parsed = parsePixivAccountCallback(uri);
+    return parsed is PixivCallbackCode ? parsed.code : null;
+  }
+  if (uri.scheme == 'https' || uri.scheme == 'http') {
+    final codes = uri.queryParametersAll['code'];
+    if (codes == null || codes.length != 1) return null;
+    final code = codes.single.trim();
+    return code.isEmpty ? null : code;
+  }
+  return null;
+}
+
+/// Normalizes a valid manual callback input into the canonical `pixiv://account`
+/// URI consumed by [decideLoginNavigation], preserving optional `state` when
+/// supplied in a callback URL.
+Uri? normalizeManualPixivCallbackUri(String raw) {
+  final code = parsePixivCallbackCode(raw);
+  if (code == null) return null;
+  final uri = Uri.tryParse(raw.trim());
+  final states = uri?.queryParametersAll['state'];
+  final state = states != null && states.length == 1 ? states.single : null;
+  return Uri(
+    scheme: 'pixiv',
+    host: 'account',
+    path: '/login',
+    queryParameters: {'code': code, 'state': ?state},
+  );
+}
