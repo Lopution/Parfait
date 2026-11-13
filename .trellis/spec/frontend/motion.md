@@ -339,7 +339,7 @@ reviewed: 2026-10-26
   conditional entry among uniform wrappers moves every later child to a
   different wrapper, remounting it.
 - **Check:** `test/motion_test.dart` "a ticker partition mutes with its ancestor"
-- **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/feed/feed_grid.dart`, `lib/app/layout/card_columns.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+- **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/feed/feed_grid.dart`, `lib/app/layout/card_columns.dart`, `lib/features/illust/detail/illust_detail_content.dart`
 
 ### MOTION-21 Work ahead of the user waits for a still screen
 - **Rule:** Building ahead (neighbour tabs, unvisited home branches, the

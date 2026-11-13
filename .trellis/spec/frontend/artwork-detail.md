@@ -65,7 +65,7 @@ reviewed: 2026-11-11
 - **Why:** `AnimatedSize` around the page sliver built every full-size page
   at once.
 - **Check:** `test/illust_detail_page_test.dart` "an illustration set opens on its first image"
-- **Code:** `lib/features/illust/detail/illust_detail_page.dart`
+- **Code:** `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`
 
 ### DETAIL-05 Viewer jumps wait for the sheet to close
 - **Rule:** The viewer's page-jump sheet pops with the page, the viewer
@@ -230,7 +230,7 @@ reviewed: 2026-11-11
   took every swipe, so the last image could not lead on to the next work;
   a page not built showed a blank stage.
 - **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column" "a layout switch fades the page in rather than swapping it"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
-- **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
+- **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### DETAIL-18 Single-column detail text keeps the article width
 - **Rule:** In the single-column layout, when the page's content area is
@@ -243,7 +243,7 @@ reviewed: 2026-11-11
   window's ~900dp width in one line each, hard to read and unlike the
   feed's text columns.
 - **Check:** `test/illust_detail_page_test.dart` "text keeps the article column on a large portrait"
-- **Code:** `lib/features/illust/detail/illust_detail_page.dart`, `lib/app/layout/sliver_width_builder.dart`
+- **Code:** `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/app/layout/sliver_width_builder.dart`
 
 ### DETAIL-10 The download button listens to the manager itself
 - **Rule:** The detail download button subscribes to
