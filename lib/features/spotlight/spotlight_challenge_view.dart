@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
+import '../../core/platform/platform_caps.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/spotlight/article_parser.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
@@ -96,6 +97,12 @@ class _SpotlightChallengeViewState
   }
 
   void _begin() {
+    if (!ref.read(platformCapsProvider).supportsInAppWebView) {
+      _phase = _ChallengePhase.failed;
+      _handedOver = false;
+      _controller = null;
+      return;
+    }
     final languageTag = ref.read(settingsProvider).value?.languageTag;
     _phase = _ChallengePhase.verifying;
     _handedOver = false;

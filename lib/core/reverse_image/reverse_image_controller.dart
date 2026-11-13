@@ -565,13 +565,29 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
   }
 
   void _validateReference(ReverseImageInputReference reference) {
-    final uri = Uri.tryParse(reference.contentUri);
-    if (uri == null ||
-        uri.scheme != 'content' ||
-        uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty ||
-        uri.hasPort ||
-        uri.fragment.isNotEmpty) {
+    final raw = reference.contentUri.trim();
+    final uri = Uri.tryParse(raw);
+    final isAndroidContentUri =
+        uri != null &&
+        uri.scheme == 'content' &&
+        uri.host.isNotEmpty &&
+        uri.userInfo.isEmpty &&
+        !uri.hasPort &&
+        uri.fragment.isEmpty;
+    final isWindowsDrivePath = RegExp(r'^[A-Za-z]:[\\/]').hasMatch(raw);
+    final isLocalPickerPath =
+        reference.source == ReverseImageInputSource.picker &&
+        raw.isNotEmpty &&
+        (isWindowsDrivePath ||
+            uri == null ||
+            uri.scheme.isEmpty ||
+            uri.scheme == 'file');
+    final valid = switch (reference.source) {
+      ReverseImageInputSource.androidSend => isAndroidContentUri,
+      ReverseImageInputSource.picker =>
+        isAndroidContentUri || isLocalPickerPath,
+    };
+    if (!valid) {
       throw const ReverseImageInputException(
         ReverseImageInputFailureCode.invalidReference,
         'selected image reference is invalid',

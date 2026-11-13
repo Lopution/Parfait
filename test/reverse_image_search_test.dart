@@ -323,6 +323,46 @@ void main() {
     },
   );
 
+  test(
+    'picker accepts local paths on desktop/iOS while androidSend rejects them',
+    () async {
+      final (controller, _, _) = flowOver(
+        OutcomeReverseImageProvider(const ReverseImageSearchSuccess()),
+      );
+      for (final path in [
+        '/tmp/sample.png',
+        'file:///tmp/sample.png',
+        r'C:\Users\demo\sample.png',
+      ]) {
+        await controller.prepare(
+          ReverseImageInputReference(
+            contentUri: path,
+            mimeType: 'image/png',
+            sizeBytes: 128,
+            hasReadUriPermission: true,
+            source: ReverseImageInputSource.picker,
+          ),
+        );
+        expect(controller.state.status, ReverseImageFlowStatus.ready);
+      }
+
+      await controller.prepare(
+        const ReverseImageInputReference(
+          contentUri: '/tmp/sample.png',
+          mimeType: 'image/png',
+          sizeBytes: 128,
+          hasReadUriPermission: true,
+          source: ReverseImageInputSource.androidSend,
+        ),
+      );
+      expect(controller.state.status, ReverseImageFlowStatus.failure);
+      expect(
+        controller.state.failure?.code,
+        ReverseImageInputFailureCode.invalidReference,
+      );
+    },
+  );
+
   test('a failed engine keeps the input and switches to another', () async {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(pngHeader(12, 8));

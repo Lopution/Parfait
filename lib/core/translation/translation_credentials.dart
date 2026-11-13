@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../auth/credential_store.dart';
+
 /// Raised when the platform secure storage cannot fulfil a translation
 /// credential operation. Credentials are never rendered as strings in
 /// exception messages.
@@ -91,10 +93,11 @@ abstract class TranslationCredentialStore {
   Future<void> retireLegacyWebSession() async {}
 }
 
-/// Android Keystore backed implementation with an isolated key namespace.
+/// Keystore / Keychain / Secret Service backed implementation with an isolated
+/// key namespace.
 class SecureTranslationCredentialStore implements TranslationCredentialStore {
   SecureTranslationCredentialStore({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? defaultFlutterSecureStorage;
 
   static const String _keyNamespace = 'replica.translation.v1.';
   static const _baiduAppIdKey = '${_keyNamespace}baidu.app_id';

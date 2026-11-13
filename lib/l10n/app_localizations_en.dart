@@ -88,6 +88,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginFailed => 'Login failed';
 
   @override
+  String get loginExternalTitle => 'Complete sign-in in browser';
+
+  @override
+  String get loginExternalDescription =>
+      'Finish signing in with your system browser, then paste the redirected pixiv:// URL or authorization code below.';
+
+  @override
+  String get loginCallbackHint =>
+      'pixiv://account/login?code=… or authorization code';
+
+  @override
+  String get loginPasteCallback => 'Paste callback or code';
+
+  @override
+  String get loginCompleteButton => 'Complete sign-in';
+
+  @override
+  String get loginBrowserLaunchFailed => 'Could not open the system browser';
+
+  @override
   String get networkCompatibility => 'Pixiv official network compatibility';
 
   @override

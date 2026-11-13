@@ -27,10 +27,27 @@ abstract class CredentialStore {
   Future<void> delete(String accountId);
 }
 
-/// Android Keystore backed implementation with a versioned key namespace.
+/// Shared [FlutterSecureStorage] options for all five platforms.
+///
+/// iOS uses [KeychainAccessibility.first_unlock_this_device] so credentials
+/// remain readable after unlock and never migrate to iCloud/backups. macOS sets
+/// `usesDataProtectionKeychain: false` so ad-hoc / unsigned builds use the
+/// legacy Keychain instead of failing with `-34018` (`errSecMissingEntitlement`).
+const FlutterSecureStorage defaultFlutterSecureStorage = FlutterSecureStorage(
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
+  mOptions: MacOsOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+    usesDataProtectionKeychain: false,
+  ),
+);
+
+/// Keystore / Keychain / Secret Service backed implementation with a versioned
+/// key namespace.
 class SecureCredentialStore implements CredentialStore {
   SecureCredentialStore({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? defaultFlutterSecureStorage;
 
   static const int schemaVersion = 1;
   static const String _keyPrefix = 'replica.credentials.v1.';

@@ -135,7 +135,9 @@ void main() {
         overrides: [
           ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(oauth),
-          if (caps != null) platformCapsProvider.overrideWithValue(caps),
+          platformCapsProvider.overrideWithValue(
+            caps ?? const PlatformCaps(isMacOS: true),
+          ),
         ],
         home: LoginWebViewPage(oauthService: oauth, create: create),
       ),
@@ -515,4 +517,46 @@ void main() {
       expect(find.byType(ReplicaButton), findsNWidgets(2));
     });
   });
+
+  testWidgets(
+    'non-webview platform launches system browser PKCE and exchanges pasted code',
+    (tester) async {
+      final launchedUrls = <Uri>[];
+      final oauth = _HeldExchange();
+      await tester.pumpWidget(
+        localizedApp(
+          builder: promptHostBuilder,
+          overrides: [
+            ...accountProviderOverrides(),
+            oauthServiceProvider.overrideWithValue(oauth),
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isLinux: true),
+            ),
+          ],
+          home: LoginWebViewPage(
+            oauthService: oauth,
+            launchExternal: (url) async {
+              launchedUrls.add(url);
+              return true;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(launchedUrls, hasLength(1));
+      expect(launchedUrls.single.host, 'app-api.pixiv.net');
+      expect(platform.lastWidget, isNull);
+
+      await tester.enterText(
+        find.byType(TextField),
+        'pixiv://account/login?code=linux_code_123',
+      );
+      await tester.tap(find.text('完成登录'));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      oauth.result.complete(_exchanged);
+      await tester.pumpAndSettle();
+    },
+  );
 }

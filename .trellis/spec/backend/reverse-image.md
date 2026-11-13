@@ -10,11 +10,13 @@ reviewed: 2026-10-12
 
 ### REV-01 One controller owns the input from pick to cleanup
 - **Rule:** The in-app picker and Android `ACTION_SEND` share one
-  controller. The platform passes only opaque `content://` metadata; the
-  controller checks MIME against the file signature, dimensions and pixel
-  budget before any full decode, and owns exactly one temporary file,
-  cleaned on every terminal path. Errors carry no paths. A JPEG's size
-  comes from walking its segments in the file (at most
+  controller. Android `ACTION_SEND` passes only opaque `content://` metadata
+  (`DROID-07`); the in-app picker accepts `content://` URIs on Android and
+  validated local file paths (`file://` or scheme-less path) on iOS/desktop,
+  copies the bytes into one owned temporary file, and checks MIME against the
+  file signature, dimensions and pixel budget before any full decode. The
+  temporary file is cleaned on every terminal path. Errors carry no paths. A
+  JPEG's size comes from walking its segments in the file (at most
   `maxJpegSegments`), not from a fixed header read.
 - **Why:** A pixel bomb or mislabeled file could exhaust memory; leaked
   temp files piled up. EXIF, XMP or ICC data pushed a photo's frame header

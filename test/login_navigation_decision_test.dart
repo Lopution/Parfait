@@ -60,4 +60,46 @@ void main() {
       );
     });
   });
+
+  group('parsePixivCallbackCode', () {
+    test('extracts code from pixiv://, https callback, or bare token', () {
+      expect(
+        parsePixivCallbackCode('pixiv://account/login?code=abc123&via=login'),
+        'abc123',
+      );
+      expect(
+        parsePixivCallbackCode(
+          'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback?state=s1&code=code_xyz',
+        ),
+        'code_xyz',
+      );
+      expect(
+        parsePixivCallbackCode('  code_token_0123456789abcdef  '),
+        'code_token_0123456789abcdef',
+      );
+    });
+
+    test('rejects missing, empty, duplicate, or invalid callback inputs', () {
+      for (final raw in [
+        '',
+        'short',
+        'pixiv://account/login',
+        'pixiv://account/login?code=',
+        'pixiv://account/login?code=a&code=b',
+        'https://accounts.pixiv.net/login',
+      ]) {
+        expect(parsePixivCallbackCode(raw), isNull, reason: raw);
+      }
+    });
+
+    test('normalizes manual input to pixiv://account carrying state', () {
+      final uri = normalizeManualPixivCallbackUri(
+        'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback?state=s1&code=c1',
+      );
+      expect(uri, isNotNull);
+      expect(uri!.scheme, 'pixiv');
+      expect(uri.host, 'account');
+      expect(uri.queryParameters, {'code': 'c1', 'state': 's1'});
+    });
+  });
 }

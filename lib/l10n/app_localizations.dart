@@ -252,6 +252,42 @@ abstract class AppLocalizations {
   /// **'登录失败'**
   String get loginFailed;
 
+  /// No description provided for @loginExternalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'在浏览器中完成登录'**
+  String get loginExternalTitle;
+
+  /// No description provided for @loginExternalDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'在系统浏览器中完成 Pixiv 登录后，复制重定向的 pixiv:// 链接或授权码粘贴到下方即可完成登录。'**
+  String get loginExternalDescription;
+
+  /// No description provided for @loginCallbackHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixiv://account/login?code=… 或授权码'**
+  String get loginCallbackHint;
+
+  /// No description provided for @loginPasteCallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴回调链接或授权码'**
+  String get loginPasteCallback;
+
+  /// No description provided for @loginCompleteButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成登录'**
+  String get loginCompleteButton;
+
+  /// No description provided for @loginBrowserLaunchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开系统浏览器'**
+  String get loginBrowserLaunchFailed;
+
   /// No description provided for @networkCompatibility.
   ///
   /// In zh, this message translates to:

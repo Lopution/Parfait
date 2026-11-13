@@ -266,12 +266,13 @@ class _ReverseImageSearchPageState
     );
   }
 
-  /// Cloudflare-fronted engine: the upload page loads in InAppWebView on
-  /// every platform — its ChromeClient consumes the armed file chooser
-  /// slot.
+  /// Cloudflare-fronted engine: the upload page loads in InAppWebView where
+  /// supported — its ChromeClient consumes the armed file chooser slot — or
+  /// opens in the external browser when no embedded WebView exists.
   Widget _uploadWebView(BuildContext context, ReverseImageFlowState state) {
     final upload = state.webUpload!;
     return _UploadInAppWebView(
+      caps: ref.read(platformCapsProvider),
       upload: upload,
       policy: ReverseImageEngineSpecs.all[upload.engine]!.navigationPolicy,
       onOpenExternal: _openExternal,
@@ -379,7 +380,7 @@ class _ReverseImageSearchPageState
       primary: challenged
           ? FilledButton.icon(
               onPressed: _controller.searchInBrowser,
-              icon: const Icon(Icons.open_in_browser),
+              icon: const Icon(Icons.open_in_browser_outlined),
               label: Text(context.l10n.searchReverseOpenInBrowser),
             )
           : held
