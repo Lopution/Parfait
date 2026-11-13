@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,17 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
   /// left out: it is the versionCode with the split APK's ABI offset (2001
   /// for arm64 0.9.0), which means nothing to a reader.
   late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
+  late final Future<DisplayMode?> _activeDisplayMode = _readActiveDisplayMode();
+
+  static Future<DisplayMode?> _readActiveDisplayMode() async {
+    try {
+      return await FlutterDisplayMode.active;
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
 
   /// Android's build-number gesture: the version tile counts presses and
   /// unlocks the developer entries after [_unlockTaps]. The countdown only
@@ -167,13 +179,13 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                 // looks exactly like a uniform low-fps app. This is the
                 // only user-visible way to check it without adb.
                 if (Setting.aboutDisplayRefreshRate.available)
-                  FutureBuilder<DisplayMode>(
-                    future: FlutterDisplayMode.active,
+                  FutureBuilder<DisplayMode?>(
+                    future: _activeDisplayMode,
                     builder: (context, snapshot) => SettingsActionTile(
                       icon: Icons.speed_outlined,
                       setting: Setting.aboutDisplayRefreshRate,
                       trailing: Text(
-                        snapshot.hasData
+                        snapshot.data != null
                             ? '${snapshot.data!.refreshRate.toStringAsFixed(0)} Hz'
                             : '—',
                       ),
