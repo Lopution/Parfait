@@ -30,7 +30,7 @@ reviewed: 2026-10-14
 - **Code:** `lib/core/settings/settings_repository.dart`, `lib/core/settings/app_settings.dart`
 
 ### PREF-02 A failed write keeps the previous value visible
-- **Rule:** `SettingsController` queues writes after initial load completes and publishes the new value only after the write succeeds; a failure leaves the old value and surfaces `SettingsWriteException`. Writes reaching or settling after controller disposal abort quietly without throwing `SettingsWriteException` or touching an unmounted `Ref`.
+- **Rule:** `SettingsController` queues writes after initial load completes and publishes the new value only after the write succeeds; a failure leaves the old value and surfaces `SettingsWriteException`. Writes queued but not yet started when the controller is disposed are skipped; in-flight repository saves continue, but their result or error is discarded without throwing `SettingsWriteException` or accessing an unmounted `Ref`.
 - **Why:** Optimistic publication showed a setting as saved when it was
   not, and unguarded post-dispose writes crashed or logged bogus write
   failures when routes tore down.
