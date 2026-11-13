@@ -168,7 +168,7 @@ reviewed: 2026-10-17
   keyboard. Resizing a long detail page under a passing composer would
   lay it out on every keyboard frame and move what its Hero measures.
 - **Check:** `test/comments_replies_test.dart` "keyboard open pads only the composer — page chrome holds still"; `test/search_catalog_test.dart` "search input keeps its geometry when the IME opens"
-- **Code:** `lib/features/comments/comments_page.dart`, `lib/features/search/search_page.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+- **Code:** `lib/features/comments/comments_page.dart`, `lib/features/search/search_page.dart`, `lib/features/search/search_input_page.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### LAYOUT-11 Long documents use one SelectionArea
 - **Rule:** A long document page wraps its one list in a single
@@ -232,4 +232,4 @@ reviewed: 2026-10-17
   The series pages' and the novel info sheet's text buttons started 12dp
   inside it (11-02).
 - **Check:** `test/user_profile_test.dart` "profile social links open, report failures, and copy"; `test/novel_series_test.dart` "a series page: its facts, numbered novels past the first "
-- **Code:** `lib/app/widgets/edge_icon_buttons.dart`, `lib/features/profile/user_page.dart`, `lib/features/novel/novel_series_page.dart`, `lib/features/series/illust_series_page.dart`, `lib/features/novel/novel_page.dart`
+- **Code:** `lib/app/widgets/edge_icon_buttons.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_about_tab.dart`, `lib/features/novel/novel_series_page.dart`, `lib/features/series/illust_series_page.dart`, `lib/features/novel/novel_page.dart`
