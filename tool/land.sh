@@ -2,10 +2,11 @@
 # Land a pull request using the repository's required noreply author identity,
 # verify the merge commit author, and fast-forward local main.
 #
-# Usage: tool/land.sh [<pr-number>] [--wait | --auto]
-#   <pr-number>  Pull request number (defaults to the current branch's PR).
-#   --wait       Wait for required checks, merge, verify author, sync main (default).
-#   --auto       Enable GitHub auto-merge with the noreply author email and exit.
+# Usage: tool/land.sh [<pr-number>] [--wait [--all-checks] | --auto]
+#   <pr-number>   Pull request number (defaults to the current branch's PR).
+#   --wait        Wait for required CI checks, merge, verify author, sync main (default).
+#   --all-checks  With --wait, also wait for every pull_request workflow run on the head commit.
+#   --auto        Enable GitHub auto-merge with the noreply author email and exit.
 set -euo pipefail
 
 NOREPLY_EMAIL="70460628+Lopution@users.noreply.github.com"
@@ -16,9 +17,11 @@ usage() {
 
 pr=""
 mode="wait"
+all_checks=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --wait) mode="wait" ;;
+    --all-checks) all_checks=1 ;;
     --auto) mode="auto" ;;
     -h | --help)
       usage
@@ -39,6 +42,11 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+if [[ "$mode" == "auto" && "$all_checks" -eq 1 ]]; then
+  echo "land: --all-checks cannot be combined with --auto" >&2
+  exit 2
+fi
+
 for tool in git gh; do
   command -v "$tool" >/dev/null || { echo "land: $tool is not on PATH" >&2; exit 2; }
 done
@@ -55,10 +63,13 @@ if ! [[ "$pr" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-IFS=$'\t' read -r state merge_state head_ref < <(
-  gh pr view "$pr" --json state,mergeStateStatus,headRefName \
-    --jq '[.state, (.mergeStateStatus // "UNKNOWN"), .headRefName] | @tsv'
-)
+read_pr_state() {
+  gh pr view "$pr" --json state,mergeStateStatus,headRefName,headRefOid \
+    --jq '[.state, (.mergeStateStatus // "UNKNOWN"), .headRefName, .headRefOid] | @tsv'
+}
+
+pr_tsv="$(read_pr_state)"
+IFS=$'\t' read -r state merge_state head_ref head_oid <<<"$pr_tsv"
 
 if [[ "$state" == "MERGED" ]]; then
   echo "land: PR #$pr ($head_ref) is already merged; verifying merge commit and syncing main"
@@ -66,6 +77,19 @@ elif [[ "$state" != "OPEN" ]]; then
   echo "land: PR #$pr is in state '$state' (expected OPEN)" >&2
   exit 1
 else
+  expected_oid="$(git rev-parse --verify --quiet "refs/remotes/origin/$head_ref" || true)"
+  if [[ -n "$expected_oid" && "$head_oid" != "$expected_oid" ]] &&
+    git merge-base --is-ancestor "$head_oid" "$expected_oid" 2>/dev/null; then
+    for _ in 1 2 3 4 5; do
+      sleep 2
+      pr_tsv="$(read_pr_state)"
+      IFS=$'\t' read -r state merge_state head_ref head_oid <<<"$pr_tsv"
+      if [[ "$head_oid" == "$expected_oid" ]]; then
+        break
+      fi
+    done
+  fi
+
   case "$merge_state" in
     BEHIND | DIRTY)
       echo "land: PR #$pr ($head_ref) is $merge_state relative to main; run 'git fetch origin main && git merge origin/main && git push' first (never gh pr update-branch)" >&2
@@ -82,8 +106,44 @@ else
     exit 0
   fi
 
-  echo "land: waiting for required checks on PR #$pr ($head_ref)..."
-  gh pr checks "$pr" --required --watch --interval 15
+  echo "land: locating CI workflow run for PR #$pr ($head_ref @ ${head_oid:0:8})..."
+  ci_run_id=""
+  for _ in $(seq 1 12); do
+    ci_run_id="$(
+      gh run list -c "$head_oid" -w ci.yml -e pull_request -L 1 \
+        --json databaseId -q '.[0].databaseId // empty'
+    )"
+    if [[ -n "$ci_run_id" ]]; then
+      break
+    fi
+    sleep 3
+  done
+
+  if [[ -z "$ci_run_id" ]]; then
+    echo "land: no CI workflow run registered for commit $head_oid on PR #$pr" >&2
+    exit 1
+  fi
+
+  echo "land: watching CI workflow run $ci_run_id..."
+  gh run watch "$ci_run_id" --interval 15 --exit-status
+
+  if [[ "$all_checks" -eq 1 ]]; then
+    other_runs_raw="$(
+      gh run list -c "$head_oid" -e pull_request \
+        --json databaseId -q '.[].databaseId'
+    )"
+    if [[ -n "$other_runs_raw" ]]; then
+      mapfile -t other_runs <<<"$other_runs_raw"
+      for run_id in "${other_runs[@]}"; do
+        if [[ -n "$run_id" && "$run_id" != "$ci_run_id" ]]; then
+          echo "land: watching workflow run $run_id..."
+          gh run watch "$run_id" --interval 15 --exit-status
+        fi
+      done
+    fi
+  fi
+
+  gh pr checks "$pr" --required
 
   echo "land: merging PR #$pr ($head_ref)..."
   gh pr merge "$pr" --merge --author-email "$NOREPLY_EMAIL"
@@ -101,9 +161,12 @@ if ! git cat-file -e "${merge_sha}^{commit}" 2>/dev/null; then
   exit 1
 fi
 
-emails="$(git log -1 --format='%ae %ce' "$merge_sha")"
-if [[ "$emails" != "$NOREPLY_EMAIL $NOREPLY_EMAIL" ]]; then
-  echo "land: unexpected commit identity on $merge_sha: '$emails' (expected '$NOREPLY_EMAIL $NOREPLY_EMAIL')" >&2
+IFS=$'\t' read -r author_email committer_email < <(
+  git log -1 --format=$'%ae\t%ce' "$merge_sha"
+)
+if [[ "$author_email" != "$NOREPLY_EMAIL" ]] ||
+  [[ "$committer_email" != "noreply@github.com" && "$committer_email" != "$NOREPLY_EMAIL" ]]; then
+  echo "land: unexpected commit identity on $merge_sha: author='$author_email' committer='$committer_email'" >&2
   exit 1
 fi
 
