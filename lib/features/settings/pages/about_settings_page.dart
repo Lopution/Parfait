@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
@@ -167,7 +166,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                 // app at 60Hz despite the preferred-mode request, which
                 // looks exactly like a uniform low-fps app. This is the
                 // only user-visible way to check it without adb.
-                if (Platform.isAndroid)
+                if (Setting.aboutDisplayRefreshRate.available)
                   FutureBuilder<DisplayMode>(
                     future: FlutterDisplayMode.active,
                     builder: (context, snapshot) => SettingsActionTile(

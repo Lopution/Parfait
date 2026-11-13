@@ -36,7 +36,7 @@ import 'widgets/prompt_host.dart';
 import 'widgets/settings_load_error.dart';
 import 'window/desktop_window.dart';
 import '../l10n/context.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
+import '../l10n/app_localizations_delegates.dart';
 
 class ParfaitApp extends ConsumerStatefulWidget {
   const ParfaitApp({super.key, this.intentSource});

@@ -1,7 +1,15 @@
 import 'package:flutter/scheduler.dart' show FrameTiming;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/debug/frame_probe.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/features/settings/pages/frame_probe_page.dart';
+
+import 'helpers/image_network.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/test_preferences.dart';
 
 FrameTiming _frame(int spanMicros) => FrameTiming(
   vsyncStart: 0,
@@ -169,4 +177,52 @@ void main() {
       contains('  +0.04s 2.0 = wait 0.0 + ui 1.0 + queue 0.0 + raster 1.0\n'),
     );
   }, semanticsEnabled: false);
+
+  testWidgets('reads platformCapsProvider for Android display modes', (
+    tester,
+  ) async {
+    const channel = MethodChannel('flutter_display_mode');
+    final mode = <String, Object>{
+      'id': 1,
+      'width': 1080,
+      'height': 2400,
+      'refreshRate': 120.0,
+    };
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (call) async => switch (call.method) {
+        'getSupportedModes' => [mode],
+        'getActiveMode' => mode,
+        _ => null,
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    installPreferencesForTest(memoryPreferences());
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [
+          imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+          platformCapsProvider.overrideWithValue(
+            const PlatformCaps(isAndroid: true),
+          ),
+        ],
+        home: const FrameProbePage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始记录'));
+    await tester.pump();
+    await tester.tap(find.text('停止'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('display modes: 1080x2400@120.0'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('active mode: 1080x2400@120.0'), findsOneWidget);
+  });
 }

@@ -30,12 +30,12 @@ import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/settings/persist_settings.dart';
-import 'package:parfait/core/network/http_client_providers.dart';
+import '../../core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
 import '../../app/motion/reveal.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
-import 'package:parfait/app/layout/content_widths.dart';
+import '../../app/layout/content_widths.dart';
 
 class ReverseImageSearchPage extends ConsumerStatefulWidget {
   const ReverseImageSearchPage({
@@ -71,7 +71,7 @@ class _ReverseImageSearchPageState
   @override
   void initState() {
     super.initState();
-    final isAndroid = PlatformCaps.system().isAndroid;
+    final isAndroid = ref.read(platformCapsProvider).isAndroid;
     _session = ReverseImageSearchSession(
       platform:
           widget.platform ??

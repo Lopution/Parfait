@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/updater/update_providers.dart';
 import 'package:parfait/core/updater/update_service.dart';
+import 'package:parfait/features/settings/settings_catalog.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -23,7 +26,7 @@ void main() {
           platform: _FdroidPlatform(),
         );
     // Tall enough that the update block below the about rows is built.
-    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.physicalSize = const Size(800, 3000);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
       localizedApp(
@@ -174,6 +177,49 @@ void main() {
       expect(find.text(hidden), findsNothing);
     }
   });
+
+  testWidgets(
+    'display refresh rate row follows defaultTargetPlatform availability',
+    (tester) async {
+      const channel = MethodChannel('flutter_display_mode');
+      var calls = 0;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls++;
+        if (call.method == 'getActiveMode') {
+          return <String, Object>{
+            'id': 1,
+            'width': 1080,
+            'height': 2400,
+            'refreshRate': 120.0,
+          };
+        }
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await pumpAbout(tester);
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        expect(Setting.aboutDisplayRefreshRate.available, isTrue);
+        expect(find.text('显示刷新率'), findsOneWidget);
+        expect(find.text('120 Hz'), findsOneWidget);
+        expect(calls, greaterThan(0));
+      } else {
+        expect(Setting.aboutDisplayRefreshRate.available, isFalse);
+        expect(find.text('显示刷新率'), findsNothing);
+        expect(calls, 0);
+      }
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.windows,
+    }),
+  );
 }
 
 /// Serves the staged check/apply results — the github-flavoured capability
