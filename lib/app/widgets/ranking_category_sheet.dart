@@ -54,8 +54,9 @@ Future<void> showRankingCategorySheet<M extends RankingCategory>(
   RankingSheetPage<M>? page,
   bool editing = false,
 }) {
-  return showAppBottomSheet<void>(
+  return showAppAdaptiveDialog<void>(
     context: context,
+    maxWidth: 520,
     isScrollControlled: true,
     // A long sheet: its top edge stays below the status bar.
     useSafeArea: true,

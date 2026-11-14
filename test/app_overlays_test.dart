@@ -1,8 +1,10 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/core/debug/trace_marks.dart';
@@ -233,5 +235,160 @@ void main() {
         expect(find.text('row 1'), findsNothing);
       });
     }
+
+    testWidgets(
+      'useDesktopOverlay respects viewport width and input modality',
+      (tester) async {
+        late bool decision;
+        Future<void> probe(Size size, InputModality modality) async {
+          setViewSize(tester, size);
+          await tester.pumpWidget(
+            MediaQuery(
+              data: MediaQueryData(size: size),
+              child: InputModalityScope(
+                key: ValueKey(modality),
+                initialModality: modality,
+                child: Builder(
+                  builder: (context) {
+                    decision = useDesktopOverlay(context);
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          );
+        }
+
+        await probe(const Size(1024, 768), InputModality.touch);
+        expect(decision, isFalse);
+        await probe(const Size(599, 800), InputModality.pointer);
+        expect(decision, isFalse);
+        await probe(const Size(600, 800), InputModality.pointer);
+        expect(decision, isTrue);
+      },
+    );
+
+    testWidgets(
+      'adaptive dialog, popover, and side sheet adapt on desktop and honor reduced motion',
+      (tester) async {
+        const wide = Size(1024, 768);
+        setViewSize(tester, wide);
+        Future<void> pumpHost({bool disableAnimations = false}) =>
+            tester.pumpWidget(
+              MediaQuery(
+                data: MediaQueryData(
+                  size: wide,
+                  disableAnimations: disableAnimations,
+                ),
+                child: InputModalityScope(
+                  initialModality: InputModality.pointer,
+                  child: MaterialApp(
+                    home: Scaffold(
+                      body: Builder(
+                        builder: (context) => Column(
+                          children: [
+                            TextButton(
+                              onPressed: () => showAppAdaptiveDialog<void>(
+                                context: context,
+                                maxWidth: 440,
+                                builder: (_) => const SizedBox(
+                                  height: 120,
+                                  child: Text('dialog-body'),
+                                ),
+                              ),
+                              child: const Text('open-dialog'),
+                            ),
+                            TextButton(
+                              onPressed: () => showAppAdaptivePopover<void>(
+                                context: context,
+                                position: const Offset(1015, 760),
+                                builder: (_) => const SizedBox(
+                                  width: 260,
+                                  height: 140,
+                                  child: Text('popover-body'),
+                                ),
+                              ),
+                              child: const Text('open-popover'),
+                            ),
+                            TextButton(
+                              onPressed: () => showAppAdaptiveSideSheet<void>(
+                                context: context,
+                                width: 380,
+                                builder: (_) => const SizedBox(
+                                  height: 120,
+                                  child: Text('side-body'),
+                                ),
+                              ),
+                              child: const Text('open-side'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+
+        await pumpHost();
+        await tester.tap(
+          find.text('open-dialog'),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        final dialogRect = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('dialog-body'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(dialogRect.width, lessThanOrEqualTo(440));
+        expect(dialogRect.center.dx, closeTo(wide.width / 2, 1));
+        await tester.tapAt(const Offset(10, 10), kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.text('open-popover'),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        final popRect = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('popover-body'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(popRect.right, lessThanOrEqualTo(wide.width));
+        expect(popRect.bottom, lessThanOrEqualTo(wide.height));
+        await tester.tapAt(const Offset(10, 10), kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+        expect(find.text('popover-body'), findsNothing);
+
+        await tester.tap(find.text('open-side'), kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+        final sideRect = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('side-body'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(sideRect.width, closeTo(380, 0.1));
+        expect(sideRect.right, closeTo(wide.width, 0.1));
+        await tester.tapAt(const Offset(10, 10), kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+
+        await pumpHost(disableAnimations: true);
+        await tester.tap(find.text('open-side'), kind: PointerDeviceKind.mouse);
+        await tester.pump();
+        expect(find.text('side-body'), findsOneWidget);
+      },
+    );
   });
 }

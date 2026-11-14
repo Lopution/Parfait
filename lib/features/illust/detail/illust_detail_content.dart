@@ -151,6 +151,7 @@ extension _IllustDetailContent on _IllustDetailPageState {
     final slotsFirstImage = layout.slots;
     final firstImageExtent = layout.extent;
     final firstPageEnd = layout.firstPageEnd;
+    final prevTopChromeExtent = _topChromeExtent;
     _topChromeExtent = layout.useTwoPane ? 0 : topChrome;
     _immersionStart = layout.immersionStart;
     // Layout changes move both without a scroll: expanding the set, pages
@@ -344,6 +345,7 @@ extension _IllustDetailContent on _IllustDetailPageState {
     final metaScroll = NotificationListener<ScrollNotification>(
       onNotification: onScrollNotification,
       child: SmoothWheelScroll(
+        controller: _metaScroll,
         // The first frame of a detail page is its push: only the
         // viewport builds there.
         builder: (context, controller, physics) => DeferredCacheScrollView(
@@ -363,17 +365,28 @@ extension _IllustDetailContent on _IllustDetailPageState {
             Duration.zero) {
       _layoutFade.value = 1;
     }
-    // A switch between the layouts opens on the image the other one showed.
+    // A switch between the layouts opens on the image the other one showed,
+    // and carries the meta/comments scroll position across the breakpoint.
     final wasTwoPane = _lastTwoPane;
     _lastTwoPane = twoPane;
     if (wasTwoPane == true && !twoPane) {
-      _scheduleNarrowReveal(entity);
+      final metaOffset = _metaScroll.hasClients
+          ? _metaScroll.offset
+          : _lastMetaOffset;
+      if (metaOffset > 0) {
+        _scheduleNarrowMetaSync(metaOffset);
+      } else {
+        _scheduleNarrowReveal(entity);
+      }
       _fadeLayoutIn(context);
     } else if (wasTwoPane == false && twoPane) {
       // Read the image on screen now, not the trackers' last report: they
       // run on their own timer and may not have reached this build yet.
       final index = _narrowTopImage(layout);
       if (index != null) _imageIndex = index;
+      final metaOffset = _captureNarrowMetaOffset(prevTopChromeExtent);
+      _lastMetaOffset = metaOffset;
+      if (metaOffset > 0) _scheduleMetaSync(metaOffset);
       _fadeLayoutIn(context);
     }
     // Hidden, not removed, in the download mode: it slides out and back.

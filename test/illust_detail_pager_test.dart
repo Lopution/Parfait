@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
@@ -680,5 +683,76 @@ void main() {
       );
       await unmountPastReleaseGrace(tester);
     });
+
+    testWidgets(
+      'keyboard [ / ] and Shift+Arrows turn artworks; pointer edge hover arrows navigate',
+      (tester) async {
+        final (container, _, _) = await makeWorld();
+        container.read(illustStoreProvider).mergeAll([
+          for (final id in [42, 43, 44]) parseIllust(illustJson(id)),
+        ]);
+        final source = IllustPagerSource()..update(const [42, 43, 44]);
+        await _pumpPager(
+          tester,
+          container,
+          source: source,
+          initialId: 42,
+          surface: const Size(1400, 900),
+          builder: (_, child) => InputModalityScope(
+            initialModality: InputModality.pointer,
+            child: child!,
+          ),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.bracketRight);
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, closeTo(1, 0.01));
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, closeTo(2, 0.01));
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.bracketLeft);
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, closeTo(1, 0.01));
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, closeTo(0, 0.01));
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(700, 450));
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(const Offset(1390, 450));
+        await tester.pump();
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const Key('pager-next-artwork')),
+            matching: find.byType(IconButton),
+          ),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, closeTo(1, 0.01));
+
+        await mouse.moveTo(const Offset(10, 450));
+        await tester.pump();
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const Key('pager-prev-artwork')),
+            matching: find.byType(IconButton),
+          ),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(outerController(tester).page, closeTo(0, 0.01));
+
+        await unmountPastReleaseGrace(tester);
+      },
+    );
   });
 }

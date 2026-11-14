@@ -247,10 +247,12 @@ class _WatchlistEntryTile extends ConsumerWidget {
         if (count != null) context.l10n.seriesWorksCount(count),
       ].join(', '),
       onTap: canOpen ? () => unawaited(_viewLatest(context, ref)) : null,
-      trailing: IconButton(
-        icon: const Icon(Icons.more_vert),
-        tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-        onPressed: () => _openActions(context, ref),
+      trailing: Builder(
+        builder: (buttonContext) => IconButton(
+          icon: const Icon(Icons.more_vert),
+          tooltip: MaterialLocalizations.of(buttonContext).showMenuTooltip,
+          onPressed: () => _openActions(buttonContext, ref),
+        ),
       ),
     );
   }
@@ -302,8 +304,9 @@ class _WatchlistEntryTile extends ConsumerWidget {
               })
         : null;
     if (!context.mounted) return;
-    await showAppBottomSheet<void>(
+    await showAppAdaptivePopover<void>(
       context: context,
+      anchorContext: context,
       builder: (sheetContext) {
         return SafeArea(
           top: false,

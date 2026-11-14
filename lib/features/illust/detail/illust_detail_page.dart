@@ -138,6 +138,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// is passed — so we never touch a controller the component owns (R9).
   final ScrollController _narrowScroll = ScrollController();
 
+  /// Two-pane right column scroll controller — kept explicit so resizing across
+  /// the two-pane breakpoint preserves the user's meta/caption/comments offset.
+  final ScrollController _metaScroll = ScrollController();
+  double _lastMetaOffset = 0;
+  double? _narrowInfoStartOffset;
+
   /// The floating action bar's presence (1 shown): it slides away while
   /// reading down and returns on the way back up, like the shell's bar.
   /// The Hero image flying in from a card or back to it is drawn above the
@@ -199,7 +205,79 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     super.initState();
     _narrowScroll
       ..addListener(_updateImmersion)
-      ..addListener(_schedulePagesToggleCheck);
+      ..addListener(_schedulePagesToggleCheck)
+      ..addListener(_updateNarrowInfoStartOffset);
+    _metaScroll.addListener(_onMetaScrollChanged);
+  }
+
+  void _onMetaScrollChanged() {
+    if (_metaScroll.hasClients) {
+      _lastMetaOffset = _metaScroll.offset;
+    }
+  }
+
+  void _updateNarrowInfoStartOffset([double? topChromeExtent]) {
+    final infoCtx = _infoAnchorKey.currentContext;
+    if (infoCtx == null || !infoCtx.mounted || !_narrowScroll.hasClients) {
+      return;
+    }
+    final infoRo = infoCtx.findRenderObject();
+    final scrollRo = _narrowScroll.position.context.notificationContext
+        ?.findRenderObject();
+    if (infoRo is! RenderBox ||
+        !infoRo.hasSize ||
+        scrollRo is! RenderBox ||
+        !scrollRo.hasSize) {
+      return;
+    }
+    final topEdge =
+        scrollRo.localToGlobal(Offset.zero).dy +
+        (topChromeExtent ?? _topChromeExtent);
+    _narrowInfoStartOffset =
+        _narrowScroll.offset + (infoRo.localToGlobal(Offset.zero).dy - topEdge);
+  }
+
+  double _captureNarrowMetaOffset(double topChromeExtent) {
+    _updateNarrowInfoStartOffset(topChromeExtent);
+    final infoStart = _narrowInfoStartOffset;
+    if (!_narrowScroll.hasClients || infoStart == null) return 0;
+    return math.max(0.0, _narrowScroll.offset - infoStart);
+  }
+
+  void _scheduleMetaSync(double target) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_metaScroll.hasClients) return;
+      _metaScroll.jumpTo(
+        target.clamp(0.0, _metaScroll.position.maxScrollExtent),
+      );
+    });
+  }
+
+  void _scheduleNarrowMetaSync(double targetMetaOffset) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      while (mounted &&
+          _infoAnchorKey.currentContext == null &&
+          _narrowScroll.hasClients) {
+        final position = _narrowScroll.position;
+        if (position.pixels >= position.maxScrollExtent) break;
+        position.jumpTo(
+          math.min(
+            position.pixels + position.viewportDimension,
+            position.maxScrollExtent,
+          ),
+        );
+        await WidgetsBinding.instance.endOfFrame;
+      }
+      if (!mounted || !_narrowScroll.hasClients) return;
+      _updateNarrowInfoStartOffset();
+      final infoStart = _narrowInfoStartOffset;
+      if (infoStart == null) return;
+      final target = (infoStart + targetMetaOffset).clamp(
+        0.0,
+        _narrowScroll.position.maxScrollExtent,
+      );
+      _narrowScroll.jumpTo(target);
+    });
   }
 
   @override
@@ -470,6 +548,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   void dispose() {
     unawaited(_downloadEvents?.cancel());
     _narrowScroll.dispose();
+    _metaScroll.dispose();
     _topVisiblePage.dispose();
     _pagesToggleOnScreen.dispose();
     _barVisibility.dispose();

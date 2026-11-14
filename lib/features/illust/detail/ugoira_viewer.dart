@@ -1,26 +1,32 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../../app/clipboard.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/navigation/route_animation.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/theme/func_tokens.dart';
+import '../../../app/widgets/display_actions.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/entity/illust_store.dart';
 import '../../../core/download/download_recovery.dart';
 import '../../../core/errors/error_category.dart';
 import '../../../core/logging/crash_log.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
+import '../../../core/share/share_service.dart';
 import '../../../core/ugoira/ugoira_cache.dart';
 import '../../../core/ugoira/ugoira_decoder.dart';
 import '../../../core/ugoira/ugoira_export.dart';
@@ -121,6 +127,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   var _appResumed = true;
   int? _lastFrameIndex;
   var _disposed = false;
+  final FocusNode _focusNode = FocusNode();
+  bool _hovered = false;
+  double _speed = 1.0;
 
   /// Same hand-off guard as DetailPageImage: detail data can land while the
   /// route is still flying. The cover keeps the feed preview URL (and its
@@ -134,6 +143,26 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (_disposed ||
+        !mounted ||
+        event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.space) {
+      return false;
+    }
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+    if (!_hovered && !_focusNode.hasFocus) return false;
+    if (primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
+        null) {
+      return false;
+    }
+    _togglePlayback();
+    return true;
   }
 
   @override
@@ -192,58 +221,101 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           unawaited(_startPlaybackIfReady(activeScheduler));
         }
       },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _togglePlayback,
-        // An explicit no-op long-press handler keeps LongPressGesture-
-        // Recognizer in the arena: without it a held tap still resolves
-        // [onTap] on release and would toggle playback (the "inert
-        // long-press" test).
-        onLongPress: () {},
-        child: AspectRatio(
-          aspectRatio: aspectRatio,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildCover(currentImage),
-              if (_loading)
-                const FeedLoading()
-              else if (_failure case final failure?)
-                _ErrorOverlay(failure: failure, onRetry: _togglePlayback)
-              else if (scheduler == null || !scheduler.isPlaying)
-                const _PlayOverlay(),
-              Positioned(
-                left: 7,
-                bottom: 7,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: FuncShape.control,
-                    color: const Color(0x99343838),
+      child: MouseRegion(
+        onEnter: (_) => _hovered = true,
+        onExit: (_) => _hovered = false,
+        child: Focus(
+          focusNode: _focusNode,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _togglePlayback,
+            // An explicit no-op long-press handler keeps LongPressGesture-
+            // Recognizer in the arena: without it a held tap still resolves
+            // [onTap] on release and would toggle playback (the "inert
+            // long-press" test).
+            onLongPress: () {},
+            onSecondaryTapUp: _openContextMenu,
+            child: AspectRatio(
+              aspectRatio: aspectRatio,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildCover(currentImage),
+                  if (_loading)
+                    const FeedLoading()
+                  else if (_failure case final failure?)
+                    _ErrorOverlay(failure: failure, onRetry: _togglePlayback)
+                  else if (scheduler == null || !scheduler.isPlaying)
+                    const _PlayOverlay(),
+                  Positioned(
+                    left: 7,
+                    bottom: 7,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: FuncShape.control,
+                        color: const Color(0x99343838),
+                      ),
+                      child: const Icon(
+                        Icons.gif_box_outlined,
+                        color: FuncTokens.white,
+                        size: 30,
+                      ),
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.gif_box_outlined,
-                    color: FuncTokens.white,
-                    size: 30,
+                  Positioned(
+                    left: 44,
+                    bottom: 8,
+                    child: _UgoiraSpeedButton(
+                      speed: _speed,
+                      onSelected: _setSpeed,
+                    ),
                   ),
-                ),
+                  if (_asset != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: SizedBox(
+                          height: 3,
+                          child: ColoredBox(
+                            color: Colors.black38,
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: FractionallySizedBox(
+                                widthFactor: _playbackProgress(
+                                  _asset,
+                                  scheduler,
+                                ),
+                                heightFactor: 1,
+                                child: ColoredBox(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // The GIF export entry is always visible — the ugoira
+                  // equivalent of the plain download action. One slot carries
+                  // three states: preparing (asset not loaded → disabled),
+                  // exporting (progress spinner), failed (error icon, tap to
+                  // retry).
+                  // Bottom corner, opposite the GIF badge: the top of the
+                  // artwork sits under the detail page's see-through bar.
+                  Positioned(
+                    right: 7,
+                    bottom: 7,
+                    child: _ExportButton(
+                      assetReady: _asset != null,
+                      snapshot: _exportJob?.snapshot,
+                      onExport: _export,
+                    ),
+                  ),
+                ],
               ),
-              // The GIF export entry is always visible — the ugoira
-              // equivalent of the plain download action. One slot carries
-              // three states: preparing (asset not loaded → disabled),
-              // exporting (progress spinner), failed (error icon, tap to
-              // retry).
-              // Bottom corner, opposite the GIF badge: the top of the
-              // artwork sits under the detail page's see-through bar.
-              Positioned(
-                right: 7,
-                bottom: 7,
-                child: _ExportButton(
-                  assetReady: _asset != null,
-                  snapshot: _exportJob?.snapshot,
-                  onExport: _export,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -393,13 +465,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
         sizeOf: (image) => image.width * image.height * 4,
         dispose: (image) => image.dispose(),
       );
-      final scheduler = UgoiraScheduler(
-        delays: [
-          for (final frame in asset.metadata.frames)
-            Duration(milliseconds: frame.delayMs),
-        ],
-        onFrame: _onFrame,
-      );
+      final scheduler = _buildScheduler(asset);
       _asset = asset;
       _cache = cache;
       _scheduler = scheduler;
@@ -630,9 +696,140 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     showAppSnackBar(context, message);
   }
 
+  UgoiraScheduler _buildScheduler(UgoiraAsset asset, {int startAt = 0}) {
+    final frames = asset.metadata.frames;
+    final delays = [
+      for (final frame in frames)
+        Duration(milliseconds: math.max(16, (frame.delayMs / _speed).round())),
+    ];
+    var initializing = startAt > 0;
+    final scheduler = UgoiraScheduler(
+      delays: delays,
+      onFrame: (index) {
+        if (!initializing) _onFrame(index);
+      },
+    );
+    if (startAt > 0 && startAt < frames.length) {
+      final elapsed = delays
+          .take(startAt)
+          .fold<Duration>(Duration.zero, (sum, delay) => sum + delay);
+      scheduler
+        ..play()
+        ..advance(elapsed)
+        ..pause();
+    }
+    initializing = false;
+    return scheduler;
+  }
+
+  void _setSpeed(double speed) {
+    if (_disposed || _speed == speed) return;
+    _speed = speed;
+    final asset = _asset;
+    final old = _scheduler;
+    if (asset == null || old == null) {
+      setState(() {});
+      return;
+    }
+    final current = old.currentIndex;
+    final wasPlaying = _playRequested;
+    old.dispose();
+    final next = _buildScheduler(asset, startAt: current);
+    _scheduler = next;
+    setState(() {});
+    if (wasPlaying) unawaited(_startPlaybackIfReady(next));
+  }
+
+  double _playbackProgress(UgoiraAsset? asset, UgoiraScheduler? scheduler) {
+    if (asset == null || scheduler == null) return 0;
+    final frames = asset.metadata.frames;
+    if (frames.isEmpty) return 0;
+    final totalMs = frames.fold<int>(0, (sum, frame) => sum + frame.delayMs);
+    if (totalMs <= 0) {
+      return ((scheduler.currentIndex + 1) / frames.length).clamp(0.0, 1.0);
+    }
+    final playedMs = frames
+        .take(scheduler.currentIndex + 1)
+        .fold<int>(0, (sum, frame) => sum + frame.delayMs);
+    return (playedMs / totalMs).clamp(0.0, 1.0);
+  }
+
+  void _openContextMenu(TapUpDetails details) {
+    final l10n = context.l10n;
+    final scheduler = _scheduler;
+    final playing = scheduler?.isPlaying ?? false;
+    final status = _exportJob?.snapshot.status;
+    final exporting =
+        status == UgoiraExportStatus.running ||
+        status == UgoiraExportStatus.finalizing ||
+        status == UgoiraExportStatus.queued;
+    unawaited(
+      showDisplayActions(
+        context,
+        position: details.globalPosition,
+        kind: details.kind,
+        onLongPress: () {},
+        actions: [
+          DisplayAction(
+            icon: playing ? Icons.pause : Icons.play_arrow,
+            label: playing
+                ? l10n.pauseDownload
+                : scheduler == null
+                ? l10n.start
+                : l10n.resumeDownload,
+            onSelected: _togglePlayback,
+          ),
+          DisplayAction(
+            icon: Icons.download_outlined,
+            label: l10n.ugoiraSaveGif,
+            enabled: !exporting,
+            onSelected: () => unawaited(_export()),
+          ),
+          DisplayAction(
+            icon: Icons.share_outlined,
+            label: l10n.share,
+            onSelected: () => unawaited(_share()),
+          ),
+          DisplayAction(
+            icon: Icons.link_outlined,
+            label: l10n.copyLink,
+            onSelected: () => unawaited(
+              copyToClipboard(
+                context,
+                'https://www.pixiv.net/artworks/${widget.illustId}',
+                message: l10n.linkCopied,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _share() async {
+    final entity = ref.read(illustStoreProvider).get(widget.illustId);
+    final outcome = await ref
+        .read(shareServiceProvider)
+        .share(
+          SharePayload.illust(
+            id: widget.illustId,
+            title:
+                entity?.title ??
+                '${context.l10n.illustDetailTitle} #${widget.illustId}',
+            author: entity?.user.name ?? '',
+          ),
+          sharePositionOrigin: shareOriginOf(context),
+        );
+    if (outcome == ShareOutcome.copiedToClipboard && mounted) {
+      showAppSnackBar(context, context.l10n.linkCopied);
+    }
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    _focusNode.dispose();
     _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
     WidgetsBinding.instance.removeObserver(this);
     _loadCancelToken?.cancel();
@@ -748,6 +945,53 @@ class _ErrorOverlay extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UgoiraSpeedButton extends StatelessWidget {
+  const _UgoiraSpeedButton({required this.speed, required this.onSelected});
+
+  final double speed;
+  final ValueChanged<double> onSelected;
+
+  String _format(double value) =>
+      value == value.roundToDouble() ? '${value.toInt()}x' : '${value}x';
+
+  @override
+  Widget build(BuildContext context) {
+    return MenuAnchor(
+      menuChildren: [
+        for (final option in const [0.5, 1.0, 1.5, 2.0])
+          MenuItemButton(
+            onPressed: () => onSelected(option),
+            leadingIcon: option == speed
+                ? const Icon(Icons.check, size: 18)
+                : const SizedBox(width: 18),
+            child: Text(_format(option)),
+          ),
+      ],
+      builder: (context, controller, child) => Material(
+        color: const Color(0x99343838),
+        borderRadius: FuncShape.control,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: FuncSpacing.sm,
+              vertical: FuncSpacing.xs,
+            ),
+            child: Text(
+              _format(speed),
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: FuncTokens.white),
             ),
           ),
         ),

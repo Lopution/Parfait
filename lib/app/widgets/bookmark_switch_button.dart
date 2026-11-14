@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -201,13 +202,14 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
     final onLongPress = unsettled ? null : _showBookmarkSheet;
     // A PC's secondary click offers the same sheet as one menu entry beside
     // the pointer (R11); on touch forms the right-click opens it directly.
-    void secondaryTap(Offset position) {
+    void secondaryTap(Offset position, PointerDeviceKind kind) {
       final open = onLongPress;
       if (open == null) return;
       unawaited(
         showDisplayActions(
           context,
           position: position,
+          kind: kind,
           onLongPress: open,
           actions: [
             DisplayAction(
@@ -266,7 +268,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
           onLongPress: onLongPress,
           onSecondaryTapUp: onLongPress == null
               ? null
-              : (details) => secondaryTap(details.globalPosition),
+              : (details) => secondaryTap(details.globalPosition, details.kind),
           child: ExcludeSemantics(
             child: IconButton(
               splashRadius: 24,
@@ -290,7 +292,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         onLongPress: onLongPress,
         onSecondaryTapUp: onLongPress == null
             ? null
-            : (details) => secondaryTap(details.globalPosition),
+            : (details) => secondaryTap(details.globalPosition, details.kind),
         onTap: _toggle,
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.sm),
@@ -355,9 +357,10 @@ Future<bool> showBookmarkEditSheet(
         listen: false,
       ).read(bookmarkStoreProvider)[key]?.shown ??
       false;
-  final added = await showAppBottomSheet<bool>(
+  final added = await showAppAdaptiveDialog<bool>(
     context: context,
-    backgroundColor: FuncTokens.transparent,
+    maxWidth: 480,
+    backgroundColor: useDesktopOverlay(context) ? null : FuncTokens.transparent,
     isScrollControlled: true,
     builder: (sheetContext) => _BookmarkEditSheet(
       bookmarkKey: key,
@@ -580,6 +583,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
     // confirm row stay reachable instead of sliding under the keyboard.
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final availableHeight = MediaQuery.heightOf(context) - keyboardInset;
+    final desktop = useDesktopOverlay(context);
     Widget sheet = Align(
       // heightFactor shrink-wraps vertically: a bare Center would expand to
       // the sheet slot's max height. On expanded surfaces the form column
@@ -589,9 +593,11 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: contentMaxWidth),
         child: Container(
-          margin: EdgeInsets.only(bottom: keyboardInset),
+          margin: desktop
+              ? EdgeInsets.zero
+              : EdgeInsets.only(bottom: keyboardInset),
           decoration: BoxDecoration(
-            borderRadius: FuncShape.sheet,
+            borderRadius: desktop ? null : FuncShape.sheet,
             color: colorScheme.surfaceContainer,
           ),
           child: SafeArea(
