@@ -661,33 +661,37 @@ class _NovelSearchFeed extends ConsumerWidget {
         itemCount: feed.ids.length,
         onLoadMore: () =>
             ref.read(searchFeedProvider(query).notifier).loadMore(),
-        child: DeferredCacheScrollView(
-          key: PageStorageKey(query.cacheKey),
+        child: SmoothWheelScroll(
           controller: scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          scrollCacheExtent: kFeedCacheExtent,
-          restorationId: 'search-${query.cacheKey}',
-          slivers: [
-            SliverCardList(
-              itemCount: entities.length,
-              firstId: entities.first.id,
-              warmTexts: (context, index) =>
-                  NovelEntry.warmTexts(context, entities[index]),
-              items: entities,
-              itemBuilder: (context, index) =>
-                  NovelEntry.regular(entity: entities[index]),
-            ),
-            SliverToBoxAdapter(
-              child: FeedTail(
-                feed: feed,
-                onRetry: () => ref
-                    .read(searchFeedProvider(query).notifier)
-                    .retryLoadMore(),
-                errorTitle: context.l10n.searchLoadMoreFailed,
-                retryLabel: context.l10n.searchRetry,
+          basePhysics: const AlwaysScrollableScrollPhysics(),
+          builder: (context, controller, physics) => DeferredCacheScrollView(
+            key: PageStorageKey(query.cacheKey),
+            controller: controller,
+            physics: physics,
+            scrollCacheExtent: kFeedCacheExtent,
+            restorationId: 'search-${query.cacheKey}',
+            slivers: [
+              SliverCardList(
+                itemCount: entities.length,
+                firstId: entities.first.id,
+                warmTexts: (context, index) =>
+                    NovelEntry.warmTexts(context, entities[index]),
+                items: entities,
+                itemBuilder: (context, index) =>
+                    NovelEntry.regular(entity: entities[index]),
               ),
-            ),
-          ],
+              SliverToBoxAdapter(
+                child: FeedTail(
+                  feed: feed,
+                  onRetry: () => ref
+                      .read(searchFeedProvider(query).notifier)
+                      .retryLoadMore(),
+                  errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -723,32 +727,37 @@ class _UserSearchFeed extends ConsumerWidget {
           builder: (context, constraints) {
             final columns = CardColumns.of(constraints.maxWidth);
             final rows = CardColumns.rowCount(users.length, columns);
-            return DeferredCacheListView.builder(
-              key: PageStorageKey(query.cacheKey),
+            return SmoothWheelScroll(
               controller: scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              scrollCacheExtent: kFeedCacheExtent,
-              restorationId: 'search-${query.cacheKey}',
-              itemCount: rows + 1,
-              itemBuilder: (context, row) {
-                if (row == rows) {
-                  return FeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(searchFeedProvider(query).notifier)
-                        .retryLoadMore(),
-                    errorTitle: context.l10n.searchLoadMoreFailed,
-                    retryLabel: context.l10n.searchRetry,
-                  );
-                }
-                return CardRow(
-                  row: row,
-                  columns: columns,
-                  count: users.length,
-                  itemBuilder: (context, index) =>
-                      UserPreviewRow(entity: users[index]),
-                );
-              },
+              basePhysics: const AlwaysScrollableScrollPhysics(),
+              builder: (context, controller, physics) =>
+                  DeferredCacheListView.builder(
+                    key: PageStorageKey(query.cacheKey),
+                    controller: controller,
+                    physics: physics,
+                    scrollCacheExtent: kFeedCacheExtent,
+                    restorationId: 'search-${query.cacheKey}',
+                    itemCount: rows + 1,
+                    itemBuilder: (context, row) {
+                      if (row == rows) {
+                        return FeedTail(
+                          feed: feed,
+                          onRetry: () => ref
+                              .read(searchFeedProvider(query).notifier)
+                              .retryLoadMore(),
+                          errorTitle: context.l10n.searchLoadMoreFailed,
+                          retryLabel: context.l10n.searchRetry,
+                        );
+                      }
+                      return CardRow(
+                        row: row,
+                        columns: columns,
+                        count: users.length,
+                        itemBuilder: (context, index) =>
+                            UserPreviewRow(entity: users[index]),
+                      );
+                    },
+                  ),
             );
           },
         ),

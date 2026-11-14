@@ -1,45 +1,75 @@
-import 'package:flutter/foundation.dart' show clampDouble;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, clampDouble, defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../core/platform/app_root_pipeline_owner.dart';
 
-/// App-wide scroll behavior: on desktop the mouse and trackpad drag like
-/// touch (Flutter's default excludes them, leaving wheel-only scrolling).
+const _touchDragDevices = <PointerDeviceKind>{
+  PointerDeviceKind.touch,
+  PointerDeviceKind.trackpad,
+  PointerDeviceKind.stylus,
+  PointerDeviceKind.invertedStylus,
+  PointerDeviceKind.unknown,
+};
+
+const _allDragDevices = <PointerDeviceKind>{
+  PointerDeviceKind.touch,
+  PointerDeviceKind.mouse,
+  PointerDeviceKind.trackpad,
+  PointerDeviceKind.stylus,
+  PointerDeviceKind.invertedStylus,
+  PointerDeviceKind.unknown,
+};
+
+/// Drag devices accepted by scrollables on the current platform: desktop omits
+/// [PointerDeviceKind.mouse] so text selection and pointer drags behave
+/// natively rather than pulling lists; mobile/tablet keeps all devices.
+Set<PointerDeviceKind> platformDragDevices() => switch (defaultTargetPlatform) {
+  TargetPlatform.windows ||
+  TargetPlatform.macOS ||
+  TargetPlatform.linux => _touchDragDevices,
+  _ => _allDragDevices,
+};
+
+/// App-wide scroll behavior configured per platform:
+///
+/// * **Android:** `AndroidDragPhysics` over [FuncScrollPhysics] (bouncing
+///   overscroll with edge-stop flings, zero drag dead zone and zero momentum
+///   carry) and all [dragDevices].
+/// * **iOS:** [FuncScrollPhysics] directly, restoring native
+///   [BouncingScrollPhysics] momentum carry and the 3.5px drag threshold.
+/// * **macOS:** [FuncScrollPhysics] (bouncing) with desktop [dragDevices]
+///   (no mouse drag) and the platform scrollbar.
+/// * **Windows / Linux:** [ClampingScrollPhysics] with desktop [dragDevices]
+///   (no mouse drag) and the platform scrollbar.
+///
 /// Wheel smoothing itself is per-scrollable — see `SmoothWheelScroll`.
-///
-/// Touch physics follow the EasyRefresh convention app-wide: feed pages get
-/// their feel from `_ERScrollPhysics` (a `BouncingScrollPhysics` with an
-/// always-scrollable parent and no platform overscroll glow, a fling
-/// stopping at the ends), and before this every other page ran platform
-/// `ClampingScrollPhysics` instead — one app, two physics stacks. Mirroring
-/// the same feel here ([FuncScrollPhysics]) keeps detail/settings/search
-/// pages, profile NestedScrollView outer scrolls and feed scrolls on a
-/// single scheme.
-///
-/// Vertical lists show a scrollbar while a mouse is connected
+/// Vertical touch lists show a scrollbar while a mouse is connected
 /// ([mouseScrollbar]), and no scrollable pushes semantics while it scrolls
 /// ([ScrollSemanticsHold]).
 class FuncScrollBehavior extends MaterialScrollBehavior {
   const FuncScrollBehavior();
 
   @override
-  Set<PointerDeviceKind> get dragDevices => const {
-    PointerDeviceKind.touch,
-    PointerDeviceKind.mouse,
-    PointerDeviceKind.trackpad,
-    PointerDeviceKind.stylus,
-    PointerDeviceKind.invertedStylus,
-    PointerDeviceKind.unknown,
-  };
+  Set<PointerDeviceKind> get dragDevices => platformDragDevices();
 
   @override
-  ScrollPhysics getScrollPhysics(BuildContext context) =>
-      textScrollPhysics(context) ??
-      const AndroidDragPhysics(
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    if (textScrollPhysics(context) case final text?) return text;
+    return switch (getPlatform(context)) {
+      TargetPlatform.iOS || TargetPlatform.macOS => const FuncScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      TargetPlatform.windows || TargetPlatform.linux =>
+        const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      TargetPlatform.android ||
+      TargetPlatform.fuchsia => const AndroidDragPhysics(
         parent: FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      );
+      ),
+    };
+  }
 
   @override
   Widget buildOverscrollIndicator(

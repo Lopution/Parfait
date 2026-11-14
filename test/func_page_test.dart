@@ -85,14 +85,16 @@ Future<PageRoute<void>> _pushSecondPage(
   Duration duration = const Duration(milliseconds: 800),
   Widget? home,
   Widget second = const Text('page b'),
+  bool sharedElement = false,
   bool settle = true,
 }) async {
   late PageRoute<void> pushed;
   late BuildContext rootContext;
-  PageRoute<void> page(Widget child) =>
+  PageRoute<void> page(Widget child, {bool shared = false}) =>
       FuncPage<void>(
             transitionDuration: duration,
             reverseTransitionDuration: duration,
+            sharedElement: shared,
             child: child,
           ).createRoute(rootContext)
           as PageRoute<void>;
@@ -107,7 +109,7 @@ Future<PageRoute<void>> _pushSecondPage(
               Builder(
                 builder: (context) => TextButton(
                   onPressed: () {
-                    pushed = page(second);
+                    pushed = page(second, shared: sharedElement);
                     Navigator.of(context).push(pushed);
                   },
                   child: home ?? const Text('page a'),
@@ -802,6 +804,185 @@ void main() {
       expect(editRoute.isActive, isTrue);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  testWidgets(
+    'desktop uses the lightweight 150ms fade-and-slide transition and respects reduced motion',
+    (tester) async {
+      final router = await _pumpHome(tester);
+      unawaited(router.push('/recommended/history'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(HistoryPage), findsOneWidget);
+      final route = _routeOf(tester, find.byType(HistoryPage));
+      expect(route.animation!.value, 0.0);
+
+      await tester.pump(const Duration(milliseconds: 75));
+      expect(route.animation!.value, greaterThan(0.0));
+      expect(route.animation!.value, lessThan(1.0));
+      final slide = tester.widget<SlideTransition>(
+        find
+            .ancestor(
+              of: find.byType(HistoryPage),
+              matching: find.byType(SlideTransition),
+            )
+            .first,
+      );
+      expect(slide.position.value.dx, inExclusiveRange(0.0, 0.04));
+
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(route.animation!.value, 1.0);
+
+      final reducedRouter = await _pumpHome(tester, reduceMotion: true);
+      unawaited(reducedRouter.push('/recommended/history'));
+      await tester.pump();
+      await tester.pump();
+      final reducedRoute = _routeOf(tester, find.byType(HistoryPage));
+      expect(reducedRoute.transitionDuration, Duration.zero);
+      expect(reducedRoute.reverseTransitionDuration, Duration.zero);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(reducedRoute.animation!.value, 1.0);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'iOS edge-swipe pops active visible route from left 24dp edge without stealing pager drags',
+    (tester) async {
+      setViewSize(tester, const Size(400, 800));
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      final pageController = PageController();
+      addTearDown(pageController.dispose);
+      final pushed = await _pushSecondPage(
+        tester,
+        second: Stack(
+          children: [
+            Positioned.fill(
+              child: PageView(
+                controller: pageController,
+                children: const [
+                  Center(child: Text('slide 0')),
+                  Center(child: Text('slide 1')),
+                ],
+              ),
+            ),
+            const Align(alignment: Alignment.topCenter, child: Text('page b')),
+          ],
+        ),
+      );
+
+      await tester.drag(find.byType(PageView), const Offset(-260, 0));
+      await tester.pumpAndSettle();
+      expect(pageController.page, 1.0);
+      expect(pushed.isActive, isTrue);
+
+      await tester.dragFrom(const Offset(100, 300), const Offset(260, 0));
+      await tester.pumpAndSettle();
+      expect(pageController.page, 0.0);
+      expect(pushed.isActive, isTrue);
+
+      final edgeDrag = await tester.startGesture(const Offset(12, 300));
+      await edgeDrag.moveBy(const Offset(30, 0));
+      await edgeDrag.moveBy(const Offset(90, 0));
+      await tester.pump();
+      expect(pushed.animation!.value, lessThan(1.0));
+
+      await edgeDrag.moveBy(const Offset(140, 0));
+      await edgeDrag.up();
+      await tester.pumpAndSettle();
+      expect(pushed.isActive, isFalse);
+      expect(find.text('page a'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
+    'iOS edge-swipe respects PopScope dirty-form guard and stays off on offstage branches',
+    (tester) async {
+      setViewSize(tester, const Size(400, 800));
+      addTearDown(tester.platformDispatcher.clearAllTestValues);
+      final guardPushed = await _pushSecondPage(
+        tester,
+        second: const PopScope<void>(
+          canPop: false,
+          child: SizedBox.expand(child: Center(child: Text('page b'))),
+        ),
+      );
+      await tester.dragFrom(const Offset(12, 300), const Offset(260, 0));
+      await tester.pumpAndSettle();
+      expect(guardPushed.animation!.value, 1.0);
+      expect(guardPushed.isActive, isTrue);
+      expect(find.text('page b'), findsOneWidget);
+
+      final router = await _pumpHome(tester);
+      unawaited(router.push('/recommended/history'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      final branch0Route = _routeOf(tester, find.byType(HistoryPage));
+
+      router.go('/ranking');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.byType(HistoryPage), findsNothing);
+      expect(find.byType(HistoryPage, skipOffstage: false), findsOneWidget);
+
+      await tester.dragFrom(const Offset(12, 300), const Offset(260, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(branch0Route.isActive, isTrue);
+
+      tester
+          .widget<HomeBranchStack>(find.byType(HomeBranchStack))
+          .shell
+          .goBranch(0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.byType(HistoryPage), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
+    'iOS sharedElement route slides on edge-swipe and cleans up gesture on settle or removal',
+    (tester) async {
+      setViewSize(tester, const Size(400, 800));
+      final pushed = await _pushSecondPage(
+        tester,
+        sharedElement: true,
+        second: const ColoredBox(
+          color: Color(0xFFFFFFFF),
+          child: Align(alignment: Alignment.topLeft, child: Text('page b')),
+        ),
+      );
+      final nav = pushed.navigator!;
+      expect(tester.getTopLeft(find.text('page b')).dx, 0.0);
+
+      Future<TestGesture> startEdgeDrag() async {
+        final g = await tester.startGesture(const Offset(12, 300));
+        await g.moveBy(const Offset(30, 0));
+        await g.moveBy(const Offset(90, 0));
+        await tester.pump();
+        return g;
+      }
+
+      final drag = await startEdgeDrag();
+      expect(nav.userGestureInProgress, isTrue);
+      expect(tester.getTopLeft(find.text('page b')).dx, greaterThan(0.0));
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(nav.userGestureInProgress, isFalse);
+
+      final second = await startEdgeDrag();
+      await second.up();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(nav.userGestureInProgress, isTrue);
+
+      nav.removeRoute(pushed);
+      await tester.pumpAndSettle();
+      expect(nav.userGestureInProgress, isFalse);
+      expect(find.text('page a'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 }
 

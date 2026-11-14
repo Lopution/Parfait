@@ -1,7 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../theme/func_semantic_tokens.dart';
 import '../layout/content_widths.dart';
+import '../navigation/keyboard_back.dart';
+import '../theme/func_semantic_tokens.dart';
 import 'search_keyword_pills.dart';
 
 /// Looks like a search field, acts as a button: the input page owns typing.
@@ -62,9 +63,12 @@ class SearchFieldButton extends StatelessWidget {
         ),
       ),
     );
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: maxWidth),
-      child: field,
+    return SearchShortcutAnchor(
+      onTrigger: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: maxWidth),
+        child: field,
+      ),
     );
   }
 

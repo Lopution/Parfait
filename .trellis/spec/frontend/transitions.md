@@ -22,36 +22,51 @@ reviewed: 2026-10-29
 
 ## Page transitions and back
 
-### TRANS-01 One page transition: the Cupertino slide
-- **Rule:** Every pushed page slides in from the trailing edge with
-  `CupertinoPageTransition` (the page below darkens and moves aside) on
-  every platform, over `MotionTokens.pageTransition` (500ms). Its curves
-  turn where they are (`TurnCurve`, handed over with `linearTransition`):
-  back during a push sends the page back from where it is, on the pop
-  curve. A leaving page takes no touch; the page below answers, also
-  where the page still is. The home shell is a `FuncPage` too, with no
-  duration of its own: it appears at once and moves aside under a page
-  pushed over it on the root navigator (Me, downloads, reverse image
-  search, login), as a branch root does under a branch push. There is no
-  transition setting and no hand-written transition. A stored
-  `pageTransitionStyle` is ignored and not written back. Shared-element
-  pages have their own transition (TRANS-09).
-- **Why:** User decision (10-20): FadeForwards read as odd; the slide is
-  one motion the user can follow. Earlier, shared axis and zoom were
-  dropped, and fade-through is for unrelated destinations, not pushes.
-  `CurvedAnimation` keeps the curve it started with: a push cut short
-  crept back and then left at full speed (10-24). The slide's shadow box
-  took every touch on the leaving page. A still shell under root pages
-  made two kinds of push from one menu (user report).
-- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers"; `test/navigation_router_test.dart` "openDownloadTasks lands on /downloads; the shell moves aside"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "values saved by older versions carry over; retired keys are never"
-- **Code:** `lib/app/navigation/func_page.dart`, `lib/core/settings/app_settings.dart`
+### TRANS-01 Per-platform page transitions
+- **Rule:** Pushed routes in `FuncPage` use platform-appropriate motion while
+  preserving `TurnCurve` mid-push reversal, leaving-route touch blocking
+  (`IgnorePointer`), root-shell secondary motion when covered, and the
+  `ReducedMotion` instant collapse (`TRANS-01`):
+  - **Android:** slides from the trailing edge with `CupertinoPageTransition`
+    and `TurnCurve` over `MotionTokens.pageTransition` (500ms); system back
+    never drives an in-app partial drag.
+  - **iOS:** same `CupertinoPageTransition` slide over
+    `MotionTokens.pageTransition` (500ms), plus interactive left-edge swipe
+    back (TRANS-02).
+  - **Desktop (Windows / macOS / Linux):** lightweight fade + subtle horizontal
+    slide over `MotionTokens.desktopPageTransition` (150ms), collapsing to
+    instant under `ReducedMotion`.
+  - There is no transition setting and no hand-written per-feature route
+    transition; a stored `pageTransitionStyle` is ignored and not written back.
+    Shared-element pages keep their dedicated transition (TRANS-09).
+- **Why:** Mobile users expect spatial Cupertino slides, whereas pointer
+  desktop navigation feels sluggish behind a 500ms full-width slide and needs
+  a crisp 150ms fade+slide. `TurnCurve` ensures reversing a mid-flight push
+  turns smoothly without stalling, and `ReducedMotion` keeps state changes
+  immediate.
+- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers" "desktop uses the lightweight 150ms fade-and-slide transition and respects reduced motion"; `test/navigation_router_test.dart` "openDownloadTasks lands on /downloads; the shell moves aside"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "values saved by older versions carry over; retired keys are never"
+- **Code:** `lib/app/navigation/func_page.dart`, `lib/app/motion/motion_tokens.dart`, `lib/core/settings/app_settings.dart`
 
-### TRANS-02 The slide uses the Cupertino widget, not its builder
-- **Rule:** The slide is the `CupertinoPageTransition` widget, never
-  `CupertinoPageTransitionsBuilder` or `CupertinoPageRoute`.
-- **Why:** The builder adds an iOS edge-swipe detector that steals
-  horizontal drags from the detail pager.
-- **Check:** manual
+### TRANS-02 iOS edge-swipe gesture and pager coexistence
+- **Rule:** Never install `CupertinoPageTransitionsBuilder` or
+  `CupertinoPageRoute` directly. Instead, on **iOS only**, `FuncPage` attaches
+  a custom 24dp leading-edge back gesture detector inside
+  `CupertinoPageTransition` that only begins when all of the following hold:
+  1) the drag starts within the leading 24dp edge zone (plus safe-area edge
+     padding) and moves inward,
+  2) the route `isCurrent`, not a `fullscreenDialog`, and its branch/route
+     `TickerMode` is visible/enabled,
+  3) `popGestureEnabled` is true (`canPop` / no active `PopScope(canPop: false)`
+     dirty-form guard and no internal local history pop pending).
+  Android and desktop do not attach this gesture detector (`handleStartBackGesture`
+  stays false).
+- **Why:** `CupertinoPageTransitionsBuilder` injects a global edge recognizer
+  without branch visibility awareness and can steal horizontal drags inside
+  `DetailImagePager` or `PageView`. Restricting detection to iOS, the leading
+  24dp inward edge zone, active visible routes, and `canPop` enables native
+  iOS swipe-back while protecting horizontal pagers, `PopScope` confirmations
+  (TRANS-03), and offstage shell branches (TRANS-04).
+- **Check:** `test/func_page_test.dart` "iOS edge-swipe pops active visible route from left 24dp edge without stealing pager drags" "iOS edge-swipe respects PopScope dirty-form guard and stays off on offstage branches"
 - **Code:** `lib/app/navigation/func_page.dart`
 
 ### TRANS-03 Back uses PopScope.onPopInvokedWithResult
