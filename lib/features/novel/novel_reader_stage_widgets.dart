@@ -235,6 +235,42 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
                       ],
                     ),
                     const SizedBox(height: FuncSpacing.sm),
+                    Text(
+                      l10n.novelSpreadMode,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: FuncSpacing.xs),
+                    Wrap(
+                      spacing: FuncSpacing.sm,
+                      runSpacing: FuncSpacing.xs,
+                      children: [
+                        for (final (mode, label) in [
+                          (NovelSpreadMode.off, l10n.novelSpreadOff),
+                          (NovelSpreadMode.auto, l10n.novelSpreadAuto),
+                          (
+                            NovelSpreadMode.landscape,
+                            l10n.novelSpreadLandscape,
+                          ),
+                          (NovelSpreadMode.always, l10n.novelSpreadAlways),
+                        ])
+                          AppChoiceChip(
+                            label: Text(label),
+                            selected: _settings.spreadMode == mode,
+                            onSelected: () => apply(
+                              _settings.copyWith(
+                                spreadMode: mode,
+                                pageTurn:
+                                    mode != NovelSpreadMode.off &&
+                                        _settings.pageTurn ==
+                                            NovelPageTurn.scroll
+                                    ? NovelPageTurn.pages
+                                    : null,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: FuncSpacing.sm),
                     Wrap(
                       spacing: 8,
                       children: [

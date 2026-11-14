@@ -6064,6 +6064,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'隐藏主窗口并在系统托盘中保持运行'**
   String get closeToTrayHint;
+
+  /// Novel reader settings section heading for two-page spread mode
+  ///
+  /// In zh, this message translates to:
+  /// **'双页排版'**
+  String get novelSpreadMode;
+
+  /// Novel spread mode option: always show a single page
+  ///
+  /// In zh, this message translates to:
+  /// **'单页'**
+  String get novelSpreadOff;
+
+  /// Novel spread mode option: automatically spread on wide landscape or book-posture foldables
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get novelSpreadAuto;
+
+  /// Novel spread mode option: spread whenever the reader is in landscape orientation
+  ///
+  /// In zh, this message translates to:
+  /// **'横屏双页'**
+  String get novelSpreadLandscape;
+
+  /// Novel spread mode option: always use two-page spread when width permits
+  ///
+  /// In zh, this message translates to:
+  /// **'始终双页'**
+  String get novelSpreadAlways;
+
+  /// Compact pointer-mode cue pill label to reveal the reader toolbar
+  ///
+  /// In zh, this message translates to:
+  /// **'显示工具栏'**
+  String get novelShowToolbar;
 }
 
 class _AppLocalizationsDelegate

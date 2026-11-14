@@ -3216,4 +3216,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get closeToTrayHint => 'ウィンドウを閉じてもシステムトレイに常駐します';
+
+  @override
+  String get novelSpreadMode => '見開き表示';
+
+  @override
+  String get novelSpreadOff => '単ページ';
+
+  @override
+  String get novelSpreadAuto => '自動';
+
+  @override
+  String get novelSpreadLandscape => '横画面';
+
+  @override
+  String get novelSpreadAlways => '常に見開き';
+
+  @override
+  String get novelShowToolbar => 'ツールバーを表示';
 }

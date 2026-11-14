@@ -3300,4 +3300,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get closeToTrayHint =>
       'Hide to the system tray instead of quitting when closing the window';
+
+  @override
+  String get novelSpreadMode => 'Two-page spread';
+
+  @override
+  String get novelSpreadOff => 'Single';
+
+  @override
+  String get novelSpreadAuto => 'Auto';
+
+  @override
+  String get novelSpreadLandscape => 'Landscape';
+
+  @override
+  String get novelSpreadAlways => 'Always';
+
+  @override
+  String get novelShowToolbar => 'Show toolbar';
 }

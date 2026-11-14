@@ -1417,5 +1417,11 @@
   "trayDownloads": "Downloads",
   "trayQuit": "Quit",
   "closeToTray": "Minimize to tray when closing",
-  "closeToTrayHint": "Hide to the system tray instead of quitting when closing the window"
+  "closeToTrayHint": "Hide to the system tray instead of quitting when closing the window",
+  "novelSpreadMode": "Two-page spread",
+  "novelSpreadOff": "Single",
+  "novelSpreadAuto": "Auto",
+  "novelSpreadLandscape": "Landscape",
+  "novelSpreadAlways": "Always",
+  "novelShowToolbar": "Show toolbar"
 }

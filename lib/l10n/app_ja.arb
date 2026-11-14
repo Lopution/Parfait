@@ -1410,5 +1410,11 @@
   "trayDownloads": "ダウンロード",
   "trayQuit": "終了",
   "closeToTray": "閉じるボタンでトレイに最小化",
-  "closeToTrayHint": "ウィンドウを閉じてもシステムトレイに常駐します"
+  "closeToTrayHint": "ウィンドウを閉じてもシステムトレイに常駐します",
+  "novelSpreadMode": "見開き表示",
+  "novelSpreadOff": "単ページ",
+  "novelSpreadAuto": "自動",
+  "novelSpreadLandscape": "横画面",
+  "novelSpreadAlways": "常に見開き",
+  "novelShowToolbar": "ツールバーを表示"
 }

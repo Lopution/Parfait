@@ -29,6 +29,17 @@ enum NovelPageTurn {
       NovelPageTurn.values.asNameMap()[raw] ?? NovelPageTurn.scroll;
 }
 
+/// Strategy for rendering two-page spreads in paginated mode.
+enum NovelSpreadMode {
+  off,
+  auto,
+  landscape,
+  always;
+
+  static NovelSpreadMode parse(String? raw) =>
+      NovelSpreadMode.values.asNameMap()[raw] ?? NovelSpreadMode.auto;
+}
+
 /// Resolved colors for one [NovelReaderTheme]. `null` fields mean "inherit
 /// the app theme" (the `system` preset).
 class NovelReaderPalette {
@@ -67,19 +78,22 @@ NovelReaderPalette novelReaderPalette(NovelReaderTheme theme) {
 
 /// Persistent typography/surface choices for the novel reader. The type and
 /// palette fields map onto `NovelLayoutStyle` inputs — changing any of them
-/// triggers a relayout; [pageTurn] only swaps the view over the same layout.
+/// triggers a relayout; [pageTurn] and [spreadMode] only adjust presentation
+/// or spread layout without altering typography preferences.
 class NovelReaderSettings {
   const NovelReaderSettings({
     this.fontSize = 17,
     this.lineHeight = 1.7,
     this.theme = NovelReaderTheme.system,
     this.pageTurn = NovelPageTurn.scroll,
+    this.spreadMode = NovelSpreadMode.auto,
   });
 
   final double fontSize;
   final double lineHeight;
   final NovelReaderTheme theme;
   final NovelPageTurn pageTurn;
+  final NovelSpreadMode spreadMode;
 
   static const minFontSize = 12.0;
   static const maxFontSize = 30.0;
@@ -91,6 +105,7 @@ class NovelReaderSettings {
     double? lineHeight,
     NovelReaderTheme? theme,
     NovelPageTurn? pageTurn,
+    NovelSpreadMode? spreadMode,
   }) => NovelReaderSettings(
     fontSize: (fontSize ?? this.fontSize).clamp(minFontSize, maxFontSize),
     lineHeight: (lineHeight ?? this.lineHeight).clamp(
@@ -99,6 +114,7 @@ class NovelReaderSettings {
     ),
     theme: theme ?? this.theme,
     pageTurn: pageTurn ?? this.pageTurn,
+    spreadMode: spreadMode ?? this.spreadMode,
   );
 
   Map<String, Object?> toJson() => {
@@ -106,6 +122,7 @@ class NovelReaderSettings {
     'lineHeight': lineHeight,
     'theme': theme.name,
     'pageTurn': pageTurn.name,
+    'spreadMode': spreadMode.name,
   };
 
   @override
@@ -114,10 +131,12 @@ class NovelReaderSettings {
       other.fontSize == fontSize &&
       other.lineHeight == lineHeight &&
       other.theme == theme &&
-      other.pageTurn == pageTurn;
+      other.pageTurn == pageTurn &&
+      other.spreadMode == spreadMode;
 
   @override
-  int get hashCode => Object.hash(fontSize, lineHeight, theme, pageTurn);
+  int get hashCode =>
+      Object.hash(fontSize, lineHeight, theme, pageTurn, spreadMode);
 
   static NovelReaderSettings fromJson(Map<String, Object?> json) {
     return NovelReaderSettings(
@@ -125,6 +144,7 @@ class NovelReaderSettings {
       lineHeight: (json['lineHeight'] as num?)?.toDouble() ?? 1.7,
       theme: NovelReaderTheme.parse(json['theme'] as String?),
       pageTurn: NovelPageTurn.parse(json['pageTurn'] as String?),
+      spreadMode: NovelSpreadMode.parse(json['spreadMode'] as String?),
     ).copyWith();
   }
 }

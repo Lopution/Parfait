@@ -20,6 +20,7 @@ import 'package:flutter/rendering.dart'
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/layout/window_layout_spec.dart';
 import '../../core/network/api_error.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -148,6 +149,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   bool _hasSelection = false;
   bool _spread = false;
   bool? _requestedSpread;
+  double _originDx = 0;
+  bool _originCheckScheduled = false;
+  ({double leftWidth, double gap, double rightWidth})? _bookSplit;
   double _lastViewportHeight = 0;
   double _wheelAccum = 0;
   int? _lastWheelEventMs;
@@ -179,6 +183,53 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       !constraints.maxHeight.isInfinite &&
       constraints.maxWidth >= _spreadMinWidth &&
       constraints.maxWidth > constraints.maxHeight * _spreadMinAspectRatio;
+
+  void _scheduleOriginCheck() {
+    if (_originCheckScheduled) return;
+    _originCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _originCheckScheduled = false;
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize || !box.attached) return;
+      final dx = box.localToGlobal(Offset.zero).dx;
+      if ((dx - _originDx).abs() > 0.5) {
+        setState(() => _originDx = dx);
+      }
+    });
+  }
+
+  ({double leftWidth, double gap, double rightWidth})? _resolveBookSplit(
+    BoxConstraints constraints,
+    WindowLayoutSpec spec,
+  ) {
+    final hinge = spec.hingeBounds;
+    if (spec.posture != FoldPosture.book || hinge == null) return null;
+    final localLeft = hinge.left - _originDx;
+    final localRight = hinge.right - _originDx;
+    final gap = math.max(_spreadGap, localRight - localLeft);
+    final rightWidth = constraints.maxWidth - (localLeft + gap);
+    if (localLeft < 180 || rightWidth < 180) return null;
+    return (leftWidth: localLeft, gap: gap, rightWidth: rightWidth);
+  }
+
+  bool _shouldSpread(
+    BoxConstraints constraints, {
+    required ({double leftWidth, double gap, double rightWidth})? bookSplit,
+  }) {
+    if (_scrolls) return false;
+    return switch (widget.settings.spreadMode) {
+      NovelSpreadMode.off => false,
+      NovelSpreadMode.auto =>
+        bookSplit != null || _isSpreadViewport(constraints),
+      NovelSpreadMode.landscape =>
+        bookSplit != null ||
+            (!constraints.maxHeight.isInfinite &&
+                constraints.maxWidth > constraints.maxHeight &&
+                constraints.maxWidth >= 600),
+      NovelSpreadMode.always => constraints.maxWidth >= 560,
+    };
+  }
 
   int _viewIndexForPage(int page) => _spread ? page ~/ 2 : page;
 
@@ -294,7 +345,10 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (oldWidget.novel.contentVersion != widget.novel.contentVersion) {
       _layoutEngine.cache.clear();
       _scheduleLayout(force: true);
-    } else if (oldWidget.settings.copyWith(pageTurn: pageTurn) !=
+    } else if (oldWidget.settings.copyWith(
+              pageTurn: pageTurn,
+              spreadMode: widget.settings.spreadMode,
+            ) !=
             widget.settings ||
         oldWidget.titleBlock != widget.titleBlock ||
         !identical(oldWidget.translations, widget.translations)) {
@@ -377,17 +431,23 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final windowSpec = WindowLayoutSpec.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
+        _scheduleOriginCheck();
         // WCAG 1.4.8 line-length cap: ~40 CJK glyphs per line, relative to
         // the font slider so the cap scales with settings and only bites
         // on wide screens (a 390dp phone is narrower than 17*40+48).
         // The body follows the system font size like any text.
         final textScaler = MediaQuery.textScalerOf(context);
-        final spread = !_scrolls && _isSpreadViewport(constraints);
-        final columnBudget = spread
-            ? math.max(0.0, (constraints.maxWidth - _spreadGap) / 2)
-            : constraints.maxWidth;
+        final bookSplit = _resolveBookSplit(constraints, windowSpec);
+        _bookSplit = bookSplit;
+        final spread = _shouldSpread(constraints, bookSplit: bookSplit);
+        final columnBudget = !spread
+            ? constraints.maxWidth
+            : bookSplit != null
+            ? math.min(bookSplit.leftWidth, bookSplit.rightWidth)
+            : math.max(0.0, (constraints.maxWidth - _spreadGap) / 2);
         final layoutWidth = _style.contentWidth(
           availableWidth: columnBudget,
           textScaler: textScaler,
@@ -497,6 +557,35 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final leftIndex = viewIndex * 2;
     final rightIndex = leftIndex + 1;
     final columnWidth = layout.key.viewport.width;
+    final split = _bookSplit;
+    if (split != null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: split.leftWidth,
+            child: Center(
+              child: SizedBox(
+                width: columnWidth,
+                child: buildSingle(layout.pages[leftIndex]),
+              ),
+            ),
+          ),
+          SizedBox(width: split.gap),
+          SizedBox(
+            width: split.rightWidth,
+            child: rightIndex < layout.pages.length
+                ? Center(
+                    child: SizedBox(
+                      width: columnWidth,
+                      child: buildSingle(layout.pages[rightIndex]),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      );
+    }
     return Center(
       child: FittedBox(
         fit: BoxFit.scaleDown,
