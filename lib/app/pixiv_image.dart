@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
@@ -60,6 +59,50 @@ typedef _HistoryEntry = (String url, int? decodeWidth);
 /// under a [ProviderScope].
 class PixivImage extends ConsumerStatefulWidget {
   const PixivImage({
+    Key? key,
+    required String url,
+    BoxFit fit = BoxFit.cover,
+    double? width,
+    double? height,
+    Alignment alignment = Alignment.center,
+    Color? placeholderColor,
+    Widget? placeholderWidget,
+    bool fade = true,
+    bool sizeToImage = false,
+    Object? transitionKey,
+    Color? filterColor,
+    BlendMode? filterBlendMode,
+    int? memCacheWidth,
+    FilterQuality filterQuality = FilterQuality.low,
+    String? tierKey,
+    IllustImageTier? tier,
+    bool tierUpgrade = true,
+    ValueNotifier<ImageLoadProgress>? progress,
+    double? blur,
+  }) : this._(
+         key: key,
+         url: url,
+         fit: fit,
+         width: width,
+         height: height,
+         alignment: alignment,
+         placeholderColor: placeholderColor,
+         placeholderWidget: placeholderWidget,
+         fade: fade,
+         sizeToImage: sizeToImage,
+         transitionKey: transitionKey,
+         filterColor: filterColor,
+         filterBlendMode: filterBlendMode,
+         explicitMemCacheWidth: memCacheWidth,
+         filterQuality: filterQuality,
+         tierKey: tierKey,
+         tier: tier,
+         tierUpgrade: tierUpgrade,
+         progress: progress,
+         blur: blur,
+       );
+
+  const PixivImage._({
     super.key,
     required this.url,
     this.fit = BoxFit.cover,
@@ -73,21 +116,30 @@ class PixivImage extends ConsumerStatefulWidget {
     this.transitionKey,
     this.filterColor,
     this.filterBlendMode,
-    this.memCacheWidth,
+    int? explicitMemCacheWidth,
+    double? logicalDecodeWidth,
+    bool useScreenDecodeWidth = false,
     this.filterQuality = FilterQuality.low,
     this.tierKey,
     this.tier,
     this.tierUpgrade = true,
     this.progress,
     this.blur,
-  }) : assert(
-         blur == null || memCacheWidth != null,
+  }) : _explicitMemCacheWidth = explicitMemCacheWidth,
+       _logicalDecodeWidth = logicalDecodeWidth,
+       _useScreenDecodeWidth = useScreenDecodeWidth,
+       assert(
+         blur == null ||
+             explicitMemCacheWidth != null ||
+             logicalDecodeWidth != null ||
+             useScreenDecodeWidth,
          'a blurred image needs its decode width',
        );
 
   /// Feed/row card variant: decode width derives from [layoutWidth] (the
-  /// box the image paints into), capped at 1.5x logical pixels.
-  PixivImage.feed(
+  /// box the image paints into) at the ambient display's DPR, unless an
+  /// explicit [decodeWidth] overrides it.
+  const PixivImage.feed(
     String url, {
     Key? key,
     required double layoutWidth,
@@ -103,7 +155,7 @@ class PixivImage extends ConsumerStatefulWidget {
     bool tierUpgrade = true,
     int? decodeWidth,
     double? blur,
-  }) : this(
+  }) : this._(
          key: key,
          url: url,
          fit: fit,
@@ -113,7 +165,8 @@ class PixivImage extends ConsumerStatefulWidget {
          placeholderColor: placeholderColor,
          placeholderWidget: placeholderWidget,
          transitionKey: transitionKey,
-         memCacheWidth: decodeWidthFor(layoutWidth),
+         explicitMemCacheWidth: decodeWidth,
+         logicalDecodeWidth: decodeWidth == null ? layoutWidth : null,
          tierKey: tierKey,
          tier: tier,
          tierUpgrade: tierUpgrade,
@@ -121,22 +174,22 @@ class PixivImage extends ConsumerStatefulWidget {
        );
 
   /// Avatar variant: decode width derives from the avatar box [size].
-  PixivImage.avatar(
+  const PixivImage.avatar(
     String url, {
     Key? key,
     required double size,
     BoxFit fit = BoxFit.cover,
     Widget? placeholderWidget,
-  }) : this(
+  }) : this._(
          key: key,
          url: url,
          fit: fit,
          placeholderWidget: placeholderWidget,
-         memCacheWidth: decodeWidthFor(size),
+         logicalDecodeWidth: size,
        );
 
   /// Detail variant: decode at the screen width.
-  PixivImage.detail(
+  const PixivImage.detail(
     String url, {
     Key? key,
     BoxFit fit = BoxFit.cover,
@@ -154,7 +207,7 @@ class PixivImage extends ConsumerStatefulWidget {
     // this, the detail page re-decodes the same file at screen width and
     // the landing frame flashes the placeholder.
     int? decodeWidth,
-  }) : this(
+  }) : this._(
          key: key,
          url: url,
          fit: fit,
@@ -162,7 +215,8 @@ class PixivImage extends ConsumerStatefulWidget {
          filterColor: filterColor,
          filterBlendMode: filterBlendMode,
          transitionKey: transitionKey,
-         memCacheWidth: decodeWidth ?? screenDecodeWidth,
+         explicitMemCacheWidth: decodeWidth,
+         useScreenDecodeWidth: decodeWidth == null,
          tierKey: tierKey,
          tier: tier,
          tierUpgrade: tierUpgrade,
@@ -172,7 +226,7 @@ class PixivImage extends ConsumerStatefulWidget {
 
   /// Hero hand-off variant: keeps the transition history keyed by [tag] so a
   /// rebuilt endpoint reuses the last displayed quality as its placeholder.
-  PixivImage.hero(
+  const PixivImage.hero(
     String url, {
     Key? key,
     required Object? tag,
@@ -183,7 +237,7 @@ class PixivImage extends ConsumerStatefulWidget {
     IllustImageTier? tier,
     bool tierUpgrade = true,
     int? decodeWidth,
-  }) : this(
+  }) : this._(
          key: key,
          url: url,
          fit: fit,
@@ -193,7 +247,8 @@ class PixivImage extends ConsumerStatefulWidget {
          tierKey: tierKey,
          tier: tier,
          tierUpgrade: tierUpgrade,
-         memCacheWidth: decodeWidth ?? screenDecodeWidth,
+         explicitMemCacheWidth: decodeWidth,
+         useScreenDecodeWidth: decodeWidth == null,
        );
 
   /// Decode width for a logical [layoutWidth] box: the box's physical pixel
@@ -210,12 +265,48 @@ class PixivImage extends ConsumerStatefulWidget {
     return (layoutWidth * dpr).round().clamp(1, 100000);
   }
 
+  /// Decode width for a logical [layoutWidth] box under [context]'s ambient
+  /// display DPR. Inside [State.build], this subscribes only to
+  /// `MediaQuery`'s DPR aspect; pass `listen: false` from callbacks.
+  static int decodeWidthOf(
+    BuildContext context,
+    double layoutWidth, {
+    bool listen = true,
+  }) => decodeWidthFor(
+    layoutWidth,
+    devicePixelRatio: _dprOf(context, listen: listen),
+  );
+
+  static double _dprOf(BuildContext context, {bool listen = true}) {
+    final dpr = listen
+        ? MediaQuery.maybeDevicePixelRatioOf(context)
+        : context
+              .getInheritedWidgetOfExactType<MediaQuery>()
+              ?.data
+              .devicePixelRatio;
+    return dpr ?? _devicePixelRatio;
+  }
+
   static double get _devicePixelRatio =>
-      PlatformDispatcher.instance.views.first.devicePixelRatio;
+      WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+
+  /// Screen-width decode target under [context]'s ambient `MediaQuery`. Inside
+  /// [State.build], subscribes only to `size` and `devicePixelRatio`; pass
+  /// `listen: false` from callbacks.
+  static int screenDecodeWidthOf(BuildContext context, {bool listen = true}) {
+    final logicalWidth = listen
+        ? MediaQuery.maybeSizeOf(context)?.width
+        : context.getInheritedWidgetOfExactType<MediaQuery>()?.data.size.width;
+    final dpr = _dprOf(context, listen: listen);
+    if (logicalWidth != null) {
+      return (logicalWidth * dpr).round().clamp(1, 100000);
+    }
+    return screenDecodeWidth;
+  }
 
   /// Screen-width decode target for detail images.
   static int get screenDecodeWidth {
-    final view = PlatformDispatcher.instance.views.first;
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
     final dpr = view.devicePixelRatio;
     return (view.physicalSize.width / (dpr == 0 ? 1 : dpr) * dpr).round().clamp(
       1,
@@ -271,9 +362,20 @@ class PixivImage extends ConsumerStatefulWidget {
   /// during scroll.
   final FilterQuality filterQuality;
 
+  final int? _explicitMemCacheWidth;
+  final double? _logicalDecodeWidth;
+  final bool _useScreenDecodeWidth;
+
   /// Decode-width cap in pixels for this image, or null for unlimited
   /// (viewer). See [PixivImageSize] and R8.
-  final int? memCacheWidth;
+  int? get memCacheWidth {
+    if (_explicitMemCacheWidth case final width?) return width;
+    if (_logicalDecodeWidth case final layoutWidth?) {
+      return decodeWidthFor(layoutWidth);
+    }
+    if (_useScreenDecodeWidth) return screenDecodeWidth;
+    return null;
+  }
 
   /// Per-(work,page) key + the tier [url] represents, enabling
   /// [IllustTierCache] upgrade: when a higher tier of the same page was
@@ -301,10 +403,11 @@ class PixivImage extends ConsumerStatefulWidget {
   final double? blur;
 
   /// [blur] as a share of the image's width.
-  double? get _blurPerWidth => switch ((blur, memCacheWidth)) {
-    (final blur?, final width?) => blur * _devicePixelRatio / width,
-    _ => null,
-  };
+  double? _blurPerWidthAt(int? decodeWidth, double dpr) =>
+      switch ((blur, decodeWidth)) {
+        (final blur?, final width?) => blur * dpr / width,
+        _ => null,
+      };
 
   @override
   ConsumerState<PixivImage> createState() => _PixivImageState();
@@ -693,6 +796,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   /// The entry on screen as a failure a retry can fix, for a regained
   /// network to reload; null once a reload starts.
   _HistoryEntry? _fixableFailure;
+  double? _fixableFailureBlurPerWidth;
 
   void _resetRetry() {
     _retryTimer?.cancel();
@@ -700,6 +804,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     _retryScheduled = false;
     _attempt = 0;
     _fixableFailure = null;
+    _fixableFailureBlurPerWidth = null;
   }
 
   @override
@@ -729,9 +834,13 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   /// Follows the stream the visible image resolves — the same key, so no
   /// second decode. Attaches after the frame: a cache hit reports at once,
   /// and notifying the overlay (a sibling) mid-build is not allowed.
-  void _trackProgress(_HistoryEntry entry, ImageWorker worker) {
+  void _trackProgress(
+    _HistoryEntry entry,
+    ImageWorker worker, {
+    required double? blurPerWidth,
+  }) {
     final notifier = widget.progress;
-    final key = (notifier, entry, worker, _load, widget._blurPerWidth);
+    final key = (notifier, entry, worker, _load, blurPerWidth);
     if (key == _progressKey) return;
     _progressKey = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -739,7 +848,9 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
       // The old stream's last report must not linger on the new image.
       _progressNotifier?.value = const ImageLoadProgress.idle();
       _detachProgress();
-      if (notifier != null) _attachProgress(notifier, entry, worker);
+      if (notifier != null) {
+        _attachProgress(notifier, entry, worker, blurPerWidth: blurPerWidth);
+      }
     });
   }
 
@@ -750,14 +861,15 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   void _attachProgress(
     ValueNotifier<ImageLoadProgress> notifier,
     _HistoryEntry entry,
-    ImageWorker worker,
-  ) {
+    ImageWorker worker, {
+    required double? blurPerWidth,
+  }) {
     final (url, decodeWidth) = entry;
     final stream = PixivImage._imageProvider(
       url,
       decodeWidth,
       worker: worker,
-      blurPerWidth: widget._blurPerWidth,
+      blurPerWidth: blurPerWidth,
     ).resolve(ImageConfiguration.empty);
     void idle() => notifier.value = const ImageLoadProgress.idle();
     final listener = ImageStreamListener(
@@ -792,10 +904,16 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   /// Notes a failure and schedules its automatic retry: a transient one
   /// retries on its own up to [_retryBackoff].length times. False when it
   /// is permanent or the retries are spent.
-  bool _retrying(Object error, _HistoryEntry entry, ImageWorker worker) {
+  bool _retrying(
+    Object error,
+    _HistoryEntry entry,
+    ImageWorker worker, {
+    required double? blurPerWidth,
+  }) {
     final status = error is FetchFailure ? error.statusCode : null;
     if (_permanentStatuses.contains(status)) return false;
     _fixableFailure = entry;
+    _fixableFailureBlurPerWidth = blurPerWidth;
     if (_attempt >= _retryBackoff.length) return false;
     if (!_retryScheduled) {
       _retryScheduled = true;
@@ -805,7 +923,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         if (!mounted || !_retryScheduled) return;
         _retryTimer = Timer(delay, () {
           _retryTimer = null;
-          _reload(entry, worker, automatic: true);
+          _reload(entry, worker, automatic: true, blurPerWidth: blurPerWidth);
         });
       });
     }
@@ -814,7 +932,11 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
 
   /// A permanent or exhausted failure offers a manual retry when the box is
   /// large enough for a button.
-  Widget _errorView(_HistoryEntry entry, ImageWorker worker) {
+  Widget _errorView(
+    _HistoryEntry entry,
+    ImageWorker worker, {
+    required double? blurPerWidth,
+  }) {
     const broken = Icon(Icons.broken_image_outlined);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -829,7 +951,12 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
               context,
               AppLocalizations,
             )?.imageRetry,
-            onPressed: () => _reload(entry, worker, automatic: false),
+            onPressed: () => _reload(
+              entry,
+              worker,
+              automatic: false,
+              blurPerWidth: blurPerWidth,
+            ),
           ),
         );
       },
@@ -843,13 +970,14 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     _HistoryEntry entry,
     ImageWorker worker, {
     required bool automatic,
+    required double? blurPerWidth,
   }) {
     final (url, decodeWidth) = entry;
     final provider = PixivImage._imageProvider(
       url,
       decodeWidth,
       worker: worker,
-      blurPerWidth: widget._blurPerWidth,
+      blurPerWidth: blurPerWidth,
     );
     unawaited(
       provider.evict().then((_) {
@@ -858,6 +986,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
           _attempt = automatic ? _attempt + 1 : 0;
           _retryScheduled = false;
           _fixableFailure = null;
+          _fixableFailureBlurPerWidth = null;
           _load++;
         });
       }),
@@ -881,12 +1010,38 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     }
     final worker = ref.watch(imageWorkerProvider);
     _HistoryEntry entryAt(int? width) => (imageUrl, width);
+    final int? targetDecodeWidth;
+    final double? blurPerWidth;
+    if (widget._explicitMemCacheWidth case final explicit?) {
+      targetDecodeWidth = explicit;
+      blurPerWidth = widget.blur != null
+          ? widget._blurPerWidthAt(explicit, PixivImage._dprOf(context))
+          : null;
+    } else if (widget._logicalDecodeWidth case final layoutWidth?) {
+      final dpr = PixivImage._dprOf(context);
+      targetDecodeWidth = PixivImage.decodeWidthFor(
+        layoutWidth,
+        devicePixelRatio: dpr,
+      );
+      blurPerWidth = widget._blurPerWidthAt(targetDecodeWidth, dpr);
+    } else if (widget._useScreenDecodeWidth) {
+      targetDecodeWidth = PixivImage.screenDecodeWidthOf(context);
+      blurPerWidth = widget.blur != null
+          ? widget._blurPerWidthAt(
+              targetDecodeWidth,
+              PixivImage._dprOf(context),
+            )
+          : null;
+    } else {
+      targetDecodeWidth = null;
+      blurPerWidth = null;
+    }
     // A URL's only decoded entry can be the viewer's frame (its preview,
     // twice the screen wide, or the whole file once zoomed). Requesting a
     // fresh narrower decode of it leaves a placeholder/swap window — the
     // flash when a detail page re-lands after the viewer fetched the
     // original. A decode at least as wide is sharp enough: paint it.
-    var current = entryAt(widget.memCacheWidth);
+    var current = entryAt(targetDecodeWidth);
     if (current.$2 case final width?
         when !PixivImage._imageCompleted(current)) {
       final wider = switch (PixivImage._lastDecodeOfUrl[imageUrl]) {
@@ -901,8 +1056,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     }
     final (_, effectiveWidth) = current;
     _hold(worker.demand, imageUrl);
-    _trackProgress(current, worker);
-    final blurPerWidth = widget._blurPerWidth;
+    _trackProgress(current, worker, blurPerWidth: blurPerWidth);
     // Every stand-in below is a sharp frame of the work: a blurred image
     // takes none, or it would show what the user hid while it resolves.
     final previousTransition = blurPerWidth == null
@@ -990,19 +1144,20 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     // An image waiting for its retry still reads as loading: a stall the
     // retry fixes never flashes the broken icon.
     Widget failed(BuildContext context, Object error) =>
-        _retrying(error, current, worker)
+        _retrying(error, current, worker, blurPerWidth: blurPerWidth)
         ? placeholder(context)
         : ColoredBox(
             color: placeholderColor,
-            child: _errorView(current, worker),
+            child: _errorView(current, worker, blurPerWidth: blurPerWidth),
           );
     // A regained network reloads a failure it may have caused at once,
     // spent retries included (HCI 9, as the feeds do).
     ref.listen(networkRestoreSignalProvider, (_, _) {
       final failure = _fixableFailure;
       if (failure == null) return;
+      final failureBlur = _fixableFailureBlurPerWidth;
       _resetRetry();
-      _reload(failure, worker, automatic: false);
+      _reload(failure, worker, automatic: false, blurPerWidth: failureBlur);
     });
     final image = LayoutBuilder(
       builder: (context, constraints) {

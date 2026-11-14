@@ -94,6 +94,63 @@ flutter::EncodableMap BuildViewIntentMap(const std::string& uri) {
   };
 }
 
+bool WriteSensitiveClipboardFormat(UINT format, const void* data, size_t bytes) {
+  HGLOBAL handle = ::GlobalAlloc(GMEM_MOVEABLE, bytes);
+  if (handle == nullptr) {
+    return false;
+  }
+  void* locked = ::GlobalLock(handle);
+  if (locked == nullptr) {
+    ::GlobalFree(handle);
+    return false;
+  }
+  ::CopyMemory(locked, data, bytes);
+  ::GlobalUnlock(handle);
+  if (::SetClipboardData(format, handle) == nullptr) {
+    ::GlobalFree(handle);
+    return false;
+  }
+  return true;
+}
+
+bool WriteSensitiveClipboardText(HWND owner, const std::string& utf8_text) {
+  const std::wstring wide = Utf16FromUtf8(utf8_text);
+  if (wide.empty()) {
+    return false;
+  }
+  const UINT monitor_format = ::RegisterClipboardFormatW(
+      L"ExcludeClipboardContentFromMonitorProcessing");
+  const UINT history_format =
+      ::RegisterClipboardFormatW(L"CanIncludeInClipboardHistory");
+  const UINT cloud_format =
+      ::RegisterClipboardFormatW(L"CanUploadToCloudClipboard");
+  if (monitor_format == 0 || history_format == 0 || cloud_format == 0) {
+    return false;
+  }
+  if (!::OpenClipboard(owner)) {
+    return false;
+  }
+  bool ok = ::EmptyClipboard() != FALSE;
+  if (ok) {
+    const size_t text_bytes = (wide.size() + 1) * sizeof(wchar_t);
+    const DWORD exclude_monitor = 1;
+    const DWORD disable_flag = 0;
+    ok = WriteSensitiveClipboardFormat(CF_UNICODETEXT, wide.c_str(),
+                                       text_bytes) &&
+         WriteSensitiveClipboardFormat(monitor_format, &exclude_monitor,
+                                       sizeof(exclude_monitor)) &&
+         WriteSensitiveClipboardFormat(history_format, &disable_flag,
+                                       sizeof(disable_flag)) &&
+         WriteSensitiveClipboardFormat(cloud_format, &disable_flag,
+                                       sizeof(disable_flag));
+    if (!ok) {
+      ::EmptyClipboard();
+    }
+  }
+  ::CloseClipboard();
+  return ok;
+}
+
 }  // namespace
 
 bool IsSupportedLaunchUri(const std::string& uri) {
@@ -175,6 +232,10 @@ void FlutterWindow::OnDestroy() {
   if (navigation_channel_) {
     navigation_channel_->SetMethodCallHandler(nullptr);
     navigation_channel_.reset();
+  }
+  if (sensitive_clipboard_channel_) {
+    sensitive_clipboard_channel_->SetMethodCallHandler(nullptr);
+    sensitive_clipboard_channel_.reset();
   }
   if (intent_channel_) {
     intent_channel_->SetMethodCallHandler(nullptr);
@@ -347,6 +408,41 @@ void FlutterWindow::RegisterNativeChannels() {
   navigation_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           messenger, "parfait/navigation_commands", codec);
+
+  sensitive_clipboard_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          messenger, "parfait/desktop_sensitive_clipboard", codec);
+  sensitive_clipboard_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+                 result) {
+        if (call.method_name() == "capabilities") {
+          result->Success(flutter::EncodableValue(flutter::EncodableMap{
+              {flutter::EncodableValue("sensitiveMarkSupported"),
+               flutter::EncodableValue(true)},
+          }));
+          return;
+        }
+        if (call.method_name() == "write") {
+          const auto* args =
+              std::get_if<flutter::EncodableMap>(call.arguments());
+          const std::string text = args == nullptr
+                                       ? std::string()
+                                       : ReadEncodableString(*args, "text");
+          if (text.empty()) {
+            result->Error("invalid_argument", "text is required");
+            return;
+          }
+          if (!WriteSensitiveClipboardText(GetHandle(), text)) {
+            result->Error("clipboard_unavailable",
+                          "failed to write sensitive clipboard data");
+            return;
+          }
+          result->Success(flutter::EncodableValue(true));
+          return;
+        }
+        result->NotImplemented();
+      });
 
   intent_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(

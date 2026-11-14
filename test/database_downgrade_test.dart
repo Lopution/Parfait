@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:parfait/core/actionqueue/action_database.dart';
 import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/paging/feed_database.dart';
@@ -34,6 +35,15 @@ void main() {
       true,
       (file) {
         final d = FeedDatabase(factory: ffi, databasePath: file);
+        return (database: () => d.database, close: d.close);
+      },
+    ),
+    (
+      ActionDatabase.databaseName,
+      ActionDatabase.schemaVersion,
+      false,
+      (file) {
+        final d = ActionDatabase(factory: ffi, databasePath: file);
         return (database: () => d.database, close: d.close);
       },
     ),

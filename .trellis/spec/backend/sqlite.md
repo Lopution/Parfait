@@ -2,11 +2,13 @@
 prefix: SQLITE
 applies_to:
   - lib/core/sqlite/**
+  - lib/core/actionqueue/action_database.dart
+  - lib/core/actionqueue/action_store.dart
   - lib/core/history/history_database.dart
   - lib/core/paging/feed_database.dart
   - lib/core/watchlater/watch_later_database.dart
   - lib/core/localnovel/local_novel_database.dart
-reviewed: 2026-11-13
+reviewed: 2026-11-14
 ---
 
 # Shared SQLite connections and downgrade policy
@@ -17,26 +19,33 @@ reviewed: 2026-11-13
   `databasePath` uses `sqflite.inMemoryDatabasePath` (`singleInstance: false`)
   under `FLUTTER_TEST` and `<getDatabasesPath>/<databaseName>`
   (`singleInstance: true`) in production; under `FLUTTER_TEST`, FFI uses
-  `databaseFactoryFfiNoIsolate`. Concurrent first opens share one future,
-  concurrent `close()` calls await the same close future (skipping
-  `openDatabase` if closed while resolving the default path), and later access
-  throws `StateError`.
+  `databaseFactoryFfiNoIsolate`. Every connection opens with
+  `PRAGMA busy_timeout = 5000`, and non-memory paths enable
+  `PRAGMA journal_mode = WAL` via `rawQuery` before caller `onConfigure`.
+  Concurrent first opens share one future, concurrent `close()` calls await the
+  same close future (skipping `openDatabase` if closed while resolving the
+  default path), and later access throws `StateError`.
 - **Why:** Duplicated factory helpers and `open`/`close` boilerplate drifted
-  across the four databases; isolate-backed FFI replies bypassed `testWidgets`
-  fake-async zones, shared `:memory:` instances leaked rows between tests, and
-  concurrent `close()` callers previously returned before the connection closed.
-- **Check:** `test/sqlite_database_test.dart` "sqliteDatabaseFactory selects mobile sqflite or FLUTTER_TEST FFI" "concurrent first database access opens once" "concurrent close waits for in-flight openDatabase to finish closing" "close during async default path skips openDatabase and rejects open" "routes default path to memory in test and <databasesPath>/<name> when enabled" "close is safe when never opened or failed and blocks later opens"
+  across the databases; isolate-backed FFI replies bypassed `testWidgets`
+  fake-async zones, shared `:memory:` instances leaked rows between tests,
+  unconfigured connections hit immediate lock errors under concurrent writes,
+  and concurrent `close()` callers previously returned before the connection
+  closed.
+- **Check:** `test/sqlite_database_test.dart` "sqliteDatabaseFactory selects mobile sqflite or FLUTTER_TEST FFI" "concurrent first database access opens once" "concurrent close waits for in-flight openDatabase to finish closing" "close during async default path skips openDatabase and rejects open" "routes default path to memory in test and <databasesPath>/<name> when enabled" "close is safe when never opened or failed and blocks later opens" "configures busy_timeout and disk WAL before caller onConfigure"
 - **Code:** `lib/core/sqlite/sqlite_database.dart`
 
 ### SQLITE-02 A database a newer build left is never opened as older
 - **Rule:** Every database owner sets `onDowngrade` explicitly. `feeds.db`, a
-  cache, is dropped and created afresh (`onDatabaseDowngradeDelete`), its queued
-  actions with it. `history.db`, `watchlater.db` and `local_novels.db` refuse
-  to open (`SqliteDatabase.refuseDowngrade`) with a `StateError` naming the
-  database and both versions; their feature shows its load error. `close()`
-  after a failed open completes quietly.
+  cache, holds only feed snapshots and is dropped and created afresh
+  (`onDatabaseDowngradeDelete`). `actions.db`, `history.db`, `watchlater.db`
+  and `local_novels.db` refuse to open (`SqliteDatabase.refuseDowngrade`) with
+  a `StateError` naming the database and both versions; their feature shows
+  its load error. `SqliteActionStore` idempotently migrates any legacy
+  `action_queue` rows from `feeds.db` into `actions.db` on first open and
+  drops the legacy table. `close()` after a failed open completes quietly.
 - **Why:** Without `onDowngrade` sqflite lowers the version and keeps the newer
   tables, so the newer build, back again, re-ran a migration it had run and
-  the database stopped opening.
-- **Check:** `test/database_downgrade_test.dart` "a database a newer build left behind"
-- **Code:** `lib/core/sqlite/sqlite_database.dart`, `lib/core/history/history_database.dart`, `lib/core/paging/feed_database.dart`, `lib/core/watchlater/watch_later_database.dart`, `lib/core/localnovel/local_novel_database.dart`
+  the database stopped opening; keeping queued offline actions inside a
+  drop-on-downgrade cache database also lost pending mutations on rollback.
+- **Check:** `test/database_downgrade_test.dart` "a database a newer build left behind", `test/action_queue_test.dart` "migrates legacy feeds.db action_queue once and survives feeds downgrade"
+- **Code:** `lib/core/sqlite/sqlite_database.dart`, `lib/core/actionqueue/action_database.dart`, `lib/core/actionqueue/action_store.dart`, `lib/core/history/history_database.dart`, `lib/core/paging/feed_database.dart`, `lib/core/watchlater/watch_later_database.dart`, `lib/core/localnovel/local_novel_database.dart`

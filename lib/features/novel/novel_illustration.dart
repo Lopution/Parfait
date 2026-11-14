@@ -93,7 +93,7 @@ class NovelIllustration extends ConsumerWidget {
             url: url,
             fit: BoxFit.contain,
             sizeToImage: true,
-            memCacheWidth: PixivImage.screenDecodeWidth,
+            memCacheWidth: PixivImage.screenDecodeWidthOf(context),
             placeholderWidget: _placeholder(),
           ),
         ),

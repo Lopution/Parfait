@@ -2,14 +2,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/auth/account_transfer.dart';
 import 'package:parfait/core/platform/account_transfer_clipboard.dart';
+import 'package:parfait/core/platform/desktop_clipboard.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final channel = const MethodChannel(TransferClipboardMethods.channel);
+  const sensitiveChannel = MethodChannel(
+    DesktopSensitiveClipboardMethods.channel,
+  );
 
   tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, null);
+    messenger.setMockMethodCallHandler(sensitiveChannel, null);
+    messenger.setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
   test('method channel writes a fingerprint and bounded expiry', () async {
@@ -68,4 +75,60 @@ void main() {
       isFalse,
     );
   });
+
+  test(
+    'desktop sensitive clipboard uses native privacy channel and falls back honestly when absent',
+    () async {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final platformCalls = <String>[];
+      MethodCall? nativeWrite;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        platformCalls.add(call.method);
+        return null;
+      });
+      messenger.setMockMethodCallHandler(sensitiveChannel, (call) async {
+        if (call.method == DesktopSensitiveClipboardMethods.capabilities) {
+          return <String, Object?>{'sensitiveMarkSupported': true};
+        }
+        if (call.method == DesktopSensitiveClipboardMethods.write) {
+          nativeWrite = call;
+          return true;
+        }
+        return null;
+      });
+
+      final clipboard = FlutterTransferClipboard();
+      addTearDown(clipboard.dispose);
+      expect((await clipboard.capabilities()).sensitiveMarkSupported, isTrue);
+      await clipboard.write(
+        'transfer-payload',
+        clearAfter: const Duration(minutes: 5),
+      );
+      expect(nativeWrite?.arguments, <String, Object?>{
+        'text': 'transfer-payload',
+      });
+      expect(platformCalls, isEmpty);
+
+      messenger.setMockMethodCallHandler(sensitiveChannel, (call) async {
+        throw PlatformException(code: 'clipboard_unavailable');
+      });
+      await expectLater(
+        clipboard.write('second', clearAfter: const Duration(minutes: 5)),
+        throwsA(
+          isA<AccountTransferException>().having(
+            (e) => e.code,
+            'code',
+            AccountTransferErrorCode.clipboardUnavailable,
+          ),
+        ),
+      );
+      expect(platformCalls, isEmpty);
+
+      messenger.setMockMethodCallHandler(sensitiveChannel, null);
+      expect((await clipboard.capabilities()).sensitiveMarkSupported, isFalse);
+      await clipboard.write('fallback', clearAfter: const Duration(minutes: 5));
+      expect(platformCalls, ['Clipboard.setData']);
+    },
+  );
 }

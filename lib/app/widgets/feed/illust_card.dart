@@ -194,7 +194,7 @@ class _IllustCardBody extends ConsumerWidget {
     WidgetRef ref,
     double cardWidth,
   ) {
-    final cardDecodeWidth = PixivImage.decodeWidthFor(cardWidth);
+    final cardDecodeWidth = PixivImage.decodeWidthOf(context, cardWidth);
     // Beta56 IllustPreviewer semantics: the preview height follows the
     // original aspect ratio up to 1:2. Taller works crop to the top of
     // `large` or switch to the square thumbnail (illustCardPreview).
@@ -570,7 +570,7 @@ class _IllustCardBody extends ConsumerWidget {
           detailUrl,
           tierKey: entity.imageTierKeyAt(0),
           tier: detailQuality.tier,
-          memCacheWidth: PixivImage.screenDecodeWidth,
+          memCacheWidth: PixivImage.screenDecodeWidthOf(context, listen: false),
           priority: ImageFetchPriority.foreground,
         ),
       );
@@ -582,7 +582,7 @@ class _IllustCardBody extends ConsumerWidget {
         PixivImage.preload(
           context,
           standInUrl,
-          memCacheWidth: PixivImage.screenDecodeWidth,
+          memCacheWidth: PixivImage.screenDecodeWidthOf(context, listen: false),
           priority: ImageFetchPriority.foreground,
         ),
       );
@@ -630,7 +630,7 @@ class _StandInPrefetchState extends ConsumerState<_StandInPrefetch> {
       PixivImage.preload(
         context,
         url,
-        memCacheWidth: PixivImage.screenDecodeWidth,
+        memCacheWidth: PixivImage.screenDecodeWidthOf(context),
       ),
     );
   }

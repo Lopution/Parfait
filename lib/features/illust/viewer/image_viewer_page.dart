@@ -359,8 +359,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         PixivImage.preload(
           context,
           entry.value,
-          memCacheWidth: PixivImage.decodeWidthFor(
+          memCacheWidth: PixivImage.decodeWidthOf(
+            context,
             _PageScrubber.thumbnailExtent,
+            listen: false,
           ),
         ).catchError((_) => ImagePreloadResult.failed),
       );

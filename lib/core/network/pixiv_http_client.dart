@@ -120,8 +120,8 @@ class PixivHttpClient {
   final Duration requestTimeout;
   final Map<_GetRequestFlightKey, Future<http.Response>> _getFlights = {};
 
-  /// When reads may go out again after a 429; null when not limited.
-  DateTime? _readsResumeAt;
+  /// When reads may go out again per account after a 429.
+  final Map<String, DateTime> _readsResumeAtByAccount = {};
 
   Future<Map<String, dynamic>> getJson(Uri uri, {CancelToken? cancelToken}) =>
       getParsed(uri, _asIs, cancelToken: cancelToken);
@@ -282,13 +282,14 @@ class PixivHttpClient {
     bool allowAuthReplay = true,
   }) async {
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
-    if (method == 'GET') _throwIfReadsCoolingDown();
     // The request belongs to the account current as it starts: a refresh
     // and a replay after a switch stay that account's. A queued replay is
     // bound to its owner and is refused under any other account.
     final (:accountId, accessToken: firstToken) = await _requireContext(
       owner: requestAccount(),
     );
+    if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
+    if (method == 'GET') _throwIfReadsCoolingDown(accountId);
     var usedToken = firstToken;
     http.Response response = await _issue(
       uri,
@@ -350,7 +351,7 @@ class PixivHttpClient {
     }
     if (response.statusCode == 429) {
       final retryAfter = _parseRetryAfter(response.headers);
-      _coolDownReads(retryAfter);
+      _coolDownReads(accountId, retryAfter);
       throw ApiRateLimited(retryAfter);
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -359,23 +360,28 @@ class PixivHttpClient {
     return response;
   }
 
-  void _throwIfReadsCoolingDown() {
-    final resumeAt = _readsResumeAt;
+  void _throwIfReadsCoolingDown(String accountId) {
+    final resumeAt = _readsResumeAtByAccount[accountId];
     if (resumeAt == null) return;
     final remaining = resumeAt.difference(clock.now());
     if (remaining > Duration.zero) throw ApiRateLimited(remaining);
-    _readsResumeAt = null;
+    _readsResumeAtByAccount.remove(accountId);
   }
 
-  void _coolDownReads(Duration? retryAfter) {
+  void _coolDownReads(String accountId, Duration? retryAfter) {
+    final now = clock.now();
+    _readsResumeAtByAccount.removeWhere((_, until) => !until.isAfter(now));
     final wait = retryAfter == null
         ? rateLimitCooldown
         : retryAfter > maxRateLimitCooldown
         ? maxRateLimitCooldown
         : retryAfter;
-    final resumeAt = clock.now().add(wait);
-    final current = _readsResumeAt;
-    if (current == null || resumeAt.isAfter(current)) _readsResumeAt = resumeAt;
+    if (wait <= Duration.zero) return;
+    final resumeAt = now.add(wait);
+    final current = _readsResumeAtByAccount[accountId];
+    if (current == null || resumeAt.isAfter(current)) {
+      _readsResumeAtByAccount[accountId] = resumeAt;
+    }
   }
 
   /// Short response-body snippet for non-2xx diagnostics. The API error body

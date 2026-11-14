@@ -203,7 +203,8 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
     _revealing = url;
     final tierKey = entity.imageTierKeyAt(widget.index);
     final tier = entity.imageTierOf(url);
-    final width = decodeWidth ?? PixivImage.screenDecodeWidth;
+    final width =
+        decodeWidth ?? PixivImage.screenDecodeWidthOf(context, listen: false);
     if (PixivImage.isDecoded(
       context,
       url,
@@ -829,7 +830,7 @@ class _PanoramaFrameState extends State<_PanoramaFrame> {
                 height: height,
                 child: widget.builder(
                   math.min(
-                    PixivImage.decodeWidthFor(contentWidth),
+                    PixivImage.decodeWidthOf(context, contentWidth),
                     _maxDecodeWidth,
                   ),
                 ),

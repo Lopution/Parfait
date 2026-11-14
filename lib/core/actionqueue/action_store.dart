@@ -1,11 +1,13 @@
 /// Persistence boundary for the offline action queue. The sqflite
-/// implementation lives on [FeedDatabase]; the in-memory variant keeps
+/// implementation lives on [ActionDatabase]; the in-memory variant keeps
 /// engine tests free of sqlite.
 library;
 
 import 'package:meta/meta.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../paging/feed_database.dart';
+import 'action_database.dart';
 import 'action_models.dart';
 
 /// CRUD the [ActionQueue] engine needs. All mutation methods are safe to
@@ -59,30 +61,131 @@ abstract interface class ActionStore {
   Future<void> clearAccount(String owner);
 }
 
-/// SQLite-backed store over `feeds.db`'s `action_queue` table.
+/// SQLite-backed store over `actions.db`'s `action_queue` table.
 final class SqliteActionStore implements ActionStore {
-  SqliteActionStore({required FeedDatabase database}) : _database = database;
+  SqliteActionStore({
+    required ActionDatabase database,
+    FeedDatabase? legacyFeedDatabase,
+  }) : _database = database,
+       _legacyFeedDatabase = legacyFeedDatabase;
 
-  final FeedDatabase _database;
+  final ActionDatabase _database;
+  final FeedDatabase? _legacyFeedDatabase;
+  Future<Database>? _readyFuture;
+
+  Future<Database> _readyDatabase() {
+    final pending = _readyFuture;
+    if (pending != null) return pending;
+    final future = _openAndMigrate();
+    _readyFuture = future;
+    return future.catchError((Object error, StackTrace stack) {
+      if (identical(_readyFuture, future)) {
+        _readyFuture = null;
+      }
+      Error.throwWithStackTrace(error, stack);
+    });
+  }
+
+  Future<Database> _openAndMigrate() async {
+    final db = await _database.database;
+    if (_legacyFeedDatabase case final legacy?) {
+      await _migrateLegacyActions(db, legacy);
+    }
+    return db;
+  }
+
+  Future<void> _migrateLegacyActions(
+    Database target,
+    FeedDatabase legacy,
+  ) async {
+    final legacyDb = await legacy.database;
+    final tables = await legacyDb.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [ActionDatabase.actionTable],
+    );
+    if (tables.isEmpty) return;
+
+    final rows = await legacyDb.query(
+      ActionDatabase.actionTable,
+      orderBy: 'id ASC',
+    );
+    if (rows.isNotEmpty) {
+      await target.transaction((txn) async {
+        final seenCounts = <String, int>{};
+        for (final row in rows) {
+          final key = [
+            row['owner'],
+            row['type'],
+            row['dedupe_key'],
+            row['payload'],
+            row['status'],
+            row['attempt'],
+            row['next_attempt_at'],
+            row['created_at'],
+          ].join('\u0000');
+          final seenBefore = seenCounts[key] ?? 0;
+          seenCounts[key] = seenBefore + 1;
+
+          final nextAttemptAt = row['next_attempt_at'];
+          final nextClause = nextAttemptAt == null
+              ? 'next_attempt_at IS NULL'
+              : 'next_attempt_at = ?';
+          final existing = await txn.query(
+            ActionDatabase.actionTable,
+            columns: const ['id'],
+            where:
+                'owner = ? AND type = ? AND dedupe_key = ? AND '
+                'payload = ? AND status = ? AND attempt = ? AND '
+                '$nextClause AND created_at = ?',
+            whereArgs: [
+              row['owner'],
+              row['type'],
+              row['dedupe_key'],
+              row['payload'],
+              row['status'],
+              row['attempt'],
+              ?nextAttemptAt,
+              row['created_at'],
+            ],
+          );
+          if (existing.length <= seenBefore) {
+            await txn.insert(ActionDatabase.actionTable, {
+              'owner': row['owner'],
+              'type': row['type'],
+              'dedupe_key': row['dedupe_key'],
+              'payload': row['payload'],
+              'status': row['status'],
+              'attempt': row['attempt'],
+              'next_attempt_at': row['next_attempt_at'],
+              'created_at': row['created_at'],
+            });
+          }
+        }
+      });
+    }
+    await legacyDb.execute(
+      'DROP TABLE IF EXISTS ${ActionDatabase.actionTable}',
+    );
+  }
 
   @override
   Future<int> enqueue(StoredAction draft) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     return db.transaction((txn) async {
       await txn.delete(
-        FeedDatabase.actionTable,
+        ActionDatabase.actionTable,
         where: 'owner = ? AND dedupe_key = ? AND status = ?',
         whereArgs: [draft.owner, draft.dedupeKey, ActionStatus.pending.dbValue],
       );
-      return txn.insert(FeedDatabase.actionTable, _toRow(draft));
+      return txn.insert(ActionDatabase.actionTable, _toRow(draft));
     });
   }
 
   @override
   Future<StoredAction?> nextReady(String owner, int nowMs) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     final rows = await db.query(
-      FeedDatabase.actionTable,
+      ActionDatabase.actionTable,
       where:
           'owner = ? AND status = ? AND '
           '(next_attempt_at IS NULL OR next_attempt_at <= ?)',
@@ -96,9 +199,9 @@ final class SqliteActionStore implements ActionStore {
 
   @override
   Future<bool> markRunning(int id) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     final claimed = await db.update(
-      FeedDatabase.actionTable,
+      ActionDatabase.actionTable,
       {'status': ActionStatus.running.dbValue},
       where: 'id = ? AND status = ?',
       whereArgs: [id, ActionStatus.pending.dbValue],
@@ -122,15 +225,19 @@ final class SqliteActionStore implements ActionStore {
 
   @override
   Future<void> delete(int id) async {
-    final db = await _database.database;
-    await db.delete(FeedDatabase.actionTable, where: 'id = ?', whereArgs: [id]);
+    final db = await _readyDatabase();
+    await db.delete(
+      ActionDatabase.actionTable,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   @override
   Future<bool> deletePending(String owner, String dedupeKey) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     final deleted = await db.delete(
-      FeedDatabase.actionTable,
+      ActionDatabase.actionTable,
       where: 'owner = ? AND dedupe_key = ? AND status = ?',
       whereArgs: [owner, dedupeKey, ActionStatus.pending.dbValue],
     );
@@ -139,9 +246,9 @@ final class SqliteActionStore implements ActionStore {
 
   @override
   Future<({int reset, int dropped})> recoverInterrupted() async {
-    const table = FeedDatabase.actionTable;
+    const table = ActionDatabase.actionTable;
     final running = ActionStatus.running.dbValue;
-    final db = await _database.database;
+    final db = await _readyDatabase();
     return db.transaction((txn) async {
       final dropped = await txn.rawDelete(
         'DELETE FROM $table WHERE status = ? AND EXISTS ('
@@ -163,10 +270,10 @@ final class SqliteActionStore implements ActionStore {
 
   @override
   Future<int?> nextPendingAt(String owner) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     final rows = await db.rawQuery(
       'SELECT MIN(COALESCE(next_attempt_at, 0)) AS due '
-      'FROM ${FeedDatabase.actionTable} WHERE owner = ? AND status = ?',
+      'FROM ${ActionDatabase.actionTable} WHERE owner = ? AND status = ?',
       [owner, ActionStatus.pending.dbValue],
     );
     return rows.single['due'] as int?;
@@ -174,9 +281,9 @@ final class SqliteActionStore implements ActionStore {
 
   @override
   Future<List<StoredAction>> listFor(String owner) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     final rows = await db.query(
-      FeedDatabase.actionTable,
+      ActionDatabase.actionTable,
       where: 'owner = ?',
       whereArgs: [owner],
       orderBy: 'id ASC',
@@ -186,18 +293,18 @@ final class SqliteActionStore implements ActionStore {
 
   @override
   Future<void> clearAccount(String owner) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     await db.delete(
-      FeedDatabase.actionTable,
+      ActionDatabase.actionTable,
       where: 'owner = ?',
       whereArgs: [owner],
     );
   }
 
   Future<void> _update(int id, Map<String, Object?> values) async {
-    final db = await _database.database;
+    final db = await _readyDatabase();
     await db.update(
-      FeedDatabase.actionTable,
+      ActionDatabase.actionTable,
       values,
       where: 'id = ?',
       whereArgs: [id],

@@ -22,12 +22,22 @@ import '../user/follow_store.dart';
 import '../watchlist/watchlist_models.dart';
 import '../watchlist/watchlist_repository.dart';
 import '../watchlist/watchlist_store.dart';
+import 'action_database.dart';
 import 'action_models.dart';
 import 'action_queue.dart';
 import 'action_store.dart';
 
+final actionDatabaseProvider = Provider<ActionDatabase>((ref) {
+  final database = ActionDatabase();
+  ref.onDispose(() => unawaited(database.close()));
+  return database;
+});
+
 final actionStoreProvider = Provider<ActionStore>((ref) {
-  return SqliteActionStore(database: ref.watch(feedDatabaseProvider));
+  return SqliteActionStore(
+    database: ref.watch(actionDatabaseProvider),
+    legacyFeedDatabase: ref.watch(feedDatabaseProvider),
+  );
 });
 
 final actionQueueProvider = Provider<ActionQueue>((ref) {

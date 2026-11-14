@@ -8,7 +8,7 @@ applies_to:
   - lib/core/platform/local_network.dart
   - lib/core/platform/network_identity.dart
   - lib/core/settings/image_mirror.dart
-reviewed: 2026-10-29
+reviewed: 2026-11-14
 ---
 
 # Network policy, auth and transfers
@@ -244,9 +244,11 @@ reviewed: 2026-10-29
 
 ### NET-09 Rate limits pause reads, not writes
 - **Rule:** A 429 maps to `ApiRateLimited` with its `Retry-After`; reads
-  wait out the cooldown, posts still go.
-- **Why:** Hammering the API after a 429 extended the block.
-- **Check:** `test/pixiv_http_client_test.dart` "429, server, parse and transport failures map to errors, no retry" "after a 429 reads wait out the cooldown; posts still go"
+  wait out the cooldown scoped per `accountId` (switching accounts keeps
+  another account's reads unblocked), while posts still go.
+- **Why:** Hammering the API after a 429 extended the block, and a process-wide
+  cooldown blocked healthy accounts after an account switch.
+- **Check:** `test/pixiv_http_client_test.dart` "429, server, parse and transport failures map to errors, no retry" "after a 429 reads wait out the cooldown; posts still go" "a 429 cooldown scopes to the rate-limited account across switches"
 - **Code:** `lib/core/network/pixiv_http_client.dart`
 
 ### NET-10 Identical GETs share one flight

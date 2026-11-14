@@ -740,6 +740,48 @@ void main() {
     });
   });
 
+  test(
+    'a 429 cooldown scopes to the rate-limited account across switches',
+    () async {
+      var now = DateTime(2026, 10, 8, 12);
+      await withClock(Clock(() => now), () async {
+        final seenTokens = <String?>[];
+        final container = await signedInApiContainer(
+          MockClient((request) async {
+            final auth = request.headers['Authorization'];
+            seenTokens.add(auth);
+            return auth == 'Bearer access-1' && seenTokens.length == 1
+                ? http.Response('limited', 429)
+                : http.Response('{}', 200);
+          }),
+          account: stubAccountPair[0],
+          others: [stubAccountPair[1]],
+        );
+        final client = container.read(pixivHttpClientProvider);
+        final accounts = container.read(accountStoreProvider.notifier);
+
+        await expectLater(
+          client.getJson(Uri.parse(_api)),
+          throwsA(isA<ApiRateLimited>()),
+        );
+        await accounts.switchAccount('200');
+        await client.getJson(Uri.parse(_api));
+        expect(seenTokens, ['Bearer access-1', 'Bearer access-200']);
+
+        await accounts.switchAccount('100');
+        await expectLater(
+          client.getJson(Uri.parse(_api)),
+          throwsA(isA<ApiRateLimited>()),
+        );
+        expect(seenTokens, hasLength(2));
+
+        now = now.add(PixivHttpClient.rateLimitCooldown);
+        await client.getJson(Uri.parse(_api));
+        expect(seenTokens, hasLength(3));
+      });
+    },
+  );
+
   test('bodies decode and map on the data worker unchanged', () async {
     final (container, _, _, _) = await _makeWorld();
     final worker = IsolateDataWorker();
