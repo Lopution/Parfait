@@ -815,10 +815,12 @@ class _NovelHistoryEntry extends StatelessWidget {
                                   size: 42,
                                 ),
                               )
-                            : PixivImage.feed(
-                                coverUrl,
-                                layoutWidth:
-                                    MediaQuery.sizeOf(context).width / 2,
+                            : LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    PixivImage.feed(
+                                      coverUrl,
+                                      layoutWidth: constraints.maxWidth,
+                                    ),
                               ),
                       ),
                     ),

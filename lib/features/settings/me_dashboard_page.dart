@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/format/app_format.dart';
+import '../../app/layout/app_breakpoints.dart';
 import '../../app/motion/hero_transition.dart';
 import '../../app/motion/motion_tokens.dart';
+import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
@@ -39,12 +41,27 @@ import '../../app/layout/content_widths.dart';
 /// The "me" destination, YouTube's way: who is signed in, what they saw
 /// last, the places of their own content as a list, then settings and
 /// about. Content comes first — it is what the page is opened for.
-class MeDashboardPage extends ConsumerWidget {
+class MeDashboardPage extends ConsumerStatefulWidget {
   const MeDashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MeDashboardPage> createState() => _MeDashboardPageState();
+}
+
+class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
+  static const _wideMaxWidth = 1080.0;
+
+  /// Preserves `_RecentHistoryState` (keep-alive covers & reorder animations)
+  /// when crossing the narrow/wide breakpoint (`SET-07`).
+  final _historyKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
     final accounts = ref.watch(accountStoreProvider);
+    final size = HomeShellChrome.contentSizeOf(context);
+    final wide =
+        size.width >= AppBreakpoints.expanded &&
+        size.height >= AppBreakpoints.compactHeight;
     return Scaffold(
       // Root pages own no inline composer: leaving the default `true`
       // would subscribe this whole subtree to per-frame viewInsets churn
@@ -53,18 +70,18 @@ class MeDashboardPage extends ConsumerWidget {
       resizeToAvoidBottomInset: false,
       // Settings open from the row at the page's end, not the bar.
       appBar: AppTopBar(
-        contentWidth: ContentWidths.settings,
+        contentWidth: wide ? _wideMaxWidth : ContentWidths.settings,
         title: Text(context.l10n.homeMe),
       ),
-      body: _body(context, ref, accounts),
+      body: _body(context, accounts, wide: wide),
     );
   }
 
   Widget _body(
     BuildContext context,
-    WidgetRef ref,
-    AsyncValue<AccountState> accounts,
-  ) {
+    AsyncValue<AccountState> accounts, {
+    required bool wide,
+  }) {
     void reload() => ref.read(accountStoreProvider.notifier).reload();
     if (accounts.hasError) {
       return SettingsLoadError(
@@ -82,29 +99,73 @@ class MeDashboardPage extends ConsumerWidget {
         messageKey: 'accountReadFailed',
       );
     }
-    return settingsNarrowBody(
-      ListView(
-        padding: const EdgeInsets.only(
-          top: FuncSpacing.sm,
-          bottom: FuncSpacing.xl,
+    final settingsRow = _MeRow(
+      icon: Icons.settings_outlined,
+      label: context.l10n.settingsTitle,
+      onTap: () => openSettingsPage(context, settingsIndexPath),
+    );
+    final aboutRow = _MeRow(
+      icon: settingsPageIcons[SettingsPageRef.about]!,
+      label: context.l10n.aboutSettings,
+      onTap: () => openSettingsPage(context, SettingsPageRef.about.path),
+    );
+    final history = _RecentHistory(key: _historyKey);
+    if (!wide) {
+      return settingsNarrowBody(
+        ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
+          children: [
+            _AccountHeader(account: state?.current),
+            history,
+            const _ContentShortcuts(),
+            const Divider(indent: FuncSpacing.lg, endIndent: FuncSpacing.lg),
+            settingsRow,
+            aboutRow,
+            const FuncNavBarSpacer(),
+          ],
         ),
-        children: [
-          _AccountHeader(account: state?.current),
-          const _RecentHistory(),
-          const _ContentShortcuts(),
-          const Divider(indent: FuncSpacing.lg, endIndent: FuncSpacing.lg),
-          _MeRow(
-            icon: Icons.settings_outlined,
-            label: context.l10n.settingsTitle,
-            onTap: () => openSettingsPage(context, settingsIndexPath),
+      );
+    }
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _wideMaxWidth),
+        child: ListView(
+          key: const ValueKey('me-wide-dashboard'),
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
           ),
-          _MeRow(
-            icon: settingsPageIcons[SettingsPageRef.about]!,
-            label: context.l10n.aboutSettings,
-            onTap: () => openSettingsPage(context, SettingsPageRef.about.path),
-          ),
-          const FuncNavBarSpacer(),
-        ],
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _AccountHeader(account: state?.current),
+                      history,
+                      const Divider(
+                        indent: FuncSpacing.lg,
+                        endIndent: FuncSpacing.lg,
+                      ),
+                      settingsRow,
+                      aboutRow,
+                    ],
+                  ),
+                ),
+                const SizedBox(width: FuncSpacing.md),
+                const Expanded(flex: 6, child: _ContentShortcuts()),
+              ],
+            ),
+            const FuncNavBarSpacer(),
+          ],
+        ),
       ),
     );
   }
@@ -263,7 +324,7 @@ final _recentHistoryProvider = FutureProvider.autoDispose<List<HistoryRecord>>((
 /// The works seen last, as a row of covers; "view all" opens the history.
 /// Nothing while the history is empty.
 class _RecentHistory extends ConsumerStatefulWidget {
-  const _RecentHistory();
+  const _RecentHistory({super.key});
 
   static const _count = 8;
   static const _cover = 88.0;

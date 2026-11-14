@@ -1,6 +1,9 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/selectable_tile.dart';
 import 'package:parfait/core/watchlater/watch_later_database.dart';
@@ -14,11 +17,17 @@ import 'helpers/illust_fixtures.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 
-Widget _app(ProviderContainer container) {
+Widget _app(ProviderContainer container, {InputModality? inputModality}) {
+  final page = inputModality == null
+      ? const WatchLaterPage()
+      : InputModalityScope(
+          initialModality: inputModality,
+          child: const WatchLaterPage(),
+        );
   return localizedApp(
     container: container,
     builder: promptHostBuilder,
-    home: const WatchLaterPage(),
+    home: page,
   );
 }
 
@@ -47,12 +56,15 @@ void main() {
   late ProviderContainer container;
   late WatchLaterRepository repository;
 
-  Future<void> pumpPage(WidgetTester tester) async {
+  Future<void> pumpPage(
+    WidgetTester tester, {
+    InputModality? inputModality,
+  }) async {
     final (world, _, memory) = await makeCardWorld();
     container = world;
     repository = memory;
     await _seed(repository);
-    await tester.pumpWidget(_app(container));
+    await tester.pumpWidget(_app(container, inputModality: inputModality));
     await _settle(tester);
   }
 
@@ -157,4 +169,48 @@ void main() {
     expect(find.byType(ListTile), findsNothing);
     expect(find.text('1'), findsOneWidget);
   });
+
+  testWidgets(
+    'pointer managing supports Shift+Click range selection and Ctrl+A select all',
+    (tester) async {
+      await pumpPage(tester, inputModality: InputModality.pointer);
+      await tester.tap(
+        find.widgetWithText(TextButton, '管理'),
+        kind: PointerDeviceKind.mouse,
+      );
+      await _settle(tester);
+
+      await tester.tap(_tile(3).first, kind: PointerDeviceKind.mouse);
+      await _settle(tester);
+      expect(find.text('1'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      try {
+        await tester.tap(_tile(1).first, kind: PointerDeviceKind.mouse);
+      } finally {
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      }
+      await _settle(tester);
+      expect(find.text('3'), findsOneWidget);
+
+      // Exit managing and re-enter with an empty selection, then test Ctrl+A.
+      await tester.tap(find.byIcon(Icons.close), kind: PointerDeviceKind.mouse);
+      await _settle(tester);
+      await tester.tap(
+        find.widgetWithText(TextButton, '管理'),
+        kind: PointerDeviceKind.mouse,
+      );
+      await _settle(tester);
+      expect(find.text('0'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      try {
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      } finally {
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      }
+      await _settle(tester);
+      expect(find.text('3'), findsOneWidget);
+    },
+  );
 }

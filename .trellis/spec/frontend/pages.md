@@ -31,7 +31,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/features/illust/detail/**
   - lib/features/novel/novel_page.dart
-reviewed: 2026-11-11
+reviewed: 2026-11-15
 ---
 
 # Page-specific rules
@@ -51,11 +51,16 @@ reviewed: 2026-11-11
   (illust, manga, novel, illust series), labelled with the name alone.
   Each work list starts with its total. A preview snapshot without counters
   keeps all four tabs; a tab that disappears on refresh falls back to the
-  first.
+  first. When `HomeShellChrome.contentSizeOf` is at least `840×480`,
+  `UserPage` splits into a 332dp left identity sidebar (banner, avatar, name,
+  actions, stats, bio) beside a dedicated right tab bar and `TabBarView`
+  (`ValueKey('profile-wide-split')`).
 - **Why:** Counts in labels widened the row past an equal share and
-  flipped it to scrolling once the detail loaded.
+  flipped it to scrolling once the detail loaded; on wide tablets and
+  desktops, a persistent sidebar keeps artist context visible without
+  stretching the banner across wide viewports.
 - **Check:** `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its" "a profile without works opens on its first other tab" "a tab that disappears on refresh falls back to the first"
-- **Code:** `lib/features/profile/user_page.dart`
+- **Code:** `lib/features/profile/user_page.dart`, `lib/features/profile/profile_header_delegate.dart`
 
 ### PAGE-22 Bookmarks list illustrations or novels by a kind menu
 - **Rule:** The profile's bookmarks tab starts its filter row with a kind
@@ -273,10 +278,16 @@ reviewed: 2026-11-11
   entries in the bar's ⋮, disabled while there is nothing to remove, so
   "manage" never shifts. Selection swaps the bar for `selectionAppBar`;
   back leaves selection before the page. Grid entries use
-  `SelectableTile`.
-- **Why:** An icon alone was unreadable in testing.
-- **Check:** `test/history_page_test.dart` "system back exits selection mode instead of popping"
-- **Code:** `lib/app/widgets/selectable_tile.dart`, `lib/app/widgets/selection_app_bar.dart`
+  `SelectableTile`. On `WatchLaterPage`, managing mode with a pointer also
+  supports `Shift`+click range selection and `Ctrl`/`Meta`+`A` select-all,
+  while non-managing long press keeps opening the work's action sheet.
+  `HistoryPage` novel covers pass their rendered tile width via
+  `LayoutBuilder` to `PixivImage.feed` so grids decode at cell size.
+- **Why:** An icon alone was unreadable in testing; desktop management grids
+  expect standard pointer multi-selection, and oversized novel covers wasted
+  decode memory.
+- **Check:** `test/history_page_test.dart` "system back exits selection mode instead of popping"; `test/watchlater_page_test.dart` "several works are removed at once and undone in place" "long press opens the sheet, or selects while managing"
+- **Code:** `lib/app/widgets/selectable_tile.dart`, `lib/app/widgets/selection_app_bar.dart`, `lib/features/watchlater/watchlater_page.dart`, `lib/features/history/history_page.dart`
 
 ### PAGE-12 Removals return what Undo needs to restore positions
 - **Rule:** Removing never asks first: entries play their exit, the store

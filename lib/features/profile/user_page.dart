@@ -10,10 +10,15 @@ import '../../app/motion/motion_tokens.dart';
 import '../../app/motion/reveal.dart';
 import '../../app/motion/state_fade.dart';
 import '../../app/format/app_format.dart';
+import '../../app/layout/app_breakpoints.dart';
+import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -591,31 +596,73 @@ class _UserPageState extends ConsumerState<UserPage>
     final muted = ref.watch(
       muteStoreProvider.select((state) => state.isUserMuted(user.id)),
     );
+    final onDownloadAll = canBulkDownload ? _downloadAuthorWorks : null;
+    void onCopyLink() => unawaited(_copyProfileLink(context, user));
+    final onFollowPrivately = widget.isMe
+        ? null
+        : () => unawaited(
+            showFollowActionsSheet(
+              context,
+              userId: user.id,
+              userName: user.name,
+              userAccount: user.account,
+            ),
+          );
+    final onToggleMute = widget.isMe
+        ? null
+        : () => unawaited(
+            toggleUserMute(
+              context,
+              MutedUser(
+                userId: user.id,
+                name: user.name,
+                account: user.account,
+                profileImageUrl: user.profileImageUrl,
+              ),
+            ),
+          );
+    final staleBanner = Reveal(
+      child: staleError == null || !_staleBannerVisible
+          ? null
+          : MaterialBanner(
+              content: Text(context.l10n.profileLoadFailed),
+              actions: [
+                TextButton(
+                  key: const ValueKey('profile-stale-error-retry'),
+                  onPressed: _reloadProfile,
+                  child: Text(context.l10n.profileRetry),
+                ),
+                IconButton(
+                  key: const ValueKey('profile-stale-error-dismiss'),
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => setState(() => _staleBannerVisible = false),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+    );
+    final size = HomeShellChrome.contentSizeOf(context);
+    final wideSplit =
+        size.width >= AppBreakpoints.expanded &&
+        size.height >= AppBreakpoints.compactHeight;
+    if (wideSplit) {
+      return _buildWideProfile(
+        context,
+        user: user,
+        tabController: tabController,
+        statistics: statistics,
+        followed: followed,
+        muted: muted,
+        staleBanner: staleBanner,
+        onFollowPrivately: onFollowPrivately,
+        onDownloadAll: onDownloadAll,
+        onCopyLink: onCopyLink,
+        onToggleMute: onToggleMute,
+      );
+    }
     return Column(
       children: [
-        Reveal(
-          child: staleError == null || !_staleBannerVisible
-              ? null
-              : MaterialBanner(
-                  content: Text(context.l10n.profileLoadFailed),
-                  actions: [
-                    TextButton(
-                      key: const ValueKey('profile-stale-error-retry'),
-                      onPressed: _reloadProfile,
-                      child: Text(context.l10n.profileRetry),
-                    ),
-                    IconButton(
-                      key: const ValueKey('profile-stale-error-dismiss'),
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).closeButtonTooltip,
-                      onPressed: () =>
-                          setState(() => _staleBannerVisible = false),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-        ),
+        staleBanner,
         Expanded(
           child: NestedScrollView(
             key: const ValueKey('profile-nested-scroll'),
@@ -658,34 +705,13 @@ class _UserPageState extends ConsumerState<UserPage>
                   onToggleFollow: widget.isMe
                       ? null
                       : () => toggleFollowWithUndo(context, user.id),
-                  onFollowPrivately: widget.isMe
-                      ? null
-                      : () => unawaited(
-                          showFollowActionsSheet(
-                            context,
-                            userId: user.id,
-                            userName: user.name,
-                            userAccount: user.account,
-                          ),
-                        ),
-                  onCopyLink: () => unawaited(_copyProfileLink(context, user)),
+                  onFollowPrivately: onFollowPrivately,
+                  onCopyLink: onCopyLink,
                   stats: _headerStats(user),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
-                  onDownloadAll: canBulkDownload ? _downloadAuthorWorks : null,
+                  onDownloadAll: onDownloadAll,
                   isMuted: muted,
-                  onToggleMute: widget.isMe
-                      ? null
-                      : () => unawaited(
-                          toggleUserMute(
-                            context,
-                            MutedUser(
-                              userId: user.id,
-                              name: user.name,
-                              account: user.account,
-                              profileImageUrl: user.profileImageUrl,
-                            ),
-                          ),
-                        ),
+                  onToggleMute: onToggleMute,
                   topInset: MediaQuery.viewPaddingOf(context).top,
                 ),
               ),
@@ -705,21 +731,215 @@ class _UserPageState extends ConsumerState<UserPage>
                 for (final (index, tab) in _tabs.indexed)
                   _SelectedTabScroll(
                     selected: index == _selectedIndex,
-                    child: _ProfileTabBody(
-                      key: _bodyKeys.putIfAbsent(tab, GlobalKey.new),
-                      user: user,
-                      userId: widget.userId,
-                      isSeries: tab == _ProfileTab.series,
-                      feedKey: _feedKeyFor(tab),
-                      header: _filterBarFor(tab) ?? _worksTotalFor(tab, user),
-                      statistics: statistics,
-                    ),
+                    child: _buildTabBody(tab, user, statistics),
                   ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTabBody(
+    _ProfileTab tab,
+    UserEntity user,
+    List<ProfileStatisticData> statistics,
+  ) => _ProfileTabBody(
+    key: _bodyKeys.putIfAbsent(tab, GlobalKey.new),
+    user: user,
+    userId: widget.userId,
+    isSeries: tab == _ProfileTab.series,
+    feedKey: _feedKeyFor(tab),
+    header: _filterBarFor(tab) ?? _worksTotalFor(tab, user),
+    statistics: statistics,
+  );
+
+  Widget _buildWideProfile(
+    BuildContext context, {
+    required UserEntity user,
+    required TabController tabController,
+    required List<ProfileStatisticData> statistics,
+    required bool followed,
+    required bool muted,
+    required Widget staleBanner,
+    required VoidCallback? onFollowPrivately,
+    required VoidCallback? onDownloadAll,
+    required VoidCallback onCopyLink,
+    required VoidCallback? onToggleMute,
+  }) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final bio = user.comment?.trim();
+    final stats = _headerStats(user);
+    return KeyedSubtree(
+      key: const ValueKey('profile-wide-split'),
+      child: Column(
+        children: [
+          AppTopBar(
+            title: Text(
+              user.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            actions: [
+              ProfileSecondaryMenuButton(
+                isMe: widget.isMe,
+                isFollowed: followed,
+                onFollowPrivately: onFollowPrivately,
+                onDownloadAll: onDownloadAll,
+                onCopyLink: onCopyLink,
+                isMuted: muted,
+                onToggleMute: onToggleMute,
+              ),
+            ],
+          ),
+          staleBanner,
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 332,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(FuncSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 108 + 28,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: 108,
+                                child: ClipRRect(
+                                  borderRadius: FuncShape.card,
+                                  child: ProfileBannerBackground(user: user),
+                                ),
+                              ),
+                              PositionedDirectional(
+                                start: FuncSpacing.sm,
+                                bottom: 0,
+                                child: KeyedSubtree(
+                                  key: const ValueKey(
+                                    'profile-expanded-avatar',
+                                  ),
+                                  child: PersonAvatar(
+                                    imageUrl: user.profileImageUrl,
+                                    radius: 36,
+                                    ring: true,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: FuncSpacing.md),
+                        Row(
+                          children: [
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: Text(
+                                key: const ValueKey('profile-expanded-name'),
+                                user.name,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Builder(
+                              builder: (buttonContext) => IconButton(
+                                tooltip: l10n.profileShare,
+                                onPressed: () => unawaited(
+                                  _shareProfile(buttonContext, ref, user),
+                                ),
+                                icon: const Icon(Icons.share_outlined),
+                              ),
+                            ),
+                            const SizedBox(width: FuncSpacing.xs),
+                            if (widget.isMe && widget.onEditProfile != null)
+                              FilledButton.tonal(
+                                onPressed: widget.onEditProfile,
+                                child: Text(l10n.profileEditTitle),
+                              )
+                            else if (!widget.isMe)
+                              FollowSwitchButton(
+                                userId: user.id,
+                                userName: user.name,
+                                userAccount: user.account,
+                              ),
+                          ],
+                        ),
+                        if (user.account.isNotEmpty) ...[
+                          const SizedBox(height: FuncSpacing.xxs),
+                          Text(
+                            '@${user.account}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        if (stats.isNotEmpty) ...[
+                          const SizedBox(height: FuncSpacing.sm),
+                          ProfileStatRow(stats: stats),
+                        ],
+                        if (bio != null && bio.isNotEmpty) ...[
+                          const SizedBox(height: FuncSpacing.md),
+                          const Divider(),
+                          const SizedBox(height: FuncSpacing.sm),
+                          SelectableText(
+                            bio,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Material(
+                        key: const ValueKey('profile-tabs'),
+                        color: theme.scaffoldBackgroundColor,
+                        child: SizedBox(
+                          height: kToolbarHeight,
+                          child: AppTabBar(
+                            controller: tabController,
+                            onTap: _onTabTap,
+                            labels: [for (final tab in _tabs) _tabLabel(tab)],
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: TabBarView(
+                          controller: tabController,
+                          children: [
+                            for (final tab in _tabs)
+                              PrimaryScrollController.none(
+                                child: _buildTabBody(tab, user, statistics),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

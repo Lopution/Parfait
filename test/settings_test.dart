@@ -401,6 +401,32 @@ void main() {
     await manager.dispose();
   });
 
+  testWidgets('MeDashboardPage uses two-column layout at >= 840x480 only', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(1024, 768));
+    await seedSettings(baseTestSettings());
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        builder: promptHostBuilder,
+        home: MeDashboardPage(),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('me-wide-dashboard')), findsOneWidget);
+
+    setViewSize(tester, const Size(700, 768));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('me-wide-dashboard')), findsNothing);
+
+    setViewSize(tester, const Size(900, 440));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('me-wide-dashboard')), findsNothing);
+  });
+
   testWidgets('the Me header, manage button and end rows open their pages', (
     tester,
   ) async {
