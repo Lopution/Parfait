@@ -363,7 +363,7 @@ RECT Win32Window::GetClientArea() {
   return frame;
 }
 
-HWND Win32Window::GetHandle() {
+HWND Win32Window::GetHandle() const {
   return window_handle_;
 }
 

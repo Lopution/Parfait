@@ -1,6 +1,7 @@
 #include "flutter_window.h"
 
 #include <commctrl.h>
+#include <flutter/event_stream_handler_functions.h>
 #include <flutter/standard_method_codec.h>
 #include <windowsx.h>
 
