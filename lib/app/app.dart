@@ -21,6 +21,7 @@ import '../core/platform/accessibility.dart';
 import '../core/platform/account_transfer_clipboard.dart';
 import '../core/platform/android_intent_channel.dart';
 import '../core/platform/local_network.dart';
+import 'dev_shell/dev_shell.dart';
 import 'external_intent_bridge.dart';
 import 'haptics/app_haptics.dart';
 import 'haptics/haptics_driver.dart';
@@ -281,13 +282,14 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
                     settingsPending: settingsPending,
                     child: routeChild,
                   ));
-        return AppChrome(
+        final chrome = AppChrome(
           settings: settings,
           router: _router,
           intentSource: widget.intentSource,
           promptHostKey: _promptHostKey,
           child: PipelineWarmup(child: content),
         );
+        return kParfaitDevShell ? DevShellHost(child: chrome) : chrome;
       },
     );
   }

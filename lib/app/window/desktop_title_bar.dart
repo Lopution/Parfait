@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/platform/desktop_window_channel.dart';
 import '../../l10n/context.dart';
+import '../layout/window_layout_spec.dart';
 import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -16,6 +17,9 @@ const double _windowsButtonWidth = 46;
 const double _windowsControlsWidth = _windowsButtonWidth * 3;
 const double _macFallbackTrafficLightWidth = 78;
 const Color _closeHoverBackground = Color(0xFFC42B1C);
+
+void _noopAction() {}
+void _noopRegions(List<DesktopTitleBarRegion> _) {}
 
 /// Action callbacks exposed by [DesktopWindowScope] to [DesktopWindowFrame].
 @immutable
@@ -29,6 +33,18 @@ class DesktopWindowActions {
     required this.onTitleBarDoubleClick,
     required this.onRegionsChanged,
   });
+
+  /// Non-interactive stub actions used in simulated desktop shells and review
+  /// screenshots so caption buttons render in their enabled state.
+  static const DesktopWindowActions noop = DesktopWindowActions(
+    onMinimize: _noopAction,
+    onToggleMaximize: _noopAction,
+    onClose: _noopAction,
+    onToggleFullScreen: _noopAction,
+    onStartDragging: _noopAction,
+    onTitleBarDoubleClick: _noopAction,
+    onRegionsChanged: _noopRegions,
+  );
 
   final VoidCallback onMinimize;
   final VoidCallback onToggleMaximize;
@@ -190,12 +206,14 @@ class DesktopWindowFrame extends StatefulWidget {
     this.metricsOverride,
     this.actionsOverride,
     this.captionBrightnessOverride,
+    this.showSimulatedTrafficLights = false,
   });
 
   final Widget child;
   final DesktopWindowPlatformMetrics? metricsOverride;
   final DesktopWindowActions? actionsOverride;
   final ValueListenable<Brightness>? captionBrightnessOverride;
+  final bool showSimulatedTrafficLights;
 
   @override
   State<DesktopWindowFrame> createState() => _DesktopWindowFrameState();
@@ -294,6 +312,7 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
     DesktopWindowPlatformMetrics hostMetrics,
     DesktopWindowActions? actions,
     ValueListenable<Brightness>? brightnessListenable,
+    bool showSimulatedTrafficLights,
   ) {
     final platform = Theme.of(context).platform;
     final resolved = DesktopChromeMetrics.resolveData(
@@ -363,6 +382,7 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
             dragKey: _dragKey,
             maximizeKey: _maximizeKey,
             brightnessListenable: brightnessListenable,
+            showSimulatedTrafficLights: showSimulatedTrafficLights,
           ),
         if (showFullscreenHoverOverlay)
           _FullscreenHoverOverlay(
@@ -382,18 +402,25 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
 
   @override
   Widget build(BuildContext context) {
+    final env = WindowEnvironmentOverride.maybeOf(context);
     final scope = DesktopWindowScope.maybeOf(context);
-    final actions = widget.actionsOverride ?? scope?.actions;
+    final metricsOverride = widget.metricsOverride ?? env?.desktopMetrics;
+    final actions =
+        widget.actionsOverride ?? env?.desktopActions ?? scope?.actions;
+    final showTrafficLights =
+        widget.showSimulatedTrafficLights ||
+        (env?.showSimulatedTrafficLights ?? false);
     final brightnessListenable =
         widget.captionBrightnessOverride ??
         DesktopSystemBarsScope.maybeOf(context)?.brightness;
 
-    if (widget.metricsOverride != null) {
+    if (metricsOverride != null) {
       return _buildFrame(
         context,
-        widget.metricsOverride!,
+        metricsOverride,
         actions,
         brightnessListenable,
+        showTrafficLights,
       );
     }
 
@@ -403,13 +430,19 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
         DesktopWindowPlatformMetrics.fallback,
         actions,
         brightnessListenable,
+        showTrafficLights,
       );
     }
 
     return ValueListenableBuilder<DesktopWindowPlatformMetrics>(
       valueListenable: scope.metrics,
-      builder: (context, hostMetrics, _) =>
-          _buildFrame(context, hostMetrics, actions, brightnessListenable),
+      builder: (context, hostMetrics, _) => _buildFrame(
+        context,
+        hostMetrics,
+        actions,
+        brightnessListenable,
+        showTrafficLights,
+      ),
     );
   }
 }
@@ -423,6 +456,7 @@ class _IntegratedTitleBarOverlay extends StatelessWidget {
     required this.dragKey,
     required this.maximizeKey,
     required this.brightnessListenable,
+    required this.showSimulatedTrafficLights,
   });
 
   final DesktopChromeMetrics chrome;
@@ -432,6 +466,7 @@ class _IntegratedTitleBarOverlay extends StatelessWidget {
   final GlobalKey dragKey;
   final GlobalKey maximizeKey;
   final ValueListenable<Brightness>? brightnessListenable;
+  final bool showSimulatedTrafficLights;
 
   @override
   Widget build(BuildContext context) {
@@ -455,28 +490,41 @@ class _IntegratedTitleBarOverlay extends StatelessWidget {
       ),
     );
 
-    if (!chrome.showCustomButtons) {
+    final showMacLights =
+        platform == TargetPlatform.macOS && showSimulatedTrafficLights;
+    if (!chrome.showCustomButtons && !showMacLights) {
       return dragZone;
     }
 
     return Stack(
       children: [
         dragZone,
-        Positioned(
-          top: 0,
-          right: 0,
-          height: chrome.titleBarHeight,
-          child: _CaptionButtonsCluster(
+        if (showMacLights)
+          PositionedDirectional(
+            top: 0,
+            start: 0,
+            width: chrome.leadingInset > 0
+                ? chrome.leadingInset
+                : _macFallbackTrafficLightWidth,
             height: chrome.titleBarHeight,
-            isMaximized: chrome.isMaximized,
-            isActive: chrome.isActive,
-            nativeHoveredButton: hostMetrics.hoveredButton,
-            nativePressedButton: hostMetrics.pressedButton,
-            maximizeKey: maximizeKey,
-            actions: actions,
-            brightnessListenable: brightnessListenable,
+            child: SimulatedMacTrafficLights(height: chrome.titleBarHeight),
           ),
-        ),
+        if (chrome.showCustomButtons)
+          Positioned(
+            top: 0,
+            right: 0,
+            height: chrome.titleBarHeight,
+            child: _CaptionButtonsCluster(
+              height: chrome.titleBarHeight,
+              isMaximized: chrome.isMaximized,
+              isActive: chrome.isActive,
+              nativeHoveredButton: hostMetrics.hoveredButton,
+              nativePressedButton: hostMetrics.pressedButton,
+              maximizeKey: maximizeKey,
+              actions: actions,
+              brightnessListenable: brightnessListenable,
+            ),
+          ),
       ],
     );
   }
@@ -694,40 +742,38 @@ class _WindowCaptionButtonState extends State<_WindowCaptionButton> {
         ? (widget.hoverForeground ?? widget.foreground)
         : widget.foreground;
 
-    return Semantics(
-      button: true,
-      label: widget.tooltip,
-      child: Tooltip(
-        message: widget.tooltip,
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() {
-            _hovered = false;
-            _pressed = false;
-          }),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (_) => setState(() => _pressed = true),
-            onTapUp: (_) => setState(() => _pressed = false),
-            onTapCancel: () => setState(() => _pressed = false),
-            onTap: widget.onPressed,
-            child: ColoredBox(
-              color: bg,
-              child: SizedBox(
-                width: _windowsButtonWidth,
-                height: widget.height,
-                child: Center(
-                  child: CustomPaint(
-                    size: const Size.square(10),
-                    painter: _CaptionGlyphPainter(kind: widget.kind, color: fg),
-                  ),
-                ),
+    Widget button = MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onPressed,
+        child: ColoredBox(
+          color: bg,
+          child: SizedBox(
+            width: _windowsButtonWidth,
+            height: widget.height,
+            child: Center(
+              child: CustomPaint(
+                size: const Size.square(10),
+                painter: _CaptionGlyphPainter(kind: widget.kind, color: fg),
               ),
             ),
           ),
         ),
       ),
     );
+    if (Overlay.maybeOf(context) != null) {
+      button = Tooltip(message: widget.tooltip, child: button);
+    }
+
+    return Semantics(button: true, label: widget.tooltip, child: button);
   }
 }
 
@@ -780,4 +826,52 @@ class _CaptionGlyphPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CaptionGlyphPainter oldDelegate) =>
       kind != oldDelegate.kind || color != oldDelegate.color;
+}
+
+/// Simulated macOS window traffic lights used by DevShell and multi-platform
+/// visual review runs when emulating macOS on non-Apple hosts.
+class SimulatedMacTrafficLights extends StatelessWidget {
+  const SimulatedMacTrafficLights({super.key, this.height = FuncSpacing.xxl});
+
+  final double height;
+
+  static const double _dotDiameter = 12;
+  static const Color _closeColor = Color(0xFFFF5F57);
+  static const Color _minimizeColor = Color(0xFFFEBC2E);
+  static const Color _zoomColor = Color(0xFF28C840);
+  static const Color _borderColor = Color(0x26000000);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(Color color) => DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(color: _borderColor, width: 0.5),
+      ),
+      child: const SizedBox(width: _dotDiameter, height: _dotDiameter),
+    );
+
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: height,
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.only(start: FuncSpacing.md),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                dot(_closeColor),
+                const SizedBox(width: FuncSpacing.sm),
+                dot(_minimizeColor),
+                const SizedBox(width: FuncSpacing.sm),
+                dot(_zoomColor),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
