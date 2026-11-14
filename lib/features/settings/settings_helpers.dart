@@ -120,9 +120,8 @@ class SettingsDetailScope extends InheritedWidget {
 
   static Future<void> Function(String location)? maybeOf(
     BuildContext context,
-  ) => context
-      .dependOnInheritedWidgetOfExactType<SettingsDetailScope>()
-      ?.onPush;
+  ) =>
+      context.dependOnInheritedWidgetOfExactType<SettingsDetailScope>()?.onPush;
 
   @override
   bool updateShouldNotify(SettingsDetailScope oldWidget) =>

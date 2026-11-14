@@ -435,7 +435,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
               // Drive the physical page only — onPageChanged is the single
               // writer of the logical page, so a stale in-flight notification
               // can never clobber a newer target.
-              final target = _stepTargetPage(zone == NovelTapZone.next ? 1 : -1);
+              final target = _stepTargetPage(
+                zone == NovelTapZone.next ? 1 : -1,
+              );
               if (target < 0 || target >= _reader.pageCount) return;
               turnPage(context, _pageController, _viewIndexForPage(target));
             },
@@ -710,7 +712,10 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final color = widget.textColor ?? Theme.of(context).colorScheme.onSurface;
     final page = _reader.currentPage;
     final indices = _spread
-        ? [for (final offset in const [-4, -3, 4, 5]) page - (page % 2) + offset]
+        ? [
+            for (final offset in const [-4, -3, 4, 5])
+              page - (page % 2) + offset,
+          ]
         : [page - 2, page + 2];
     for (final index in indices) {
       if (index < 0 || index >= pages.length) continue;
@@ -972,10 +977,7 @@ class _RenderPageWheelInterceptor extends RenderProxyBox {
     if (entry is _PageWheelHitTestEntry &&
         entry.enabled &&
         event is PointerScrollEvent) {
-      GestureBinding.instance.pointerSignalResolver.register(
-        event,
-        _resolve,
-      );
+      GestureBinding.instance.pointerSignalResolver.register(event, _resolve);
     }
   }
 

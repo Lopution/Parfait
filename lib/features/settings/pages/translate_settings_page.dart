@@ -49,7 +49,10 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
 
   Future<void> _openTranslationCredentials(bool baidu) async {
     final provider = baidu ? 'baidu' : 'llm';
-    await pushSettingsPage(context, '/settings/translate/credentials/$provider');
+    await pushSettingsPage(
+      context,
+      '/settings/translate/credentials/$provider',
+    );
     if (mounted) setState(_refreshCredentials);
   }
 

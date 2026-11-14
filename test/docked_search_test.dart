@@ -439,7 +439,11 @@ void main() {
       for (final path in ['/ranking', '/new']) {
         router.go(path);
         await tester.pumpAndSettle();
-        expect(find.byType(HeaderRefresh), findsOneWidget, reason: '$path host');
+        expect(
+          find.byType(HeaderRefresh),
+          findsOneWidget,
+          reason: '$path host',
+        );
         expect(
           find.descendant(
             of: find.byType(HeaderRefresh),

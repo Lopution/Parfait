@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -450,7 +451,9 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final binding = _RecordingBinding();
-      await tester.pumpWidget(_stageApp(binding, novel: _novelOfParagraphs(160)));
+      await tester.pumpWidget(
+        _stageApp(binding, novel: _novelOfParagraphs(160)),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -488,8 +491,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      double offset() =>
-          tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels;
+      double offset() => tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
 
       expect(offset(), 0);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -510,6 +515,78 @@ void main() {
       await pressShiftSpace();
       await tester.pumpAndSettle();
       expect(offset(), lessThan(beforeUp));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'desktop pointer shows anchored settings popover and progress/info side sheets',
+    (tester) async {
+      setViewSize(tester, const Size(1100, 800));
+
+      await tester.pumpWidget(
+        _stageApp(_RecordingBinding(), novel: _novelWithChapters(4)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tapAt(const Offset(550, 400), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      Rect panelRect(Finder content) => tester.getRect(
+        find.ancestor(of: content, matching: find.byType(Material)).first,
+      );
+
+      await tester.tap(
+        find.byIcon(Icons.tune_outlined),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      final settingsRect = panelRect(find.text('字号'));
+      expect(settingsRect.width, lessThanOrEqualTo(380));
+      expect(settingsRect.right, greaterThan(700));
+      await tester.tapAt(const Offset(20, 20), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byIcon(Icons.expand_less),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      final progressRect = panelRect(find.text('阅读进度'));
+      expect(progressRect.width, lessThanOrEqualTo(400));
+      expect(progressRect.right, closeTo(1100, 1));
+      await tester.tapAt(const Offset(20, 20), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byIcon(Icons.info_outline),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      final infoRect = panelRect(find.text('info sheet'));
+      expect(infoRect.width, lessThanOrEqualTo(400));
+      expect(infoRect.right, closeTo(1100, 1));
+      await tester.tapAt(const Offset(20, 20), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(find.text('info sheet'), findsNothing);
+
+      setViewSize(tester, const Size(500, 800));
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(NovelReaderStage)).width, 500);
+      await tester.tap(
+        find.byIcon(Icons.tune_outlined),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('字号'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      await tester.tapAt(const Offset(20, 20), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );

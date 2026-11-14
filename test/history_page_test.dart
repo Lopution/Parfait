@@ -427,6 +427,25 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pump();
       expect(_selectionTitle('已选 4 项'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('删除历史记录'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('删除后将不可恢复'), findsOneWidget);
+      final dialogRect = tester.getRect(
+        find
+            .ancestor(
+              of: find.text('删除后将不可恢复'),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(dialogRect.width, lessThanOrEqualTo(420));
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, '取消'),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );

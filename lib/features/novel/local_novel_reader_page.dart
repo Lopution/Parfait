@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
+import '../../app/motion/app_overlays.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/errors/no_retry.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
@@ -108,35 +109,38 @@ class _LocalNovelInfoSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        FuncSpacing.xl,
-        0,
-        FuncSpacing.xl,
-        FuncSpacing.xl,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
-          // No author row when the import recorded none — local TXT
-          // imports never carry one today, so the row is conditional.
-          if (novel.author != null) ...[
+    final desktop = useDesktopOverlay(context);
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          FuncSpacing.xl,
+          desktop ? FuncSpacing.xl : 0,
+          FuncSpacing.xl,
+          FuncSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
+            // No author row when the import recorded none — local TXT
+            // imports never carry one today, so the row is conditional.
+            if (novel.author != null) ...[
+              const SizedBox(height: FuncSpacing.sm),
+              Text(novel.author!),
+            ],
             const SizedBox(height: FuncSpacing.sm),
-            Text(novel.author!),
-          ],
-          const SizedBox(height: FuncSpacing.sm),
-          Text(l10n.localNovelsChars(novel.charCount)),
-          const SizedBox(height: FuncSpacing.xs),
-          Text(l10n.localNovelFileEncoding(_encodingLabel(novel.encoding))),
-          const SizedBox(height: FuncSpacing.xs),
-          Text(
-            l10n.localNovelFileImportedAt(
-              AppFormat.date(context, novel.importedAt, withTime: true),
+            Text(l10n.localNovelsChars(novel.charCount)),
+            const SizedBox(height: FuncSpacing.xs),
+            Text(l10n.localNovelFileEncoding(_encodingLabel(novel.encoding))),
+            const SizedBox(height: FuncSpacing.xs),
+            Text(
+              l10n.localNovelFileImportedAt(
+                AppFormat.date(context, novel.importedAt, withTime: true),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

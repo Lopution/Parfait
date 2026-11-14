@@ -956,8 +956,10 @@ class _SnapshotCover extends StatelessWidget {
 }
 
 Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
-  return showAppBottomSheet<bool>(
+  return showAppAdaptiveDialog<bool>(
     context: context,
+    maxWidth: 420,
+    isScrollControlled: true,
     builder: (sheetContext) {
       return SafeArea(
         child: Padding(

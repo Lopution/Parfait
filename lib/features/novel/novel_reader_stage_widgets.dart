@@ -9,7 +9,7 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
     final pageCount = _pageCount;
     final chapters = _readerHandle.chapters?.call() ?? const [];
     var preview = _page;
-    _showReaderSheet(
+    _showReaderSideSheet(
       isScrollControlled: true,
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -25,12 +25,13 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
               _readerHandle.goToPage?.call(page, animate: false);
             }
 
+            final desktop = useDesktopOverlay(context);
             return Padding(
               padding: MediaQuery.of(context).padding,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   FuncSpacing.xl,
-                  0,
+                  desktop ? FuncSpacing.xl : 0,
                   FuncSpacing.xl,
                   FuncSpacing.xl,
                 ),
@@ -170,9 +171,10 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
 
   static const _chapterListMinHeight = 240.0;
 
-  void _showReaderSettings(BuildContext context) {
-    final l10n = context.l10n;
-    _showReaderSheet(
+  void _showReaderSettings(BuildContext anchorContext) {
+    final l10n = anchorContext.l10n;
+    _showReaderSettingsPopover(
+      anchorContext: anchorContext,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -183,12 +185,13 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
 
             // The sheet is at most 9/16 of the screen: on a turned phone
             // the settings scroll inside it.
+            final desktop = useDesktopOverlay(context);
             return SingleChildScrollView(
               padding: MediaQuery.of(context).padding,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   FuncSpacing.xl,
-                  0,
+                  desktop ? FuncSpacing.lg : 0,
                   FuncSpacing.xl,
                   FuncSpacing.xl,
                 ),

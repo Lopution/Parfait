@@ -835,10 +835,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         ),
                         icon: const Icon(Icons.text_increase_outlined),
                       ),
-                      IconButton(
-                        tooltip: l10n.novelReaderSettings,
-                        onPressed: () => _showReaderSettings(context),
-                        icon: const Icon(Icons.tune_outlined),
+                      Builder(
+                        builder: (anchorContext) => IconButton(
+                          tooltip: l10n.novelReaderSettings,
+                          onPressed: () => _showReaderSettings(anchorContext),
+                          icon: const Icon(Icons.tune_outlined),
+                        ),
                       ),
                     ],
                   ),
@@ -855,12 +857,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   /// so the sheet publishes its own [FuncSystemBars] region: the nav bar
   /// under it takes icon brightness from the sheet's theme brightness,
   /// not from the stage behind it.
-  void _showReaderSheet({
+  void _showReaderSideSheet({
     required WidgetBuilder builder,
     bool isScrollControlled = false,
   }) {
     unawaited(
-      showAppBottomSheet<void>(
+      showAppAdaptiveSideSheet<void>(
         context: context,
         isScrollControlled: isScrollControlled,
         showDragHandle: true,
@@ -872,7 +874,30 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     );
   }
 
+  void _showReaderSettingsPopover({
+    required BuildContext anchorContext,
+    required WidgetBuilder builder,
+  }) {
+    unawaited(
+      showAppAdaptivePopover<void>(
+        context: context,
+        anchorContext: anchorContext,
+        minWidth: 320,
+        maxWidth: 380,
+        maxHeight: 520,
+        showDragHandle: true,
+        builder: (sheetContext) => FuncSystemBars(
+          background: Theme.of(sheetContext).brightness,
+          child: builder(sheetContext),
+        ),
+      ),
+    );
+  }
+
   void _showInfoSheet(BuildContext context) {
-    _showReaderSheet(isScrollControlled: true, builder: widget.spec.infoSheet);
+    _showReaderSideSheet(
+      isScrollControlled: true,
+      builder: widget.spec.infoSheet,
+    );
   }
 }

@@ -78,6 +78,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   static const double _masterPaneWidth = 336;
 
   final _query = TextEditingController();
+  final _indexBodyKey = GlobalKey(debugLabel: 'settings-index-body');
   final _detailNavigatorKey = GlobalKey<NavigatorState>(
     debugLabel: 'settings-detail',
   );
@@ -173,7 +174,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildDetailPage(Uri uri) {
     final path = uri.path;
     if (path.startsWith('/settings/translate/credentials/')) {
-      final provider = path.substring('/settings/translate/credentials/'.length);
+      final provider = path.substring(
+        '/settings/translate/credentials/'.length,
+      );
       return TranslationCredentialsPage(baidu: provider == 'baidu');
     }
     return switch (path) {
@@ -247,22 +250,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final settings = ref.watch(settingsProvider);
     final query = _query.text;
     final masterDetail = _useMasterDetail(context);
-    final body = settings.when(
-      loading: () => const FeedLoading(),
-      error: (error, _) => SettingsLoadError(
-        error: error,
-        onRetry: () => ref.read(settingsProvider.notifier).reload(),
+    final body = KeyedSubtree(
+      key: _indexBodyKey,
+      child: settings.when(
+        loading: () => const FeedLoading(),
+        error: (error, _) => SettingsLoadError(
+          error: error,
+          onRetry: () => ref.read(settingsProvider.notifier).reload(),
+        ),
+        data: (settings) => query.trim().isEmpty
+            ? _SettingsGroups(
+                settings: settings,
+                selectedPage: masterDetail ? _selectedPage : null,
+                onSelectLocation: masterDetail ? _openInDetailPane : null,
+              )
+            : _SearchResults(
+                query: query,
+                onSelectLocation: masterDetail ? _openInDetailPane : null,
+              ),
       ),
-      data: (settings) => query.trim().isEmpty
-          ? _SettingsGroups(
-              settings: settings,
-              selectedPage: masterDetail ? _selectedPage : null,
-              onSelectLocation: masterDetail ? _openInDetailPane : null,
-            )
-          : _SearchResults(
-              query: query,
-              onSelectLocation: masterDetail ? _openInDetailPane : null,
-            ),
     );
 
     if (!masterDetail) {
@@ -620,10 +626,7 @@ Widget _pageSummary(
 /// release with the `PIXIV_FRAME_PROBE` dart-define for signed measurement
 /// packages) show it unlocked; default release builds are unchanged.
 class _DeveloperSettingsGroup extends ConsumerWidget {
-  const _DeveloperSettingsGroup({
-    this.selected = false,
-    this.onSelectLocation,
-  });
+  const _DeveloperSettingsGroup({this.selected = false, this.onSelectLocation});
 
   final bool selected;
   final ValueChanged<String>? onSelectLocation;

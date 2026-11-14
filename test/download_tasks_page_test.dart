@@ -860,12 +860,14 @@ void main() {
         await _pumpPage(tester, container);
         await pumpUntil(
           tester,
-          () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+          () =>
+              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
         );
         await tester.pump();
 
-        Finder labelOf(String id) =>
-            find.descendant(of: _taskRow(id), matching: find.byType(Text)).first;
+        Finder labelOf(String id) => find
+            .descendant(of: _taskRow(id), matching: find.byType(Text))
+            .first;
 
         await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
         await tester.tap(labelOf(tasks[0].id));

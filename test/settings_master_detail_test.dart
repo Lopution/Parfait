@@ -1,13 +1,11 @@
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/translation/translation_service.dart'
     show translationCredentialStoreProvider;
 import 'package:parfait/features/settings/network_settings_page.dart';
-import 'package:parfait/features/settings/pages/account_settings_page.dart';
 import 'package:parfait/features/settings/settings_catalog.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
@@ -58,7 +56,7 @@ void main() {
       );
 
       // Selecting Network swaps the detail pane without popping SettingsPage.
-      final networkLabel = SettingsPageRef.network.title(zh)!;
+      final networkLabel = SettingsPageRef.network.title(zh);
       final networkRow = find.text(networkLabel);
       await tester.ensureVisible(networkRow);
       await tester.pump();
@@ -68,7 +66,7 @@ void main() {
       expect(router.state.uri.path, settingsIndexPath);
 
       // Pushing a child inside the detail pane keeps SettingsPage mounted.
-      final advancedLabel = SettingsPageRef.networkAdvanced.title(zh)!;
+      final advancedLabel = SettingsPageRef.networkAdvanced.title(zh);
       await tester.scrollUntilVisible(
         find.text(advancedLabel),
         300,
