@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/layout/input_modality.dart';
+import 'package:parfait/core/platform/desktop_window_channel.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 
 /// A screen the review renders on: the panel in physical pixels, its
@@ -19,6 +22,9 @@ class ReviewDevice {
     this.display,
     this.targetPlatform = TargetPlatform.android,
     this.platformCaps = const PlatformCaps(isAndroid: true),
+    this.displayFeatures = const [],
+    this.desktopMetrics,
+    this.inputModality,
   });
 
   final Size physicalSize;
@@ -37,6 +43,15 @@ class ReviewDevice {
 
   /// The platform capability record this preset emulates.
   final PlatformCaps platformCaps;
+
+  /// Physical or virtual display features (hinges / folds) reported on the view.
+  final List<ui.DisplayFeature> displayFeatures;
+
+  /// Desktop host chrome metrics (null uses default system frame / mobile).
+  final DesktopWindowPlatformMetrics? desktopMetrics;
+
+  /// Explicit initial input modality; defaults from [targetPlatform].
+  final InputModality? inputModality;
 
   Size get displaySize => display ?? physicalSize / dpr;
 }
@@ -90,13 +105,15 @@ const reviewDevices = <String, ReviewDevice>{
     statusBar: 24,
     navigationBar: 16,
   ),
-  // 1440 x 900, a desktop window on a 1920 x 1080 monitor: no system bars.
+  // 1440 x 900, a desktop window on a 1920 x 1080 monitor: custom Windows bar.
   'desktop': ReviewDevice(
     physicalSize: Size(2880, 1800),
     dpr: 2,
     display: Size(1920, 1080),
     targetPlatform: TargetPlatform.windows,
     platformCaps: PlatformCaps(isWindows: true),
+    inputModality: InputModality.pointer,
+    desktopMetrics: DesktopWindowPlatformMetrics(usesSystemTitleBar: false),
   ),
   // 344 x 882, a book-style foldable's cover screen: narrower than any
   // phone, about 23:9.
@@ -141,6 +158,82 @@ const reviewDevices = <String, ReviewDevice>{
     dpr: 1.5,
     targetPlatform: TargetPlatform.windows,
     platformCaps: PlatformCaps(isWindows: true),
+    inputModality: InputModality.pointer,
+    desktopMetrics: DesktopWindowPlatformMetrics(usesSystemTitleBar: false),
+  ),
+  // 393 x 852, modern notched iPhone.
+  'iphone': ReviewDevice(
+    physicalSize: Size(1179, 2556),
+    dpr: 3,
+    statusBar: 59,
+    navigationBar: 34,
+    targetPlatform: TargetPlatform.iOS,
+    platformCaps: PlatformCaps(isIOS: true),
+    inputModality: InputModality.touch,
+  ),
+  // 820 x 1180, portrait touch iPad.
+  'ipad': ReviewDevice(
+    physicalSize: Size(1640, 2360),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 20,
+    targetPlatform: TargetPlatform.iOS,
+    platformCaps: PlatformCaps(isIOS: true),
+    inputModality: InputModality.touch,
+  ),
+  // 884 x 740, book-style foldable opened vertically with 12dp hinge.
+  'foldable-book': ReviewDevice(
+    physicalSize: Size(2210, 1850),
+    dpr: 2.5,
+    statusBar: 28,
+    navigationBar: 16,
+    inputModality: InputModality.touch,
+    displayFeatures: [
+      ui.DisplayFeature(
+        bounds: Rect.fromLTWH(436, 0, 12, 740),
+        type: ui.DisplayFeatureType.hinge,
+        state: ui.DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  // 884 x 740, half-opened foldable in horizontal tabletop posture.
+  'foldable-tabletop': ReviewDevice(
+    physicalSize: Size(2210, 1850),
+    dpr: 2.5,
+    statusBar: 28,
+    navigationBar: 16,
+    inputModality: InputModality.touch,
+    displayFeatures: [
+      ui.DisplayFeature(
+        bounds: Rect.fromLTWH(0, 364, 884, 12),
+        type: ui.DisplayFeatureType.hinge,
+        state: ui.DisplayFeatureState.postureHalfOpened,
+      ),
+    ],
+  ),
+  // 1280 x 800, macOS desktop window with 78dp traffic light chrome inset.
+  'macos': ReviewDevice(
+    physicalSize: Size(2560, 1600),
+    dpr: 2,
+    display: Size(1440, 900),
+    targetPlatform: TargetPlatform.macOS,
+    platformCaps: PlatformCaps(isMacOS: true),
+    inputModality: InputModality.pointer,
+    desktopMetrics: DesktopWindowPlatformMetrics(
+      usesSystemTitleBar: false,
+      trafficLightWidth: 78,
+      trafficLightHeight: 16,
+    ),
+  ),
+  // 1280 x 800, Linux desktop window with integrated caption controls.
+  'linux': ReviewDevice(
+    physicalSize: Size(1920, 1200),
+    dpr: 1.5,
+    display: Size(1920, 1080),
+    targetPlatform: TargetPlatform.linux,
+    platformCaps: PlatformCaps(isLinux: true),
+    inputModality: InputModality.pointer,
+    desktopMetrics: DesktopWindowPlatformMetrics(usesSystemTitleBar: false),
   ),
 };
 
@@ -211,6 +304,7 @@ void applyReviewDevice(
   );
   view.padding = insets;
   view.viewPadding = insets;
+  view.displayFeatures = device.displayFeatures;
   final dispatcher = tester.platformDispatcher;
   dispatcher.localesTestValue = [locale];
   dispatcher.localeTestValue = locale;

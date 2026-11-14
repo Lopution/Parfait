@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../layout/input_modality.dart';
+import '../layout/window_layout_spec.dart';
 import '../pull_to_refresh.dart';
 
 const _navigationCommandsChannel = MethodChannel('parfait/navigation_commands');
@@ -235,7 +236,15 @@ class _KeyboardBackState extends State<KeyboardBack>
       const SingleActivator(LogicalKeyboardKey.f5): const _RefreshIntent(),
     };
 
+    final envPlatform = WindowEnvironmentOverride.maybeOf(
+      context,
+    )?.targetPlatform;
+    final inheritedModality =
+        InputModalityScope.maybeOf(context) ??
+        (envPlatform != null ? defaultInputModalityFor(envPlatform) : null);
+
     return InputModalityScope(
+      initialModality: inheritedModality,
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: _handlePointerDown,

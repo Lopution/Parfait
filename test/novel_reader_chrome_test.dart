@@ -850,7 +850,7 @@ void main() {
     expect(find.text('书签'), findsOneWidget);
 
     // Back on page 1 by the reader's own scroll: the marker can move here.
-    await tester.tapAt(const Offset(400, 40));
+    await tester.tapAt(const Offset(100, 40));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();

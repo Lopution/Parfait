@@ -17,7 +17,8 @@ class IllustDetailSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wide = AppBreakpoints.useTwoPaneDetail(
+    final wide = AppBreakpoints.useTwoPaneDetailOf(
+      context,
       HomeShellChrome.contentSizeOf(context),
     );
     return FuncSkeleton(
@@ -26,7 +27,7 @@ class IllustDetailSkeleton extends StatelessWidget {
       // a full-width square is the middle ground, matching how the pager's
       // first frame sizes unknown media.
       child: wide
-          ? const TwoPane(
+          ? const AdaptiveTwoPane(
               primary: _ImageBone(),
               secondary: SingleChildScrollView(child: _MetaBones()),
             )

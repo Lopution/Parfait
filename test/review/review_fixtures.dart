@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -294,12 +295,6 @@ List<HistoryRecord> reviewHistory() => [
 class ReviewImageBytes {
   ReviewImageBytes._();
 
-  /// Half the work's metadata size.
-  static (int, int) _workSize(int id) {
-    final (width, height) = reviewWorkShapes[id] ?? (800, 600);
-    return (width ~/ 2, height ~/ 2);
-  }
-
   static final _cache = <String, Uint8List>{};
 
   static const _sizeNames = {
@@ -308,6 +303,22 @@ class ReviewImageBytes {
 
   static Uint8List forUrl(String url) =>
       _cache.putIfAbsent(url, () => _render(url));
+
+  static (String tier, int targetMax) _tierFor(String file) => switch (file) {
+    'original' => ('2400P', 2400),
+    'large' || 'l' || '1200' => ('1200P', 1200),
+    'medium' || 'm' => ('540P', 540),
+    _ => ('360P', 360),
+  };
+
+  static (int, int) _scaledSize(int baseW, int baseH, int targetMax) {
+    final longEdge = math.max(baseW, baseH);
+    if (longEdge <= 0) return (targetMax, targetMax);
+    final scale = targetMax / longEdge;
+    final w = math.max(160, (baseW * scale).round());
+    final h = math.max(160, (baseH * scale).round());
+    return (w, h);
+  }
 
   static Uint8List _render(String url) {
     final segments = Uri.parse(url).pathSegments;
@@ -319,11 +330,18 @@ class ReviewImageBytes {
         ? segments.take(segments.length - 1).join('/')
         : segments.join('/');
     final isAvatar = segments.length == 1 && file.startsWith('u');
-    final (w, h) = file == 'square' || file == 's' || isAvatar
-        ? (300, 300)
+    final isSquare = file == 'square' || file == 's' || isAvatar;
+    final (tierLabel, targetMax) = isAvatar ? ('AVT', 300) : _tierFor(file);
+    final (w, h) = isSquare
+        ? (targetMax, targetMax)
         : isWork
-        ? _workSize(int.parse(segments.first))
-        : (300, 420);
+        ? _scaledSize(
+            (reviewWorkShapes[int.parse(segments.first)] ?? (800, 600)).$1,
+            (reviewWorkShapes[int.parse(segments.first)] ?? (800, 600)).$2,
+            targetMax,
+          )
+        : _scaledSize(300, 420, math.min(targetMax, 1200));
+
     final seed = picture.hashCode & 0xFFFFFF;
     final hue = seed % 360;
     final neutral =
@@ -343,16 +361,121 @@ class ReviewImageBytes {
             60 + (hue * 4 % 110),
             90 + (hue * 6 % 130),
           );
+
     final image = img.Image(width: w, height: h);
-    for (var y = 0; y < h; y++) {
-      final t = y / (h - 1);
+    final bandStep = math.max(4, h ~/ 64);
+    for (var y = 0; y < h; y += bandStep) {
+      final t = y / math.max(1, h - 1);
       final r = (top.r + (bottom.r - top.r) * t).round();
       final g = (top.g + (bottom.g - top.g) * t).round();
       final b = (top.b + (bottom.b - top.b) * t).round();
-      for (var x = 0; x < w; x++) {
-        image.setPixelRgb(x, y, r, g, b);
-      }
+      img.fillRect(
+        image,
+        x1: 0,
+        y1: y,
+        x2: w - 1,
+        y2: math.min(h - 1, y + bandStep - 1),
+        color: img.ColorRgb8(r, g, b),
+      );
     }
-    return Uint8List.fromList(img.encodePng(image));
+
+    // Crisp geometric diagonal lines & rule-of-thirds alignment grid so
+    // progressive resolution jumps (540P -> 1200P -> 2400P) stay legible.
+    final gridColor = img.ColorRgba8(255, 255, 255, 110);
+    final borderColor = img.ColorRgba8(255, 255, 255, 210);
+    final stroke = w >= 1000 ? 2 : 1;
+    final gridStep = math.max(48, w ~/ 8);
+    for (var x = gridStep; x < w; x += gridStep) {
+      img.drawLine(
+        image,
+        x1: x,
+        y1: 0,
+        x2: x,
+        y2: h - 1,
+        color: gridColor,
+        thickness: stroke,
+      );
+    }
+    for (var y = gridStep; y < h; y += gridStep) {
+      img.drawLine(
+        image,
+        x1: 0,
+        y1: y,
+        x2: w - 1,
+        y2: y,
+        color: gridColor,
+        thickness: stroke,
+      );
+    }
+    img.drawLine(
+      image,
+      x1: 0,
+      y1: 0,
+      x2: w - 1,
+      y2: h - 1,
+      color: gridColor,
+      thickness: stroke,
+    );
+    img.drawLine(
+      image,
+      x1: w - 1,
+      y1: 0,
+      x2: 0,
+      y2: h - 1,
+      color: gridColor,
+      thickness: stroke,
+    );
+    final pad = math.max(6, w ~/ 40);
+    img.drawRect(
+      image,
+      x1: pad,
+      y1: pad,
+      x2: w - 1 - pad,
+      y2: h - 1 - pad,
+      color: borderColor,
+      thickness: stroke,
+    );
+
+    if (!isAvatar && w >= 200 && h >= 120) {
+      final font = w >= 1000
+          ? img.arial48
+          : w >= 460
+          ? img.arial24
+          : img.arial14;
+      final label = '$tierLabel ${w}x$h';
+      final boxPad = w >= 1000 ? 18 : 10;
+      final charW = w >= 1000
+          ? 28
+          : w >= 460
+          ? 15
+          : 9;
+      final textH = w >= 1000
+          ? 48
+          : w >= 460
+          ? 24
+          : 14;
+      final boxW = math.min(w - pad * 2, label.length * charW + boxPad * 2);
+      final boxH = math.min(h - pad * 2, textH + boxPad * 2);
+      final bx = pad + 4;
+      final by = pad + 4;
+      img.fillRect(
+        image,
+        x1: bx,
+        y1: by,
+        x2: bx + boxW,
+        y2: by + boxH,
+        color: img.ColorRgba8(18, 16, 22, 215),
+      );
+      img.drawString(
+        image,
+        label,
+        font: font,
+        x: bx + boxPad,
+        y: by + boxPad,
+        color: img.ColorRgb8(255, 255, 255),
+      );
+    }
+
+    return Uint8List.fromList(img.encodePng(image, level: 1));
   }
 }

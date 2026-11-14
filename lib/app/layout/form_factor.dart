@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/settings/app_settings.dart';
 import 'app_breakpoints.dart';
+import 'window_layout_spec.dart';
 
 /// The kind of device the shell is laid out for (user decision 11-09).
 ///
@@ -48,7 +49,9 @@ enum FormFactor {
       context.dependOnInheritedWidgetOfExactType<_FormFactorData>()?.form ??
       resolve(
         display: AppBreakpoints.displaySizeOf(context),
-        platform: defaultTargetPlatform,
+        platform:
+            WindowEnvironmentOverride.maybeOf(context)?.targetPlatform ??
+            defaultTargetPlatform,
         choice: InterfaceForm.auto,
       );
 
@@ -75,7 +78,9 @@ class FormFactorScope extends StatelessWidget {
   Widget build(BuildContext context) => _FormFactorData(
     form: FormFactor.resolve(
       display: AppBreakpoints.displaySizeOf(context),
-      platform: defaultTargetPlatform,
+      platform:
+          WindowEnvironmentOverride.maybeOf(context)?.targetPlatform ??
+          defaultTargetPlatform,
       choice: choice,
     ),
     child: child,

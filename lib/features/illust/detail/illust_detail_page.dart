@@ -677,7 +677,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     // The narrow layout opens on the artwork under a see-through bar —
     // the skeleton too, so content arriving never shifts it.
     final immersive =
-        !AppBreakpoints.useTwoPaneDetail(
+        !AppBreakpoints.useTwoPaneDetailOf(
+          context,
           HomeShellChrome.contentSizeOf(context),
         ) &&
         (entity == null ? async.isLoading : _rendersContent(async, entity));

@@ -331,7 +331,7 @@ class NovelPage extends ConsumerWidget {
       ],
     );
 
-    if (useDesktopOverlay(sheetContext)) {
+    if (useWideOverlay(sheetContext)) {
       return SafeArea(
         child: buildInfoList(
           sheetContext,

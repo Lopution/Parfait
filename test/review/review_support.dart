@@ -14,11 +14,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:parfait/app/app.dart';
+import 'package:parfait/app/layout/input_modality.dart';
+import 'package:parfait/app/layout/window_layout_spec.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/theme/system_colors.dart';
+import 'package:parfait/app/window/desktop_title_bar.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -38,6 +42,7 @@ const reviewTags = ['review'];
 const zhCN = Locale('zh', 'CN');
 
 const _captureKey = ValueKey('review-surface');
+ReviewDevice _activeReviewDevice = reviewDevice;
 
 /// Runs one scene with the semantics tree on — it is on whenever an
 /// accessibility service is, GKD included — and restores the device after.
@@ -48,6 +53,7 @@ Future<T> reviewScene<T>(WidgetTester tester, Future<T> Function() body) async {
   try {
     return await body();
   } finally {
+    _activeReviewDevice = reviewDevice;
     handle.dispose();
     // Swap in an empty tree so the scene's timers are cancelled with it,
     // then let one-shot timers (retry delays, prompt dwell) run out. Real
@@ -84,17 +90,32 @@ Future<GoRouter> pumpReviewApp(
   TargetPlatform? platform,
   List<String>? fontFamilyFallback,
 }) async {
+  final activeDevice = device ?? reviewDevice;
+  _activeReviewDevice = activeDevice;
   applyReviewDevice(
     tester,
     locale: locale,
     textScale: textScale,
     brightness: brightness,
-    device: device,
+    device: activeDevice,
   );
   // A scene that needs another framework platform (the PC shell) replaces
   // the review device's Android before the app builds; the matching
   // `platformCapsProvider` override comes from the scene's [ReviewSetup].
+  final effectivePlatform = platform ?? activeDevice.targetPlatform;
   if (platform != null) debugDefaultTargetPlatformOverride = platform;
+  final showMacTrafficLights =
+      effectivePlatform == TargetPlatform.macOS &&
+      !(activeDevice.desktopMetrics?.usesSystemTitleBar ?? true);
+  final effectiveCaps = platform == null
+      ? activeDevice.platformCaps
+      : switch (effectivePlatform) {
+          TargetPlatform.windows => const PlatformCaps(isWindows: true),
+          TargetPlatform.macOS => const PlatformCaps(isMacOS: true),
+          TargetPlatform.linux => const PlatformCaps(isLinux: true),
+          TargetPlatform.iOS => const PlatformCaps(isIOS: true),
+          _ => const PlatformCaps(isAndroid: true),
+        };
   // The app language is a setting that a first run seeds from the system
   // locale. AppSettings.defaults reads the engine's dispatcher, which a
   // test leaves at en_US, so the harness makes the first run's choice.
@@ -129,7 +150,7 @@ Future<GoRouter> pumpReviewApp(
                     ? system?.dark
                     : system?.light,
                 fontFamilyFallback: fontFamilyFallback,
-              );
+              ).copyWith(platform: effectivePlatform);
               return MaterialApp.router(
                 theme: theme,
                 darkTheme: theme,
@@ -142,13 +163,26 @@ Future<GoRouter> pumpReviewApp(
                 debugShowCheckedModeBanner: false,
                 routerConfig: router,
                 scrollBehavior: const FuncScrollBehavior(),
-                builder: (context, child) => AppChrome(
-                  settings:
-                      ref.watch(settingsProvider).value ??
-                      AppSettings.defaults(),
-                  router: router,
-                  intentSource: const _NoIntents(),
-                  child: child!,
+                builder: (context, child) => WindowEnvironmentOverride(
+                  displaySize: activeDevice.displaySize,
+                  targetPlatform: effectivePlatform,
+                  platformCaps: effectiveCaps,
+                  desktopMetrics: activeDevice.desktopMetrics,
+                  desktopActions: DesktopWindowActions.noop,
+                  showSimulatedTrafficLights: showMacTrafficLights,
+                  child: InputModalityScope(
+                    initialModality:
+                        activeDevice.inputModality ??
+                        defaultInputModalityFor(effectivePlatform),
+                    child: AppChrome(
+                      settings:
+                          ref.watch(settingsProvider).value ??
+                          AppSettings.defaults(),
+                      router: router,
+                      intentSource: const _NoIntents(),
+                      child: child!,
+                    ),
+                  ),
                 ),
               );
             },
@@ -262,7 +296,7 @@ Future<Uint8List> captureReviewPng(
   );
   final bytes = await tester.runAsync(() async {
     final image = await boundary.toImage(
-      pixelRatio: pixelRatio ?? reviewDevice.dpr,
+      pixelRatio: pixelRatio ?? _activeReviewDevice.dpr,
     );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
@@ -345,6 +379,7 @@ void testShot(
   ReviewSetup setup = const ReviewSetup(),
   Set<ShotVariant> variants = const {ShotVariant.dark},
   bool semanticsDebugger = false,
+  ReviewDevice? device,
   TargetPlatform? platform,
   ShotSteps? before,
 }) {
@@ -370,6 +405,7 @@ void testShot(
         },
         textScale: variant == ShotVariant.largeText ? 1.3 : 1.0,
         semanticsDebugger: semanticsDebugger,
+        device: device,
         platform: platform,
         before: before,
       );
@@ -389,6 +425,7 @@ Future<void> reviewShot(
   Locale locale = zhCN,
   double textScale = 1.0,
   bool semanticsDebugger = false,
+  ReviewDevice? device,
   TargetPlatform? platform,
   ShotSteps? before,
 }) async {
@@ -403,6 +440,7 @@ Future<void> reviewShot(
       locale: locale,
       textScale: textScale,
       semanticsDebugger: semanticsDebugger,
+      device: device,
       platform: platform,
     );
     var rested = await settleReview(tester, settle: settle);

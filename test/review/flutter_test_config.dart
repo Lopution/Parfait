@@ -53,13 +53,17 @@ Future<void> loadReviewFonts() async {
   final loaders = [
     // `monospace` (the frame probe's figures) has no test font of its own;
     // proportional digits beat tofu for a layout review. `Segoe UI` is
-    // what Material's Windows typography names, so a scene rendered on
-    // that platform (the PC shell) gets this same family.
+    // what Material's Windows typography names, and Cupertino / Apple system
+    // font names cover iOS & macOS typography so all 5 OS shells render crisp
+    // Latin + CJK glyphs rather than tofu boxes.
     for (final family in const [
       'Roboto',
       'Noto Sans SC',
       'monospace',
       'Segoe UI',
+      'CupertinoSystemText',
+      'CupertinoSystemDisplay',
+      '.AppleSystemUIFont',
     ])
       FontLoader(family)
         ..addFont(bytes('NotoSansSC-Regular.otf'))

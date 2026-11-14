@@ -269,6 +269,49 @@ void main() {
     );
 
     testWidgets(
+      'useWideOverlay and usePointerOverlay split container shape from pointer anchoring',
+      (tester) async {
+        late bool wideDecision;
+        late bool pointerDecision;
+        Future<void> probe(Size size, InputModality modality) async {
+          setViewSize(tester, size);
+          await tester.pumpWidget(
+            MediaQuery(
+              data: MediaQueryData(size: size),
+              child: InputModalityScope(
+                key: ValueKey('${size.width}x${size.height}-$modality'),
+                initialModality: modality,
+                child: Builder(
+                  builder: (context) {
+                    wideDecision = useWideOverlay(context);
+                    pointerDecision = usePointerOverlay(context);
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ),
+          );
+        }
+
+        await probe(const Size(1024, 768), InputModality.touch);
+        expect(wideDecision, isTrue);
+        expect(pointerDecision, isFalse);
+        await probe(const Size(599, 800), InputModality.pointer);
+        expect(wideDecision, isFalse);
+        expect(pointerDecision, isFalse);
+        await probe(const Size(600, 800), InputModality.pointer);
+        expect(wideDecision, isTrue);
+        expect(pointerDecision, isTrue);
+        await probe(const Size(896, 411), InputModality.touch);
+        expect(wideDecision, isFalse);
+        expect(pointerDecision, isFalse);
+        await probe(const Size(896, 411), InputModality.pointer);
+        expect(wideDecision, isFalse);
+        expect(pointerDecision, isFalse);
+      },
+    );
+
+    testWidgets(
       'adaptive dialog, popover, and side sheet adapt on desktop and honor reduced motion',
       (tester) async {
         const wide = Size(1024, 768);
@@ -388,6 +431,110 @@ void main() {
         await tester.tap(find.text('open-side'), kind: PointerDeviceKind.mouse);
         await tester.pump();
         expect(find.text('side-body'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'wide touch viewports render bounded dialog, side sheet, and dialog popover',
+      (tester) async {
+        const tablet = Size(1024, 768);
+        setViewSize(tester, tablet);
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(size: tablet),
+            child: InputModalityScope(
+              initialModality: InputModality.touch,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => Column(
+                      children: [
+                        TextButton(
+                          onPressed: () => showAppAdaptiveDialog<void>(
+                            context: context,
+                            maxWidth: 440,
+                            builder: (_) => const SizedBox(
+                              height: 120,
+                              child: Text('touch-dialog'),
+                            ),
+                          ),
+                          child: const Text('open-dialog'),
+                        ),
+                        TextButton(
+                          onPressed: () => showAppAdaptivePopover<void>(
+                            context: context,
+                            position: const Offset(900, 700),
+                            builder: (_) => const SizedBox(
+                              height: 120,
+                              child: Text('touch-popover'),
+                            ),
+                          ),
+                          child: const Text('open-popover'),
+                        ),
+                        TextButton(
+                          onPressed: () => showAppAdaptiveSideSheet<void>(
+                            context: context,
+                            width: 380,
+                            builder: (_) => const SizedBox(
+                              height: 120,
+                              child: Text('touch-side'),
+                            ),
+                          ),
+                          child: const Text('open-side'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('open-dialog'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        final dialogRect = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('touch-dialog'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(dialogRect.width, lessThanOrEqualTo(440));
+        expect(dialogRect.center.dx, closeTo(tablet.width / 2, 1));
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('open-popover'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        final popDialogRect = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('touch-popover'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(popDialogRect.center.dx, closeTo(tablet.width / 2, 1));
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('open-side'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        final sideRect = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('touch-side'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(sideRect.width, closeTo(380, 0.1));
+        expect(sideRect.right, closeTo(tablet.width, 0.1));
       },
     );
   });

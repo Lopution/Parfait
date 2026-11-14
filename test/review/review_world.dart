@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -18,6 +21,10 @@ import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/core/image/image_worker.dart';
+import 'package:parfait/core/image/image_worker_client.dart';
+import 'package:parfait/core/image/image_worker_host.dart';
+import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/localnovel/local_novel_repository.dart';
@@ -101,6 +108,9 @@ class ReviewWorld {
       :signedIn,
       :touchExploration,
       :searchHistory,
+      :realWorkerIsolate,
+      :imageChunkSize,
+      :imageChunkDelay,
     ) = setup;
     installMemoryPreferences({
       if (searchHistory.isNotEmpty) PreferenceKeys.searchHistory: searchHistory,
@@ -251,16 +261,21 @@ class ReviewWorld {
         appAccessibilityProvider.overrideWithValue(
           _ReviewAccessibility(touchExploration),
         ),
-        // Images: generated PNGs through the real image worker.
+        // Images: generated PNGs through either the in-process worker or a real
+        // background isolate with chunked HTTP 206 streaming + disk cache.
         imageWorkerProvider.overrideWithValue(
-          inProcessImageWorker(
-            () => MockClient(
-              (request) async => http.Response.bytes(
-                ReviewImageBytes.forUrl('${request.url}'),
-                200,
-              ),
-            ),
-          ),
+          realWorkerIsolate
+              ? _realIsolateImageWorker(
+                  chunkSize: imageChunkSize,
+                  chunkDelay: imageChunkDelay,
+                  cacheDir: '${tmp.path}/image-cache',
+                )
+              : inProcessImageWorker(
+                  () => ReviewImageHttpClient(
+                    chunkSize: imageChunkSize,
+                    chunkDelay: imageChunkDelay,
+                  ),
+                ),
         ),
         ...setup.overrides,
       ],
@@ -306,6 +321,9 @@ class ReviewSetup {
     this.touchExploration = false,
     this.searchHistory = const [],
     this.platformCaps,
+    this.realWorkerIsolate = false,
+    this.imageChunkSize = 0,
+    this.imageChunkDelay = Duration.zero,
     this.overrides = const [],
   });
 
@@ -336,6 +354,16 @@ class ReviewSetup {
   /// owns that override.
   final PlatformCaps? platformCaps;
 
+  /// Run the real spawned background isolate worker + DiskImageCache instead of
+  /// attaching the host inside the test isolate.
+  final bool realWorkerIsolate;
+
+  /// Simulated network chunk size in bytes (0 streams whole image in one chunk).
+  final int imageChunkSize;
+
+  /// Simulated inter-chunk delay when [imageChunkSize] > 0.
+  final Duration imageChunkDelay;
+
   final List<Override> overrides;
 
   ReviewSetup copyWith({bool? touchExploration}) => ReviewSetup(
@@ -350,8 +378,119 @@ class ReviewSetup {
     touchExploration: touchExploration ?? this.touchExploration,
     searchHistory: searchHistory,
     platformCaps: platformCaps,
+    realWorkerIsolate: realWorkerIsolate,
+    imageChunkSize: imageChunkSize,
+    imageChunkDelay: imageChunkDelay,
     overrides: overrides,
   );
+}
+
+void _reviewWorkerIsolateEntry(Map<String, Object?> args) {
+  final config = ImageWorkerConfig.fromJson((args['config'] as Map).cast());
+  final parts = config.networkIdentity.split(':');
+  final chunkSize = parts.length >= 3 ? int.tryParse(parts[1]) ?? 0 : 0;
+  final delayUs = parts.length >= 3 ? int.tryParse(parts[2]) ?? 0 : 0;
+  final host = ImageWorkerHost(
+    mainSendPort: args['sendPort'] as SendPort,
+    config: config,
+    cacheDir: args['cacheDir'] as String,
+    transportInit: () async {},
+    fetchClient: () => ReviewImageHttpClient(
+      chunkSize: chunkSize,
+      chunkDelay: Duration(microseconds: delayUs),
+    ),
+  );
+  unawaited(host.run());
+}
+
+ImageWorker _realIsolateImageWorker({
+  required int chunkSize,
+  required Duration chunkDelay,
+  required String cacheDir,
+}) {
+  final worker = ImageWorker(
+    config: () async => ImageWorkerConfig(
+      imageSource: 'i.pximg.net',
+      mode: 'directOnly',
+      networkIdentity: 'review:$chunkSize:${chunkDelay.inMicroseconds}',
+      echFrontHost: 'cloudflare-ech.com',
+      dohEndpoints: const [],
+      bootstrapNoSniEnabled: true,
+    ),
+    start: (config, demand) => ImageWorkerClient.start(
+      config: config,
+      cacheDir: cacheDir,
+      demand: demand,
+      entry: _reviewWorkerIsolateEntry,
+    ),
+  );
+  addTearDown(worker.dispose);
+  return worker;
+}
+
+/// Chunked + HTTP 206 range-supporting HTTP client serving deterministic PNGs
+/// from [ReviewImageBytes] for realistic progressive image loading in review.
+class ReviewImageHttpClient extends http.BaseClient {
+  ReviewImageHttpClient({this.chunkSize = 0, this.chunkDelay = Duration.zero});
+
+  final int chunkSize;
+  final Duration chunkDelay;
+
+  static final _rangePattern = RegExp(r'^bytes=(\d+)-(\d*)$');
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final bytes = ReviewImageBytes.forUrl('${request.url}');
+    final rangeMatch = _rangePattern.firstMatch(request.headers['range'] ?? '');
+    if (rangeMatch == null) {
+      return http.StreamedResponse(
+        _streamChunks(bytes),
+        200,
+        contentLength: bytes.length,
+        request: request,
+        headers: const {'content-type': 'image/png', 'etag': '"review"'},
+      );
+    }
+    final start = int.parse(rangeMatch.group(1)!);
+    final rawEnd = rangeMatch.group(2)!;
+    final end = rawEnd.isEmpty
+        ? bytes.length - 1
+        : math.min(bytes.length - 1, int.parse(rawEnd));
+    if (start >= bytes.length || start > end) {
+      return http.StreamedResponse(
+        const Stream.empty(),
+        416,
+        request: request,
+        headers: {'content-range': 'bytes */${bytes.length}'},
+      );
+    }
+    final slice = bytes.sublist(start, end + 1);
+    return http.StreamedResponse(
+      _streamChunks(slice),
+      206,
+      contentLength: slice.length,
+      request: request,
+      headers: {
+        'content-type': 'image/png',
+        'content-range': 'bytes $start-$end/${bytes.length}',
+        'etag': '"review"',
+      },
+    );
+  }
+
+  Stream<List<int>> _streamChunks(Uint8List payload) async* {
+    if (chunkSize <= 0 || chunkSize >= payload.length) {
+      yield payload;
+      return;
+    }
+    for (var offset = 0; offset < payload.length; offset += chunkSize) {
+      final end = math.min(payload.length, offset + chunkSize);
+      yield payload.sublist(offset, end);
+      if (chunkDelay > Duration.zero && end < payload.length) {
+        await Future<void>.delayed(chunkDelay);
+      }
+    }
+  }
 }
 
 /// The platform's accessibility channel, answering with a fixed

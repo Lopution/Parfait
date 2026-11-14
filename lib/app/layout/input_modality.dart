@@ -60,9 +60,10 @@ class _InputModalityScopeState extends State<InputModalityScope> {
   @override
   void didUpdateWidget(InputModalityScope oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialModality != oldWidget.initialModality &&
-        widget.initialModality != null) {
-      _modality.value = widget.initialModality!;
+    if (widget.initialModality != oldWidget.initialModality) {
+      _modality.value =
+          widget.initialModality ??
+          defaultInputModalityFor(defaultTargetPlatform);
     }
   }
 

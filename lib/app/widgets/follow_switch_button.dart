@@ -216,7 +216,7 @@ Future<void> showFollowActionsSheet(
   final action = await showAppAdaptivePopover<_FollowSheetAction>(
     context: context,
     anchorContext: context,
-    backgroundColor: useDesktopOverlay(context) ? null : FuncTokens.transparent,
+    backgroundColor: useWideOverlay(context) ? null : FuncTokens.transparent,
     builder: (_) => _FollowActionsSheet(
       userId: userId,
       userName: userName,
@@ -321,7 +321,7 @@ class _FollowActionsSheet extends ConsumerWidget {
           ),
           decoration: BoxDecoration(
             color: colors.surfaceContainer,
-            borderRadius: useDesktopOverlay(context) ? null : FuncShape.sheet,
+            borderRadius: useWideOverlay(context) ? null : FuncShape.sheet,
           ),
           child: SafeArea(
             top: false,

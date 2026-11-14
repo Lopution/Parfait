@@ -14,7 +14,7 @@ applies_to:
   - lib/app/widgets/follow_switch_button.dart
   - lib/app/widgets/watchlist_toggle.dart
   - lib/app/widgets/comment_composer.dart
-reviewed: 2026-10-17
+reviewed: 2026-11-14
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -45,16 +45,24 @@ reviewed: 2026-10-17
 
 ### FB-02 Dialogs and sheets go through app_overlays.dart
 - **Rule:** Dialogs and bottom sheets open through `showAppDialog` /
-  `showAppBottomSheet`; a modal surface that places itself (the docked
-  search input, NAV-25) uses `showAppPanel`, and a pointer menu (PAGE-18)
-  uses `showAppContextMenu`. The first three replace the stock barrier:
-  the route closes when a touch that started on the scrim is released on
-  the scrim, tap or drag. `showAppContextMenu` is Material's own popup
-  route, so it keeps the stock menu barrier: an outside tap or Esc closes
-  it, and a release after a drag does not.
-- **Why:** Wrapping the stock barrier popped twice and closed the page
-  below; native Android dialogs close on a drag released outside.
-- **Check:** `test/architecture/feedback_channels_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "a drag outside closes it on release, one layer only"
+  `showAppBottomSheet`; adaptive overlays (`showAppAdaptiveDialog`,
+  `showAppAdaptiveSideSheet`, `showAppAdaptivePopover`) split viewport
+  geometry from interaction modality: `useWideOverlay` (width >= 600dp
+  and height >= 480dp, keeping turned phones on bottom sheets) selects
+  bounded centered dialogs or trailing side sheets for tablets as well as
+  desktops, while `usePointerOverlay` (width >= 600dp, height >= 480dp,
+  and pointer input) limits pointer-anchored popovers to cursor inputs so
+  wide touch viewports fall back to `showAppAdaptiveDialog`. A modal
+  surface that places itself (the docked search input, NAV-25) uses
+  `showAppPanel`, and a pointer menu (PAGE-18) uses `showAppContextMenu`.
+  The barrier routes close when a touch that started on the scrim is
+  released on the scrim, tap or drag; `showAppContextMenu` keeps
+  Material's stock menu barrier so an outside tap or Esc closes it.
+- **Why:** Coupling wide container shapes to pointer modality gave iPad
+  and Android tablets full-width mobile bottom sheets; decoupling
+  `useWideOverlay` from `usePointerOverlay` gives touch tablets bounded
+  dialogs and side sheets while avoiding pointer-anchored popovers.
+- **Check:** `test/architecture/feedback_channels_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "a drag outside closes it on release, one layer only" "useWideOverlay and usePointerOverlay split container shape from pointer anchoring" "wide touch viewports render bounded dialog, side sheet, and dialog popover"
 - **Code:** `lib/app/motion/app_overlays.dart`
 
 ### FB-03 Each action appears once at a time
