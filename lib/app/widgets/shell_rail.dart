@@ -37,6 +37,7 @@ class ShellRail extends StatelessWidget {
     required this.onToggle,
     required this.onBookmarks,
     required this.onDownloads,
+    this.canToggle,
   });
 
   final List<FuncBottomNavDestination> destinations;
@@ -47,10 +48,11 @@ class ShellRail extends StatelessWidget {
   final FormFactor form;
   final bool expanded;
 
-  /// Opens or closes the rail; only a PC's header offers it.
+  /// Opens or closes the rail; shown on PCs and large touch layouts.
   final VoidCallback onToggle;
   final VoidCallback onBookmarks;
   final VoidCallback onDownloads;
+  final bool? canToggle;
 
   static const double width = 88;
   static const double expandedWidth = 256;
@@ -236,12 +238,15 @@ class ShellRail extends StatelessWidget {
         ),
       ),
     );
+    final size = MediaQuery.sizeOf(context);
+    final toggleable =
+        canToggle ?? form.canToggleRail(size.width, height: size.height);
     return Column(
       children: [
         SizedBox(
           height: _headerHeight,
           child: Center(
-            child: form == FormFactor.pc
+            child: toggleable
                 ? IconButton(
                     onPressed: onToggle,
                     tooltip: l10n.railExpand,

@@ -70,6 +70,8 @@ class _TwoPaneState extends State<TwoPane> {
 
   double? _fraction;
   Offset? _measuredOrigin;
+  Animation<double>? _routeAnimation;
+  Animation<double>? _secondaryAnimation;
   bool _originCheckScheduled = false;
   bool _hoveringDivider = false;
   bool _draggingDivider = false;
@@ -88,6 +90,24 @@ class _TwoPaneState extends State<TwoPane> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    final nextPrimary = route?.animation;
+    final nextSecondary = route?.secondaryAnimation;
+    if (!identical(nextPrimary, _routeAnimation)) {
+      _routeAnimation?.removeStatusListener(_onRouteStatusChanged);
+      _routeAnimation = nextPrimary;
+      _routeAnimation?.addStatusListener(_onRouteStatusChanged);
+    }
+    if (!identical(nextSecondary, _secondaryAnimation)) {
+      _secondaryAnimation?.removeStatusListener(_onRouteStatusChanged);
+      _secondaryAnimation = nextSecondary;
+      _secondaryAnimation?.addStatusListener(_onRouteStatusChanged);
+    }
+  }
+
+  @override
   void didUpdateWidget(TwoPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.persistenceKey != oldWidget.persistenceKey) {
@@ -102,6 +122,10 @@ class _TwoPaneState extends State<TwoPane> {
   @override
   void dispose() {
     _disposed = true;
+    _routeAnimation?.removeStatusListener(_onRouteStatusChanged);
+    _routeAnimation = null;
+    _secondaryAnimation?.removeStatusListener(_onRouteStatusChanged);
+    _secondaryAnimation = null;
     super.dispose();
   }
 
@@ -129,6 +153,32 @@ class _TwoPaneState extends State<TwoPane> {
     }
   }
 
+  void _onRouteStatusChanged(AnimationStatus _) {
+    if (_disposed || !mounted) return;
+    if (WindowLayoutSpec.postureOf(context) != FoldPosture.flat) {
+      _scheduleOriginCheck();
+    }
+  }
+
+  Offset _measureRestOrigin(RenderBox renderObject) {
+    final route = ModalRoute.of(context);
+    final primaryAnimating = route?.animation?.isAnimating ?? false;
+    final secondaryDisplaced =
+        !(route?.secondaryAnimation?.isDismissed ?? true);
+    if (primaryAnimating || secondaryDisplaced) {
+      final subtree = route?.subtreeContext?.findRenderObject();
+      final nav = route?.navigator?.context.findRenderObject();
+      if (subtree is RenderBox &&
+          subtree.attached &&
+          nav is RenderBox &&
+          nav.attached) {
+        return nav.localToGlobal(Offset.zero) +
+            renderObject.localToGlobal(Offset.zero, ancestor: subtree);
+      }
+    }
+    return renderObject.localToGlobal(Offset.zero);
+  }
+
   void _scheduleOriginCheck() {
     if (_originCheckScheduled || _disposed) return;
     _originCheckScheduled = true;
@@ -137,7 +187,7 @@ class _TwoPaneState extends State<TwoPane> {
       if (_disposed || !mounted) return;
       final renderObject = context.findRenderObject();
       if (renderObject is! RenderBox || !renderObject.attached) return;
-      final origin = renderObject.localToGlobal(Offset.zero);
+      final origin = _measureRestOrigin(renderObject);
       if (_measuredOrigin == null ||
           (origin.dx - _measuredOrigin!.dx).abs() > 0.5 ||
           (origin.dy - _measuredOrigin!.dy).abs() > 0.5) {

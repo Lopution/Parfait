@@ -707,6 +707,20 @@ void main() {
       tester.element(rail),
     ).read(settingsProvider.notifier).setInterfaceForm(InterfaceForm.touch);
     await tester.pumpAndSettle();
+    // Wide touch (>= 840x480) keeps the rail collapsed by default while still
+    // offering the manual expand toggle (`NAV-20`).
+    expect(tester.getSize(rail).width, ShellRail.width);
+    expect(find.byTooltip('展开侧栏'), findsOneWidget);
+    expect(tester.state(find.byType(HistoryPage)), same(history));
+
+    await tester.tap(find.byTooltip('展开侧栏'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(rail).width, ShellRail.expandedWidth);
+    expect(find.byTooltip('收起侧栏'), findsOneWidget);
+
+    // Narrower touch (< 840dp) collapses back and hides the toggle button.
+    setViewSize(tester, const Size(700, 800));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('展开侧栏'), findsNothing);
     expect(
       find.descendant(of: rail, matching: find.byType(Image)),

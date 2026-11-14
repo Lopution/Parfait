@@ -424,6 +424,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     List<HomeDestination> shown, {
     required FormFactor form,
     required bool expanded,
+    required bool canToggle,
   }) {
     return ShellRail(
       destinations: homeDestinations(context, shown),
@@ -431,6 +432,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
       onSelected: (index) => _select(shown[index].branchIndex),
       form: form,
       expanded: expanded,
+      canToggle: canToggle,
       onToggle: () => unawaited(
         persistSettings(
           context,
@@ -503,14 +505,18 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     final arrangement = ref.watch(homeArrangementProvider);
     final order = [...arrangement.shown, ...arrangement.hidden];
     _barBranches = [for (final d in arrangement.shown) d.branchIndex];
-    final width = MediaQuery.sizeOf(context).width;
+    final size = MediaQuery.sizeOf(context);
+    final width = size.width;
+    final height = size.height;
     final form = FormFactor.of(context);
     final rail = _rail = form.hasRail(width);
     // An immersive page (the novel reader) takes the rail's room too, as it
     // covers the bottom bar on a phone.
     final railShown = rail && !ref.watch(shellRailHiddenProvider);
+    final canToggle = form.canToggleRail(width, height: height);
     final expanded = form.railExpanded(
       width,
+      height: height,
       choice: ref.watch(railExpandedProvider),
     );
     // The rail opens and closes by width, not in one frame (MOTION-14):
@@ -622,6 +628,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
                               arrangement.shown,
                               form: form,
                               expanded: expanded,
+                              canToggle: canToggle,
                             ),
                           ),
                         ),
