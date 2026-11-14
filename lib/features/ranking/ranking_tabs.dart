@@ -528,6 +528,7 @@ class _RankingTabsState<M extends RankingCategory>
             onPressed: _openSheet,
             icon: const Icon(Icons.grid_view_outlined),
           ),
+          const HeaderRefresh(),
           const HeaderSearch(),
         ],
         title: AppTabBar(

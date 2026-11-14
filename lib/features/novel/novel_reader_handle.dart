@@ -215,6 +215,16 @@ class NovelReaderHandle {
   /// jumps from the progress sheet skip the animation entirely.
   void Function(int page, {bool animate})? goToPage;
 
+  /// Step forward or backward by [delta] page views (one spread in two-column
+  /// mode, one page in single-column mode).
+  void Function(int delta, {bool animate})? stepPage;
+
+  /// Scroll vertically by [delta] logical pixels in scroll mode.
+  void Function(double delta, {bool animate})? scrollBy;
+
+  /// Current reader viewport height, for page-sized keyboard scroll steps.
+  double? Function()? viewportHeight;
+
   /// Chapter entries of the committed layout — `(title, pageIndex)` pairs
   /// in document order. Empty for chapter-less documents and before the
   /// first layout lands.

@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/danger_filled_button.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/layout/content_widths.dart';
+import '../../../app/layout/input_modality.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/removal.dart';
 import '../../../app/motion/state_icon_switcher.dart';
@@ -46,6 +50,9 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   /// the history page).
   bool _managing = false;
   final Set<String> _selected = {};
+  String? _lastToggledTaskId;
+  ValueListenable<TickerModeData>? _tickerMode;
+  ModalRoute<dynamic>? _route;
 
   /// Group expansion is page-local too (D1): groups start collapsed and
   /// the set is never persisted or restored.
@@ -66,13 +73,21 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
         // Tasks leaving the list (dismiss/clear) drop out of the
         // selection; gone groups drop out of the expansion set.
         _selected.removeWhere((id) => _manager.taskById(id) == null);
+        if (_lastToggledTaskId != null &&
+            _manager.taskById(_lastToggledTaskId!) == null) {
+          _lastToggledTaskId = null;
+        }
         _expandedGroups.removeWhere(
           (id) => _manager.groups.every((group) => group.id != id),
         );
-        if (_managing && _manager.tasks.isEmpty) _managing = false;
+        if (_managing && _manager.tasks.isEmpty) {
+          _managing = false;
+          _lastToggledTaskId = null;
+        }
         setState(() {});
       }
     });
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
     unawaited(
       _manager.recover().whenComplete(() {
         if (mounted) setState(() {});
@@ -81,10 +96,44 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerMode = TickerMode.getValuesNotifier(context);
+    _route = ModalRoute.of(context);
+  }
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     unawaited(_changes?.cancel());
     _removals.dispose();
     super.dispose();
+  }
+
+  static bool _isPointer(BuildContext context) =>
+      (InputModalityScope.maybeOf(context) ??
+          defaultInputModalityFor(Theme.of(context).platform)) ==
+      InputModality.pointer;
+
+  static bool _isEditingFocused() =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() !=
+      null;
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (!mounted || !_managing || event is! KeyDownEvent) return false;
+    if (!(_tickerMode?.value.enabled ?? true) || !(_route?.isCurrent ?? true)) {
+      return false;
+    }
+    if (_isEditingFocused() || !_isPointer(context)) return false;
+    final kbd = HardwareKeyboard.instance;
+    if (event.logicalKey == LogicalKeyboardKey.keyA &&
+        (kbd.isControlPressed || kbd.isMetaPressed) &&
+        !kbd.isAltPressed) {
+      _selectAll();
+      return true;
+    }
+    return false;
   }
 
   void _enterManaging([String? taskId]) {
@@ -92,7 +141,10 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     AppHaptics.confirm();
     setState(() {
       _managing = true;
-      if (taskId != null) _selected.add(taskId);
+      if (taskId != null) {
+        _selected.add(taskId);
+        _lastToggledTaskId = taskId;
+      }
     });
   }
 
@@ -100,6 +152,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     setState(() {
       _managing = false;
       _selected.clear();
+      _lastToggledTaskId = null;
     });
   }
 
@@ -107,7 +160,28 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     AppHaptics.select();
     setState(() {
       if (!_selected.remove(taskId)) _selected.add(taskId);
+      _lastToggledTaskId = taskId;
     });
+  }
+
+  void _handleToggle(String taskId, List<String> orderedTaskIds) {
+    if (_isPointer(context) &&
+        HardwareKeyboard.instance.isShiftPressed &&
+        _lastToggledTaskId != null) {
+      final start = orderedTaskIds.indexOf(_lastToggledTaskId!);
+      final end = orderedTaskIds.indexOf(taskId);
+      if (start >= 0 && end >= 0) {
+        final lo = math.min(start, end);
+        final hi = math.max(start, end);
+        AppHaptics.select();
+        setState(() {
+          _selected.addAll(orderedTaskIds.sublist(lo, hi + 1));
+          _lastToggledTaskId = taskId;
+        });
+        return;
+      }
+    }
+    _toggleSelected(taskId);
   }
 
   void _selectAll() {
@@ -296,6 +370,13 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
     final entries = _entries(tasks);
+    final orderedTaskIds = [
+      for (final entry in entries)
+        if (entry case _GroupChildEntry(:final task))
+          task.id
+        else if (entry case _TaskEntry(:final task))
+          task.id,
+    ];
     final selectedNonTerminal = [
       for (final task in tasks)
         if (_selected.contains(task.id) && !isTerminal(task.status)) task,
@@ -418,6 +499,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                                 _indexOfKey(entries, key),
                             itemBuilder: (context, index) => _row(
                               entries[index],
+                              orderedTaskIds: orderedTaskIds,
                               afterSurface:
                                   index > 0 &&
                                   entries[index - 1] is _GroupedEntry,
@@ -435,7 +517,11 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
 
   /// [afterSurface]: a plain row right under a group's surface keeps a
   /// little off it.
-  Widget _row(_DownloadEntry entry, {required bool afterSurface}) => Removable(
+  Widget _row(
+    _DownloadEntry entry, {
+    required List<String> orderedTaskIds,
+    required bool afterSurface,
+  }) => Removable(
     key: ValueKey(entry.key),
     id: entry.key,
     animateIn: _growingRows.contains(entry.key),
@@ -453,21 +539,29 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
             onRemove: _removeTasks,
           ),
         ),
-      _GroupChildEntry(:final task) => _taskRow(task, dense: true),
+      _GroupChildEntry(:final task) => _taskRow(
+        task,
+        orderedTaskIds: orderedTaskIds,
+        dense: true,
+      ),
       _TaskEntry(:final task) => Padding(
         padding: EdgeInsets.only(top: afterSurface ? FuncSpacing.xs : 0),
-        child: _taskRow(task),
+        child: _taskRow(task, orderedTaskIds: orderedTaskIds),
       ),
     },
   );
 
-  Widget _taskRow(DownloadTaskSnapshot task, {bool dense = false}) {
+  Widget _taskRow(
+    DownloadTaskSnapshot task, {
+    required List<String> orderedTaskIds,
+    bool dense = false,
+  }) {
     return _DownloadTaskRow(
       task: task,
       manager: _manager,
       managing: _managing,
       selected: _selected.contains(task.id),
-      onToggle: () => _toggleSelected(task.id),
+      onToggle: () => _handleToggle(task.id, orderedTaskIds),
       onEnterManaging: () => _enterManaging(task.id),
       onRemove: () => _removeTasks([task.id]),
       dense: dense,

@@ -216,7 +216,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
         titleSpacing: 0,
-        actions: const [_OffBarSearchAction(), HeaderSearch()],
+        actions: const [_OffBarSearchAction(), HeaderRefresh(), HeaderSearch()],
         title: AppTabBar(
           controller: _tabController,
           onTap: (index) {

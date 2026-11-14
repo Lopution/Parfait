@@ -5,14 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
+import '../../app/layout/app_breakpoints.dart';
+import '../../app/layout/content_widths.dart';
 import '../../app/layout/deferred_cache_scroll_view.dart';
+import '../../app/motion/motion_tokens.dart';
+import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/theme/category_colors.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/settings/settings_anchor.dart';
 import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/translation/translation_service.dart';
 import '../../core/debug/frame_probe.dart';
@@ -22,9 +28,26 @@ import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/settings/shared_preferences.dart';
 import '../../l10n/context.dart';
+import 'network_probe_page.dart';
+import 'network_settings_page.dart';
+import 'pages/about_settings_page.dart';
+import 'pages/account_settings_page.dart';
+import 'pages/backup_settings_page.dart';
+import 'pages/bottom_bar_settings_page.dart';
+import 'pages/browse_settings_page.dart';
+import 'pages/download_destination_page.dart';
+import 'pages/download_settings_page.dart';
+import 'pages/download_tasks_page.dart';
+import 'pages/frame_probe_page.dart';
+import 'pages/language_settings_page.dart';
+import 'pages/motion_settings_page.dart';
+import 'pages/muted_items_page.dart';
+import 'pages/navigation_settings_page.dart';
+import 'pages/theme_settings_page.dart';
+import 'pages/translate_settings_page.dart';
+import 'pages/translation_credentials_page.dart';
 import 'settings_catalog.dart';
 import 'settings_helpers.dart';
-import '../../app/layout/content_widths.dart';
 
 export 'pages/about_settings_page.dart';
 export 'pages/account_settings_page.dart';
@@ -52,7 +75,15 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
+  static const double _masterPaneWidth = 336;
+
   final _query = TextEditingController();
+  final _detailNavigatorKey = GlobalKey<NavigatorState>(
+    debugLabel: 'settings-detail',
+  );
+  late final _detailObserver = _DetailStackObserver(_syncDetailCanPop);
+  SettingsPageRef _selectedPage = SettingsPageRef.account;
+  bool _detailCanPop = false;
 
   @override
   void dispose() {
@@ -60,57 +91,256 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     super.dispose();
   }
 
+  static bool _useMasterDetail(BuildContext context) {
+    final contentWidth = HomeShellChrome.contentSizeOf(context).width;
+    final viewport = MediaQuery.sizeOf(context);
+    return contentWidth >= AppBreakpoints.expanded &&
+        viewport.width >= viewport.height * 0.75;
+  }
+
+  void _syncDetailCanPop() {
+    if (!mounted) return;
+    final canPop = _detailNavigatorKey.currentState?.canPop() ?? false;
+    if (canPop != _detailCanPop) {
+      setState(() => _detailCanPop = canPop);
+    }
+  }
+
+  SettingsPageRef? _pageRefForPath(String path) {
+    for (final ref in SettingsPageRef.values) {
+      if (ref.path == path) return ref;
+    }
+    return null;
+  }
+
+  SettingsPageRef? _rootRefForSubPath(String path) {
+    if (path.startsWith('/settings/translate/credentials/')) {
+      return SettingsPageRef.translate;
+    }
+    if (path == '/settings/about/licenses') return SettingsPageRef.about;
+    if (path == '/settings/tasks') return SettingsPageRef.download;
+    return null;
+  }
+
+  void _openInDetailPane(String location) {
+    final uri = Uri.parse(location);
+    final pageRef = _pageRefForPath(uri.path);
+    final rootRef = pageRef?.parent ?? pageRef ?? _rootRefForSubPath(uri.path);
+    if (rootRef != null && rootRef != _selectedPage) {
+      setState(() => _selectedPage = rootRef);
+    }
+    final navigator = _detailNavigatorKey.currentState;
+    if (navigator == null) return;
+    final isNestedChild =
+        (pageRef != null && pageRef.parent != null) ||
+        (pageRef == null && rootRef != null);
+    if (isNestedChild && rootRef != null) {
+      unawaited(
+        navigator.pushNamedAndRemoveUntil<void>(rootRef.path, (_) => false),
+      );
+      unawaited(navigator.pushNamed<void>(location));
+      return;
+    }
+    unawaited(navigator.pushNamedAndRemoveUntil<void>(location, (_) => false));
+  }
+
+  Future<void> _pushInDetailPane(String location) {
+    final navigator = _detailNavigatorKey.currentState;
+    if (navigator == null) return Future<void>.value();
+    return navigator.pushNamed<void>(location);
+  }
+
+  Route<dynamic> _buildDetailRoute(String location, {bool instant = false}) {
+    final uri = Uri.parse(location);
+    final page = SettingsFocusScope(
+      target: uri.queryParameters[focusQuery],
+      child: _buildDetailPage(uri),
+    );
+    return PageRouteBuilder<void>(
+      settings: RouteSettings(name: location),
+      transitionDuration: instant
+          ? Duration.zero
+          : MotionTokens.resolve(context, MotionTokens.desktopPageTransition),
+      reverseTransitionDuration: instant
+          ? Duration.zero
+          : MotionTokens.resolve(context, MotionTokens.desktopPageTransition),
+      pageBuilder: (_, _, _) => page,
+      transitionsBuilder: (_, animation, _, child) =>
+          FadeTransition(opacity: animation, child: child),
+    );
+  }
+
+  Widget _buildDetailPage(Uri uri) {
+    final path = uri.path;
+    if (path.startsWith('/settings/translate/credentials/')) {
+      final provider = path.substring('/settings/translate/credentials/'.length);
+      return TranslationCredentialsPage(baidu: provider == 'baidu');
+    }
+    return switch (path) {
+      '/settings/account' => const AccountSettingsPage(),
+      '/settings/theme' => const ThemeSettingsPage(),
+      '/settings/language' => const LanguageSettingsPage(),
+      '/settings/translate' => const TranslateSettingsPage(),
+      '/settings/motion' => const MotionSettingsPage(),
+      '/settings/browse' => const BrowseSettingsPage(),
+      '/settings/navigation' => const NavigationSettingsPage(),
+      '/settings/navigation/bottom-bar' => const BottomBarSettingsPage(),
+      '/settings/muted' => const MutedItemsPage(),
+      '/settings/network' => const NetworkSettingsPage(),
+      '/settings/network/probe' => const NetworkProbePage(),
+      '/settings/network/advanced' => const NetworkAdvancedSettingsPage(),
+      '/settings/download' => const DownloadSettingsPage(),
+      '/settings/download/destination' => const DownloadDestinationPage(),
+      '/settings/backup' => const BackupSettingsPage(),
+      '/settings/tasks' => const DownloadTasksPage(),
+      '/settings/about' => const AboutSettingsPage(),
+      '/settings/about/licenses' => FutureBuilder<PackageInfo>(
+        future: PackageInfo.fromPlatform(),
+        builder: (context, snapshot) => LicensePage(
+          applicationName: 'Parfait',
+          applicationVersion: snapshot.data?.version,
+        ),
+      ),
+      '/settings/frame-probe' => const FrameProbePage(),
+      _ => const AccountSettingsPage(),
+    };
+  }
+
+  PreferredSizeWidget _buildSearchBar(
+    BuildContext context,
+    String query, {
+    bool narrowWrap = true,
+  }) {
+    final field = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.lg,
+        0,
+        FuncSpacing.lg,
+        FuncSpacing.sm,
+      ),
+      // The search page's field: one look for every search.
+      child: SearchBar(
+        controller: _query,
+        constraints: const BoxConstraints(minHeight: 48),
+        hintText: context.l10n.settingsSearchHint,
+        leading: const Icon(Icons.search),
+        trailing: [
+          if (query.isNotEmpty)
+            IconButton(
+              tooltip: context.l10n.searchClear,
+              icon: const Icon(Icons.close),
+              onPressed: () => setState(_query.clear),
+            ),
+        ],
+        onChanged: (_) => setState(() {}),
+        textInputAction: TextInputAction.search,
+      ),
+    );
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(_searchBarExtent),
+      child: narrowWrap ? settingsNarrowBody(field) : field,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final query = _query.text;
-    return Scaffold(
-      appBar: AppTopBar(
-        contentWidth: ContentWidths.settings,
-        title: Text(context.l10n.settingsTitle),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(_searchBarExtent),
-          child: settingsNarrowBody(
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.lg,
-                0,
-                FuncSpacing.lg,
-                FuncSpacing.sm,
-              ),
-              // The search page's field: one look for every search.
-              child: SearchBar(
-                controller: _query,
-                constraints: const BoxConstraints(minHeight: 48),
-                hintText: context.l10n.settingsSearchHint,
-                leading: const Icon(Icons.search),
-                trailing: [
-                  if (query.isNotEmpty)
-                    IconButton(
-                      tooltip: context.l10n.searchClear,
-                      icon: const Icon(Icons.close),
-                      onPressed: () => setState(_query.clear),
-                    ),
-                ],
-                onChanged: (_) => setState(() {}),
-                textInputAction: TextInputAction.search,
+    final masterDetail = _useMasterDetail(context);
+    final body = settings.when(
+      loading: () => const FeedLoading(),
+      error: (error, _) => SettingsLoadError(
+        error: error,
+        onRetry: () => ref.read(settingsProvider.notifier).reload(),
+      ),
+      data: (settings) => query.trim().isEmpty
+          ? _SettingsGroups(
+              settings: settings,
+              selectedPage: masterDetail ? _selectedPage : null,
+              onSelectLocation: masterDetail ? _openInDetailPane : null,
+            )
+          : _SearchResults(
+              query: query,
+              onSelectLocation: masterDetail ? _openInDetailPane : null,
+            ),
+    );
+
+    if (!masterDetail) {
+      return Scaffold(
+        appBar: AppTopBar(
+          contentWidth: ContentWidths.settings,
+          title: Text(context.l10n.settingsTitle),
+          bottom: _buildSearchBar(context, query),
+        ),
+        body: body,
+      );
+    }
+
+    return PopScope(
+      canPop: !_detailCanPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_detailNavigatorKey.currentState?.maybePop());
+      },
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        child: Row(
+          children: [
+            SizedBox(
+              width: _masterPaneWidth,
+              child: Scaffold(
+                appBar: AppTopBar(
+                  title: Text(context.l10n.settingsTitle),
+                  bottom: _buildSearchBar(context, query, narrowWrap: false),
+                ),
+                body: body,
               ),
             ),
-          ),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(
+              child: SettingsDetailScope(
+                onPush: _pushInDetailPane,
+                child: Navigator(
+                  key: _detailNavigatorKey,
+                  observers: [_detailObserver],
+                  onGenerateInitialRoutes: (navigator, initialRoute) => [
+                    _buildDetailRoute(_selectedPage.path, instant: true),
+                  ],
+                  onGenerateRoute: (routeSettings) => _buildDetailRoute(
+                    routeSettings.name ?? SettingsPageRef.account.path,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-      body: settings.when(
-        loading: () => const FeedLoading(),
-        error: (error, _) => SettingsLoadError(
-          error: error,
-          onRetry: () => ref.read(settingsProvider.notifier).reload(),
-        ),
-        data: (settings) => query.trim().isEmpty
-            ? _SettingsGroups(settings: settings)
-            : _SearchResults(query: query),
       ),
     );
   }
+}
+
+class _DetailStackObserver extends NavigatorObserver {
+  _DetailStackObserver(this.onChanged);
+
+  final VoidCallback onChanged;
+
+  void _notify() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => onChanged());
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _notify();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _notify();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _notify();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _notify();
 }
 
 /// The row icon of each settings page, on the index and in the settings
@@ -135,9 +365,10 @@ const settingsPageIcons = <SettingsPageRef, IconData>{
 const double _searchBarExtent = 48 + FuncSpacing.sm;
 
 class _SearchResults extends StatelessWidget {
-  const _SearchResults({required this.query});
+  const _SearchResults({required this.query, this.onSelectLocation});
 
   final String query;
+  final ValueChanged<String>? onSelectLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -149,55 +380,100 @@ class _SearchResults extends StatelessWidget {
       );
     }
     return settingsNarrowBody(
-      ListView(
-        // The results are a lookup: dragging them puts the keyboard away.
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.only(
-          top: FuncSpacing.sm,
-          bottom: FuncSpacing.xl,
-        ),
-        children: [
-          SettingsGroup(
-            children: [
-              for (final result in results)
-                SettingsTile(
-                  title: result.label,
-                  subtitle: result.path.isEmpty
-                      ? null
-                      : Text(result.path.join(' › ')),
-                  onTap: () => openSettingsPage(context, result.location),
-                ),
-            ],
+      SmoothWheelScroll(
+        builder: (context, controller, physics) => ListView(
+          controller: controller,
+          physics: physics,
+          // The results are a lookup: dragging them puts the keyboard away.
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
           ),
-        ],
+          children: [
+            SettingsGroup(
+              children: [
+                for (final result in results)
+                  SettingsTile(
+                    title: result.label,
+                    subtitle: result.path.isEmpty
+                        ? null
+                        : Text(result.path.join(' › ')),
+                    onTap: () {
+                      final select = onSelectLocation;
+                      if (select != null) {
+                        select(result.location);
+                      } else {
+                        openSettingsPage(context, result.location);
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _SettingsGroups extends ConsumerWidget {
-  const _SettingsGroups({required this.settings});
+  const _SettingsGroups({
+    required this.settings,
+    this.selectedPage,
+    this.onSelectLocation,
+  });
 
   final AppSettings settings;
+  final SettingsPageRef? selectedPage;
+  final ValueChanged<String>? onSelectLocation;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return settingsNarrowBody(
-      DeferredCacheListView(
-        // A bounded ~15-tile list: prebuilding it, from the second frame,
-        // keeps maxScrollExtent stable during a fling.
-        scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
-        padding: const EdgeInsets.only(
-          top: FuncSpacing.sm,
-          bottom: FuncSpacing.xl,
+      SmoothWheelScroll(
+        builder: (context, controller, physics) => DeferredCacheListView(
+          controller: controller,
+          physics: physics,
+          // A bounded ~15-tile list: prebuilding it, from the second frame,
+          // keeps maxScrollExtent stable during a fling.
+          scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
+          children: [
+            ..._indexGroups(
+              context,
+              ref,
+              settings,
+              selectedPage: selectedPage,
+              onSelectLocation: onSelectLocation,
+            ),
+            _DeveloperSettingsGroup(
+              selected: selectedPage == SettingsPageRef.frameProbe,
+              onSelectLocation: onSelectLocation,
+            ),
+          ],
         ),
-        children: [
-          ..._indexGroups(context, ref, settings),
-          const _DeveloperSettingsGroup(),
-        ],
       ),
     );
   }
+}
+
+Widget _wrapSelectedTile(
+  BuildContext context, {
+  required bool selected,
+  required Widget child,
+}) {
+  if (!selected) return child;
+  final scheme = Theme.of(context).colorScheme;
+  return ListTileTheme.merge(
+    tileColor: scheme.secondaryContainer.withValues(alpha: 0.55),
+    textColor: scheme.onSecondaryContainer,
+    iconColor: scheme.onSecondaryContainer,
+    child: child,
+  );
 }
 
 /// The settings pages grouped by intent, as the index lists them, each
@@ -207,8 +483,10 @@ class _SettingsGroups extends ConsumerWidget {
 List<Widget> _indexGroups(
   BuildContext context,
   WidgetRef ref,
-  AppSettings settings,
-) {
+  AppSettings settings, {
+  SettingsPageRef? selectedPage,
+  ValueChanged<String>? onSelectLocation,
+}) {
   final l10n = context.l10n;
   final scheme = Theme.of(context).colorScheme;
   final neutral = neutralCategoryTone(scheme);
@@ -257,12 +535,23 @@ List<Widget> _indexGroups(
         title: group.title == null ? null : Text(group.title!),
         children: [
           for (final page in group.pages)
-            SettingsTile.topLevel(
-              setting: page,
-              icon: settingsPageIcons[page],
-              subtitle: _pageSummary(context, ref, settings, page),
-              tone: group.tone,
-              onTap: () => openSettingsPage(context, page.path),
+            _wrapSelectedTile(
+              context,
+              selected: selectedPage == page,
+              child: SettingsTile.topLevel(
+                setting: page,
+                icon: settingsPageIcons[page],
+                subtitle: _pageSummary(context, ref, settings, page),
+                tone: group.tone,
+                onTap: () {
+                  final select = onSelectLocation;
+                  if (select != null) {
+                    select(page.path);
+                  } else {
+                    openSettingsPage(context, page.path);
+                  }
+                },
+              ),
             ),
         ],
       ),
@@ -331,7 +620,13 @@ Widget _pageSummary(
 /// release with the `PIXIV_FRAME_PROBE` dart-define for signed measurement
 /// packages) show it unlocked; default release builds are unchanged.
 class _DeveloperSettingsGroup extends ConsumerWidget {
-  const _DeveloperSettingsGroup();
+  const _DeveloperSettingsGroup({
+    this.selected = false,
+    this.onSelectLocation,
+  });
+
+  final bool selected;
+  final ValueChanged<String>? onSelectLocation;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -342,11 +637,22 @@ class _DeveloperSettingsGroup extends ConsumerWidget {
     return SettingsGroup(
       title: Text(context.l10n.settingsGroupDeveloper),
       children: [
-        SettingsTile.topLevel(
-          setting: probe,
-          icon: settingsPageIcons[probe],
-          tone: neutralCategoryTone(Theme.of(context).colorScheme),
-          onTap: () => openSettingsPage(context, probe.path),
+        _wrapSelectedTile(
+          context,
+          selected: selected,
+          child: SettingsTile.topLevel(
+            setting: probe,
+            icon: settingsPageIcons[probe],
+            tone: neutralCategoryTone(Theme.of(context).colorScheme),
+            onTap: () {
+              final select = onSelectLocation;
+              if (select != null) {
+                select(probe.path);
+              } else {
+                openSettingsPage(context, probe.path);
+              }
+            },
+          ),
         ),
       ],
     );

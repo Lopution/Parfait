@@ -58,13 +58,11 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
                                       setSheetState(() => preview = v.round()),
                           ),
                         ),
-                        SizedBox(
-                          width: 88,
-                          child: Text(
-                            '${preview + 1}/$pageCount · $percent%',
-                            textAlign: TextAlign.end,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
+                        const SizedBox(width: FuncSpacing.sm),
+                        Text(
+                          '${preview + 1}/$pageCount · $percent%',
+                          textAlign: TextAlign.end,
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
                     ),
@@ -283,28 +281,31 @@ class _SettingsSliderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final theme = Theme.of(context);
+    final valueText = value.toStringAsFixed(
+      value == value.roundToDouble() ? 0 : 1,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 48,
-          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        Row(
+          children: [
+            Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+            const SizedBox(width: FuncSpacing.sm),
+            Text(
+              valueText,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
         ),
-        Expanded(
-          child: AppSlider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-          ),
-        ),
-        SizedBox(
-          width: 36,
-          child: Text(
-            value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1),
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+        AppSlider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          divisions: divisions,
+          onChanged: onChanged,
         ),
       ],
     );

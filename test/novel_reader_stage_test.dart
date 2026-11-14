@@ -442,6 +442,77 @@ void main() {
       expect(find.textContaining('译 '), findsNothing);
     },
   );
+
+  testWidgets(
+    'desktop arrow, page, and space keys navigate pages and scroll column',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final binding = _RecordingBinding();
+      await tester.pumpWidget(_stageApp(binding, novel: _novelOfParagraphs(160)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      Future<void> pressShiftSpace() async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      }
+
+      for (final key in [
+        LogicalKeyboardKey.arrowDown,
+        LogicalKeyboardKey.pageDown,
+        LogicalKeyboardKey.space,
+      ]) {
+        await tester.sendKeyEvent(key);
+        await tester.pumpAndSettle();
+      }
+      expect(binding.saves, hasLength(3));
+
+      await pressShiftSpace();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(binding.saves, hasLength(6));
+
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          novel: _novelOfParagraphs(160),
+          pageTurn: NovelPageTurn.scroll,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      double offset() =>
+          tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels;
+
+      expect(offset(), 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final afterArrow = offset();
+      expect(afterArrow, greaterThan(0));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pumpAndSettle();
+      final afterPage = offset();
+      expect(afterPage, greaterThan(afterArrow));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(offset(), greaterThan(afterPage));
+
+      final beforeUp = offset();
+      await pressShiftSpace();
+      await tester.pumpAndSettle();
+      expect(offset(), lessThan(beforeUp));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 }
 
 /// setString always fails — the in-memory platform still backs getString

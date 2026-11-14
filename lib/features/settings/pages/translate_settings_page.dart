@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../app/motion/spring_size.dart';
 import '../../../app/motion/state_fade.dart';
@@ -50,7 +49,7 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
 
   Future<void> _openTranslationCredentials(bool baidu) async {
     final provider = baidu ? 'baidu' : 'llm';
-    await context.push<void>('/settings/translate/credentials/$provider');
+    await pushSettingsPage(context, '/settings/translate/credentials/$provider');
     if (mounted) setState(_refreshCredentials);
   }
 

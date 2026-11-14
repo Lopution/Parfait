@@ -224,6 +224,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               onPressed: () => openNewNovels(context),
               icon: const Icon(Icons.menu_book_outlined),
             ),
+          const HeaderRefresh(),
           HeaderSearch(
             // The header searches the kind this page shows. The pushed
             // novel page draws no entry (no branch root), but the kind it

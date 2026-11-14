@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -402,4 +403,66 @@ void main() {
       ]),
     );
   });
+
+  testWidgets(
+    'pointer wide feed headers mount HeaderRefresh and trigger active refresh',
+    (tester) async {
+      var recommendedCalls = 0;
+      final router = await _pump(
+        tester,
+        routes: {
+          '/v1/illust/recommended': (_) async {
+            recommendedCalls++;
+            return jsonResponse({
+              'illusts': [illustJson(1)],
+              'next_url': null,
+            });
+          },
+          '/v1/illust/ranking': (_) async =>
+              jsonResponse({'illusts': const <Object?>[], 'next_url': null}),
+          '/v1/illust/follow': (_) async =>
+              jsonResponse({'illusts': const <Object?>[], 'next_url': null}),
+        },
+      );
+      expect(recommendedCalls, 1);
+      final refresh = find.descendant(
+        of: find.byType(RecommendedHomePage),
+        matching: find.byType(HeaderRefresh),
+      );
+      expect(refresh, findsOneWidget);
+      expect(find.byTooltip('刷新'), findsOneWidget);
+
+      await tester.tap(refresh, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(recommendedCalls, 2);
+
+      for (final path in ['/ranking', '/new']) {
+        router.go(path);
+        await tester.pumpAndSettle();
+        expect(find.byType(HeaderRefresh), findsOneWidget, reason: '$path host');
+        expect(
+          find.descendant(
+            of: find.byType(HeaderRefresh),
+            matching: find.byIcon(Icons.refresh),
+          ),
+          findsOneWidget,
+          reason: path,
+        );
+      }
+
+      // Narrow/mobile width hides the refresh button inside HeaderRefresh.
+      router.go('/recommended');
+      await tester.pumpAndSettle();
+      setViewSize(tester, const Size(390, 844));
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: find.byType(HeaderRefresh),
+          matching: find.byIcon(Icons.refresh),
+        ),
+        findsNothing,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 }

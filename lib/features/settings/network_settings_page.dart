@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../app/format/app_format.dart';
 import '../../app/motion/app_overlays.dart';
@@ -127,7 +126,8 @@ class NetworkSettingsPage extends ConsumerWidget {
                 SettingsTile(
                   icon: Icons.network_check,
                   setting: SettingsPageRef.networkProbe,
-                  onTap: () => context.push<void>('/settings/network/probe'),
+                  onTap: () =>
+                      openSettingsPage(context, '/settings/network/probe'),
                 ),
               ],
             ),
@@ -138,7 +138,8 @@ class NetworkSettingsPage extends ConsumerWidget {
                 SettingsTile(
                   icon: Icons.tune_outlined,
                   setting: SettingsPageRef.networkAdvanced,
-                  onTap: () => context.push<void>('/settings/network/advanced'),
+                  onTap: () =>
+                      openSettingsPage(context, '/settings/network/advanced'),
                 ),
               ],
             ),

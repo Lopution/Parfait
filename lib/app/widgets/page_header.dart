@@ -7,9 +7,11 @@ import '../../l10n/context.dart';
 import '../icons/app_icons.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/form_factor.dart';
+import '../layout/input_modality.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../navigation/keyboard_back.dart';
 import '../navigation/routes.dart';
+import '../pull_to_refresh.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'func_bottom_nav.dart';
 import 'search_field_button.dart';
@@ -100,6 +102,29 @@ class HeaderSearch extends StatelessWidget {
                 );
         },
       ),
+    );
+  }
+}
+
+/// Explicit desktop refresh action mounted beside [HeaderSearch] on wide feed
+/// headers when the active input modality is pointer.
+class HeaderRefresh extends StatelessWidget {
+  const HeaderRefresh({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final modality =
+        InputModalityScope.maybeOf(context) ??
+        defaultInputModalityFor(Theme.of(context).platform);
+    if (!PageHeader.isWide(context) ||
+        BranchRootScope.maybeOf(context) == null ||
+        modality != InputModality.pointer) {
+      return const SizedBox.shrink();
+    }
+    return IconButton(
+      tooltip: context.l10n.refresh,
+      icon: const Icon(Icons.refresh),
+      onPressed: () => PullToRefresh.triggerActive(context),
     );
   }
 }

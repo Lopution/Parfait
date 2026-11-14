@@ -505,21 +505,70 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     );
   }
 
-  /// ←/→ turn the page. The handle reports the live position, so the key
-  /// path shares the same clamp and user-turn semantics as the tap zones.
+  static bool _isEditingFocused() =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() !=
+      null;
+
+  /// Keyboard navigation: arrow keys, PageUp/PageDown, and Space/Shift+Space
+  /// scroll in scroll mode or turn pages/spreads in page mode when not editing
+  /// text or covered by an overlay route.
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final current = _readerHandle.currentPage?.call();
-    final count = _readerHandle.pageCount?.call();
-    if (current == null || count == null) return KeyEventResult.ignored;
-    final next = switch (event.logicalKey) {
-      LogicalKeyboardKey.arrowLeft => current - 1,
-      LogicalKeyboardKey.arrowRight => current + 1,
-      _ => null,
-    };
-    if (next == null) return KeyEventResult.ignored;
-    if (next < 0 || next >= count) return KeyEventResult.handled;
-    _readerHandle.goToPage?.call(next);
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (_isEditingFocused()) return KeyEventResult.ignored;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+
+    if (_settings.pageTurn == NovelPageTurn.scroll) {
+      final viewport = _readerHandle.viewportHeight?.call() ?? 480;
+      const lineStep = 72.0;
+      final pageStep = math.max(lineStep, viewport * 0.85);
+      final double? delta;
+      if (!shift && key == LogicalKeyboardKey.arrowDown) {
+        delta = lineStep;
+      } else if (!shift && key == LogicalKeyboardKey.arrowUp) {
+        delta = -lineStep;
+      } else if (key == LogicalKeyboardKey.pageDown ||
+          (!shift && key == LogicalKeyboardKey.space)) {
+        delta = pageStep;
+      } else if (key == LogicalKeyboardKey.pageUp ||
+          (shift && key == LogicalKeyboardKey.space)) {
+        delta = -pageStep;
+      } else {
+        delta = null;
+      }
+      if (delta != null) {
+        _readerHandle.scrollBy?.call(delta, animate: event is KeyDownEvent);
+        return KeyEventResult.handled;
+      }
+    }
+
+    final int? step;
+    if (!shift &&
+        (key == LogicalKeyboardKey.arrowRight ||
+            key == LogicalKeyboardKey.arrowDown)) {
+      step = 1;
+    } else if (!shift &&
+        (key == LogicalKeyboardKey.arrowLeft ||
+            key == LogicalKeyboardKey.arrowUp)) {
+      step = -1;
+    } else if (key == LogicalKeyboardKey.pageDown ||
+        (!shift && key == LogicalKeyboardKey.space)) {
+      step = 1;
+    } else if (key == LogicalKeyboardKey.pageUp ||
+        (shift && key == LogicalKeyboardKey.space)) {
+      step = -1;
+    } else {
+      step = null;
+    }
+    if (step == null) return KeyEventResult.ignored;
+    if (_readerHandle.pageCount?.call() == null) return KeyEventResult.ignored;
+    _readerHandle.stepPage?.call(step);
     return KeyEventResult.handled;
   }
 
