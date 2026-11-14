@@ -25,7 +25,7 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
               _readerHandle.goToPage?.call(page, animate: false);
             }
 
-            final desktop = useDesktopOverlay(context);
+            final desktop = useWideOverlay(context);
             return Padding(
               padding: MediaQuery.of(context).padding,
               child: Padding(
@@ -185,7 +185,7 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
 
             // The sheet is at most 9/16 of the screen: on a turned phone
             // the settings scroll inside it.
-            final desktop = useDesktopOverlay(context);
+            final desktop = useWideOverlay(context);
             return SingleChildScrollView(
               padding: MediaQuery.of(context).padding,
               child: Padding(

@@ -11,15 +11,26 @@ import '../theme/func_semantic_tokens.dart';
 import '../widgets/prompt_host.dart';
 import 'motion_tokens.dart';
 
-/// Whether secondary overlays should use desktop/pointer presentations
-/// (centered dialog, anchored popover, or side sheet) instead of bottom sheets.
-bool useDesktopOverlay(BuildContext context) {
+/// Whether secondary overlays should use bounded container presentations
+/// (centered dialog or side sheet) rather than full-width bottom sheets.
+///
+/// Determined purely by viewport width so touch tablets gain bounded dialogs
+/// and side sheets just like desktop windows.
+bool useWideOverlay(BuildContext context) =>
+    MediaQuery.sizeOf(context).width >= AppBreakpoints.medium;
+
+/// Whether secondary overlays should use pointer-anchored presentations
+/// (popovers) rather than centered modals or bottom sheets.
+bool usePointerOverlay(BuildContext context) {
   final modality =
       InputModalityScope.maybeOf(context) ??
       defaultInputModalityFor(Theme.of(context).platform);
-  return modality == InputModality.pointer &&
-      MediaQuery.sizeOf(context).width >= AppBreakpoints.medium;
+  return modality == InputModality.pointer && useWideOverlay(context);
 }
+
+/// Alias of [usePointerOverlay] preserved for callers checking pointer-driven
+/// desktop overlays.
+bool useDesktopOverlay(BuildContext context) => usePointerOverlay(context);
 
 Widget _clampingScroll(BuildContext context, Widget child) =>
     ScrollConfiguration(
@@ -77,8 +88,8 @@ Future<T?> showAppBottomSheet<T>({
 }
 
 /// Adaptive dialog: renders a centered bounded modal dialog when
-/// [useDesktopOverlay] holds, falling back to [showAppBottomSheet] on touch
-/// or narrow viewports.
+/// [useWideOverlay] holds, falling back to [showAppBottomSheet] on compact
+/// viewports.
 Future<T?> showAppAdaptiveDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -96,7 +107,7 @@ Future<T?> showAppAdaptiveDialog<T>({
   String? barrierLabel,
   bool useRootNavigator = false,
 }) {
-  if (!useDesktopOverlay(context)) {
+  if (!useWideOverlay(context)) {
     return showAppBottomSheet<T>(
       context: context,
       builder: builder,
@@ -116,35 +127,45 @@ Future<T?> showAppAdaptiveDialog<T>({
   return navigator.push(
     _AppDialogRoute<T>(
       context: context,
-      builder: (routeContext) => Center(
-        child: Padding(
-          padding: insetPadding,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxWidth,
-              maxHeight:
-                  MediaQuery.sizeOf(routeContext).height * maxHeightFactor,
-            ),
-            child: Material(
-              color: surfaceColor,
-              surfaceTintColor: Colors.transparent,
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: MediaQuery.removePadding(
-                context: routeContext,
-                removeTop: true,
-                removeBottom: true,
-                removeLeft: true,
-                removeRight: true,
-                child: _clampingScroll(routeContext, builder(routeContext)),
+      builder: (routeContext) {
+        final window = MediaQuery.sizeOf(routeContext);
+        final keyboardInset = MediaQuery.viewInsetsOf(routeContext).bottom;
+        final boundedMaxWidth = math.min(
+          maxWidth,
+          math.min(window.width * 0.72, 640.0),
+        );
+        return Padding(
+          padding: EdgeInsets.only(bottom: keyboardInset),
+          child: Center(
+            child: Padding(
+              padding: insetPadding,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: boundedMaxWidth,
+                  maxHeight: window.height * maxHeightFactor,
+                ),
+                child: Material(
+                  color: surfaceColor,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 6,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: FuncShape.dialog,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: MediaQuery.removePadding(
+                    context: routeContext,
+                    removeTop: true,
+                    removeBottom: true,
+                    removeLeft: true,
+                    removeRight: true,
+                    child: _clampingScroll(routeContext, builder(routeContext)),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
       themes: InheritedTheme.capture(from: context, to: navigator.context),
       barrierColor:
           DialogTheme.of(context).barrierColor ??
@@ -163,8 +184,9 @@ Future<T?> showAppAdaptiveDialog<T>({
 }
 
 /// Adaptive popover: anchors a bounded floating panel beside [position] or
-/// [anchorContext] (with screen-edge clamping) when [useDesktopOverlay] holds,
-/// falling back to [showAppBottomSheet] on touch or narrow viewports.
+/// [anchorContext] (with screen-edge clamping) when [usePointerOverlay] holds,
+/// falling back to a bounded [showAppAdaptiveDialog] on wide touch viewports
+/// and to [showAppBottomSheet] on compact screens.
 Future<T?> showAppAdaptivePopover<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -181,7 +203,21 @@ Future<T?> showAppAdaptivePopover<T>({
   String? barrierLabel,
   bool useRootNavigator = false,
 }) {
-  if (!useDesktopOverlay(context)) {
+  if (!usePointerOverlay(context)) {
+    if (useWideOverlay(context)) {
+      return showAppAdaptiveDialog<T>(
+        context: context,
+        builder: builder,
+        maxWidth: math.max(maxWidth, 380),
+        backgroundColor: backgroundColor,
+        isScrollControlled: isScrollControlled,
+        useSafeArea: useSafeArea,
+        showDragHandle: showDragHandle,
+        barrierDismissible: barrierDismissible,
+        barrierLabel: barrierLabel,
+        useRootNavigator: useRootNavigator,
+      );
+    }
     return showAppBottomSheet<T>(
       context: context,
       builder: builder,
@@ -235,9 +271,8 @@ Future<T?> showAppAdaptivePopover<T>({
   );
 }
 
-/// Adaptive side sheet: slides in from the trailing edge when
-/// [useDesktopOverlay] holds, falling back to [showAppBottomSheet] on touch
-/// or narrow viewports.
+/// Adaptive side sheet: slides in from the trailing edge when [useWideOverlay]
+/// holds, falling back to [showAppBottomSheet] on compact viewports.
 Future<T?> showAppAdaptiveSideSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -250,7 +285,7 @@ Future<T?> showAppAdaptiveSideSheet<T>({
   String? barrierLabel,
   bool useRootNavigator = false,
 }) {
-  if (!useDesktopOverlay(context)) {
+  if (!useWideOverlay(context)) {
     return showAppBottomSheet<T>(
       context: context,
       builder: builder,
@@ -278,7 +313,7 @@ Future<T?> showAppAdaptiveSideSheet<T>({
         final rtl = Directionality.of(routeContext) == TextDirection.rtl;
         final sheetWidth = math.min(
           width,
-          MediaQuery.sizeOf(routeContext).width * 0.85,
+          math.min(MediaQuery.sizeOf(routeContext).width * 0.72, 640.0),
         );
         return Align(
           alignment: AlignmentDirectional.centerEnd,

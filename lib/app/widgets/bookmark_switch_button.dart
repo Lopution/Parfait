@@ -360,7 +360,7 @@ Future<bool> showBookmarkEditSheet(
   final added = await showAppAdaptiveDialog<bool>(
     context: context,
     maxWidth: 480,
-    backgroundColor: useDesktopOverlay(context) ? null : FuncTokens.transparent,
+    backgroundColor: useWideOverlay(context) ? null : FuncTokens.transparent,
     isScrollControlled: true,
     builder: (sheetContext) => _BookmarkEditSheet(
       bookmarkKey: key,
@@ -583,7 +583,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
     // confirm row stay reachable instead of sliding under the keyboard.
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final availableHeight = MediaQuery.heightOf(context) - keyboardInset;
-    final desktop = useDesktopOverlay(context);
+    final desktop = useWideOverlay(context);
     Widget sheet = Align(
       // heightFactor shrink-wraps vertically: a bare Center would expand to
       // the sheet slot's max height. On expanded surfaces the form column

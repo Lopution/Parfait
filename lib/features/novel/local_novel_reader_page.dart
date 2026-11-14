@@ -109,7 +109,7 @@ class _LocalNovelInfoSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final desktop = useDesktopOverlay(context);
+    final desktop = useWideOverlay(context);
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
