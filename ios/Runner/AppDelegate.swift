@@ -128,19 +128,15 @@ final class IosIntentBridge:
   FlutterSceneLifeCycleDelegate,
   FlutterStreamHandler
 {
-  static let shared = IosIntentBridge()
   private static let supportedSchemes: Set<String> = ["parfait", "pixiv"]
 
   private var initialUri: String?
   private var eventSink: FlutterEventSink?
-  private var registered = false
 
   static func register(with registrar: FlutterPluginRegistrar) {
-    let bridge = IosIntentBridge.shared
+    let bridge = IosIntentBridge()
     registrar.addSceneDelegate(bridge)
     registrar.addApplicationDelegate(bridge)
-    guard !bridge.registered else { return }
-    bridge.registered = true
 
     let methodChannel = FlutterMethodChannel(
       name: "parfait/android_intents",
