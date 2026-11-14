@@ -164,9 +164,21 @@ Page<dynamic> _page(
   // Reduced-motion collapses the transition without dropping the state it
   // communicates: the route still changes on the same frame. The animation
   // speed scales each transition's own duration.
+  final isDesktop = switch (Theme.of(context).platform) {
+    TargetPlatform.windows ||
+    TargetPlatform.macOS ||
+    TargetPlatform.linux => true,
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.fuchsia => false,
+  };
   final duration = MotionTokens.resolve(
     context,
-    sharedElement ? MotionTokens.sharedElement : MotionTokens.pageTransition,
+    sharedElement
+        ? MotionTokens.sharedElement
+        : isDesktop
+        ? MotionTokens.desktopPageTransition
+        : MotionTokens.pageTransition,
   );
   return FuncPage<dynamic>(
     key: state.pageKey,

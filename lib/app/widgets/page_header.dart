@@ -8,6 +8,7 @@ import '../icons/app_icons.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/form_factor.dart';
 import '../navigation/home_shell_metrics.dart';
+import '../navigation/keyboard_back.dart';
 import '../navigation/routes.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'func_bottom_nav.dart';
@@ -89,10 +90,13 @@ class HeaderSearch extends StatelessWidget {
                     onTap: open,
                   ),
                 )
-              : IconButton(
-                  tooltip: l10n.searchTitle,
-                  icon: const Icon(AppIcons.search),
-                  onPressed: open,
+              : SearchShortcutAnchor(
+                  onTrigger: open,
+                  child: IconButton(
+                    tooltip: l10n.searchTitle,
+                    icon: const Icon(AppIcons.search),
+                    onPressed: open,
+                  ),
                 );
         },
       ),

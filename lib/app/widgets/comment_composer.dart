@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+
+import '../layout/input_modality.dart';
 
 import '../motion/motion_tokens.dart';
 import '../motion/state_fade.dart';
@@ -139,8 +142,35 @@ class CommentComposerState extends State<CommentComposer>
   static const _fallbackPanelMaxShare = 0.5;
 
   late final _controller = TextEditingController(text: widget.initialText);
-  final _focusNode = FocusNode();
+  late final _focusNode = FocusNode(onKeyEvent: _handleComposerKeyEvent);
   CommentComposerInputState _inputState = CommentComposerInputState.none;
+
+  KeyEventResult _handleComposerKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key != LogicalKeyboardKey.enter &&
+        key != LogicalKeyboardKey.numpadEnter) {
+      return KeyEventResult.ignored;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isAltPressed ||
+        (!keyboard.isControlPressed && !keyboard.isMetaPressed)) {
+      return KeyEventResult.ignored;
+    }
+    final pointerOrDesktop =
+        InputModalityScope.maybeOf(context) == InputModality.pointer ||
+        switch (Theme.of(context).platform) {
+          TargetPlatform.windows ||
+          TargetPlatform.macOS ||
+          TargetPlatform.linux => true,
+          _ => false,
+        };
+    if (!pointerOrDesktop || _disabled || _controller.text.trim().isEmpty) {
+      return KeyEventResult.ignored;
+    }
+    unawaited(_sendText());
+    return KeyEventResult.handled;
+  }
 
   /// The keyboard's height as last seen in this composer: the tallest
   /// inset of its last stretch of focus. Null before it has shown. Used
