@@ -152,3 +152,70 @@ double _inside(double value, double start, double end) {
   if (end < start) return start;
   return value.clamp(start, end);
 }
+
+/// Resolved window restoration target supporting positionless Wayland runs.
+class RestoredWindowGeometry {
+  const RestoredWindowGeometry({
+    required this.size,
+    this.position,
+    this.maximized = false,
+  });
+
+  final Size size;
+  final Offset? position;
+  final bool maximized;
+}
+
+/// Fits [desired] dimensions into [workArea] without moving position.
+Size fitSizeToWorkArea(Size desired, Rect workArea) {
+  final maxWidth = math.max(minimumWindowSize.width, workArea.width * .9);
+  final maxHeight = math.max(minimumWindowSize.height, workArea.height * .9);
+  final width = desired.width.isFinite
+      ? desired.width.clamp(minimumWindowSize.width, maxWidth)
+      : defaultWindowSize.width.clamp(minimumWindowSize.width, maxWidth);
+  final height = desired.height.isFinite
+      ? desired.height.clamp(minimumWindowSize.height, maxHeight)
+      : defaultWindowSize.height.clamp(minimumWindowSize.height, maxHeight);
+  return Size(width, height);
+}
+
+/// Resolves startup window bounds with Wayland skip-position & multi-monitor
+/// fallback clamping.
+RestoredWindowGeometry resolveWindowGeometry({
+  required double? width,
+  required double? height,
+  required double? x,
+  required double? y,
+  required bool maximized,
+  required Rect primaryArea,
+  required List<Rect> workAreas,
+  required bool isWayland,
+}) {
+  if (width == null || height == null || !width.isFinite || !height.isFinite) {
+    final fallback = defaultWindowGeometry(primaryArea);
+    return RestoredWindowGeometry(
+      size: fallback.size,
+      position: isWayland ? null : fallback.position,
+      maximized: maximized,
+    );
+  }
+  if (isWayland || x == null || y == null || !x.isFinite || !y.isFinite) {
+    return RestoredWindowGeometry(
+      size: fitSizeToWorkArea(Size(width, height), primaryArea),
+      position: null,
+      maximized: maximized,
+    );
+  }
+  final saved = WindowGeometry(
+    size: Size(width, height),
+    position: Offset(x, y),
+    maximized: maximized,
+  );
+  final targetArea = workAreaFor(saved, workAreas) ?? primaryArea;
+  final fitted = fitToWorkArea(saved, targetArea);
+  return RestoredWindowGeometry(
+    size: fitted.size,
+    position: fitted.position,
+    maximized: fitted.maximized,
+  );
+}

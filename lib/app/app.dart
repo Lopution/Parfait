@@ -33,6 +33,7 @@ import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'theme/system_colors.dart';
+import 'window/desktop_title_bar.dart';
 import 'touch_exploration_scope.dart';
 import 'widgets/prompt_host.dart';
 import 'widgets/settings_load_error.dart';
@@ -296,7 +297,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
 /// system bars, motion settings, the material_ui bridge, touch exploration, prompts and
 /// external intents. The UX review harness renders its routes inside the
 /// same chrome, so its shots show what the app shows.
-class AppChrome extends ConsumerWidget {
+class AppChrome extends ConsumerStatefulWidget {
   const AppChrome({
     super.key,
     required this.settings,
@@ -313,32 +314,54 @@ class AppChrome extends ConsumerWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return DesktopWindowBinding(
-      child: FormFactorScope(
-        choice: settings.interfaceForm,
-        child: FuncSystemBars(
-          background: Theme.of(context).brightness,
-          child: MotionScope(
-            reduce: settings.reduceMotion,
-            speed: settings.animationSpeed,
-            pressFeedback: settings.pressFeedback,
-            // octo_image, flutter_staggered_grid_view and the WebView plugins
-            // still build package:flutter/material widgets; the bridge hands
-            // them this theme until they move to material_ui.
-            // ignore: deprecated_member_use
-            child: MaterialUiCompatibilityBridge(
-              child: TouchExplorationScope(
-                // Above the bridge so intent failures can prompt from its own
-                // context; below the motion and touch-exploration scopes it
-                // reads.
-                child: PromptHost(
-                  key: promptHostKey,
-                  accessibility: ref.watch(appAccessibilityProvider),
-                  child: ExternalIntentBridge(
-                    router: router,
-                    intentSource: intentSource,
-                    child: KeyboardBack(router: router, child: child),
+  ConsumerState<AppChrome> createState() => _AppChromeState();
+}
+
+class _AppChromeState extends ConsumerState<AppChrome> {
+  final DesktopSystemBarsController _systemBars = DesktopSystemBarsController();
+
+  @override
+  void dispose() {
+    _systemBars.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DesktopSystemBarsScope(
+      controller: _systemBars,
+      child: DesktopWindowBinding(
+        onOpenDownloads: () => openDownloadsFromRouter(widget.router),
+        child: FormFactorScope(
+          choice: widget.settings.interfaceForm,
+          child: FuncSystemBars(
+            background: Theme.of(context).brightness,
+            child: MotionScope(
+              reduce: widget.settings.reduceMotion,
+              speed: widget.settings.animationSpeed,
+              pressFeedback: widget.settings.pressFeedback,
+              // octo_image, flutter_staggered_grid_view and the WebView plugins
+              // still build package:flutter/material widgets; the bridge hands
+              // them this theme until they move to material_ui.
+              // ignore: deprecated_member_use
+              child: MaterialUiCompatibilityBridge(
+                child: TouchExplorationScope(
+                  child: DesktopWindowFrame(
+                    // Above the bridge so intent failures can prompt from its own
+                    // context; below the motion, touch-exploration, and desktop
+                    // chrome scopes it reads.
+                    child: PromptHost(
+                      key: widget.promptHostKey,
+                      accessibility: ref.watch(appAccessibilityProvider),
+                      child: ExternalIntentBridge(
+                        router: widget.router,
+                        intentSource: widget.intentSource,
+                        child: KeyboardBack(
+                          router: widget.router,
+                          child: widget.child,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

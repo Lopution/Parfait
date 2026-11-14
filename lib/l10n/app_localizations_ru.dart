@@ -3267,4 +3267,32 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get premiumBadge => 'Premium';
+
+  @override
+  String get windowMinimize => 'Свернуть';
+
+  @override
+  String get windowMaximize => 'Развернуть';
+
+  @override
+  String get windowRestore => 'Восстановить';
+
+  @override
+  String get windowClose => 'Закрыть';
+
+  @override
+  String get trayShowWindow => 'Показать окно';
+
+  @override
+  String get trayDownloads => 'Загрузки';
+
+  @override
+  String get trayQuit => 'Выйти';
+
+  @override
+  String get closeToTray => 'Сворачивать в трей при закрытии';
+
+  @override
+  String get closeToTrayHint =>
+      'Скрывать окно в системный трей вместо выхода при закрытии';
 }

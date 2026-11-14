@@ -309,6 +309,7 @@ class AppSettings {
     this.windowX,
     this.windowY,
     this.windowMaximized = false,
+    this.closeToTray = false,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -477,6 +478,10 @@ class AppSettings {
   /// Whether the window was maximized when it last closed; the size and
   /// position above stay the pre-maximize place.
   final bool windowMaximized;
+
+  /// Whether closing the desktop window minimizes it to the system tray instead
+  /// of exiting the application.
+  final bool closeToTray;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -652,6 +657,7 @@ class AppSettings {
       windowX: _nullableDouble(json, 'windowX', base.windowX),
       windowY: _nullableDouble(json, 'windowY', base.windowY),
       windowMaximized: _bool(json['windowMaximized'], base.windowMaximized),
+      closeToTray: _bool(json['closeToTray'], base.closeToTray),
     );
   }
 
@@ -709,6 +715,7 @@ class AppSettings {
       'windowX': windowX,
       'windowY': windowY,
       'windowMaximized': windowMaximized,
+      'closeToTray': closeToTray,
     };
   }
 
@@ -862,6 +869,7 @@ class AppSettings {
     Object? windowX = _unset,
     Object? windowY = _unset,
     bool? windowMaximized,
+    bool? closeToTray,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -950,6 +958,7 @@ class AppSettings {
           ? this.windowY
           : (windowY as num?)?.toDouble(),
       windowMaximized: windowMaximized ?? this.windowMaximized,
+      closeToTray: closeToTray ?? this.closeToTray,
     );
   }
 

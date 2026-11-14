@@ -2,6 +2,7 @@
 
 #include <dwmapi.h>
 #include <flutter_windows.h>
+#include <shellapi.h>
 
 #include "resource.h"
 
@@ -14,6 +15,14 @@ namespace {
 /// See: https://docs.microsoft.com/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#endif
+
+#ifndef DWMWCP_ROUND
+#define DWMWCP_ROUND 2
 #endif
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
@@ -146,11 +155,30 @@ bool Win32Window::Create(const std::wstring& title,
 
   UpdateTheme(window);
 
+  // Preserve Windows 11 rounded corners and subtle DWM frame shadow while
+  // stripping the thick standard title bar via WM_NCCALCSIZE.
+  DWMNCRENDERINGPOLICY nc_policy = DWMNCRP_ENABLED;
+  ::DwmSetWindowAttribute(window, DWMWA_NCRENDERING_POLICY, &nc_policy,
+                          sizeof(nc_policy));
+  int corner_preference = DWMWCP_ROUND;
+  ::DwmSetWindowAttribute(window, DWMWA_WINDOW_CORNER_PREFERENCE,
+                          &corner_preference, sizeof(corner_preference));
+  MARGINS shadow_margins = {0, 0, 0, 1};
+  ::DwmExtendFrameIntoClientArea(window, &shadow_margins);
+
   return OnCreate();
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  if (window_handle_ == nullptr) {
+    return false;
+  }
+  if (::IsWindowVisible(window_handle_)) {
+    return true;
+  }
+  const int cmd =
+      ::IsZoomed(window_handle_) ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+  return ::ShowWindow(window_handle_, cmd);
 }
 
 // static
@@ -179,6 +207,71 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_NCCALCSIZE: {
+      if (wparam == TRUE) {
+        auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
+        const LONG_PTR style = ::GetWindowLongPtrW(hwnd, GWL_STYLE);
+        const bool has_thick_frame = (style & WS_THICKFRAME) != 0;
+        if (has_thick_frame && !is_fullscreen_ && ::IsZoomed(hwnd)) {
+          HMONITOR monitor =
+              ::MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+          MONITORINFO mi{};
+          mi.cbSize = sizeof(mi);
+          if (::GetMonitorInfoW(monitor, &mi)) {
+            RECT work = mi.rcWork;
+            APPBARDATA state_data{};
+            state_data.cbSize = sizeof(state_data);
+            if ((::SHAppBarMessage(ABM_GETSTATE, &state_data) & ABS_AUTOHIDE) !=
+                    0 &&
+                ::EqualRect(&mi.rcWork, &mi.rcMonitor)) {
+              APPBARDATA pos_data{};
+              pos_data.cbSize = sizeof(pos_data);
+              if (::SHAppBarMessage(ABM_GETTASKBARPOS, &pos_data)) {
+                switch (pos_data.uEdge) {
+                  case ABE_LEFT:
+                    work.left += 1;
+                    break;
+                  case ABE_TOP:
+                    work.top += 1;
+                    break;
+                  case ABE_RIGHT:
+                    work.right -= 1;
+                    break;
+                  case ABE_BOTTOM:
+                  default:
+                    work.bottom -= 1;
+                    break;
+                }
+              } else {
+                work.bottom -= 1;
+              }
+            }
+            params->rgrc[0] = work;
+          } else {
+            const UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+            const int frame_x =
+                ::GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) +
+                ::GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+            const int frame_y =
+                ::GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
+                ::GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+            params->rgrc[0].left += frame_x;
+            params->rgrc[0].top += frame_y;
+            params->rgrc[0].right -= frame_x;
+            params->rgrc[0].bottom -= frame_y;
+          }
+        }
+        return 0;
+      }
+      break;
+    }
+
+    case WM_NCACTIVATE:
+      if (::IsIconic(hwnd)) {
+        break;
+      }
+      return TRUE;
+
     case WM_DESTROY:
       window_handle_ = nullptr;
       Destroy();
@@ -270,7 +363,7 @@ RECT Win32Window::GetClientArea() {
   return frame;
 }
 
-HWND Win32Window::GetHandle() {
+HWND Win32Window::GetHandle() const {
   return window_handle_;
 }
 

@@ -1408,5 +1408,14 @@
     }
   },
   "meOpenProfile": "Open your profile",
-  "premiumBadge": "Premium"
+  "premiumBadge": "Premium",
+  "windowMinimize": "Minimize",
+  "windowMaximize": "Maximize",
+  "windowRestore": "Restore",
+  "windowClose": "Close",
+  "trayShowWindow": "Show Window",
+  "trayDownloads": "Downloads",
+  "trayQuit": "Quit",
+  "closeToTray": "Minimize to tray when closing",
+  "closeToTrayHint": "Hide to the system tray instead of quitting when closing the window"
 }

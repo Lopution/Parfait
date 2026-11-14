@@ -3272,4 +3272,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get premiumBadge => 'Premium';
+
+  @override
+  String get windowMinimize => 'Minimize';
+
+  @override
+  String get windowMaximize => 'Maximize';
+
+  @override
+  String get windowRestore => 'Restore';
+
+  @override
+  String get windowClose => 'Close';
+
+  @override
+  String get trayShowWindow => 'Show Window';
+
+  @override
+  String get trayDownloads => 'Downloads';
+
+  @override
+  String get trayQuit => 'Quit';
+
+  @override
+  String get closeToTray => 'Minimize to tray when closing';
+
+  @override
+  String get closeToTrayHint =>
+      'Hide to the system tray instead of quitting when closing the window';
 }

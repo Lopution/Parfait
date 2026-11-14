@@ -9,6 +9,7 @@ import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
 import '../../../app/widgets/ranking_category_sheet.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
+import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_menu_tile.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
@@ -52,10 +53,14 @@ class NavigationSettingsPage extends ConsumerWidget {
           ),
           children: [
             // Desktop only: phones and Android tablets get their own shell.
-            if (Setting.interfaceForm.available)
+            if (Setting.interfaceForm.available ||
+                Setting.closeToTray.available)
               SettingsGroup(
                 children: [
-                  _InterfaceFormTile(form: state.value!.interfaceForm),
+                  if (Setting.interfaceForm.available)
+                    _InterfaceFormTile(form: state.value!.interfaceForm),
+                  if (Setting.closeToTray.available)
+                    _CloseToTrayTile(closeToTray: state.value!.closeToTray),
                 ],
               ),
             SettingsGroup(
@@ -132,6 +137,25 @@ class _InterfaceFormTile extends ConsumerWidget {
           context,
           () => ref.read(settingsProvider.notifier).setInterfaceForm(value),
         ),
+      ),
+    );
+  }
+}
+
+class _CloseToTrayTile extends ConsumerWidget {
+  const _CloseToTrayTile({required this.closeToTray});
+
+  final bool closeToTray;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SettingsControl(
+      setting: Setting.closeToTray,
+      subtitle: Text(context.l10n.closeToTrayHint),
+      value: closeToTray,
+      onChanged: (value) => persistSettings(
+        context,
+        () => ref.read(settingsProvider.notifier).setCloseToTray(value),
       ),
     );
   }

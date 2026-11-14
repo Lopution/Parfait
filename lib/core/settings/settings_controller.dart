@@ -230,21 +230,24 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setRailExpanded(bool expanded) =>
       _update((settings) => settings.copyWith(railExpanded: expanded));
 
+  Future<void> setCloseToTray(bool enabled) =>
+      _update((settings) => settings.copyWith(closeToTray: enabled));
+
   /// The desktop window's place, saved when it moves, resizes or maximizes
   /// ends (debounced by the window binding). Desktop only; a no-op call
   /// elsewhere still writes the same values harmlessly.
   Future<void> setWindowGeometry({
-    required double width,
-    required double height,
-    required double x,
-    required double y,
+    double? width,
+    double? height,
+    double? x,
+    double? y,
     required bool maximized,
   }) => _update(
     (settings) => settings.copyWith(
-      windowWidth: width,
-      windowHeight: height,
-      windowX: x,
-      windowY: y,
+      windowWidth: width ?? settings.windowWidth,
+      windowHeight: height ?? settings.windowHeight,
+      windowX: x ?? settings.windowX,
+      windowY: y ?? settings.windowY,
       windowMaximized: maximized,
     ),
   );

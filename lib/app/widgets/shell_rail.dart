@@ -6,6 +6,7 @@ import '../../l10n/context.dart';
 import '../layout/form_factor.dart';
 import '../motion/motion_tokens.dart';
 import '../theme/func_semantic_tokens.dart';
+import '../window/desktop_title_bar.dart';
 import 'fit_label.dart';
 import 'func_bottom_nav.dart';
 
@@ -94,6 +95,9 @@ class ShellRail extends StatelessWidget {
         child: SafeArea(
           left: !rtl,
           right: rtl,
+          minimum:
+              DesktopChromeMetrics.maybeOf(context)?.topSafePadding ??
+              EdgeInsets.zero,
           // The labels stop growing past the bottom bar's 1.3 ceiling.
           child: MediaQuery.withClampedTextScaling(
             maxScaleFactor: 1.3,

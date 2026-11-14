@@ -688,6 +688,48 @@ void main() {
     ]);
   });
 
+  test(
+    'closeToTray defaults false, round-trips, and keeps Wayland xy',
+    () async {
+      _expectStored<bool>(
+        'closeToTray',
+        read: (s) => s.closeToTray,
+        write: (s, v) => s.copyWith(closeToTray: v),
+        initial: false,
+        stored: const [(false, false), (true, true)],
+        damaged: 'yes',
+      );
+
+      installPreferencesForTest(memoryPreferences());
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      final controller = container.read(settingsProvider.notifier);
+
+      await controller.setCloseToTray(true);
+      await controller.setWindowGeometry(
+        width: 1200,
+        height: 820,
+        x: 150,
+        y: 90,
+        maximized: false,
+      );
+      await controller.setWindowGeometry(
+        width: 1320,
+        height: 860,
+        maximized: true,
+      );
+
+      final updated = container.read(settingsProvider).requireValue;
+      expect(updated.closeToTray, isTrue);
+      expect(updated.windowWidth, 1320);
+      expect(updated.windowHeight, 860);
+      expect(updated.windowX, 150);
+      expect(updated.windowY, 90);
+      expect(updated.windowMaximized, isTrue);
+    },
+  );
+
   test('plain settings JSON never contains translation credentials', () {
     final json = baseTestSettings().toJson();
     expect(json.keys, isNot(contains('translateAuthData')));

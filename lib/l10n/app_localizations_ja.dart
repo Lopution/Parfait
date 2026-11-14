@@ -3189,4 +3189,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get premiumBadge => 'プレミアム';
+
+  @override
+  String get windowMinimize => '最小化';
+
+  @override
+  String get windowMaximize => '最大化';
+
+  @override
+  String get windowRestore => '元に戻す';
+
+  @override
+  String get windowClose => '閉じる';
+
+  @override
+  String get trayShowWindow => 'ウィンドウを表示';
+
+  @override
+  String get trayDownloads => 'ダウンロード';
+
+  @override
+  String get trayQuit => '終了';
+
+  @override
+  String get closeToTray => '閉じるボタンでトレイに最小化';
+
+  @override
+  String get closeToTrayHint => 'ウィンドウを閉じてもシステムトレイに常駐します';
 }

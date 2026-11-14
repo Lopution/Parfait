@@ -114,4 +114,41 @@ void main() {
     );
     expect(workAreaFor(saved, [workArea]), isNull);
   });
+
+  test(
+    'resolveWindowGeometry skips position on Wayland while preserving size',
+    () {
+      final restored = resolveWindowGeometry(
+        width: 1100,
+        height: 750,
+        x: 120,
+        y: 80,
+        maximized: true,
+        primaryArea: workArea,
+        workAreas: const [workArea],
+        isWayland: true,
+      );
+      expect(restored.size, const Size(1100, 750));
+      expect(restored.maximized, isTrue);
+      expect(restored.position, isNull);
+    },
+  );
+
+  test(
+    'resolveWindowGeometry clamps disconnected multi-monitor coordinates onto primary',
+    () {
+      final restored = resolveWindowGeometry(
+        width: 1100,
+        height: 750,
+        x: -3500,
+        y: 120,
+        maximized: false,
+        primaryArea: workArea,
+        workAreas: const [workArea],
+        isWayland: false,
+      );
+      expect(restored.size, const Size(1100, 750));
+      expect(restored.position, const Offset(170, 75));
+    },
+  );
 }

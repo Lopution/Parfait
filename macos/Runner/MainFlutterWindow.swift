@@ -23,6 +23,19 @@ class MainFlutterWindow: NSWindow {
     )
 
     super.awakeFromNib()
+
+    self.styleMask.insert(.fullSizeContentView)
+    self.titlebarAppearsTransparent = true
+    self.titleVisibility = .hidden
+
+    MacosDesktopWindowBridge.shared.register(
+      window: self,
+      messenger: flutterViewController.engine.binaryMessenger
+    )
+    MacosTrayBridge.shared.register(
+      window: self,
+      messenger: flutterViewController.engine.binaryMessenger
+    )
   }
 }
 
@@ -209,6 +222,14 @@ final class MacosIntentBridge:
     let uri = url.absoluteString
     if let sink = eventSink {
       DispatchQueue.main.async {
+        if let window = (NSApp.delegate as? FlutterAppDelegate)?.mainFlutterWindow
+          ?? NSApp.windows.first(where: { $0 is MainFlutterWindow }) {
+          if window.isMiniaturized {
+            window.deminiaturize(nil)
+          }
+          window.makeKeyAndOrderFront(nil)
+          NSApp.activate(ignoringOtherApps: true)
+        }
         sink(Self.viewPayload(for: uri))
       }
     } else {
@@ -236,5 +257,279 @@ final class MacosIntentBridge:
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     self.eventSink = nil
     return nil
+  }
+}
+
+final class MacosDesktopWindowBridge: NSObject {
+  static let shared = MacosDesktopWindowBridge()
+
+  private weak var window: NSWindow?
+  private var channel: FlutterMethodChannel?
+  private var observers: [NSObjectProtocol] = []
+
+  func register(window: NSWindow, messenger: FlutterBinaryMessenger) {
+    removeObservers()
+    self.window = window
+
+    let channel = FlutterMethodChannel(
+      name: "parfait/desktop_window",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      self?.handleMethodCall(call, result: result)
+    }
+    self.channel = channel
+
+    let center = NotificationCenter.default
+    let names: [Notification.Name] = [
+      NSWindow.didResizeNotification,
+      NSWindow.didEnterFullScreenNotification,
+      NSWindow.didExitFullScreenNotification,
+      NSWindow.didBecomeKeyNotification,
+      NSWindow.didResignKeyNotification,
+    ]
+    observers = names.map { name in
+      center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+        self?.emitMetrics()
+      }
+    }
+  }
+
+  private func removeObservers() {
+    let center = NotificationCenter.default
+    for observer in observers {
+      center.removeObserver(observer)
+    }
+    observers.removeAll()
+  }
+
+  private func buildMetrics(for window: NSWindow) -> [String: Any] {
+    let isFullScreen = window.styleMask.contains(.fullScreen)
+    var trafficLightWidth = 0.0
+    var trafficLightHeight = 0.0
+
+    if !isFullScreen {
+      let titleBarDelta = max(0.0, Double(window.frame.height - window.contentLayoutRect.height))
+      trafficLightHeight = max(32.0, titleBarDelta)
+      if let zoomButton = window.standardWindowButton(.zoomButton),
+         let contentView = window.contentView {
+        let rectInContent = contentView.convert(zoomButton.bounds, from: zoomButton)
+        if rectInContent.maxX > 0 && rectInContent.minX < contentView.bounds.width / 2 {
+          trafficLightWidth = max(68.0, Double(rectInContent.maxX) + 12.0)
+        } else {
+          trafficLightWidth = 78.0
+        }
+      } else {
+        trafficLightWidth = 78.0
+      }
+    }
+
+    return [
+      "isWayland": false,
+      "usesSystemTitleBar": false,
+      "isFullScreen": isFullScreen,
+      "isMaximized": window.isZoomed,
+      "isActive": window.isKeyWindow,
+      "trafficLightWidth": trafficLightWidth,
+      "trafficLightHeight": trafficLightHeight,
+      "hoveredButton": "",
+      "pressedButton": "",
+    ]
+  }
+
+  private func emitMetrics() {
+    guard let window, let channel else { return }
+    channel.invokeMethod("metricsChanged", arguments: buildMetrics(for: window))
+  }
+
+  private func handleMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let window else {
+      result(nil)
+      return
+    }
+    switch call.method {
+    case "getMetrics":
+      result(buildMetrics(for: window))
+    case "setTitleBarMetrics":
+      result(nil)
+    case "minimize":
+      window.miniaturize(nil)
+      result(nil)
+    case "toggleMaximize":
+      window.zoom(nil)
+      result(nil)
+    case "close":
+      window.performClose(nil)
+      result(nil)
+    case "toggleFullScreen":
+      window.toggleFullScreen(nil)
+      result(nil)
+    case "startDragging":
+      if let event = NSApp.currentEvent {
+        window.performDrag(with: event)
+      }
+      result(nil)
+    case "titleBarDoubleClick":
+      let action = UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick")
+      switch action {
+      case "Minimize":
+        window.miniaturize(nil)
+      case "None":
+        break
+      default:
+        window.zoom(nil)
+      }
+      result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+}
+
+final class MacosTrayBridge: NSObject {
+  static let shared = MacosTrayBridge()
+
+  private weak var window: NSWindow?
+  private var channel: FlutterMethodChannel?
+  private var statusItem: NSStatusItem?
+  private var showWindowItem: NSMenuItem?
+  private var downloadsItem: NSMenuItem?
+  private var quitItem: NSMenuItem?
+
+  private var tooltip = "Parfait"
+  private var showWindowTitle = "Show Window"
+  private var downloadsTitle = "Downloads"
+  private var quitTitle = "Quit"
+
+  func register(window: NSWindow, messenger: FlutterBinaryMessenger) {
+    self.window = window
+    let channel = FlutterMethodChannel(
+      name: "parfait/tray",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      self?.handleMethodCall(call, result: result)
+    }
+    self.channel = channel
+  }
+
+  private func handleMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "isSupported":
+      result(true)
+    case "initialize":
+      updateStoredLabels(from: call.arguments)
+      ensureStatusItem()
+      result(nil)
+    case "updateLabels":
+      updateStoredLabels(from: call.arguments)
+      applyLabels()
+      result(nil)
+    case "dispose":
+      removeStatusItem()
+      result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func updateStoredLabels(from arguments: Any?) {
+    guard let map = arguments as? [String: Any] else { return }
+    if let value = map["tooltip"] as? String, !value.isEmpty {
+      tooltip = value
+    }
+    if let value = map["showWindow"] as? String, !value.isEmpty {
+      showWindowTitle = value
+    }
+    if let value = map["downloads"] as? String, !value.isEmpty {
+      downloadsTitle = value
+    }
+    if let value = map["quit"] as? String, !value.isEmpty {
+      quitTitle = value
+    }
+  }
+
+  private func ensureStatusItem() {
+    if statusItem == nil {
+      let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+      if let appIcon = NSApp.applicationIconImage?.copy() as? NSImage {
+        appIcon.size = NSSize(width: 18, height: 18)
+        item.button?.image = appIcon
+      }
+
+      let menu = NSMenu()
+      let show = NSMenuItem(
+        title: showWindowTitle,
+        action: #selector(handleShowWindow),
+        keyEquivalent: ""
+      )
+      show.target = self
+      menu.addItem(show)
+
+      let downloads = NSMenuItem(
+        title: downloadsTitle,
+        action: #selector(handleOpenDownloads),
+        keyEquivalent: ""
+      )
+      downloads.target = self
+      menu.addItem(downloads)
+
+      menu.addItem(NSMenuItem.separator())
+
+      let quit = NSMenuItem(
+        title: quitTitle,
+        action: #selector(handleQuit),
+        keyEquivalent: ""
+      )
+      quit.target = self
+      menu.addItem(quit)
+
+      item.menu = menu
+      statusItem = item
+      showWindowItem = show
+      downloadsItem = downloads
+      quitItem = quit
+    }
+    applyLabels()
+  }
+
+  private func applyLabels() {
+    statusItem?.button?.toolTip = tooltip
+    showWindowItem?.title = showWindowTitle
+    downloadsItem?.title = downloadsTitle
+    quitItem?.title = quitTitle
+  }
+
+  private func removeStatusItem() {
+    if let item = statusItem {
+      NSStatusBar.system.removeStatusItem(item)
+      statusItem = nil
+      showWindowItem = nil
+      downloadsItem = nil
+      quitItem = nil
+    }
+  }
+
+  private func restoreWindow() {
+    guard let window else { return }
+    if window.isMiniaturized {
+      window.deminiaturize(nil)
+    }
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+  }
+
+  @objc private func handleShowWindow() {
+    restoreWindow()
+    channel?.invokeMethod("onTrayAction", arguments: "showWindow")
+  }
+
+  @objc private func handleOpenDownloads() {
+    restoreWindow()
+    channel?.invokeMethod("onTrayAction", arguments: "openDownloads")
+  }
+
+  @objc private func handleQuit() {
+    channel?.invokeMethod("onTrayAction", arguments: "quit")
   }
 }

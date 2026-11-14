@@ -3162,4 +3162,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get premiumBadge => 'Premium';
+
+  @override
+  String get windowMinimize => '最小化';
+
+  @override
+  String get windowMaximize => '最大化';
+
+  @override
+  String get windowRestore => '还原';
+
+  @override
+  String get windowClose => '关闭窗口';
+
+  @override
+  String get trayShowWindow => '显示主窗口';
+
+  @override
+  String get trayDownloads => '下载任务';
+
+  @override
+  String get trayQuit => '退出应用';
+
+  @override
+  String get closeToTray => '关闭窗口时最小化到托盘';
+
+  @override
+  String get closeToTrayHint => '隐藏主窗口并在系统托盘中保持运行';
 }

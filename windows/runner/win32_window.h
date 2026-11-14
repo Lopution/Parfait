@@ -47,7 +47,7 @@ class Win32Window {
 
   // Returns the backing Window handle to enable clients to set icon and other
   // window properties. Returns nullptr if the window has been destroyed.
-  HWND GetHandle();
+  HWND GetHandle() const;
 
   // If true, closing this window will quit the application.
   void SetQuitOnClose(bool quit_on_close);
@@ -71,6 +71,14 @@ class Win32Window {
   // Called when Destroy is called.
   virtual void OnDestroy();
 
+  // Sets whether the window is currently in native borderless fullscreen mode.
+  void SetFullscreenState(bool fullscreen) noexcept {
+    is_fullscreen_ = fullscreen;
+  }
+
+  // Returns whether native borderless fullscreen mode is currently active.
+  bool IsFullscreenState() const noexcept { return is_fullscreen_; }
+
  private:
   friend class WindowClassRegistrar;
 
@@ -91,6 +99,7 @@ class Win32Window {
   static void UpdateTheme(HWND const window);
 
   bool quit_on_close_ = false;
+  bool is_fullscreen_ = false;
 
   // window handle for top level window.
   HWND window_handle_ = nullptr;
