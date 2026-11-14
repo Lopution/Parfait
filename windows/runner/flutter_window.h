@@ -87,6 +87,8 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       navigation_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      sensitive_clipboard_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       intent_channel_;
   std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>>
       intent_event_channel_;

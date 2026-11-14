@@ -1,36 +1,72 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, MethodChannel, MissingPluginException;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/account_transfer.dart';
 import '../settings/preference_keys.dart';
 import 'account_transfer_clipboard.dart';
 
-/// Cross-platform [TransferClipboard] backed by Flutter's generic `Clipboard`
-/// (iOS, Windows, macOS, Linux).
+abstract final class DesktopSensitiveClipboardMethods {
+  static const channel = 'parfait/desktop_sensitive_clipboard';
+  static const capabilities = 'capabilities';
+  static const write = 'write';
+}
+
+/// Desktop [TransferClipboard] implementation (Windows, macOS, Linux).
 ///
-/// None of these targets expose Android's `EXTRA_IS_SENSITIVE` flag, so
-/// [capabilities] reports `sensitiveMarkSupported: false` and callers show the
-/// existing explicit-warning path. When [preferences] is supplied, the active
-/// fingerprint and expiry timestamp are persisted so [sweepExpired] can clear
-/// stale clipboard payloads across background suspends or process restarts.
+/// Queries and writes through [DesktopSensitiveClipboardMethods.channel] so
+/// Windows/macOS mark the copied envelope sensitive natively, while hosts
+/// without that channel (Linux or unmocked tests) fall back to Flutter's
+/// [Clipboard] after reporting `sensitiveMarkSupported: false`. When
+/// [preferences] is supplied, the active fingerprint and expiry timestamp are
+/// persisted so [sweepExpired] can clear stale payloads across restarts.
 class FlutterTransferClipboard implements ExpirableTransferClipboard {
   FlutterTransferClipboard({
     SharedPreferencesAsync? preferences,
     DateTime Function()? now,
+    MethodChannel sensitiveChannel = const MethodChannel(
+      DesktopSensitiveClipboardMethods.channel,
+    ),
   }) : _preferences = preferences,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _sensitiveChannel = sensitiveChannel;
 
   final SharedPreferencesAsync? _preferences;
   final DateTime Function() _now;
+  final MethodChannel _sensitiveChannel;
   Timer? _clearTimer;
   String? _ownedFingerprint;
 
   @override
-  Future<TransferClipboardCapabilities> capabilities() async =>
-      const TransferClipboardCapabilities(sensitiveMarkSupported: false);
+  Future<TransferClipboardCapabilities> capabilities() async {
+    try {
+      final raw = await _sensitiveChannel.invokeMethod<Object?>(
+        DesktopSensitiveClipboardMethods.capabilities,
+      );
+      if (raw is! Map) {
+        throw const AccountTransferException(
+          AccountTransferErrorCode.clipboardUnavailable,
+          'clipboard capabilities response is malformed',
+        );
+      }
+      return TransferClipboardCapabilities(
+        sensitiveMarkSupported: raw['sensitiveMarkSupported'] == true,
+      );
+    } on AccountTransferException {
+      rethrow;
+    } on MissingPluginException {
+      return const TransferClipboardCapabilities(sensitiveMarkSupported: false);
+    } on Object catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.clipboardUnavailable,
+        'clipboard capabilities are unavailable',
+        cause: error,
+      );
+    }
+  }
 
   @override
   Future<void> write(String text, {required Duration clearAfter}) async {
@@ -41,7 +77,28 @@ class FlutterTransferClipboard implements ExpirableTransferClipboard {
       );
     }
     final fingerprint = transferClipboardFingerprint(text);
-    await Clipboard.setData(ClipboardData(text: text));
+    try {
+      final result = await _sensitiveChannel.invokeMethod<Object?>(
+        DesktopSensitiveClipboardMethods.write,
+        <String, Object?>{'text': text},
+      );
+      if (result != true) {
+        throw const AccountTransferException(
+          AccountTransferErrorCode.clipboardUnavailable,
+          'clipboard write was not confirmed',
+        );
+      }
+    } on MissingPluginException {
+      await Clipboard.setData(ClipboardData(text: text));
+    } on AccountTransferException {
+      rethrow;
+    } on Object catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.clipboardUnavailable,
+        'failed to write transfer payload to clipboard',
+        cause: error,
+      );
+    }
     _ownedFingerprint = fingerprint;
     final expiresAtMs = _now().toUtc().add(clearAfter).millisecondsSinceEpoch;
     await _persistState(fingerprint: fingerprint, expiresAtMs: expiresAtMs);
