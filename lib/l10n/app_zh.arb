@@ -1959,5 +1959,29 @@
   "closeToTrayHint": "隐藏主窗口并在系统托盘中保持运行",
   "@closeToTrayHint": {
     "description": "Desktop setting subtitle explaining the minimize-to-tray behavior"
+  },
+  "novelSpreadMode": "双页排版",
+  "@novelSpreadMode": {
+    "description": "Novel reader settings section heading for two-page spread mode"
+  },
+  "novelSpreadOff": "单页",
+  "@novelSpreadOff": {
+    "description": "Novel spread mode option: always show a single page"
+  },
+  "novelSpreadAuto": "自动",
+  "@novelSpreadAuto": {
+    "description": "Novel spread mode option: automatically spread on wide landscape or book-posture foldables"
+  },
+  "novelSpreadLandscape": "横屏双页",
+  "@novelSpreadLandscape": {
+    "description": "Novel spread mode option: spread whenever the reader is in landscape orientation"
+  },
+  "novelSpreadAlways": "始终双页",
+  "@novelSpreadAlways": {
+    "description": "Novel spread mode option: always use two-page spread when width permits"
+  },
+  "novelShowToolbar": "显示工具栏",
+  "@novelShowToolbar": {
+    "description": "Compact pointer-mode cue pill label to reveal the reader toolbar"
   }
 }

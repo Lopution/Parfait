@@ -216,33 +216,55 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
           userAccount: user.account,
         ),
       ),
+    ..._secondaryProfileActions(
+      context,
+      isMe: isMe,
+      isFollowed: isFollowed,
+      onFollowPrivately: onFollowPrivately,
+      onDownloadAll: onDownloadAll,
+      onCopyLink: onCopyLink,
+      isMuted: isMuted,
+      onToggleMute: onToggleMute,
+    ),
+  ];
+
+  static List<_ProfileHeaderAction> _secondaryProfileActions(
+    BuildContext context, {
+    required bool isMe,
+    required bool isFollowed,
+    required VoidCallback? onFollowPrivately,
+    required VoidCallback? onDownloadAll,
+    required VoidCallback? onCopyLink,
+    required bool isMuted,
+    required VoidCallback? onToggleMute,
+  }) => [
     if (!isMe && !isFollowed && onFollowPrivately != null)
       _ProfileHeaderAction(
         value: 'followPrivately',
         label: context.l10n.followPrivately,
         icon: Icons.lock_outline,
-        onSelected: (_) => onFollowPrivately!(),
+        onSelected: (_) => onFollowPrivately(),
       ),
     if (onDownloadAll != null)
       _ProfileHeaderAction(
         value: 'downloadAll',
         label: context.l10n.downloadAuthorWorks,
         icon: Icons.download_outlined,
-        onSelected: (_) => onDownloadAll!(),
+        onSelected: (_) => onDownloadAll(),
       ),
     if (onCopyLink != null)
       _ProfileHeaderAction(
         value: 'copyLink',
         label: context.l10n.copyLink,
         icon: Icons.copy_outlined,
-        onSelected: (_) => onCopyLink!(),
+        onSelected: (_) => onCopyLink(),
       ),
     if (!isMe && onToggleMute != null)
       _ProfileHeaderAction(
         value: 'toggleMute',
         label: isMuted ? context.l10n.unmuteAuthor : context.l10n.muteAuthor,
         icon: isMuted ? Icons.person_off : Icons.person_off_outlined,
-        onSelected: (_) => onToggleMute!(),
+        onSelected: (_) => onToggleMute(),
       ),
   ];
 
@@ -542,6 +564,57 @@ class _CoverSystemBarsState extends State<_CoverSystemBars> {
               ),
         child: widget.child,
       ),
+    );
+  }
+}
+
+/// Profile background banner shared by the collapsible sliver header and the
+/// wide two-pane artist sidebar.
+class ProfileBannerBackground extends StatelessWidget {
+  const ProfileBannerBackground({super.key, required this.user});
+
+  final UserEntity user;
+
+  @override
+  Widget build(BuildContext context) => _ProfileBackground(user: user);
+}
+
+/// Overflow menu for secondary profile actions (private follow, bulk
+/// download, copy link, mute) rendered on wide-layout toolbars.
+class ProfileSecondaryMenuButton extends StatelessWidget {
+  const ProfileSecondaryMenuButton({
+    super.key,
+    required this.isMe,
+    this.isFollowed = false,
+    this.onFollowPrivately,
+    this.onDownloadAll,
+    this.onCopyLink,
+    this.isMuted = false,
+    this.onToggleMute,
+  });
+
+  final bool isMe;
+  final bool isFollowed;
+  final VoidCallback? onFollowPrivately;
+  final VoidCallback? onDownloadAll;
+  final VoidCallback? onCopyLink;
+  final bool isMuted;
+  final VoidCallback? onToggleMute;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileHeaderMoreButton(
+      actions: ReplicaProfileHeaderDelegate._secondaryProfileActions(
+        context,
+        isMe: isMe,
+        isFollowed: isFollowed,
+        onFollowPrivately: onFollowPrivately,
+        onDownloadAll: onDownloadAll,
+        onCopyLink: onCopyLink,
+        isMuted: isMuted,
+        onToggleMute: onToggleMute,
+      ),
+      includePrimary: false,
     );
   }
 }

@@ -1,8 +1,13 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/haptics/app_haptics.dart';
 import '../../app/layout/deferred_cache_scroll_view.dart';
+import '../../app/layout/input_modality.dart';
 import '../../app/motion/removal.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_top_bar.dart';
@@ -34,12 +39,58 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
   /// Selection mode is page-local, as on the history and download pages.
   bool _managing = false;
   final Set<int> _selected = {};
+  int? _lastToggledId;
+  ValueListenable<TickerModeData>? _tickerMode;
+  ModalRoute<dynamic>? _route;
   final _removals = RemovalController();
 
   @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerMode = TickerMode.getValuesNotifier(context);
+    _route = ModalRoute.of(context);
+  }
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     _removals.dispose();
     super.dispose();
+  }
+
+  static bool _isPointer(BuildContext context) =>
+      (InputModalityScope.maybeOf(context) ??
+          defaultInputModalityFor(Theme.of(context).platform)) ==
+      InputModality.pointer;
+
+  static bool _isEditingFocused() =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() !=
+      null;
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (!mounted || !_managing || event is! KeyDownEvent) return false;
+    if (!(_tickerMode?.value.enabled ?? true) || !(_route?.isCurrent ?? true)) {
+      return false;
+    }
+    if (_isEditingFocused() || !_isPointer(context)) return false;
+    final kbd = HardwareKeyboard.instance;
+    if (event.logicalKey == LogicalKeyboardKey.keyA &&
+        (kbd.isControlPressed || kbd.isMetaPressed) &&
+        !kbd.isAltPressed) {
+      final list = ref.read(watchLaterStoreProvider).value ?? const [];
+      if (list.isNotEmpty) {
+        _selectAll(list);
+        return true;
+      }
+    }
+    return false;
   }
 
   void _enterManaging() {
@@ -52,6 +103,7 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
     setState(() {
       _managing = false;
       _selected.clear();
+      _lastToggledId = null;
     });
   }
 
@@ -59,7 +111,28 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
     AppHaptics.select();
     setState(() {
       if (!_selected.remove(illustId)) _selected.add(illustId);
+      _lastToggledId = illustId;
     });
+  }
+
+  void _handleItemToggle(int illustId, List<int> orderedIds) {
+    if (_isPointer(context) &&
+        HardwareKeyboard.instance.isShiftPressed &&
+        _lastToggledId != null) {
+      final start = orderedIds.indexOf(_lastToggledId!);
+      final end = orderedIds.indexOf(illustId);
+      if (start >= 0 && end >= 0) {
+        final lo = math.min(start, end);
+        final hi = math.max(start, end);
+        AppHaptics.select();
+        setState(() {
+          _selected.addAll(orderedIds.sublist(lo, hi + 1));
+          _lastToggledId = illustId;
+        });
+        return;
+      }
+    }
+    _toggleSelected(illustId);
   }
 
   void _selectAll(List<WatchLaterEntry> entries) {
@@ -188,13 +261,17 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
                                     ),
                                 itemBuilder: (context, index) {
                                   final id = list[index].entity.id;
+                                  final orderedIds = [
+                                    for (final e in list) e.entity.id,
+                                  ];
                                   return Removable(
                                     id: id,
                                     style: RemovalStyle.tile,
                                     child: SelectableTile(
                                       managing: _managing,
                                       selected: _selected.contains(id),
-                                      onToggle: () => _toggleSelected(id),
+                                      onToggle: () =>
+                                          _handleItemToggle(id, orderedIds),
                                       child: IllustCard(
                                         entity: list[index].entity,
                                         heroScope: 'watchlater',

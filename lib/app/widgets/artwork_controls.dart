@@ -35,7 +35,10 @@ class ArtworkControls extends StatelessWidget {
   static final _halo = [
     for (var i = 0; i < 8; i++)
       (offset: Offset.fromDirection(i * math.pi / 4, 1.0), blur: 0.6),
-    (offset: Offset.zero, blur: 3.0),
+    for (var i = 0; i < 8; i++)
+      (offset: Offset.fromDirection(i * math.pi / 4, 1.8), blur: 1.0),
+    (offset: Offset.zero, blur: 4.0),
+    (offset: Offset.zero, blur: 8.0),
   ];
 
   /// The icon theme of controls on artwork, for a bar that themes its

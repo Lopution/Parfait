@@ -3,7 +3,7 @@ prefix: SET
 applies_to:
   - lib/app/widgets/settings/**
   - lib/features/settings/**
-reviewed: 2026-10-17
+reviewed: 2026-11-15
 ---
 
 # Settings pages and the Me tab
@@ -161,7 +161,12 @@ reviewed: 2026-10-17
   once. Hidden (another tab) the row takes the new order when it shows.
   "Covered" is read from the secondary animations of the row's route and
   of the shell's route, never from TickerMode: the Overlay stops tickers
-  under any opaque page, so TickerMode cannot tell a page from a tab.
+  under any opaque page, so TickerMode cannot tell a page from a tab. When
+  `HomeShellChrome.contentSizeOf` is at least `840×480`, the Me tab lays
+  out as a centred 1080dp-max two-column dashboard
+  (`ValueKey('me-wide-dashboard')`: account header, recent row and settings
+  in the leading column beside the content shortcuts), preserving the
+  recent row across resizes via a persistent `GlobalKey`.
 - **Why:** User decision: settings filled two thirds of the page in a
   style of their own, and nothing showed what the user saw last; then
   (10-21) the page read as unpolished next to mature apps, and YouTube's

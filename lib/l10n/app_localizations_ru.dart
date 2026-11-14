@@ -3295,4 +3295,22 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get closeToTrayHint =>
       'Скрывать окно в системный трей вместо выхода при закрытии';
+
+  @override
+  String get novelSpreadMode => 'Двухстраничный разворот';
+
+  @override
+  String get novelSpreadOff => 'Одна';
+
+  @override
+  String get novelSpreadAuto => 'Авто';
+
+  @override
+  String get novelSpreadLandscape => 'Альбомная';
+
+  @override
+  String get novelSpreadAlways => 'Всегда';
+
+  @override
+  String get novelShowToolbar => 'Показать панель';
 }

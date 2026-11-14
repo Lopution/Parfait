@@ -268,6 +268,9 @@ extension _IllustDetailContent on _IllustDetailPageState {
           ),
         ),
     ];
+    final contentSize = HomeShellChrome.contentSizeOf(context);
+    final twoPane = AppBreakpoints.useTwoPaneDetailOf(context, contentSize);
+
     // Each section a TickerPartition. The order is fixed: a conditional
     // entry among uniform wrappers would shift every section after it onto
     // a different child.
@@ -293,6 +296,7 @@ extension _IllustDetailContent on _IllustDetailPageState {
             entity: entity,
             blockMode: _blockMode,
             onToggleBlockMode: _toggleBlockMode,
+            showAuthor: !twoPane,
           ),
           true,
         ),
@@ -313,9 +317,14 @@ extension _IllustDetailContent on _IllustDetailPageState {
         TickerPartition(
           child: readable ? _ArticleTextWidth(child: section) : section,
         ),
-      // The page's end clears the floating action bar.
+      // Narrow pages clear the floating action capsule at rest; two-pane pages
+      // pin actions above the scroll instead.
       SliverToBoxAdapter(
-        child: SizedBox(height: DetailActionBar.restingExtent(context)),
+        child: SizedBox(
+          height: twoPane
+              ? FuncSpacing.xl
+              : DetailActionBar.restingExtent(context) + FuncSpacing.md,
+        ),
       ),
     ];
 
@@ -355,9 +364,6 @@ extension _IllustDetailContent on _IllustDetailPageState {
         ),
       ),
     );
-
-    final contentSize = HomeShellChrome.contentSizeOf(context);
-    final twoPane = AppBreakpoints.useTwoPaneDetailOf(context, contentSize);
     // Reduced motion turned on mid-fade lands the page at once (MOTION-02):
     // the preference only rebuilds, and the fade starts on a layout switch.
     if (_layoutFade.value < 1 &&
@@ -390,8 +396,6 @@ extension _IllustDetailContent on _IllustDetailPageState {
       _fadeLayoutIn(context);
     }
     // Hidden, not removed, in the download mode: it slides out and back.
-    // On a two-pane layout it sits inside the artwork pane, so the bar is
-    // centred on the images rather than on the information column.
     final actionBar = PositionedDirectional(
       start: 0,
       end: 0,
@@ -455,26 +459,39 @@ extension _IllustDetailContent on _IllustDetailPageState {
                     heroImageUrl: widget.heroImageUrl,
                     heroImageDecodeWidth: widget.heroImageDecodeWidth,
                   ),
-                  actionBar,
                 ],
               ),
-              // The meta column owns the window's right edge, so its
-              // scrollbar lands where the main scrollbar belongs. The
-              // action bar centres on this column, clear of the artwork.
-              secondary: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Scrollbar(
-                    // Shown on touch too; the mouse one would be a second.
-                    child: ScrollConfiguration(
-                      behavior: ScrollConfiguration.of(
-                        context,
-                      ).copyWith(scrollbars: false),
-                      child: metaScroll,
+              // The inspector pane owns the pinned artist card + persistent
+              // actions (bookmark, download, share, ⋮) above the scrolling
+              // metadata column so artwork stages stay unobstructed across both
+              // side-by-side splits and vertical tabletop hinges.
+              secondary: ColoredBox(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildInspectorHeader(context, ref, entity),
+                        const Divider(height: 1),
+                        Expanded(
+                          child: Scrollbar(
+                            // Shown on touch too; the mouse one would be a
+                            // second.
+                            child: ScrollConfiguration(
+                              behavior: ScrollConfiguration.of(
+                                context,
+                              ).copyWith(scrollbars: false),
+                              child: metaScroll,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  if (_composing) composerLayer,
-                ],
+                    if (_composing) composerLayer,
+                  ],
+                ),
               ),
             )
           : Stack(
@@ -563,6 +580,60 @@ extension _IllustDetailContent on _IllustDetailPageState {
         isAccountCurrent: () =>
             container.read(historyAccountIdProvider) == accountId,
         child: page,
+      ),
+    );
+  }
+
+  Widget _buildInspectorHeader(
+    BuildContext context,
+    WidgetRef ref,
+    IllustEntity entity,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.lg,
+        FuncSpacing.md,
+        FuncSpacing.lg,
+        FuncSpacing.sm,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DetailAuthorCard(entity: entity),
+          const SizedBox(height: FuncSpacing.sm),
+          Row(
+            key: const ValueKey('detail-inspector-action-bar'),
+            children: [
+              DecoratedBox(
+                decoration: ShapeDecoration(
+                  color: colors.secondaryContainer,
+                  shape: const CircleBorder(),
+                ),
+                child: BookmarkSwitchButton(
+                  illustId: entity.id,
+                  title: entity.title,
+                ),
+              ),
+              const SizedBox(width: FuncSpacing.xs),
+              DetailDownloadButton(
+                entity: entity,
+                onPressed: () => unawaited(_downloadAll(entity)),
+              ),
+              const Spacer(),
+              Builder(
+                builder: (buttonContext) => IconButton(
+                  tooltip: context.l10n.cardActionShare,
+                  icon: const Icon(Icons.share_outlined),
+                  onPressed: () =>
+                      unawaited(_share(buttonContext, ref, entity)),
+                ),
+              ),
+              _buildMoreMenu(entity, rendersContent: true, twoPane: true),
+            ],
+          ),
+        ],
       ),
     );
   }

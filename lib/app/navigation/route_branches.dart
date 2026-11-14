@@ -67,33 +67,39 @@ List<RouteBase> _commonBranchRoutes(
               context,
               state,
               branchObserver,
-              _RememberedIllust(
-                builder: (_, remember) => IllustDetailPagerPage(
-                  source: source,
-                  initialIllustId: illustId,
-                  heroScope: extra.heroScope,
-                  heroImageUrl: extra.heroImageUrl,
-                  heroImageDecodeWidth: extra.heroImageDecodeWidth,
-                  onActiveChanged: remember,
+              DetailOverlayFrame(
+                child: _RememberedIllust(
+                  builder: (_, remember) => IllustDetailPagerPage(
+                    source: source,
+                    initialIllustId: illustId,
+                    heroScope: extra.heroScope,
+                    heroImageUrl: extra.heroImageUrl,
+                    heroImageDecodeWidth: extra.heroImageDecodeWidth,
+                    onActiveChanged: remember,
+                  ),
                 ),
               ),
               sharedElement: extra.heroImageUrl != null,
+              boundedOverlayOnWide: true,
             );
           }
           return _page(
             context,
             state,
             branchObserver,
-            _RememberedIllust(
-              builder: (_, _) => IllustDetailPage(
-                illustId: illustId,
-                initialEntity: extra.entity,
-                heroScope: extra.heroScope,
-                heroImageUrl: extra.heroImageUrl,
-                heroImageDecodeWidth: extra.heroImageDecodeWidth,
+            DetailOverlayFrame(
+              child: _RememberedIllust(
+                builder: (_, _) => IllustDetailPage(
+                  illustId: illustId,
+                  initialEntity: extra.entity,
+                  heroScope: extra.heroScope,
+                  heroImageUrl: extra.heroImageUrl,
+                  heroImageDecodeWidth: extra.heroImageDecodeWidth,
+                ),
               ),
             ),
             sharedElement: extra.heroImageUrl != null,
+            boundedOverlayOnWide: true,
           );
         }
         // A restored route has lost its extra, pager source included: it
@@ -102,14 +108,17 @@ List<RouteBase> _commonBranchRoutes(
           context,
           state,
           branchObserver,
-          _RememberedIllust(
-            builder: (remembered, _) => IllustDetailPage(
-              illustId: remembered ?? illustId,
-              initialEntity: remembered == null && extra is IllustEntity
-                  ? extra
-                  : null,
+          DetailOverlayFrame(
+            child: _RememberedIllust(
+              builder: (remembered, _) => IllustDetailPage(
+                illustId: remembered ?? illustId,
+                initialEntity: remembered == null && extra is IllustEntity
+                    ? extra
+                    : null,
+              ),
             ),
           ),
+          boundedOverlayOnWide: true,
         );
       },
       routes: [

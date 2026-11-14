@@ -11,7 +11,7 @@ import '../../../app/pixiv_image.dart';
 import '../../../app/widgets/ambient_wash.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/bookmark_switch_button.dart'
-    show showBookmarkEditSheet;
+    show BookmarkSwitchButton, showBookmarkEditSheet;
 import '../../../app/widgets/card_actions/card_action.dart';
 import '../../../app/widgets/card_actions/illust_card_actions.dart';
 import '../../../core/auth/account_store.dart';
@@ -813,6 +813,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     // InfoBlock — the menu's artwork-info item only exists while the
     // content actually renders.
     final rendersContent = _rendersContent(async, entity);
+    final twoPane = AppBreakpoints.useTwoPaneDetailOf(
+      context,
+      HomeShellChrome.contentSizeOf(context),
+    );
     return AppTopBar(
       // Over the artwork the bar shows nothing but controls; the work's
       // title fades in with the surface once the image scrolls away. The
@@ -835,40 +839,56 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
             expanded: _pagesExpanded,
           ).artworkUnderBar,
       entrance: immersive ? _topBarEntrance : null,
-      // Download and bookmark live in the floating action bar.
+      // In single-column mode, overflow actions sit on the top bar while
+      // download and bookmark float in DetailActionBar. In two-pane/tabletop,
+      // the secondary inspector owns the single ⋮ menu and Share button
+      // (FB-03) so the screen never carries duplicate menu triggers.
       actions: [
-        if (entity != null)
-          _DetailMoreMenu(
-            entity: entity,
-            actions: [
-              _DetailMenuAction.share,
-              if (rendersContent) ...[
-                _DetailMenuAction.editBookmark,
-                watchLaterCardAction,
-              ],
-              if (entity.pageCount > 1 && !entity.isUgoira)
-                _DetailMenuAction.selectPages,
-              if (rendersContent) ...[
-                _DetailMenuAction.info,
-                ...muteCardActions,
-              ],
-            ],
-            onSelected: (buttonContext, action) => switch (action) {
-              _DetailMenuAction.share => unawaited(
-                _share(buttonContext, ref, entity),
-              ),
-              _DetailMenuAction.editBookmark => unawaited(
-                showBookmarkEditSheet(
-                  context,
-                  BookmarkKey(BookmarkEntityType.illust, entity.id),
-                  title: entity.title,
-                ),
-              ),
-              _DetailMenuAction.selectPages => _enterDownloadMode(),
-              _DetailMenuAction.info => unawaited(_scrollToInfo()),
-            },
+        if (entity != null && (!twoPane || !rendersContent))
+          _buildMoreMenu(
+            entity,
+            rendersContent: rendersContent,
+            twoPane: twoPane,
           ),
       ],
+    );
+  }
+
+  Widget _buildMoreMenu(
+    IllustEntity entity, {
+    required bool rendersContent,
+    required bool twoPane,
+  }) {
+    return _DetailMoreMenu(
+      entity: entity,
+      actions: [
+        if (!twoPane || !rendersContent) _DetailMenuAction.share,
+        if (rendersContent) ...[
+          _DetailMenuAction.editBookmark,
+          watchLaterCardAction,
+        ],
+        if (entity.pageCount > 1 && !entity.isUgoira)
+          _DetailMenuAction.selectPages,
+        if (rendersContent) ...[
+          if (!twoPane) _DetailMenuAction.info,
+          ...muteCardActions,
+        ],
+      ],
+      onSelected: (BuildContext buttonContext, _DetailMenuAction action) =>
+          switch (action) {
+            _DetailMenuAction.share => unawaited(
+              _share(buttonContext, ref, entity),
+            ),
+            _DetailMenuAction.editBookmark => unawaited(
+              showBookmarkEditSheet(
+                context,
+                BookmarkKey(BookmarkEntityType.illust, entity.id),
+                title: entity.title,
+              ),
+            ),
+            _DetailMenuAction.selectPages => _enterDownloadMode(),
+            _DetailMenuAction.info => unawaited(_scrollToInfo()),
+          },
     );
   }
 

@@ -59,11 +59,27 @@ enum FormFactor {
   /// bar.
   bool hasRail(double width) => this != phone && width >= AppBreakpoints.medium;
 
-  /// Whether the rail is open into its labelled panel: never on a touch
-  /// screen; on a PC as the user last left it ([choice]), or from
-  /// [AppBreakpoints.extraLarge] wide until the user has toggled it.
-  bool railExpanded(double width, {required bool? choice}) =>
-      this == pc && (choice ?? width >= AppBreakpoints.extraLarge);
+  /// Whether the shell rail exposes an explicit expand/collapse control at
+  /// [width]×[height].
+  bool canToggleRail(double width, {double height = double.infinity}) =>
+      this == pc ||
+      (this == touch &&
+          width >= AppBreakpoints.expanded &&
+          height >= AppBreakpoints.compactHeight);
+
+  /// Whether the rail is open into its labelled panel: on a PC as the user
+  /// last left it ([choice]) or expanded from [AppBreakpoints.extraLarge];
+  /// on large touch screens ([canToggleRail]) collapsed by default until the
+  /// user expands it (`NAV-20`).
+  bool railExpanded(
+    double width, {
+    required bool? choice,
+    double height = double.infinity,
+  }) {
+    if (this == pc) return choice ?? width >= AppBreakpoints.extraLarge;
+    if (canToggleRail(width, height: height)) return choice ?? false;
+    return false;
+  }
 }
 
 /// Publishes the app's [FormFactor] below it: the display the app is on,

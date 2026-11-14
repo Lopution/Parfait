@@ -3189,4 +3189,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get closeToTrayHint => '隐藏主窗口并在系统托盘中保持运行';
+
+  @override
+  String get novelSpreadMode => '双页排版';
+
+  @override
+  String get novelSpreadOff => '单页';
+
+  @override
+  String get novelSpreadAuto => '自动';
+
+  @override
+  String get novelSpreadLandscape => '横屏双页';
+
+  @override
+  String get novelSpreadAlways => '始终双页';
+
+  @override
+  String get novelShowToolbar => '显示工具栏';
 }

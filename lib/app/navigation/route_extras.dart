@@ -160,6 +160,7 @@ Page<dynamic> _page(
   Widget child, {
   bool sharedElement = false,
   bool sharedElementBackdrop = true,
+  bool boundedOverlayOnWide = false,
 }) {
   // Reduced-motion collapses the transition without dropping the state it
   // communicates: the route still changes on the same frame. The animation
@@ -195,6 +196,7 @@ Page<dynamic> _page(
     reverseTransitionDuration: duration,
     sharedElement: sharedElement,
     sharedElementBackdrop: sharedElementBackdrop,
+    boundedOverlayOnWide: boundedOverlayOnWide,
   );
 }
 

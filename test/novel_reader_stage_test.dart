@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:parfait/app/layout/content_widths.dart';
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
@@ -587,6 +589,70 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+
+  testWidgets(
+    'book posture spreads two pages around the hinge and pins the footer hint to the left half',
+    (tester) async {
+      setViewSize(tester, const Size(884, 740));
+      tester.view.displayFeatures = const [
+        ui.DisplayFeature(
+          bounds: Rect.fromLTWH(436, 0, 12, 740),
+          type: ui.DisplayFeatureType.hinge,
+          state: ui.DisplayFeatureState.postureHalfOpened,
+        ),
+      ];
+      addTearDown(() => tester.view.displayFeatures = const []);
+
+      await tester.pumpWidget(_stageApp(_RecordingBinding()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+
+      final pageTexts = find.descendant(
+        of: find.byType(PageView),
+        matching: find.byType(Text),
+      );
+      final rects = [
+        for (final element in pageTexts.evaluate())
+          tester.getRect(find.byWidget(element.widget)),
+      ];
+      final leftSide = rects.where((r) => r.center.dx < 436).toList();
+      final rightSide = rects.where((r) => r.center.dx > 448).toList();
+      expect(leftSide, isNotEmpty);
+      expect(rightSide, isNotEmpty);
+      for (final rect in leftSide) {
+        expect(rect.right, lessThanOrEqualTo(436));
+      }
+      for (final rect in rightSide) {
+        expect(rect.left, greaterThanOrEqualTo(448));
+      }
+
+      final hint = tester.getRect(find.textContaining('A novel ·'));
+      expect(hint.right, lessThanOrEqualTo(436));
+    },
+  );
+
+  testWidgets(
+    'pointer reader shows top-end cue while chrome is hidden and restores chrome on tap',
+    (tester) async {
+      setViewSize(tester, const Size(1100, 800));
+
+      await tester.pumpWidget(
+        _stageApp(_RecordingBinding(), inputModality: InputModality.pointer),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final cue = find.byKey(const ValueKey('novel-pointer-cue'));
+      expect(cue, findsOneWidget);
+      expect(find.byIcon(Icons.info_outline), findsNothing);
+
+      await tester.tap(cue, kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+      expect(cue, findsNothing);
+    },
+  );
 }
 
 /// setString always fails — the in-memory platform still backs getString
@@ -633,13 +699,28 @@ Widget _stageApp(
   ThemeData? theme,
   TranslationTransport? translation,
   NovelPageTurn pageTurn = NovelPageTurn.pages,
+  NovelSpreadMode spreadMode = NovelSpreadMode.auto,
+  InputModality? inputModality,
 }) {
   installPreferencesForTest(
     memoryPreferences({
       'parfait.novel.reader_settings.v1': jsonEncode(
-        NovelReaderSettings(pageTurn: pageTurn).toJson(),
+        NovelReaderSettings(
+          pageTurn: pageTurn,
+          spreadMode: spreadMode,
+        ).toJson(),
       ),
     }),
+  );
+  final stage = NovelReaderStage(
+    spec: NovelReaderStageSpec(
+      novel:
+          novel ??
+          (chapters ? _novelWithChapters() : _novel(text ?? 'reader ' * 400)),
+      infoTooltip: 'info',
+      infoSheet: (context) => const Text('info sheet'),
+      progress: binding,
+    ),
   );
   return localizedApp(
     overrides: [
@@ -650,16 +731,9 @@ Widget _stageApp(
     ],
     builder: promptHostBuilder,
     theme: theme,
-    body: NovelReaderStage(
-      spec: NovelReaderStageSpec(
-        novel:
-            novel ??
-            (chapters ? _novelWithChapters() : _novel(text ?? 'reader ' * 400)),
-        infoTooltip: 'info',
-        infoSheet: (context) => const Text('info sheet'),
-        progress: binding,
-      ),
-    ),
+    body: inputModality == null
+        ? stage
+        : InputModalityScope(initialModality: inputModality, child: stage),
   );
 }
 

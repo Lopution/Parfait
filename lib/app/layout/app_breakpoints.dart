@@ -69,4 +69,14 @@ abstract final class AppBreakpoints {
   /// [FoldPosture] from [context].
   static bool useTwoPaneDetailOf(BuildContext context, Size content) =>
       useTwoPaneDetail(content, posture: WindowLayoutSpec.postureOf(context));
+
+  /// Detail routes float inside a scrim-framed two-pane card over the live
+  /// feed on large flat tablet/desktop workspaces (`>= 960x600`), while
+  /// foldable postures (`book` / `tabletop`) stay full-bleed to align strictly
+  /// with physical hinge coordinates.
+  static bool useBoundedDetailOverlayOf(BuildContext context, Size content) =>
+      useTwoPaneDetailOf(context, content) &&
+      WindowLayoutSpec.postureOf(context) == FoldPosture.flat &&
+      content.width >= 960 &&
+      content.height >= 600;
 }

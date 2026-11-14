@@ -6,11 +6,13 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart' show Theme;
 
+import '../layout/app_breakpoints.dart';
 import '../motion/hero_transition.dart'
     show HeroBarsCover, HeroLiftHole, HeroPageCover;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
 import 'frozen_while_hidden.dart';
+import 'home_shell_metrics.dart';
 import 'route_animation.dart';
 
 /// The app's standard route page, adapted per platform:
@@ -47,6 +49,7 @@ class FuncPage<T> extends Page<T> {
     this.barrierLabel,
     this.sharedElement = false,
     this.sharedElementBackdrop = true,
+    this.boundedOverlayOnWide = false,
     super.key,
     super.name,
     super.arguments,
@@ -71,6 +74,10 @@ class FuncPage<T> extends Page<T> {
   /// before its content shows. Off for the viewer: its dark stage covers
   /// the page below anyway, and a drag to dismiss it reveals that page.
   final bool sharedElementBackdrop;
+
+  /// Whether wide flat viewports keep the underlying route visible behind
+  /// a bounded detail overlay rather than obscuring it cleanly offstage.
+  final bool boundedOverlayOnWide;
 
   @override
   Route<T> createRoute(BuildContext context) => _FuncPageRoute<T>(this);
@@ -125,6 +132,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   final ValueNotifier<bool> _popGestureNotifier = ValueNotifier<bool>(false);
   _IosBackGestureController<T>? _activePopGesture;
   bool _routeDisposed = false;
+  bool _boundedOverlayActive = false;
 
   bool get _popGestureInProgress => _activePopGesture != null;
 
@@ -229,9 +237,10 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   AnimationController? get _routeController => controller;
 
   /// The slide darkens the page below like `CupertinoPageRoute`; a
-  /// shared-element page leaves the page below as it is.
+  /// shared-element or bounded-overlay page leaves the page below as it is.
   @override
-  Color? get barrierColor => !fullscreenDialog && !_page.sharedElement
+  Color? get barrierColor =>
+      !fullscreenDialog && !_page.sharedElement && !_boundedOverlayActive
       ? _slideBarrierColor
       : _page.barrierColor;
 
@@ -251,7 +260,30 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   bool get fullscreenDialog => _page.fullscreenDialog;
 
   @override
-  bool get opaque => _page.opaque;
+  bool get opaque => _boundedOverlayActive ? false : _page.opaque;
+
+  bool _isBoundedOverlay(BuildContext context) =>
+      _page.boundedOverlayOnWide &&
+      !isFirst &&
+      AppBreakpoints.useBoundedDetailOverlayOf(
+        context,
+        HomeShellChrome.contentSizeOf(context),
+      );
+
+  void _syncBoundedOverlay(bool active) {
+    if (_boundedOverlayActive == active) return;
+    _boundedOverlayActive = active;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_routeDisposed || overlayEntries.isEmpty) return;
+      final targetOpaque = controller?.status == AnimationStatus.completed
+          ? opaque
+          : false;
+      if (overlayEntries.first.opaque != targetOpaque) {
+        overlayEntries.first.opaque = targetOpaque;
+      }
+      changedInternalState();
+    });
+  }
 
   @override
   Widget buildPage(
@@ -282,8 +314,21 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     // One structure for the route's whole life, whatever the phase: the
     // page lives under the route's GlobalKey, and a changed widget type
     // here would reparent it, rebuilding the whole page in that frame.
+    final boundedOverlay = _isBoundedOverlay(context);
+    if (_page.boundedOverlayOnWide) {
+      _syncBoundedOverlay(boundedOverlay);
+    }
     final shared = _page.sharedElement;
-    final still = underSharedElement(this);
+    final above = _above[this];
+    final underBounded =
+        above != null &&
+        above._page.boundedOverlayOnWide &&
+        !above.animation!.isDismissed &&
+        AppBreakpoints.useBoundedDetailOverlayOf(
+          context,
+          HomeShellChrome.contentSizeOf(context),
+        );
+    final still = underSharedElement(this) || underBounded;
     final secondary = still ? kAlwaysDismissedAnimation : secondaryAnimation;
     final platform = Theme.of(context).platform;
     final isDesktop = switch (platform) {
@@ -305,6 +350,17 @@ class _FuncPageRoute<T> extends PageRoute<T> {
                 animation.status == AnimationStatus.reverse ||
                 _contentFade.value < 1,
             child: _sharedElementStage(context, child),
+          ),
+          child: child,
+        );
+      }
+      if (!shared && boundedOverlay) {
+        return FuncTransitionGuard(
+          animation: animation,
+          secondaryAnimation: secondary,
+          transition: (child) => IgnorePointer(
+            ignoring: animation.status == AnimationStatus.reverse,
+            child: FadeTransition(opacity: _desktopMotion, child: child),
           ),
           child: child,
         );
@@ -331,6 +387,17 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     }
 
     if (platform == TargetPlatform.iOS) {
+      if (!shared && boundedOverlay) {
+        return FuncTransitionGuard(
+          animation: animation,
+          secondaryAnimation: secondary,
+          transition: (child) => IgnorePointer(
+            ignoring: animation.status == AnimationStatus.reverse,
+            child: FadeTransition(opacity: _desktopMotion, child: child),
+          ),
+          child: child,
+        );
+      }
       return FuncTransitionGuard(
         animation: animation,
         secondaryAnimation: secondary,
@@ -376,19 +443,27 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     return FuncTransitionGuard(
       animation: animation,
       secondaryAnimation: secondary,
-      transition: (child) => IgnorePointer(
-        ignoring:
-            animation.status == AnimationStatus.reverse ||
-            shared && _contentFade.value < 1,
-        child: CupertinoPageTransition(
-          primaryRouteAnimation: shared ? kAlwaysCompleteAnimation : _slideIn,
-          secondaryRouteAnimation: still
-              ? kAlwaysDismissedAnimation
-              : _slideAside,
-          linearTransition: true,
-          child: shared ? _sharedElementStage(context, child) : child,
-        ),
-      ),
+      transition: (child) {
+        if (!shared && boundedOverlay) {
+          return IgnorePointer(
+            ignoring: animation.status == AnimationStatus.reverse,
+            child: FadeTransition(opacity: _desktopMotion, child: child),
+          );
+        }
+        return IgnorePointer(
+          ignoring:
+              animation.status == AnimationStatus.reverse ||
+              shared && _contentFade.value < 1,
+          child: CupertinoPageTransition(
+            primaryRouteAnimation: shared ? kAlwaysCompleteAnimation : _slideIn,
+            secondaryRouteAnimation: still
+                ? kAlwaysDismissedAnimation
+                : _slideAside,
+            linearTransition: true,
+            child: shared ? _sharedElementStage(context, child) : child,
+          ),
+        );
+      },
       child: child,
     );
   }
@@ -402,7 +477,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       opacity: popGestureInProgress ? kAlwaysCompleteAnimation : _contentFade,
       child: HeroLiftHole(animation: controller!, child: child),
     );
-    if (!_backdrop) return content;
+    if (!_backdrop || _isBoundedOverlay(context)) return content;
     return Stack(
       fit: StackFit.passthrough,
       children: [

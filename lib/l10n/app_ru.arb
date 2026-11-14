@@ -1410,5 +1410,11 @@
   "trayDownloads": "Загрузки",
   "trayQuit": "Выйти",
   "closeToTray": "Сворачивать в трей при закрытии",
-  "closeToTrayHint": "Скрывать окно в системный трей вместо выхода при закрытии"
+  "closeToTrayHint": "Скрывать окно в системный трей вместо выхода при закрытии",
+  "novelSpreadMode": "Двухстраничный разворот",
+  "novelSpreadOff": "Одна",
+  "novelSpreadAuto": "Авто",
+  "novelSpreadLandscape": "Альбомная",
+  "novelSpreadAlways": "Всегда",
+  "novelShowToolbar": "Показать панель"
 }

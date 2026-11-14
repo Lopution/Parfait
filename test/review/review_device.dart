@@ -181,6 +181,16 @@ const reviewDevices = <String, ReviewDevice>{
     platformCaps: PlatformCaps(isIOS: true),
     inputModality: InputModality.touch,
   ),
+  // 1180 x 820, landscape touch iPad (wide split & bounded detail overlay).
+  'ipad-landscape': ReviewDevice(
+    physicalSize: Size(2360, 1640),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 20,
+    targetPlatform: TargetPlatform.iOS,
+    platformCaps: PlatformCaps(isIOS: true),
+    inputModality: InputModality.touch,
+  ),
   // 884 x 740, book-style foldable opened vertically with 12dp hinge.
   'foldable-book': ReviewDevice(
     physicalSize: Size(2210, 1850),

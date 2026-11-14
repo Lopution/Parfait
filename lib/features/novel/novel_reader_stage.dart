@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../../app/layout/app_breakpoints.dart';
+import '../../app/layout/input_modality.dart';
+import '../../app/layout/window_layout_spec.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
@@ -322,6 +324,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
 
   void _toggleChrome() => _setChromeVisible(!_chromeVisible);
 
+  void _showChrome() {
+    if (!_chromeVisible) _setChromeVisible(true);
+  }
+
   void _hideChrome() {
     if (_chromeVisible) _setChromeVisible(false);
   }
@@ -397,6 +403,21 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     if (seriesId != null) {
       ref.watch(_novelSeriesProvider(seriesId));
     }
+    final windowSpec = WindowLayoutSpec.of(context);
+    final bookLeft =
+        windowSpec.posture == FoldPosture.book &&
+            windowSpec.hingeBounds != null &&
+            windowSpec.hingeBounds!.left > 180
+        ? windowSpec.hingeBounds!.left
+        : null;
+    final isPointer = windowSpec.inputModality == InputModality.pointer;
+    final cueFg =
+        (palette.foreground ?? Theme.of(context).colorScheme.onSurface)
+            .withValues(alpha: novelReaderHintAlpha);
+    final cueBg =
+        (palette.background ??
+                Theme.of(context).colorScheme.surfaceContainerHigh)
+            .withValues(alpha: 0.82);
     if (!_chromeHidden) {
       _topBar = _buildTopBar(context, palette);
       _bottomBar = _buildBottomBar(context, l10n, palette);
@@ -431,6 +452,39 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
             child: Stack(
               children: [
                 Positioned.fill(child: _buildStage(context, palette)),
+                if (_chromeHidden && isPointer)
+                  PositionedDirectional(
+                    top: _stableInsets.top + FuncSpacing.sm,
+                    end: _stableInsets.right + FuncSpacing.md,
+                    child: Material(
+                      color: cueBg,
+                      shape: const StadiumBorder(),
+                      child: InkWell(
+                        key: const ValueKey('novel-pointer-cue'),
+                        customBorder: const StadiumBorder(),
+                        onTap: _showChrome,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: FuncSpacing.md,
+                            vertical: FuncSpacing.xs,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.more_horiz, size: 18, color: cueFg),
+                              const SizedBox(width: FuncSpacing.xs),
+                              Text(
+                                l10n.novelShowToolbar,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.labelMedium?.copyWith(color: cueFg),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 // Keep the passive progress hint out of the bottom chrome's
                 // paint and semantics tree. The chrome owns the interactive
                 // progress readout while it is visible; the hint returns when
@@ -440,13 +494,16 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                 if (_chromeHidden)
                   Positioned(
                     left: 0,
-                    right: 0,
+                    right: bookLeft == null ? 0 : null,
+                    width: bookLeft,
                     bottom: 4 + _stableInsets.bottom,
                     child: IgnorePointer(
                       child: Padding(
                         padding: EdgeInsetsDirectional.only(
                           start: _stableInsets.left,
-                          end: _stableInsets.right,
+                          end: bookLeft != null
+                              ? FuncSpacing.sm
+                              : _stableInsets.right,
                         ),
                         child: LayoutBuilder(
                           builder: (context, constraints) {

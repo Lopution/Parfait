@@ -3,7 +3,7 @@ prefix: NOVEL
 applies_to:
   - lib/features/novel/**
   - lib/core/novel/**
-reviewed: 2026-11-11
+reviewed: 2026-11-15
 ---
 
 # Novel markup and reader
@@ -109,9 +109,13 @@ reviewed: 2026-11-11
 - **Rule:** The reader chrome runs on one stage-owned controller; the
   user's intent and the rendered state are separate fields. The progress
   hint exists only while the controller is dismissed. The bars are opaque
-  in the reading palette's background.
+  in the reading palette's background. When `_chromeHidden` is true under
+  `InputModality.pointer`, the stage renders a lightweight translucent
+  pill (`ValueKey('novel-pointer-cue')`) at the top-end corner to reveal the
+  chrome on click without changing `PopScope` or center-tap semantics.
 - **Why:** The hint painted under the exiting bottom bar. Text showing
-  through see-through bars read as a smudge behind the controls.
+  through see-through bars read as a smudge behind the controls, and desktop
+  mouse users had no visible affordance to summon hidden chrome.
 - **Check:** `test/novel_reader_chrome_test.dart` "the progress hint never overlaps the sliding bottom bar"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`
 
@@ -172,7 +176,9 @@ reviewed: 2026-11-11
   color at `novelReaderHintAlpha`, set no fainter than keeps 4.5:1 on the
   system and every reader palette. It starts on the article column the
   page's lines fill — centred, at `ContentWidths.article` and the
-  layout's horizontal padding — not on the window's left edge. In the
+  layout's horizontal padding — not on the window's left edge, and on
+  `FoldPosture.book` with a valid hinge it stays constrained to the left
+  pane (`width: hingeBounds.left`) so text never crosses the crease. In the
   chrome's bottom bar the
   progress readout is an outlined pill ending in an expand glyph, which
   opens the progress sheet; its outline is the text color at
@@ -182,30 +188,36 @@ reviewed: 2026-11-11
   The readout as bare text did not show it opened anything (user report,
   10-25). On a wide window the hint sat at the window's left edge while
   the text column was centred, so it no longer read as the page's
-  caption.
+  caption; on folded dual-screen books a centred footer spanned the hinge.
 - **Check:** `test/novel_reader_settings_test.dart` "the progress hint keeps 4.5:1 and the pill outline 3:1 on every palette"; `test/novel_reader_stage_test.dart` "the immersive progress hint stays on the article column"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
 
-### NOVEL-13 Scroll mode is one column over the same pages
+### NOVEL-13 Scroll mode and paginated spread share one layout
 - **Rule:** `NovelReaderSettings.pageTurn` picks scrolling (the default,
-  and what a saved setting without the field opens in) or pages; the
-  reader settings sheet switches it. Scroll mode shows the paginated
-  layout's lines as one `ListView` column (`NovelScrollColumn`), each
-  line at its measured extent, so pages stay the unit of progress,
-  chapters, jumps and bilingual batches. A page that ran on continues
-  the column; a chapter starts after `chapterGap`, an author's
-  `[newpage]` after a short faint rule (`pageBreakGap`); an image keeps
-  its page-tall slot. Lines paint only between the page margins and
+  and what a saved setting without the field opens in) or pages;
+  `NovelReaderSettings.spreadMode` (`off`, `auto`, `landscape`, `always`)
+  is exposed via `AppChoiceChip` in the settings sheet (`NAV-17`) and
+  controls two-page spreads in paginated mode (selecting a non-`off` mode
+  switches scroll mode to `pages`). In `FoldPosture.book`, left and right
+  spread pages align strictly to the local hinge edges without crossing the
+  gap; elsewhere `auto` spreads wide landscape viewports (`>= 960dp` and
+  aspect `> 1.15`). Scroll mode shows the paginated layout's lines as one
+  `ListView` column (`NovelScrollColumn`), each line at its measured extent, so
+  pages stay the unit of progress, chapters, jumps and bilingual batches. A
+  page that ran on continues the column; a chapter starts after `chapterGap`,
+  an author's `[newpage]` after a short faint rule (`pageBreakGap`); an image
+  keeps its page-tall slot. Lines paint only between the page margins and
   touches land anywhere. A tap anywhere toggles the chrome or opens the
-  image under it, unless it caught the column moving: then it only
-  stops it. A scroll that settles reports the line at the top and its
-  page; `goToPage` scrolls that page's first line to the top. Switching
-  modes opens the page holding the top line, or the column at the
-  page's first line.
+  image under it, unless it caught the column moving: then it only stops it.
+  A scroll that settles reports the line at the top and its page; `goToPage`
+  scrolls that page's first line to the top. Switching modes opens the page
+  holding the top line, or the column at the page's first line.
 - **Why:** Pages turned left and right were the only way to read; long
-  novels and phones read by scrolling (user request, 11-01).
+  novels and phones read by scrolling (user request, 11-01). Foldables in
+  book posture and wide landscape tablets gain natural two-page spreads when
+  aligned clear of the physical hinge.
 - **Check:** `test/novel_reader_settings_test.dart` "theme falls back to system, page turn to scroll"; `test/novel_reader_test.dart` "the scroll column runs pages on, with a rule at a new page and a gap" "scroll mode: a tap toggles the chrome or opens an image; one"; `test/novel_reader_stage_test.dart` "scroll mode: open writes nothing, a settle writes once;"
-- **Code:** `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_views.dart`, `lib/features/novel/novel_reader_stage.dart`
+- **Code:** `lib/core/novel/reader_settings.dart`, `lib/features/novel/novel_layout.dart`, `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_views.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader_stage_widgets.dart`
 
 ### NOVEL-14 An author's links lead where they say
 - **Rule:** A body's `[newpage]` markers split it into Pixiv pages

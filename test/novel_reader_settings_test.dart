@@ -30,11 +30,13 @@ void main() {
       expect(NovelReaderTheme.parse(null), NovelReaderTheme.system);
       expect(NovelPageTurn.parse('pages'), NovelPageTurn.pages);
       expect(NovelPageTurn.parse('bogus'), NovelPageTurn.scroll);
+      expect(NovelSpreadMode.parse('always'), NovelSpreadMode.always);
+      expect(NovelSpreadMode.parse('bogus'), NovelSpreadMode.auto);
+      expect(NovelSpreadMode.parse(null), NovelSpreadMode.auto);
       // Settings saved before the mode existed open in scroll mode.
-      expect(
-        NovelReaderSettings.fromJson(const {'fontSize': 20}).pageTurn,
-        NovelPageTurn.scroll,
-      );
+      final legacy = NovelReaderSettings.fromJson(const {'fontSize': 20});
+      expect(legacy.pageTurn, NovelPageTurn.scroll);
+      expect(legacy.spreadMode, NovelSpreadMode.auto);
     });
   });
 
@@ -108,6 +110,7 @@ void main() {
         lineHeight: 1.9,
         theme: NovelReaderTheme.night,
         pageTurn: NovelPageTurn.pages,
+        spreadMode: NovelSpreadMode.always,
       );
 
       await store.save(settings);

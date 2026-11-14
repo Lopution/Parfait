@@ -50,6 +50,7 @@ class InfoBlock extends StatelessWidget {
     required this.blockMode,
     required this.onToggleBlockMode,
     this.anchorKey,
+    this.showAuthor = true,
   });
 
   final IllustEntity entity;
@@ -59,6 +60,10 @@ class InfoBlock extends StatelessWidget {
   /// Marks the first part, from the top of the block: the menu's
   /// artwork-info item scrolls to it.
   final GlobalKey? anchorKey;
+
+  /// Whether the inline author row renders inside the scrollable info list.
+  /// Two-pane/tabletop layouts pin [DetailAuthorCard] above the scroll instead.
+  final bool showAuthor;
 
   /// Collapsed caption height; longer captions get a Show more toggle.
   static const captionLines = 4;
@@ -111,12 +116,13 @@ class InfoBlock extends StatelessWidget {
             child: _MarksAndStats(entity: entity),
           ),
         ),
-        _KeptPart(
-          child: Padding(
-            padding: _margin.copyWith(top: FuncSpacing.md),
-            child: _Author(entity: entity),
+        if (showAuthor)
+          _KeptPart(
+            child: Padding(
+              padding: _margin.copyWith(top: FuncSpacing.md),
+              child: DetailAuthorCard(entity: entity),
+            ),
           ),
-        ),
         if (entity.caption.isNotEmpty)
           _KeptPart(
             key: const Key('illust-detail-caption'),
@@ -173,8 +179,8 @@ class _KeptPartState extends State<_KeptPart>
 /// The author on a [PersonCard], name over @account, with a follow button
 /// unless it is the signed-in user. The card shows the whole of it opens
 /// the profile.
-class _Author extends ConsumerWidget {
-  const _Author({required this.entity});
+class DetailAuthorCard extends ConsumerWidget {
+  const DetailAuthorCard({super.key, required this.entity});
 
   final IllustEntity entity;
 
