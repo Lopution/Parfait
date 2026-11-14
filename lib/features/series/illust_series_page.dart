@@ -277,7 +277,7 @@ class _SeriesHeader extends ConsumerWidget {
                     url: cover,
                     width: 88,
                     height: 88,
-                    memCacheWidth: PixivImage.decodeWidthFor(88),
+                    memCacheWidth: PixivImage.decodeWidthOf(context, 88),
                   ),
                 ),
               if (cover != null) const SizedBox(width: FuncSpacing.md),

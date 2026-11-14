@@ -404,7 +404,11 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
             heroScope: _RecentHistory._heroScope,
             heroImageUrl: flies ? url : null,
             heroImageDecodeWidth: flies
-                ? PixivImage.decodeWidthFor(_RecentCover.layoutWidth(entity))
+                ? PixivImage.decodeWidthOf(
+                    context,
+                    _RecentCover.layoutWidth(entity),
+                    listen: false,
+                  )
                 : null,
             pagerSource: _pager,
           ),

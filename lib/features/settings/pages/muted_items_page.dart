@@ -316,7 +316,7 @@ class _MutedThumbnail extends StatelessWidget {
                 url: url,
                 width: _size,
                 height: _size,
-                memCacheWidth: PixivImage.decodeWidthFor(_size),
+                memCacheWidth: PixivImage.decodeWidthOf(context, _size),
                 blur: MutedCover.blurSigma,
               ),
       ),

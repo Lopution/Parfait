@@ -251,4 +251,83 @@ void main() {
     await tester.pumpWidget(images(0));
     expect(_worker.demand.debugHolds(url), 0);
   });
+
+  testWidgets(
+    'feed honors explicit decodeWidth and tracks ambient display DPR without viewInsets rebuilds',
+    (tester) async {
+      var dpr = 1.0;
+      var insets = EdgeInsets.zero;
+      late StateSetter updateMetrics;
+      const feeds = Column(
+        children: [
+          SizedBox(
+            width: 200,
+            height: 200,
+            child: PixivImage.feed(
+              'https://i.pximg.net/img-master/img/1_p0_master1200.jpg',
+              layoutWidth: 200,
+            ),
+          ),
+          SizedBox(
+            width: 200,
+            height: 200,
+            child: PixivImage.feed(
+              'https://i.pximg.net/img-master/img/2_p0_master1200.jpg',
+              layoutWidth: 200,
+              decodeWidth: 333,
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              updateMetrics = setState;
+              return MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(400, 800),
+                  devicePixelRatio: dpr,
+                  viewInsets: insets,
+                ),
+                child: feeds,
+              );
+            },
+          ),
+        ),
+      );
+
+      int decodeWidthAt(int index) =>
+          (tester.widget<OctoImage>(find.byType(OctoImage).at(index)).image
+                  as ResizeImage)
+              .width!;
+
+      expect(decodeWidthAt(0), 200);
+      expect(decodeWidthAt(1), 333);
+      final beforeInsets = tester.widget<OctoImage>(
+        find.byType(OctoImage).at(0),
+      );
+
+      updateMetrics(() => insets = const EdgeInsets.only(bottom: 300));
+      await tester.pump();
+      expect(
+        identical(
+          tester.widget<OctoImage>(find.byType(OctoImage).at(0)),
+          beforeInsets,
+        ),
+        isTrue,
+      );
+
+      updateMetrics(() => dpr = 2.0);
+      await tester.pump();
+      expect(decodeWidthAt(0), 400);
+      expect(decodeWidthAt(1), 333);
+
+      updateMetrics(() => dpr = 1.0);
+      await tester.pump();
+      expect(decodeWidthAt(0), 200);
+      expect(decodeWidthAt(1), 333);
+    },
+  );
 }

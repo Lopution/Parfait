@@ -545,7 +545,10 @@ void main() {
             PixivImage.preload(
               navigatorKey.currentContext!,
               url,
-              memCacheWidth: PixivImage.screenDecodeWidth,
+              memCacheWidth: PixivImage.screenDecodeWidthOf(
+                navigatorKey.currentContext!,
+                listen: false,
+              ),
               priority: ImageFetchPriority.foreground,
             ).then((_) => warmed++),
           );

@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-10-26
+reviewed: 2026-11-14
 ---
 
 # Image pipeline and animated media
@@ -45,11 +45,17 @@ reviewed: 2026-10-26
   hand-off, tier underlay) paints only a decode that actually completed;
   never a guessed width. A request whose own width has not decoded paints
   the URL's uncapped decode or its last decode when that is at least as
-  wide.
+  wide. `PixivImage.feed` honors an explicit `decodeWidth`, and otherwise
+  resolves target physical width dynamically from the ambient `BuildContext`
+  DPR (`MediaQuery.maybeDevicePixelRatioOf` via `decodeWidthOf`, without
+  subscribing to `sizeOf` or `viewInsets`); callers inside the widget tree
+  resolve via `PixivImage.decodeWidthOf` / `PixivImage.screenDecodeWidthOf`
+  (passing `listen: false` in callbacks).
 - **Why:** A guessed width is another cache entry and fetched again; a
   detail page returning from the viewer's wider preview dropped to its
-  placeholder.
-- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads" "a wider decode paints a narrower request at once"
+  placeholder, and freezing constructor-time primary-view DPR missed display
+  changes or ignored explicit feed overrides.
+- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads" "a wider decode paints a narrower request at once", `test/pixiv_image_variants_test.dart` "feed honors explicit decodeWidth and tracks ambient display DPR without viewInsets rebuilds"
 - **Code:** `lib/app/pixiv_image.dart`, `lib/app/image_tier_cache.dart`
 
 ### IMG-13 A shrunk JPEG decodes at a width its blocks divide

@@ -120,7 +120,7 @@ class _SeriesCardView extends ConsumerWidget {
                       url: cover,
                       width: 56,
                       height: 56,
-                      memCacheWidth: PixivImage.decodeWidthFor(56),
+                      memCacheWidth: PixivImage.decodeWidthOf(buildContext, 56),
                     ),
                   ),
                 if (cover != null) const SizedBox(width: FuncSpacing.md),
