@@ -742,7 +742,8 @@ class _SlotStandIn extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final background = Theme.of(context).scaffoldBackgroundColor;
     final entity = ref.read(illustStoreProvider).get(illustId);
-    final twoPane = AppBreakpoints.useTwoPaneDetail(
+    final twoPane = AppBreakpoints.useTwoPaneDetailOf(
+      context,
       HomeShellChrome.contentSizeOf(context),
     );
     // Cover: a panorama's viewport shows the middle of the image at its
@@ -756,7 +757,7 @@ class _SlotStandIn extends ConsumerWidget {
           );
     if (twoPane) {
       final stage = Theme.of(context).colorScheme.surfaceContainerLow;
-      return TwoPane(
+      return AdaptiveTwoPane(
         primary: ColoredBox(
           key: ValueKey('pager-slot-image-$illustId'),
           color: stage,

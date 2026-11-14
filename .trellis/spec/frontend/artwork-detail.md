@@ -2,7 +2,9 @@
 prefix: DETAIL
 applies_to:
   - lib/features/illust/**
-reviewed: 2026-11-11
+  - lib/app/layout/window_layout_spec.dart
+  - lib/app/layout/two_pane.dart
+reviewed: 2026-11-14
 ---
 
 # Artwork detail page and viewer
@@ -207,31 +209,40 @@ reviewed: 2026-11-11
 - **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
 
 ### DETAIL-14 Landscape detail is a stage and an info column
-- **Rule:** When the area the page gets (the window less the shell rail,
-  `HomeShellChrome.contentSizeOf`) is at least 600dp wide, wider than
-  tall, and at least 480dp (`AppBreakpoints.compactHeight`) tall, the
-  detail page is a `TwoPane`: the image pager on a
-  `surfaceContainerLow` stage, the info column at 0.38 of the width kept
-  within 320–480dp, with no divider: the stage's ground sets the image
-  off. The action capsule centers on the artwork pane, clear of the info
-  column. A resize across the two-pane line fades the page in over
-  `MotionTokens.branchSwitch` rather than swapping it in one frame; only
-  one layout is ever in the tree, since both show the same work and one
-  route cannot hold the same hero tag twice. The image pager
-  takes a sideways swipe at twice the device's touch slop
+- **Rule:** When `AppBreakpoints.useTwoPaneDetailOf` sees the page area
+  (the window less the shell rail, `HomeShellChrome.contentSizeOf`) at
+  least 480dp (`AppBreakpoints.compactHeight`) tall and either in a
+  foldable posture (`FoldPosture.book` or `FoldPosture.tabletop`) or at
+  least 600dp (`AppBreakpoints.medium`) wide with `height / width < 1.2`
+  (tall portrait windows keep the single-column article layout per
+  DETAIL-18), the detail page renders `AdaptiveTwoPane`: the
+  image pager on a `surfaceContainerLow` stage, and the info column at
+  0.38 of the width kept within 340–460dp (and pointer-resizable with
+  persisted fraction under a stable `Stack` root so pointer/touch switches
+  never rebuild panes). Across `FoldPosture.book`, panes align strictly
+  to the vertical hinge edges minus ambient rail offset (`localToGlobal`);
+  across `FoldPosture.tabletop`, panes split vertically around the
+  horizontal hinge. The action capsule centers on the artwork pane, clear
+  of the info column. A resize across the two-pane line fades the page in
+  over `MotionTokens.branchSwitch` rather than swapping it in one frame;
+  only one layout is ever in the tree, since both show the same work and
+  one route cannot hold the same hero tag twice. The image pager takes a
+  sideways swipe at twice the device's touch slop
   (`pagingGestureSettings`); at its first or last image it hands the
   swipe on to the work pager around it through `SwipePagerScope`, and a
   swipe between images only turns the image. A work not built yet draws
   the image the grid already decoded on the stage, fitted as the pager
   fits a page, with the info column on the page's ground (C10).
-- **Why:** On a turned phone the single column showed half an image; on
-  wide screens the capsule, centred on the page, straddled the divider
+- **Why:** On a turned phone the single column showed half an image;
+  hinge-unaware widths overlapped foldable creases; pointer desktops need
+  adjustable column splits while keeping touch tablets hinge-safe.
+  On wide screens the capsule, centred on the page, straddled the divider
   over the comments, so it now centres on the artwork side. The
   image pager and the work pager both turn sideways, and the inner one
   took every swipe, so the last image could not lead on to the next work;
   a page not built showed a blank stage.
-- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column" "a layout switch fades the page in rather than swapping it"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
-- **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
+- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side" "AdaptiveTwoPane avoids vertical book hinge including rail" "AdaptiveTwoPane splits vertically on tabletop hinge" "AdaptiveTwoPane pointer handle resizes and saves ratio"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column" "a layout switch fades the page in rather than swapping it"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
+- **Code:** `lib/app/layout/two_pane.dart`, `lib/app/layout/window_layout_spec.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### DETAIL-18 Single-column detail text keeps the article width
 - **Rule:** In the single-column layout, when the page's content area is

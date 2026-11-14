@@ -29,7 +29,7 @@ class _FirstImageLayout {
     required bool expanded,
   }) {
     final viewport = HomeShellChrome.contentSizeOf(context);
-    final useTwoPane = AppBreakpoints.useTwoPaneDetail(viewport);
+    final useTwoPane = AppBreakpoints.useTwoPaneDetailOf(context, viewport);
     // An illustration set opens on its first image; manga reads in full.
     final collapsible =
         entity.type == IllustType.illust && entity.pageCount > 1;
@@ -357,7 +357,7 @@ extension _IllustDetailContent on _IllustDetailPageState {
     );
 
     final contentSize = HomeShellChrome.contentSizeOf(context);
-    final twoPane = AppBreakpoints.useTwoPaneDetail(contentSize);
+    final twoPane = AppBreakpoints.useTwoPaneDetailOf(context, contentSize);
     // Reduced motion turned on mid-fade lands the page at once (MOTION-02):
     // the preference only rebuilds, and the fade starts on a layout switch.
     if (_layoutFade.value < 1 &&
@@ -420,7 +420,7 @@ extension _IllustDetailContent on _IllustDetailPageState {
         if (_downloadMode) _exitDownloadMode();
       },
       child: twoPane
-          ? TwoPane(
+          ? AdaptiveTwoPane(
               // The stage tints the letterbox around the artwork, so the
               // page counter sits on the stage rather than on blank page:
               // the work's own ambient light (THEME-19), or a plain tier

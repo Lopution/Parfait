@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'window_layout_spec.dart';
+
 /// Width-based layout breakpoints shared by the shell and content pages,
 /// on Material 3's window classes: compact < 600 ≤ medium < 840 ≤ expanded
 /// < 1200 ≤ large < 1600 ≤ extra-large. They are pure width thresholds — the
@@ -27,6 +29,8 @@ abstract final class AppBreakpoints {
   /// split. Null when the embedder reports no display size; callers then
   /// decide by the window alone.
   static Size? displaySizeOf(BuildContext context) {
+    final override = WindowEnvironmentOverride.maybeOf(context)?.displaySize;
+    if (override != null) return override;
     final display = View.of(context).display;
     if (display.size.isEmpty) return null;
     return display.size / display.devicePixelRatio;
@@ -48,11 +52,21 @@ abstract final class AppBreakpoints {
       window.height < compactHeight && window.width >= medium;
 
   /// Detail pages put the artwork and its information side by side when
-  /// the area they get (the window less the rail) is wider than tall, at
-  /// least medium wide and at least [compactHeight] tall; otherwise they
-  /// keep the single scroll.
-  static bool useTwoPaneDetail(Size content) =>
-      content.width >= medium &&
-      content.width > content.height &&
-      content.height >= compactHeight;
+  /// [content] is at least [compactHeight] tall and either in a foldable
+  /// posture ([FoldPosture.book] or [FoldPosture.tabletop]) or in a
+  /// landscape / near-square window at least [medium] wide
+  /// (`height / width < 1.2`). Tall portrait windows keep the single-column
+  /// article layout (DETAIL-18).
+  static bool useTwoPaneDetail(
+    Size content, {
+    FoldPosture posture = FoldPosture.flat,
+  }) =>
+      content.height >= compactHeight &&
+      (posture != FoldPosture.flat ||
+          (content.width >= medium && content.height / content.width < 1.2));
+
+  /// Convenience variant of [useTwoPaneDetail] that reads the ambient
+  /// [FoldPosture] from [context].
+  static bool useTwoPaneDetailOf(BuildContext context, Size content) =>
+      useTwoPaneDetail(content, posture: WindowLayoutSpec.postureOf(context));
 }

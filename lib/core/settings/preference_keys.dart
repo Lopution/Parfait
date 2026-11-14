@@ -74,4 +74,8 @@ abstract final class PreferenceKeys {
   /// Pending auto-clear fingerprint + expiry for [FlutterTransferClipboard].
   static const String transferClipboardState =
       'parfait.transfer.clipboard.state.v1';
+
+  /// User-adjusted secondary column width fraction in [AdaptiveTwoPane].
+  static const String twoPaneSecondaryFraction =
+      'parfait.layout.two_pane_fraction.v1';
 }

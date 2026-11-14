@@ -977,12 +977,13 @@ void main() {
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
-      // Wide enough that the artwork fills its slot up to the pill.
+      // Medium+ portrait so the artwork fills its slot up to the pill while
+      // keeping the narrow single-column layout.
       await pumpDetail(
         tester,
         container,
         useRouter: true,
-        surface: const Size(800, 800),
+        surface: const Size(800, 1000),
       );
       await tester.pumpAndSettle();
 
