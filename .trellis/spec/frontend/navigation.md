@@ -2,8 +2,10 @@
 prefix: NAV
 applies_to:
   - lib/app/navigation/**
+  - lib/app/layout/form_factor.dart
   - lib/app/startup_gate.dart
   - lib/app/widgets/home_branch_stack.dart
+  - lib/app/widgets/shell_rail.dart
   - lib/app/widgets/func_bottom_nav.dart
   - lib/app/widgets/app_tab_bar.dart
   - lib/app/widgets/app_top_bar.dart
@@ -17,7 +19,8 @@ applies_to:
   - lib/features/search/search_input_page.dart
   - lib/features/search/search_page.dart
   - lib/features/illust/detail/illust_detail_page.dart
-reviewed: 2026-11-11
+  - lib/features/illust/detail/widgets/detail_overlay_frame.dart
+reviewed: 2026-11-15
 ---
 
 # Navigation, shell and tabs
@@ -343,10 +346,13 @@ reviewed: 2026-11-11
   downloads, which open their pages without taking the selection. The
   selected entry sits on `primary` at 15%; the rail casts `barShadow`
   over the content instead of a divider, and scrolls when the window is
-  too short. A touch rail is always the 88dp icon-over-label column under
-  the app's icon. A PC rail's header is a menu button that opens the
-  256dp labelled panel; it opens by itself from 1600dp until the user
-  toggles it, then stays as left (`AppSettings.railExpanded`). The panel
+  too short. A touch rail defaults to the 88dp icon-over-label column;
+  when the window is at least `840×480` (`FormFactor.canToggleRail`), its
+  header offers the menu button to open the 256dp panel via
+  `AppSettings.railExpanded`, while narrower or shorter (`< 480dp`) touch
+  windows stay collapsed with the app's icon. A PC rail's header is always a
+  menu button that opens the 256dp labelled panel; it opens by itself from
+  1600dp until the user toggles it, then stays as left. The panel
   opens and closes by animating the rail's width (`MotionTokens.chrome`)
   and the room the branches give up together, the two forms cross-fading
   inside the moving edge; the shell's form itself still changes at once
@@ -435,13 +441,16 @@ reviewed: 2026-11-11
   back to it (opening a collapsed set first). The image on screen is read
   from the pages already laid out at the switch, never from a visibility
   tracker's delayed report. The detail page keeps that image index across
-  the switch, never the layouts' own scroll state.
+  the switch, never the layouts' own scroll state. Across the `960×600`
+  bounded detail overlay threshold (DETAIL-14), `DetailOverlayFrame` anchors
+  the detail subtree with a persistent `GlobalKey` so resizing preserves its
+  route state and image index.
 - **Why:** Desktop-class windows resize all the time; losing the open page
   or the scroll on each resize would make the rail unusable. A turned
   phone or a folding tablet changes the detail page's whole layout, and
   the reader lost the image they were looking at.
 - **Check:** `test/home_branch_stack_test.dart` "a resize keeps every branch, its stack and its scroll"; `test/illust_detail_actions_test.dart` "arrow keys page the image pane; a resize keeps the page" "a switch between the single column and two panes keeps the image, read from the screen"
-- **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`
+- **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/features/illust/detail/widgets/detail_overlay_frame.dart`
 
 ### NAV-22 Esc goes back
 - **Rule:** `KeyboardBack` maps Esc to the router's `popRoute`, the path

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -36,9 +37,12 @@ import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/view_size.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'helpers/illust_detail_page_support.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/pixiv_router.dart';
 import 'helpers/prompt_host.dart';
 
 /// A phone short enough that the sections under the info block start
@@ -836,14 +840,90 @@ void main() {
       expect(find.byType(DetailPageCounter), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
-      // The action bar centres on the artwork pane, clear of the meta
-      // column.
+      // Two-pane mode moves actions into the pinned secondary inspector bar and
+      // keeps a single ⋮ menu globally (DETAIL-09, DETAIL-14).
       final pager = tester.getRect(find.byType(DetailImagePager));
-      final bar = tester.getRect(find.byType(DetailActionBar));
-      expect(bar.left, greaterThanOrEqualTo(pager.left));
-      expect(bar.right, lessThanOrEqualTo(pager.right));
-      expect(bar.center.dx, closeTo(pager.center.dx, 0.5));
+      expect(find.byType(DetailActionBar), findsNothing);
+      final inspectorBar = find.byKey(
+        const ValueKey('detail-inspector-action-bar'),
+      );
+      expect(inspectorBar, findsOneWidget);
+      final bar = tester.getRect(inspectorBar);
+      expect(bar.left, greaterThanOrEqualTo(pager.right));
+      expect(find.byIcon(Icons.more_vert), findsOneWidget);
     });
+
+    testWidgets('tabletop hinge splits artwork above inspector action bar', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      setViewSize(tester, const Size(884, 740));
+      tester.view.displayFeatures = const [
+        ui.DisplayFeature(
+          bounds: Rect.fromLTWH(0, 364, 884, 12),
+          type: ui.DisplayFeatureType.hinge,
+          state: ui.DisplayFeatureState.postureHalfOpened,
+        ),
+      ];
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: const IllustDetailPage(illustId: 42),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+
+      final pager = tester.getRect(find.byType(DetailImagePager));
+      final bar = tester.getRect(
+        find.byKey(const ValueKey('detail-inspector-action-bar')),
+      );
+      expect(pager.bottom, lessThanOrEqualTo(364));
+      expect(bar.top, greaterThanOrEqualTo(376));
+      expect(find.byType(DetailActionBar), findsNothing);
+    });
+
+    testWidgets(
+      'bounded wide detail overlay keeps underlying feed alive and closes on '
+      'scrim tap',
+      (tester) async {
+        setViewSize(tester, const Size(1440, 900));
+        final (container, _, _) = await makeWorld();
+        final entity = parseIllust(
+          illustJson(42, pageCount: 2, withMetaPages: true),
+        );
+        container.read(illustStoreProvider).mergeAll([entity]);
+        final router = pixivRouter('/recommended');
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+        await tester.pumpWidget(
+          localizedRouterApp(router, container: container),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        unawaited(
+          router.push<void>(
+            '/recommended/illust/42',
+            extra: IllustRouteExtra(entity: entity),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        // The scrim-framed overlay leaves RecommendedHomePage mounted & onstage.
+        final scrimFinder = find.byKey(const ValueKey('detail-overlay-scrim'));
+        expect(scrimFinder, findsOneWidget);
+        expect(find.byType(RecommendedHomePage), findsOneWidget);
+
+        final scrim = tester.getRect(scrimFinder);
+        await tester.tapAt(scrim.topLeft + const Offset(8, 8));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, '/recommended');
+        expect(scrimFinder, findsNothing);
+      },
+    );
 
     testWidgets('a layout switch fades the page in rather than swapping it', (
       tester,

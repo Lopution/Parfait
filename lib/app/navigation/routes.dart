@@ -44,6 +44,7 @@ import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
 import '../../features/illust/detail/illust_detail_pager_page.dart';
+import '../../features/illust/detail/widgets/detail_overlay_frame.dart';
 import '../../features/illust/detail/widgets/info_block.dart';
 import '../../features/illust/viewer/image_viewer_page.dart';
 import '../../features/login/login_page.dart';

@@ -304,6 +304,7 @@ class _AppTopBarState extends State<AppTopBar> {
             : widget.backgroundColor,
         foregroundColor: immersed ? foreground : null,
         iconTheme: liftedIcons,
+        actionsIconTheme: liftedIcons,
         // The status strip is the page surface, so its icons follow the
         // theme like the navigation bar's.
         systemOverlayStyle: immersed

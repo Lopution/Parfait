@@ -2,9 +2,10 @@
 prefix: DETAIL
 applies_to:
   - lib/features/illust/**
+  - lib/app/layout/app_breakpoints.dart
   - lib/app/layout/window_layout_spec.dart
   - lib/app/layout/two_pane.dart
-reviewed: 2026-11-14
+reviewed: 2026-11-15
 ---
 
 # Artwork detail page and viewer
@@ -188,61 +189,67 @@ reviewed: 2026-11-14
 
 ## Chrome
 
-### DETAIL-09 The action bar is the centered capsule
-- **Rule:** On narrow layouts download and bookmark sit in one floating
-  capsule (`DetailActionBar`), the heart on a tonal circle: 56dp high, an
-  opaque surface with an outline on a layer lift (THEME-20). Comments are
-  written
-  from the page's comment section (DETAIL-17). The top bar carries only
-  the ⋮ menu. Share,
-  editing the bookmark, watch later, page selection, work info and the
-  two mutes are ⋮ entries with text labels; no action depends only on a
-  long press (FB-03).
-- **Why:** User decision. An M3 floating toolbar with a separate bookmark
-  FAB was tried and rejected; a comments button repeated the preview's
-  entry, and a larger opaque capsule weighed on the page. Without blur,
-  text passing under a translucent capsule smeared through it; with blur,
-  each capsule cost a backdrop pass, two a frame in a side swipe. A
-  shared backdrop blurred the incoming page's capsule over a backdrop
-  without its page. The user chose the opaque capsule (11-03).
-- **Check:** `test/illust_detail_actions_test.dart` "the ⋮ menu carries the long-press actions too"; the capsule manual
-- **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
+### DETAIL-09 The action bar is the end-aligned capsule or pinned inspector bar
+- **Rule:** On narrow single-column layouts, download and bookmark sit in one
+  floating capsule (`DetailActionBar`) aligned to `AlignmentDirectional.bottomEnd`
+  (`FuncSpacing.lg` margin, trailing scroll clearance increased by
+  `FuncSpacing.md`), the heart on a tonal circle: 56dp high, an opaque surface
+  with an outline on a layer lift (THEME-20). Comments are written from the
+  page's comment section (DETAIL-17). The top bar carries only the ⋮ menu;
+  share, editing the bookmark, watch later, page selection, work info and the
+  two mutes are ⋮ entries with text labels; no action depends only on a long
+  press (FB-03). In two-pane mode (`DETAIL-14`), `DetailActionBar` is omitted
+  and the secondary inspector pins `DetailActionBar`'s bookmark and download
+  controls together with inline Share and one deduplicated ⋮ menu (omitting
+  Share and work info, keeping at most one ⋮ button globally).
+- **Why:** User decision (11-03): an opaque capsule prevents smudged scroll
+  text and backdrop passes. Bottom-end alignment keeps center-bottom artwork
+  unobstructed in portrait feeds, while pinning inline actions in the two-pane
+  inspector removes duplicate top-bar and floating chrome over wide stages.
+- **Check:** `test/illust_detail_actions_test.dart` "the ⋮ menu carries the long-press actions too"
+- **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
-### DETAIL-14 Landscape detail is a stage and an info column
+### DETAIL-14 Landscape detail is a stage, bounded overlay, and pinned inspector
 - **Rule:** When `AppBreakpoints.useTwoPaneDetailOf` sees the page area
   (the window less the shell rail, `HomeShellChrome.contentSizeOf`) at
   least 480dp (`AppBreakpoints.compactHeight`) tall and either in a
   foldable posture (`FoldPosture.book` or `FoldPosture.tabletop`) or at
   least 600dp (`AppBreakpoints.medium`) wide with `height / width < 1.2`
   (tall portrait windows keep the single-column article layout per
-  DETAIL-18), the detail page renders `AdaptiveTwoPane`: the
-  image pager on a `surfaceContainerLow` stage, and the info column at
-  0.38 of the width kept within 340–460dp (and pointer-resizable with
-  persisted fraction under a stable `Stack` root so pointer/touch switches
-  never rebuild panes). Across `FoldPosture.book`, panes align strictly
-  to the vertical hinge edges minus ambient rail offset (`localToGlobal`);
-  across `FoldPosture.tabletop`, panes split vertically around the
-  horizontal hinge. The action capsule centers on the artwork pane, clear
-  of the info column. A resize across the two-pane line fades the page in
-  over `MotionTokens.branchSwitch` rather than swapping it in one frame;
-  only one layout is ever in the tree, since both show the same work and
-  one route cannot hold the same hero tag twice. The image pager takes a
-  sideways swipe at twice the device's touch slop
-  (`pagingGestureSettings`); at its first or last image it hands the
-  swipe on to the work pager around it through `SwipePagerScope`, and a
-  swipe between images only turns the image. A work not built yet draws
-  the image the grid already decoded on the stage, fitted as the pager
-  fits a page, with the info column on the page's ground (C10).
+  DETAIL-18), the detail page renders `AdaptiveTwoPane`: the primary pane holds
+  only the image pager over `AmbientWash` (or `surfaceContainerLow` while
+  selecting pages), and the secondary inspector pane pins `DetailAuthorCard`
+  and the inline inspector action bar above a divider and the scrollable
+  metadata/comments column at 0.38 of the width kept within 340–460dp (and
+  pointer-resizable with persisted fraction under a stable `Stack` root so
+  pointer/touch switches never rebuild panes). Across `FoldPosture.book`, panes
+  align strictly to the vertical hinge edges minus ambient rail offset
+  (`localToGlobal`); across `FoldPosture.tabletop`, panes split vertically
+  around the horizontal hinge with the artwork above and the pinned inspector
+  and actions below. When `AppBreakpoints.useBoundedDetailOverlayOf` holds on
+  large flat screens (`>= 960×600` in `FoldPosture.flat`), pushed detail routes
+  open via `FuncPage(boundedOverlayOnWide: true)` (non-opaque while bounded so
+  the feed stays onstage, remaining opaque when full-screen) and
+  `DetailOverlayFrame` over a scrim (`detail-overlay-scrim`), preserving the
+  feed scroll position underneath and dismissing on scrim click, back or Esc.
+  A resize across the two-pane line fades the page in over
+  `MotionTokens.branchSwitch` rather than swapping it in one frame; only one
+  layout is ever in the tree, since both show the same work and one route
+  cannot hold the same hero tag twice. The image pager takes a sideways swipe at
+  twice the device's touch slop (`pagingGestureSettings`); at its first or last
+  image it hands the swipe on to the work pager around it through
+  `SwipePagerScope`, and a swipe between images only turns the image. A work not
+  built yet draws the image the grid already decoded on the stage, fitted as
+  the pager fits a page, with the info column on the page's ground (C10).
 - **Why:** On a turned phone the single column showed half an image;
   hinge-unaware widths overlapped foldable creases; pointer desktops need
-  adjustable column splits while keeping touch tablets hinge-safe.
-  On wide screens the capsule, centred on the page, straddled the divider
-  over the comments, so it now centres on the artwork side. The
-  image pager and the work pager both turn sideways, and the inner one
-  took every swipe, so the last image could not lead on to the next work;
-  a page not built showed a blank stage.
+  adjustable column splits while keeping touch tablets hinge-safe. Keeping the
+  feed mounted behind a bounded wide overlay preserves feed context on tablets
+  and desktops without edge-to-edge full-screen disorientation, while pinning
+  actions inside the inspector pane avoids floating capsules overlapping art or
+  the tabletop hinge.
 - **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds" "renders primary and secondary side by side" "AdaptiveTwoPane avoids vertical book hinge including rail" "AdaptiveTwoPane splits vertically on tabletop hinge" "AdaptiveTwoPane pointer handle resizes and saves ratio"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column" "a layout switch fades the page in rather than swapping it"; `test/illust_detail_pager_test.dart` "an image pager at its last page hands the swipe to the work pager" "an image pager at its first image hands a backward swipe to the work pager, then follows the finger" "a two-pane stand-in paints the grid image on the stage"
-- **Code:** `lib/app/layout/two_pane.dart`, `lib/app/layout/window_layout_spec.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
+- **Code:** `lib/app/layout/app_breakpoints.dart`, `lib/app/layout/two_pane.dart`, `lib/app/layout/window_layout_spec.dart`, `lib/app/navigation/func_page.dart`, `lib/features/illust/detail/widgets/detail_overlay_frame.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/detail/illust_detail_content.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### DETAIL-18 Single-column detail text keeps the article width
 - **Rule:** In the single-column layout, when the page's content area is

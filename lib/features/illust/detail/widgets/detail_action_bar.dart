@@ -110,7 +110,7 @@ class _DetailActionBarState extends State<DetailActionBar> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _DownloadAction(
+            DetailDownloadButton(
               entity: widget.entity,
               onPressed: widget.onDownload,
             ),
@@ -157,7 +157,14 @@ class _DetailActionBarState extends State<DetailActionBar> {
             minimum: EdgeInsets.only(
               bottom: bottomInset + DetailActionBar.margin,
             ),
-            child: Center(heightFactor: 1, child: toolbar),
+            child: Align(
+              alignment: AlignmentDirectional.bottomEnd,
+              heightFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+                child: toolbar,
+              ),
+            ),
           ),
         ),
       ),
@@ -169,17 +176,22 @@ class _DetailActionBarState extends State<DetailActionBar> {
 /// pages are in flight, a check once all are saved, an alert after a
 /// failure. It follows the manager's change stream itself, so progress
 /// ticks redraw this button rather than the page.
-class _DownloadAction extends ConsumerStatefulWidget {
-  const _DownloadAction({required this.entity, required this.onPressed});
+class DetailDownloadButton extends ConsumerStatefulWidget {
+  const DetailDownloadButton({
+    super.key,
+    required this.entity,
+    required this.onPressed,
+  });
 
   final IllustEntity entity;
   final VoidCallback onPressed;
 
   @override
-  ConsumerState<_DownloadAction> createState() => _DownloadActionState();
+  ConsumerState<DetailDownloadButton> createState() =>
+      _DetailDownloadButtonState();
 }
 
-class _DownloadActionState extends ConsumerState<_DownloadAction> {
+class _DetailDownloadButtonState extends ConsumerState<DetailDownloadButton> {
   StreamSubscription<void>? _changes;
 
   @override
