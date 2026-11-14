@@ -23,15 +23,15 @@ class FeedDatabase {
         databasePath: databasePath,
         onCreate: (db, _) => _createSchema(db),
         onUpgrade: _upgrade,
-        // A cache: a newer build's schema is dropped and created afresh,
-        // queued actions with it (a downgrade is a deliberate install).
+        // A cache: a newer build's schema is dropped and created afresh
+        // (a downgrade is a deliberate install). Queued offline actions live
+        // in actions.db and are unaffected.
         onDowngrade: onDatabaseDowngradeDelete,
       );
 
   static const databaseName = 'feeds.db';
   static const snapshotTable = 'feed_snapshots';
-  static const actionTable = 'action_queue';
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
 
   final SqliteDatabase _sqlite;
 
@@ -53,27 +53,6 @@ class FeedDatabase {
         PRIMARY KEY (account_id, feed_key)
       )
     ''');
-    await _createActionSchema(db);
-  }
-
-  static Future<void> _createActionSchema(DatabaseExecutor db) async {
-    await db.execute('''
-      CREATE TABLE $actionTable (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        owner TEXT NOT NULL,
-        type TEXT NOT NULL,
-        dedupe_key TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('pending','running','failed')),
-        attempt INTEGER NOT NULL DEFAULT 0,
-        next_attempt_at INTEGER,
-        created_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute('''
-      CREATE INDEX aq_ready
-      ON $actionTable(owner, status, next_attempt_at)
-    ''');
   }
 
   static Future<void> _upgrade(
@@ -83,10 +62,8 @@ class FeedDatabase {
   ) async {
     if (oldVersion < 1) {
       await _createSchema(db);
-      return;
     }
-    if (oldVersion < 2) {
-      await _createActionSchema(db);
-    }
+    // Keep any legacy v2 action_queue rows intact here; SqliteActionStore
+    // migrates them into actions.db and drops the legacy table on first access.
   }
 }

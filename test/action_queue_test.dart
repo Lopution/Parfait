@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:parfait/core/actionqueue/action_database.dart';
 import 'package:parfait/core/actionqueue/action_models.dart';
 import 'package:parfait/core/actionqueue/action_queue.dart';
 import 'package:parfait/core/actionqueue/action_store.dart';
@@ -372,7 +373,7 @@ void main() {
   });
 
   group('SqliteActionStore', () {
-    late FeedDatabase database;
+    late ActionDatabase database;
     late Directory directory;
     late SqliteActionStore store;
 
@@ -380,9 +381,9 @@ void main() {
 
     setUp(() async {
       directory = await Directory.systemTemp.createTemp('pixiv-aq-test-');
-      database = FeedDatabase(
+      database = ActionDatabase(
         factory: databaseFactoryFfi,
-        databasePath: path.join(directory.path, 'feeds.db'),
+        databasePath: path.join(directory.path, 'actions.db'),
       );
       store = SqliteActionStore(database: database);
     });
@@ -466,5 +467,88 @@ void main() {
       await store.markFailed(interrupted);
       expect(await store.nextPendingAt('acc'), isNull);
     });
+
+    test(
+      'migrates legacy feeds.db action_queue once and survives feeds downgrade',
+      () async {
+        final feedsPath = path.join(directory.path, 'feeds.db');
+        final legacy = await databaseFactoryFfi.openDatabase(
+          feedsPath,
+          options: OpenDatabaseOptions(
+            version: 2,
+            onCreate: (db, _) async {
+              await db.execute('''
+                CREATE TABLE feed_snapshots (
+                  account_id TEXT NOT NULL, feed_key TEXT NOT NULL,
+                  ids TEXT NOT NULL, entities TEXT NOT NULL, cursor TEXT,
+                  saved_at INTEGER NOT NULL, snapshot_version INTEGER NOT NULL DEFAULT 1,
+                  PRIMARY KEY (account_id, feed_key)
+                )''');
+              await db.execute('''
+                CREATE TABLE action_queue (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  owner TEXT NOT NULL, type TEXT NOT NULL,
+                  dedupe_key TEXT NOT NULL, payload TEXT NOT NULL,
+                  status TEXT NOT NULL, attempt INTEGER NOT NULL DEFAULT 0,
+                  next_attempt_at INTEGER, created_at INTEGER NOT NULL
+                )''');
+              await db.insert('action_queue', {
+                'owner': 'acc',
+                'type': 'follow.add',
+                'dedupe_key': 'follow:7',
+                'payload': '{"user":7}',
+                'status': 'pending',
+                'attempt': 1,
+                'next_attempt_at': null,
+                'created_at': 100,
+              });
+            },
+          ),
+        );
+        await legacy.close();
+
+        // Simulate FeedDatabase opening v2 -> v3 BEFORE SqliteActionStore initializes.
+        final feedsDb = FeedDatabase(
+          factory: databaseFactoryFfi,
+          databasePath: feedsPath,
+        );
+        await feedsDb.database;
+        final migratedStore = SqliteActionStore(
+          database: database,
+          legacyFeedDatabase: feedsDb,
+        );
+        expect(
+          (await migratedStore.listFor('acc')).single.dedupeKey,
+          'follow:7',
+        );
+        final tablesAfter = await (await feedsDb.database).rawQuery(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'action_queue'",
+        );
+        expect(tablesAfter, isEmpty);
+        await feedsDb.close();
+
+        // Idempotent re-open & feeds downgrade leaves actions.db intact.
+        final newerFeeds = await databaseFactoryFfi.openDatabase(
+          feedsPath,
+          options: OpenDatabaseOptions(
+            version: FeedDatabase.schemaVersion + 1,
+            onUpgrade: (db, _, _) => db.execute('CREATE TABLE newer (id INT)'),
+          ),
+        );
+        await newerFeeds.close();
+        final rebuiltFeeds = FeedDatabase(
+          factory: databaseFactoryFfi,
+          databasePath: feedsPath,
+        );
+        addTearDown(rebuiltFeeds.close);
+        final reopened = SqliteActionStore(
+          database: database,
+          legacyFeedDatabase: rebuiltFeeds,
+        );
+        expect((await reopened.listFor('acc')).map((e) => e.dedupeKey), [
+          'follow:7',
+        ]);
+      },
+    );
   });
 }
