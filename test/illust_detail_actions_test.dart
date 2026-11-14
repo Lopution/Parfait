@@ -37,6 +37,9 @@ import 'helpers/view_size.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
+import 'package:parfait/app/layout/input_modality.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 
 /// A phone short enough that the sections under the info block start
 /// below the fold.
@@ -964,6 +967,102 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
         await tester.pump(const Duration(seconds: 1));
+      },
+    );
+
+    testWidgets(
+      'two-pane resize preserves meta scroll offset; DetailPageImage hover badge suppresses during wheel scroll',
+      (tester) async {
+        final (container, _, _) = await makeWorld(
+          commentOverrides: {
+            42: [
+              for (var i = 0; i < 12; i++)
+                {
+                  'id': i + 1,
+                  'comment': '评论内容 $i',
+                  'date': '2026-01-01T00:00:00+00:00',
+                  'user': {
+                    'id': 200 + i,
+                    'name': 'User $i',
+                    'account': 'u$i',
+                    'profile_image_urls': {
+                      'medium': 'https://i.pximg.net/u$i.jpg',
+                    },
+                    'is_followed': false,
+                  },
+                  'has_replies': false,
+                },
+            ],
+          },
+        );
+        setViewSize(tester, const Size(480, 900));
+        container.read(illustStoreProvider).mergeAll([
+          parseIllust(
+            illustJson(
+              42,
+              pageCount: 2,
+              withMetaPages: true,
+              caption: '作品说明\n' * 12,
+            ),
+          ),
+        ]);
+        await tester.pumpWidget(
+          InputModalityScope(
+            initialModality: InputModality.pointer,
+            child: localizedApp(
+              container: container,
+              builder: promptHostBuilder,
+              home: const IllustDetailPage(illustId: 42),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pumpAndSettle();
+
+        final pageImage = find.byType(DetailPageImage).first;
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(pageImage));
+        await tester.pump();
+        expect(find.byTooltip('保存当前页'), findsOneWidget);
+
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(pageImage),
+            scrollDelta: const Offset(0, 80),
+          ),
+        );
+        await tester.pump();
+        expect(find.byTooltip('保存当前页'), findsNothing);
+        await tester.pumpAndSettle();
+
+        setViewSize(tester, const Size(1200, 480));
+        await tester.pumpAndSettle();
+        final metaScrollable = find.bySubtype<CustomScrollView>().last;
+        double metaOffset() => tester
+            .state<ScrollableState>(
+              find
+                  .descendant(
+                    of: find.bySubtype<CustomScrollView>().last,
+                    matching: find.byType(Scrollable),
+                  )
+                  .first,
+            )
+            .position
+            .pixels;
+        await tester.drag(metaScrollable, const Offset(0, -180));
+        await tester.pumpAndSettle();
+        final scrolledBefore = metaOffset();
+        expect(scrolledBefore, greaterThan(40));
+
+        setViewSize(tester, const Size(390, 480));
+        await tester.pumpAndSettle();
+        setViewSize(tester, const Size(1200, 480));
+        await tester.pumpAndSettle();
+        final scrolledAfter = metaOffset();
+        expect(scrolledAfter, closeTo(scrolledBefore, 20));
       },
     );
   });

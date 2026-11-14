@@ -151,6 +151,7 @@ class _DismissDragRecognizer extends VerticalDragGestureRecognizer {
 
   @override
   bool isPointerAllowed(PointerEvent event) =>
+      event.kind != PointerDeviceKind.mouse &&
       (event is! PointerDownEvent || (allowPointer?.call(event) ?? true)) &&
       super.isPointerAllowed(event);
 }

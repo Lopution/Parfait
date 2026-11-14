@@ -1,14 +1,15 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 
 import 'helpers/image_network.dart';
@@ -19,6 +20,7 @@ import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 import 'helpers/waits.dart';
 
 // §7 screen-reader representative paths — the three priority surfaces
@@ -540,6 +542,192 @@ void main() {
         await tester.pumpAndSettle();
         expect(_scale(tester), closeTo(1.0, 0.01));
         expect(find.byType(ImageViewerPage), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'pointer controls: mouse drag stays mounted, hover arrows page, hotzone reveals chrome, right-click menu and adaptive overlays work',
+      (tester) async {
+        const wide = Size(1024, 768);
+        setViewSize(tester, wide);
+        final (container, _, _) = await makeWorld();
+        final entity = parseIllust(
+          illustJson(42, pageCount: 2, withMetaPages: true),
+        );
+        await tester.pumpWidget(
+          withStalledImages(
+            InputModalityScope(
+              initialModality: InputModality.pointer,
+              child: localizedApp(
+                container: container,
+                builder: promptHostBuilder,
+                home: Builder(
+                  builder: (context) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              ImageViewerPage(urls: twoPages, entity: entity),
+                        ),
+                      ),
+                      child: const Text('open'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+
+        await mouse.moveTo(const Offset(512, 384));
+        await mouse.down(const Offset(512, 384));
+        await mouse.moveBy(const Offset(0, 260));
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsOneWidget);
+
+        await tester.pump();
+        expect(find.byKey(const Key('viewer-next-page')), findsOneWidget);
+        await tester.tap(
+          find.byKey(const Key('viewer-next-page')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('2 / 2'), findsOneWidget);
+        expect(find.byKey(const Key('viewer-prev-page')), findsOneWidget);
+        await tester.tap(
+          find.byKey(const Key('viewer-prev-page')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('1 / 2'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.pumpAndSettle();
+        expectViewerChrome(tester, visible: false);
+        await mouse.moveTo(const Offset(512, 12));
+        await tester.pumpAndSettle();
+        expectViewerChrome(tester, visible: true);
+        await mouse.moveTo(const Offset(512, 384));
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+        expectViewerChrome(tester, visible: false);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byType(PageView),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(PopupMenuItem<void>), findsWidgets);
+        await tester.tapAt(
+          const Offset(20, 400),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byTooltip('跳转到页码'),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        await tester.tap(find.text('2').last, kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+        expect(find.text('2 / 2'), findsOneWidget);
+
+        await tester.tap(
+          find.byIcon(Icons.info_outline),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(entity.title), findsOneWidget);
+        await tester.tapAt(
+          const Offset(20, 384),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+      },
+    );
+  });
+
+  group('UgoiraViewer desktop controls', () {
+    testWidgets(
+      'Space toggles playback unless editing text; speed selector and right-click menu work',
+      (tester) async {
+        setViewSize(tester, const Size(1024, 768));
+        final (container, _, _) = await makeWorld();
+        await tester.pumpWidget(
+          withStalledImages(
+            InputModalityScope(
+              initialModality: InputModality.pointer,
+              child: localizedApp(
+                container: container,
+                builder: promptHostBuilder,
+                home: const Scaffold(
+                  body: Column(
+                    children: [
+                      SizedBox(height: 44, child: TextField()),
+                      SizedBox(
+                        height: 300,
+                        child: UgoiraViewer(
+                          illustId: 42,
+                          previewUrl: 'https://i.pximg.net/1/large.jpg',
+                          width: 400,
+                          height: 300,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byType(TextField));
+        await tester.pump();
+        expect(find.byIcon(Icons.play_circle_outline_outlined), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(find.byIcon(Icons.play_circle_outline_outlined), findsOneWidget);
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(find.byType(UgoiraViewer)));
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(find.byIcon(Icons.play_circle_outline_outlined), findsNothing);
+
+        await tester.tap(find.text('1x'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('2x'));
+        await tester.pumpAndSettle();
+        expect(find.text('2x'), findsOneWidget);
+
+        await tester.tap(
+          find.byType(UgoiraViewer),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(PopupMenuItem<void>), findsWidgets);
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpWidget(const SizedBox());
       },
     );
   });

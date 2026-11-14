@@ -4,11 +4,14 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/layout/input_modality.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/motion/motion_tokens.dart';
 import '../../../app/motion/still_work.dart';
@@ -113,6 +116,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
   /// ([InfoBlock.warmTexts]), and the work it belongs to.
   final _texts = Queue<WarmText>();
   int? _textsOf;
+  bool _startEdgeHovered = false;
+  bool _endEdgeHovered = false;
 
   @override
   void initState() {
@@ -127,10 +132,12 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
       ..addListener(() => widget.onActiveChanged?.call(_activeId.value));
     _controller = PageController(initialPage: _initialIndex);
     widget.source.addListener(_onSourceChanged);
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     widget.source.removeListener(_onSourceChanged);
     // After the frame: cards cannot rebuild while the tree is finalized.
     final source = widget.source;
@@ -299,10 +306,53 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
     _readyAround(_index.value);
   }
 
+  bool _handleKeyEvent(KeyEvent event) {
+    if (!mounted || event is! KeyDownEvent) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+    if (primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
+        null) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isControlPressed ||
+        keyboard.isAltPressed ||
+        keyboard.isMetaPressed) {
+      return false;
+    }
+    final delta = switch (event.logicalKey) {
+      LogicalKeyboardKey.bracketLeft when !keyboard.isShiftPressed => -1,
+      LogicalKeyboardKey.bracketRight when !keyboard.isShiftPressed => 1,
+      LogicalKeyboardKey.arrowLeft when keyboard.isShiftPressed => -1,
+      LogicalKeyboardKey.arrowRight when keyboard.isShiftPressed => 1,
+      _ => 0,
+    };
+    if (delta == 0) return false;
+    _turnArtworkBy(delta);
+    return true;
+  }
+
+  void _turnArtworkBy(int delta) {
+    final ids = widget.source.ids;
+    if (ids.isEmpty || !_controller.hasClients) return;
+    final target = (_index.value + delta).clamp(0, ids.length - 1);
+    if (target == _index.value) return;
+    turnPage(context, _controller, target);
+    if (MotionTokens.resolve(context, MotionTokens.spatial) == Duration.zero) {
+      _readyAround(target);
+      _activateAfterDwell(target);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ids = widget.source.ids;
-    return _AfterRouteTransition(
+    final pointerMode =
+        (InputModalityScope.maybeOf(context) ??
+            defaultInputModalityFor(Theme.of(context).platform)) ==
+        InputModality.pointer;
+    final pager = _AfterRouteTransition(
       onSettled: _onRouteSettled,
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
@@ -352,6 +402,116 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
                   ),
                 );
               },
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!pointerMode || ids.length <= 1) return pager;
+    return Stack(
+      children: [
+        pager,
+        ValueListenableBuilder<int>(
+          valueListenable: _index,
+          builder: (context, index, _) => Stack(
+            children: [
+              _PagerEdgeNavButton(
+                key: const Key('pager-prev-artwork'),
+                isStart: true,
+                enabled: index > 0,
+                hovered: _startEdgeHovered,
+                icon: Icons.chevron_left,
+                tooltip: MaterialLocalizations.of(context).previousPageTooltip,
+                onHoverChanged: (hovered) {
+                  if (_startEdgeHovered != hovered) {
+                    setState(() => _startEdgeHovered = hovered);
+                  }
+                },
+                onPressed: () => _turnArtworkBy(-1),
+              ),
+              _PagerEdgeNavButton(
+                key: const Key('pager-next-artwork'),
+                isStart: false,
+                enabled: index + 1 < ids.length,
+                hovered: _endEdgeHovered,
+                icon: Icons.chevron_right,
+                tooltip: MaterialLocalizations.of(context).nextPageTooltip,
+                onHoverChanged: (hovered) {
+                  if (_endEdgeHovered != hovered) {
+                    setState(() => _endEdgeHovered = hovered);
+                  }
+                },
+                onPressed: () => _turnArtworkBy(1),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PagerEdgeNavButton extends StatelessWidget {
+  const _PagerEdgeNavButton({
+    super.key,
+    required this.isStart,
+    required this.enabled,
+    required this.hovered,
+    required this.icon,
+    required this.tooltip,
+    required this.onHoverChanged,
+    required this.onPressed,
+  });
+
+  final bool isStart;
+  final bool enabled;
+  final bool hovered;
+  final IconData icon;
+  final String tooltip;
+  final ValueChanged<bool> onHoverChanged;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = enabled && hovered;
+    final colors = Theme.of(context).colorScheme;
+    return Positioned.directional(
+      textDirection: Directionality.of(context),
+      start: isStart ? 0 : null,
+      end: isStart ? null : 0,
+      top: kToolbarHeight + 48,
+      bottom: 88,
+      width: 72,
+      child: MouseRegion(
+        opaque: false,
+        onEnter: (event) {
+          if (event.kind == PointerDeviceKind.mouse ||
+              event.kind == PointerDeviceKind.trackpad) {
+            onHoverChanged(true);
+          }
+        },
+        onExit: (_) => onHoverChanged(false),
+        child: Center(
+          child: ExcludeSemantics(
+            excluding: !visible,
+            child: IgnorePointer(
+              ignoring: !visible,
+              child: AnimatedOpacity(
+                opacity: visible ? 1 : 0,
+                duration: MotionTokens.resolve(context, MotionTokens.chrome),
+                child: Material(
+                  color: colors.surfaceContainerHigh.withValues(alpha: 0.9),
+                  shape: const CircleBorder(),
+                  elevation: 2,
+                  clipBehavior: Clip.antiAlias,
+                  child: IconButton(
+                    color: colors.onSurface,
+                    tooltip: tooltip,
+                    onPressed: onPressed,
+                    icon: Icon(icon),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

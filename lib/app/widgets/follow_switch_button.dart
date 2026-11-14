@@ -213,9 +213,10 @@ Future<void> showFollowActionsSheet(
   // pick then runs on its Navigator, which outlives it.
   final navigator = Navigator.of(context).context;
   final container = ProviderScope.containerOf(context, listen: false);
-  final action = await showAppBottomSheet<_FollowSheetAction>(
+  final action = await showAppAdaptivePopover<_FollowSheetAction>(
     context: context,
-    backgroundColor: FuncTokens.transparent,
+    anchorContext: context,
+    backgroundColor: useDesktopOverlay(context) ? null : FuncTokens.transparent,
     builder: (_) => _FollowActionsSheet(
       userId: userId,
       userName: userName,
@@ -320,7 +321,7 @@ class _FollowActionsSheet extends ConsumerWidget {
           ),
           decoration: BoxDecoration(
             color: colors.surfaceContainer,
-            borderRadius: FuncShape.sheet,
+            borderRadius: useDesktopOverlay(context) ? null : FuncShape.sheet,
           ),
           child: SafeArea(
             top: false,
