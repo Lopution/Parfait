@@ -130,6 +130,48 @@ void main() {
       await failed.close();
     },
   );
+
+  test(
+    'configures busy_timeout and disk WAL before caller onConfigure',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('parfait-wal-');
+      addTearDown(() => dir.delete(recursive: true));
+      final diskEvents = <String>[];
+      final disk = SqliteDatabase(
+        databaseName: 'disk.db',
+        schemaVersion: 1,
+        databasePath: path.join(dir.path, 'disk.db'),
+        factory: databaseFactoryFfi,
+        onConfigure: (db) async {
+          final mode = await db.rawQuery('PRAGMA journal_mode');
+          diskEvents.add('${mode.single['journal_mode']}'.toLowerCase());
+        },
+        onCreate: noopCreate,
+        onUpgrade: noopUpgrade,
+        onDowngrade: SqliteDatabase.refuseDowngrade('disk.db'),
+      );
+      addTearDown(disk.close);
+      final diskDb = await disk.database;
+      expect(diskEvents, ['wal']);
+      expect(
+        (await diskDb.rawQuery('PRAGMA busy_timeout')).single.values.first,
+        5000,
+      );
+
+      final mem = subject(databaseFactoryFfi, inMemory: true);
+      addTearDown(mem.close);
+      final memDb = await mem.database;
+      expect(
+        (await memDb.rawQuery('PRAGMA busy_timeout')).single.values.first,
+        5000,
+      );
+      expect(
+        '${(await memDb.rawQuery('PRAGMA journal_mode')).single['journal_mode']}'
+            .toLowerCase(),
+        'memory',
+      );
+    },
+  );
 }
 
 class _GatedDatabaseFactory implements DatabaseFactory {

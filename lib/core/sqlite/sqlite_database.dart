@@ -1,5 +1,6 @@
 /// Shared SQLite factory selection and connection lifecycle owner for local
-/// app databases (`history.db`, `feeds.db`, `watchlater.db`, `local_novels.db`).
+/// app databases (`history.db`, `feeds.db`, `actions.db`, `watchlater.db`,
+/// `local_novels.db`).
 library;
 
 import 'dart:io';
@@ -101,14 +102,24 @@ class SqliteDatabase {
     if (_closed) {
       throw StateError(_closedMessage);
     }
+    final isInMemory = databasePath == sqflite.inMemoryDatabasePath;
     return _factory.openDatabase(
       databasePath,
       options: OpenDatabaseOptions(
         version: schemaVersion,
         // The factory hands every opener of a path the same database,
         // `:memory:` included; each in-memory database must be its own.
-        singleInstance: databasePath != sqflite.inMemoryDatabasePath,
-        onConfigure: _onConfigure,
+        singleInstance: !isInMemory,
+        onConfigure: (db) async {
+          // Android sqflite rejects execute() on PRAGMAs that return a row.
+          await db.rawQuery('PRAGMA busy_timeout = 5000');
+          if (!isInMemory) {
+            await db.rawQuery('PRAGMA journal_mode = WAL');
+          }
+          if (_onConfigure case final configure?) {
+            await configure(db);
+          }
+        },
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onDowngrade: _onDowngrade,
