@@ -345,7 +345,18 @@ class _DownloadTaskRow extends StatelessWidget {
         child: InkWell(
           onTap: managing
               ? onToggle
-              : () => unawaited(openIllust(context, task.illustId)),
+              : () {
+                  final modality =
+                      InputModalityScope.maybeOf(context) ??
+                      defaultInputModalityFor(Theme.of(context).platform);
+                  final kbd = HardwareKeyboard.instance;
+                  if (modality == InputModality.pointer &&
+                      (kbd.isControlPressed || kbd.isMetaPressed)) {
+                    onEnterManaging();
+                    return;
+                  }
+                  unawaited(openIllust(context, task.illustId));
+                },
           onLongPress: managing ? null : onEnterManaging,
           onSecondaryTapUp: managing
               ? null

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -28,10 +29,14 @@ Future<void> showTagActionsSheet(
   VoidCallback? onToggleMute,
   VoidCallback? onMuteMode,
   Offset? position,
+  PointerDeviceKind? kind,
 }) {
   AppHaptics.longPress();
-  Future<void> sheet({bool translate = false}) => showAppBottomSheet<void>(
+  Future<void> sheet({bool translate = false}) => showAppAdaptivePopover<void>(
     context: context,
+    anchorContext: context,
+    position: position,
+    maxWidth: 340,
     showDragHandle: true,
     builder: (sheetContext) => _TagActions(
       tag: tag,
@@ -46,13 +51,14 @@ Future<void> showTagActionsSheet(
     ),
   );
   if (position == null) return sheet();
-  // A PC's secondary click: the same entries as the panel, beside the
+  // A pointer's secondary click: the same entries as the panel, beside the
   // pointer (R11). Translation needs the panel's inline result, so that
   // entry opens the panel already translating.
   final l10n = context.l10n;
   return showDisplayActions(
     context,
     position: position,
+    kind: kind,
     onLongPress: () => unawaited(sheet()),
     actions: [
       DisplayAction(

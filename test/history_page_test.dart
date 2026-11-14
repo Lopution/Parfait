@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -391,4 +392,61 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'pointer mode supports Ctrl+Click, Shift+Click range, and Ctrl+A',
+    (tester) async {
+      HistoryRecord seen(int id, int minute) => historyRecord(
+        id,
+      ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute));
+      await _seedPage(tester, [
+        seen(4, 4),
+        seen(3, 3),
+        seen(2, 2),
+        seen(1, 1),
+      ], surface: const Size(1200, 800));
+
+      // Ctrl+Click item 4 enters selection mode with 1 selected.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.tap(find.text('work 4'), warnIfMissed: false);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(_selectionTitle('已选 1 项'), findsOneWidget);
+
+      // Shift+Click item 2 selects range [4, 3, 2].
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.tap(find.text('work 2'), warnIfMissed: false);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      expect(_selectionTitle('已选 3 项'), findsOneWidget);
+
+      // Ctrl+A selects all 4 visible records.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(_selectionTitle('已选 4 项'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('删除历史记录'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('删除后将不可恢复'), findsOneWidget);
+      final dialogRect = tester.getRect(
+        find
+            .ancestor(
+              of: find.text('删除后将不可恢复'),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(dialogRect.width, lessThanOrEqualTo(420));
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, '取消'),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 }

@@ -106,8 +106,36 @@ Widget settingsUnavailable(
   );
 }
 
+/// Inherited hook for the wide master-detail settings host: subpages pushed
+/// inside the detail pane stay on its nested [Navigator] instead of pushing
+/// onto the root router over the split layout.
+class SettingsDetailScope extends InheritedWidget {
+  const SettingsDetailScope({
+    super.key,
+    required this.onPush,
+    required super.child,
+  });
+
+  final Future<void> Function(String location) onPush;
+
+  static Future<void> Function(String location)? maybeOf(
+    BuildContext context,
+  ) =>
+      context.dependOnInheritedWidgetOfExactType<SettingsDetailScope>()?.onPush;
+
+  @override
+  bool updateShouldNotify(SettingsDetailScope oldWidget) =>
+      onPush != oldWidget.onPush;
+}
+
+Future<void> pushSettingsPage(BuildContext context, String path) {
+  final detailPush = SettingsDetailScope.maybeOf(context);
+  if (detailPush != null) return detailPush(path);
+  return context.push<void>(path);
+}
+
 void openSettingsPage(BuildContext context, String path) {
-  unawaited(context.push<void>(path));
+  unawaited(pushSettingsPage(context, path));
 }
 
 /// Supported app languages as (native display name, BCP-47 tag) pairs —

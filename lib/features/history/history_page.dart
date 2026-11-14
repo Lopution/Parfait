@@ -1,11 +1,18 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
+import 'package:flutter/rendering.dart'
+    show BoxHitTestEntry, BoxHitTestResult, HitTestEntry, RenderProxyBox;
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
 import '../../app/layout/deferred_cache_scroll_view.dart';
+import '../../app/layout/input_modality.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_grid.dart';
@@ -65,6 +72,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   /// this page consumes it, so it never leaves the widget tree.
   bool _managing = false;
   final Set<int> _selected = <int>{};
+  int? _lastToggledKey;
   final _removals = RemovalController();
 
   @override
@@ -74,6 +82,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         .read(historyRepositoryProvider)
         .changes
         .listen((_) => _onHistoryChanged());
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
   }
 
   @override
@@ -85,6 +94,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     unawaited(_changes?.cancel());
     _removals.dispose();
     super.dispose();
@@ -125,12 +135,44 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
   }
 
+  static bool _isPointer(BuildContext context) =>
+      (InputModalityScope.maybeOf(context) ??
+          defaultInputModalityFor(Theme.of(context).platform)) ==
+      InputModality.pointer;
+
+  static bool _isEditingFocused() =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() !=
+      null;
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (!mounted || !_managing || event is! KeyDownEvent) return false;
+    if (!(_tickerMode?.value.enabled ?? true) || !(_route?.isCurrent ?? true)) {
+      return false;
+    }
+    if (_isEditingFocused() || !_isPointer(context)) return false;
+    final kbd = HardwareKeyboard.instance;
+    if (event.logicalKey == LogicalKeyboardKey.keyA &&
+        (kbd.isControlPressed || kbd.isMetaPressed) &&
+        !kbd.isAltPressed) {
+      final accountId = ref.read(historyAccountIdProvider);
+      if (accountId != null) {
+        _selectAll(accountId);
+        return true;
+      }
+    }
+    return false;
+  }
+
   void _enterManaging([int? recordKey]) {
     // Entering management mode is the explicit-vibration role (W4).
     AppHaptics.confirm();
     setState(() {
       _managing = true;
-      if (recordKey != null) _selected.add(recordKey);
+      if (recordKey != null) {
+        _selected.add(recordKey);
+        _lastToggledKey = recordKey;
+      }
     });
   }
 
@@ -138,13 +180,35 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     AppHaptics.select();
     setState(() {
       if (!_selected.remove(recordKey)) _selected.add(recordKey);
+      _lastToggledKey = recordKey;
     });
+  }
+
+  void _handleItemToggle(int recordKey, List<int> orderedKeys) {
+    if (_isPointer(context) &&
+        HardwareKeyboard.instance.isShiftPressed &&
+        _lastToggledKey != null) {
+      final start = orderedKeys.indexOf(_lastToggledKey!);
+      final end = orderedKeys.indexOf(recordKey);
+      if (start >= 0 && end >= 0) {
+        final lo = math.min(start, end);
+        final hi = math.max(start, end);
+        AppHaptics.select();
+        setState(() {
+          _selected.addAll(orderedKeys.sublist(lo, hi + 1));
+          _lastToggledKey = recordKey;
+        });
+        return;
+      }
+    }
+    _toggleSelected(recordKey);
   }
 
   void _exitManaging() {
     setState(() {
       _managing = false;
       _selected.clear();
+      _lastToggledKey = null;
     });
   }
 
@@ -248,7 +312,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   accountId: accountId,
                   managing: _managing,
                   selectedKeys: _selected,
-                  onToggle: _toggleSelected,
+                  onToggle: _handleItemToggle,
                   onEnterManaging: _enterManaging,
                 ),
               ),
@@ -283,6 +347,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         setState(() {
           _managing = false;
           _selected.clear();
+          _lastToggledKey = null;
         });
       }
     } on Object catch (error) {
@@ -376,7 +441,7 @@ class _HistoryBody extends ConsumerWidget {
   final int generation;
   final bool managing;
   final Set<int> selectedKeys;
-  final ValueChanged<int> onToggle;
+  final void Function(int recordKey, List<int> orderedKeys) onToggle;
   final ValueChanged<int> onEnterManaging;
 
   @override
@@ -427,6 +492,7 @@ class _HistoryBody extends ConsumerWidget {
             if (_controllerRecord(ref, key) != null)
               (key: key, record: _controllerRecord(ref, key)!),
         ];
+        final orderedKeys = [for (final entry in entries) entry.key];
 
         return PullToRefresh(
           onRefresh: () => ref
@@ -472,7 +538,7 @@ class _HistoryBody extends ConsumerWidget {
                             recordKey: entries[index].key,
                             managing: managing,
                             selected: selectedKeys.contains(entries[index].key),
-                            onToggle: onToggle,
+                            onToggle: (key) => onToggle(key, orderedKeys),
                             onEnterManaging: onEnterManaging,
                           ),
                         ),
@@ -570,13 +636,98 @@ class _HistoryEntry extends ConsumerWidget {
         ),
       ),
     };
-    return SelectableTile(
-      managing: managing,
-      selected: selected,
-      onToggle: () => onToggle(recordKey),
-      onLongPress: longPress,
-      child: child,
+    return _CtrlClickInterceptor(
+      shouldIntercept: () {
+        if (managing) return false;
+        final modality =
+            InputModalityScope.maybeOf(context) ??
+            defaultInputModalityFor(Theme.of(context).platform);
+        if (modality != InputModality.pointer) return false;
+        final kbd = HardwareKeyboard.instance;
+        return kbd.isControlPressed || kbd.isMetaPressed;
+      },
+      onTap: () => onEnterManaging(recordKey),
+      child: SelectableTile(
+        managing: managing,
+        selected: selected,
+        onToggle: () => onToggle(recordKey),
+        onLongPress: longPress,
+        child: child,
+      ),
     );
+  }
+}
+
+/// Intercepts Ctrl/Cmd+Click in pointer mode before the child work card can
+/// claim the tap and push a detail route, turning the click into selection
+/// mode entry instead.
+class _CtrlClickInterceptor extends SingleChildRenderObjectWidget {
+  const _CtrlClickInterceptor({
+    required this.shouldIntercept,
+    required this.onTap,
+    required super.child,
+  });
+
+  final bool Function() shouldIntercept;
+  final VoidCallback onTap;
+
+  @override
+  _RenderCtrlClickInterceptor createRenderObject(BuildContext context) =>
+      _RenderCtrlClickInterceptor(
+        shouldIntercept: shouldIntercept,
+        onTap: onTap,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderCtrlClickInterceptor renderObject,
+  ) {
+    renderObject
+      ..shouldIntercept = shouldIntercept
+      ..onTap = onTap;
+  }
+}
+
+class _RenderCtrlClickInterceptor extends RenderProxyBox {
+  _RenderCtrlClickInterceptor({
+    required this.shouldIntercept,
+    required this.onTap,
+  });
+
+  bool Function() shouldIntercept;
+  VoidCallback onTap;
+  int? _activePointer;
+  Offset? _downPosition;
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position)) return false;
+    if (shouldIntercept()) {
+      result.add(BoxHitTestEntry(this, position));
+      return true;
+    }
+    return super.hitTest(result, position: position);
+  }
+
+  @override
+  void handleEvent(PointerEvent event, HitTestEntry entry) {
+    if (event is PointerDownEvent &&
+        (event.buttons & kPrimaryButton) != 0 &&
+        shouldIntercept()) {
+      _activePointer = event.pointer;
+      _downPosition = event.position;
+    } else if (event is PointerUpEvent && event.pointer == _activePointer) {
+      final down = _downPosition;
+      _activePointer = null;
+      _downPosition = null;
+      if (down != null && (event.position - down).distance <= 18.0) {
+        onTap();
+      }
+    } else if (event is PointerCancelEvent && event.pointer == _activePointer) {
+      _activePointer = null;
+      _downPosition = null;
+    }
   }
 }
 
@@ -805,8 +956,10 @@ class _SnapshotCover extends StatelessWidget {
 }
 
 Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
-  return showAppBottomSheet<bool>(
+  return showAppAdaptiveDialog<bool>(
     context: context,
+    maxWidth: 420,
+    isScrollControlled: true,
     builder: (sheetContext) {
       return SafeArea(
         child: Padding(

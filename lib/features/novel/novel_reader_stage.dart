@@ -505,21 +505,70 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     );
   }
 
-  /// ←/→ turn the page. The handle reports the live position, so the key
-  /// path shares the same clamp and user-turn semantics as the tap zones.
+  static bool _isEditingFocused() =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() !=
+      null;
+
+  /// Keyboard navigation: arrow keys, PageUp/PageDown, and Space/Shift+Space
+  /// scroll in scroll mode or turn pages/spreads in page mode when not editing
+  /// text or covered by an overlay route.
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final current = _readerHandle.currentPage?.call();
-    final count = _readerHandle.pageCount?.call();
-    if (current == null || count == null) return KeyEventResult.ignored;
-    final next = switch (event.logicalKey) {
-      LogicalKeyboardKey.arrowLeft => current - 1,
-      LogicalKeyboardKey.arrowRight => current + 1,
-      _ => null,
-    };
-    if (next == null) return KeyEventResult.ignored;
-    if (next < 0 || next >= count) return KeyEventResult.handled;
-    _readerHandle.goToPage?.call(next);
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (_isEditingFocused()) return KeyEventResult.ignored;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+
+    if (_settings.pageTurn == NovelPageTurn.scroll) {
+      final viewport = _readerHandle.viewportHeight?.call() ?? 480;
+      const lineStep = 72.0;
+      final pageStep = math.max(lineStep, viewport * 0.85);
+      final double? delta;
+      if (!shift && key == LogicalKeyboardKey.arrowDown) {
+        delta = lineStep;
+      } else if (!shift && key == LogicalKeyboardKey.arrowUp) {
+        delta = -lineStep;
+      } else if (key == LogicalKeyboardKey.pageDown ||
+          (!shift && key == LogicalKeyboardKey.space)) {
+        delta = pageStep;
+      } else if (key == LogicalKeyboardKey.pageUp ||
+          (shift && key == LogicalKeyboardKey.space)) {
+        delta = -pageStep;
+      } else {
+        delta = null;
+      }
+      if (delta != null) {
+        _readerHandle.scrollBy?.call(delta, animate: event is KeyDownEvent);
+        return KeyEventResult.handled;
+      }
+    }
+
+    final int? step;
+    if (!shift &&
+        (key == LogicalKeyboardKey.arrowRight ||
+            key == LogicalKeyboardKey.arrowDown)) {
+      step = 1;
+    } else if (!shift &&
+        (key == LogicalKeyboardKey.arrowLeft ||
+            key == LogicalKeyboardKey.arrowUp)) {
+      step = -1;
+    } else if (key == LogicalKeyboardKey.pageDown ||
+        (!shift && key == LogicalKeyboardKey.space)) {
+      step = 1;
+    } else if (key == LogicalKeyboardKey.pageUp ||
+        (shift && key == LogicalKeyboardKey.space)) {
+      step = -1;
+    } else {
+      step = null;
+    }
+    if (step == null) return KeyEventResult.ignored;
+    if (_readerHandle.pageCount?.call() == null) return KeyEventResult.ignored;
+    _readerHandle.stepPage?.call(step);
     return KeyEventResult.handled;
   }
 
@@ -786,10 +835,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         ),
                         icon: const Icon(Icons.text_increase_outlined),
                       ),
-                      IconButton(
-                        tooltip: l10n.novelReaderSettings,
-                        onPressed: () => _showReaderSettings(context),
-                        icon: const Icon(Icons.tune_outlined),
+                      Builder(
+                        builder: (anchorContext) => IconButton(
+                          tooltip: l10n.novelReaderSettings,
+                          onPressed: () => _showReaderSettings(anchorContext),
+                          icon: const Icon(Icons.tune_outlined),
+                        ),
                       ),
                     ],
                   ),
@@ -806,12 +857,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   /// so the sheet publishes its own [FuncSystemBars] region: the nav bar
   /// under it takes icon brightness from the sheet's theme brightness,
   /// not from the stage behind it.
-  void _showReaderSheet({
+  void _showReaderSideSheet({
     required WidgetBuilder builder,
     bool isScrollControlled = false,
   }) {
     unawaited(
-      showAppBottomSheet<void>(
+      showAppAdaptiveSideSheet<void>(
         context: context,
         isScrollControlled: isScrollControlled,
         showDragHandle: true,
@@ -823,7 +874,30 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     );
   }
 
+  void _showReaderSettingsPopover({
+    required BuildContext anchorContext,
+    required WidgetBuilder builder,
+  }) {
+    unawaited(
+      showAppAdaptivePopover<void>(
+        context: context,
+        anchorContext: anchorContext,
+        minWidth: 320,
+        maxWidth: 380,
+        maxHeight: 520,
+        showDragHandle: true,
+        builder: (sheetContext) => FuncSystemBars(
+          background: Theme.of(sheetContext).brightness,
+          child: builder(sheetContext),
+        ),
+      ),
+    );
+  }
+
   void _showInfoSheet(BuildContext context) {
-    _showReaderSheet(isScrollControlled: true, builder: widget.spec.infoSheet);
+    _showReaderSideSheet(
+      isScrollControlled: true,
+      builder: widget.spec.infoSheet,
+    );
   }
 }

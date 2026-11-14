@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
+import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -252,11 +253,98 @@ class NovelPage extends ConsumerWidget {
       );
     }
 
+    Widget buildInfoList(
+      BuildContext listContext, {
+      ScrollController? controller,
+      required EdgeInsetsGeometry padding,
+    }) => ListView(
+      controller: controller,
+      padding: padding,
+      children: [
+        _NovelIntro(
+          novel: novel,
+          // The sheet closes before the profile opens. The sheet is the
+          // card tier already, so the card takes the next one up.
+          author: PersonCard(
+            color: Theme.of(listContext).colorScheme.surfaceContainerHigh,
+            tapHint: listContext.l10n.openAuthorProfile,
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              unawaited(openUser(listContext, novel.user.id));
+            },
+            child: AuthorSummary(
+              name: novel.user.name,
+              account: novel.user.account.isEmpty
+                  ? null
+                  : '@${novel.user.account}',
+              imageUrl: novel.user.profileImageUrl,
+              avatarRadius: 20,
+            ),
+          ),
+          series: switch ((novel.seriesId, novel.seriesTitle)) {
+            (final seriesId?, final title?) when title.isNotEmpty =>
+              _SeriesLink(
+                title: title,
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(openNovelSeries(listContext, seriesId));
+                },
+              ),
+            _ => null,
+          },
+        ),
+        if (novel.tags.isNotEmpty) ...[
+          const SizedBox(height: FuncSpacing.md),
+          TagChips(
+            children: [
+              for (final tag in novel.tags)
+                TagChip(
+                  label: tag.name,
+                  translated: tag.translatedName,
+                  onTap: () => searchTag(tag.name),
+                  onLongPress: () => showTagActions(tag),
+                  onSecondaryTapAt: (position) =>
+                      showTagActions(tag, position: position),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: FuncSpacing.sm),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            style: startEdgeTextButtonStyle(),
+            onPressed: () {
+              Navigator.of(sheetContext).pop();
+              unawaited(openNovelComments(listContext, novel.id));
+            },
+            icon: const Icon(Icons.comment_outlined),
+            label: Text(
+              novel.totalComments > 0
+                  ? listContext.l10n.commentTitleCount(
+                      AppFormat.count(listContext, novel.totalComments),
+                    )
+                  : listContext.l10n.commentTitle,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (useDesktopOverlay(sheetContext)) {
+      return SafeArea(
+        child: buildInfoList(
+          sheetContext,
+          padding: const EdgeInsets.all(FuncSpacing.xl),
+        ),
+      );
+    }
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.5,
       maxChildSize: 0.9,
-      builder: (context, controller) => ListView(
+      builder: (context, controller) => buildInfoList(
+        context,
         controller: controller,
         padding: const EdgeInsets.fromLTRB(
           FuncSpacing.xl,
@@ -264,75 +352,6 @@ class NovelPage extends ConsumerWidget {
           FuncSpacing.xl,
           FuncSpacing.xl,
         ),
-        children: [
-          _NovelIntro(
-            novel: novel,
-            // The sheet closes before the profile opens. The sheet is the
-            // card tier already, so the card takes the next one up.
-            author: PersonCard(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              tapHint: context.l10n.openAuthorProfile,
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(openUser(context, novel.user.id));
-              },
-              child: AuthorSummary(
-                name: novel.user.name,
-                account: novel.user.account.isEmpty
-                    ? null
-                    : '@${novel.user.account}',
-                imageUrl: novel.user.profileImageUrl,
-                avatarRadius: 20,
-              ),
-            ),
-            series: switch ((novel.seriesId, novel.seriesTitle)) {
-              (final seriesId?, final title?) when title.isNotEmpty =>
-                _SeriesLink(
-                  title: title,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(openNovelSeries(context, seriesId));
-                  },
-                ),
-              _ => null,
-            },
-          ),
-          if (novel.tags.isNotEmpty) ...[
-            const SizedBox(height: FuncSpacing.md),
-            TagChips(
-              children: [
-                for (final tag in novel.tags)
-                  TagChip(
-                    label: tag.name,
-                    translated: tag.translatedName,
-                    onTap: () => searchTag(tag.name),
-                    onLongPress: () => showTagActions(tag),
-                    onSecondaryTapAt: (position) =>
-                        showTagActions(tag, position: position),
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: FuncSpacing.sm),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
-              style: startEdgeTextButtonStyle(),
-              onPressed: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(openNovelComments(context, novel.id));
-              },
-              icon: const Icon(Icons.comment_outlined),
-              label: Text(
-                novel.totalComments > 0
-                    ? context.l10n.commentTitleCount(
-                        AppFormat.count(context, novel.totalComments),
-                      )
-                    : context.l10n.commentTitle,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

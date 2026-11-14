@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/debug/frame_probe.dart';
-import '../layout/form_factor.dart';
+import '../layout/input_modality.dart';
 import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'app_menu_button.dart' show kAppMenuMaxWidth;
@@ -23,11 +25,12 @@ class DisplayAction {
   final bool enabled;
 }
 
-/// Presents [actions] beside the pointer on a PC; on every other form the
-/// secondary click does what the long press does ([onLongPress]).
+/// Presents [actions] beside the pointer when triggered by a pointer device (mouse
+/// or trackpad, including on tablets); on touch or stylus forms the secondary
+/// click does what the long press does ([onLongPress]).
 ///
-/// A PC menu is the M3 popup menu opened at [position] (a global point, as
-/// a secondary tap reports it): items announce as buttons with their
+/// A pointer menu is the M3 popup menu opened at [position] (a global point,
+/// as a secondary tap reports it): items announce as buttons with their
 /// labels, arrow keys move between them and Esc closes the menu. Selecting
 /// one runs its [DisplayAction.onSelected] after the menu has closed.
 Future<void> showDisplayActions(
@@ -35,10 +38,15 @@ Future<void> showDisplayActions(
   required Offset position,
   required List<DisplayAction> actions,
   required VoidCallback onLongPress,
+  PointerDeviceKind? kind,
 }) {
-  // A touch form (and a PC with nothing to offer) keeps the long press:
-  // the bottom panel, or the gesture's own direct action.
-  if (FormFactor.of(context) != FormFactor.pc || actions.isEmpty) {
+  final modality =
+      (kind != null ? inputModalityForPointerKind(kind) : null) ??
+      InputModalityScope.maybeOf(context) ??
+      defaultInputModalityFor(defaultTargetPlatform);
+  // Touch and stylus interactions (and pointers with nothing to offer) keep
+  // the long press: the bottom panel, or the gesture's own direct action.
+  if (modality != InputModality.pointer || actions.isEmpty) {
     onLongPress();
     return Future.value();
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,15 +16,16 @@ import '../feed/muted_cover.dart';
 import 'card_action.dart';
 import 'illust_card_actions.dart';
 
-/// The card's secondary click on a PC: the registered [CardAction]s as a
-/// context menu beside the pointer (R11). On a touch form the same call
+/// The card's secondary click on a pointer: the registered [CardAction]s as a
+/// context menu beside the pointer (R11). On touch or stylus the same call
 /// falls back to the long-press sheet, so a pen's right-click keeps the
 /// bottom panel.
 Future<void> showCardActionsMenu(
   BuildContext context,
   IllustEntity entity,
-  Offset position,
-) {
+  Offset position, {
+  PointerDeviceKind? kind,
+}) {
   final providers = ProviderScope.containerOf(context);
   final state = CardActionState.ofContainer(providers);
   final navigator = Navigator.of(context).context;
@@ -31,6 +33,7 @@ Future<void> showCardActionsMenu(
   return showDisplayActions(
     context,
     position: position,
+    kind: kind,
     onLongPress: () => unawaited(showCardActionSheet(context, entity)),
     actions: [
       for (final action in providers.read(illustCardActionsProvider))
@@ -50,15 +53,16 @@ Future<void> showCardActionsMenu(
 }
 
 /// Card long-press menu: names the work at the top, then renders the
-/// registered [CardAction]s as a modal bottom sheet. Presentation curve and
-/// reduced-motion degrade come from [showAppBottomSheet] / MotionTokens.
+/// registered [CardAction]s as an adaptive overlay (dialog/popover on wide
+/// pointer viewports, bottom sheet on touch/narrow).
 Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
   // The actions run on the card's context. A refresh landing under the
   // open sheet can take the card away: they run on its Navigator's then,
   // which outlives the card and the sheet.
   final navigator = Navigator.of(context).context;
-  return showAppBottomSheet<void>(
+  return showAppAdaptiveDialog<void>(
     context: context,
+    maxWidth: 420,
     // Sized to its content: the header plus every action stays in view
     // instead of being cut at the default 9/16 cap; content taller than
     // the screen still scrolls.

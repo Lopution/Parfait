@@ -51,6 +51,8 @@ class DeferredCacheScrollView extends CustomScrollView
 class DeferredCacheListView extends ListView with DeferredCacheExtent {
   DeferredCacheListView({
     super.key,
+    super.controller,
+    super.physics,
     super.padding,
     super.scrollCacheExtent,
     super.children,

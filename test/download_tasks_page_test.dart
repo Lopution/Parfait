@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -846,5 +847,48 @@ void main() {
       expect(manager.groups.single.jobIds, group.jobIds);
       expect(_groupHeader(group.id), findsOneWidget);
     });
+
+    testWidgets(
+      'pointer mode supports Ctrl+Click, Shift+Click range, and Ctrl+A',
+      (tester) async {
+        final (container, manager, _) = await makeDownloadWorld(
+          responses: done(4),
+        );
+        final tasks = [
+          for (var id = 1; id <= 4; id++) manager.submit(downloadRequest(id)),
+        ];
+        await _pumpPage(tester, container);
+        await pumpUntil(
+          tester,
+          () =>
+              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+        );
+        await tester.pump();
+
+        Finder labelOf(String id) => find
+            .descendant(of: _taskRow(id), matching: find.byType(Text))
+            .first;
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.tap(labelOf(tasks[0].id));
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        expect(_selectionTitle('已选 1 项'), findsOneWidget);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.tap(labelOf(tasks[2].id));
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pump();
+        expect(_selectionTitle('已选 3 项'), findsOneWidget);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        expect(_selectionTitle('已选 4 项'), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
   });
 }

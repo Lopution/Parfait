@@ -1,9 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 
 import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/app/widgets/smooth_wheel_scroll.dart';
 
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
@@ -861,6 +863,194 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.byType(FeedError), findsOneWidget);
+  });
+
+  testWidgets(
+    'body uses one SelectionArea without SelectableText and preserves taps',
+    (tester) async {
+      for (final settings in [const NovelReaderSettings(), _pageMode]) {
+        var centerTaps = 0;
+        await tester.pumpWidget(
+          localizedApp(
+            body: NovelReader(
+              key: ValueKey(('center', settings)),
+              novel: _novel('CENTER_BODY'),
+              settings: settings,
+              onCenterTap: () => centerTaps += 1,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.byType(SelectionArea), findsOneWidget);
+        expect(find.byType(SelectableText), findsNothing);
+
+        await tester.tapAt(const Offset(400, 300));
+        await tester.pump();
+        expect(centerTaps, 1, reason: settings.pageTurn.name);
+      }
+
+      final links = <Uri>[];
+      await tester.pumpWidget(
+        localizedApp(
+          body: NovelReader(
+            key: const ValueKey('link-tap'),
+            novel: _novel('').withWebContent(
+              '[[jumpuri:作品 > https://www.pixiv.net/artworks/88]]\n本文',
+            ),
+            settings: _pageMode,
+            onLinkTap: links.add,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(find.byType(SelectableText), findsNothing);
+
+      final link = find.textContaining('作品', findRichText: true);
+      await tester.tapAt(tester.getTopLeft(link) + const Offset(8, 8));
+      await tester.pump();
+      expect(links, [Uri.parse('https://www.pixiv.net/artworks/88')]);
+
+      final images = <String>[];
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: [
+            imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+            novelImageQualityProvider.overrideWithValue(DetailQuality.original),
+          ],
+          body: NovelReader(
+            key: const ValueKey('image-tap'),
+            novel: _illustrated('[uploadedimage:5]\n後文'),
+            settings: _pageMode,
+            onImageTap: (image) => images.add(image.identifier),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(find.byType(SelectableText), findsNothing);
+      await tester.tap(find.bySemanticsLabel('插图'));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(images, ['5']);
+    },
+  );
+
+  testWidgets(
+    'page mode turns on mouse wheel accumulation and scroll mode uses SmoothWheelScroll',
+    (tester) async {
+      await tester.pumpWidget(
+        localizedApp(
+          body: NovelReader(
+            key: const ValueKey('wheel-scroll'),
+            novel: _novel('scroll line\n' * 60),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(SmoothWheelScroll), findsOneWidget);
+
+      final handle = NovelReaderHandle();
+      final causes = <NovelAnchorCause>[];
+      await tester.pumpWidget(
+        localizedApp(
+          body: NovelReader(
+            key: const ValueKey('wheel-page'),
+            novel: _novel('').withWebContent('PAGE_A\n[newpage]\nPAGE_B'),
+            settings: _pageMode,
+            handle: handle,
+            onAnchorChanged: (_, cause) => causes.add(cause),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(handle.currentPage?.call(), 0);
+      expect(find.text('PAGE_A'), findsOneWidget);
+
+      final center = tester.getCenter(find.byType(PageView));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          timeStamp: const Duration(milliseconds: 100),
+          position: center,
+          scrollDelta: const Offset(0, 20),
+        ),
+      );
+      await tester.pump();
+      expect(handle.currentPage?.call(), 0);
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          timeStamp: const Duration(milliseconds: 120),
+          position: center,
+          scrollDelta: const Offset(0, 32),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(handle.currentPage?.call(), 1);
+      expect(causes.last, NovelAnchorCause.userTurn);
+      expect(find.text('PAGE_B'), findsOneWidget);
+
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          timeStamp: const Duration(milliseconds: 350),
+          position: center,
+          scrollDelta: const Offset(0, -60),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(handle.currentPage?.call(), 0);
+      expect(causes.last, NovelAnchorCause.userTurn);
+    },
+  );
+
+  testWidgets('wide landscape spread shows two pages and steps by two', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final handle = NovelReaderHandle();
+    final causes = <NovelAnchorCause>[];
+    await tester.pumpWidget(
+      localizedApp(
+        body: NovelReader(
+          novel: _novel('').withWebContent(
+            'PAGE_1\n[newpage]\nPAGE_2\n[newpage]\nPAGE_3\n[newpage]\nPAGE_4',
+          ),
+          settings: _pageMode,
+          handle: handle,
+          onAnchorChanged: (_, cause) => causes.add(cause),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('PAGE_1'), findsOneWidget);
+    expect(find.text('PAGE_2'), findsOneWidget);
+    expect(find.text('PAGE_3'), findsNothing);
+
+    await tester.tapAt(const Offset(1060, 350));
+    await tester.pumpAndSettle();
+    expect(find.text('PAGE_3'), findsOneWidget);
+    expect(find.text('PAGE_4'), findsOneWidget);
+    expect(find.text('PAGE_1'), findsNothing);
+    expect(handle.currentPage?.call(), 2);
+    expect(causes.last, NovelAnchorCause.userTurn);
+
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(find.text('PAGE_3'), findsOneWidget);
+    expect(find.text('PAGE_4'), findsNothing);
   });
 }
 

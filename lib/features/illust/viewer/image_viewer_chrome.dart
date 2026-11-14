@@ -279,6 +279,58 @@ class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
   }
 }
 
+class _ViewerPageNavButton extends StatelessWidget {
+  const _ViewerPageNavButton({
+    super.key,
+    required this.visible,
+    required this.alignment,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final bool visible;
+  final AlignmentGeometry alignment;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isStart = alignment == AlignmentDirectional.centerStart;
+    return Positioned.directional(
+      textDirection: Directionality.of(context),
+      start: isStart ? FuncSpacing.md : null,
+      end: isStart ? null : FuncSpacing.md,
+      top: 0,
+      bottom: 0,
+      child: Center(
+        child: ExcludeSemantics(
+          excluding: !visible,
+          child: IgnorePointer(
+            ignoring: !visible,
+            child: AnimatedOpacity(
+              opacity: visible ? 1 : 0,
+              duration: MotionTokens.resolve(context, MotionTokens.chrome),
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: IconButton(
+                  color: FuncTokens.white,
+                  tooltip: tooltip,
+                  onPressed: onPressed,
+                  icon: Icon(icon),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The jump sheet's thumbnail grid: about [_cellExtent] per cell, at least
 /// [_minColumns] across. The current page carries a primary outline and
 /// opens scrolled into view.

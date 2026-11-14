@@ -189,6 +189,22 @@ void main() {
       buttons: kSecondaryMouseButton,
     );
     await tester.pumpAndSettle();
+    expect(find.widgetWithText(PopupMenuItem<void>, '分享'), findsOneWidget);
+  });
+
+  testWidgets('a stylus secondary tap opens the bottom sheet', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final card = find.byType(IllustCard);
+    await tester.pumpWidget(
+      _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+    );
+    await tester.tap(
+      card,
+      kind: PointerDeviceKind.stylus,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
     expect(find.widgetWithText(ListTile, '分享'), findsOneWidget);
   });
 

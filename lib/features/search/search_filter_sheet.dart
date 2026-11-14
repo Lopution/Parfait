@@ -23,8 +23,9 @@ Future<SearchFilterSheetResult?> showSearchFilterSheet(
   required SearchFilters initial,
   bool offerSetDefault = false,
 }) {
-  return showAppBottomSheet<SearchFilterSheetResult>(
+  return showAppAdaptiveSideSheet<SearchFilterSheetResult>(
     context: context,
+    width: 400,
     isScrollControlled: true,
     // A long sheet: its top edge stays below the status bar.
     useSafeArea: true,

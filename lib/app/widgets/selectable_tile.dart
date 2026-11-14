@@ -51,6 +51,7 @@ class SelectableTile extends StatelessWidget {
                 showDisplayActions(
                   context,
                   position: details.globalPosition,
+                  kind: details.kind,
                   onLongPress: onLongPress!,
                   actions: [
                     DisplayAction(

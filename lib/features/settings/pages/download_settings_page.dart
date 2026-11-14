@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
@@ -178,8 +177,10 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                     subtitle: Text(
                       downloadDestinationLabel(context, destination),
                     ),
-                    onTap: () =>
-                        context.push<void>('/settings/download/destination'),
+                    onTap: () => openSettingsPage(
+                      context,
+                      '/settings/download/destination',
+                    ),
                   ),
                   SettingsControl(
                     setting: Setting.downloadCaption,

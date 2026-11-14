@@ -282,13 +282,21 @@ class _IllustCardBody extends ConsumerWidget {
       final own = onLongPress;
       if (own == null) {
         AppHaptics.longPress();
-        unawaited(showCardActionsMenu(context, entity, details.globalPosition));
+        unawaited(
+          showCardActionsMenu(
+            context,
+            entity,
+            details.globalPosition,
+            kind: details.kind,
+          ),
+        );
         return;
       }
       unawaited(
         showDisplayActions(
           context,
           position: details.globalPosition,
+          kind: details.kind,
           onLongPress: own,
           actions: [
             DisplayAction(

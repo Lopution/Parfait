@@ -5,6 +5,8 @@ import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/haptics/app_haptics.dart';
+import '../../../../app/layout/input_modality.dart';
 import '../../../../app/motion/hero_transition.dart';
 import '../../../../app/motion/motion_tokens.dart';
 import '../../../../app/motion/state_icon_switcher.dart';
@@ -14,7 +16,9 @@ import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
 import '../../../../app/widgets/ambient_wash.dart';
 import '../../../../app/widgets/display_actions.dart';
+import '../../../../app/widgets/errors/error_details.dart';
 import '../../../../app/widgets/feed/illust_card_layout.dart';
+import '../../../../app/widgets/smooth_wheel_scroll.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/illust/illust_download_controller.dart';
 import '../../../../core/settings/app_settings.dart';
@@ -120,9 +124,30 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   /// Download progress of the settled detail image. The Hero-phase image
   /// does not report: it is the feed's already-decoded preview.
   final _progress = ValueNotifier(const ImageLoadProgress.idle());
+  bool _hovered = false;
 
   IllustEntity get entity => widget.entity;
   bool get downloadMode => widget.downloadMode;
+
+  Future<void> _quickSavePage() async {
+    final l10n = context.l10n;
+    try {
+      await ref
+          .read(illustDownloadControllerProvider)
+          .download(entity, widget.index);
+    } catch (error) {
+      if (!mounted) return;
+      AppHaptics.error();
+      showErrorSnackBar(
+        context,
+        action: l10n.downloadSubmissionFailed,
+        error: error,
+      );
+      return;
+    }
+    if (!mounted) return;
+    showDownloadSubmittedSnackBar(context);
+  }
 
   @override
   void didChangeDependencies() {
@@ -256,6 +281,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               showDisplayActions(
                 context,
                 position: details.globalPosition,
+                kind: details.kind,
                 onLongPress: widget.onLongPress,
                 actions: [
                   DisplayAction(
@@ -382,42 +408,68 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                 onTap: widget.onToggleSelect,
               ),
             ),
+          if (!downloadMode &&
+              !isPagePlaceholder &&
+              _hovered &&
+              (InputModalityScope.maybeOf(context) ??
+                      defaultInputModalityFor(Theme.of(context).platform)) ==
+                  InputModality.pointer)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: _HoverQuickActionsBadge(
+                state: state,
+                onSave: _quickSavePage,
+                onSelectPages: widget.onLongPress,
+              ),
+            ),
         ],
       ),
     );
     final slotHeight = widget.imageSlotHeight;
-    if (slotHeight == null) return image;
-
-    final (duration, curve) = MotionTokens.springCurve(
-      context,
-      MotionSpring.spatialFast,
-    );
-    final framed = Stack(
-      fit: StackFit.expand,
-      children: [
-        // Selection keeps the plain page around the pages it marks.
-        if (!downloadMode)
-          _AmbientBand(
-            url: widget.heroImageUrl ?? entity.imageUrls.medium,
-            aspectRatio: entity.pageAspectRatioAt(widget.index),
-            landed: _routeTransitionComplete,
+    final Widget result;
+    if (slotHeight == null) {
+      result = image;
+    } else {
+      final (duration, curve) = MotionTokens.springCurve(
+        context,
+        MotionSpring.spatialFast,
+      );
+      final framed = Stack(
+        fit: StackFit.expand,
+        children: [
+          // Selection keeps the plain page around the pages it marks.
+          if (!downloadMode)
+            _AmbientBand(
+              url: widget.heroImageUrl ?? entity.imageUrls.medium,
+              aspectRatio: entity.pageAspectRatioAt(widget.index),
+              landed: _routeTransitionComplete,
+            ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: AspectRatio(
+              aspectRatio: entity.pageAspectRatioAt(widget.index),
+              child: image,
+            ),
           ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: AspectRatio(
-            aspectRatio: entity.pageAspectRatioAt(widget.index),
-            child: image,
-          ),
-        ),
-      ],
-    );
-    return TweenAnimationBuilder<double>(
-      tween: Tween(end: slotHeight),
-      duration: duration,
-      curve: curve,
-      builder: (context, height, child) =>
-          SizedBox(width: double.infinity, height: height, child: child),
-      child: framed,
+        ],
+      );
+      result = TweenAnimationBuilder<double>(
+        tween: Tween(end: slotHeight),
+        duration: duration,
+        curve: curve,
+        builder: (context, height, child) =>
+            SizedBox(width: double.infinity, height: height, child: child),
+        child: framed,
+      );
+    }
+    return ScrollAwareHoverRegion(
+      onHover: (hovered) {
+        if (hovered != _hovered && mounted) {
+          setState(() => _hovered = hovered);
+        }
+      },
+      child: result,
     );
   }
 
@@ -854,6 +906,62 @@ class _DetailImageFallback extends StatelessWidget {
           size: 36,
           color: colors.onSurfaceVariant.withValues(alpha: 0.55),
         ),
+      ),
+    );
+  }
+}
+
+class _HoverQuickActionsBadge extends StatelessWidget {
+  const _HoverQuickActionsBadge({
+    required this.state,
+    required this.onSave,
+    required this.onSelectPages,
+  });
+
+  final IllustPageSaveState state;
+  final VoidCallback onSave;
+  final VoidCallback onSelectPages;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colors = Theme.of(context).colorScheme;
+    final busy = state == IllustPageSaveState.downloading;
+    final done = state == IllustPageSaveState.exist;
+    return Material(
+      color: colors.surfaceContainerHigh.withValues(alpha: 0.92),
+      shape: const StadiumBorder(),
+      elevation: 2,
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: l10n.viewerSavePage,
+            onPressed: busy || done ? null : onSave,
+            icon: switch (state) {
+              IllustPageSaveState.downloading => const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              IllustPageSaveState.exist => Icon(
+                Icons.check_circle,
+                color: colors.primary,
+              ),
+              IllustPageSaveState.error => Icon(
+                Icons.error_outline,
+                color: colors.error,
+              ),
+              IllustPageSaveState.none => const Icon(Icons.download_outlined),
+            },
+          ),
+          IconButton(
+            tooltip: l10n.downloadSelectPages,
+            onPressed: onSelectPages,
+            icon: const Icon(Icons.checklist_outlined),
+          ),
+        ],
       ),
     );
   }
