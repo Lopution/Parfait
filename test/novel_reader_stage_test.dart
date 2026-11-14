@@ -47,7 +47,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.info_outline));
     await tester.pumpAndSettle();
     expect(find.text('info sheet'), findsOneWidget);
-    await tester.tapAt(const Offset(400, 100));
+    await tester.tapAt(const Offset(200, 100));
     await tester.pumpAndSettle();
     expect(binding.saves, isEmpty);
 
@@ -233,10 +233,7 @@ void main() {
     ListTile row(String title) => tester.widget<ListTile>(
       find.ancestor(of: find.text(title), matching: find.byType(ListTile)),
     );
-    final list = find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.byType(ListView),
-    );
+    final list = find.byType(ListView);
 
     await openSheet();
     expect(row('第 1 章').selected, isTrue);

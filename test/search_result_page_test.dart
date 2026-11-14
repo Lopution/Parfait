@@ -165,6 +165,8 @@ void main() {
     await tester.tap(find.byTooltip('筛选'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('最早发布'));
+    await tester.ensureVisible(find.text('排除 AI'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('排除 AI'));
     await tester.pump();
     await tester.tap(find.text('应用'));

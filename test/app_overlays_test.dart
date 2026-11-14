@@ -279,7 +279,7 @@ void main() {
             MediaQuery(
               data: MediaQueryData(size: size),
               child: InputModalityScope(
-                key: ValueKey('${size.width}-$modality'),
+                key: ValueKey('${size.width}x${size.height}-$modality'),
                 initialModality: modality,
                 child: Builder(
                   builder: (context) {
@@ -302,6 +302,12 @@ void main() {
         await probe(const Size(600, 800), InputModality.pointer);
         expect(wideDecision, isTrue);
         expect(pointerDecision, isTrue);
+        await probe(const Size(896, 411), InputModality.touch);
+        expect(wideDecision, isFalse);
+        expect(pointerDecision, isFalse);
+        await probe(const Size(896, 411), InputModality.pointer);
+        expect(wideDecision, isFalse);
+        expect(pointerDecision, isFalse);
       },
     );
 

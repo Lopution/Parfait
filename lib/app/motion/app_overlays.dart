@@ -14,10 +14,14 @@ import 'motion_tokens.dart';
 /// Whether secondary overlays should use bounded container presentations
 /// (centered dialog or side sheet) rather than full-width bottom sheets.
 ///
-/// Determined purely by viewport width so touch tablets gain bounded dialogs
-/// and side sheets just like desktop windows.
-bool useWideOverlay(BuildContext context) =>
-    MediaQuery.sizeOf(context).width >= AppBreakpoints.medium;
+/// Requires at least medium width (600dp) and non-compact height (480dp)
+/// so touch tablets and desktop windows gain bounded dialogs and side
+/// sheets while turned phones (`isPhoneLandscape`) keep bottom sheets.
+bool useWideOverlay(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  return size.width >= AppBreakpoints.medium &&
+      size.height >= AppBreakpoints.compactHeight;
+}
 
 /// Whether secondary overlays should use pointer-anchored presentations
 /// (popovers) rather than centered modals or bottom sheets.

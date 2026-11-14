@@ -47,10 +47,11 @@ reviewed: 2026-11-14
 - **Rule:** Dialogs and bottom sheets open through `showAppDialog` /
   `showAppBottomSheet`; adaptive overlays (`showAppAdaptiveDialog`,
   `showAppAdaptiveSideSheet`, `showAppAdaptivePopover`) split viewport
-  geometry from interaction modality: `useWideOverlay` (width >= 600dp)
-  selects bounded centered dialogs or trailing side sheets for tablets as
-  well as desktops, while `usePointerOverlay` (width >= 600dp and
-  pointer input) limits pointer-anchored popovers to cursor inputs so
+  geometry from interaction modality: `useWideOverlay` (width >= 600dp
+  and height >= 480dp, keeping turned phones on bottom sheets) selects
+  bounded centered dialogs or trailing side sheets for tablets as well as
+  desktops, while `usePointerOverlay` (width >= 600dp, height >= 480dp,
+  and pointer input) limits pointer-anchored popovers to cursor inputs so
   wide touch viewports fall back to `showAppAdaptiveDialog`. A modal
   surface that places itself (the docked search input, NAV-25) uses
   `showAppPanel`, and a pointer menu (PAGE-18) uses `showAppContextMenu`.
