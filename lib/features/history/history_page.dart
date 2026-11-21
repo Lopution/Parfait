@@ -400,6 +400,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     HistoryRepository repository,
     String accountId,
   ) async {
+    final container = ProviderScope.containerOf(context, listen: false);
     final confirmed = await _confirmDelete(
       context,
       title: context.l10n.historyDeleteAll,
@@ -407,8 +408,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     if (confirmed != true || !context.mounted) return;
     try {
       await repository.clear(accountId);
+      container.invalidate(historyFeedControllerProvider(accountId));
       if (context.mounted) {
-        setState(() => _bodyGeneration++);
+        setState(() {
+          _managing = false;
+          _selected.clear();
+          _lastToggledKey = null;
+          _bodyGeneration++;
+        });
         showAppSnackBar(context, context.l10n.historyDeleteAll);
       }
     } on Object catch (error) {

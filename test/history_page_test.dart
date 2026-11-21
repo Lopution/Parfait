@@ -441,4 +441,32 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+
+  testWidgets('delete all clears visible history cards immediately', (
+    tester,
+  ) async {
+    final container = await _seedPage(tester, [
+      historyRecord(1),
+      historyRecord(2),
+    ]);
+    expect(find.text('work 1'), findsOneWidget);
+
+    await tester.tap(find.byIcon(UiIcons.more));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, '删除全部历史记录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await settleHistory(tester, container.read(historyRepositoryProvider));
+    await tester.pumpAndSettle();
+
+    expect(find.text('work 1'), findsNothing);
+    expect(find.text('work 2'), findsNothing);
+    expect(find.text('暂无浏览历史'), findsOneWidget);
+    expect(
+      await tester.runAsync(
+        () => container.read(historyRepositoryProvider).count(accountId: '100'),
+      ),
+      0,
+    );
+  });
 }

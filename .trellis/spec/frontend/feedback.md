@@ -16,7 +16,7 @@ applies_to:
   - lib/app/widgets/watchlist_toggle.dart
   - lib/app/widgets/comment_composer.dart
   - lib/app/widgets/feed/desktop_gallery_controls.dart
-reviewed: 2026-11-21
+reviewed: 2026-11-22
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -143,12 +143,17 @@ reviewed: 2026-11-21
 - **Code:** `lib/core/bookmark`, `lib/core/user`
 
 ### FB-08 Undo outlives its page
-- **Rule:** `showUndoSnackBar` captures the `ProviderContainer`, prompt host
-  and localizations when it shows; `onUndo` receives the container. Read
-  stores and actions before awaiting anything.
-- **Why:** Undo pressed after the page closed used a disposed context.
-- **Check:** `test/undo_flows_test.dart` "a private follow comes back private"
-- **Code:** `lib/app/widgets/undo_snack_bar.dart`
+- **Rule:** `showUndoSnackBar` and `deferUndoSnackBar` capture the
+  `ProviderContainer`, prompt host and localizations before any await; `onUndo`
+  receives the container. Flows that animate or write before showing Undo
+  capture the account boundary and entry snapshot up front so quick back keeps
+  Undo on the prior route while an account switch never deletes another
+  account's rows or shows cross-account Undo.
+- **Why:** Undo pressed after the page closed used a disposed context, and
+  gating Undo on `mounted` or reading the account after an exit animation
+  dropped Undo on quick back and deleted the new account's matching rows.
+- **Check:** `test/undo_flows_test.dart` "a private follow comes back private"; `test/watchlater_page_test.dart` "popping mid-exit keeps Undo on previous route and account switch never deletes the other account"
+- **Code:** `lib/app/widgets/undo_snack_bar.dart`, `lib/features/watchlater/watchlater_page.dart`, `lib/core/watchlater/watch_later_store.dart`
 
 ### FB-09 Bookmark and follow have one UI entry each
 - **Rule:** UI code toggles bookmarks through `toggleBookmark` and follows

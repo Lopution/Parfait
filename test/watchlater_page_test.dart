@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/selectable_tile.dart';
+import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
@@ -215,6 +216,72 @@ void main() {
       }
       await _settle(tester);
       expect(find.text('3'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'popping mid-exit keeps Undo on previous route and account switch never deletes the other account',
+    (tester) async {
+      final world = ProviderContainer.test(
+        overrides: [
+          accountStoreProvider.overrideWith(
+            () => StubAccountStore(accounts: stubAccountPair),
+          ),
+        ],
+      );
+      await world.read(accountStoreProvider.future);
+      repository = world.read(watchLaterRepositoryProvider);
+      await _seed(repository);
+      await repository.restoreAll('200', [
+        WatchLaterEntry(addedAt: 5000, entity: parseIllust(illustJson(3))),
+      ]);
+      final navKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        localizedApp(
+          container: world,
+          builder: promptHostBuilder,
+          home: Navigator(
+            key: navKey,
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('home')),
+            ),
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      navKey.currentState!.push<void>(
+        MaterialPageRoute<void>(builder: (_) => const WatchLaterPage()),
+      );
+      await _settle(tester);
+      await enterManaging(tester);
+      await tester.tap(_tile(3).first);
+      await tester.pump();
+      await tester.tap(find.byTooltip('从稍后再看移除'));
+      await tester.pump();
+      navKey.currentState!.pop();
+      await _settle(tester);
+      expect(await _ids(repository), [2, 1]);
+      expect(find.text('已从稍后再看移除'), findsOneWidget);
+      await tester.tap(promptAction('撤销'));
+      await _settle(tester);
+      expect(await _ids(repository), [3, 2, 1]);
+
+      navKey.currentState!.push<void>(
+        MaterialPageRoute<void>(builder: (_) => const WatchLaterPage()),
+      );
+      await _settle(tester);
+      await enterManaging(tester);
+      await tester.tap(_tile(3).first);
+      await tester.pump();
+      await tester.tap(find.byTooltip('从稍后再看移除'));
+      await tester.pump();
+      (world.read(accountStoreProvider.notifier) as StubAccountStore)
+          .switchCurrentTo('200');
+      await _settle(tester);
+      expect(await _ids(repository), [2, 1]);
+      expect([for (final e in await repository.list('200')) e.entity.id], [3]);
+      expect(find.text('已从稍后再看移除'), findsNothing);
     },
   );
 }

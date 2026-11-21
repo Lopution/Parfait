@@ -196,6 +196,33 @@ void main() {
       expect(await repository.list('100'), isEmpty);
       expect(await repository.list('200'), isEmpty);
     });
+
+    test(
+      'removeAll with captured accountId never deletes another account',
+      () async {
+        await repository.add('100', _illust(1));
+        await repository.add('200', _illust(1));
+        final entriesA = await container.read(watchLaterStoreProvider.future);
+        final store = container.read(watchLaterStoreProvider.notifier);
+
+        (container.read(accountStoreProvider.notifier) as StubAccountStore)
+            .switchCurrentTo('200');
+        await container.read(watchLaterStoreProvider.future);
+
+        expect(await store.removeAll([1], accountId: '100'), isNull);
+        final removal = await store.removeAll(
+          [1],
+          accountId: '100',
+          entries: entriesA,
+        );
+        expect(removal?.accountId, '100');
+        expect(await repository.list('100'), isEmpty);
+        expect(
+          [for (final e in await repository.list('200')) e.entity.id],
+          [1],
+        );
+      },
+    );
   });
 
   // A page in a widget test opens both at their default path. Through the
