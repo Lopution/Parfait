@@ -3,7 +3,7 @@ prefix: SET
 applies_to:
   - lib/app/widgets/settings/**
   - lib/features/settings/**
-reviewed: 2026-11-21
+reviewed: 2026-11-22
 ---
 
 # Settings pages and the Me tab
@@ -157,12 +157,16 @@ reviewed: 2026-11-21
   (`/settings/about/licenses`, `/settings/network/advanced`,
   `/settings/navigation/bottom-bar`, `/settings/translate/credentials`) map to
   their parent category and scroll the active rail entry into view.
+  `SettingsDetailScope` carries a `SettingsDraftRegistry` so any embedded
+  `guardDraft` form prompts via `confirmDiscardDraft` on both left-rail
+  category switches and outer pops (`settingsMasterPopScope`).
 - **Why:** The same setting on two pages drifted apart; hardwareless iPads omit
   dead haptic sliders while Taptic iPhones expose them (and iOS omits Android
   Material You system colors and SAF pickers); and unified `280dp`
   master-detail hosting keeps deep-linked settings pages coherent beside the
-  collapsed shell rail without double headers or orphaned single-column sheets.
-- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column"; `test/shared_widgets_test.dart` "MasterDetailWorkspace wraps scrollable masterBody in vertical ScrollEdgeFade"
+  collapsed shell rail without double headers, orphaned single-column sheets,
+  or silently discarded form drafts on category switch or outer back.
+- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column" "wide settings prompts confirmDiscardDraft on category switch and outer pop for dirty root and child forms"; `test/shared_widgets_test.dart` "MasterDetailWorkspace wraps scrollable masterBody in vertical ScrollEdgeFade"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/navigation/route_branches.dart`, `lib/features/settings/settings_catalog.dart`, `lib/features/settings/settings_page.dart`, `lib/features/settings/settings_helpers.dart`, `lib/features/settings/pages/motion_settings_page.dart`, `lib/features/settings/pages/theme_settings_page.dart`, `lib/features/settings/pages/download_destination_page.dart`
 
 ## Me tab

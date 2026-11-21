@@ -30,7 +30,11 @@ void main() {
     // Tall surface so the lazily-built template section exists.
     setViewSize(tester, const Size(800, 4000));
     await tester.pumpWidget(
-      localizedApp(overrides: const [], home: DownloadSettingsPage()),
+      localizedApp(
+        overrides: const [],
+        builder: promptHostBuilder,
+        home: DownloadSettingsPage(),
+      ),
     );
     await tester.pumpAndSettle();
     return tester.widget<TextField>(find.byType(TextField)).controller!;
@@ -230,4 +234,30 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
   });
+
+  testWidgets(
+    're-tapping selected custom preset preserves template and switching away clears dirty',
+    (tester) async {
+      final controller = await pumpCustomTemplate(tester);
+      expect(controller.text, '{id}');
+
+      await tester.tap(find.text('自定义模板'));
+      await tester.pumpAndSettle();
+      expect((await storedSettings().load()).namingRule.template, '{id}');
+      expect(controller.text, '{id}');
+
+      await tester.enterText(find.byType(TextField), '{title}_{id}');
+      await tester.pump();
+      await tester.tap(find.text('作品 ID（默认）'));
+      await tester.pumpAndSettle();
+      expect(
+        (await storedSettings().load()).namingRule.preset,
+        NamingPreset.id,
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsNothing);
+    },
+  );
 }
