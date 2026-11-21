@@ -109,6 +109,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _detailNavigatorKey = GlobalKey<NavigatorState>(
     debugLabel: 'settings-detail',
   );
+  final _draftRegistry = SettingsDraftRegistry();
   late final _detailObserver = _DetailStackObserver(_syncDetailCanPop);
   late SettingsPageRef _selectedPage;
   late String _initialDetailLocation;
@@ -138,7 +139,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (MasterDetailWorkspace.canDisplay(context) &&
           _detailNavigatorKey.currentState != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _openInDetailPane(target.detailLocation);
+          if (mounted) _applyDetailLocation(target.detailLocation);
         });
       } else if (_selectedPage != target.rootRef) {
         setState(() {
@@ -152,6 +153,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   void dispose() {
+    _draftRegistry.dispose();
     _query.dispose();
     super.dispose();
   }
@@ -279,6 +281,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _openInDetailPane(String location) {
+    if (!_detailCanPop && location == _initialDetailLocation) return;
+    if (!_draftRegistry.hasDirtyDraft) return _applyDetailLocation(location);
+    unawaited(
+      _draftRegistry.confirmDiscardIfDirty(context).then((leave) {
+        if (leave && mounted) _applyDetailLocation(location);
+      }),
+    );
+  }
+
+  void _applyDetailLocation(String location) {
     final uri = Uri.parse(location);
     final pageRef = _pageRefForPath(uri.path);
     final rootRef = pageRef?.parent ?? pageRef ?? _rootRefForSubPath(uri.path);
@@ -471,11 +483,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
 
-    return PopScope(
-      canPop: !_detailCanPop,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) unawaited(_detailNavigatorKey.currentState?.maybePop());
-      },
+    return settingsMasterPopScope(
+      draftRegistry: _draftRegistry,
+      detailCanPop: _detailCanPop,
+      detailNavigatorKey: _detailNavigatorKey,
       child: MasterDetailWorkspace(
         title: Text(context.l10n.settingsTitle),
         masterTop: _buildSearchField(
@@ -492,6 +503,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         masterBody: body,
         detail: SettingsDetailScope(
           onPush: _pushInDetailPane,
+          draftRegistry: _draftRegistry,
           child: Navigator(
             key: _detailNavigatorKey,
             observers: [_detailObserver],

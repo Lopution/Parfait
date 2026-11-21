@@ -209,12 +209,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                     SettingsChoiceTile(
                       title: Text(namingPresetLabel(context, preset)),
                       selected: namingRule.preset == preset,
-                      onTap: () => persistSettings(
-                        context,
-                        () => ref
-                            .read(settingsProvider.notifier)
-                            .setNamingRule(NamingRule(preset: preset)),
-                      ),
+                      onTap: () => _selectNamingPreset(namingRule, preset),
                     ),
                   if (namingRule.preset == NamingPreset.custom)
                     // The template, its helpers and its save are one row.
@@ -357,6 +352,22 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
       seriesOrder: 2,
       seriesTotal: 10,
     );
+  }
+
+  Future<void> _selectNamingPreset(
+    NamingRule current,
+    NamingPreset next,
+  ) async {
+    if (current.preset == next) return;
+    final saved = await persistSettings(
+      context,
+      () => ref
+          .read(settingsProvider.notifier)
+          .setNamingRule(NamingRule(preset: next)),
+    );
+    if (saved && mounted && next != NamingPreset.custom && _templateDirty) {
+      setState(() => _templateDirty = false);
+    }
   }
 
   Future<void> _saveTemplate() async {

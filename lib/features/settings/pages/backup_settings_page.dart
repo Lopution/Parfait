@@ -13,6 +13,7 @@ import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/backup/backup_envelope.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../core/platform/saf_tree.dart';
+import '../../../core/share/share_service.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
@@ -48,10 +49,12 @@ class BackupSettingsPage extends ConsumerStatefulWidget {
 class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   bool _busy = false;
 
-  Future<void> _export() async {
+  Future<void> _export({Rect? sharePositionOrigin}) async {
     setState(() => _busy = true);
     try {
-      final result = await ref.read(backupServiceProvider).export();
+      final result = await ref
+          .read(backupServiceProvider)
+          .export(sharePositionOrigin: sharePositionOrigin);
       if (!mounted || result == null) return;
       showAppSnackBar(context, context.l10n.backupExported(result.fileName));
     } on Object catch (error) {
@@ -221,11 +224,15 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             // The page title already names the only group.
             SettingsGroup(
               children: [
-                SettingsActionTile(
-                  icon: AppIcons.fileImport,
-                  setting: Setting.backupExport,
-                  enabled: !_busy,
-                  onTap: _export,
+                Builder(
+                  builder: (tileContext) => SettingsActionTile(
+                    icon: AppIcons.fileImport,
+                    setting: Setting.backupExport,
+                    enabled: !_busy,
+                    onTap: () => _export(
+                      sharePositionOrigin: shareOriginOf(tileContext),
+                    ),
+                  ),
                 ),
                 SettingsActionTile(
                   icon: AppIcons.folderOpen,

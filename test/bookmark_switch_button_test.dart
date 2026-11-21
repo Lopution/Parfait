@@ -544,6 +544,61 @@ void main() {
     expect(repository.adds.single.$3, ['途中タグ']);
   });
 
+  testWidgets('unsubmitted tag text triggers PopScope discard confirmation', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '未提交标签');
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsOneWidget);
+  });
+
+  testWidgets(
+    'prefill failure keeps private switch locked so retry preserves tags',
+    (tester) async {
+      final (container, repository) = await _pump(tester);
+      const key = BookmarkKey(BookmarkEntityType.illust, 1);
+      repository.detailFailure = failing(500);
+      repository.detail = const BookmarkDetail(
+        isBookmarked: true,
+        restrict: BookmarkRestrict.public,
+        tags: [BookmarkTagFacet(name: 'keep-tag', isRegistered: true)],
+      );
+      container
+          .read(bookmarkStoreProvider.notifier)
+          .observeRemote(key, bookmarked: true, snapshotRevision: 0);
+      await tester.pump();
+
+      await tester.longPress(find.byType(BookmarkSwitchButton));
+      await tester.pumpAndSettle();
+      expect(find.text('重试'), findsOneWidget);
+      expect(_privateSwitch(tester).onChanged, isNull);
+
+      repository.detailFailure = null;
+      await tester.tap(find.text('重试'));
+      await tester.pumpAndSettle();
+      expect(_privateSwitch(tester).onChanged, isNotNull);
+      expect(find.text('keep-tag'), findsOneWidget);
+
+      await tester.tap(find.text('私密'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('确定'));
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(repository.adds.single.$2, 'private');
+      expect(repository.adds.single.$3, ['keep-tag']);
+    },
+  );
+
   group('heart pop', () {
     const key = BookmarkKey(BookmarkEntityType.illust, 1);
 

@@ -488,6 +488,17 @@ void main() {
       await tester.pump();
       expect(saveEnabled(), isTrue);
     });
+
+    testWidgets('image picker failure shows error prompt without throwing', (
+      tester,
+    ) async {
+      await pumpEditor(tester);
+      platform.pickError = ArgumentError('missing UTIs');
+      await tester.tap(avatar);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('Choose image'), findsOneWidget);
+    });
   });
 
   test('an image picked mid-submit is released, not sent later', () async {
@@ -582,10 +593,12 @@ ProfileEditOwner _owner() => const ProfileEditOwner(accountId: 'account-a');
 class _CountingImagePlatform implements ReverseImageInputPlatform {
   int picks = 0;
   Completer<String>? copy;
+  Object? pickError;
 
   @override
   Future<ReverseImageInputReference?> pickImage() async {
     picks++;
+    if (pickError != null) throw pickError!;
     if (copy == null) return null;
     return const ReverseImageInputReference(
       contentUri: 'content://picker/1',

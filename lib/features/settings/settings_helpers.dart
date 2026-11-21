@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -55,22 +56,149 @@ class _SettingsNarrowBody extends StatelessWidget {
   }
 }
 
+/// Tracks whether any [guardDraft] descendant inside a wide settings detail
+/// pane currently holds unsaved changes, so category switches and outer pops
+/// can prompt via [confirmDiscardDraft] before discarding them.
+class SettingsDraftRegistry extends ChangeNotifier {
+  final Set<Object> _dirtyTokens = <Object>{};
+  bool _notifyScheduled = false;
+  bool _confirmingLeave = false;
+  bool _disposed = false;
+
+  bool get hasDirtyDraft => _dirtyTokens.isNotEmpty;
+
+  /// Prompts via [confirmDiscardDraft] when any registered form is dirty,
+  /// deduplicating overlapping prompts while a confirmation dialog is open.
+  Future<bool> confirmDiscardIfDirty(BuildContext context) async {
+    if (!hasDirtyDraft) return true;
+    if (_confirmingLeave) return false;
+    _confirmingLeave = true;
+    try {
+      return await confirmDiscardDraft(context);
+    } finally {
+      _confirmingLeave = false;
+    }
+  }
+
+  void setDirty(Object token, bool dirty) {
+    final before = _dirtyTokens.isNotEmpty;
+    if (dirty) {
+      _dirtyTokens.add(token);
+    } else {
+      _dirtyTokens.remove(token);
+    }
+    if (before != _dirtyTokens.isNotEmpty) {
+      _scheduleNotify();
+    }
+  }
+
+  void unregister(Object token) => setDirty(token, false);
+
+  void _scheduleNotify() {
+    if (_disposed) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      if (_notifyScheduled) return;
+      _notifyScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _notifyScheduled = false;
+        if (!_disposed) notifyListeners();
+      });
+      return;
+    }
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _dirtyTokens.clear();
+    super.dispose();
+  }
+}
+
+/// Wraps the wide master-detail settings shell with a [PopScope] that pops the
+/// nested detail navigator first and otherwise guards dirty forms registered
+/// in [draftRegistry] via [confirmDiscardDraft].
+Widget settingsMasterPopScope({
+  required SettingsDraftRegistry draftRegistry,
+  required bool detailCanPop,
+  required GlobalKey<NavigatorState> detailNavigatorKey,
+  required Widget child,
+}) => ListenableBuilder(
+  listenable: draftRegistry,
+  builder: (context, _) => PopScope(
+    canPop: !detailCanPop && !draftRegistry.hasDirtyDraft,
+    onPopInvokedWithResult: (didPop, _) {
+      if (didPop) return;
+      if (detailCanPop) {
+        unawaited(detailNavigatorKey.currentState?.maybePop());
+        return;
+      }
+      final navigator = Navigator.of(context);
+      unawaited(
+        draftRegistry.confirmDiscardIfDirty(context).then((leave) {
+          if (leave && navigator.mounted) navigator.pop();
+        }),
+      );
+    },
+    child: child,
+  ),
+);
+
 /// Draft-form leave guard (same PopScope contract as ProfileEditPage):
 /// a clean form pops directly; a dirty one asks via [confirmDiscardDraft]
-/// before the route is dropped.
+/// before the route is dropped. When hosted inside a wide settings detail
+/// pane, it also reports dirty state to the enclosing [SettingsDraftRegistry].
 Widget guardDraft({required bool dirty, required Widget child}) =>
     _DraftGuard(dirty: dirty, child: child);
 
-class _DraftGuard extends StatelessWidget {
+class _DraftGuard extends StatefulWidget {
   const _DraftGuard({required this.dirty, required this.child});
 
   final bool dirty;
   final Widget child;
 
   @override
+  State<_DraftGuard> createState() => _DraftGuardState();
+}
+
+class _DraftGuardState extends State<_DraftGuard> {
+  SettingsDraftRegistry? _registry;
+
+  void _syncRegistry(SettingsDraftRegistry? next) {
+    if (!identical(_registry, next)) {
+      _registry?.unregister(this);
+      _registry = next;
+    }
+    _registry?.setDirty(this, widget.dirty);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncRegistry(SettingsDetailScope.draftRegistryOf(context));
+  }
+
+  @override
+  void didUpdateWidget(covariant _DraftGuard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.dirty != widget.dirty) {
+      _registry?.setDirty(this, widget.dirty);
+    }
+  }
+
+  @override
+  void dispose() {
+    _registry?.unregister(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !dirty,
+      canPop: !widget.dirty,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         unawaited(
@@ -79,7 +207,7 @@ class _DraftGuard extends StatelessWidget {
           }),
         );
       },
-      child: child,
+      child: widget.child,
     );
   }
 }
@@ -134,24 +262,31 @@ Widget settingsUnavailable(
 
 /// Inherited hook for the wide master-detail settings host: subpages pushed
 /// inside the detail pane stay on its nested [Navigator] instead of pushing
-/// onto the root router over the split layout.
+/// onto the root router over the split layout, and embedded draft forms report
+/// dirty state to [draftRegistry].
 class SettingsDetailScope extends InheritedWidget {
   const SettingsDetailScope({
     super.key,
     required this.onPush,
+    this.draftRegistry,
     required super.child,
   });
 
   final Future<void> Function(String location) onPush;
+  final SettingsDraftRegistry? draftRegistry;
 
   static Future<void> Function(String location)? maybeOf(
     BuildContext context,
   ) =>
       context.dependOnInheritedWidgetOfExactType<SettingsDetailScope>()?.onPush;
 
+  static SettingsDraftRegistry? draftRegistryOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<SettingsDetailScope>()
+      ?.draftRegistry;
+
   @override
   bool updateShouldNotify(SettingsDetailScope oldWidget) =>
-      onPush != oldWidget.onPush;
+      onPush != oldWidget.onPush || draftRegistry != oldWidget.draftRegistry;
 }
 
 Future<void> pushSettingsPage(BuildContext context, String path) {

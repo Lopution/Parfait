@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/translation/translation_service.dart'
@@ -213,6 +216,91 @@ void main() {
       expect(api.sent('/v1/user/detail'), hasLength(1));
       expect(api.sent('/v1/user/bookmarks/illust'), hasLength(1));
       expect(api.sent('/v1/user/bookmark-tags/illust'), hasLength(1));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'wide settings prompts confirmDiscardDraft on category switch and outer pop for dirty root and child forms',
+    (tester) async {
+      await seedSettings(
+        baseTestSettings().copyWith(
+          namingRule: const NamingRule(
+            preset: NamingPreset.custom,
+            template: '{id}',
+          ),
+        ),
+      );
+      setViewSize(tester, const Size(1280, 1200));
+      final router = pixivRouter('/recommended');
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          overrides: _overrides(),
+          builder: promptHostBuilder,
+        ),
+      );
+      await tester.pumpAndSettle();
+      unawaited(router.push('/settings/download'));
+      await tester.pumpAndSettle();
+
+      // Dirty the root DownloadSettingsPage custom template field.
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(DownloadSettingsPage),
+          matching: find.byType(TextField),
+        ),
+        '{title}_{id}',
+      );
+      await tester.pumpAndSettle();
+
+      // Category switch prompts; cancel keeps draft and page.
+      await tester.tap(find.text(SettingsPageRef.about.title(zh)));
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadSettingsPage), findsOneWidget);
+
+      // Outer pop also prompts; cancel stays, discard leaves SettingsPage.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsPage), findsOneWidget);
+
+      // Confirm category switch transitions cleanly to About.
+      await tester.tap(find.text(SettingsPageRef.about.title(zh)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '放弃修改'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AboutSettingsPage), findsOneWidget);
+
+      // Dirty nested child (DownloadDestinationPage) also guards rail switch.
+      await tester.tap(find.text(SettingsPageRef.download.title(zh)));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DownloadSettingsPage),
+          matching: find.text(SettingsPageRef.downloadDestination.title(zh)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(DownloadDestinationPage),
+          matching: find.byType(TextField),
+        ),
+        'MyAlbum',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(SettingsPageRef.about.title(zh)));
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '放弃修改'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AboutSettingsPage), findsOneWidget);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );

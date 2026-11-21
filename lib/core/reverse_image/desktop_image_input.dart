@@ -12,11 +12,31 @@ import 'reverse_image_platform.dart';
 /// picker and returns a real path, so `contentUri` is a filesystem path and
 /// `copyToOwnedFile` is a plain file copy into the temp sandbox.
 class DesktopReverseImageInputPlatform implements ReverseImageInputPlatform {
-  const DesktopReverseImageInputPlatform();
+  const DesktopReverseImageInputPlatform({
+    Future<XFile?> Function({List<XTypeGroup> acceptedTypeGroups})?
+    openFileHandler,
+  }) : _openFile = openFileHandler;
+
+  final Future<XFile?> Function({List<XTypeGroup> acceptedTypeGroups})?
+  _openFile;
 
   static const _imageTypes = XTypeGroup(
     label: 'images',
     extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
+    mimeTypes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/bmp',
+    ],
+    uniformTypeIdentifiers: [
+      'public.jpeg',
+      'public.png',
+      'org.webmproject.webp',
+      'com.compuserve.gif',
+      'com.microsoft.bmp',
+    ],
   );
 
   static const _mimeByExtension = {
@@ -38,7 +58,9 @@ class DesktopReverseImageInputPlatform implements ReverseImageInputPlatform {
 
   @override
   Future<ReverseImageInputReference?> pickImage() async {
-    final file = await openFile(acceptedTypeGroups: [_imageTypes]);
+    final file = await (_openFile ?? openFile)(
+      acceptedTypeGroups: [_imageTypes],
+    );
     if (file == null) return null;
     final mimeType = _mimeOf(file);
     final sizeBytes = await file.length();
