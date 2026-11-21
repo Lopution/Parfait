@@ -61,7 +61,7 @@ class FlutterWindow : public Win32Window {
                                                 DWORD_PTR ref_data) noexcept;
 
   void RegisterNativeChannels();
-  void EmitWindowMetrics();
+  void EmitWindowMetrics(bool force = false);
   flutter::EncodableMap BuildWindowMetricsMap() const;
   LRESULT HitTestNonClient(int screen_x, int screen_y) const;
   void ToggleFullscreen();
@@ -106,6 +106,12 @@ class FlutterWindow : public Win32Window {
   std::string pressed_button_;
   bool is_active_ = true;
   bool tracking_nc_leave_ = false;
+  bool has_emitted_metrics_ = false;
+  bool last_emitted_maximized_ = false;
+  bool last_emitted_fullscreen_ = false;
+  bool last_emitted_active_ = true;
+  std::string last_emitted_hovered_;
+  std::string last_emitted_pressed_;
   WINDOWPLACEMENT saved_placement_{};
   LONG_PTR saved_style_ = 0;
 

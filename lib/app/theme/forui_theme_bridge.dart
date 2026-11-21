@@ -260,7 +260,11 @@ class _ForuiThemeScope extends InheritedWidget {
 
 /// Mounts the derived [FTheme] inside the app/test subtree so Forui widgets
 /// track brightness, dynamic colors, form factor and `reduceMotion`.
-class ForuiThemeHost extends StatelessWidget {
+///
+/// Caches the derived [FThemeData] against its inputs so unrelated ancestor
+/// rebuilds (e.g., window resizes or non-theme setting writes) never rebuild
+/// the full Forui theme or re-trigger `FTheme` transitions.
+class ForuiThemeHost extends StatefulWidget {
   const ForuiThemeHost({super.key, required this.child});
 
   /// Returns [child] directly when already under a [ForuiThemeHost] (prod
@@ -274,21 +278,54 @@ class ForuiThemeHost extends StatelessWidget {
   final Widget child;
 
   @override
+  State<ForuiThemeHost> createState() => _ForuiThemeHostState();
+}
+
+class _ForuiThemeHostState extends State<ForuiThemeHost> {
+  ThemeData? _lastTheme;
+  bool? _lastTouch;
+  Duration? _lastDeterminateDuration;
+  FThemeData? _cachedData;
+
+  FThemeData _resolveData(
+    ThemeData theme, {
+    required bool touch,
+    required Duration determinateDuration,
+  }) {
+    final cached = _cachedData;
+    if (cached != null &&
+        _lastTheme == theme &&
+        _lastTouch == touch &&
+        _lastDeterminateDuration == determinateDuration) {
+      return cached;
+    }
+    _lastTheme = theme;
+    _lastTouch = touch;
+    _lastDeterminateDuration = determinateDuration;
+    return _cachedData = foruiThemeFrom(
+      theme,
+      touch: touch,
+      determinateProgressDuration: determinateDuration,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final touch = FormFactor.of(context) != FormFactor.pc;
     final motionEnabled = MotionTokens.enabled(context);
     final accessibleNavigation =
         MediaQuery.maybeAccessibleNavigationOf(context) ?? false;
+    final determinateDuration = MotionTokens.resolve(
+      context,
+      MotionTokens.stateFade,
+    );
     return _ForuiThemeScope(
       child: FTheme(
-        data: foruiThemeFrom(
+        data: _resolveData(
           theme,
           touch: touch,
-          determinateProgressDuration: MotionTokens.resolve(
-            context,
-            MotionTokens.stateFade,
-          ),
+          determinateDuration: determinateDuration,
         ),
         accessibility: FAccessibility(
           accessibleNavigation: accessibleNavigation,
@@ -301,7 +338,7 @@ class ForuiThemeHost extends StatelessWidget {
           duration: MotionTokens.resolve(context, MotionTokens.themeChange),
           curve: MotionTokens.themeChangeCurve,
         ),
-        child: child,
+        child: widget.child,
       ),
     );
   }

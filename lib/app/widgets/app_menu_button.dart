@@ -136,25 +136,38 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
   }
 
   Widget _item(AppMenuEntry<T> entry) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tokens = FuncSemanticTokens.of(context);
     final checked = entry.checked;
-    final danger = entry.destructive
-        ? FuncSemanticTokens.of(context).danger
-        : null;
+    final isChecked = checked == true;
+    final danger = entry.destructive ? tokens.danger : null;
+    final foreground = danger ?? (isChecked ? scheme.primary : null);
+    final iconColor =
+        danger ?? (isChecked ? scheme.primary : scheme.onSurfaceVariant);
     Widget item = MenuItemButton(
-      style: danger == null
-          ? null
-          : MenuItemButton.styleFrom(
-              foregroundColor: danger,
-              iconColor: danger,
-            ),
-      leadingIcon: entry.icon == null ? null : Icon(entry.icon, size: 20),
-      trailingIcon: checked == true
-          ? const Icon(UiIcons.check, size: 18)
-          : null,
+      style: MenuItemButton.styleFrom(
+        backgroundColor: isChecked ? tokens.brandTintWeak : null,
+        foregroundColor: foreground,
+        iconColor: iconColor,
+        shape: const RoundedRectangleBorder(borderRadius: FuncShape.control),
+        minimumSize: const Size(136, 36),
+        padding: const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.md,
+          vertical: FuncSpacing.sm,
+        ),
+      ),
+      leadingIcon: entry.icon == null ? null : Icon(entry.icon, size: 18),
+      trailingIcon: isChecked ? const Icon(UiIcons.check, size: 16) : null,
       onPressed: entry.enabled
           ? () => widget.onSelected(_anchorContext ?? context, entry.value)
           : null,
-      child: Text(entry.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      child: Text(
+        entry.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: isChecked ? const TextStyle(fontWeight: FontWeight.w500) : null,
+      ),
     );
     if (checked != null) {
       item = MergeSemantics(
@@ -186,9 +199,13 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
   Widget _anchor(Widget Function(Widget child) ambient) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     final hairline =
         theme.extension<FuncSemanticTokens>()?.brandHairline ??
         scheme.outlineVariant;
+    final surface = dark
+        ? scheme.surfaceContainerHigh
+        : scheme.surfaceContainerLowest;
     return MenuAnchor(
       controller: _controller,
       consumeOutsideTap: true,
@@ -196,27 +213,38 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
       // Constrained: the default lets the panel grow past the width cap
       // (and the screen) and clips long labels instead of truncating.
       crossAxisUnconstrained: false,
-      // In the menu's direction, a positive offset moves it inward.
-      alignmentOffset: Offset(_edgeInset, 0),
+      // In the menu's direction, a positive x offset moves it inward; y adds a
+      // breathing gap below the trigger so the popover never fuses with it.
+      alignmentOffset: Offset(_edgeInset, FuncSpacing.xs),
       style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
+        backgroundColor: WidgetStatePropertyAll(surface),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(3),
+        shadowColor: WidgetStatePropertyAll(
+          scheme.shadow.withValues(alpha: dark ? 0.45 : 0.16),
+        ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: FuncShape.card,
             side: BorderSide(color: hairline),
           ),
         ),
-        padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(vertical: FuncSpacing.xs),
-        ),
+        padding: const WidgetStatePropertyAll(EdgeInsets.all(FuncSpacing.xs)),
         maximumSize: const WidgetStatePropertyAll(
           Size(kAppMenuMaxWidth, double.infinity),
         ),
       ),
       onOpen: () => _setOpen(true),
       onClose: () => _setOpen(false),
-      menuChildren: [for (final entry in widget.entries) ambient(_item(entry))],
+      menuChildren: [
+        for (var i = 0; i < widget.entries.length; i++)
+          ambient(
+            Padding(
+              padding: EdgeInsets.only(top: i == 0 ? 0 : FuncSpacing.xxs),
+              child: _item(widget.entries[i]),
+            ),
+          ),
+      ],
       builder: (_, controller, _) => ambient(
         Builder(
           builder: (anchorContext) {

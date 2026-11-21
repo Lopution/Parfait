@@ -9,6 +9,7 @@ import '../core/auth/account_store.dart';
 import '../core/errors/error_category.dart';
 import '../core/navigation/home_destination.dart';
 import '../core/settings/app_settings.dart';
+import '../core/settings/settings_controller.dart';
 import '../l10n/lookup.dart';
 import '../l10n/context.dart';
 import 'layout/content_widths.dart';
@@ -186,7 +187,8 @@ class _StartupGateState extends ConsumerState<StartupGate> {
               // such as an image shared into a cold start.
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (context.mounted) {
-                  router.go(homeStartDestination(settings).rootPath);
+                  final latest = ref.read(settingsProvider).value ?? settings;
+                  router.go(homeStartDestination(latest).rootPath);
                 }
               });
               // Keep the current route painted until the redirect lands —

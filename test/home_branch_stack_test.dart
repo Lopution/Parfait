@@ -19,6 +19,7 @@ import 'package:parfait/app/widgets/app_snack_bar.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/app/widgets/shell_rail.dart';
+import 'package:parfait/app/window/desktop_command_bar_scope.dart';
 import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -54,6 +55,7 @@ Future<GoRouter> _pumpHome(
   Stream<bool> touchExploration = const Stream.empty(),
   bool firstFrameOnly = false,
   Size? display,
+  bool desktopCommandBar = false,
 }) async {
   setViewSize(tester, Size(width, height));
   if (display != null) setDisplaySize(tester, display);
@@ -63,17 +65,20 @@ Future<GoRouter> _pumpHome(
     // The app's chrome: the form factor from the settings, Esc, touch
     // exploration, prompts.
     builder: (context, child) => Consumer(
-      builder: (context, ref, _) => FormFactorScope(
-        choice:
-            ref.watch(settingsProvider).value?.interfaceForm ??
-            InterfaceForm.auto,
-        child: KeyboardBack(
-          router: router,
-          child: TouchExplorationScope(
-            child: promptHostBuilder(context, child),
-          ),
-        ),
-      ),
+      builder: (context, ref, _) {
+        Widget inner = TouchExplorationScope(
+          child: promptHostBuilder(context, child),
+        );
+        if (desktopCommandBar) {
+          inner = DesktopCommandBarScope(active: true, child: inner);
+        }
+        return FormFactorScope(
+          choice:
+              ref.watch(settingsProvider).value?.interfaceForm ??
+              InterfaceForm.auto,
+          child: KeyboardBack(router: router, child: inner),
+        );
+      },
     ),
   );
   if (reduceMotion) {
@@ -606,11 +611,10 @@ void main() {
     );
   });
 
-  testWidgets('a PC rail opens from large widths until the user '
-      'toggles it, then stays as left', (tester) async {
+  testWidgets('a PC rail stays expanded across rail widths without a collapse '
+      'toggle', (tester) async {
     await _pumpHome(tester, width: 1200, height: 900);
     final rail = find.byType(ShellRail);
-    final container = ProviderScope.containerOf(tester.element(rail));
     double railWidth() => tester.getSize(rail).width;
     expect(railWidth(), ShellRail.expandedWidth);
     expect(
@@ -619,38 +623,26 @@ void main() {
       ).width,
       1200 - ShellRail.expandedWidth,
     );
+    expect(find.byTooltip('收起侧栏'), findsNothing);
+    expect(find.byTooltip('展开侧栏'), findsNothing);
 
-    await tester.tap(find.byTooltip('收起侧栏'));
-    await tester.pumpAndSettle();
-    expect(railWidth(), ShellRail.width);
-    expect(container.read(railExpandedProvider), isFalse);
-    setViewSize(tester, const Size(1920, 900));
-    await tester.pumpAndSettle();
-    expect(railWidth(), ShellRail.width);
-
-    setViewSize(tester, const Size(1000, 700));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('展开侧栏'));
+    setViewSize(tester, const Size(700, 700));
     await tester.pumpAndSettle();
     expect(railWidth(), ShellRail.expandedWidth);
+    expect(find.byTooltip('收起侧栏'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets(
-    'the PC rail opens and closes by width rather than in one frame',
+    'a toggleable tablet rail opens and closes by width rather than in one frame',
     (tester) async {
-      await _pumpHome(tester, width: 1600, height: 900);
+      await _pumpHome(
+        tester,
+        width: 1200,
+        height: 900,
+        display: const Size(1200, 900),
+      );
       final rail = find.byType(ShellRail);
       double railWidth() => tester.getSize(rail).width;
-      expect(railWidth(), ShellRail.expandedWidth);
-
-      await tester.tap(find.byTooltip('收起侧栏'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(
-        railWidth(),
-        inExclusiveRange(ShellRail.width, ShellRail.expandedWidth),
-      );
-      await tester.pumpAndSettle();
       expect(railWidth(), ShellRail.width);
 
       await tester.tap(find.byTooltip('展开侧栏'));
@@ -662,42 +654,65 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(railWidth(), ShellRail.expandedWidth);
+
+      await tester.tap(find.byTooltip('收起侧栏'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        railWidth(),
+        inExclusiveRange(ShellRail.width, ShellRail.expandedWidth),
+      );
+      await tester.pumpAndSettle();
+      expect(railWidth(), ShellRail.width);
     },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
-  testWidgets('with reduced motion the PC rail changes width at once', (
+  testWidgets('with reduced motion a toggleable rail changes width at once', (
     tester,
   ) async {
-    await _pumpHome(tester, width: 1600, height: 900, reduceMotion: true);
-    final rail = find.byType(ShellRail);
-    await tester.tap(find.byTooltip('收起侧栏'));
-    await tester.pump();
-    expect(tester.getSize(rail).width, ShellRail.width);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
-
-  testWidgets('turning reduced motion on mid-slide lands the PC rail at once', (
-    tester,
-  ) async {
-    await _pumpHome(tester, width: 1600, height: 900);
-    final rail = find.byType(ShellRail);
-    double railWidth() => tester.getSize(rail).width;
-    await tester.tap(find.byTooltip('收起侧栏'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      railWidth(),
-      inExclusiveRange(ShellRail.width, ShellRail.expandedWidth),
+    await _pumpHome(
+      tester,
+      width: 1200,
+      height: 900,
+      display: const Size(1200, 900),
+      reduceMotion: true,
     );
-
-    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(
-      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
-    );
+    final rail = find.byType(ShellRail);
+    await tester.tap(find.byTooltip('展开侧栏'));
     await tester.pump();
-    expect(railWidth(), ShellRail.width);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+    expect(tester.getSize(rail).width, ShellRail.expandedWidth);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'turning reduced motion on mid-slide lands a toggleable rail at once',
+    (tester) async {
+      await _pumpHome(
+        tester,
+        width: 1200,
+        height: 900,
+        display: const Size(1200, 900),
+      );
+      final rail = find.byType(ShellRail);
+      double railWidth() => tester.getSize(rail).width;
+      await tester.tap(find.byTooltip('展开侧栏'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        railWidth(),
+        inExclusiveRange(ShellRail.width, ShellRail.expandedWidth),
+      );
+
+      tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      expect(railWidth(), ShellRail.expandedWidth);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 
   testWidgets('the interface form changes the shell at once and keeps the '
       'open page', (tester) async {
@@ -707,7 +722,7 @@ void main() {
     final history = tester.state(find.byType(HistoryPage));
     final rail = find.byType(ShellRail);
     expect(tester.getSize(rail).width, ShellRail.expandedWidth);
-    expect(find.byTooltip('收起侧栏'), findsOneWidget);
+    expect(find.byTooltip('收起侧栏'), findsNothing);
 
     await ProviderScope.containerOf(
       tester.element(rail),
@@ -1065,5 +1080,95 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
       }
     },
+  );
+
+  testWidgets(
+    'desktop rail cycles 3-state theme and keeps Me, Bookmarks, Downloads, and Settings mutually exclusive',
+    (tester) async {
+      final router = await _pumpHome(
+        tester,
+        width: 1280,
+        height: 800,
+        desktopCommandBar: true,
+      );
+      final rail = find.byType(ShellRail);
+      final container = ProviderScope.containerOf(tester.element(rail));
+      expect(tester.getSize(rail).width, ShellRail.expandedWidth);
+      expect(container.read(themeModeProvider), ThemeMode.system);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('rail-theme-toggle')),
+          matching: find.byIcon(UiIcons.devices),
+        ),
+        findsOneWidget,
+      );
+
+      // Cycle system -> light -> dark -> system.
+      await tester.tap(find.byKey(const Key('rail-theme-toggle')));
+      await tester.pumpAndSettle();
+      expect(container.read(themeModeProvider), ThemeMode.light);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('rail-theme-toggle')),
+          matching: find.byIcon(AppIcons.sun),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('rail-theme-toggle')));
+      await tester.pumpAndSettle();
+      expect(container.read(themeModeProvider), ThemeMode.dark);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('rail-theme-toggle')),
+          matching: find.byIcon(AppIcons.moon),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('rail-theme-toggle')));
+      await tester.pumpAndSettle();
+      expect(container.read(themeModeProvider), ThemeMode.system);
+
+      // From Recommended, clicking Bookmarks / Downloads / Settings highlights
+      // only that entry (never Me simultaneously) and Back returns to Recommended.
+      await tester.tap(find.byKey(const Key('rail-bookmarks')));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.toString(), '/settings/me?tab=bookmarks');
+      expect(tester.widget<ShellRail>(rail).bookmarksSelected, isTrue);
+      expect(tester.widget<ShellRail>(rail).downloadsSelected, isFalse);
+      expect(tester.widget<ShellRail>(rail).settingsSelected, isFalse);
+
+      await tester.tap(find.byKey(const Key('rail-downloads')));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.toString(), '/settings/downloads');
+      expect(tester.widget<ShellRail>(rail).bookmarksSelected, isFalse);
+      expect(tester.widget<ShellRail>(rail).downloadsSelected, isTrue);
+
+      await tester.tap(find.byKey(const Key('rail-settings')));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/settings/all');
+      expect(tester.widget<ShellRail>(rail).settingsSelected, isTrue);
+      expect(tester.getSize(rail).width, ShellRail.expandedWidth);
+
+      await router.routerDelegate.popRoute();
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/recommended');
+
+      // Visiting Me directly omits duplicate Bookmarks & Downloads rows inside
+      // wide desktop MeDashboardPage.
+      await tester.tap(find.descendant(of: rail, matching: find.text('我的')));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/settings');
+      expect(tester.getSize(rail).width, ShellRail.expandedWidth);
+      expect(
+        find.descendant(
+          of: find.byType(MeDashboardPage),
+          matching: find.text('下载任务'),
+        ),
+        findsNothing,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 }

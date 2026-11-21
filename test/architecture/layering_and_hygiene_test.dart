@@ -82,7 +82,7 @@ const _grandfatheredFileLineCaps = <String, int>{
   'lib/app/widgets/feed/feed_selection.dart': 877,
   'lib/app/widgets/feed/illust_card.dart': 896,
   'lib/app/widgets/func_bottom_nav.dart': 836,
-  'lib/app/widgets/home_branch_stack.dart': 916,
+  'lib/app/widgets/home_branch_stack.dart': 888,
   'lib/app/widgets/ranking_category_sheet.dart': 909,
   'lib/app/widgets/shell_rail.dart': 849,
   'lib/core/download/download_manager.dart': 1823,

@@ -120,7 +120,7 @@ void main() {
                         ],
                         selectedIndex: 0,
                         onSelected: (_) {},
-                        form: FormFactor.pc,
+                        form: FormFactor.touch,
                         expanded: false,
                         onToggle: () {},
                         onBookmarks: () {},

@@ -42,7 +42,6 @@ import 'window/desktop_menu_bar.dart';
 import 'window/desktop_title_bar.dart';
 import 'touch_exploration_scope.dart';
 import 'widgets/prompt_host.dart';
-import 'widgets/settings/persist_settings.dart';
 import 'widgets/settings_load_error.dart';
 import 'window/desktop_window.dart';
 import '../l10n/context.dart';
@@ -86,6 +85,35 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
   late final GoRouter _router = createPixivRouter();
 
   final _promptHostKey = GlobalKey<PromptHostState>();
+  bool _warmedUp = false;
+  ColorScheme? _cachedLightSystemColors;
+  ThemeData? _cachedLightTheme;
+  ColorScheme? _cachedDarkSystemColors;
+  ThemeData? _cachedDarkTheme;
+
+  ThemeData _lightThemeFor(ColorScheme? systemColors) {
+    final cached = _cachedLightTheme;
+    if (cached != null && _cachedLightSystemColors == systemColors) {
+      return cached;
+    }
+    _cachedLightSystemColors = systemColors;
+    return _cachedLightTheme = replicaTheme(
+      Brightness.light,
+      systemColors: systemColors,
+    );
+  }
+
+  ThemeData _darkThemeFor(ColorScheme? systemColors) {
+    final cached = _cachedDarkTheme;
+    if (cached != null && _cachedDarkSystemColors == systemColors) {
+      return cached;
+    }
+    _cachedDarkSystemColors = systemColors;
+    return _cachedDarkTheme = replicaTheme(
+      Brightness.dark,
+      systemColors: systemColors,
+    );
+  }
 
   @override
   void initState() {
@@ -184,7 +212,51 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider);
+    // Watch only the root chrome slice of settings so toggling unrelated
+    // preferences (rail state, feed density, history, haptics, window bounds…)
+    // never rebuilds MaterialApp or retriggers a full-tree AnimatedTheme lerp.
+    final rootState = ref.watch(
+      settingsProvider.select((async) {
+        if (async.hasError) {
+          return (
+            pending: false,
+            error: async.error,
+            locale: null,
+            followSystemColors: false,
+            reduceMotion: false,
+            animationSpeed: AnimationSpeed.normal,
+            pressFeedback: true,
+            interfaceForm: InterfaceForm.auto,
+            guideCompleted: false,
+          );
+        }
+        final value = async.value;
+        if (value == null) {
+          return (
+            pending: true,
+            error: null,
+            locale: null,
+            followSystemColors: false,
+            reduceMotion: false,
+            animationSpeed: AnimationSpeed.normal,
+            pressFeedback: true,
+            interfaceForm: InterfaceForm.auto,
+            guideCompleted: false,
+          );
+        }
+        return (
+          pending: false,
+          error: null,
+          locale: value.locale,
+          followSystemColors: value.followSystemColors,
+          reduceMotion: value.reduceMotion,
+          animationSpeed: value.animationSpeed,
+          pressFeedback: value.pressFeedback,
+          interfaceForm: value.interfaceForm,
+          guideCompleted: value.guideCompleted,
+        );
+      }),
+    );
     final themeMode = ref.watch(themeModeProvider);
     // §5.6: AppHaptics is the sole haptic entry. The reader re-reads the
     // latest persisted setting on each trigger, so the settings toggle
@@ -195,8 +267,20 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
           HapticStrength.standard,
       driver: ref.watch(hapticsDriverProvider),
     );
-    return settings.when(
-      loading: () => _materialApp(
+    if (rootState.error case final error?) {
+      return _materialApp(
+        settings: AppSettings.defaults(),
+        themeMode: themeMode,
+        overlay: Scaffold(
+          body: SettingsLoadError(
+            error: error,
+            onRetry: () => ref.read(settingsProvider.notifier).reload(),
+          ),
+        ),
+      );
+    }
+    if (rootState.pending) {
+      return _materialApp(
         settings: AppSettings.defaults(),
         themeMode: themeMode,
         // Settings are a prerequisite for routing decisions, so the gate
@@ -206,31 +290,23 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
         // that hands off once the data branch mounts the real gate.
         startupSettings: AppSettings.defaults(),
         settingsPending: true,
-      ),
-      error: (error, stackTrace) => _materialApp(
-        settings: AppSettings.defaults(),
-        themeMode: themeMode,
-        overlay: Scaffold(
-          body: SettingsLoadError(
-            error: error,
-            onRetry: () => ref.read(settingsProvider.notifier).reload(),
-          ),
-        ),
-      ),
-      data: (value) {
-        // Build the shared Pixiv transports while settings are available so
-        // the first API/image request does not pay lazy client construction.
-        unawaited(ref.read(pixivNetworkFactoryProvider).warmUp());
-        // Start account restoration in the background too: StartupGate waits
-        // on it, so beginning the secure-storage read now overlaps with the
-        // first frame instead of serialising behind it.
-        unawaited(ref.read(accountStoreProvider.future));
-        return _materialApp(
-          settings: value,
-          themeMode: themeMode,
-          startupSettings: value,
-        );
-      },
+      );
+    }
+    final value = ref.read(settingsProvider).value ?? AppSettings.defaults();
+    if (!_warmedUp) {
+      _warmedUp = true;
+      // Build the shared Pixiv transports while settings are available so
+      // the first API/image request does not pay lazy client construction.
+      unawaited(ref.read(pixivNetworkFactoryProvider).warmUp());
+      // Start account restoration in the background too: StartupGate waits
+      // on it, so beginning the secure-storage read now overlaps with the
+      // first frame instead of serialising behind it.
+      unawaited(ref.read(accountStoreProvider.future));
+    }
+    return _materialApp(
+      settings: value,
+      themeMode: themeMode,
+      startupSettings: value,
     );
   }
 
@@ -257,11 +333,8 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
         Locale('ru', 'RU'),
       ],
       localizationsDelegates: appLocalizationsDelegates,
-      theme: replicaTheme(Brightness.light, systemColors: systemColors?.light),
-      darkTheme: replicaTheme(
-        Brightness.dark,
-        systemColors: systemColors?.dark,
-      ),
+      theme: _lightThemeFor(systemColors?.light),
+      darkTheme: _darkThemeFor(systemColors?.dark),
       themeMode: themeMode,
       restorationScopeId: 'parfait',
       routerConfig: _router,
@@ -342,25 +415,6 @@ class _AppChromeState extends ConsumerState<AppChrome> {
     super.dispose();
   }
 
-  void _toggleDesktopRail(BuildContext promptContext, FormFactor form) {
-    final size = MediaQuery.sizeOf(promptContext);
-    if (!form.canToggleRail(size.width, height: size.height)) return;
-    final railChoice =
-        ref.read(railExpandedProvider) ?? widget.settings.railExpanded;
-    final railExpanded = form.railExpanded(
-      size.width,
-      height: size.height,
-      choice: railChoice,
-    );
-    unawaited(
-      persistSettings(
-        promptContext,
-        () =>
-            ref.read(settingsProvider.notifier).setRailExpanded(!railExpanded),
-      ),
-    );
-  }
-
   Widget _buildScopedChrome(
     BuildContext scopeContext,
     TargetPlatform platform,
@@ -382,16 +436,11 @@ class _AppChromeState extends ConsumerState<AppChrome> {
         child: ExternalIntentBridge(
           router: widget.router,
           intentSource: widget.intentSource,
-          child: Builder(
-            builder: (promptContext) => KeyboardBack(
-              router: widget.router,
-              onToggleRail: form == FormFactor.pc
-                  ? () => _toggleDesktopRail(promptContext, form)
-                  : null,
-              child: usesCommandBar
-                  ? Builder(builder: _buildDesktopCommandBarShell)
-                  : widget.child,
-            ),
+          child: KeyboardBack(
+            router: widget.router,
+            child: usesCommandBar
+                ? Builder(builder: _buildDesktopCommandBarShell)
+                : widget.child,
           ),
         ),
       ),

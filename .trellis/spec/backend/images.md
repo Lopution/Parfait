@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-11-14
+reviewed: 2026-11-21
 ---
 
 # Image pipeline and animated media
@@ -50,12 +50,16 @@ reviewed: 2026-11-14
   DPR (`MediaQuery.maybeDevicePixelRatioOf` via `decodeWidthOf`, without
   subscribing to `sizeOf` or `viewInsets`); callers inside the widget tree
   resolve via `PixivImage.decodeWidthOf` / `PixivImage.screenDecodeWidthOf`
-  (passing `listen: false` in callbacks).
+  (passing `listen: false` in callbacks), while masonry feed cards (`IllustCard`)
+  use `PixivImage.feedDecodeWidthOf` (64px upward buckets above 64px) for both
+  the card decode and `heroImageDecodeWidth` so continuous desktop window
+  resizes reuse cached decodes while preserving exact Hero cache-key matches.
 - **Why:** A guessed width is another cache entry and fetched again; a
   detail page returning from the viewer's wider preview dropped to its
-  placeholder, and freezing constructor-time primary-view DPR missed display
-  changes or ignored explicit feed overrides.
-- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads" "a wider decode paints a narrower request at once", `test/pixiv_image_variants_test.dart` "feed honors explicit decodeWidth and tracks ambient display DPR without viewInsets rebuilds"
+  placeholder, freezing constructor-time primary-view DPR missed display
+  changes or ignored explicit feed overrides, and exact per-pixel card decode
+  widths triggered full feed re-decodes on every desktop resize frame.
+- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads" "a wider decode paints a narrower request at once", `test/pixiv_image_variants_test.dart` "feed honors explicit decodeWidth and tracks ambient display DPR without viewInsets rebuilds" "feedDecodeWidthFor quantizes widths above 64px into 64px buckets"
 - **Code:** `lib/app/pixiv_image.dart`, `lib/app/image_tier_cache.dart`
 
 ### IMG-13 A shrunk JPEG decodes at a width its blocks divide

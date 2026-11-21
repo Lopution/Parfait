@@ -279,6 +279,26 @@ class PixivImage extends ConsumerStatefulWidget {
     devicePixelRatio: _dprOf(context, listen: listen),
   );
 
+  /// Quantized decode width for feed cards (64px buckets above 64px) so
+  /// continuous desktop window resizes reuse decoded image cache entries.
+  static int feedDecodeWidthFor(
+    double layoutWidth, {
+    double? devicePixelRatio,
+  }) {
+    final raw = decodeWidthFor(layoutWidth, devicePixelRatio: devicePixelRatio);
+    if (raw <= 64) return raw;
+    return (((raw + 63) ~/ 64) * 64).clamp(1, 100000);
+  }
+
+  static int feedDecodeWidthOf(
+    BuildContext context,
+    double layoutWidth, {
+    bool listen = true,
+  }) => feedDecodeWidthFor(
+    layoutWidth,
+    devicePixelRatio: _dprOf(context, listen: listen),
+  );
+
   static double _dprOf(BuildContext context, {bool listen = true}) {
     final dpr = listen
         ? MediaQuery.maybeDevicePixelRatioOf(context)
