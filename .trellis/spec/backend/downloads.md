@@ -3,7 +3,7 @@ prefix: DL
 applies_to:
   - lib/core/download/**
   - lib/features/settings/pages/download_*.dart
-reviewed: 2026-10-26
+reviewed: 2026-11-22
 ---
 
 # Downloads and recovery
@@ -163,13 +163,20 @@ reviewed: 2026-10-26
   created assets to a matching or newly created `.albumRegular`
   `PHAssetCollection` via `PHAssetCollectionChangeRequest`. `DownloadDestinationPage`
   hides the Android SAF folder option on iOS and uses desktop folder/subfolder
-  copy on Windows/macOS/Linux.
+  copy on Windows/macOS/Linux. Because `file_selector_ios` requires non-empty
+  Apple `uniformTypeIdentifiers` on every filtered `XTypeGroup` and does not
+  implement `getDirectoryPath`, `DesktopDocumentPicker` and
+  `DesktopReverseImageInputPlatform` supply UTIs, and iOS backup export (user
+  decision) stages JSON in app temp storage and shares via `BackupShareExporter`
+  (`share_plus` with `sharePositionOrigin`).
 - **Why:** iOS does not expose a shared writable Pictures folder or MediaStore
   API; staging keeps chunked writes and resume anchors working without
-  leaving half-written assets in the Photos library, while native album
-  placement avoids dropping custom-album destinations on iOS.
-- **Check:** `test/windows_capability_test.dart` "IosPhotoLibraryMediaStoreSession stages chunks, commits via channel, and resumes detached .part"; `test/settings_test.dart` "DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label"
-- **Code:** `lib/core/platform/ios_photo_library.dart`, `ios/Runner/AppDelegate.swift`, `ios/Runner/Info.plist`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/settings_helpers.dart`
+  leaving half-written assets in the Photos library, native album placement
+  avoids dropping custom-album destinations on iOS, and UTIs plus share-sheet
+  export keep iOS import/export and image picking from throwing
+  `ArgumentError` / `UnimplementedError`.
+- **Check:** `test/windows_capability_test.dart` "IosPhotoLibraryMediaStoreSession stages chunks, commits via channel, and resumes detached .part"; `test/settings_test.dart` "DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label"; `test/backup_test.dart` "iOS share exporter writes temp JSON, handles cancel and keeps shared file" "DesktopDocumentPicker supplies non-empty Apple UTIs for iOS"; `test/reverse_image_search_test.dart` "DesktopReverseImageInputPlatform supplies Apple UTIs for iOS picker"
+- **Code:** `lib/core/platform/ios_photo_library.dart`, `lib/core/platform/desktop_file_sink.dart`, `lib/core/reverse_image/desktop_image_input.dart`, `lib/core/backup/backup_service.dart`, `ios/Runner/AppDelegate.swift`, `ios/Runner/Info.plist`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/settings_helpers.dart`
 
 ### DL-14 macOS sandboxed tree destinations require security-scoped bookmarks
 - **Rule:** When `supportsSecurityScopedBookmarks` is enabled, picked custom

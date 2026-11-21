@@ -21,6 +21,7 @@ import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/platform/desktop_file_sink.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
@@ -134,6 +135,7 @@ Future<_World> _world({
   Map<String, Object?>? seededSettings,
   List<HistoryRecord> seededHistory = const [],
   String? nextTree = 'tree-1',
+  BackupShareExporter? shareExporter,
 }) async {
   installMemoryPreferences({
     if (seededSettings != null)
@@ -206,6 +208,8 @@ Future<_World> _world({
     treePicker: picker,
     sinkFactory: sinks,
     currentAccountId: () => accountId,
+    shareExporter: shareExporter,
+    tempDirResolver: () async => dir,
     now: () => DateTime.utc(2026, 9, 20, 10, 30),
   );
   return (
@@ -484,6 +488,68 @@ void main() {
       await expectLater(world.service.export(), throwsA(isA<StateError>()));
       expect(world.sinks.last!.deleted, isTrue);
     });
+
+    test(
+      'iOS share exporter writes temp JSON, handles cancel and keeps shared file',
+      () async {
+        final exporter = _FakeBackupShareExporter();
+        final world = await _world(shareExporter: exporter);
+        const origin = Rect.fromLTWH(10, 20, 100, 40);
+
+        // Dismissed share sheet returns null and removes the staged file.
+        exporter.nextResult = false;
+        expect(await world.service.export(sharePositionOrigin: origin), isNull);
+        expect(world.picker.picks, 0);
+        expect(exporter.lastOrigin, origin);
+        expect(File(exporter.lastPath!).existsSync(), isFalse);
+
+        // Completed share sheet keeps the temp file and returns its filename.
+        exporter.nextResult = true;
+        final exported = await world.service.export(
+          sharePositionOrigin: origin,
+        );
+        expect(exported?.fileName, 'parfait-backup-20260920-1030.json');
+        final file = File(exporter.lastPath!);
+        expect(file.existsSync(), isTrue);
+        expect(BackupEnvelope.parse(file.readAsBytesSync()).accountId, '100');
+      },
+    );
+
+    test(
+      'DesktopDocumentPicker supplies non-empty Apple UTIs for iOS',
+      () async {
+        final recorded = <List<String>?>[];
+        final picker = DesktopDocumentPicker(
+          openFileHandler: ({acceptedTypeGroups = const []}) async {
+            recorded.add(acceptedTypeGroups.single.uniformTypeIdentifiers);
+            return null;
+          },
+        );
+        await picker.pickDocument(
+          label: 'JSON',
+          extensions: const ['json'],
+          mimeTypes: const ['application/json'],
+          maxBytes: 1024,
+        );
+        await picker.pickDocument(
+          label: 'TXT',
+          extensions: const ['txt'],
+          mimeTypes: const ['text/plain'],
+          maxBytes: 1024,
+        );
+        await picker.pickDocument(
+          label: 'Custom',
+          extensions: const ['bin'],
+          mimeTypes: const ['application/octet-stream'],
+          maxBytes: 1024,
+        );
+        expect(recorded, [
+          ['public.json'],
+          ['public.plain-text'],
+          ['public.data'],
+        ]);
+      },
+    );
   });
 
   group('BackupService apply', () {
@@ -846,7 +912,37 @@ void main() {
 
       expect(find.textContaining('导入失败'), findsOneWidget);
     });
+
+    testWidgets('export passes tile anchor rect and reports file name', (
+      tester,
+    ) async {
+      final service = await pumpPage(tester);
+      await tester.tap(find.text('导出备份'));
+      await tester.pumpAndSettle();
+
+      expect(service.exportCalls, 1);
+      expect(service.lastShareOrigin, isNotNull);
+      expect(find.textContaining('backup.json'), findsOneWidget);
+    });
   });
+}
+
+class _FakeBackupShareExporter implements BackupShareExporter {
+  bool nextResult = true;
+  String? lastPath;
+  Rect? lastOrigin;
+
+  @override
+  Future<bool> shareFile({
+    required String path,
+    required String fileName,
+    required String mimeType,
+    Rect? sharePositionOrigin,
+  }) async {
+    lastPath = path;
+    lastOrigin = sharePositionOrigin;
+    return nextResult;
+  }
 }
 
 /// Test double at the page/service boundary — the envelope, merge and
@@ -854,6 +950,7 @@ void main() {
 /// above, so here only the call contract is faked.
 class _FakeBackupService implements BackupService {
   var exportCalls = 0;
+  Rect? lastShareOrigin;
   BackupExportResult? exportResult = (
     uri: 'content://backup/1',
     fileName: 'backup.json',
@@ -869,8 +966,9 @@ class _FakeBackupService implements BackupService {
   BackupEnvelope? lastEnvelope;
 
   @override
-  Future<BackupExportResult?> export() async {
+  Future<BackupExportResult?> export({Rect? sharePositionOrigin}) async {
     exportCalls++;
+    lastShareOrigin = sharePositionOrigin;
     return exportResult;
   }
 

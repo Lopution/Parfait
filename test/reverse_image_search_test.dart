@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:parfait/core/platform/shared_image.dart';
+import 'package:parfait/core/reverse_image/desktop_image_input.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_controller.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
@@ -759,6 +761,25 @@ void main() {
       expect(platform.copyCount, 0);
     });
   });
+
+  test(
+    'DesktopReverseImageInputPlatform supplies Apple UTIs for iOS picker',
+    () async {
+      List<XTypeGroup>? captured;
+      final platform = DesktopReverseImageInputPlatform(
+        openFileHandler: ({acceptedTypeGroups = const []}) async {
+          captured = acceptedTypeGroups;
+          return null;
+        },
+      );
+      expect(await platform.pickImage(), isNull);
+      expect(captured, hasLength(1));
+      expect(
+        captured!.single.uniformTypeIdentifiers,
+        containsAll(['public.jpeg', 'public.png', 'org.webmproject.webp']),
+      );
+    },
+  );
 
   group('SharedImageValidator', () {
     late Directory tempDir;
