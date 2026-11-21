@@ -222,12 +222,27 @@ void main() {
         );
         await _open(tester);
 
-        final menu = tester.getRect(find.byType(MenuItemButton).first);
-        final menuGap = switch (direction) {
-          TextDirection.ltr => 400 - menu.right,
-          TextDirection.rtl => menu.left,
+        final itemRect = tester.getRect(find.byType(MenuItemButton).first);
+        final menuPanel = find.ancestor(
+          of: find.byType(MenuItemButton).first,
+          matching: find.byType(Material),
+        );
+        final panelRect = tester.getRect(menuPanel.first);
+        final panelGap = switch (direction) {
+          TextDirection.ltr => 400 - panelRect.right,
+          TextDirection.rtl => panelRect.left,
         };
-        expect(menuGap, closeTo(gap, 0.01), reason: '$direction $inset');
+        expect(panelGap, closeTo(gap, 0.01), reason: '$direction $inset');
+        final itemInset = switch (direction) {
+          TextDirection.ltr => panelRect.right - itemRect.right,
+          TextDirection.rtl => itemRect.left - panelRect.left,
+        };
+        expect(itemInset, closeTo(FuncSpacing.xs, 0.01));
+        final anchorRect = tester.getRect(find.byType(IconButton));
+        expect(
+          panelRect.top - anchorRect.bottom,
+          closeTo(FuncSpacing.xs, 0.01),
+        );
         await tester.tapAt(const Offset(200, 600));
         await tester.pumpAndSettle();
       }

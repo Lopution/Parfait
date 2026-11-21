@@ -18,6 +18,7 @@ import '../motion/scroll_hide.dart';
 import '../motion/still_work.dart';
 import '../motion/swipe_paging.dart';
 import '../pull_to_refresh.dart';
+import '../navigation/desktop_rail_route.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../navigation/route_facade.dart';
 import 'func_bottom_nav.dart';
@@ -25,50 +26,6 @@ import 'prompt_anchor.dart';
 import 'settings/persist_settings.dart';
 import 'shell_rail.dart';
 import '../window/desktop_command_bar_scope.dart' show DesktopCommandBarScope;
-
-const _settingsSubPathSegments = <String>{
-  'all',
-  'account',
-  'theme',
-  'language',
-  'translate',
-  'motion',
-  'browse',
-  'navigation',
-  'muted',
-  'network',
-  'download',
-  'backup',
-  'tasks',
-  'about',
-  'frame-probe',
-};
-
-bool _isSettingsSubPath(String? path) {
-  if (path == null || !path.startsWith('/settings/')) return false;
-  final rest = path.substring('/settings/'.length);
-  return _settingsSubPathSegments.contains(rest.split('/').first);
-}
-
-String? _branchTopPath(GoRouter router, GlobalKey<NavigatorState> branchKey) {
-  ShellRouteMatch? findBranch(List<RouteMatchBase> matches) {
-    for (final match in matches) {
-      if (match is ShellRouteMatch) {
-        if (match.navigatorKey == branchKey) return match;
-        final nested = findBranch(match.matches);
-        if (nested != null) return nested;
-      }
-    }
-    return null;
-  }
-
-  final config = router.routerDelegate.currentConfiguration;
-  final branch = findBranch(config.matches);
-  if (branch == null || branch.matches.isEmpty) return null;
-  final top = branch.matches.last;
-  if (top is ImperativeRouteMatch) return top.matches.uri.path;
-  return top.matchedLocation;
-}
 
 /// Broadcast signal for branch-level re-taps — a tap on the already-selected
 /// home destination returns that branch to its root and asks the visible page
@@ -211,11 +168,13 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   /// exploring, not merely some assistive service reading nodes.
   bool _touchExploration = false;
 
-  /// Router delegate listener so `ShellRail.settingsSelected` updates when
-  /// `/settings/all` (or another settings subpage) is pushed or popped inside
-  /// the settings branch without changing `shell.currentIndex`.
+  /// Router delegate listener so desktop rail selection (`收藏`, `下载`, `设置`)
+  /// tracks branch 4's active sub-destination without changing `shell.currentIndex`,
+  /// and pressing Back from one returns to the originating branch (`NAV-20`).
   GoRouter? _watchedRouter;
-  bool _lastSettingsSubPathActive = false;
+  DesktopRailSection _lastRailSection = DesktopRailSection.none;
+  int? _returnBranch;
+  bool _branch4LeftOnDedicatedSection = false;
   bool _routerRebuildPending = false;
 
   /// For the write in [dispose], where `ref` is gone.
@@ -266,24 +225,51 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
         rail ? MotionTokens.desktopPageTransition : MotionTokens.branchSwitch,
       );
 
-  bool _computeSettingsSubPathActive(GoRouter? router) {
-    if (router == null) return false;
-    final settingsBranch = HomeDestination.me.branchIndex;
-    if (_current != settingsBranch ||
-        settingsBranch >= widget.shell.route.branches.length) {
-      return false;
+  DesktopRailSection _computeRailSection(GoRouter? router) {
+    if (router == null) return DesktopRailSection.none;
+    final meBranch = HomeDestination.me.branchIndex;
+    if (_current != meBranch ||
+        meBranch >= widget.shell.route.branches.length) {
+      return DesktopRailSection.none;
     }
-    final topPath = _branchTopPath(
+    return desktopRailSectionOfBranch(
       router,
-      widget.shell.route.branches[settingsBranch].navigatorKey,
+      widget.shell.route.branches[meBranch].navigatorKey,
     );
-    return _isSettingsSubPath(topPath);
   }
 
   void _onRouterChanged() {
     if (!mounted) return;
-    final active = _computeSettingsSubPathActive(_watchedRouter);
-    if (active == _lastSettingsSubPathActive) return;
+    final router = _watchedRouter;
+    final nextSection = _computeRailSection(router);
+    final prevSection = _lastRailSection;
+    final meBranch = HomeDestination.me.branchIndex;
+    final meTopPath =
+        router != null && meBranch < widget.shell.route.branches.length
+        ? branchTopUri(
+            router,
+            widget.shell.route.branches[meBranch].navigatorKey,
+          )?.path
+        : null;
+    if (prevSection != DesktopRailSection.none &&
+        nextSection == DesktopRailSection.none &&
+        _returnBranch != null &&
+        _current == meBranch &&
+        meTopPath == '/settings') {
+      final target = _returnBranch!;
+      _returnBranch = null;
+      _lastRailSection = DesktopRailSection.none;
+      scheduleMicrotask(() {
+        if (mounted) widget.shell.goBranch(target);
+      });
+      return;
+    }
+    if (nextSection != DesktopRailSection.none) {
+      _branch4LeftOnDedicatedSection = true;
+    } else if (meTopPath == '/settings') {
+      _branch4LeftOnDedicatedSection = false;
+    }
+    if (nextSection == prevSection) return;
     final phase = SchedulerBinding.instance.schedulerPhase;
     if (phase == SchedulerPhase.persistentCallbacks ||
         phase == SchedulerPhase.midFrameMicrotasks) {
@@ -326,11 +312,22 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     super.didUpdateWidget(oldWidget);
     final index = widget.shell.currentIndex;
     if (index == _current) return;
+    final previous = _current;
     _dropSwipe();
     _mounted.add(index);
-    _outgoing = _current;
+    _outgoing = previous;
     _current = index;
     _modalScrim.setActiveBranch(_current);
+    final meBranch = HomeDestination.me.branchIndex;
+    if (_current == meBranch &&
+        previous != meBranch &&
+        DesktopCommandBarScope.isActiveOf(context) &&
+        _computeRailSection(_watchedRouter) != DesktopRailSection.none) {
+      _returnBranch ??= previous;
+      _branch4LeftOnDedicatedSection = true;
+    } else if (_current != meBranch) {
+      _returnBranch = null;
+    }
     final generation = ++_switchGeneration;
     final rail = FormFactor.of(
       context,
@@ -389,7 +386,17 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   }
 
   void _select(int index) {
+    _returnBranch = null;
     final shell = widget.shell;
+    final meBranch = HomeDestination.me.branchIndex;
+    if (index == meBranch &&
+        (_branch4LeftOnDedicatedSection ||
+            (shell.currentIndex == meBranch &&
+                _lastRailSection != DesktopRailSection.none))) {
+      _branch4LeftOnDedicatedSection = false;
+      GoRouter.of(context).go('/settings');
+      return;
+    }
     if (index != shell.currentIndex) {
       shell.goBranch(index);
       return;
@@ -543,6 +550,31 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     );
   }
 
+  void _openDesktopRailSection(
+    BuildContext context, {
+    required DesktopRailSection target,
+    required String location,
+  }) {
+    final router = GoRouter.of(context);
+    final meBranch = HomeDestination.me.branchIndex;
+    final currentUri = meBranch < widget.shell.route.branches.length
+        ? branchTopUri(
+            router,
+            widget.shell.route.branches[meBranch].navigatorKey,
+          )
+        : null;
+    if (_current == meBranch &&
+        desktopRailSectionForUri(currentUri) == target &&
+        currentUri?.toString() == location) {
+      return;
+    }
+    if (_current != meBranch) {
+      _returnBranch = _current;
+    }
+    _branch4LeftOnDedicatedSection = true;
+    router.go(location);
+  }
+
   Widget _buildRail(
     BuildContext context,
     List<HomeDestination> shown, {
@@ -550,9 +582,14 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     required bool expanded,
     required bool canToggle,
     required bool desktopOwned,
-    required bool settingsSelected,
+    required DesktopRailSection railSection,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeMode = ref.watch(themeModeProvider);
+    final nextThemeCode = switch (themeMode) {
+      ThemeMode.light => AppSettings.darkTheme,
+      ThemeMode.dark => AppSettings.systemTheme,
+      ThemeMode.system => AppSettings.lightTheme,
+    };
     return ShellRail(
       destinations: homeDestinations(context, shown),
       selectedIndex: homeBarIndexOf(shown, _current),
@@ -566,38 +603,43 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
           () => ref.read(settingsProvider.notifier).setRailExpanded(!expanded),
         ),
       ),
-      onBookmarks: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
-      onDownloads: () => unawaited(openDownloadTasks(context)),
-      isDarkMode: isDark,
-      settingsSelected: desktopOwned && settingsSelected,
+      onBookmarks: desktopOwned
+          ? () => _openDesktopRailSection(
+              context,
+              target: DesktopRailSection.bookmarks,
+              location: '/settings/me?tab=bookmarks',
+            )
+          : () => unawaited(openMe(context, tab: MeTab.bookmarks)),
+      onDownloads: desktopOwned
+          ? () => _openDesktopRailSection(
+              context,
+              target: DesktopRailSection.downloads,
+              location: '/settings/downloads',
+            )
+          : () => unawaited(openDownloadTasks(context)),
+      themeMode: themeMode,
+      bookmarksSelected:
+          desktopOwned && railSection == DesktopRailSection.bookmarks,
+      downloadsSelected:
+          desktopOwned && railSection == DesktopRailSection.downloads,
+      settingsSelected:
+          desktopOwned && railSection == DesktopRailSection.settings,
       onToggleTheme: desktopOwned
           ? () => unawaited(
               persistSettings(
                 context,
                 () => ref
                     .read(settingsProvider.notifier)
-                    .selectTheme(
-                      isDark ? AppSettings.lightTheme : AppSettings.darkTheme,
-                    ),
+                    .selectTheme(nextThemeCode),
               ),
             )
           : null,
       onSettings: desktopOwned
-          ? () {
-              final router = GoRouter.of(context);
-              final settingsBranch = HomeDestination.me.branchIndex;
-              final topPath =
-                  settingsBranch < widget.shell.route.branches.length
-                  ? _branchTopPath(
-                      router,
-                      widget.shell.route.branches[settingsBranch].navigatorKey,
-                    )
-                  : null;
-              if (_current == settingsBranch && topPath == '/settings/all') {
-                return;
-              }
-              router.go('/settings/all');
-            }
+          ? () => _openDesktopRailSection(
+              context,
+              target: DesktopRailSection.settings,
+              location: '/settings/all',
+            )
           : null,
     );
   }
@@ -679,14 +721,14 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     final railShown = rail && !ref.watch(shellRailHiddenProvider);
     final canToggle = form.canToggleRail(width, height: height);
     final railChoice = ref.watch(railExpandedProvider);
-    final settingsSelected = _lastSettingsSubPathActive =
-        _computeSettingsSubPathActive(_watchedRouter);
-    // Keep wide `Me` and `Settings` locked visually to the compact `74dp`
-    // rail (without mutating persisted `railExpandedProvider`) so switching
-    // between them never triggers a `130dp` full-width jump around the 280dp
-    // workspace index rail.
+    final railSection = _lastRailSection = _computeRailSection(_watchedRouter);
+    // Keep wide tablet `Me` and `Settings` locked visually to the compact
+    // `74dp` rail (without mutating persisted `railExpandedProvider`) so the
+    // 280dp workspace index rail has room. PC keeps the expanded rail (`NAV-20`).
     final collapseForWorkspace =
-        (_current == HomeDestination.me.branchIndex || settingsSelected) &&
+        form != FormFactor.pc &&
+        (_current == HomeDestination.me.branchIndex ||
+            railSection == DesktopRailSection.settings) &&
         width >= AppBreakpoints.expanded;
     final expanded = collapseForWorkspace
         ? false
@@ -803,12 +845,12 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
                               expanded: expanded,
                               canToggle: canToggle,
                               desktopOwned: desktopOwned,
-                              settingsSelected: settingsSelected,
+                              railSection: railSection,
                             ),
                           ),
                         ),
                       if (railShown)
-                        _RailModalScrim(
+                        HomeRailModalScrim(
                           scrim: _modalScrim,
                           railWidth: railWidth,
                         ),
@@ -832,65 +874,4 @@ class _HomeBranchScope extends InheritedWidget {
   @override
   bool updateShouldNotify(_HomeBranchScope oldWidget) =>
       channel != oldWidget.channel;
-}
-
-class _RailModalScrim extends StatelessWidget {
-  const _RailModalScrim({required this.scrim, required this.railWidth});
-
-  final HomeShellModalScrim scrim;
-  final double railWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: scrim,
-      builder: (context, _) {
-        final entries = scrim.activeEntries;
-        if (entries.isEmpty) return const SizedBox.shrink();
-        final listenable =
-            entries.length == 1 && entries.first.secondaryAnimation == null
-            ? entries.first.animation
-            : Listenable.merge([
-                for (final entry in entries) ...[
-                  entry.animation,
-                  ?entry.secondaryAnimation,
-                ],
-              ]);
-        return AnimatedBuilder(
-          animation: listenable,
-          builder: (context, _) {
-            var opacity = 0.0;
-            HomeShellModalScrimEntry? topVisible;
-            for (final entry in entries) {
-              final entryOpacity = entry.opacity;
-              if (entryOpacity > 0) {
-                topVisible = entry;
-                if (entryOpacity > opacity) opacity = entryOpacity;
-              }
-            }
-            if (opacity <= 0 || topVisible == null) {
-              return const SizedBox.shrink();
-            }
-            final color = Color.lerp(
-              const Color(0x000C0B0E),
-              const Color(0x990C0B0E),
-              opacity,
-            )!;
-            return PositionedDirectional(
-              start: 0,
-              top: 0,
-              bottom: 0,
-              width: railWidth,
-              child: GestureDetector(
-                key: const ValueKey('home-rail-modal-scrim'),
-                behavior: HitTestBehavior.opaque,
-                onTap: topVisible.onDismiss,
-                child: ColoredBox(color: color),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 }

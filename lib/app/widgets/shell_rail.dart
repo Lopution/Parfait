@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/context.dart';
 import '../icons/app_icons.dart';
+import '../icons/ui_icons.dart';
 import '../layout/form_factor.dart';
 import '../motion/motion_tokens.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -14,22 +15,14 @@ import '../window/desktop_title_bar.dart';
 import 'fit_label.dart';
 import 'func_bottom_nav.dart';
 
-/// The shell's side rail on larger screens, after Shaft's tablet rail
-/// (`HomeNavigationRail`): a header, the destinations from the top, a
-/// short rule, then shortcuts to the bookmarks and the downloads that open
-/// their pages without taking the selection. The selected destination
-/// sits on a light fill of the theme colour; the rail casts the bars'
-/// shadow over the content beside it instead of a divider. It scrolls when
-/// the window is too short for it.
+/// The shell's side rail on larger screens: destinations from the top, a short
+/// rule, then bookmarks/downloads shortcuts, and (under `DesktopCommandBarScope`)
+/// bottom theme/settings controls. Collapsed ([width]) is used on touch tablets
+/// until toggled open; expanded ([expandedWidth]) is always used on PCs from
+/// 600dp wide and on large touch screens when expanded.
 ///
-/// Collapsed it is [width] wide, each destination an icon over its label;
-/// the header is the app's icon, or on a PC ([FormFactor.pc]) the button
-/// that opens it. Open ([expanded], PC and large touch layouts) it is
-/// [expandedWidth] wide, each entry an icon beside its label, under the
-/// button that closes it and the app's name.
-///
-/// The destinations read as tabs ("Recommended, tab 1 of 5"), as on the
-/// bottom bar; the shortcuts are plain buttons outside that group.
+/// The destinations read as tabs ("Recommended, tab 1 of 5"), as on the bottom
+/// bar; the shortcuts are plain buttons outside that group.
 class ShellRail extends StatelessWidget {
   const ShellRail({
     super.key,
@@ -42,8 +35,11 @@ class ShellRail extends StatelessWidget {
     this.onBookmarks,
     this.onDownloads,
     this.onSettings,
+    this.bookmarksSelected = false,
+    this.downloadsSelected = false,
     this.settingsSelected = false,
     this.onToggleTheme,
+    this.themeMode,
     this.isDarkMode,
     this.canToggle,
   });
@@ -56,13 +52,16 @@ class ShellRail extends StatelessWidget {
   final FormFactor form;
   final bool expanded;
 
-  /// Opens or closes the rail; shown on PCs and large touch layouts.
+  /// Opens or closes the rail; shown on large touch layouts.
   final VoidCallback onToggle;
   final VoidCallback? onBookmarks;
   final VoidCallback? onDownloads;
   final VoidCallback? onSettings;
+  final bool bookmarksSelected;
+  final bool downloadsSelected;
   final bool settingsSelected;
   final VoidCallback? onToggleTheme;
+  final ThemeMode? themeMode;
   final bool? isDarkMode;
   final bool? canToggle;
 
@@ -221,6 +220,23 @@ class ShellRail extends StatelessWidget {
         context,
       ).iconTheme?.resolve({if (selected) WidgetState.selected})?.color;
 
+  ({IconData icon, String label}) _themeToggleInfo(BuildContext context) {
+    final l10n = context.l10n;
+    final resolved =
+        themeMode ??
+        (isDarkMode == null
+            ? (Theme.of(context).brightness == Brightness.dark
+                  ? ThemeMode.dark
+                  : ThemeMode.light)
+            : (isDarkMode! ? ThemeMode.dark : ThemeMode.light));
+    final (icon, modeName) = switch (resolved) {
+      ThemeMode.light => (AppIcons.sun, l10n.light),
+      ThemeMode.dark => (AppIcons.moon, l10n.dark),
+      ThemeMode.system => (UiIcons.devices, l10n.system),
+    };
+    return (icon: icon, label: l10n.labelValue(l10n.themeSettings, modeName));
+  }
+
   Widget _column(BuildContext context, {required double minHeight}) {
     final l10n = context.l10n;
     final tokens = FuncSemanticTokens.of(context);
@@ -284,12 +300,7 @@ class ShellRail extends StatelessWidget {
     final toggleable =
         canToggle ?? form.canToggleRail(size.width, height: size.height);
     final hideHeader = DesktopCommandBarScope.isActiveOf(context);
-    final isDark =
-        isDarkMode ?? Theme.of(context).brightness == Brightness.dark;
-    final themeLabel = l10n.labelValue(
-      l10n.themeSettings,
-      isDark ? l10n.dark : l10n.light,
-    );
+    final themeInfo = _themeToggleInfo(context);
     final top = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -333,9 +344,9 @@ class ShellRail extends StatelessWidget {
           ),
           if (onBookmarks != null)
             item(
-              icon: AppIcons.heart,
+              icon: bookmarksSelected ? AppIcons.heartFilled : AppIcons.heart,
               label: l10n.railBookmarks,
-              selected: false,
+              selected: bookmarksSelected,
               onTap: onBookmarks!,
             ),
           if (onDownloads != null) ...[
@@ -343,7 +354,7 @@ class ShellRail extends StatelessWidget {
             item(
               icon: AppIcons.downloading,
               label: l10n.railDownloads,
-              selected: false,
+              selected: downloadsSelected,
               onTap: onDownloads!,
             ),
           ],
@@ -371,12 +382,9 @@ class ShellRail extends StatelessWidget {
               if (onToggleTheme != null)
                 IconButton(
                   key: const Key('rail-theme-toggle'),
-                  tooltip: themeLabel,
+                  tooltip: themeInfo.label,
                   onPressed: onToggleTheme,
-                  icon: Icon(
-                    isDark ? AppIcons.moon : AppIcons.sun,
-                    size: _iconSize,
-                  ),
+                  icon: Icon(themeInfo.icon, size: _iconSize),
                 ),
               if (onSettings != null) ...[
                 if (onToggleTheme != null)
@@ -412,19 +420,17 @@ class ShellRail extends StatelessWidget {
 
   Widget _panel(BuildContext context, {required double minHeight}) {
     final l10n = context.l10n;
+    final size = MediaQuery.sizeOf(context);
+    final toggleable =
+        canToggle ?? form.canToggleRail(size.width, height: size.height);
     final hideHeader = DesktopCommandBarScope.isActiveOf(context);
-    final isDark =
-        isDarkMode ?? Theme.of(context).brightness == Brightness.dark;
-    final themeLabel = l10n.labelValue(
-      l10n.themeSettings,
-      isDark ? l10n.dark : l10n.light,
-    );
+    final themeInfo = _themeToggleInfo(context);
     final fit = LabelFit.group(
       labels: [
         for (final d in destinations) d.label,
         if (onBookmarks != null) l10n.railBookmarks,
         if (onDownloads != null) l10n.railDownloads,
-        if (hideHeader && onToggleTheme != null) themeLabel,
+        if (hideHeader && onToggleTheme != null) themeInfo.label,
         if (hideHeader && onSettings != null) l10n.settingsTitle,
       ],
       style: LabelFit.paintedStyle(
@@ -491,12 +497,15 @@ class ShellRail extends StatelessWidget {
             height: _headerHeight,
             child: Row(
               children: [
-                IconButton(
-                  onPressed: onToggle,
-                  tooltip: l10n.railCollapse,
-                  icon: const Icon(AppIcons.sidebarCollapse),
-                ),
-                const SizedBox(width: FuncSpacing.xs),
+                if (toggleable) ...[
+                  IconButton(
+                    onPressed: onToggle,
+                    tooltip: l10n.railCollapse,
+                    icon: const Icon(AppIcons.sidebarCollapse),
+                  ),
+                  const SizedBox(width: FuncSpacing.xs),
+                ] else
+                  const SizedBox(width: FuncSpacing.sm),
                 const _AppIcon(size: FuncSpacing.xl + FuncSpacing.xs),
                 const SizedBox(width: FuncSpacing.md),
                 Expanded(
@@ -535,26 +544,28 @@ class ShellRail extends StatelessWidget {
           ),
           if (onBookmarks != null)
             row(
-              icon: AppIcons.heart,
+              key: const Key('rail-bookmarks'),
+              icon: bookmarksSelected ? AppIcons.heartFilled : AppIcons.heart,
               label: l10n.railBookmarks,
-              selected: false,
+              selected: bookmarksSelected,
+              selectedSemantics: bookmarksSelected,
               onTap: onBookmarks!,
             ),
           if (onDownloads != null) ...[
             const SizedBox(height: FuncSpacing.xs),
             row(
+              key: const Key('rail-downloads'),
               icon: AppIcons.downloading,
               label: l10n.railDownloads,
-              selected: false,
+              selected: downloadsSelected,
+              selectedSemantics: downloadsSelected,
               onTap: onDownloads!,
             ),
           ],
         ],
       ],
     );
-    // When DesktopCommandBarScope is active, DesktopCommandBar already owns
-    // the sidebar expand/collapse button at the top-left; never duplicate it
-    // at the bottom of the panel (Design Language §7: one control per action).
+    // When DesktopCommandBarScope is active, show bottom theme/settings controls.
     if (!hideHeader || (onToggleTheme == null && onSettings == null)) {
       return top;
     }
@@ -578,8 +589,8 @@ class ShellRail extends StatelessWidget {
               if (onToggleTheme != null)
                 row(
                   key: const Key('rail-theme-toggle'),
-                  icon: isDark ? AppIcons.moon : AppIcons.sun,
-                  label: themeLabel,
+                  icon: themeInfo.icon,
+                  label: themeInfo.label,
                   selected: false,
                   onTap: onToggleTheme!,
                 ),
@@ -611,7 +622,10 @@ class ShellRail extends StatelessWidget {
     required double gap,
     bool stretch = false,
   }) {
-    final activeIndex = settingsSelected ? null : selectedIndex;
+    final activeIndex =
+        (settingsSelected || bookmarksSelected || downloadsSelected)
+        ? null
+        : selectedIndex;
     return Semantics(
       role: ui.SemanticsRole.tabBar,
       explicitChildNodes: true,

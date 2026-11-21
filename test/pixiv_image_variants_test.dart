@@ -49,6 +49,17 @@ void main() {
     expect(PixivImage.decodeWidthFor(0.1, devicePixelRatio: 2), 1);
   });
 
+  test('feedDecodeWidthFor quantizes widths above 64px into 64px buckets', () {
+    expect(PixivImage.feedDecodeWidthFor(48, devicePixelRatio: 1), 48);
+    expect(PixivImage.feedDecodeWidthFor(64, devicePixelRatio: 1), 64);
+    expect(PixivImage.feedDecodeWidthFor(65, devicePixelRatio: 1), 128);
+    expect(PixivImage.feedDecodeWidthFor(200, devicePixelRatio: 1), 256);
+    expect(PixivImage.feedDecodeWidthFor(215, devicePixelRatio: 1), 256);
+    expect(PixivImage.feedDecodeWidthFor(256, devicePixelRatio: 1), 256);
+    expect(PixivImage.feedDecodeWidthFor(257, devicePixelRatio: 1), 320);
+    expect(PixivImage.feedDecodeWidthFor(200, devicePixelRatio: 2), 448);
+  });
+
   testWidgets(
     'loose-constrained detail fills the bounded width, not intrinsic size',
     (tester) async {

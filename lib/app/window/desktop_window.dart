@@ -13,7 +13,9 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../core/image/image_worker_providers.dart';
 import '../../core/log.dart';
+import '../../core/network/data_worker.dart';
 import '../../core/platform/desktop_tray.dart';
 import '../../core/platform/desktop_window_channel.dart';
 import '../../core/settings/app_settings.dart';
@@ -21,7 +23,10 @@ import '../../core/settings/settings_controller.dart';
 import '../../core/settings/settings_repository.dart';
 import '../../l10n/app_localizations.dart';
 import 'desktop_title_bar.dart';
+import 'desktop_window_adapter.dart';
 import 'window_geometry.dart';
+
+export 'desktop_window_adapter.dart';
 
 /// Whether the desktop window API applies on this platform. Phones and the
 /// web keep their single window.
@@ -30,120 +35,6 @@ bool get desktopWindowSupported =>
     (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS);
-
-/// Boundary over OS windowing and screen geometry plugins so tests can
-/// simulate Wayland errors, close races, and multi-monitor disconnects.
-abstract class DesktopWindowAdapter {
-  Future<void> ensureInitialized();
-  Future<void> setMinimumSize(Size size);
-  Future<void> setSize(Size size);
-  Future<void> setPosition(Offset position);
-  Future<void> maximize();
-  Future<void> unmaximize();
-  Future<void> minimize();
-  Future<void> restore();
-  Future<void> show();
-  Future<void> focus();
-  Future<void> hide();
-  Future<void> close();
-  Future<void> destroy();
-  Future<void> setPreventClose(bool prevent);
-  Future<void> setFullScreen(bool fullScreen);
-  Future<bool> isFullScreen();
-  Future<bool> isMaximized();
-  Future<bool> isMinimized();
-  Future<Size> getSize();
-  Future<Offset> getPosition();
-  Future<Display> getPrimaryDisplay();
-  Future<List<Display>> getAllDisplays();
-  void addListener(WindowListener listener);
-  void removeListener(WindowListener listener);
-}
-
-class WindowManagerAdapter implements DesktopWindowAdapter {
-  const WindowManagerAdapter();
-
-  @override
-  Future<void> ensureInitialized() => windowManager.ensureInitialized();
-
-  @override
-  Future<void> setMinimumSize(Size size) => windowManager.setMinimumSize(size);
-
-  @override
-  Future<void> setSize(Size size) => windowManager.setSize(size);
-
-  @override
-  Future<void> setPosition(Offset position) =>
-      windowManager.setPosition(position);
-
-  @override
-  Future<void> maximize() => windowManager.maximize();
-
-  @override
-  Future<void> unmaximize() => windowManager.unmaximize();
-
-  @override
-  Future<void> minimize() => windowManager.minimize();
-
-  @override
-  Future<void> restore() => windowManager.restore();
-
-  @override
-  Future<void> show() => windowManager.show();
-
-  @override
-  Future<void> focus() => windowManager.focus();
-
-  @override
-  Future<void> hide() => windowManager.hide();
-
-  @override
-  Future<void> close() => windowManager.close();
-
-  @override
-  Future<void> destroy() => windowManager.destroy();
-
-  @override
-  Future<void> setPreventClose(bool prevent) =>
-      windowManager.setPreventClose(prevent);
-
-  @override
-  Future<void> setFullScreen(bool fullScreen) =>
-      windowManager.setFullScreen(fullScreen);
-
-  @override
-  Future<bool> isFullScreen() => windowManager.isFullScreen();
-
-  @override
-  Future<bool> isMaximized() => windowManager.isMaximized();
-
-  @override
-  Future<bool> isMinimized() => windowManager.isMinimized();
-
-  @override
-  Future<Size> getSize() => windowManager.getSize();
-
-  @override
-  Future<Offset> getPosition() => windowManager.getPosition();
-
-  @override
-  Future<Display> getPrimaryDisplay() => screenRetriever.getPrimaryDisplay();
-
-  @override
-  Future<List<Display>> getAllDisplays() => screenRetriever.getAllDisplays();
-
-  @override
-  void addListener(WindowListener listener) =>
-      windowManager.addListener(listener);
-
-  @override
-  void removeListener(WindowListener listener) =>
-      windowManager.removeListener(listener);
-}
-
-final desktopWindowAdapterProvider = Provider<DesktopWindowAdapter>(
-  (ref) => const WindowManagerAdapter(),
-);
 
 DesktopWindowPlatformMetrics _preparedDesktopMetrics =
     DesktopWindowPlatformMetrics.fallback;
@@ -267,6 +158,7 @@ class DesktopWindowSession with WindowListener {
     readSavedPlace,
     required SaveWindowGeometryCallback saveGeometry,
     this.onOpenDownloads,
+    this.onBeforeDestroy,
     DesktopWindowPlatformMetrics? initialMetrics,
   }) : _adapter = adapter,
        _host = host,
@@ -279,6 +171,8 @@ class DesktopWindowSession with WindowListener {
        );
 
   static const _saveDelay = Duration(milliseconds: 400);
+  static const _closeSaveTimeout = Duration(seconds: 2);
+  static const _beforeDestroyTimeout = Duration(milliseconds: 500);
 
   final DesktopWindowAdapter _adapter;
   final DesktopWindowHost _host;
@@ -288,6 +182,7 @@ class DesktopWindowSession with WindowListener {
   _readSavedPlace;
   final SaveWindowGeometryCallback _saveGeometry;
   final VoidCallback? onOpenDownloads;
+  final Future<void> Function()? onBeforeDestroy;
 
   final ValueNotifier<DesktopWindowPlatformMetrics> metrics;
 
@@ -376,7 +271,6 @@ class DesktopWindowSession with WindowListener {
 
   void _scheduleSave() {
     if (_disposed) return;
-    unawaited(captureOrdinary());
     _saveTimer?.cancel();
     _saveTimer = Timer(_saveDelay, () => unawaited(saveNow()));
   }
@@ -385,7 +279,21 @@ class DesktopWindowSession with WindowListener {
   void onWindowResize() => _scheduleSave();
 
   @override
+  void onWindowResized() {
+    if (_disposed) return;
+    unawaited(captureOrdinary());
+    _scheduleSave();
+  }
+
+  @override
   void onWindowMove() => _scheduleSave();
+
+  @override
+  void onWindowMoved() {
+    if (_disposed) return;
+    unawaited(captureOrdinary());
+    _scheduleSave();
+  }
 
   @override
   void onWindowMaximize() {
@@ -433,10 +341,21 @@ class DesktopWindowSession with WindowListener {
     try {
       final closeToTray =
           !forceQuit && _readCloseToTray() && await _trayPort.isSupported();
-      await saveNow();
+      try {
+        await saveNow().timeout(_closeSaveTimeout);
+      } on TimeoutException {
+        log('window: saveNow timed out during close');
+      }
       if (closeToTray) {
         await _adapter.hide();
         return;
+      }
+      if (onBeforeDestroy case final cleanup?) {
+        try {
+          await cleanup().timeout(_beforeDestroyTimeout);
+        } on Object catch (error) {
+          log('window: beforeDestroy cleanup failed: $error');
+        }
       }
       await _adapter.setPreventClose(false);
       await _adapter.destroy();
@@ -725,6 +644,20 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding> {
             maximized: maximized,
           ),
       onOpenDownloads: widget.onOpenDownloads,
+      onBeforeDestroy: () async {
+        if (!mounted) return;
+        final container = ProviderScope.containerOf(context, listen: false);
+        final tasks = <Future<void>>[];
+        if (container.read(imageWorkerProvider.exists)) {
+          tasks.add(container.read(imageWorkerProvider).dispose());
+        }
+        if (container.read(dataWorkerProvider.exists)) {
+          tasks.add(container.read(dataWorkerProvider).close());
+        }
+        if (tasks.isNotEmpty) {
+          await Future.wait(tasks);
+        }
+      },
     );
     _session = session;
     _actions = DesktopWindowActions(

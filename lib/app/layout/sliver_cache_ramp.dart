@@ -31,6 +31,7 @@ class RenderSliverCacheRamp extends RenderProxySliver {
   /// Where the children built at the last layout end, in this sliver's
   /// scroll offsets.
   double? _builtEnd;
+  double? _lastCrossAxisExtent;
   bool _growing = false;
 
   @override
@@ -41,6 +42,10 @@ class RenderSliverCacheRamp extends RenderProxySliver {
       return;
     }
     final constraints = this.constraints;
+    if (_lastCrossAxisExtent != constraints.crossAxisExtent) {
+      _lastCrossAxisExtent = constraints.crossAxisExtent;
+      _builtEnd = null;
+    }
     final cacheStart = constraints.scrollOffset + constraints.cacheOrigin;
     final visibleEnd =
         constraints.scrollOffset + constraints.remainingPaintExtent;
@@ -56,7 +61,10 @@ class RenderSliverCacheRamp extends RenderProxySliver {
       parentUsesSize: true,
     );
     final built = geometry = child.geometry!;
-    if (built.scrollOffsetCorrection != null) return;
+    if (built.scrollOffsetCorrection != null) {
+      _builtEnd = null;
+      return;
+    }
     _builtEnd = cacheStart + built.cacheExtent;
     // Held back and filled up to the hold: more is left to build.
     if (cache < constraints.remainingCacheExtent &&

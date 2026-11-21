@@ -100,7 +100,7 @@ const wchar_t* WindowClassRegistrar::GetWindowClass() {
     WNDCLASS window_class{};
     window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
     window_class.lpszClassName = kWindowClassName;
-    window_class.style = CS_HREDRAW | CS_VREDRAW;
+    window_class.style = 0;
     window_class.cbClsExtra = 0;
     window_class.cbWndExtra = 0;
     window_class.hInstance = GetModuleHandle(nullptr);
@@ -290,12 +290,16 @@ Win32Window::MessageHandler(HWND hwnd,
 
       return 0;
     }
+    case WM_ERASEBKGND:
+      return 1;
+
     case WM_SIZE: {
       RECT rect = GetClientArea();
       if (child_content_ != nullptr) {
-        // Size and position the child window.
-        MoveWindow(child_content_, rect.left, rect.top, rect.right - rect.left,
-                   rect.bottom - rect.top, TRUE);
+        // Size and position the child window without triggering a GDI erase.
+        ::SetWindowPos(child_content_, nullptr, rect.left, rect.top,
+                       rect.right - rect.left, rect.bottom - rect.top,
+                       SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
       }
       return 0;
     }

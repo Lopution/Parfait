@@ -16,7 +16,7 @@ applies_to:
   - lib/app/widgets/watchlist_toggle.dart
   - lib/app/widgets/comment_composer.dart
   - lib/app/widgets/feed/desktop_gallery_controls.dart
-reviewed: 2026-11-17
+reviewed: 2026-11-21
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -33,9 +33,11 @@ reviewed: 2026-11-17
 
 ### FB-01 Menus are AppMenuButton
 - **Rule:** Overflow and choice menus use `AppMenuButton` / `AppMenuEntry`
-  (styling `MenuStyle` with `surfaceContainerHigh`, `brandHairline`,
-  `FuncShape.card`, and `FuncSpacing.xs`), never `PopupMenuButton`. A touch
-  outside closes the menu and is consumed;
+  (styling `MenuStyle` with `surfaceContainerLowest` in light / `surfaceContainerHigh`
+  in dark, `brandHairline`, `FuncShape.card`, `elevation: 3`, `FuncSpacing.xs`
+  panel inset padding & vertical anchor gap, and `FuncShape.control` rounded
+  rows using `brandTintWeak` + `primary` ink on checked items), never
+  `PopupMenuButton`. A touch outside closes the menu and is consumed;
   back closes the menu before the page. The panel keeps
   `crossAxisUnconstrained: false` so long labels truncate inside the width
   cap. A menu keeps `FuncSpacing.sm` off the side of the screen it lines

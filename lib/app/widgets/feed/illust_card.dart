@@ -203,7 +203,7 @@ class _IllustCardBody extends ConsumerWidget {
     WidgetRef ref,
     double cardWidth,
   ) {
-    final cardDecodeWidth = PixivImage.decodeWidthOf(context, cardWidth);
+    final cardDecodeWidth = PixivImage.feedDecodeWidthOf(context, cardWidth);
     // Beta56 IllustPreviewer semantics: the preview height follows the
     // original aspect ratio up to 1:2. Taller works crop to the top of
     // `large` or switch to the square thumbnail (illustCardPreview).
@@ -270,6 +270,7 @@ class _IllustCardBody extends ConsumerWidget {
       preview,
       heroTag,
       cardWidth,
+      cardDecodeWidth,
       muted: muted,
       hasHero: hasHero,
     );
@@ -464,7 +465,8 @@ class _IllustCardBody extends ConsumerWidget {
   Widget _buildImage(
     IllustCardPreview preview,
     String heroTag,
-    double width, {
+    double width,
+    int decodeWidth, {
     required bool muted,
     required bool hasHero,
   }) {
@@ -479,6 +481,7 @@ class _IllustCardBody extends ConsumerWidget {
       child: PixivImage.feed(
         preview.url,
         layoutWidth: width,
+        decodeWidth: decodeWidth,
         fit: switch (preview.crop) {
           IllustCardCrop.none => BoxFit.fitWidth,
           IllustCardCrop.top ||

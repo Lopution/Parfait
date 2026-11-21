@@ -322,3 +322,70 @@ class ShellRailHiddenNotifier extends Notifier<bool> {
     if (state != _owners.isNotEmpty) state = _owners.isNotEmpty;
   }
 }
+
+/// Dims the shell rail behind an active bounded modal overlay on the foreground
+/// branch and dismisses it on tap.
+class HomeRailModalScrim extends StatelessWidget {
+  const HomeRailModalScrim({
+    super.key,
+    required this.scrim,
+    required this.railWidth,
+  });
+
+  final HomeShellModalScrim scrim;
+  final double railWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: scrim,
+      builder: (context, _) {
+        final entries = scrim.activeEntries;
+        if (entries.isEmpty) return const SizedBox.shrink();
+        final listenable =
+            entries.length == 1 && entries.first.secondaryAnimation == null
+            ? entries.first.animation
+            : Listenable.merge([
+                for (final entry in entries) ...[
+                  entry.animation,
+                  ?entry.secondaryAnimation,
+                ],
+              ]);
+        return AnimatedBuilder(
+          animation: listenable,
+          builder: (context, _) {
+            var opacity = 0.0;
+            HomeShellModalScrimEntry? topVisible;
+            for (final entry in entries) {
+              final entryOpacity = entry.opacity;
+              if (entryOpacity > 0) {
+                topVisible = entry;
+                if (entryOpacity > opacity) opacity = entryOpacity;
+              }
+            }
+            if (opacity <= 0 || topVisible == null) {
+              return const SizedBox.shrink();
+            }
+            final color = Color.lerp(
+              const Color(0x000C0B0E),
+              const Color(0x990C0B0E),
+              opacity,
+            )!;
+            return PositionedDirectional(
+              start: 0,
+              top: 0,
+              bottom: 0,
+              width: railWidth,
+              child: GestureDetector(
+                key: const ValueKey('home-rail-modal-scrim'),
+                behavior: HitTestBehavior.opaque,
+                onTap: topVisible.onDismiss,
+                child: ColoredBox(color: color),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}

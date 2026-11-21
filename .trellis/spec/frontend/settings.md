@@ -3,7 +3,7 @@ prefix: SET
 applies_to:
   - lib/app/widgets/settings/**
   - lib/features/settings/**
-reviewed: 2026-11-18
+reviewed: 2026-11-21
 ---
 
 # Settings pages and the Me tab
@@ -203,6 +203,8 @@ reviewed: 2026-11-18
   `*Filled` selected states `heartFilled` / `watchLaterFilled`, including
   `HistoryPage` under data and settings/about on touch tablets without
   `DesktopCommandBarScope`) that opens directly onto the bookmarks pane (`收藏`)
+  on touch tablets — or onto `关注` under `DesktopCommandBarScope`, omitting
+  the `收藏` and `下载` rows already owned by the adjacent desktop `ShellRail` —
   without duplicating profile cards, library metric cards, or history strips in
   a separate overview pane; the bookmarks and following panes defer
   network-backed filters and feeds until the Me tab's network scope is active.

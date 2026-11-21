@@ -65,7 +65,7 @@ const _durationCensus = <String, int>{
   'lib/app/motion/motion_tokens.dart': 21,
   'lib/app/motion/page_transitions.dart': 1,
   'lib/app/widgets/prompt_host.dart': 1,
-  'lib/app/window/desktop_window.dart': 1,
+  'lib/app/window/desktop_window.dart': 2,
   'lib/app/navigation/keyboard_back.dart': 1,
   'lib/app/haptics/app_haptics.dart': 3,
   'lib/app/widgets/smooth_wheel_scroll.dart': 2,
@@ -101,7 +101,7 @@ const _appFilledStates = <String, Set<String>>{
     'searchFilled',
     'userFilled',
   },
-  'lib/app/widgets/shell_rail.dart': {'settingsFilled'},
+  'lib/app/widgets/shell_rail.dart': {'heartFilled', 'settingsFilled'},
   'lib/app/widgets/tag_chips.dart': {'banFilled'},
   'lib/features/illust/viewer/image_viewer_page.dart': {'infoFilled'},
   'lib/features/settings/me_dashboard_page.dart': {
