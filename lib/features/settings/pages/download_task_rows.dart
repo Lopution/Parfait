@@ -557,11 +557,11 @@ class _DownloadGroupHeader extends StatelessWidget {
   }
 
   /// Group-level mapping mirrors the per-task table: queued/running
-  /// pause+cancel, retryable/failed/canceled resume+cancel, succeeded
-  /// 移除, plus 查看 when every child is a page of one work — the header
-  /// then stands for that work. A group of several works has no single
-  /// work to open; each row opens its own. A fully-terminal orphaned group
-  /// can only be removed.
+  /// pause+cancel, retryable resume/retry+cancel, failed/canceled
+  /// retry+remove record, succeeded remove, plus view when every child is a
+  /// page of one work — the header then stands for that work. A group of
+  /// several works has no single work to open; each row opens its own. A
+  /// fully-terminal orphaned group can only be removed.
   List<_DownloadAction> _groupActions(
     BuildContext context,
     List<DownloadTaskSnapshot> children,
@@ -584,25 +584,30 @@ class _DownloadGroupHeader extends StatelessWidget {
           onPressed: () => unawaited(manager.cancelGroup(group.id)),
         ),
       ],
-      DownloadGroupStatus.retryable ||
-      DownloadGroupStatus.failed ||
-      DownloadGroupStatus.canceled => [
+      DownloadGroupStatus.retryable => [
         _DownloadAction(
-          // A paused group continues (resume anchors); a failed or canceled
-          // group retries — same resumeGroup entry, the verb follows the
-          // dominant child state.
-          label: group.status == DownloadGroupStatus.retryable
+          label: _everyRetryablePaused
               ? l10n.resumeDownload
               : l10n.retryDownload,
-          icon: group.status == DownloadGroupStatus.retryable
-              ? UiIcons.play
-              : UiIcons.refresh,
+          icon: _everyRetryablePaused ? UiIcons.play : UiIcons.refresh,
           onPressed: () => manager.resumeGroup(group.id),
         ),
         _DownloadAction(
           label: l10n.cancelDownload,
           icon: UiIcons.close,
           onPressed: () => unawaited(manager.cancelGroup(group.id)),
+        ),
+      ],
+      DownloadGroupStatus.failed || DownloadGroupStatus.canceled => [
+        _DownloadAction(
+          label: l10n.retryDownload,
+          icon: UiIcons.refresh,
+          onPressed: () => manager.resumeGroup(group.id),
+        ),
+        _DownloadAction(
+          label: l10n.downloadRemoveRecord,
+          icon: UiIcons.removeCircle,
+          onPressed: dismissChildren,
         ),
       ],
       DownloadGroupStatus.succeeded => [

@@ -11,6 +11,8 @@ import 'package:parfait/core/reverse_image/desktop_image_input.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_controller.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
+import 'package:parfait/core/reverse_image/reverse_image_external.dart';
+import 'package:parfait/core/reverse_image/reverse_image_html_parser.dart';
 import 'package:parfait/core/reverse_image/reverse_image_navigation_policy.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
@@ -778,6 +780,73 @@ void main() {
         captured!.single.uniformTypeIdentifiers,
         containsAll(['public.jpeg', 'public.png', 'org.webmproject.webp']),
       );
+    },
+  );
+
+  test(
+    'parseReverseImageHtmlMatches extracts validated SauceNAO and IQDB matches without relaxing HTTPS-only rules',
+    () {
+      const sauceNaoHtml =
+          '<div class="result"><table><tr><td class="resulttablecontent">'
+          '<div class="resultsimilarityinfo">94.82%</div>'
+          '<div class="resulttitle"><strong>Starlight &amp; Dusk</strong></div>'
+          '<a href="https://www.pixiv.net/users/77">Author</a>'
+          '<a href="https://www.pixiv.net/member_illust.php?mode=medium&amp;illust_id=123456">123456</a>'
+          '<a href="https://saucenao.com/search.php?db=999">self</a>'
+          '</td></tr></table></div>'
+          '<div class="result"><table><tr><td class="resulttablecontent">'
+          '<div class="resultsimilarityinfo">88.10%</div>'
+          '<div class="resulttitle"><strong>Danbooru Mirror</strong></div>'
+          '<a href="https://danbooru.donmai.us/posts/9988">post</a>'
+          '<a href="http://insecure.example.com/bad">http</a>'
+          '<a href="file:///tmp/result.html">file</a>'
+          '</td></tr></table></div>';
+      final sauceMatches = parseReverseImageHtmlMatches(
+        ReverseImageEngineSpecs.sauceNao,
+        sauceNaoHtml,
+      );
+      expect(sauceMatches, hasLength(2));
+      expect(sauceMatches[0].action, ReverseImageNavigationAction.openIllust);
+      expect(sauceMatches[0].illustId, 123456);
+      expect(sauceMatches[0].title, 'Starlight & Dusk');
+      expect(sauceMatches[0].similarity, '94.82%');
+      expect(sauceMatches[1].action, ReverseImageNavigationAction.openExternal);
+      expect(
+        sauceMatches[1].uri,
+        Uri.parse('https://danbooru.donmai.us/posts/9988'),
+      );
+
+      const iqdbHtml =
+          '<div id="pages">'
+          '<div><table><tr><th>Your image</th></tr><tr><td><a href="https://iqdb.org/">self</a></td></tr></table></div>'
+          '<div><table><tr><th>Best match</th></tr>'
+          '<tr><td><a href="//danbooru.donmai.us/posts/4242">Danbooru</a></td></tr>'
+          '<tr><td>91% similarity</td></tr></table></div>'
+          '<div><table><tr><th>No relevant matches</th></tr></table></div></div>';
+      final iqdbMatches = parseReverseImageHtmlMatches(
+        ReverseImageEngineSpecs.iqdb,
+        iqdbHtml,
+      );
+      expect(iqdbMatches, hasLength(1));
+      expect(
+        iqdbMatches.single.action,
+        ReverseImageNavigationAction.openExternal,
+      );
+      expect(
+        iqdbMatches.single.uri,
+        Uri.parse('https://danbooru.donmai.us/posts/4242'),
+      );
+      expect(iqdbMatches.single.similarity, '91%');
+
+      for (final raw in const [
+        'file:///tmp/result.html',
+        'http://example.com/a',
+      ]) {
+        expect(
+          () => validateExternalResultUrl(Uri.parse(raw)),
+          throwsFormatException,
+        );
+      }
     },
   );
 

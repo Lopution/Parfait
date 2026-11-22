@@ -2,15 +2,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
+import 'package:parfait/core/reverse_image/reverse_image_external.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/features/search/reverse_image_html_results_view.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -479,7 +482,7 @@ void main() {
   });
 
   testWidgets(
-    'shows browser fallback instead of InAppWebView when unsupported',
+    'shows browser fallback for resultUrl and parsed clickable matches for HTML on Linux',
     (tester) async {
       await _pumpPage(
         tester,
@@ -500,8 +503,109 @@ void main() {
       await tester.tap(find.text('开始反向搜图'));
       await pumpUntilVisible(tester, find.text('在浏览器打开'));
       expect(find.byType(InAppWebView), findsNothing);
+
+      // Linux HTTP 200 HTML response renders clickable matches instead of a
+      // blank engine homepage fallback.
+      final openedExternal = <Uri>[];
+      final pushedLocations = <String>[];
+      const html = '''
+        <div class="result">
+          <table><tr><td class="resulttablecontent">
+            <div class="resultsimilarityinfo">96.4%</div>
+            <div class="resulttitle"><strong>Moonlit Harbor</strong></div>
+            <a href="https://www.pixiv.net/artworks/424242">424242</a>
+          </td></tr></table>
+        </div>
+        <div class="result">
+          <table><tr><td class="resulttablecontent">
+            <div class="resultsimilarityinfo">87.2%</div>
+            <div class="resulttitle"><strong>External Mirror</strong></div>
+            <a href="https://danbooru.donmai.us/posts/777">post</a>
+          </td></tr></table>
+        </div>
+      ''';
+      final router = GoRouter(
+        initialLocation: '/reverse-image',
+        routes: [
+          GoRoute(
+            path: '/reverse-image',
+            builder: (_, _) => ReverseImageSearchPage(
+              platform: platform,
+              externalLauncher: _RecordingExternalLauncher(openedExternal),
+              providers: {
+                ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
+                  ReverseImageSearchWebView(html: html, observedAt: 'test'),
+                ),
+              },
+            ),
+            routes: [
+              GoRoute(
+                path: 'illust/:id',
+                builder: (_, state) {
+                  pushedLocations.add(state.uri.toString());
+                  return Scaffold(
+                    body: Text('illust-${state.pathParameters['id']}'),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isLinux: true),
+            ),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            builder: promptHostBuilder,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择图片'));
+      await pumpUntilVisible(tester, find.text('开始反向搜图'));
+      await tester.tap(find.text('开始反向搜图'));
+      await pumpUntilVisible(tester, find.text('Moonlit Harbor'));
+
+      expect(find.byType(InAppWebView), findsNothing);
+      expect(find.byType(ReverseImageHtmlResultsView), findsOneWidget);
+      expect(find.text('96.4%'), findsOneWidget);
+      expect(find.text('External Mirror'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('reverse-html-match-1')));
+      await tester.pump();
+      expect(openedExternal, [
+        Uri.parse('https://danbooru.donmai.us/posts/777'),
+      ]);
+
+      await tester.tap(find.byKey(const ValueKey('reverse-html-match-0')));
+      await tester.pumpAndSettle();
+      expect(pushedLocations, ['/reverse-image/illust/424242']);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
     },
   );
+}
+
+class _RecordingExternalLauncher implements ReverseImageExternalLauncher {
+  _RecordingExternalLauncher(this.opened);
+
+  final List<Uri> opened;
+
+  @override
+  Future<void> open(Uri uri) async {
+    validateExternalResultUrl(uri);
+    opened.add(uri);
+  }
 }
 
 class _PushedHost extends StatelessWidget {

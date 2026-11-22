@@ -156,9 +156,9 @@ reviewed: 2026-11-21
 - **Code:** `lib/features/settings/pages/muted_items_page.dart`, `lib/core/mute`
 
 ### PAGE-14 Management lists are lazy rows on one surface per group
-- **Rule:** Download tasks render in one flat lazy list keyed by task/group ID (newest submission first; groups share one `SliverSurfaceList`, singletons stay plain; never reparent rows with `GlobalKey`s). Progress bars show only for unfinished states (`queued`, `running`, `finalizing`, or `canceling`); actions stay on the title row while >= 160dp remains for text, aligned on the trailing edge.
-- **Why:** Avoided eager builds, reparent glitches, wasted lines on phones, and misaligned group actions.
-- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "the newest submission comes first, groups among tasks" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in"
+- **Rule:** Download tasks render in one flat lazy list keyed by task/group ID (newest submission first; groups share one `SliverSurfaceList`, singletons stay plain; never reparent rows with `GlobalKey`s). Progress bars show only for unfinished states (`queued`, `running`, `finalizing`, or `canceling`); actions stay on the title row while >= 160dp remains for text, aligned on the trailing edge. Group header actions mirror per-task semantics: `retryable` offers Resume (when every retryable child is paused) or Retry (when interrupted/failed) plus Cancel; terminal `failed`/`canceled` groups offer Retry plus Remove Record (with Undo), never a no-op Cancel.
+- **Why:** Avoided eager builds, reparent glitches, wasted lines on phones, misaligned group actions, and dead Cancel controls on terminal groups.
+- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "the newest submission comes first, groups among tasks" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in" "failed/canceled group header offers retry and remove with undo; retryable error group offers retry and cancel"
 - **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/features/settings/pages/download_task_rows.dart`, `lib/app/widgets/sliver_surface_list.dart`
 
 ## Wide and short windows

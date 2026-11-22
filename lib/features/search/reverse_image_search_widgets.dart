@@ -295,6 +295,14 @@ class _ControlledSauceNaoWebViewState
             widget.spec.resultBaseUrl ??
                 SauceNaoWebViewProvider.defaultEndpoint,
           );
+      if (result.resultUrl == null && result.html != null) {
+        return ReverseImageHtmlResultsView(
+          spec: widget.spec,
+          html: result.html!,
+          fallbackUri: externalUri,
+          onOpenExternal: widget.onOpenExternal,
+        );
+      }
       return _ExternalWebFallback(
         message: context.l10n.searchReverseDone,
         buttonLabel: context.l10n.openInBrowser,
