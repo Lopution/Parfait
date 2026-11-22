@@ -75,6 +75,7 @@ class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
   );
   _MeSection _selectedSection = _MeSection.bookmarks;
   _MeSection? _activeDetailSection;
+  bool _detailCanHandlePop = false;
   bool _hasBeenVisible = false;
 
   void _selectSection(_MeSection section) {
@@ -82,6 +83,7 @@ class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
     setState(() {
       _selectedSection = section;
       _activeDetailSection = section;
+      _detailCanHandlePop = false;
     });
     final navigator = _detailNavigatorKey.currentState;
     if (navigator == null) return;
@@ -332,41 +334,60 @@ class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
         }
       });
     }
-    return MasterDetailWorkspace(
-      key: const ValueKey('me-wide-dashboard'),
-      title: Text(context.l10n.homeMe),
-      masterTop: MeCompactAccountHeader(
-        account: state?.current,
-        detail: detail,
-      ),
-      masterBody: ListView(
-        padding: const EdgeInsets.only(
-          top: FuncSpacing.xs,
-          bottom: FuncSpacing.xl,
+    return PopScope(
+      canPop: !_detailCanHandlePop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_detailNavigatorKey.currentState?.maybePop());
+      },
+      child: MasterDetailWorkspace(
+        key: const ValueKey('me-wide-dashboard'),
+        title: Text(context.l10n.homeMe),
+        masterTop: MeCompactAccountHeader(
+          account: state?.current,
+          detail: detail,
         ),
-        children: [
-          _MeNavGroups(
-            signedIn: signedIn,
-            detail: detail,
-            selected: effectiveSection,
-            includeSettingsEntries: !desktopOwned,
-            includeRailShortcuts: !hideRailShortcuts,
-            onSelectSection: _selectSection,
+        masterBody: ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.xs,
+            bottom: FuncSpacing.xl,
           ),
-        ],
-      ),
-      detail: SettingsDetailScope(
-        onPush: (location) =>
-            GoRouter.maybeOf(context)?.push<void>(location) ??
-            Future<void>.value(),
-        child: HeroControllerScope.none(
-          child: Navigator(
-            key: _detailNavigatorKey,
-            onGenerateInitialRoutes: (_, _) {
-              _activeDetailSection = effectiveSection;
-              return [_buildDetailRoute(effectiveSection, instant: true)];
-            },
-            onGenerateRoute: (_) => _buildDetailRoute(effectiveSection),
+          children: [
+            _MeNavGroups(
+              signedIn: signedIn,
+              detail: detail,
+              selected: effectiveSection,
+              includeSettingsEntries: !desktopOwned,
+              includeRailShortcuts: !hideRailShortcuts,
+              onSelectSection: _selectSection,
+            ),
+          ],
+        ),
+        detail: SettingsDetailScope(
+          onPush: (location) =>
+              GoRouter.maybeOf(context)?.push<void>(location) ??
+              Future<void>.value(),
+          child: HeroControllerScope.none(
+            child: NotificationListener<NavigationNotification>(
+              onNotification: (notification) {
+                final next = notification.canHandlePop;
+                if (_detailCanHandlePop != next) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _detailCanHandlePop != next) {
+                      setState(() => _detailCanHandlePop = next);
+                    }
+                  });
+                }
+                return true;
+              },
+              child: Navigator(
+                key: _detailNavigatorKey,
+                onGenerateInitialRoutes: (_, _) {
+                  _activeDetailSection = effectiveSection;
+                  return [_buildDetailRoute(effectiveSection, instant: true)];
+                },
+                onGenerateRoute: (_) => _buildDetailRoute(effectiveSection),
+              ),
+            ),
           ),
         ),
       ),
