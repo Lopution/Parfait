@@ -400,6 +400,73 @@ void main() {
         expect(_opacity(tester, '提示'), 1, reason: modal);
       }
     });
+
+    testWidgets(
+      'a prompt shown after a modal opens stays visible and clickable until a newer modal covers it',
+      (tester) async {
+        var tapped = false;
+        await tester.pumpWidget(
+          _app(
+            home: _Buttons({
+              'sheet': (c) => unawaited(
+                showAppBottomSheet<void>(
+                  context: c,
+                  builder: (s) => SizedBox(
+                    height: 260,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton(
+                            onPressed: () => showAppSnackBar(
+                              s,
+                              '内层提示',
+                              duration: const Duration(seconds: 30),
+                              action: PromptAction(
+                                label: '重试',
+                                onPressed: () => tapped = true,
+                              ),
+                            ),
+                            child: const Text('toast'),
+                          ),
+                          TextButton(
+                            onPressed: () => unawaited(
+                              showAppDialog<void>(
+                                context: s,
+                                builder: (_) =>
+                                    const AlertDialog(content: Text('二层弹窗')),
+                              ),
+                            ),
+                            child: const Text('dialog2'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            }),
+          ),
+        );
+        await tester.tap(find.text('sheet'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('toast'));
+        await tester.pumpAndSettle();
+        expect(_opacity(tester, '内层提示'), 1);
+
+        await tester.tap(find.text('dialog2'));
+        await tester.pumpAndSettle();
+        expect(_opacity(tester, '内层提示'), 0);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(_opacity(tester, '内层提示'), 1);
+
+        await tester.tap(promptAction('重试'));
+        await tester.pumpAndSettle();
+        expect(tapped, isTrue);
+      },
+    );
   });
 
   group('placement', () {

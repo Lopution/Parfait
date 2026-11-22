@@ -44,6 +44,8 @@ Future<DockedSearchOutcome?> showDockedSearch(
   Rect? Function()? anchorOf,
   String initialKeyword = '',
   SearchResultType type = SearchResultType.illust,
+  IllustSearchFilters? initialIllustFilters,
+  NovelSearchFilters? initialNovelFilters,
 }) {
   final overlay =
       Navigator.of(
@@ -63,6 +65,8 @@ Future<DockedSearchOutcome?> showDockedSearch(
       child: DockedSearchPanel(
         initialKeyword: initialKeyword,
         initialType: type,
+        initialIllustFilters: initialIllustFilters,
+        initialNovelFilters: initialNovelFilters,
       ),
     ),
   );
@@ -147,10 +151,14 @@ class DockedSearchPanel extends StatefulWidget {
     super.key,
     this.initialKeyword = '',
     this.initialType = SearchResultType.illust,
+    this.initialIllustFilters,
+    this.initialNovelFilters,
   });
 
   final String initialKeyword;
   final SearchResultType initialType;
+  final IllustSearchFilters? initialIllustFilters;
+  final NovelSearchFilters? initialNovelFilters;
 
   @override
   State<DockedSearchPanel> createState() => _DockedSearchPanelState();
@@ -198,6 +206,8 @@ class _DockedSearchPanelState extends State<DockedSearchPanel> {
         key: _engine,
         initialKeyword: widget.initialKeyword,
         initialType: widget.initialType,
+        initialIllustFilters: widget.initialIllustFilters,
+        initialNovelFilters: widget.initialNovelFilters,
         onSubmit: (query) =>
             Navigator.of(context).pop(DockedSearchSubmitted(query)),
         // An id or a link leaves the panel before the page it names opens,
@@ -237,8 +247,8 @@ class _DockedSearchPanelState extends State<DockedSearchPanel> {
     final state = _engine.currentState;
     final keyword = state?.draft ?? widget.initialKeyword;
     final type = state?.type ?? widget.initialType;
-    final illustFilters = state?.illustFilters;
-    final novelFilters = state?.novelFilters;
+    final illustFilters = state?.illustFilters ?? widget.initialIllustFilters;
+    final novelFilters = state?.novelFilters ?? widget.initialNovelFilters;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final navigator = Navigator.of(context);

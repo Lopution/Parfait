@@ -10,6 +10,7 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
+import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/page_header.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
@@ -105,6 +106,14 @@ class _SpotlightFeedPageState extends State<SpotlightFeedPage>
         tabsBesideTitle: PageHeader.isWide(context),
         bottom: AppTabBar(
           controller: _tabController,
+          onTap: (index) {
+            if (!_tabController.indexIsChanging) {
+              reTapScrollToTop(
+                context,
+                _scrollControllerFor(_categories[index]),
+              );
+            }
+          },
           labels: [
             for (final category in _categories)
               l10nLookup(context.l10n, category.labelKey),
@@ -152,6 +161,12 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = spotlightFeedProvider(category);
+    listenFeedRefreshError(
+      context,
+      ref,
+      provider,
+      controller: () => ref.read(provider.notifier),
+    );
     final async = ref.watch(provider);
     return async.when(
       loading: () => const FeedLoading(),
@@ -179,6 +194,7 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
             if (store[id] != null) store[id]!,
         ];
         return PullToRefresh(
+          scrollController: scrollController,
           onRefresh: () => ref.read(provider.notifier).refresh(),
           child: LoadMoreListener(
             itemCount: feed.ids.length,

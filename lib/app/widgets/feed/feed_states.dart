@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
@@ -11,12 +12,46 @@ import '../../../core/network/network_restore_signal.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../l10n/context.dart';
 import '../../motion/state_fade.dart';
+import '../app_snack_bar.dart';
 import '../app_spinner.dart';
 import '../app_top_bar.dart';
 import '../errors/error_details.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/ui_icons.dart';
+
+/// Surfaces pull-to-refresh failures on a loaded [PagedFeedController] feed as
+/// a transient prompt with a Retry action, leaving the existing list intact.
+void listenFeedRefreshError(
+  BuildContext context,
+  WidgetRef ref,
+  ProviderListenable<AsyncValue<PagedFeedState>> provider, {
+  required PagedFeedController Function() controller,
+  String? action,
+}) {
+  ref.listen<AsyncValue<PagedFeedState>>(provider, (previous, next) {
+    final feed = next.asData?.value;
+    final wasError = previous?.asData?.value.refreshPhase == FeedPhase.error;
+    if (feed == null || feed.refreshPhase != FeedPhase.error || wasError) {
+      return;
+    }
+    final error = controller().consumeRefreshError();
+    if (error == null) return;
+    final l10n = context.l10n;
+    showErrorSnackBar(
+      context,
+      action: action ?? l10n.recommendedRefreshFailed,
+      error: error,
+      snackBarAction: PromptAction(
+        label: l10n.retry,
+        onPressed: () {
+          if (!context.mounted) return;
+          unawaited(controller().refresh());
+        },
+      ),
+    );
+  });
+}
 
 /// Shared feed-tail widget: load-more spinner, load-more error + retry,
 /// "continue" once automatic paging paused, and the exhausted marker.

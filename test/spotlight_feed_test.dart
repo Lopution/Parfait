@@ -14,6 +14,7 @@ import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
 
 import 'helpers/spotlight_world.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
 
 void main() {
@@ -185,6 +186,33 @@ void main() {
         router.state.uri.queryParameters['url'],
         'https://www.pixivision.net/a/101',
       );
+    },
+  );
+
+  testWidgets(
+    'spotlight active tab re-tap refreshes and refresh failure shows a Retry prompt',
+    (tester) async {
+      final (container, fixture) = await makeSpotlightWorld();
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: const SpotlightFeedPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final before = fixture.requests.length;
+
+      fixture.failRequests = true;
+      await tester.tap(find.widgetWithText(Tab, '全部'));
+      await tester.pumpAndSettle();
+      expect(fixture.requests.length, before + 1);
+      expect(find.textContaining('刷新失败'), findsOneWidget);
+
+      fixture.failRequests = false;
+      await tester.tap(promptAction('重试'));
+      await tester.pumpAndSettle();
+      expect(fixture.requests.length, before + 2);
     },
   );
 }

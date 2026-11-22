@@ -179,7 +179,7 @@ class TabSlideStack extends StatelessWidget {
               final key? => ValueKey(key),
               null => null,
             },
-            offstage: (i - position).abs() > 1.0,
+            offstage: (i - position).abs() >= 1.0,
             child: FractionalTranslation(
               translation: Offset(rtl ? position - i : i - position, 0),
               child: children[i],

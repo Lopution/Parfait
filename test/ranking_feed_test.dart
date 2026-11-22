@@ -72,6 +72,7 @@ class _RankingFixture {
   Completer<void> release = Completer<void>();
   RankingMode? mismatchedNextMode;
   bool blockResponses = false;
+  bool failRequests = false;
 
   http.Client client() => MockClient((request) async {
     // Feed builds hydrate MuteStore; the mute list is housekeeping, not a
@@ -85,6 +86,7 @@ class _RankingFixture {
     }
     requests.add(request.url);
     if (blockResponses) await release.future;
+    if (failRequests) return http.Response('server error', 500);
     final mode = request.url.queryParameters['mode']!;
     final isFirst = request.url.queryParameters['offset'] == null;
     final accountOffset =
@@ -650,6 +652,32 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await _pumpRanking(tester, container);
       expect(tabs(tester).index, 1);
+    });
+
+    testWidgets('refresh failure surfaces a Retry prompt and keeps items', (
+      tester,
+    ) async {
+      final (container, fixture) = await _makeWorld();
+      await _pumpRanking(tester, container);
+      final before = fixture.requests.length;
+
+      fixture.failRequests = true;
+      await container
+          .read(
+            rankingFeedControllerProvider((
+              mode: RankingMode.day,
+              date: null,
+            )).notifier,
+          )
+          .refresh();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('刷新失败'), findsOneWidget);
+      expect(find.text('ranking 1'), findsOneWidget);
+
+      fixture.failRequests = false;
+      await tester.tap(promptAction('重试'));
+      await tester.pumpAndSettle();
+      expect(fixture.requests.length, greaterThan(before + 1));
     });
   });
 }

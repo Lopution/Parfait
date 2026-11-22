@@ -11,9 +11,11 @@ import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/person_avatar.dart';
+import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/feed/feed_selection.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
 import 'package:parfait/core/actionqueue/action_bootstrap.dart';
 import 'package:parfait/core/actionqueue/action_models.dart';
 import 'package:parfait/core/actionqueue/action_store.dart';
@@ -318,6 +320,81 @@ void main() {
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
+    },
+  );
+
+  testWidgets(
+    'wide split TabSlideStack keeps resting neighbors offstage for both refresh and select-all',
+    (tester) async {
+      setViewSize(tester, const Size(1280, 800));
+      final tabs = TabController(length: 2, vsync: const TestVSync());
+      final scrolls = [ScrollController(), ScrollController()];
+      addTearDown(() {
+        tabs.dispose();
+        for (final s in scrolls) {
+          s.dispose();
+        }
+      });
+      final entities = [
+        parseIllust(illustJson(10)),
+        parseIllust(illustJson(20)),
+      ];
+      final selections = <FeedSelectionController?>[null, null];
+      final refreshed = <int>[];
+
+      await tester.pumpWidget(
+        localizedApp(
+          body: Row(
+            children: [
+              const SizedBox(width: 240),
+              Expanded(
+                child: TabSlideStack(
+                  controller: tabs,
+                  children: [
+                    for (var i = 0; i < 2; i++)
+                      SelectableFeedHost(
+                        child: PullToRefresh(
+                          scrollController: scrolls[i],
+                          onRefresh: () async => refreshed.add(i),
+                          child: Builder(
+                            builder: (context) {
+                              selections[i] = FeedSelectionScope.maybeOf(
+                                context,
+                              )!..syncItems([entities[i]]);
+                              return ListView(
+                                controller: scrolls[i],
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                children: [Text('pane-$i')],
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 300),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final active in [0, 1]) {
+        tabs.index = active;
+        await tester.pumpAndSettle();
+        expect(find.text('pane-$active'), findsOneWidget);
+        expect(find.text('pane-${1 - active}'), findsNothing);
+        expect(FeedSelectionAnchor.selectAllActive(), isTrue);
+        await tester.pump();
+        expect(selections[active]!.isSelected(entities[active].id), isTrue);
+        expect(selections[1 - active]!.selectedCount, 0);
+        selections[active]!.clearSelection();
+        expect(PullToRefresh.triggerActive(), isTrue);
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      expect(refreshed, [0, 1]);
     },
   );
 }

@@ -65,7 +65,9 @@ reviewed: 2026-11-22
   presents `AppDatePickerDialog` backed by `FCalendar.grid` with UTC day
   clamping, and dialogs use `AppAlertDialog` backed by `FDialog`. A modal
   surface that places itself (the docked search input, NAV-25) uses
-  `showAppPanel`, and a pointer menu (PAGE-18) uses `showAppContextMenu`.
+  `showAppPanel`, and a pointer menu (PAGE-18) uses `showAppContextMenu` on
+  the root navigator (`useRootNavigator: true`, with `showDisplayActions`
+  converting coordinates against the root overlay).
   The barrier routes close when a touch that started on the scrim is
   released on the scrim, tap or drag; `showAppContextMenu` keeps
   Material's stock menu barrier so an outside tap or Esc closes it.
@@ -112,11 +114,14 @@ reviewed: 2026-11-22
   `PromptAnchor` so prompts rest above it; the shell rail registers one
   on its start edge, so prompts centre on the content beside it. A prompt whose message stops
   being true before its dwell ends takes itself down through the callback
-  `showAppSnackBar` returns (the exit hint, NAV-03).
+  `showAppSnackBar` returns (the exit hint, NAV-03). `PromptCover` compares
+  monotonic open/show sequence numbers so modals cover earlier prompts while
+  prompts triggered inside an open modal stay visible and clickable until a
+  newer modal opens above them.
 - **Why:** Prompts died with their page; action prompts stayed forever for
   users of always-on accessibility services. The dwell runs past the
   entrance and the platform timeout, so it cannot time a window.
-- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits"
+- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits"
 - **Code:** `lib/app/widgets/prompt_host.dart`, `lib/app/widgets/prompt_anchor.dart`
 
 ## Undo

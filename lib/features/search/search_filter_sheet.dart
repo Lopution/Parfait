@@ -55,6 +55,7 @@ class _SearchFilterSheet extends ConsumerStatefulWidget {
 class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
   late SearchFilters _filters = widget.initial;
   final _scrollController = ScrollController();
+  final _groupsKey = GlobalKey();
 
   late final TextEditingController _bookmarkMin;
   late final TextEditingController _bookmarkMax;
@@ -193,7 +194,8 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     // The modal route does not consume viewInsets: the sheet lifts above
     // the IME so the field being typed in and the apply bar stay in sight.
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    final availableHeight = MediaQuery.heightOf(context) - keyboardInset;
+    final rawAvailable = MediaQuery.heightOf(context) - keyboardInset;
+    final availableHeight = rawAvailable < 0 ? 0.0 : rawAvailable;
     final wide = useWideOverlay(context);
     final scrollController = wide
         ? _scrollController
@@ -203,110 +205,125 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     final footerColor =
         theme.bottomSheetTheme.backgroundColor ??
         theme.colorScheme.surfaceContainerLow;
+    final header = Padding(
+      padding: EdgeInsets.fromLTRB(
+        FuncSpacing.xl,
+        wide ? FuncSpacing.md : FuncSpacing.lg,
+        wide ? FuncSpacing.sm : FuncSpacing.md,
+        FuncSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.searchFilters,
+              style: theme.textTheme.titleLarge,
+            ),
+          ),
+          TextButton(onPressed: _reset, child: Text(context.l10n.searchReset)),
+          if (wide)
+            IconButton(
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(UiIcons.close),
+            ),
+        ],
+      ),
+    );
+    final groups = KeyedSubtree(
+      key: _groupsKey,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          FuncSpacing.xl,
+          FuncSpacing.xs,
+          FuncSpacing.xl,
+          FuncSpacing.xl,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ..._matchGroup(context),
+            _groupGap,
+            ..._timeGroup(context),
+            _groupGap,
+            ..._workGroup(context),
+            _groupGap,
+            ..._countGroup(context),
+          ],
+        ),
+      ),
+    );
+    final footer = ColoredBox(
+      color: footerColor,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: FuncSpacing.xl,
+            vertical: usePointerOverlay(context)
+                ? FuncSpacing.sm
+                : FuncSpacing.md,
+          ),
+          child: _ActionBar(
+            apply: FilledButton(
+              onPressed: _canApply ? () => _pop(makeDefault: false) : null,
+              child: Text(context.l10n.searchApply),
+            ),
+            setDefault: widget.offerSetDefault
+                ? OutlinedButton(
+                    onPressed: _canApply ? () => _pop(makeDefault: true) : null,
+                    child: Text(context.l10n.searchSetDefault),
+                  )
+                : null,
+            setDefaultLabel: context.l10n.searchSetDefault,
+          ),
+        ),
+      ),
+    );
+    final divider = Divider(
+      height: 1,
+      thickness: 1,
+      color: tokens.brandHairline,
+    );
+    final scale = MediaQuery.textScalerOf(context).scale(1.0);
+    final compactThreshold = 240 * (scale < 1.0 ? 1.0 : scale);
     return Padding(
       padding: EdgeInsets.only(bottom: keyboardInset),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: wide
+          maxHeight: wide || keyboardInset > 0
               ? availableHeight
               : availableHeight * _maxHeightFactor,
         ),
-        child: Column(
-          mainAxisSize: wide ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                FuncSpacing.xl,
-                wide ? FuncSpacing.md : FuncSpacing.lg,
-                wide ? FuncSpacing.sm : FuncSpacing.md,
-                FuncSpacing.xs,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.l10n.searchFilters,
-                      style: theme.textTheme.titleLarge,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _reset,
-                    child: Text(context.l10n.searchReset),
-                  ),
-                  if (wide)
-                    IconButton(
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).closeButtonTooltip,
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(UiIcons.close),
-                    ),
-                ],
-              ),
-            ),
-            Flexible(
-              fit: wide ? FlexFit.tight : FlexFit.loose,
-              child: _BottomScrollFade(
-                controller: scrollController,
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(
-                    FuncSpacing.xl,
-                    FuncSpacing.xs,
-                    FuncSpacing.xl,
-                    FuncSpacing.xl,
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) =>
+              constraints.maxHeight < compactThreshold
+              ? SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ..._matchGroup(context),
-                      _groupGap,
-                      ..._timeGroup(context),
-                      _groupGap,
-                      ..._workGroup(context),
-                      _groupGap,
-                      ..._countGroup(context),
-                    ],
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [header, groups, divider, footer],
                   ),
-                ),
-              ),
-            ),
-            // Fixed under the scrolling groups with an opaque backing and a
-            // crisp 1dp hairline so scrolled rows never bleed behind actions.
-            Divider(height: 1, thickness: 1, color: tokens.brandHairline),
-            ColoredBox(
-              color: footerColor,
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: FuncSpacing.xl,
-                    vertical: usePointerOverlay(context)
-                        ? FuncSpacing.sm
-                        : FuncSpacing.md,
-                  ),
-                  child: _ActionBar(
-                    apply: FilledButton(
-                      onPressed: _canApply
-                          ? () => _pop(makeDefault: false)
-                          : null,
-                      child: Text(context.l10n.searchApply),
+                )
+              : Column(
+                  mainAxisSize: wide ? MainAxisSize.max : MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    Flexible(
+                      fit: wide ? FlexFit.tight : FlexFit.loose,
+                      child: _BottomScrollFade(
+                        controller: scrollController,
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          child: groups,
+                        ),
+                      ),
                     ),
-                    setDefault: widget.offerSetDefault
-                        ? OutlinedButton(
-                            onPressed: _canApply
-                                ? () => _pop(makeDefault: true)
-                                : null,
-                            child: Text(context.l10n.searchSetDefault),
-                          )
-                        : null,
-                    setDefaultLabel: context.l10n.searchSetDefault,
-                  ),
+                    divider,
+                    footer,
+                  ],
                 ),
-              ),
-            ),
-          ],
         ),
       ),
     );

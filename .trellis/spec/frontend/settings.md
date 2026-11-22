@@ -211,7 +211,10 @@ reviewed: 2026-11-22
   the `收藏` and `下载` rows already owned by the adjacent desktop `ShellRail` —
   without duplicating profile cards, library metric cards, or history strips in
   a separate overview pane; the bookmarks and following panes defer
-  network-backed filters and feeds until the Me tab's network scope is active.
+  network-backed filters and feeds until the Me tab's network scope is active,
+  and the detail `Navigator` reports `NavigationNotification` to an outer
+  `PopScope(canPop: !_detailCanHandlePop)` so `Esc`/back exits management modes
+  inside detail pages before leaving the Me tab.
 - **Why:** User decision: settings filled two thirds of the page in a
   style of their own, while static multi-hue icon lists under-utilized desktop
   canvas space; monochrome grouped rows clarify visual hierarchy on mobile, and
@@ -220,5 +223,5 @@ reviewed: 2026-11-22
   the shared 280dp `MasterDetailWorkspace` / `SettingsDetailScope` pattern. The
   history row holds its order while covered so Hero landing flights target the
   right cover before sliding to match recent history.
-- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"; `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly"
+- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"; `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly" "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/widgets/scroll_edge_fade.dart`, `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_tile.dart`, `lib/core/history/history_visibility.dart`, `lib/features/settings/me_dashboard_page.dart`

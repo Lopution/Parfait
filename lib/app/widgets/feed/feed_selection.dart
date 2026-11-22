@@ -16,6 +16,7 @@ import '../../layout/input_modality.dart';
 import '../../motion/app_overlays.dart';
 import '../../motion/motion_tokens.dart';
 import '../../navigation/route_facade.dart';
+import '../../pull_to_refresh.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../../window/desktop_command_bar_scope.dart';
 import '../app_snack_bar.dart';
@@ -23,17 +24,8 @@ import '../errors/error_details.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/ui_icons.dart';
 
-bool _isHostOnScreen(BuildContext context) {
-  if (!TickerMode.getValuesNotifier(context).value.enabled) return false;
-  final route = ModalRoute.of(context);
-  if (route != null && !route.isCurrent) return false;
-  final ro = context.findRenderObject();
-  if (ro is! RenderBox || !ro.hasSize || ro.size.isEmpty) return false;
-  final view = View.maybeOf(context);
-  if (view == null) return true;
-  final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
-  return (ro.localToGlobal(Offset.zero) & ro.size).overlaps(screen);
-}
+bool _isHostOnScreen(BuildContext context) =>
+    isRenderBoxVisibleOnScreen(context);
 
 bool _hasShiftPressed() {
   final keys = HardwareKeyboard.instance.logicalKeysPressed;

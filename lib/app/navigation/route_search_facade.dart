@@ -88,10 +88,18 @@ Future<void> editSearchFromResults(
   required Rect? Function()? anchor,
   required String keyword,
   required SearchResultType type,
+  IllustSearchFilters? initialIllustFilters,
+  NovelSearchFilters? initialNovelFilters,
 }) async {
   final trigger = anchor?.call();
   if (trigger == null || !hasShellRail(context)) {
-    return swapToSearchInput(context, keyword: keyword, type: type);
+    return swapToSearchInput(
+      context,
+      keyword: keyword,
+      type: type,
+      initialIllustFilters: initialIllustFilters,
+      initialNovelFilters: initialNovelFilters,
+    );
   }
   final router = GoRouter.of(context);
   final root = stackRootOf(livePathOf(router));
@@ -101,6 +109,8 @@ Future<void> editSearchFromResults(
     anchorOf: anchor,
     initialKeyword: keyword,
     type: type,
+    initialIllustFilters: initialIllustFilters,
+    initialNovelFilters: initialNovelFilters,
   );
   switch (outcome) {
     case DockedSearchSubmitted(:final query):
@@ -143,8 +153,20 @@ Future<void> swapToSearchInput(
   BuildContext context, {
   required String keyword,
   required SearchResultType type,
-}) =>
-    pushReplacementRoute(context, _searchInputLocation(context, keyword, type));
+  IllustSearchFilters? initialIllustFilters,
+  NovelSearchFilters? initialNovelFilters,
+}) => pushReplacementRoute(
+  context,
+  _searchInputLocation(context, keyword, type),
+  extra: initialIllustFilters != null || initialNovelFilters != null
+      ? SearchInputDraft(
+          keyword: keyword,
+          type: type,
+          illustFilters: initialIllustFilters,
+          novelFilters: initialNovelFilters,
+        )
+      : null,
+);
 
 String _searchInputLocation(
   BuildContext context,

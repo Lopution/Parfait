@@ -114,33 +114,29 @@ typedef _SharedSearchParams = ({
 /// Decoding is permissive per field — one damaged value falls back to its
 /// default without discarding the rest, same rule as
 /// `SearchFilters.fromJson`.
-_SharedSearchParams _sharedSearchParams(GoRouterState state) {
-  final (bookmarkMin, bookmarkMax) = _searchBounds(
-    state.uri.queryParameters,
-    'bmin',
-    'bmax',
-  );
+_SharedSearchParams _sharedSearchParams(Map<String, String> params) {
+  final (bookmarkMin, bookmarkMax) = _searchBounds(params, 'bmin', 'bmax');
   return (
     target: _searchEnum(
       SearchTarget.values,
-      state.uri.queryParameters['target'],
+      params['target'],
       (value) => value.wireValue,
       SearchTarget.partialMatchForTags,
     ),
     sort: _searchEnum(
       SearchSort.values,
-      state.uri.queryParameters['sort'],
+      params['sort'],
       (value) => value.wireValue,
       SearchSort.dateDesc,
     ),
-    duration: _searchDuration(state.uri.queryParameters['duration']),
-    startDate: parseApiDate(state.uri.queryParameters['start']),
-    endDate: parseApiDate(state.uri.queryParameters['end']),
+    duration: _searchDuration(params['duration']),
+    startDate: parseApiDate(params['start']),
+    endDate: parseApiDate(params['end']),
     // `ai` serializes by enum name: `all`/`only` share the same (null) wire
     // value because `only` is enforced client-side.
     aiFilter: _searchEnum(
       SearchAiFilter.values,
-      state.uri.queryParameters['ai'],
+      params['ai'],
       (value) => value.name,
       SearchAiFilter.all,
     ),
@@ -149,9 +145,8 @@ _SharedSearchParams _sharedSearchParams(GoRouterState state) {
   );
 }
 
-IllustSearchFilters _illustSearchFilters(GoRouterState state) {
-  final params = state.uri.queryParameters;
-  final shared = _sharedSearchParams(state);
+IllustSearchFilters _illustSearchFilters(Map<String, String> params) {
+  final shared = _sharedSearchParams(params);
   final (widthMin, widthMax) = _searchBounds(params, 'wmin', 'wmax');
   final (heightMin, heightMax) = _searchBounds(params, 'hmin', 'hmax');
   return IllustSearchFilters(
@@ -182,9 +177,8 @@ IllustSearchFilters _illustSearchFilters(GoRouterState state) {
   );
 }
 
-NovelSearchFilters _novelSearchFilters(GoRouterState state) {
-  final params = state.uri.queryParameters;
-  final shared = _sharedSearchParams(state);
+NovelSearchFilters _novelSearchFilters(Map<String, String> params) {
+  final shared = _sharedSearchParams(params);
   final (textLengthMin, textLengthMax) = _searchBounds(params, 'tmin', 'tmax');
   return NovelSearchFilters(
     target: SearchFilters.clampTarget(
@@ -205,22 +199,32 @@ NovelSearchFilters _novelSearchFilters(GoRouterState state) {
   );
 }
 
-SearchQuery searchQueryFromState(GoRouterState state) {
-  final keyword = state.uri.queryParameters['q'] ?? '';
-  return switch (searchTypeFromQuery(state.uri.queryParameters['type'])) {
+/// Decodes a full [SearchQuery] (including filter params) from [uri].
+SearchQuery searchQueryFromUri(Uri uri) {
+  final params = uri.queryParameters;
+  final keyword = params['q'] ?? '';
+  return switch (searchTypeFromQuery(params['type'])) {
     SearchResultType.illust => IllustSearchQuery(
       keyword: keyword,
-      filters: _illustSearchFilters(state),
+      filters: _illustSearchFilters(params),
     ),
     SearchResultType.novel => NovelSearchQuery(
       keyword: keyword,
-      filters: _novelSearchFilters(state),
+      filters: _novelSearchFilters(params),
     ),
     // A user search has no filters: the route carries none, and any stray
     // filter params on a shared URL are ignored rather than stored.
     SearchResultType.user => UserSearchQuery(keyword: keyword),
   };
 }
+
+/// Returns the full [SearchQuery] when [uri] points at a `/search/results`
+/// route, or `null` otherwise (including `/tag/...` routes without filters).
+SearchQuery? searchResultsFullQueryFromUri(Uri uri) =>
+    uri.path.endsWith('/search/results') ? searchQueryFromUri(uri) : null;
+
+SearchQuery searchQueryFromState(GoRouterState state) =>
+    searchQueryFromUri(state.uri);
 
 Map<String, String> _sharedFilterQueryParams(SearchFilters filters) => {
   'target': filters.normalizedTarget.wireValue,

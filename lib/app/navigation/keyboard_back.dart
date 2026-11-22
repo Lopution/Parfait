@@ -38,17 +38,8 @@ const _stackRoots = <String>[
   ..._overlayRoots,
 ];
 
-bool _isContextOnScreen(BuildContext context) {
-  if (!TickerMode.getValuesNotifier(context).value.enabled) return false;
-  final route = ModalRoute.of(context);
-  if (route != null && !route.isCurrent) return false;
-  final ro = context.findRenderObject();
-  if (ro is! RenderBox || !ro.hasSize || ro.size.isEmpty) return false;
-  final view = View.maybeOf(context);
-  if (view == null) return true;
-  final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
-  return (ro.localToGlobal(Offset.zero) & ro.size).overlaps(screen);
-}
+bool _isContextOnScreen(BuildContext context) =>
+    isRenderBoxVisibleOnScreen(context);
 
 String? _stackRootOfPath(String path) {
   for (final root in _stackRoots) {

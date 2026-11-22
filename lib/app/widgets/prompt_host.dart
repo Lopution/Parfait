@@ -104,6 +104,7 @@ class PromptHostState extends State<PromptHost>
     bool replaceCurrent = true,
   }) {
     final prompt = _Prompt(
+      seq: _cover.nextSeq(),
       message: message,
       duration: duration,
       action: action,
@@ -156,6 +157,7 @@ class PromptHostState extends State<PromptHost>
     _dwell?.cancel();
     _dwell = null;
     final next = _queue.isEmpty ? null : _queue.removeFirst();
+    _cover.setPromptSeq(next?.seq ?? 0);
     setState(() => _current = next);
     if (next == null) return;
     unawaited(_resolveTimeout(next));
@@ -281,12 +283,14 @@ class PromptHostState extends State<PromptHost>
 
 class _Prompt {
   _Prompt({
+    required this.seq,
     required this.message,
     required this.duration,
     required this.action,
     required this.persist,
   });
 
+  final int seq;
   final String message;
   final Duration duration;
   final PromptAction? action;
@@ -537,17 +541,42 @@ class _ModalCover extends Animation<double>
         AnimationEagerListenerMixin,
         AnimationLocalListenersMixin,
         AnimationLocalStatusListenersMixin {
-  final _modals = <Animation<double>>[];
+  final _modals = <({Animation<double> animation, int seq})>[];
+  int _seq = 0;
+  int _activePromptSeq = 0;
   AnimationStatus _lastStatus = AnimationStatus.completed;
 
+  int nextSeq() => ++_seq;
+
+  void setPromptSeq(int seq) {
+    if (_activePromptSeq == seq) return;
+    _activePromptSeq = seq;
+    _changed();
+  }
+
   void add(Animation<double> modal) {
-    _modals.add(modal);
+    _modals.add((animation: modal, seq: ++_seq));
     modal.addListener(_changed);
     _changed();
   }
 
+  void replace(Animation<double> previous, Animation<double> next) {
+    final index = _modals.indexWhere((m) => identical(m.animation, previous));
+    if (index < 0) {
+      add(next);
+      return;
+    }
+    final seq = _modals[index].seq;
+    previous.removeListener(_changed);
+    _modals[index] = (animation: next, seq: seq);
+    next.addListener(_changed);
+    _changed();
+  }
+
   void remove(Animation<double> modal) {
-    if (!_modals.remove(modal)) return;
+    final index = _modals.indexWhere((m) => identical(m.animation, modal));
+    if (index < 0) return;
+    _modals.removeAt(index);
     modal.removeListener(_changed);
     _changed();
   }
@@ -565,7 +594,9 @@ class _ModalCover extends Animation<double>
   double get value {
     var covered = 0.0;
     for (final modal in _modals) {
-      covered = math.max(covered, modal.value);
+      if (modal.seq > _activePromptSeq) {
+        covered = math.max(covered, modal.animation.value);
+      }
     }
     return 1 - covered;
   }
@@ -580,7 +611,7 @@ class _ModalCover extends Animation<double>
   @override
   void dispose() {
     for (final modal in _modals) {
-      modal.removeListener(_changed);
+      modal.animation.removeListener(_changed);
     }
     _modals.clear();
     super.dispose();
@@ -662,9 +693,7 @@ class _PromptCoverState extends State<PromptCover> {
   void didUpdateWidget(PromptCover oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (identical(oldWidget.animation, widget.animation)) return;
-    _cover
-      ?..remove(oldWidget.animation)
-      ..add(widget.animation);
+    _cover?.replace(oldWidget.animation, widget.animation);
   }
 
   @override

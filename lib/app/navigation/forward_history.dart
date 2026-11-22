@@ -153,7 +153,7 @@ class ForwardHistoryStack {
 
   final Map<String, List<ForwardHistoryEntry>> _forwardStacks = {};
   final Map<Route<dynamic>, ForwardHistoryEntry> _activeEntries = {};
-  final Set<Route<dynamic>> _openModals = {};
+  final Map<Route<dynamic>, String> _openModals = {};
   final List<String> _pendingReplays = [];
   final List<_FallbackStackEntry> _fallbackStack = [];
 
@@ -251,12 +251,19 @@ class ForwardHistoryStack {
   /// navigation steps.
   int get pushGeneration => _pushGeneration;
 
-  bool get hasOpenModal => _openModals.isNotEmpty;
+  bool get hasOpenModal {
+    if (_openModals.isEmpty) return false;
+    final active = _activeBucket();
+    for (final bucket in _openModals.values) {
+      if (bucket == 'root' || bucket == active) return true;
+    }
+    return false;
+  }
 
   bool get canGoBack {
     final path = _currentPath();
     if (_isPreHomePath(path)) return false;
-    if (_openModals.isNotEmpty) return true;
+    if (hasOpenModal) return true;
     return _safeCanPop();
   }
 
@@ -328,7 +335,14 @@ class ForwardHistoryStack {
   ) {
     _usesObservers = true;
     if (route.settings is! Page) {
-      _openModals.add(route);
+      // go_router forwards branch navigator events to GoRouter.observers as
+      // well (`notifyRootObserver: true`), so a branch-local modal triggers
+      // both its branch observer and `rootObserver`. Keep the more specific
+      // branch bucket regardless of callback order.
+      final existing = _openModals[route];
+      if (existing == null || existing == 'root') {
+        _openModals[route] = observerBucket;
+      }
       _publishState();
       return;
     }
@@ -384,7 +398,8 @@ class ForwardHistoryStack {
     _publishState();
   }
 
-  void _onObserverReplace({
+  void _onObserverReplace(
+    String observerBucket, {
     Route<dynamic>? newRoute,
     Route<dynamic>? oldRoute,
   }) {
@@ -393,7 +408,10 @@ class ForwardHistoryStack {
       _openModals.remove(oldRoute);
     }
     if (newRoute != null && newRoute.settings is! Page) {
-      _openModals.add(newRoute);
+      final existing = _openModals[newRoute];
+      if (existing == null || existing == 'root') {
+        _openModals[newRoute] = observerBucket;
+      }
       _publishState();
       return;
     }
@@ -618,6 +636,6 @@ class _ForwardNavigatorObserver extends NavigatorObserver {
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    _stack._onObserverReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _stack._onObserverReplace(_bucket, newRoute: newRoute, oldRoute: oldRoute);
   }
 }
