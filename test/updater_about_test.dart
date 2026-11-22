@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:parfait/app/widgets/app_progress_bar.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
+import 'package:parfait/core/updater/update_download.dart';
 import 'package:parfait/core/updater/update_providers.dart';
 import 'package:parfait/core/updater/update_service.dart';
 import 'package:parfait/features/settings/settings_catalog.dart';
@@ -18,12 +22,18 @@ import 'helpers/updater_fakes.dart';
 import 'helpers/localized_app.dart';
 
 void main() {
-  Future<void> pumpAbout(WidgetTester tester, {UpdateService? service}) async {
+  Future<void> pumpAbout(
+    WidgetTester tester, {
+    UpdateService? service,
+    bool settle = true,
+  }) async {
     final effectiveService =
         service ??
         UpdateService(
           manifestTransport: UnusedManifestTransport(),
-          platform: _FdroidPlatform(),
+          platform: FakeUpdatePlatform(
+            capability: const UpdateCapability.fdroid(),
+          ),
         );
     // Tall enough that the update block below the about rows is built.
     tester.view.physicalSize = const Size(800, 3000);
@@ -37,7 +47,12 @@ void main() {
         home: const AboutSettingsPage(),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+      await tester.pump();
+    }
   }
 
   testWidgets(
@@ -69,7 +84,7 @@ void main() {
   Future<ProviderContainer> tapVersionSevenTimes(WidgetTester tester) async {
     final service = UpdateService(
       manifestTransport: UnusedManifestTransport(),
-      platform: _FdroidPlatform(),
+      platform: FakeUpdatePlatform(capability: const UpdateCapability.fdroid()),
     );
     final container = ProviderContainer.test(
       overrides: [updateServiceProvider.overrideWith((ref) async => service)],
@@ -179,6 +194,40 @@ void main() {
   });
 
   testWidgets(
+    'in-flight update download keeps progress and cancel button across About re-entry',
+    (tester) async {
+      final service = _RememberedCheckUpdateService(
+        UpdateCheckResult(
+          status: UpdateCheckStatus.available,
+          release: fakeUpdateRelease(),
+        ),
+        _HangingUpdateDownloader(),
+      );
+      await pumpAbout(tester, service: service);
+      await tester.tap(find.widgetWithText(FilledButton, '下载并安装'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('正在下载并验证…'), findsOneWidget);
+      expect(find.byType(AppProgressBar), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await pumpAbout(tester, service: service, settle: false);
+      expect(find.text('正在下载并验证…'), findsOneWidget);
+      expect(find.byType(AppProgressBar), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '取消'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '下载并安装'), findsNothing);
+
+      await tester.tap(find.widgetWithText(FilledButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(find.text('已取消更新安装'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '下载并安装'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'display refresh rate row follows defaultTargetPlatform availability',
     (tester) async {
       const channel = MethodChannel('flutter_display_mode');
@@ -231,7 +280,7 @@ class _StubUpdateService extends UpdateService {
     this.lastCheckResult,
   }) : super(
          manifestTransport: UnusedManifestTransport(),
-         platform: _FdroidPlatform(),
+         platform: FakeUpdatePlatform(),
        );
 
   final UpdateCheckResult checkResult;
@@ -300,32 +349,38 @@ class _FakeUpdateVersion implements UpdateVersionLike {
   String toString() => text;
 }
 
-class _FdroidPlatform implements UpdatePlatform {
+class _HangingUpdateDownloader implements UpdateApkDownloader {
+  final _pending = Completer<UpdateApplyResult>();
   @override
-  Future<UpdateCapability> capability() async =>
-      const UpdateCapability.fdroid();
+  Future<UpdateApplyResult> recover(UpdateRelease release) async =>
+      const UpdateApplyResult(
+        status: UpdateApplyStatus.failed,
+        errorCode: 'no_recoverable_update',
+      );
+  @override
+  Future<UpdateApplyResult> download(UpdateRelease release) => _pending.future;
+  @override
+  Future<bool> cleanup(String path) async => true;
+  @override
+  Future<void> cancel() async {
+    if (!_pending.isCompleted) {
+      _pending.complete(
+        const UpdateApplyResult(status: UpdateApplyStatus.canceled),
+      );
+    }
+  }
+}
 
+class _RememberedCheckUpdateService extends UpdateService {
+  _RememberedCheckUpdateService(this._remembered, UpdateApkDownloader d)
+    : super(
+        manifestTransport: UnusedManifestTransport(),
+        platform: FakeUpdatePlatform(),
+        downloader: d,
+      );
+  final UpdateCheckResult _remembered;
   @override
-  Future<UpdatePlatformInfo> info() => throw StateError('not used');
-
-  @override
-  Future<UpdateManifestVerification> verifyManifestSignature({
-    required List<int> message,
-    required List<int> signature,
-  }) => throw StateError('not used');
-
-  @override
-  Future<UpdateApkVerification> verifyApk({
-    required String path,
-    required UpdateReleaseAsset asset,
-  }) => throw StateError('not used');
-
-  @override
-  Future<UpdateInstallResult> installApk(String path) =>
-      throw StateError('not used');
-
-  @override
-  Future<bool> deleteApk(String path) => throw StateError('not used');
+  UpdateCheckResult? get lastCheck => _remembered;
 }
 
 /// In-memory preferences whose `setBool` fails, as on a full disk.
