@@ -344,17 +344,26 @@ void main() {
     (tester) async {
       var calls = 0;
       var fail = false;
+      Completer<void>? gate;
       await _pumpRouter(
         tester,
         initialLocation: '/search/results?q=cat&type=illust',
         view: const Size(390, 800),
         routes: {
-          '/v1/search/illust': (r) => (++calls > 0 && fail)
-              ? offline(r)
-              : jsonResponse({
-                  'illusts': [illustJson(calls)],
-                  'next_url': null,
-                }),
+          '/v1/search/illust': (r) async {
+            final n = ++calls;
+            final pending = gate;
+            if (pending != null) {
+              gate = null;
+              await pending.future;
+            }
+            return fail
+                ? offline(r)
+                : jsonResponse({
+                    'illusts': [illustJson(n)],
+                    'next_url': null,
+                  });
+          },
         },
       );
       fail = true;
@@ -366,6 +375,24 @@ void main() {
       await tester.tap(promptAction('重试'));
       await tester.pumpAndSettle();
       expect(calls, 3);
+      await tester.pump(const Duration(seconds: 5));
+
+      // A refresh failing while its tab is hidden must not prompt over the
+      // active tab, and replays once the user returns to the failed tab.
+      final pendingGate = Completer<void>();
+      gate = pendingGate;
+      fail = true;
+      await tester.tap(_tab('插画 & 漫画'));
+      await tester.pump();
+      await tester.tap(_tab('用户'));
+      await tester.pumpAndSettle();
+      pendingGate.complete();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('刷新失败'), findsNothing);
+
+      await tester.tap(_tab('插画 & 漫画'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('刷新失败'), findsOneWidget);
     },
   );
 

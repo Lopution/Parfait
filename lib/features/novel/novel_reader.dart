@@ -257,14 +257,16 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
 
   int _viewIndexForPage(int page) => _spread ? page ~/ 2 : page;
 
+  int _canonicalPage(int page, bool spread, int count) => (!_scrolls && spread)
+      ? (page.clamp(0, count - 1) ~/ 2) * 2
+      : page.clamp(0, count - 1);
+
   int _viewCount(NovelLayout layout) =>
       _spread ? (layout.pages.length + 1) ~/ 2 : layout.pages.length;
 
-  int _stepTargetPage(int delta) {
-    if (_scrolls || !_spread) return _reader.currentPage + delta;
-    final spread = _reader.currentPage ~/ 2;
-    return (spread + delta) * 2;
-  }
+  int _stepTargetPage(int delta) => (_scrolls || !_spread)
+      ? _reader.currentPage + delta
+      : (_reader.currentPage ~/ 2 + delta) * 2;
 
   @override
   void initState() {
@@ -418,7 +420,11 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final layout = _layout;
     final anchor = _anchorOnScreen(scrolls: !_scrolls);
     if (layout == null || anchor == null) return;
-    final page = layout.pageIndexForAnchor(anchor);
+    final page = _canonicalPage(
+      layout.pageIndexForAnchor(anchor),
+      _spread,
+      layout.pages.length,
+    );
     _reader.setPage(page);
     if (_scrolls) {
       final column = _columnOf(layout);
@@ -1055,9 +1061,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
               : null;
           final anchor =
               scrollSnapshot?.anchor ?? _liveAnchor ?? widget.initialAnchor;
-          final restoredPage = anchor == null
-              ? _reader.currentPage.clamp(0, result.pages.length - 1)
-              : result.pageIndexForAnchor(anchor);
+          final restoredPage = _canonicalPage(
+            anchor == null
+                ? _reader.currentPage
+                : result.pageIndexForAnchor(anchor),
+            spread,
+            result.pages.length,
+          );
           setState(() {
             _reader.updatePageCount(result.pages.length, page: restoredPage);
           });

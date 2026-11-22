@@ -1052,6 +1052,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('PAGE_3'), findsOneWidget);
     expect(find.text('PAGE_4'), findsNothing);
+
+    // Restoring to an odd layout page in wide spread mode normalizes logical
+    // page to the spread's left leaf so progress and stepping stay aligned.
+    await tester.binding.setSurfaceSize(const Size(1100, 700));
+    final spreadNovel = _novel('').withWebContent(
+      'PAGE_1\n[newpage]\nPAGE_2\n[newpage]\nPAGE_3\n[newpage]\nPAGE_4',
+    );
+    final page2Paragraph = spreadNovel.paragraphs.firstWhere(
+      (p) => p.text.contains('PAGE_2'),
+    );
+    final oddHandle = NovelReaderHandle();
+    (int, int)? lastProgress;
+    await tester.pumpWidget(
+      localizedApp(
+        body: NovelReader(
+          key: const ValueKey('odd-spread-restore'),
+          novel: spreadNovel,
+          settings: _pageMode,
+          handle: oddHandle,
+          initialAnchor: NovelAnchor(paragraphId: page2Paragraph.id, offset: 0),
+          onProgressChanged: (page, count) => lastProgress = (page, count),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(oddHandle.currentPage?.call(), 0);
+    expect(lastProgress, (0, 4));
+    expect(find.text('PAGE_1'), findsOneWidget);
+    expect(find.text('PAGE_2'), findsOneWidget);
   });
 
   testWidgets('scroll mode relayout keeps lead-padding and sub-item offset and '
