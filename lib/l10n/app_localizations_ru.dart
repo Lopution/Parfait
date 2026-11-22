@@ -3420,4 +3420,10 @@ class AppLocalizationsRu extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get previousArtworkTooltip => 'Предыдущая работа';
+
+  @override
+  String get nextArtworkTooltip => 'Следующая работа';
 }
