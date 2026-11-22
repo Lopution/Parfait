@@ -1238,6 +1238,16 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pump();
     expect(copied, '彼は漢字を読んだ');
+
+    // Very long unbroken paragraphs chunk into viewport-bounded scroll blocks
+    // so virtualization and hit-testing keep working past top/bottom bars.
+    await tester.pumpWidget(
+      localizedApp(body: NovelReader(novel: _novel('local novel 0 ' * 200))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(RichText).hitTestable(), findsWidgets);
+    expect(find.byType(RichText).evaluate().length, greaterThan(1));
   });
 }
 
