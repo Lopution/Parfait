@@ -194,6 +194,41 @@ void main() {
             'destroy',
           ]),
         );
+
+        // Minimizing on Windows reports iconic sentinel coordinates (-32000,
+        // 160x28); captureOrdinary and saveNow must keep the ordinary bounds.
+        double? savedW;
+        double? savedH;
+        double? savedX;
+        double? savedY;
+        final winAdapter = _FakeDesktopWindowAdapter(
+          size: const Size(1240, 820),
+          position: const Offset(120, 90),
+        );
+        final winSession = DesktopWindowSession(
+          adapter: winAdapter,
+          host: _FakeDesktopWindowHost(),
+          trayPort: const NoopTrayPort(),
+          readCloseToTray: () => false,
+          readSavedPlace: () => (width: 1240, height: 820, x: 120, y: 90),
+          saveGeometry: ({width, height, x, y, required maximized}) async {
+            savedW = width;
+            savedH = height;
+            savedX = x;
+            savedY = y;
+          },
+        );
+        addTearDown(winSession.dispose);
+        await winSession.captureOrdinary();
+        winAdapter.minimized = true;
+        winAdapter.size = const Size(160, 28);
+        winAdapter.position = const Offset(-32000, -32000);
+        await winSession.captureOrdinary();
+        await winSession.saveNow();
+        expect(savedW, 1240);
+        expect(savedH, 820);
+        expect(savedX, 120);
+        expect(savedY, 90);
       },
     );
 
@@ -624,29 +659,53 @@ void main() {
         );
         expect(find.byKey(const Key('desktop-window-close')), findsNothing);
 
+        var linuxFullScreenToggles = 0;
+        final linuxMetrics = ValueNotifier(
+          const DesktopWindowPlatformMetrics(
+            isWayland: true,
+            usesSystemTitleBar: true,
+          ),
+        );
+        addTearDown(linuxMetrics.dispose);
         await tester.pumpWidget(
           MaterialApp(
             theme: ThemeData(platform: TargetPlatform.linux),
+            themeAnimationDuration: Duration.zero,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: const [Locale('en', 'US')],
-            home: DesktopWindowFrame(
-              metricsOverride: const DesktopWindowPlatformMetrics(
-                isWayland: true,
-                usesSystemTitleBar: true,
+            home: DesktopWindowScope(
+              metrics: linuxMetrics,
+              actions: DesktopWindowActions(
+                onMinimize: () {},
+                onToggleMaximize: () {},
+                onClose: () {},
+                onToggleFullScreen: () => linuxFullScreenToggles += 1,
+                onStartDragging: () {},
+                onTitleBarDoubleClick: () {},
+                onRegionsChanged: (_) {},
               ),
-              child: Builder(
-                builder: (context) {
-                  final chrome = DesktopChromeMetrics.of(context);
-                  expect(chrome.hasCustomChrome, isFalse);
-                  expect(chrome.showCustomButtons, isFalse);
-                  expect(MediaQuery.paddingOf(context).top, 0);
-                  return const SizedBox();
-                },
+              child: DesktopWindowFrame(
+                metricsOverride: const DesktopWindowPlatformMetrics(
+                  isWayland: true,
+                  usesSystemTitleBar: true,
+                ),
+                child: Builder(
+                  builder: (context) {
+                    final chrome = DesktopChromeMetrics.of(context);
+                    expect(chrome.hasCustomChrome, isFalse);
+                    expect(chrome.showCustomButtons, isFalse);
+                    expect(MediaQuery.paddingOf(context).top, 0);
+                    return const SizedBox();
+                  },
+                ),
               ),
             ),
           ),
         );
         expect(find.byKey(const Key('desktop-window-close')), findsNothing);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+        await tester.pump();
+        expect(linuxFullScreenToggles, 1);
       },
     );
 
@@ -992,6 +1051,7 @@ void main() {
 class _FakeDesktopWindowAdapter implements DesktopWindowAdapter {
   _FakeDesktopWindowAdapter({
     this.size = const Size(1280, 800),
+    this.position = const Offset(80, 50),
     this.maximized = false,
     this.minimized = false,
     this.throwOnGetPosition = false,
@@ -1006,10 +1066,10 @@ class _FakeDesktopWindowAdapter implements DesktopWindowAdapter {
              visibleSize: Size(1920, 1080),
            );
 
-  final Size size;
-  final Offset position = const Offset(80, 50);
+  Size size;
+  Offset position;
   final bool maximized;
-  final bool minimized;
+  bool minimized;
   final bool fullScreen = false;
   final bool throwOnGetPosition;
   final Display _primaryDisplay;

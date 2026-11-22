@@ -896,17 +896,21 @@ LRESULT FlutterWindow::HitTestNonClient(int screen_x, int screen_y) const {
                          ::GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
     const int button_rim =
         std::max(1, ::MulDiv(2, static_cast<int>(dpi), 96));
+    const int right_rim =
+        std::min(border_x, std::max(1, ::MulDiv(3, static_cast<int>(dpi), 96)));
     const int top_hit_height = in_caption_buttons ? button_rim : border_y;
-    const int right_hit_width = in_caption_buttons ? button_rim : border_x;
 
     const bool on_left =
         screen_x >= window_rect.left && screen_x < window_rect.left + border_x;
-    const bool on_right = screen_x < window_rect.right &&
-                          screen_x >= window_rect.right - right_hit_width;
     const bool on_top = screen_y >= window_rect.top &&
                         screen_y < window_rect.top + top_hit_height;
     const bool on_bottom = screen_y < window_rect.bottom &&
                            screen_y >= window_rect.bottom - border_y;
+    const int right_hit_width = in_caption_buttons
+        ? button_rim
+        : ((on_top || on_bottom) ? border_x : right_rim);
+    const bool on_right = screen_x < window_rect.right &&
+                          screen_x >= window_rect.right - right_hit_width;
 
     if (on_top && on_left) return HTTOPLEFT;
     if (on_top && on_right) return HTTOPRIGHT;

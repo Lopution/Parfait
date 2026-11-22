@@ -35,7 +35,9 @@ export 'desktop_command_bar_scope.dart';
 const _preHomePrefixes = ['/welcome', '/login'];
 const _preHomeExact = {'', '/', '/splash', '/user-agreement'};
 
-bool _isPreHomePath(String path) {
+/// Whether [path] is a pre-home onboarding/auth route where [DesktopCommandBar]
+/// omits navigation buttons so the pushed page owns its own back button.
+bool isDesktopPreHomePath(String path) {
   if (_preHomeExact.contains(path)) return true;
   for (final prefix in _preHomePrefixes) {
     if (path == prefix || path.startsWith('$prefix/')) return true;
@@ -324,7 +326,7 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     _scheduleRegionPublish(actions, chrome);
 
     final uri = liveRouterUri(widget.router);
-    final isPreHome = _isPreHomePath(uri.path);
+    final isPreHome = isDesktopPreHomePath(uri.path);
     final usesSystemTitleBar = chrome?.usesSystemTitleBar ?? false;
     if (usesSystemTitleBar && isPreHome) {
       return const SizedBox.shrink();
