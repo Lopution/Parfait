@@ -602,6 +602,7 @@ Future<T?> showAppContextMenu<T>({
   context: context,
   position: position,
   items: items,
+  useRootNavigator: true,
   constraints:
       constraints ?? const BoxConstraints(minWidth: 200, maxWidth: 360),
 );
