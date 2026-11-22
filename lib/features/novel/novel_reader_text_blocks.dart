@@ -114,18 +114,28 @@ NovelParagraphSlice _buildSlice(List<NovelPageLine> group) {
 }
 
 /// Groups adjacent visual lines of the same paragraph into merged render
-/// slices without altering page or column geometry.
-List<NovelParagraphSlice> groupNovelParagraphSlices(List<NovelPageLine> lines) {
+/// slices without altering page or column geometry. When [maxHeight] is set,
+/// very long unbroken paragraphs split cleanly on visual line boundaries so
+/// scroll-mode virtualization and hit-testing remain bounded to viewport scale.
+List<NovelParagraphSlice> groupNovelParagraphSlices(
+  List<NovelPageLine> lines, {
+  double? maxHeight,
+}) {
   if (lines.isEmpty) return const [];
   final slices = <NovelParagraphSlice>[];
   var group = <NovelPageLine>[lines.first];
+  var groupHeight = lines.first.height;
   for (var i = 1; i < lines.length; i++) {
     final line = lines[i];
-    if (_canMergeLines(group.last, line)) {
+    final exceedsHeight =
+        maxHeight != null && groupHeight + line.height > maxHeight;
+    if (_canMergeLines(group.last, line) && !exceedsHeight) {
       group.add(line);
+      groupHeight += line.height;
     } else {
       slices.add(_buildSlice(group));
       group = [line];
+      groupHeight = line.height;
     }
   }
   slices.add(_buildSlice(group));
@@ -142,15 +152,20 @@ typedef NovelScrollBlock = ({
 
 /// Derived paragraph-level render projection of [NovelScrollColumn]: total
 /// scrollable height matches `column.extent` identically while merging soft
-/// wraps of each paragraph into a single selectable widget.
+/// wraps of each paragraph into viewport-bounded selectable blocks.
 class NovelScrollParagraphBlocks {
+  static const double maxSliceHeight = 320;
+
   factory NovelScrollParagraphBlocks.fromColumn(NovelScrollColumn column) {
     final blocks = <NovelScrollBlock>[];
     final pendingLines = <NovelPageLine>[];
 
     void flushLines() {
       if (pendingLines.isEmpty) return;
-      for (final slice in groupNovelParagraphSlices(pendingLines)) {
+      for (final slice in groupNovelParagraphSlices(
+        pendingLines,
+        maxHeight: maxSliceHeight,
+      )) {
         blocks.add((
           slice: slice,
           gap: NovelPageBreak.none,
