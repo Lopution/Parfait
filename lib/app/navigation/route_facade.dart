@@ -288,18 +288,23 @@ Future<void> openAccountSettings(BuildContext context) async {
 void goToAbout(GoRouter router) => router.go('/settings/about');
 
 /// [atPixivPage] opens at that Pixiv page rather than the saved place.
+/// Pass [replaceCurrent] when stepping to an adjacent chapter inside the
+/// reader so back returns directly to the reading entry.
 Future<void> openNovel(
   BuildContext context,
   int novelId, {
   int? atPixivPage,
+  bool replaceCurrent = false,
 }) async {
-  await pushRoute(
-    context,
-    '${currentStackRoot(context)}/novel/$novelId',
-    extra: atPixivPage == null
-        ? null
-        : NovelRouteExtra(atPixivPage: atPixivPage),
-  );
+  final location = '${currentStackRoot(context)}/novel/$novelId';
+  final extra = atPixivPage == null
+      ? null
+      : NovelRouteExtra(atPixivPage: atPixivPage);
+  if (replaceCurrent) {
+    await pushReplacementRoute(context, location, extra: extra);
+  } else {
+    await pushRoute(context, location, extra: extra);
+  }
 }
 
 Future<void> openNovelRanking(BuildContext context) async {

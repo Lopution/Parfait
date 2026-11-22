@@ -195,21 +195,27 @@ Map<String, dynamic> _seriesNovel(int id, String title) => {
   'content_order': '$id',
 };
 
-Map<String, Object> _seriesJson(List<Map<String, dynamic>> novels) => {
+Map<String, Object> _seriesJson(
+  List<Map<String, dynamic>> novels, {
+  String? nextUrl,
+}) => {
   'novels': novels,
   'novel_series_detail': {
     'id': 5,
     'title': 'series five',
     'watchlist_added': false,
   },
+  'next_url': ?nextUrl,
 };
 
-http.Response _seriesResponse(List<Map<String, dynamic>> novels) =>
-    http.Response.bytes(
-      utf8.encode(jsonEncode(_seriesJson(novels))),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+http.Response _seriesResponse(
+  List<Map<String, dynamic>> novels, {
+  String? nextUrl,
+}) => http.Response.bytes(
+  utf8.encode(jsonEncode(_seriesJson(novels, nextUrl: nextUrl))),
+  200,
+  headers: {'content-type': 'application/json'},
+);
 
 /// Three Pixiv pages, each opening with a line that names it.
 final _threePages = [
@@ -934,6 +940,164 @@ void main() {
       );
       semantics.dispose();
     }
+  });
+
+  testWidgets(
+    'reader palette isolates stage theme from opposite app brightness',
+    (tester) async {
+      double contrast(Color a, Color b) {
+        final l1 = a.computeLuminance();
+        final l2 = b.computeLuminance();
+        final hi = l1 > l2 ? l1 : l2;
+        final lo = l1 > l2 ? l2 : l1;
+        return (hi + 0.05) / (lo + 0.05);
+      }
+
+      for (final (appBrightness, readerTheme, expectedBrightness) in [
+        (Brightness.dark, NovelReaderTheme.paper, Brightness.light),
+        (Brightness.light, NovelReaderTheme.night, Brightness.dark),
+      ]) {
+        final container = await _apiContainer(
+          withSeries: true,
+          platform: memoryPreferences({
+            'parfait.novel.reader_settings.v1': jsonEncode(
+              NovelReaderSettings(theme: readerTheme).toJson(),
+            ),
+          }),
+          seriesHandler: (_) async =>
+              _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              theme: replicaTheme(appBrightness),
+              home: const NovelPage(novelId: 1),
+            ),
+          ),
+        );
+        await tester.pump();
+        await _settleReader(tester);
+        await tester.tapAt(const Offset(400, 300));
+        await tester.pumpAndSettle();
+
+        final stageTheme = Theme.of(
+          tester.element(find.byKey(const Key('novel-series-bar-title'))),
+        );
+        final bg = novelReaderPalette(readerTheme).background!;
+        expect(stageTheme.brightness, expectedBrightness);
+        expect(
+          contrast(stageTheme.colorScheme.onSurface, bg),
+          greaterThan(4.5),
+        );
+        expect(contrast(stageTheme.colorScheme.primary, bg), greaterThan(3.0));
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
+
+  testWidgets('series pagination resolves chapters across next_url and keeps '
+      'fallback prev/next on series fetch failure', (tester) async {
+    final requests = <Uri>[];
+    final container = await _apiContainer(
+      withSeries: true,
+      seriesRequests: requests,
+      seriesHandler: (attempt) async => attempt == 1
+          ? _seriesResponse(
+              [_seriesNovel(9, 'prev')],
+              nextUrl:
+                  'https://app-api.pixiv.net/v2/novel/series?series_id=5&last_order=1',
+            )
+          : _seriesResponse([
+              _seriesNovel(1, 'current'),
+              _seriesNovel(2, 'next'),
+            ]),
+    );
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+
+    expect(requests.length, 2);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, UiIcons.chevronLeft),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, UiIcons.chevronRight),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    final cursor = await container
+        .read(watchlistReadCursorProvider)
+        .read('account', const WatchlistKey(WatchlistType.novel, 5));
+    expect(cursor, 1);
+
+    // When /v2/novel/series fails outright, adjacent IDs from webview payload
+    // still keep prev/next buttons enabled alongside Retry.
+    await tester.pumpWidget(const SizedBox());
+    final failContainer = await _apiContainer(
+      withSeries: true,
+      seriesHandler: (_) async => http.Response('err', 503),
+    );
+    await _openReader(tester, failContainer);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.text('重试'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, UiIcons.chevronLeft),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, UiIcons.chevronRight),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('reader keyboard handler ignores Alt/Ctrl/Meta modifier chords', (
+    tester,
+  ) async {
+    final container = await _apiContainer(
+      platform: memoryPreferences({
+        'parfait.novel.reader_settings.v1': jsonEncode(
+          const NovelReaderSettings(pageTurn: NovelPageTurn.pages).toJson(),
+        ),
+      }),
+    );
+    await _openReader(tester, container);
+    expect(tester.widget<Text>(_progressSuffix()).data, contains('· 1/'));
+
+    // Alt+ArrowRight must pass through without flipping the page.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    try {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    } finally {
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    }
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(_progressSuffix()).data, contains('· 1/'));
+
+    // Unmodified ArrowRight still advances to page 2.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(_progressSuffix()).data, contains('· 2/'));
   });
 }
 

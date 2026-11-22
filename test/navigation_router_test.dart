@@ -177,6 +177,43 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     expect(page().atPixivPage, isNull);
+
+    // Stepping between chapters with replaceCurrent keeps a single reader on
+    // the stack so one pop returns straight to the reading entry.
+    router.go('/ranking');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    unawaited(openNovel(tester.element(find.byType(RankingPage)), 5));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    unawaited(
+      openNovel(
+        tester.element(find.byType(NovelPage)),
+        6,
+        replaceCurrent: true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    unawaited(
+      openNovel(
+        tester.element(find.byType(NovelPage)),
+        7,
+        replaceCurrent: true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(router.state.uri.toString(), '/ranking/novel/7');
+    router.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(router.state.uri.toString(), '/ranking');
   });
 
   testWidgets('tag search stays on the stack it was opened from', (
