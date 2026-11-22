@@ -12,6 +12,7 @@ import '../../../core/network/network_restore_signal.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../l10n/context.dart';
 import '../../motion/state_fade.dart';
+import '../../pull_to_refresh.dart';
 import '../app_snack_bar.dart';
 import '../app_spinner.dart';
 import '../app_top_bar.dart';
@@ -22,6 +23,11 @@ import '../../icons/ui_icons.dart';
 
 /// Surfaces pull-to-refresh failures on a loaded [PagedFeedController] feed as
 /// a transient prompt with a Retry action, leaving the existing list intact.
+///
+/// Failures arriving while the feed is offstage or covered by another route
+/// remain unconsumed on the controller and replay once the feed becomes
+/// visible again, preventing hidden tabs/branches from prompting over the
+/// active page.
 void listenFeedRefreshError(
   BuildContext context,
   WidgetRef ref,
@@ -29,12 +35,8 @@ void listenFeedRefreshError(
   required PagedFeedController Function() controller,
   String? action,
 }) {
-  ref.listen<AsyncValue<PagedFeedState>>(provider, (previous, next) {
-    final feed = next.asData?.value;
-    final wasError = previous?.asData?.value.refreshPhase == FeedPhase.error;
-    if (feed == null || feed.refreshPhase != FeedPhase.error || wasError) {
-      return;
-    }
+  void presentRefreshError() {
+    if (!context.mounted || !isRenderBoxVisibleOnScreen(context)) return;
     final error = controller().consumeRefreshError();
     if (error == null) return;
     final l10n = context.l10n;
@@ -50,6 +52,24 @@ void listenFeedRefreshError(
         },
       ),
     );
+  }
+
+  final active =
+      TickerMode.valuesOf(context).enabled &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
+  if (active &&
+      ref.read(provider).asData?.value.refreshPhase == FeedPhase.error &&
+      controller().hasRefreshError) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => presentRefreshError());
+  }
+
+  ref.listen<AsyncValue<PagedFeedState>>(provider, (previous, next) {
+    final feed = next.asData?.value;
+    final wasError = previous?.asData?.value.refreshPhase == FeedPhase.error;
+    if (feed == null || feed.refreshPhase != FeedPhase.error || wasError) {
+      return;
+    }
+    presentRefreshError();
   });
 }
 
