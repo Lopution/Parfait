@@ -862,6 +862,81 @@ void main() {
           await tester.pumpAndSettle();
           expect(stageScale(), closeTo(1.0, 0.001));
 
+          // Horizontal scroll never shrinks; down-scroll at 1.0 stays identity;
+          // Shift+horizontal wheel turns pages; zooming out from 2.5 snaps to 1.0.
+          await tester.sendEventToBinding(pointer.scroll(const Offset(120, 0)));
+          await tester.pumpAndSettle();
+          expect(stageScale(), closeTo(1.0, 0.001));
+          await tester.sendEventToBinding(pointer.scroll(const Offset(0, 120)));
+          await tester.pumpAndSettle();
+          final fitMatrix = tester
+              .widget<InteractiveViewer>(
+                find.byKey(const ValueKey('viewer-page-0')),
+              )
+              .transformationController!
+              .value;
+          expect(fitMatrix, equals(Matrix4.identity()));
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          try {
+            await tester.sendEventToBinding(
+              pointer.scroll(const Offset(120, 0)),
+            );
+            await tester.pumpAndSettle();
+            expect(find.text('2 / 2'), findsOneWidget);
+            await tester.sendEventToBinding(
+              pointer.scroll(const Offset(-120, 0)),
+            );
+            await tester.pumpAndSettle();
+            expect(find.text('1 / 2'), findsOneWidget);
+          } finally {
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+          }
+
+          // Wheel zoom out from 2.5x snaps cleanly to 1.0 identity without corner-lock,
+          // and a pointer drag mid-animation stops the zoom animation immediately.
+          final controller0 = tester
+              .widget<InteractiveViewer>(
+                find.byKey(const ValueKey('viewer-page-0')),
+              )
+              .transformationController!;
+          controller0.value = Matrix4.diagonal3Values(2.5, 2.5, 1.0);
+          await tester.pump();
+          for (var i = 0; i < 5; i++) {
+            await tester.sendEventToBinding(
+              pointer.scroll(const Offset(0, 120)),
+            );
+          }
+          await tester.pumpAndSettle();
+          expect(controller0.value, equals(Matrix4.identity()));
+
+          await tester.sendEventToBinding(
+            pointer.scroll(const Offset(0, -120)),
+          );
+          await tester.pump(const Duration(milliseconds: 40));
+          final viewer0 = tester.widget<InteractiveViewer>(
+            find.byKey(const ValueKey('viewer-page-0')),
+          );
+          viewer0.onInteractionStart!(ScaleStartDetails());
+          final frozen = controller0.value.clone();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(controller0.value, equals(frozen));
+          await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+          await tester.pumpAndSettle();
+
+          // Hiding chrome via F excludes hidden controls from keyboard focus.
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+          await tester.pumpAndSettle();
+          for (var i = 0; i < 8; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pump();
+          }
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+          await tester.pumpAndSettle();
+
           // Open docked 320dp info panel and pop-before-navigate via author link.
           await tester.tap(find.byIcon(AppIcons.info));
           await tester.pumpAndSettle();

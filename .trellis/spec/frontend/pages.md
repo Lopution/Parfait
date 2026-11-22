@@ -138,9 +138,9 @@ reviewed: 2026-11-21
 ## Library and management lists
 
 ### PAGE-11 Batch selection starts from a "manage" text button
-- **Rule:** Batch-removal lists enter selection via a "manage" `TextButton` (hidden when empty; bulk clears live in ⋮), swap to `selectionAppBar` (back exits selection first), and use `SelectableTile`. `WatchLaterPage` adds pointer `Shift`+click range and `Ctrl`/`Meta`+A; `HistoryPage` novel covers pass tile width via `LayoutBuilder` to `PixivImage.feed`.
-- **Why:** Clearer discoverability than icons, standard desktop multi-select, and bounded novel thumbnail decodes.
-- **Check:** `test/history_page_test.dart` "system back exits selection mode instead of popping"; `test/watchlater_page_test.dart` "several works are removed at once and undone in place" "long press opens the sheet, or selects while managing"
+- **Rule:** Batch-removal lists enter selection via a "manage" `TextButton` (hidden when empty; bulk clears live in ⋮), swap to `selectionAppBar` (back exits selection first), and use `SelectableTile` (while managing, `SelectableTile` excludes child focus via `ExcludeFocus` and handles `Enter`/`Space` keyboard activation to toggle selection instead of opening the underlying card). `WatchLaterPage` adds pointer `Shift`+click range and `Ctrl`/`Meta`+A; `HistoryPage` novel covers pass tile width via `LayoutBuilder` to `PixivImage.feed`.
+- **Why:** Clearer discoverability than icons, standard desktop multi-select, safe keyboard management without opening cards, and bounded novel thumbnail decodes.
+- **Check:** `test/history_page_test.dart` "system back exits selection mode instead of popping"; `test/watchlater_page_test.dart` "several works are removed at once and undone in place" "long press opens the sheet, or selects while managing" "pointer managing supports Shift+Click range selection and Ctrl+A select all"
 - **Code:** `lib/app/widgets/selectable_tile.dart`, `lib/app/widgets/selection_app_bar.dart`, `lib/features/watchlater/watchlater_page.dart`, `lib/features/history/history_page.dart`
 
 ### PAGE-12 Removals return what Undo needs to restore positions

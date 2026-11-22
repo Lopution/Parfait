@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
@@ -599,14 +601,18 @@ void main() {
   Widget composerApp(Widget home) =>
       withStalledImages(localizedApp(builder: promptHostBuilder, home: home));
 
-  Widget bareComposer() => Scaffold(
+  Widget bareComposer({VoidCallback? onGone}) => Scaffold(
     // Same contract as the real pages: the Scaffold stays out of insets so
     // the composer's bottom extent can observe MediaQuery.viewInsets.
     resizeToAvoidBottomInset: false,
     body: Column(
       children: [
         const Expanded(child: SizedBox()),
-        CommentComposer(onSend: (_) async {}, onStampSend: (_) async {}),
+        CommentComposer(
+          onSend: (_) async {},
+          onStampSend: (_) async {},
+          onGone: onGone,
+        ),
       ],
     ),
   );
@@ -995,6 +1001,33 @@ void main() {
     await tester.tap(find.byTooltip('Emoji'));
     await tester.pump();
     expect(slot(), 280);
+
+    // Pointer/desktop modality never waits 600ms for a soft keyboard: an
+    // on-surface composer shows immediately and switching from panel to text
+    // starts closing the panel right away.
+    await tester.pumpWidget(
+      InputModalityScope(
+        initialModality: InputModality.pointer,
+        child: composerApp(bareComposer(onGone: () {})),
+      ),
+    );
+    tester
+        .state<CommentComposerState>(find.byType(CommentComposer))
+        .open(CommentComposerInputState.keyboard);
+    await tester.pump();
+    expect(
+      tester.widget<Opacity>(find.byType(Opacity).first).opacity,
+      closeTo(1.0, 0.001),
+    );
+    await tester.tap(find.byTooltip('Emoji'), kind: PointerDeviceKind.mouse);
+    await _settlePanel(tester);
+    expect(slot(), 280);
+    await tester.tap(find.byType(TextField), kind: PointerDeviceKind.mouse);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(slot(), lessThan(280));
+    await _settlePanel(tester);
+    expect(slot(), 0);
   });
 
   testWidgets('a turned phone keeps the panel to half the window', (

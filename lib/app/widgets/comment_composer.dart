@@ -210,6 +210,7 @@ class CommentComposerState extends State<CommentComposer>
   double _keyboardPeak = 0;
   bool _keyboardWasUp = false;
   bool _keyboardAbsent = false;
+  bool _pointerInput = false;
   Timer? _absentWait;
   bool _gone = false;
 
@@ -265,6 +266,11 @@ class CommentComposerState extends State<CommentComposer>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _pointerInput = isPointerInput(context);
+    if (_pointerInput && (_absentWait?.isActive ?? false)) {
+      _absentWait?.cancel();
+      _keyboardAbsent = true;
+    }
     // The keyboard has risen over the held panel: nothing of it shows any
     // more, so it goes at once.
     final hold = _keyboardHold;
@@ -424,13 +430,20 @@ class CommentComposerState extends State<CommentComposer>
     setState(() {
       _inputState = next;
       if (_panelVisible) _shownPanel = next;
+      if (_onSurface &&
+          next == CommentComposerInputState.keyboard &&
+          !_keyboardUp &&
+          _pointerInput) {
+        _keyboardAbsent = true;
+      }
     });
     _keyboardHold?.cancel();
     _absentWait?.cancel();
     if (next != CommentComposerInputState.none) _opened = true;
     if (_onSurface &&
         next == CommentComposerInputState.keyboard &&
-        !_keyboardUp) {
+        !_keyboardUp &&
+        !_pointerInput) {
       _absentWait = Timer(CommentComposer.keyboardWait, () {
         if (mounted && !_keyboardUp) {
           setState(() => _keyboardAbsent = true);
@@ -447,10 +460,14 @@ class CommentComposerState extends State<CommentComposer>
         _animatePanel(1);
       case CommentComposerInputState.keyboard when _panelReveal.value > 0:
         _panelReveal.stop();
-        _keyboardHold = Timer(
-          CommentComposer.keyboardWait,
-          () => _animatePanel(0),
-        );
+        if (_pointerInput) {
+          _animatePanel(0);
+        } else {
+          _keyboardHold = Timer(
+            CommentComposer.keyboardWait,
+            () => _animatePanel(0),
+          );
+        }
       case CommentComposerInputState.keyboard:
         break;
       case CommentComposerInputState.none:
