@@ -8,6 +8,9 @@ import 'package:flutter/painting.dart';
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
+import 'novel_ruby.dart';
+
+export 'novel_ruby.dart' show NovelLineRuby;
 
 /// Text settings that participate in the layout cache key.
 class NovelLayoutStyle {
@@ -340,6 +343,7 @@ class NovelPageLine {
     this.kind = NovelLineKind.body,
     this.image,
     this.links = const [],
+    this.rubies = const [],
   });
 
   final String text;
@@ -361,6 +365,9 @@ class NovelPageLine {
 
   /// The author's links on this line, in order.
   final List<NovelLineLink> links;
+
+  /// Ruby (furigana) annotations on this line, in order.
+  final List<NovelLineRuby> rubies;
 
   /// A line of a paragraph's translation. It belongs to the paragraph and
   /// sits at its end (both offsets are the paragraph's length), so anchors
@@ -1293,10 +1300,15 @@ class NovelLayoutEngine {
     final kind = paragraph.isChapterHeading
         ? NovelLineKind.heading
         : NovelLineKind.body;
-    final rows = _rows(
-      source,
-      style.lineStyle(kind, measure.textColor),
-      measure,
+    final lineStyle = style.lineStyle(kind, measure.textColor);
+    final (:rows, activeRubies: rubies) = measureNovelParagraphRows(
+      paragraph: paragraph,
+      text: source,
+      style: lineStyle,
+      maxWidth: measure.maxWidth,
+      textDirection: measure.textDirection,
+      textScaler: measure.textScaler,
+      measurePlain: () => _rows(source, lineStyle, measure),
     );
     if (rows.isEmpty) {
       return [
@@ -1347,6 +1359,7 @@ class NovelLayoutEngine {
                     target: target,
                   ),
             ],
+            rubies: sliceNovelRubies(rubies, start, end),
           );
         }(),
     ];
@@ -1491,6 +1504,7 @@ class NovelLayoutEngine {
             kind: line.kind,
             image: line.image,
             links: line.links,
+            rubies: line.rubies,
           ),
       ];
       final first = current.first.line;
@@ -1659,6 +1673,7 @@ class _MeasuredLine {
     this.kind = NovelLineKind.body,
     this.image,
     this.links = const [],
+    this.rubies = const [],
   });
 
   const _MeasuredLine.empty()
@@ -1673,7 +1688,8 @@ class _MeasuredLine {
       chapterTitle = null,
       kind = NovelLineKind.body,
       image = null,
-      links = const [];
+      links = const [],
+      rubies = const [];
 
   final int paragraphIndex;
   final String paragraphId;
@@ -1687,6 +1703,7 @@ class _MeasuredLine {
   final NovelLineKind kind;
   final NovelImageLoadRequest? image;
   final List<NovelLineLink> links;
+  final List<NovelLineRuby> rubies;
 
   bool get isTranslation => kind == NovelLineKind.translation;
 
@@ -1712,6 +1729,7 @@ class _MeasuredLine {
     kind: kind,
     image: image,
     links: links,
+    rubies: rubies,
   );
 }
 

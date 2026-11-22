@@ -65,6 +65,7 @@ class _NovelPage extends StatelessWidget {
       for (final kind in NovelLineKind.values)
         kind: style.lineStyle(kind, color),
     };
+    final slices = groupNovelParagraphSlices(page.lines);
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: style.horizontalPadding,
@@ -73,146 +74,20 @@ class _NovelPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final line in page.lines) ...[
-            _NovelLine(
-              line: line,
-              style: styles[line.kind],
+          for (final slice in slices) ...[
+            NovelParagraphSliceView(
+              slice: slice,
+              style: styles[slice.kind],
               color: color,
               novel: novel,
               onImageTap: onImageTap,
               onLinkTap: onLinkTap,
               openAddresses: openAddresses,
             ),
-            if (line.spacingAfter > 0) SizedBox(height: line.spacingAfter),
+            if (slice.spacingAfter > 0) SizedBox(height: slice.spacingAfter),
           ],
         ],
       ),
-    );
-  }
-}
-
-/// One line of the text, at its measured height: a row of text, or the
-/// illustration of an image line.
-class _NovelLine extends StatelessWidget {
-  const _NovelLine({
-    required this.line,
-    required this.style,
-    required this.color,
-    required this.novel,
-    required this.onImageTap,
-    required this.onLinkTap,
-    required this.openAddresses,
-  });
-
-  final NovelPageLine line;
-  final TextStyle? style;
-  final Color color;
-  final NovelEntity novel;
-  final ValueChanged<NovelImageLoadRequest>? onImageTap;
-  final ValueChanged<NovelLinkTarget> onLinkTap;
-
-  /// Whether links to addresses open; off, they read as text.
-  final bool openAddresses;
-
-  @override
-  Widget build(BuildContext context) {
-    final links = [
-      for (final link in line.links)
-        if (link.target.page != null || openAddresses) link,
-    ];
-    return SizedBox(
-      height: line.height,
-      child: switch (line) {
-        NovelPageLine(:final image?) => NovelIllustration(
-          novel: novel,
-          image: image,
-          color: color,
-          onTap: onImageTap,
-        ),
-        NovelPageLine(text: '') => null,
-        _ when links.isNotEmpty => _NovelLinkText(
-          text: line.text,
-          links: links,
-          style: style,
-          onTap: onLinkTap,
-        ),
-        _ => Text(
-          line.text,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.clip,
-          style: style,
-        ),
-      },
-    );
-  }
-}
-
-/// A line with an author's links: each in the accent colour, a tap on it
-/// following it. Same font and size, so the line keeps its measure.
-class _NovelLinkText extends StatefulWidget {
-  const _NovelLinkText({
-    required this.text,
-    required this.links,
-    required this.style,
-    required this.onTap,
-  });
-
-  final String text;
-  final List<NovelLineLink> links;
-  final TextStyle? style;
-  final ValueChanged<NovelLinkTarget> onTap;
-
-  @override
-  State<_NovelLinkText> createState() => _NovelLinkTextState();
-}
-
-class _NovelLinkTextState extends State<_NovelLinkText> {
-  final _recognizers = <TapGestureRecognizer>[];
-
-  @override
-  void dispose() {
-    _disposeRecognizers();
-    super.dispose();
-  }
-
-  void _disposeRecognizers() {
-    for (final recognizer in _recognizers) {
-      recognizer.dispose();
-    }
-    _recognizers.clear();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    _disposeRecognizers();
-    final text = widget.text;
-    final linkStyle = TextStyle(color: Theme.of(context).colorScheme.primary);
-    final spans = <TextSpan>[];
-    var at = 0;
-    for (final link in widget.links) {
-      if (link.start > at) {
-        spans.add(TextSpan(text: text.substring(at, link.start)));
-      }
-      final recognizer = TapGestureRecognizer()
-        ..onTap = () => widget.onTap(link.target);
-      _recognizers.add(recognizer);
-      spans.add(
-        TextSpan(
-          text: text.substring(link.start, link.end),
-          style: linkStyle,
-          recognizer: recognizer,
-        ),
-      );
-      at = link.end;
-    }
-    if (at < text.length) spans.add(TextSpan(text: text.substring(at)));
-    return Text.rich(
-      TextSpan(children: spans),
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.clip,
-      style: widget.style,
     );
   }
 }

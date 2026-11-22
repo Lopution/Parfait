@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -506,18 +507,18 @@ void main() {
     // The body really is larger, not only measured as it paints.
     expect(pageCounts[2.0], greaterThan(pageCounts[1.0]!));
 
-    final lines = tester.renderObjectList<RenderParagraph>(
+    final paragraphs = tester.renderObjectList<RenderParagraph>(
       find.descendant(
         of: find.byType(NovelReader),
         matching: find.byType(RichText),
       ),
     );
-    expect(lines, isNotEmpty);
-    for (final line in lines) {
+    expect(paragraphs, isNotEmpty);
+    for (final paragraph in paragraphs) {
       expect(
-        line.getMaxIntrinsicWidth(double.infinity),
-        lessThanOrEqualTo(line.size.width + 0.5),
-        reason: line.text.toPlainText(),
+        paragraph.getMaxIntrinsicHeight(paragraph.size.width),
+        lessThanOrEqualTo(paragraph.size.height + 0.5),
+        reason: paragraph.text.toPlainText(),
       );
     }
   });
@@ -1051,6 +1052,161 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('PAGE_3'), findsOneWidget);
     expect(find.text('PAGE_4'), findsNothing);
+  });
+
+  testWidgets('scroll mode relayout keeps lead-padding and sub-item offset and '
+      'does not interrupt active scrolling on off-screen translations', (
+    tester,
+  ) async {
+    final text = List.generate(
+      40,
+      (i) => 'paragraph $i ${'content ' * 12}',
+    ).join('\n');
+    final novel = _novel(text);
+    Widget build(Map<String, String> translations) => localizedApp(
+      body: NovelReader(
+        novel: novel,
+        scrollTopPadding: 64,
+        translations: translations,
+      ),
+    );
+    await tester.pumpWidget(build(const {}));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final controller = tester
+        .widget<ListView>(find.byType(ListView))
+        .controller!;
+    controller.jumpTo(20);
+    await tester.pump();
+    await tester.pumpWidget(build({'p35': 'translated far below'}));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    expect(controller.offset, closeTo(20, 0.5));
+
+    controller.jumpTo(315);
+    await tester.pump();
+    await tester.pumpWidget(
+      build({'p35': 'translated far below', 'p36': 'another below'}),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    expect(controller.offset, closeTo(315, 0.5));
+
+    await tester.fling(find.byType(ListView), const Offset(0, -300), 2500);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    final beforeRelayout = controller.offset;
+    await tester.pumpWidget(
+      build({
+        'p35': 'translated far below',
+        'p36': 'another below',
+        'p37': 'third below',
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(controller.offset, greaterThan(beforeRelayout + 20));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('soft-wrapped paragraphs copy without hard newlines, mouse '
+      'double-click selects words without toggling chrome, and ruby renders '
+      'stacked furigana excluded from copied text', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    var centerTaps = 0;
+    final longPara = 'alpha beta gamma delta epsilon zeta ' * 5;
+    await tester.pumpWidget(
+      localizedApp(
+        body: NovelReader(
+          novel: _novel('$longPara\nsecond paragraph'),
+          onCenterTap: () => centerTaps += 1,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final paraPos =
+        tester.getTopLeft(find.textContaining('alpha')) + const Offset(12, 12);
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.down(paraPos));
+    await tester.sendEventToBinding(mouse.up());
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.sendEventToBinding(mouse.down(paraPos));
+    await tester.sendEventToBinding(mouse.up());
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(centerTaps, 0);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(copied?.trim(), 'alpha');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(copied, contains(longPara.trim()));
+    expect(copied, contains('second paragraph'));
+    expect(copied, isNot(contains('\n')));
+
+    final blank =
+        tester.getBottomRight(find.byType(NovelReader)) - const Offset(20, 20);
+    await tester.sendEventToBinding(mouse.down(blank));
+    await tester.sendEventToBinding(mouse.up());
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(centerTaps, 0);
+    await tester.sendEventToBinding(mouse.down(blank));
+    await tester.sendEventToBinding(mouse.up());
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(centerTaps, 1);
+
+    await tester.pumpWidget(
+      localizedApp(body: NovelReader(novel: _novel('彼は[[rb:漢字 > かんじ]]を読んだ'))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('漢字'), findsOneWidget);
+    expect(find.text('かんじ'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('かんじ')).dy,
+      lessThan(tester.getTopLeft(find.text('漢字')).dy),
+    );
+    copied = null;
+    final rubyPos = tester.getCenter(find.text('漢字'));
+    await tester.sendEventToBinding(mouse.down(rubyPos));
+    await tester.sendEventToBinding(mouse.up());
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.sendEventToBinding(mouse.down(rubyPos));
+    await tester.sendEventToBinding(mouse.up());
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(copied, '彼は漢字を読んだ');
   });
 }
 
