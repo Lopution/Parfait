@@ -1461,5 +1461,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "previousArtworkTooltip": "Previous artwork",
+  "nextArtworkTooltip": "Next artwork"
 }

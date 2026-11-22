@@ -461,6 +461,9 @@ class DesktopWindowSession with WindowListener {
   Future<void> titleBarDoubleClick() =>
       _host.performCommand(DesktopWindowCommand.titleBarDoubleClick);
 
+  Future<void> restoreEditMenu() =>
+      _host.performCommand(DesktopWindowCommand.restoreEditMenu);
+
   Future<void> updateTitleBarRegions(
     List<DesktopTitleBarRegion> regions, {
     double? titleBarHeight,
@@ -469,19 +472,31 @@ class DesktopWindowSession with WindowListener {
     titleBarHeight: metrics.value.isFullScreen ? 0.0 : (titleBarHeight ?? 32.0),
   );
 
+  static bool _isValidOrdinarySize(Size size) =>
+      size.width >= 200 && size.height >= 100;
+
+  static bool _isValidOrdinaryPosition(Offset position) =>
+      position.dx > -30000 && position.dy > -30000;
+
   /// Captures pre-maximize ordinary bounds; each plugin call is isolated so
-  /// a Wayland position failure never discards window size.
+  /// a Wayland position failure never discards window size. Minimized windows
+  /// report Win32 iconic sentinel coordinates (`-32000`, `160x28`) and are
+  /// skipped.
   Future<void> captureOrdinary() async {
     if (metrics.value.isFullScreen) return;
     final fullScreen = await _readFullScreen();
     if (fullScreen == true) return;
+    final minimized = await _readMinimized();
+    if (minimized == true) return;
     final maximized = await _readMaximized();
     if (maximized == true) return;
 
     final size = await _readSize();
     final position = metrics.value.isWayland ? null : await _readPosition();
-    if (size != null) _ordinarySize = size;
-    if (position != null) _ordinaryPosition = position;
+    if (size != null && _isValidOrdinarySize(size)) _ordinarySize = size;
+    if (position != null && _isValidOrdinaryPosition(position)) {
+      _ordinaryPosition = position;
+    }
   }
 
   /// Persists the window's ordinary size/position and maximized state.
@@ -490,28 +505,41 @@ class DesktopWindowSession with WindowListener {
     final fullScreen = await _readFullScreen();
     if (fullScreen == true) return;
 
-    final maximized = await _readMaximized() ?? metrics.value.isMaximized;
-    final size = await _readSize();
-    final position = metrics.value.isWayland ? null : await _readPosition();
+    final saved = _readSavedPlace();
+    final minimized = await _readMinimized() ?? false;
+    final maximized = minimized
+        ? metrics.value.isMaximized
+        : (await _readMaximized() ?? metrics.value.isMaximized);
+    final rawSize = minimized ? null : await _readSize();
+    final rawPosition = minimized || metrics.value.isWayland
+        ? null
+        : await _readPosition();
+    final size = rawSize != null && _isValidOrdinarySize(rawSize)
+        ? rawSize
+        : null;
+    final position =
+        rawPosition != null && _isValidOrdinaryPosition(rawPosition)
+        ? rawPosition
+        : null;
 
-    if (!maximized) {
+    if (!maximized && !minimized) {
       if (size != null) _ordinarySize = size;
       if (position != null) _ordinaryPosition = position;
     }
 
-    final saved = _readSavedPlace();
-    final effectiveWidth = maximized
+    final preserveOrdinary = maximized || minimized;
+    final effectiveWidth = preserveOrdinary
         ? (_ordinarySize?.width ?? saved.width ?? size?.width)
-        : (size?.width ?? _ordinarySize?.width);
-    final effectiveHeight = maximized
+        : (size?.width ?? _ordinarySize?.width ?? saved.width);
+    final effectiveHeight = preserveOrdinary
         ? (_ordinarySize?.height ?? saved.height ?? size?.height)
-        : (size?.height ?? _ordinarySize?.height);
-    final effectiveX = maximized
+        : (size?.height ?? _ordinarySize?.height ?? saved.height);
+    final effectiveX = preserveOrdinary
         ? (_ordinaryPosition?.dx ?? saved.x ?? position?.dx)
-        : (position?.dx ?? _ordinaryPosition?.dx);
-    final effectiveY = maximized
+        : (position?.dx ?? _ordinaryPosition?.dx ?? saved.x);
+    final effectiveY = preserveOrdinary
         ? (_ordinaryPosition?.dy ?? saved.y ?? position?.dy)
-        : (position?.dy ?? _ordinaryPosition?.dy);
+        : (position?.dy ?? _ordinaryPosition?.dy ?? saved.y);
 
     try {
       await _saveGeometry(
@@ -523,6 +551,15 @@ class DesktopWindowSession with WindowListener {
       );
     } on Object catch (error) {
       log('window: could not save the place: $error');
+    }
+  }
+
+  Future<bool?> _readMinimized() async {
+    try {
+      return await _adapter.isMinimized();
+    } on Object catch (error) {
+      log('window: isMinimized failed: $error');
+      return null;
     }
   }
 
@@ -672,6 +709,7 @@ class _DesktopWindowBindingState extends ConsumerState<DesktopWindowBinding> {
       onRegionsWithHeightChanged: (regions, height) => unawaited(
         session.updateTitleBarRegions(regions, titleBarHeight: height),
       ),
+      onRestoreEditMenu: () => unawaited(session.restoreEditMenu()),
     );
     unawaited(
       session.attach(

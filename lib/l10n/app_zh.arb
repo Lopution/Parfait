@@ -2082,5 +2082,13 @@
         "type": "int"
       }
     }
+  },
+  "previousArtworkTooltip": "上一作品",
+  "@previousArtworkTooltip": {
+    "description": "Tooltip for switching to the previous artwork in detail pager"
+  },
+  "nextArtworkTooltip": "下一作品",
+  "@nextArtworkTooltip": {
+    "description": "Tooltip for switching to the next artwork in detail pager"
   }
 }

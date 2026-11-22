@@ -3428,4 +3428,10 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get previousArtworkTooltip => 'Previous artwork';
+
+  @override
+  String get nextArtworkTooltip => 'Next artwork';
 }

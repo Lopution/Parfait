@@ -3,7 +3,7 @@ prefix: REV
 applies_to:
   - lib/core/reverse_image/**
   - lib/features/search/reverse_image*.dart
-reviewed: 2026-10-12
+reviewed: 2026-11-22
 ---
 
 # Reverse image search
@@ -44,10 +44,19 @@ reviewed: 2026-10-12
 ### REV-04 Providers never fake results
 - **Rule:** A provider declares a typed capability and returns typed
   outcomes. It never turns HTML or a challenge into result cards and never
-  returns an empty success without evidence; results show in the engine's
-  own page, and a challenge falls back to its upload form in the
-  controlled WebView (HTTPS only). An unavailable provider is a visible
-  terminal failure.
-- **Why:** Scraped result pages broke silently and read as "no match".
-- **Check:** `test/reverse_image_search_test.dart` "unavailable provider is an explicit terminal failure" "a challenge falls back to the engine upload form in the browser"
-- **Code:** `lib/core/reverse_image`
+  returns an empty success without evidence; on platforms with an in-app
+  WebView results show in the engine's own page and a challenge falls back
+  to its upload form in the controlled WebView (HTTPS only). On platforms
+  without an in-app WebView (`!PlatformCaps.supportsInAppWebView`, i.e.,
+  Linux), when a headless engine returns an HTTP 200 HTML page without a
+  redirect URL, `ReverseImageHtmlResultsView` extracts clickable matches
+  via `parseReverseImageHtmlMatches` filtered through
+  `ReverseImageNavigationPolicy` and strictly HTTPS-only
+  `validateExternalResultUrl`, showing an explicit no-match state plus a
+  browser fallback when no valid match links exist. An unavailable provider
+  is a visible terminal failure.
+- **Why:** Scraped result pages in providers broke silently and read as
+  "no match", while dropping HTTP 200 HTML on Linux sent users to a blank
+  engine homepage.
+- **Check:** `test/reverse_image_search_test.dart` "unavailable provider is an explicit terminal failure" "a challenge falls back to the engine upload form in the browser" "parseReverseImageHtmlMatches extracts validated SauceNAO and IQDB matches without relaxing HTTPS-only rules"; `test/reverse_image_search_page_test.dart` "shows browser fallback for resultUrl and parsed clickable matches for HTML on Linux"
+- **Code:** `lib/core/reverse_image`, `lib/features/search/reverse_image_html_results_view.dart`, `lib/features/search/reverse_image_search_widgets.dart`

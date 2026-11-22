@@ -6286,6 +6286,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count, plural, other{已加入收藏队列（{count} 项）}}'**
   String batchBookmarkEnqueued(int count);
+
+  /// Tooltip for switching to the previous artwork in detail pager
+  ///
+  /// In zh, this message translates to:
+  /// **'上一作品'**
+  String get previousArtworkTooltip;
+
+  /// Tooltip for switching to the next artwork in detail pager
+  ///
+  /// In zh, this message translates to:
+  /// **'下一作品'**
+  String get nextArtworkTooltip;
 }
 
 class _AppLocalizationsDelegate

@@ -9,6 +9,7 @@ import '../../../app/icons/app_icons.dart';
 import '../../../app/icons/ui_icons.dart';
 import '../../../app/layout/deferred_cache_scroll_view.dart';
 import '../../../app/layout/two_pane.dart';
+import '../../../app/layout/window_layout_spec.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/motion/motion_tokens.dart';
 import '../../../app/pixiv_image.dart';
@@ -88,6 +89,15 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = FuncSemanticTokens.of(context);
     final wideDesktopModal = MediaQuery.sizeOf(context).width >= 960;
+    final isModalOverlay = DetailOverlayFrame.isActiveOf(context);
+    final safePadding = isModalOverlay
+        ? EdgeInsets.zero
+        : MediaQuery.paddingOf(context);
+    final isTabletop =
+        WindowLayoutSpec.postureOf(context) == FoldPosture.tabletop;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final startSafe = isRtl ? safePadding.right : safePadding.left;
+    final endSafe = isRtl ? safePadding.left : safePadding.right;
     final metaScroll = NotificationListener<ScrollNotification>(
       onNotification: onScrollNotification,
       child: SmoothWheelScroll(
@@ -95,7 +105,11 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
         builder: (context, controller, physics) => DeferredCacheScrollView(
           controller: controller,
           physics: physics,
-          slivers: metaSlivers,
+          slivers: [
+            ...metaSlivers,
+            if (safePadding.bottom > 0)
+              SliverToBoxAdapter(child: SizedBox(height: safePadding.bottom)),
+          ],
         ),
       ),
     );
@@ -134,7 +148,12 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
                   color: Theme.of(context).colorScheme.surfaceContainerLow,
                 ),
               Padding(
-                padding: const EdgeInsets.all(FuncSpacing.lg),
+                padding: EdgeInsetsDirectional.fromSTEB(
+                  FuncSpacing.lg + startSafe,
+                  FuncSpacing.lg + safePadding.top,
+                  FuncSpacing.lg + (isTabletop ? endSafe : 0),
+                  FuncSpacing.lg + (isTabletop ? 0 : safePadding.bottom),
+                ),
                 child: DetailImagePager(
                   entity: entity,
                   detailUrlFor: detailUrlFor,
@@ -152,21 +171,19 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
               ),
               if (!downloadMode)
                 PositionedDirectional(
-                  top: FuncSpacing.md,
-                  start: FuncSpacing.md,
+                  top: FuncSpacing.md + safePadding.top,
+                  start: FuncSpacing.md + startSafe,
                   child: HeroChrome(
                     child: ArtworkControls(
                       glyph: FuncTokens.white,
                       halo: const Color(0xCC0C0914),
                       child: Builder(
                         builder: (context) {
-                          final isModalOverlay = DetailOverlayFrame.isActiveOf(
-                            context,
-                          );
                           final localizations = MaterialLocalizations.of(
                             context,
                           );
                           return IconButton(
+                            key: const ValueKey('two-pane-primary-back'),
                             tooltip: isModalOverlay
                                 ? localizations.closeButtonTooltip
                                 : localizations.backButtonTooltip,
@@ -190,7 +207,11 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
         secondary: DecoratedBox(
           decoration: BoxDecoration(
             color: tokens.surface,
-            border: Border(left: BorderSide(color: tokens.brandHairline)),
+            border: isTabletop
+                ? Border(top: BorderSide(color: tokens.brandHairline))
+                : BorderDirectional(
+                    start: BorderSide(color: tokens.brandHairline),
+                  ),
           ),
           child: Stack(
             fit: StackFit.expand,
@@ -198,16 +219,33 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SelectionContainer.disabled(child: inspectorHeader),
+                  Padding(
+                    padding: EdgeInsetsDirectional.only(
+                      top: isTabletop ? 0 : safePadding.top,
+                      start: isTabletop ? startSafe : 0,
+                      end: endSafe,
+                    ),
+                    child: SelectionContainer.disabled(child: inspectorHeader),
+                  ),
                   Divider(height: 1, color: tokens.brandHairline),
                   Expanded(
-                    child: Scrollbar(
-                      controller: metaScrollController,
-                      child: ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(
-                          context,
-                        ).copyWith(scrollbars: false),
-                        child: DetailSelectionScope(child: metaScroll),
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: isTabletop ? startSafe : 0,
+                          end: endSafe,
+                        ),
+                        child: Scrollbar(
+                          controller: metaScrollController,
+                          child: ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(
+                              context,
+                            ).copyWith(scrollbars: false),
+                            child: DetailSelectionScope(child: metaScroll),
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -847,6 +847,112 @@ void main() {
     });
 
     testWidgets(
+      'failed/canceled group header offers retry and remove with undo; retryable error group offers retry and cancel',
+      (tester) async {
+        Finder iconIn(Finder parent, IconData icon) =>
+            find.descendant(of: parent, matching: find.byIcon(icon));
+
+        // 1. Failed group header: Retry + Remove Record (with Undo), never Cancel.
+        final (failedContainer, failedManager, _) = await makeDownloadWorld(
+          responses: [
+            for (var i = 1; i <= 2; i++)
+              ScriptedResponse(
+                contentLength: 1,
+                chunks: [
+                  [i],
+                ],
+                error: StateError('boom-$i'),
+              ),
+          ],
+        );
+        final failedGroup = failedManager.submitGroup([
+          downloadRequest(1),
+          downloadRequest(2),
+        ]);
+        await _pumpPage(tester, failedContainer);
+        await pumpUntil(
+          tester,
+          () => failedManager.tasks.every(
+            (t) => t.status == DownloadStatus.failed,
+          ),
+        );
+        await tester.pump();
+
+        final failedHeader = _groupHeader(failedGroup.id);
+        expect(iconIn(failedHeader, UiIcons.refresh), findsOneWidget);
+        expect(iconIn(failedHeader, UiIcons.removeCircle), findsOneWidget);
+        expect(iconIn(failedHeader, UiIcons.close), findsNothing);
+        await tester.tap(iconIn(failedHeader, UiIcons.removeCircle));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(failedManager.groups, isEmpty);
+        await _tapUndo(tester);
+        await tester.pump();
+        await tester.pump();
+        expect(failedManager.groups.single.id, failedGroup.id);
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+
+        // 2. Non-paused retryable group (interrupted across restart) shows
+        //    Retry instead of paused Resume, while keeping Cancel; canceling
+        //    transitions its secondary action to Remove.
+        final store = MemoryDownloadRecoveryStore();
+        for (final id in const [3, 4]) {
+          final request = downloadRequest(id);
+          await store.upsert(
+            DownloadRecoveryRecord(
+              jobId: 'job-r-$id',
+              dedupeKey: request.dedupeKey,
+              snapshot: DownloadSubmissionSnapshot(
+                snapshotId: 'sub-r-$id',
+                jobId: 'job-r-$id',
+                groupId: 'group-r',
+                request: request,
+                accountId: 'account-a',
+                submittedAt: DateTime.utc(2026, 9, 30),
+              ),
+              owner: DownloadOutputOwner(
+                ownerId: 'out-r-$id',
+                jobId: 'job-r-$id',
+                accountId: 'account-a',
+              ),
+              status: DownloadStatus.running,
+            ),
+          );
+        }
+        final retryManager = DownloadManager(
+          transport: FakeTransport(),
+          sinkFactory: MemorySinkFactory(),
+          submissionContext: () =>
+              const DownloadSubmissionContext(accountId: 'account-a'),
+          recoveryStore: store,
+        );
+        await retryManager.recover();
+        final retryContainer = ProviderContainer.test(
+          overrides: [downloadManagerProvider.overrideWithValue(retryManager)],
+        );
+        await _pumpPage(tester, retryContainer);
+        await tester.pump();
+
+        final retryHeader = _groupHeader('group-r');
+        expect(iconIn(retryHeader, UiIcons.refresh), findsOneWidget);
+        expect(iconIn(retryHeader, UiIcons.play), findsNothing);
+        expect(iconIn(retryHeader, UiIcons.close), findsOneWidget);
+
+        await tester.tap(iconIn(retryHeader, UiIcons.close));
+        await pumpUntil(
+          tester,
+          () => retryManager.tasks.every(
+            (t) => t.status == DownloadStatus.canceled,
+          ),
+        );
+        await tester.pump();
+        expect(iconIn(retryHeader, UiIcons.removeCircle), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'pointer mode supports Ctrl+Click, Shift+Click range, and Ctrl+A',
       (tester) async {
         final (container, manager, _) = await makeDownloadWorld(

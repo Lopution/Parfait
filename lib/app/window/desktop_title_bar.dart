@@ -34,6 +34,7 @@ class DesktopWindowActions {
     required this.onTitleBarDoubleClick,
     required this.onRegionsChanged,
     this.onRegionsWithHeightChanged,
+    this.onRestoreEditMenu,
   });
 
   /// Non-interactive stub actions used in simulated desktop shells and review
@@ -60,6 +61,7 @@ class DesktopWindowActions {
     double titleBarHeight,
   )?
   onRegionsWithHeightChanged;
+  final VoidCallback? onRestoreEditMenu;
 }
 
 /// Bridges the process-level desktop window controller into [DesktopWindowFrame].
@@ -392,9 +394,9 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
 
     _canToggleF11 =
         actions != null &&
-        !resolved.usesSystemTitleBar &&
-        (platform == TargetPlatform.windows ||
-            platform == TargetPlatform.linux);
+        (platform == TargetPlatform.linux ||
+            (platform == TargetPlatform.windows &&
+                !resolved.usesSystemTitleBar));
 
     final Widget content = MediaQuery(
       data: adjustedMediaQuery,

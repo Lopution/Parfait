@@ -17,6 +17,7 @@ import 'package:parfait/app/layout/window_layout_spec.dart'
 import 'package:parfait/app/navigation/forward_history.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/navigation/route_extras.dart' show IllustRouteExtra;
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/display_actions.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/page_header.dart';
@@ -463,6 +464,7 @@ void main() {
       );
       addTearDown(router.dispose);
 
+      var restoredEditMenu = 0;
       for (final entry in <(TargetPlatform, Matcher)>[
         (TargetPlatform.windows, findsNothing),
         (TargetPlatform.linux, findsNothing),
@@ -474,10 +476,26 @@ void main() {
             localizedRouterApp(
               router,
               overrides: [...await signedInAccountOverrides()],
-              builder: (_, child) => DesktopMenuBar(
-                settings: AppSettings.defaults(),
-                router: router,
-                child: child!,
+              builder: (_, child) => WindowEnvironmentOverride(
+                displaySize: const Size(1280, 800),
+                targetPlatform: entry.$1,
+                desktopActions: DesktopWindowActions(
+                  onMinimize: () {},
+                  onToggleMaximize: () {},
+                  onClose: () {},
+                  onToggleFullScreen: () {},
+                  onStartDragging: () {},
+                  onTitleBarDoubleClick: () {},
+                  onRegionsChanged: (_) {},
+                  onRestoreEditMenu: () => restoredEditMenu += 1,
+                ),
+                child: DesktopWindowFrame(
+                  child: DesktopMenuBar(
+                    settings: AppSettings.defaults(),
+                    router: router,
+                    child: child!,
+                  ),
+                ),
               ),
             ),
           );
@@ -491,15 +509,25 @@ void main() {
           debugDefaultTargetPlatformOverride = null;
         }
       }
+      expect(restoredEditMenu, greaterThanOrEqualTo(1));
 
+      var closed = 0;
       final l10n = lookupAppLocalizations(zhCN);
-      final menus = buildDesktopPlatformMenus(
-        l10n: l10n,
-        router: router,
-        railExpanded: false,
-        isFullScreen: false,
-        onToggleRail: () {},
-      );
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final List<PlatformMenuItem> menus;
+      try {
+        menus = buildDesktopPlatformMenus(
+          l10n: l10n,
+          router: router,
+          railExpanded: false,
+          isFullScreen: false,
+          onToggleRail: () {},
+          onCloseWindow: () => closed += 1,
+          includeSystemQuit: true,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
       final topLabels = [for (final m in menus.cast<PlatformMenu>()) m.label];
       expect(topLabels, [
         'Parfait',
@@ -512,6 +540,20 @@ void main() {
 
       final all = <PlatformMenuItem>[];
       _collectMenuItems(menus, all);
+      final providedTypes = {
+        for (final item in all.whereType<PlatformProvidedMenuItem>()) item.type,
+      };
+      for (final expectedType in const [
+        PlatformProvidedMenuItemType.about,
+        PlatformProvidedMenuItemType.servicesSubmenu,
+        PlatformProvidedMenuItemType.hide,
+        PlatformProvidedMenuItemType.hideOtherApplications,
+        PlatformProvidedMenuItemType.showAllApplications,
+        PlatformProvidedMenuItemType.quit,
+        PlatformProvidedMenuItemType.arrangeWindowsInFront,
+      ]) {
+        expect(providedTypes, contains(expectedType));
+      }
       final labels = {for (final item in all) item.label};
       for (final expected in [
         l10n.menuPreferences,
@@ -523,9 +565,17 @@ void main() {
         l10n.railBookmarks,
         l10n.railDownloads,
         l10n.searchTitle,
+        l10n.windowClose,
       ]) {
         expect(labels, contains(expected));
       }
+      final closeItem = all.firstWhere((e) => e.label == l10n.windowClose);
+      expect(
+        closeItem.shortcut,
+        const SingleActivator(LogicalKeyboardKey.keyW, meta: true),
+      );
+      closeItem.onSelected!();
+      expect(closed, 1);
       final searchItem = all.firstWhere((e) => e.label == l10n.searchTitle);
       expect(
         searchItem.shortcut,
@@ -878,6 +928,116 @@ void main() {
         Navigator.of(branch0Context, rootNavigator: false).pop();
         await tester.pumpAndSettle();
         expect(history.hasOpenModal, isFalse);
+
+        // 3. macOS menu bar items are disabled while a modal/overlay is open,
+        //    and pre-home paths deactivate DesktopCommandBarScope so pushed
+        //    onboarding/login pages keep a visible back button.
+        final l10n = lookupAppLocalizations(zhCN);
+        unawaited(
+          showDialog<void>(
+            context: branch0Context,
+            useRootNavigator: true,
+            builder: (_) => const AlertDialog(content: Text('root-modal')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final blockedMenus = buildDesktopPlatformMenus(
+          l10n: l10n,
+          router: router,
+          railExpanded: false,
+          isFullScreen: false,
+          onToggleRail: () {},
+        );
+        final blockedItems = <PlatformMenuItem>[];
+        _collectMenuItems(blockedMenus, blockedItems);
+        for (final label in [
+          l10n.menuPreferences,
+          l10n.searchTitle,
+          l10n.refresh,
+          l10n.railExpand,
+        ]) {
+          expect(
+            blockedItems.firstWhere((e) => e.label == label).onSelected,
+            isNull,
+            reason: '$label must stay disabled while modal is open',
+          );
+        }
+        Navigator.of(branch0Context, rootNavigator: true).pop();
+        await tester.pumpAndSettle();
+
+        expect(isDesktopPreHomePath('/login'), isTrue);
+        expect(isDesktopPreHomePath('/user-agreement'), isTrue);
+        expect(isDesktopPreHomePath('/welcome/language'), isTrue);
+        expect(isDesktopPreHomePath('/recommended'), isFalse);
+
+        // 4. Text-editing focus suppresses macOS menu callbacks, and pushed
+        //    pre-home routes deactivate DesktopCommandBarScope so their back
+        //    button remains visible.
+        var railToggles = 0;
+        final preHomeRouter = GoRouter(
+          initialLocation: '/user-agreement',
+          routes: [
+            GoRoute(
+              path: '/user-agreement',
+              builder: (_, _) => const Scaffold(
+                appBar: AppTopBar(title: Text('agreement')),
+                body: Text('agreement-body'),
+              ),
+            ),
+            GoRoute(
+              path: '/login',
+              builder: (_, _) => const Scaffold(
+                appBar: AppTopBar(title: Text('login')),
+                body: Text('login-body'),
+              ),
+            ),
+            GoRoute(
+              path: '/recommended',
+              builder: (_, _) =>
+                  const Scaffold(body: TextField(key: Key('home-text-field'))),
+            ),
+          ],
+        );
+        addTearDown(preHomeRouter.dispose);
+
+        await tester.pumpWidget(
+          localizedRouterApp(
+            preHomeRouter,
+            overrides: [...await signedInAccountOverrides()],
+            builder: (_, child) => AppChrome(
+              settings: AppSettings.defaults(),
+              router: preHomeRouter,
+              child: child!,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        unawaited(preHomeRouter.push('/login'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('desktop-command-back')), findsNothing);
+        expect(find.byType(BackButton), findsOneWidget);
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.text('agreement-body'), findsOneWidget);
+
+        preHomeRouter.go('/recommended');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('home-text-field')));
+        await tester.pump();
+        final typingMenus = buildDesktopPlatformMenus(
+          l10n: l10n,
+          router: preHomeRouter,
+          railExpanded: false,
+          isFullScreen: false,
+          onToggleRail: () => railToggles += 1,
+        );
+        final typingItems = <PlatformMenuItem>[];
+        _collectMenuItems(typingMenus, typingItems);
+        typingItems.firstWhere((e) => e.label == l10n.railExpand).onSelected!();
+        expect(railToggles, 0);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

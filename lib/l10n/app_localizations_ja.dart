@@ -3335,4 +3335,10 @@ class AppLocalizationsJa extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get previousArtworkTooltip => '前の作品';
+
+  @override
+  String get nextArtworkTooltip => '次の作品';
 }

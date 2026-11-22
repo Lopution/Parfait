@@ -1454,5 +1454,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "previousArtworkTooltip": "Предыдущая работа",
+  "nextArtworkTooltip": "Следующая работа"
 }

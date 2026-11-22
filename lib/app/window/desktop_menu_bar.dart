@@ -13,6 +13,7 @@ import '../../core/settings/settings_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/context.dart';
 import '../layout/form_factor.dart';
+import '../layout/input_modality.dart';
 import '../navigation/forward_history.dart';
 import '../navigation/keyboard_back.dart';
 import '../navigation/route_facade.dart';
@@ -61,8 +62,11 @@ String _destinationLabel(AppLocalizations l10n, HomeDestination destination) =>
       HomeDestination.me => l10n.homeMe,
     };
 
-/// Builds the native macOS application menu bar structure without touching the
-/// Edit menu, keeping AppKit text-editing shortcuts (`Cmd+C/V/X/A/Z`) native.
+/// Builds the native macOS application menu bar structure. Standard AppKit
+/// items (`About`, `Services`, `Hide`, `Show All`, `Quit`, `Bring All to
+/// Front`) are included via [PlatformProvidedMenuItem] when [includeSystemQuit]
+/// is enabled; the native `Edit` menu from `MainMenu.xib` is preserved by
+/// `MacosDesktopWindowBridge.restoreEditMenu` after `PlatformMenuBar` commits.
 @visibleForTesting
 List<PlatformMenuItem> buildDesktopPlatformMenus({
   required AppLocalizations l10n,
@@ -74,15 +78,38 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
   VoidCallback? onToggleFullScreen,
   VoidCallback? onMinimize,
   VoidCallback? onZoom,
+  VoidCallback? onCloseWindow,
   bool includeSystemQuit = false,
 }) {
   final history = ForwardHistoryStack.ofRouter(router);
   final preHome = _isPreHomeRouter(router);
+  final blocked =
+      preHome || hasModalOrRootOverlay(router, checkFocusRoute: false);
+  VoidCallback? guard(VoidCallback action) => blocked
+      ? null
+      : () {
+          if (_isPreHomeRouter(router) ||
+              hasModalOrRootOverlay(router) ||
+              isTextEditingFocused()) {
+            return;
+          }
+          action();
+        };
+  bool hasSystemItem(PlatformProvidedMenuItemType type) =>
+      includeSystemQuit && PlatformProvidedMenuItem.hasMenu(type);
 
   return [
     PlatformMenu(
       label: 'Parfait',
       menus: [
+        if (hasSystemItem(PlatformProvidedMenuItemType.about))
+          const PlatformMenuItemGroup(
+            members: [
+              PlatformProvidedMenuItem(
+                type: PlatformProvidedMenuItemType.about,
+              ),
+            ],
+          ),
         PlatformMenuItemGroup(
           members: [
             PlatformMenuItem(
@@ -91,16 +118,45 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 LogicalKeyboardKey.comma,
                 meta: true,
               ),
-              onSelected: preHome
-                  ? null
-                  : () {
-                      if (liveRouterUri(router).path != '/settings/all') {
-                        router.go('/settings/all');
-                      }
-                    },
+              onSelected: guard(() {
+                if (liveRouterUri(router).path != '/settings/all') {
+                  router.go('/settings/all');
+                }
+              }),
             ),
           ],
         ),
+        if (hasSystemItem(PlatformProvidedMenuItemType.servicesSubmenu))
+          const PlatformMenuItemGroup(
+            members: [
+              PlatformProvidedMenuItem(
+                type: PlatformProvidedMenuItemType.servicesSubmenu,
+              ),
+            ],
+          ),
+        if (hasSystemItem(PlatformProvidedMenuItemType.hide) ||
+            hasSystemItem(PlatformProvidedMenuItemType.hideOtherApplications) ||
+            hasSystemItem(PlatformProvidedMenuItemType.showAllApplications))
+          PlatformMenuItemGroup(
+            members: [
+              if (hasSystemItem(PlatformProvidedMenuItemType.hide))
+                const PlatformProvidedMenuItem(
+                  type: PlatformProvidedMenuItemType.hide,
+                ),
+              if (hasSystemItem(
+                PlatformProvidedMenuItemType.hideOtherApplications,
+              ))
+                const PlatformProvidedMenuItem(
+                  type: PlatformProvidedMenuItemType.hideOtherApplications,
+                ),
+              if (hasSystemItem(
+                PlatformProvidedMenuItemType.showAllApplications,
+              ))
+                const PlatformProvidedMenuItem(
+                  type: PlatformProvidedMenuItemType.showAllApplications,
+                ),
+            ],
+          ),
         if (includeSystemQuit)
           const PlatformMenuItemGroup(
             members: [
@@ -115,22 +171,18 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
         PlatformMenuItem(
           label: l10n.searchTitle,
           shortcut: const SingleActivator(LogicalKeyboardKey.keyK, meta: true),
-          onSelected: preHome
-              ? null
-              : () {
-                  if (SearchShortcutAnchor.triggerActive()) return;
-                  final nav = _navContextOf(router);
-                  if (nav != null) unawaited(openSearchInput(nav));
-                },
+          onSelected: guard(() {
+            if (SearchShortcutAnchor.triggerActive()) return;
+            final nav = _navContextOf(router);
+            if (nav != null) unawaited(openSearchInput(nav));
+          }),
         ),
         PlatformMenuItem(
           label: l10n.searchReverseImage,
-          onSelected: preHome
-              ? null
-              : () {
-                  final nav = _navContextOf(router);
-                  if (nav != null) unawaited(openReverseImageSearch(nav));
-                },
+          onSelected: guard(() {
+            final nav = _navContextOf(router);
+            if (nav != null) unawaited(openReverseImageSearch(nav));
+          }),
         ),
         PlatformMenuItemGroup(
           members: [
@@ -140,9 +192,21 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 LogicalKeyboardKey.keyR,
                 meta: true,
               ),
-              onSelected: preHome
-                  ? null
-                  : () => PullToRefresh.triggerActive(_navContextOf(router)),
+              onSelected: guard(
+                () => PullToRefresh.triggerActive(_navContextOf(router)),
+              ),
+            ),
+          ],
+        ),
+        PlatformMenuItemGroup(
+          members: [
+            PlatformMenuItem(
+              label: l10n.windowClose,
+              shortcut: const SingleActivator(
+                LogicalKeyboardKey.keyW,
+                meta: true,
+              ),
+              onSelected: onCloseWindow,
             ),
           ],
         ),
@@ -160,7 +224,10 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 meta: true,
               ),
               onSelected: history.canGoBack
-                  ? () => unawaited(history.goBack())
+                  ? () {
+                      if (isTextEditingFocused()) return;
+                      unawaited(history.goBack());
+                    }
                   : null,
             ),
             PlatformMenuItem(
@@ -170,7 +237,10 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 meta: true,
               ),
               onSelected: history.canGoForward
-                  ? () => unawaited(history.goForward())
+                  ? () {
+                      if (isTextEditingFocused()) return;
+                      unawaited(history.goForward());
+                    }
                   : null,
             ),
           ],
@@ -181,9 +251,9 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
               PlatformMenuItem(
                 label: _destinationLabel(l10n, HomeDestination.values[i]),
                 shortcut: SingleActivator(_digitKeys[i], meta: true),
-                onSelected: preHome
-                    ? null
-                    : () => router.go(HomeDestination.values[i].rootPath),
+                onSelected: guard(
+                  () => router.go(HomeDestination.values[i].rootPath),
+                ),
               ),
           ],
         ),
@@ -191,15 +261,11 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
           members: [
             PlatformMenuItem(
               label: l10n.railBookmarks,
-              onSelected: preHome
-                  ? null
-                  : () => router.go('/settings/me?tab=bookmarks'),
+              onSelected: guard(() => router.go('/settings/me?tab=bookmarks')),
             ),
             PlatformMenuItem(
               label: l10n.railDownloads,
-              onSelected: preHome
-                  ? null
-                  : () => router.go('/settings/downloads'),
+              onSelected: guard(() => router.go('/settings/downloads')),
             ),
           ],
         ),
@@ -215,7 +281,7 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
               LogicalKeyboardKey.keyB,
               meta: true,
             ),
-            onSelected: preHome ? null : onToggleRail,
+            onSelected: guard(onToggleRail),
           ),
         PlatformMenuItemGroup(
           members: [
@@ -243,6 +309,14 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
           onSelected: onMinimize,
         ),
         PlatformMenuItem(label: l10n.windowMaximize, onSelected: onZoom),
+        if (hasSystemItem(PlatformProvidedMenuItemType.arrangeWindowsInFront))
+          const PlatformMenuItemGroup(
+            members: [
+              PlatformProvidedMenuItem(
+                type: PlatformProvidedMenuItemType.arrangeWindowsInFront,
+              ),
+            ],
+          ),
       ],
     ),
   ];
@@ -339,37 +413,48 @@ class _DesktopMenuBarState extends ConsumerState<DesktopMenuBar> {
 
     return ValueListenableBuilder<ForwardHistoryState>(
       valueListenable: history.stateListenable,
-      builder: (context, _, _) => PlatformMenuBar(
-        menus: buildDesktopPlatformMenus(
-          l10n: l10n,
-          router: widget.router,
-          railExpanded: railExpanded,
-          canToggleRail: canToggleRail,
-          isFullScreen: chrome?.isFullScreen ?? false,
-          onToggleRail: () {
-            final next = !railExpanded;
-            final nav = _navContextOf(widget.router);
-            if (nav != null) {
-              unawaited(
-                persistSettings(
-                  nav,
-                  () =>
-                      ref.read(settingsProvider.notifier).setRailExpanded(next),
-                ),
-              );
-            } else {
-              unawaited(
-                ref.read(settingsProvider.notifier).setRailExpanded(next),
-              );
-            }
-          },
-          onToggleFullScreen: actions?.onToggleFullScreen,
-          onMinimize: actions?.onMinimize,
-          onZoom: actions?.onToggleMaximize,
-          includeSystemQuit: includeSystemQuit,
-        ),
-        child: widget.child,
-      ),
+      builder: (context, _, _) {
+        final onRestoreEditMenu = actions?.onRestoreEditMenu;
+        if (defaultTargetPlatform == TargetPlatform.macOS &&
+            onRestoreEditMenu != null) {
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+            if (mounted) onRestoreEditMenu();
+          });
+        }
+        return PlatformMenuBar(
+          menus: buildDesktopPlatformMenus(
+            l10n: l10n,
+            router: widget.router,
+            railExpanded: railExpanded,
+            canToggleRail: canToggleRail,
+            isFullScreen: chrome?.isFullScreen ?? false,
+            onToggleRail: () {
+              final next = !railExpanded;
+              final nav = _navContextOf(widget.router);
+              if (nav != null) {
+                unawaited(
+                  persistSettings(
+                    nav,
+                    () => ref
+                        .read(settingsProvider.notifier)
+                        .setRailExpanded(next),
+                  ),
+                );
+              } else {
+                unawaited(
+                  ref.read(settingsProvider.notifier).setRailExpanded(next),
+                );
+              }
+            },
+            onToggleFullScreen: actions?.onToggleFullScreen,
+            onMinimize: actions?.onMinimize,
+            onZoom: actions?.onToggleMaximize,
+            onCloseWindow: actions?.onClose,
+            includeSystemQuit: includeSystemQuit,
+          ),
+          child: widget.child,
+        );
+      },
     );
   }
 }

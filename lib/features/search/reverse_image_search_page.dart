@@ -42,6 +42,7 @@ import '../../app/layout/content_widths.dart';
 import '../../app/window/desktop_command_bar_scope.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/icons/ui_icons.dart';
+import 'reverse_image_html_results_view.dart';
 
 part 'reverse_image_search_widgets.dart';
 
