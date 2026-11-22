@@ -19,6 +19,7 @@ import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -39,6 +40,9 @@ class _NewFeeds {
 
   /// Ids served as R-18.
   var r18 = <int>{};
+
+  /// When true, feed requests fail with HTTP 500.
+  var failRequests = false;
 
   final requests = <NewFeedKey>[];
 
@@ -71,6 +75,7 @@ class _NewFeeds {
       path: (request) async {
         requests.add(feed);
         await pendingFetch?.future;
+        if (failRequests) return offline(request);
         int restrict(int id) => r18.contains(id) ? 1 : 0;
         return jsonResponse(
           feed.type == NewFeedType.illust
@@ -105,7 +110,11 @@ Future<(ProviderContainer, _NewFeeds)> _makeWorld({
 }
 
 Widget _routerApp(ProviderContainer container, GoRouter router) {
-  return localizedRouterApp(router, container: container);
+  return localizedRouterApp(
+    router,
+    container: container,
+    builder: promptHostBuilder,
+  );
 }
 
 /// Compact viewport: ≥600px swaps the bottom bar for a rail.
@@ -310,4 +319,29 @@ void main() {
       NewFeedScope.values.indexOf(NewFeedScope.everyone),
     );
   });
+
+  testWidgets(
+    'new feed refresh failure surfaces a transient Retry prompt instead of burying a bottom banner',
+    (tester) async {
+      final (container, repository) = await _makeWorld(illustCount: 24);
+      final router = pixivRouter('/new');
+      _phone(tester);
+      await tester.pumpWidget(_routerApp(container, router));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      final before = repository.requests.length;
+
+      repository.failRequests = true;
+      await tester.tap(find.text('关注'));
+      await tester.pumpAndSettle();
+      expect(repository.requests.length, before + 1);
+      expect(find.textContaining('刷新失败'), findsOneWidget);
+
+      repository.failRequests = false;
+      await tester.tap(promptAction('重试'));
+      await tester.pumpAndSettle();
+      expect(repository.requests.length, before + 2);
+    },
+  );
 }

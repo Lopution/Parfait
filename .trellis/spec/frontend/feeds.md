@@ -8,7 +8,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/core/bookmark/bookmark_actions.dart
-reviewed: 2026-11-21
+reviewed: 2026-11-22
 ---
 
 # Feeds: states, grid, pull to refresh, skeletons
@@ -100,9 +100,9 @@ reviewed: 2026-11-21
 ## Pull to refresh
 
 ### FEED-07 PullToRefresh is the only refresh wrapper
-- **Rule:** All feeds refresh via `PullToRefresh` (`SakuraRefreshIndicator` on `MotionTokens.refreshSpin`; `FeedTail`/`FeedLoading` use `AppSpinner`), using `clamping: false` so lists pull down with the finger. Inside `NestedScrollView`, tab bodies pass `isNested: true` with `PullToRefresh.nestedHeader` and the outer view uses `NestedRefreshOuterPhysics` (never wrap the whole `NestedScrollView`).
-- **Why:** User decision: list pulls down cleanly across platforms without clamping bugs or nested profile-header conflicts.
-- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses" "a header pushed up during a refresh stays when it ends"
+- **Rule:** All feeds refresh via `PullToRefresh` (`SakuraRefreshIndicator` on `MotionTokens.refreshSpin`; `FeedTail`/`FeedLoading` use `AppSpinner`), using `clamping: false` so lists pull down with the finger, passing explicit `scrollController` for active-tab re-tap refresh (`reTapScrollToTop`), and surfacing pull-to-refresh failures on loaded feeds via `listenFeedRefreshError` (`showErrorSnackBar` + Retry) rather than silent swallows or bottom-of-list banners. `TabSlideStack` keeps resting neighbors (`|i - pos| >= 1.0`) offstage and `isRenderBoxVisibleOnScreen` excludes offstage/clipped ancestors so refresh and select-all shortcuts hit only the visible tab. Inside `NestedScrollView`, tab bodies pass `isNested: true` with `PullToRefresh.nestedHeader` and the outer view uses `NestedRefreshOuterPhysics` (never wrap the whole `NestedScrollView`).
+- **Why:** User decision: list pulls down cleanly across platforms without clamping bugs, buried refresh errors, clipped neighbor hijacking, or nested profile-header conflicts.
+- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/feed_selection_test.dart` "wide split TabSlideStack keeps resting neighbors offstage for both refresh and select-all", `test/search_result_page_test.dart` "search refresh failure surfaces a Retry prompt and active tab re-tap triggers refresh", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses" "a header pushed up during a refresh stays when it ends"
 - **Code:** `lib/app/pull_to_refresh.dart`, `lib/app/widgets/app_spinner.dart`, `lib/app/widgets/feed/feed_states.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_illust_feed.dart`, `pubspec.yaml`
 
 ### FEED-08 The indicator follows observable outcomes

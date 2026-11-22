@@ -8,11 +8,9 @@ import '../../../app/navigation/route_facade.dart';
 import '../../../app/widgets/feed/desktop_inspectable_gallery.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
-import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_tab_bar.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/author_summary.dart';
-import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/desktop_gallery_controls.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import '../../../app/widgets/feed/feed_selection.dart';
@@ -291,31 +289,13 @@ class _RecommendedFeedView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final key = (type: type);
-    // Refresh failure keeps the loaded feed and surfaces as a transient
-    // prompt with a retry action — the inline tail
-    // row it replaced rendered "${feed.loadMoreError}", which the phase
-    // copy never populated ("null").
-    ref.listen(recommendedFeedProvider(key), (previous, next) {
-      final feed = next.asData?.value;
-      final wasError = previous?.asData?.value.refreshPhase == FeedPhase.error;
-      if (feed == null || feed.refreshPhase != FeedPhase.error || wasError) {
-        return;
-      }
-      final error = ref
-          .read(recommendedFeedProvider(key).notifier)
-          .consumeRefreshError();
-      if (error == null) return;
-      showErrorSnackBar(
-        context,
-        action: context.l10n.recommendedRefreshFailed,
-        error: error,
-        snackBarAction: PromptAction(
-          label: context.l10n.retry,
-          onPressed: () =>
-              ref.read(recommendedFeedProvider(key).notifier).refresh(),
-        ),
-      );
-    });
+    listenFeedRefreshError(
+      context,
+      ref,
+      recommendedFeedProvider(key),
+      controller: () => ref.read(recommendedFeedProvider(key).notifier),
+      action: context.l10n.recommendedRefreshFailed,
+    );
     final feedAsync = ref.watch(recommendedFeedProvider(key));
 
     return feedAsync.when(

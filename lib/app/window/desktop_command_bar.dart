@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/auth/account_store.dart';
 import '../../core/platform/desktop_window_channel.dart';
+import '../../core/search/search_models.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
@@ -203,12 +204,19 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     _searchOpening = true;
     try {
       final activeQuery = searchResultsQueryFromUri(currentUri);
+      final fullQuery = searchResultsFullQueryFromUri(currentUri);
       if (activeQuery != null) {
         await editSearchFromResults(
           navContext,
           anchor: () => globalRectOfKey(_searchPillKey),
           keyword: activeQuery.keyword,
           type: activeQuery.type,
+          initialIllustFilters: fullQuery is IllustSearchQuery
+              ? fullQuery.filters
+              : null,
+          initialNovelFilters: fullQuery is NovelSearchQuery
+              ? fullQuery.filters
+              : null,
         );
       } else {
         await openSearchInput(
