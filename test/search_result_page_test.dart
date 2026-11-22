@@ -10,7 +10,9 @@ import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/features/search/docked_search.dart';
+import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/app/widgets/search_field_button.dart';
@@ -303,4 +305,117 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
   });
+
+  testWidgets(
+    'editing search query preserves session filters in both wide docked and narrow flows',
+    (tester) async {
+      for (final (view, nextQuery, surface) in [
+        (const Size(1400, 800), 'dog', DockedSearchPanel),
+        (const Size(390, 800), 'bird', SearchInputPage),
+      ]) {
+        final router = await _pumpRouter(
+          tester,
+          initialLocation:
+              '/search/results?q=cat&type=illust&sort=date_asc&bmin=100',
+          view: view,
+        );
+        await tester.tap(find.byType(SearchFieldButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(surface), findsOneWidget);
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(surface),
+            matching: find.byType(TextField),
+          ),
+          nextQuery,
+        );
+        await tester.testTextInput.receiveAction(TextInputAction.search);
+        await tester.pumpAndSettle();
+        expect(router.state.uri.queryParameters['q'], nextQuery);
+        expect(router.state.uri.queryParameters['sort'], 'date_asc');
+        expect(router.state.uri.queryParameters['bmin'], '100');
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
+
+  testWidgets(
+    'search refresh failure surfaces a Retry prompt and active tab re-tap triggers refresh',
+    (tester) async {
+      var calls = 0;
+      var fail = false;
+      await _pumpRouter(
+        tester,
+        initialLocation: '/search/results?q=cat&type=illust',
+        view: const Size(390, 800),
+        routes: {
+          '/v1/search/illust': (r) => (++calls > 0 && fail)
+              ? offline(r)
+              : jsonResponse({
+                  'illusts': [illustJson(calls)],
+                  'next_url': null,
+                }),
+        },
+      );
+      fail = true;
+      await tester.tap(_tab('插画 & 漫画'));
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      expect(find.textContaining('刷新失败'), findsOneWidget);
+      fail = false;
+      await tester.tap(promptAction('重试'));
+      await tester.pumpAndSettle();
+      expect(calls, 3);
+    },
+  );
+
+  testWidgets(
+    'search filter sheet stays overflow-free and keeps input focus in short Russian landscape with 2x text and IME',
+    (tester) async {
+      setViewSize(tester, const Size(640, 360));
+      final container = await searchWorld(SearchApi());
+      final keyboardInset = ValueNotifier<double>(0);
+      addTearDown(keyboardInset.dispose);
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          locale: const Locale('ru'),
+          builder: (context, child) => ValueListenableBuilder<double>(
+            valueListenable: keyboardInset,
+            builder: (_, inset, inner) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: const TextScaler.linear(2.0),
+                viewInsets: EdgeInsets.only(bottom: inset),
+              ),
+              child: inner!,
+            ),
+            child: child,
+          ),
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => unawaited(
+                showSearchFilterSheet(
+                  context,
+                  initial: IllustSearchFilters.defaults,
+                  offerSetDefault: true,
+                ),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      final firstField = find.byType(TextField).first;
+      await tester.ensureVisible(firstField);
+      await tester.tap(firstField);
+      await tester.pump();
+      keyboardInset.value = 220;
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
+    },
+  );
 }

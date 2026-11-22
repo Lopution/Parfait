@@ -193,21 +193,13 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
               label: l10n.railBookmarks,
               onSelected: preHome
                   ? null
-                  : () {
-                      final nav = _navContextOf(router);
-                      if (nav != null) {
-                        unawaited(openMe(nav, tab: MeTab.bookmarks));
-                      }
-                    },
+                  : () => router.go('/settings/me?tab=bookmarks'),
             ),
             PlatformMenuItem(
               label: l10n.railDownloads,
               onSelected: preHome
                   ? null
-                  : () {
-                      final nav = _navContextOf(router);
-                      if (nav != null) unawaited(openDownloadTasks(nav));
-                    },
+                  : () => router.go('/settings/downloads'),
             ),
           ],
         ),
@@ -216,11 +208,15 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
     PlatformMenu(
       label: l10n.menuView,
       menus: [
-        PlatformMenuItem(
-          label: railExpanded ? l10n.railCollapse : l10n.railExpand,
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyB, meta: true),
-          onSelected: preHome || !canToggleRail ? null : onToggleRail,
-        ),
+        if (canToggleRail)
+          PlatformMenuItem(
+            label: railExpanded ? l10n.railCollapse : l10n.railExpand,
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyB,
+              meta: true,
+            ),
+            onSelected: preHome ? null : onToggleRail,
+          ),
         PlatformMenuItemGroup(
           members: [
             PlatformMenuItem(

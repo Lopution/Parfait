@@ -67,10 +67,59 @@ class DesktopDirectoryPicker implements SafTreePicker {
   Future<String?> pickTree() => getDirectoryPath(confirmButtonText: null);
 }
 
-/// Desktop [DocumentPicker]: the platform file dialog, then a size check
+/// Desktop/iOS [DocumentPicker]: the platform file dialog, then a size check
 /// before the file is read.
 class DesktopDocumentPicker implements DocumentPicker {
-  const DesktopDocumentPicker();
+  const DesktopDocumentPicker({
+    Future<XFile?> Function({List<XTypeGroup> acceptedTypeGroups})?
+    openFileHandler,
+  }) : _openFile = openFileHandler;
+
+  final Future<XFile?> Function({List<XTypeGroup> acceptedTypeGroups})?
+  _openFile;
+
+  static const _utisByExtension = <String, String>{
+    'json': 'public.json',
+    'txt': 'public.plain-text',
+    'jpg': 'public.jpeg',
+    'jpeg': 'public.jpeg',
+    'png': 'public.png',
+    'webp': 'org.webmproject.webp',
+    'gif': 'com.compuserve.gif',
+    'bmp': 'com.microsoft.bmp',
+  };
+
+  static const _utisByMimeType = <String, String>{
+    'application/json': 'public.json',
+    'text/plain': 'public.plain-text',
+    'image/jpeg': 'public.jpeg',
+    'image/png': 'public.png',
+    'image/webp': 'org.webmproject.webp',
+    'image/gif': 'com.compuserve.gif',
+    'image/bmp': 'com.microsoft.bmp',
+  };
+
+  /// Derives non-empty Apple Uniform Type Identifiers so `file_selector_ios`
+  /// accepts the filtered [XTypeGroup] instead of throwing [ArgumentError].
+  static List<String> uniformTypeIdentifiersFor({
+    required List<String> extensions,
+    required List<String> mimeTypes,
+  }) {
+    final utis = <String>{};
+    for (final ext in extensions) {
+      final normalized = ext.trim().toLowerCase().replaceFirst(
+        RegExp(r'^\.'),
+        '',
+      );
+      final uti = _utisByExtension[normalized];
+      if (uti != null) utis.add(uti);
+    }
+    for (final mime in mimeTypes) {
+      final uti = _utisByMimeType[mime.trim().toLowerCase()];
+      if (uti != null) utis.add(uti);
+    }
+    return utis.isEmpty ? const ['public.data'] : utis.toList(growable: false);
+  }
 
   @override
   Future<PickedDocument?> pickDocument({
@@ -79,8 +128,18 @@ class DesktopDocumentPicker implements DocumentPicker {
     required List<String> mimeTypes,
     required int maxBytes,
   }) async {
-    final file = await openFile(
-      acceptedTypeGroups: [XTypeGroup(label: label, extensions: extensions)],
+    final file = await (_openFile ?? openFile)(
+      acceptedTypeGroups: [
+        XTypeGroup(
+          label: label,
+          extensions: extensions,
+          mimeTypes: mimeTypes,
+          uniformTypeIdentifiers: uniformTypeIdentifiersFor(
+            extensions: extensions,
+            mimeTypes: mimeTypes,
+          ),
+        ),
+      ],
     );
     if (file == null) return null;
     if (await file.length() > maxBytes) {

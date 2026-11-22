@@ -21,6 +21,7 @@ namespace {
 
 constexpr UINT_PTR kChildViewSubclassId = 1;
 constexpr UINT kTrayCallbackMessage = WM_APP + 2;
+constexpr UINT kDestroyWindowMessage = WM_APP + 3;
 constexpr UINT kTrayIconId = 1;
 constexpr UINT kTrayCmdShowWindow = 1001;
 constexpr UINT kTrayCmdDownloads = 1002;
@@ -389,7 +390,11 @@ FlutterWindow::FlutterWindow(const flutter::DartProject& project,
       initial_intent_uri_(std::move(initial_intent_uri)),
       is_dev_profile_(is_dev_profile) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  if (flutter_controller_) {
+    OnDestroy();
+  }
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
@@ -569,6 +574,16 @@ void FlutterWindow::RegisterNativeChannels() {
             ::PostMessageW(hwnd, WM_CLOSE, 0, 0);
           }
           result->Success();
+          return;
+        }
+        if (method == "destroy") {
+          // Post destruction onto the live Win32 message queue after replying
+          // so DestroyWindow runs outside the MethodChannel stack frame and
+          // triggers WM_DESTROY -> OnDestroy() -> PostQuitMessage(0) cleanly.
+          result->Success();
+          if (hwnd != nullptr) {
+            ::PostMessageW(hwnd, kDestroyWindowMessage, 0, 0);
+          }
           return;
         }
         if (method == "startDragging") {
@@ -782,10 +797,26 @@ flutter::EncodableMap FlutterWindow::BuildWindowMetricsMap() const {
   };
 }
 
-void FlutterWindow::EmitWindowMetrics() {
+void FlutterWindow::EmitWindowMetrics(bool force) {
   if (!desktop_window_channel_) {
     return;
   }
+  HWND hwnd = GetHandle();
+  const bool zoomed = hwnd != nullptr && ::IsZoomed(hwnd) != FALSE;
+  const bool fullscreen = IsFullscreenState();
+  if (!force && has_emitted_metrics_ && zoomed == last_emitted_maximized_ &&
+      fullscreen == last_emitted_fullscreen_ &&
+      is_active_ == last_emitted_active_ &&
+      hovered_button_ == last_emitted_hovered_ &&
+      pressed_button_ == last_emitted_pressed_) {
+    return;
+  }
+  has_emitted_metrics_ = true;
+  last_emitted_maximized_ = zoomed;
+  last_emitted_fullscreen_ = fullscreen;
+  last_emitted_active_ = is_active_;
+  last_emitted_hovered_ = hovered_button_;
+  last_emitted_pressed_ = pressed_button_;
   desktop_window_channel_->InvokeMethod(
       "metricsChanged",
       std::make_unique<flutter::EncodableValue>(BuildWindowMetricsMap()));
@@ -1271,6 +1302,14 @@ LRESULT FlutterWindow::MessageHandler(HWND hwnd,
         default:
           break;
       }
+      return 0;
+
+    case kDestroyWindowMessage:
+      RemoveTrayIcon();
+      ::RemovePropW(hwnd, is_dev_profile_ ? kParfaitDevMainWindowProp
+                                          : kParfaitMainWindowProp);
+      ::ShowWindow(hwnd, SW_HIDE);
+      ::DestroyWindow(hwnd);
       return 0;
 
     case WM_SIZE:

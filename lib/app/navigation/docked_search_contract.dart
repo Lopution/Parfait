@@ -48,6 +48,8 @@ typedef DockedSearchPresenter =
       Rect? Function()? anchorOf,
       String initialKeyword,
       SearchResultType type,
+      IllustSearchFilters? initialIllustFilters,
+      NovelSearchFilters? initialNovelFilters,
     });
 
 DockedSearchPresenter? _presenter;
@@ -65,6 +67,8 @@ Future<DockedSearchOutcome?> presentDockedSearch(
   Rect? Function()? anchorOf,
   String initialKeyword = '',
   SearchResultType type = SearchResultType.illust,
+  IllustSearchFilters? initialIllustFilters,
+  NovelSearchFilters? initialNovelFilters,
 }) {
   final presenter = _presenter;
   if (presenter == null) return Future<DockedSearchOutcome?>.value();
@@ -74,5 +78,7 @@ Future<DockedSearchOutcome?> presentDockedSearch(
     anchorOf: anchorOf,
     initialKeyword: initialKeyword,
     type: type,
+    initialIllustFilters: initialIllustFilters,
+    initialNovelFilters: initialNovelFilters,
   );
 }

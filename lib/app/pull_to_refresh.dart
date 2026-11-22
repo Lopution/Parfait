@@ -3,12 +3,72 @@ import 'dart:math' as math;
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'haptics/app_haptics.dart';
 import 'motion/motion_tokens.dart';
 import 'scroll_behavior.dart';
 import 'theme/func_semantic_tokens.dart';
+
+/// Whether [context]'s render box belongs to an active, non-offstage, unclipped
+/// subtree whose visible bounds intersect the current viewport.
+bool isRenderBoxVisibleOnScreen(BuildContext context) {
+  if (!context.mounted) return false;
+  if (!TickerMode.getValuesNotifier(context).value.enabled) return false;
+  final route = ModalRoute.of(context);
+  if (route != null && !route.isCurrent) return false;
+  final ro = context.findRenderObject();
+  if (ro is! RenderBox || !ro.hasSize || ro.size.isEmpty) return false;
+  var visible = MatrixUtils.transformRect(
+    ro.getTransformTo(null),
+    Offset.zero & ro.size,
+  );
+  if (visible.isEmpty) return false;
+  for (
+    RenderObject? ancestor = ro.parent;
+    ancestor != null;
+    ancestor = ancestor.parent
+  ) {
+    if (ancestor is RenderOffstage && ancestor.offstage) return false;
+    final Rect? localClip;
+    if (ancestor is RenderClipRect &&
+        ancestor.clipBehavior != Clip.none &&
+        ancestor.hasSize) {
+      localClip =
+          ancestor.clipper?.getClip(ancestor.size) ??
+          (Offset.zero & ancestor.size);
+    } else if (ancestor is RenderClipRRect &&
+        ancestor.clipBehavior != Clip.none &&
+        ancestor.hasSize) {
+      localClip =
+          ancestor.clipper?.getClip(ancestor.size).outerRect ??
+          (Offset.zero & ancestor.size);
+    } else if (ancestor is RenderStack &&
+        ancestor.clipBehavior != Clip.none &&
+        ancestor.hasSize) {
+      localClip = Offset.zero & ancestor.size;
+    } else if (ancestor is RenderViewportBase &&
+        ancestor.clipBehavior != Clip.none &&
+        ancestor.hasSize) {
+      localClip = Offset.zero & ancestor.size;
+    } else {
+      localClip = null;
+    }
+    if (localClip != null) {
+      final clipGlobal = MatrixUtils.transformRect(
+        ancestor.getTransformTo(null),
+        localClip,
+      );
+      visible = visible.intersect(clipGlobal);
+      if (visible.isEmpty) return false;
+    }
+  }
+  final view = View.maybeOf(context);
+  if (view == null) return true;
+  final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+  return visible.overlaps(screen);
+}
 
 /// The shared pull-to-refresh wrapper used by feed pages.
 ///
@@ -49,7 +109,9 @@ class PullToRefresh extends StatefulWidget {
   /// mounted.
   static bool trigger(ScrollController controller) {
     final explicit = _mounted[controller];
-    if (explicit != null && explicit.mounted) {
+    if (explicit != null &&
+        explicit.mounted &&
+        explicit._isActiveAndVisible()) {
       return _triggerState(explicit);
     }
     for (final state in _instances) {
@@ -77,7 +139,11 @@ class PullToRefresh extends StatefulWidget {
 
   static bool _hasController(ScrollController controller) {
     final explicit = _mounted[controller];
-    if (explicit != null && explicit.mounted) return true;
+    if (explicit != null &&
+        explicit.mounted &&
+        explicit._isActiveAndVisible()) {
+      return true;
+    }
     for (final state in _instances) {
       if (state.mounted &&
           state._effectiveController == controller &&
@@ -190,17 +256,7 @@ class _PullToRefreshState extends State<PullToRefresh> {
     super.dispose();
   }
 
-  bool _isActiveAndVisible() {
-    if (!TickerMode.getValuesNotifier(context).value.enabled) return false;
-    final route = ModalRoute.of(context);
-    if (route != null && !route.isCurrent) return false;
-    final ro = context.findRenderObject();
-    if (ro is! RenderBox || !ro.hasSize || ro.size.isEmpty) return false;
-    final view = View.maybeOf(context);
-    if (view == null) return true;
-    final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
-    return (ro.localToGlobal(Offset.zero) & ro.size).overlaps(screen);
-  }
+  bool _isActiveAndVisible() => isRenderBoxVisibleOnScreen(context);
 
   /// Whether the user is dragging this nested feed's refresh header out, as
   /// EasyRefresh's own nested hold judges it.
@@ -549,18 +605,10 @@ class _RefreshActionAnchorState extends State<RefreshActionAnchor> {
     return true;
   }
 
-  bool _isActiveAndVisible() {
-    if (!mounted || widget.onRefresh == null) return false;
-    if (!TickerMode.getValuesNotifier(context).value.enabled) return false;
-    final route = ModalRoute.of(context);
-    if (route != null && !route.isCurrent) return false;
-    final ro = context.findRenderObject();
-    if (ro is! RenderBox || !ro.hasSize || ro.size.isEmpty) return false;
-    final view = View.maybeOf(context);
-    if (view == null) return true;
-    final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
-    return (ro.localToGlobal(Offset.zero) & ro.size).overlaps(screen);
-  }
+  bool _isActiveAndVisible() =>
+      mounted &&
+      widget.onRefresh != null &&
+      isRenderBoxVisibleOnScreen(context);
 
   @override
   void initState() {

@@ -75,7 +75,14 @@ class _NovelRankingModeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(novelRankingFeedProvider(feedKey));
+    final provider = novelRankingFeedProvider(feedKey);
+    listenFeedRefreshError(
+      context,
+      ref,
+      provider,
+      controller: () => ref.read(provider.notifier),
+    );
+    final state = ref.watch(provider);
     return state.when(
       loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
@@ -124,6 +131,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
             )
             .items;
         return PullToRefresh(
+          scrollController: scrollController,
           onRefresh: () =>
               ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
           child: LoadMoreListener(

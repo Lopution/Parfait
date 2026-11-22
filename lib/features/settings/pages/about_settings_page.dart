@@ -278,19 +278,39 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
   void initState() {
     super.initState();
     _capability = widget.service.capability();
-    // The service remembers the most recent check — surface it so the
-    // auto-check result is already visible when the user opens About.
-    _checkResult = widget.service.lastCheck;
+    // Restore the service's remembered check and any in-flight download so
+    // leaving and returning to About preserves progress and cancellation.
+    _syncFromService();
+    widget.service.addStatusListener(_onServiceStatusChanged);
   }
 
   @override
   void didUpdateWidget(covariant _AboutUpdateSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.service, widget.service)) {
+      oldWidget.service.removeStatusListener(_onServiceStatusChanged);
       _capability = widget.service.capability();
-      _checkResult = widget.service.lastCheck;
-      _applyResult = null;
+      _syncFromService();
+      widget.service.addStatusListener(_onServiceStatusChanged);
     }
+  }
+
+  @override
+  void dispose() {
+    widget.service.removeStatusListener(_onServiceStatusChanged);
+    super.dispose();
+  }
+
+  void _syncFromService() {
+    _checkResult = widget.service.lastCheck;
+    _applyResult = widget.service.lastApplyResult;
+    _checking = widget.service.isChecking;
+    _applying = widget.service.isApplying;
+  }
+
+  void _onServiceStatusChanged() {
+    if (!mounted) return;
+    setState(_syncFromService);
   }
 
   @override

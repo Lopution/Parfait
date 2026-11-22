@@ -361,11 +361,12 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
   }
 
   Future<void> _pickImage(ProfileField field) async {
-    final reference = await widget.imagePlatform.pickImage();
-    if (!mounted || reference == null) return;
-    widget.onPreparingImage(true);
     ProfileImageSelection? selection;
+    var preparing = false;
     try {
+      final reference = await widget.imagePlatform.pickImage();
+      if (!mounted || reference == null) return;
+      widget.onPreparingImage(preparing = true);
       selection = await ProfileImagePreprocessor.prepare(
         platform: widget.imagePlatform,
         reference: reference,
@@ -380,7 +381,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
         error: error,
       );
     } finally {
-      if (mounted) widget.onPreparingImage(false);
+      if (preparing && mounted) widget.onPreparingImage(false);
     }
   }
 

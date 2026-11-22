@@ -74,11 +74,17 @@ class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
     debugLabel: 'me-detail',
   );
   _MeSection _selectedSection = _MeSection.bookmarks;
+  _MeSection? _activeDetailSection;
+  bool _detailCanHandlePop = false;
   bool _hasBeenVisible = false;
 
   void _selectSection(_MeSection section) {
-    if (section == _selectedSection) return;
-    setState(() => _selectedSection = section);
+    if (section == _selectedSection && _activeDetailSection == section) return;
+    setState(() {
+      _selectedSection = section;
+      _activeDetailSection = section;
+      _detailCanHandlePop = false;
+    });
     final navigator = _detailNavigatorKey.currentState;
     if (navigator == null) return;
     unawaited(
@@ -303,48 +309,85 @@ class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
       );
     }
     final signedIn = state?.usableCurrent != null;
-    final effectiveSection =
-        !signedIn && _selectedSection == _MeSection.novelMarkers
-        ? _MeSection.bookmarks
-        : _selectedSection;
-    if (effectiveSection != _selectedSection) {
+    final hideRailShortcuts = desktopOwned;
+    var effectiveSection = _selectedSection;
+    if (hideRailShortcuts &&
+        (effectiveSection == _MeSection.bookmarks ||
+            effectiveSection == _MeSection.downloads)) {
+      effectiveSection = _MeSection.following;
+    }
+    if (!signedIn && effectiveSection == _MeSection.novelMarkers) {
+      effectiveSection = hideRailShortcuts
+          ? _MeSection.following
+          : _MeSection.bookmarks;
+    }
+    if (effectiveSection != _selectedSection ||
+        (_activeDetailSection != null &&
+            _activeDetailSection != effectiveSection)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _selectSection(effectiveSection);
+        if (!mounted) return;
+        if (_activeDetailSection != null &&
+            _activeDetailSection != effectiveSection) {
+          _selectSection(effectiveSection);
+        } else if (_selectedSection != effectiveSection) {
+          setState(() => _selectedSection = effectiveSection);
+        }
       });
     }
-    return MasterDetailWorkspace(
-      key: const ValueKey('me-wide-dashboard'),
-      title: Text(context.l10n.homeMe),
-      masterTop: MeCompactAccountHeader(
-        account: state?.current,
-        detail: detail,
-      ),
-      masterBody: ListView(
-        padding: const EdgeInsets.only(
-          top: FuncSpacing.xs,
-          bottom: FuncSpacing.xl,
+    return PopScope(
+      canPop: !_detailCanHandlePop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_detailNavigatorKey.currentState?.maybePop());
+      },
+      child: MasterDetailWorkspace(
+        key: const ValueKey('me-wide-dashboard'),
+        title: Text(context.l10n.homeMe),
+        masterTop: MeCompactAccountHeader(
+          account: state?.current,
+          detail: detail,
         ),
-        children: [
-          _MeNavGroups(
-            signedIn: signedIn,
-            detail: detail,
-            selected: effectiveSection,
-            includeSettingsEntries: !desktopOwned,
-            onSelectSection: _selectSection,
+        masterBody: ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.xs,
+            bottom: FuncSpacing.xl,
           ),
-        ],
-      ),
-      detail: SettingsDetailScope(
-        onPush: (location) =>
-            GoRouter.maybeOf(context)?.push<void>(location) ??
-            Future<void>.value(),
-        child: HeroControllerScope.none(
-          child: Navigator(
-            key: _detailNavigatorKey,
-            onGenerateInitialRoutes: (_, _) => [
-              _buildDetailRoute(effectiveSection, instant: true),
-            ],
-            onGenerateRoute: (_) => _buildDetailRoute(effectiveSection),
+          children: [
+            _MeNavGroups(
+              signedIn: signedIn,
+              detail: detail,
+              selected: effectiveSection,
+              includeSettingsEntries: !desktopOwned,
+              includeRailShortcuts: !hideRailShortcuts,
+              onSelectSection: _selectSection,
+            ),
+          ],
+        ),
+        detail: SettingsDetailScope(
+          onPush: (location) =>
+              GoRouter.maybeOf(context)?.push<void>(location) ??
+              Future<void>.value(),
+          child: HeroControllerScope.none(
+            child: NotificationListener<NavigationNotification>(
+              onNotification: (notification) {
+                final next = notification.canHandlePop;
+                if (_detailCanHandlePop != next) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _detailCanHandlePop != next) {
+                      setState(() => _detailCanHandlePop = next);
+                    }
+                  });
+                }
+                return true;
+              },
+              child: Navigator(
+                key: _detailNavigatorKey,
+                onGenerateInitialRoutes: (_, _) {
+                  _activeDetailSection = effectiveSection;
+                  return [_buildDetailRoute(effectiveSection, instant: true)];
+                },
+                onGenerateRoute: (_) => _buildDetailRoute(effectiveSection),
+              ),
+            ),
           ),
         ),
       ),
@@ -396,6 +439,7 @@ class _MeNavGroups extends ConsumerWidget {
     required this.signedIn,
     required this.detail,
     required this.includeSettingsEntries,
+    this.includeRailShortcuts = true,
     this.selected,
     this.onSelectSection,
   });
@@ -403,6 +447,7 @@ class _MeNavGroups extends ConsumerWidget {
   final bool signedIn;
   final UserEntity? detail;
   final bool includeSettingsEntries;
+  final bool includeRailShortcuts;
   final _MeSection? selected;
   final ValueChanged<_MeSection>? onSelectSection;
 
@@ -462,16 +507,17 @@ class _MeNavGroups extends ConsumerWidget {
         SettingsGroup(
           title: Text(l10n.settingsGroupLibrary),
           children: [
-            sectionTile(
-              section: _MeSection.bookmarks,
-              icon: AppIcons.heart,
-              selectedIcon: AppIcons.heartFilled,
-              title: l10n.profileBookmarked,
-              trailingText: countText(
-                resolvedDetail?.totalIllustBookmarksPublic,
+            if (includeRailShortcuts)
+              sectionTile(
+                section: _MeSection.bookmarks,
+                icon: AppIcons.heart,
+                selectedIcon: AppIcons.heartFilled,
+                title: l10n.profileBookmarked,
+                trailingText: countText(
+                  resolvedDetail?.totalIllustBookmarksPublic,
+                ),
+                onPush: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
               ),
-              onPush: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
-            ),
             sectionTile(
               section: _MeSection.following,
               icon: AppIcons.users,
@@ -529,19 +575,20 @@ class _MeNavGroups extends ConsumerWidget {
               trailingText: countText(localNovelsCount),
               onPush: () => unawaited(openLocalNovels(context)),
             ),
-            sectionTile(
-              section: _MeSection.downloads,
-              icon: AppIcons.downloading,
-              title: l10n.downloaderSettings,
-              trailingText: downloadStats.active == 0
-                  ? countText(downloadStats.total)
-                  : null,
-              trailingBadge: Badge(
-                isLabelVisible: downloadStats.active > 0,
-                label: Text(AppFormat.count(context, downloadStats.active)),
+            if (includeRailShortcuts)
+              sectionTile(
+                section: _MeSection.downloads,
+                icon: AppIcons.downloading,
+                title: l10n.downloaderSettings,
+                trailingText: downloadStats.active == 0
+                    ? countText(downloadStats.total)
+                    : null,
+                trailingBadge: Badge(
+                  isLabelVisible: downloadStats.active > 0,
+                  label: Text(AppFormat.count(context, downloadStats.active)),
+                ),
+                onPush: () => unawaited(openDownloadTasks(context)),
               ),
-              onPush: () => unawaited(openDownloadTasks(context)),
-            ),
           ],
         ),
         if (includeSettingsEntries)

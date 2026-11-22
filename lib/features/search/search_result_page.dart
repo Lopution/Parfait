@@ -299,6 +299,8 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
         anchor: () => PageHeader.anchorOf(fieldContext),
         keyword: widget.query.keyword,
         type: _selectedType,
+        initialIllustFilters: _illustFilters,
+        initialNovelFilters: _novelFilters,
       ),
     );
   }
@@ -480,6 +482,13 @@ class _SearchTabBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    listenFeedRefreshError(
+      context,
+      ref,
+      searchFeedProvider(query),
+      controller: () => ref.read(searchFeedProvider(query).notifier),
+      action: context.l10n.searchRefreshFailed,
+    );
     final body = _body(context, ref);
     return StateFade(kind: body is _SearchLoading, child: body);
   }
@@ -608,6 +617,7 @@ class _IllustSearchFeed extends ConsumerWidget {
     if (entities.isEmpty) return _EmptySearchResult(query: query);
     return SelectableFeedHost(
       child: PullToRefresh(
+        scrollController: scrollController,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
         child: LoadMoreListener(
           itemCount: feed.ids.length,
@@ -684,6 +694,7 @@ class _NovelSearchFeed extends ConsumerWidget {
     }
     if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
+      scrollController: scrollController,
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: LoadMoreListener(
         itemCount: feed.ids.length,
@@ -746,6 +757,7 @@ class _UserSearchFeed extends ConsumerWidget {
         .items;
     if (users.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
+      scrollController: scrollController,
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: LoadMoreListener(
         itemCount: feed.ids.length,

@@ -79,7 +79,14 @@ class _RankingModeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(rankingFeedControllerProvider(feedKey));
+    final provider = rankingFeedControllerProvider(feedKey);
+    listenFeedRefreshError(
+      context,
+      ref,
+      provider,
+      controller: () => ref.read(provider.notifier),
+    );
+    final state = ref.watch(provider);
     final store = ref.watch(illustStoreProvider);
     return state.when(
       loading: () => IllustGridSkeleton(label: context.l10n.contentLoading),

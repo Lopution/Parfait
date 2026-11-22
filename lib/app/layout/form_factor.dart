@@ -11,8 +11,8 @@ import 'window_layout_spec.dart';
 ///   ([AppBreakpoints.isPhoneDisplay]), turned or not: the bottom bar.
 /// - [touch]: a larger touch screen (a tablet, an unfolded foldable): the
 ///   rail from 600dp wide, always collapsed.
-/// - [pc]: a desktop: the same pages as [touch], a rail the user opens and
-///   closes, and a pointer's context menus.
+/// - [pc]: a desktop: the same pages as [touch], an always-expanded rail from
+///   600dp wide, and a pointer's context menus.
 ///
 /// Below 600dp wide every form shows the bottom bar ([hasRail]).
 enum FormFactor {
@@ -60,26 +60,25 @@ enum FormFactor {
   bool hasRail(double width) => this != phone && width >= AppBreakpoints.medium;
 
   /// Whether the shell rail exposes an explicit expand/collapse control at
-  /// [width]×[height].
+  /// [width]×[height]. On PCs the rail stays permanently expanded from 600dp
+  /// wide; large touch screens (`>= 840x480`) keep the manual toggle (`NAV-20`).
   bool canToggleRail(double width, {double height = double.infinity}) =>
       hasRail(width) &&
-      (this == pc ||
-          (this == touch &&
-              width >= AppBreakpoints.expanded &&
-              height >= AppBreakpoints.compactHeight));
+      this == touch &&
+      width >= AppBreakpoints.expanded &&
+      height >= AppBreakpoints.compactHeight;
 
-  /// Whether the rail is open into its labelled panel: requires
-  /// [canToggleRail] (forcing collapsed when narrower/shorter), on a PC as the
-  /// user last left it ([choice]) or expanded from [AppBreakpoints.large]
-  /// (`1200dp`); on large touch screens collapsed by default until the user
-  /// expands it (`NAV-20`).
+  /// Whether the rail is open into its labelled panel: always true on PCs
+  /// whenever [hasRail] holds (`>= 600dp`); on large touch screens collapsed by
+  /// default until the user expands it (`NAV-20`).
   bool railExpanded(
     double width, {
     required bool? choice,
     double height = double.infinity,
   }) {
+    if (!hasRail(width)) return false;
+    if (this == pc) return true;
     if (!canToggleRail(width, height: height)) return false;
-    if (this == pc) return choice ?? width >= AppBreakpoints.large;
     return choice ?? false;
   }
 }

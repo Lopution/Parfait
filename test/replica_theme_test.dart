@@ -444,5 +444,46 @@ void main() {
         expect(captured, FAccessibilityMotion.all);
       },
     );
+
+    testWidgets(
+      'replicaTheme compares equal across calls and ForuiThemeHost caches across unrelated rebuilds',
+      (tester) async {
+        for (final brightness in Brightness.values) {
+          expect(replicaTheme(brightness), replicaTheme(brightness));
+          final sys = ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2E7D32),
+            brightness: brightness,
+          );
+          expect(
+            replicaTheme(brightness, systemColors: sys),
+            replicaTheme(brightness, systemColors: sys),
+          );
+        }
+
+        final seen = <FThemeData>[];
+        final tick = ValueNotifier<int>(0);
+        addTearDown(tick.dispose);
+        await tester.pumpWidget(
+          localizedApp(
+            theme: replicaTheme(Brightness.light),
+            body: ValueListenableBuilder<int>(
+              valueListenable: tick,
+              builder: (_, _, _) => ForuiThemeHost(
+                child: Builder(
+                  builder: (context) {
+                    seen.add(context.theme);
+                    return const SizedBox();
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        tick.value = 1;
+        await tester.pump();
+        expect(seen, hasLength(2));
+        expect(identical(seen[0], seen[1]), isTrue);
+      },
+    );
   });
 }

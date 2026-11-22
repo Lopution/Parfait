@@ -409,9 +409,23 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
 
   bool _submitting = false;
   Object? _submitError;
+  bool _hasPendingTagInput = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tagInput.addListener(_onTagInputChanged);
+  }
+
+  void _onTagInputChanged() {
+    final hasPending = _tagInput.text.trim().isNotEmpty;
+    if (hasPending == _hasPendingTagInput) return;
+    setState(() => _hasPendingTagInput = hasPending);
+  }
 
   @override
   void dispose() {
+    _tagInput.removeListener(_onTagInputChanged);
     _tagInput.dispose();
     super.dispose();
   }
@@ -422,7 +436,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
   bool get _isDirty =>
       _restrict != _initialRestrict ||
       !listEquals(_tags, _initialTags) ||
-      _tagInput.text.trim().isNotEmpty;
+      _hasPendingTagInput;
 
   /// Closing is safe without a prompt when the draft matches the baseline or
   /// a submit is already in flight — the in-flight mutation keeps running
@@ -456,7 +470,9 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
 
   Future<void> _confirm() async {
     final pending = _tagInput.text.trim();
-    final tags = pending.isEmpty ? _tags : [..._tags, pending];
+    final tags = (pending.isEmpty || _tags.contains(pending))
+        ? _tags
+        : [..._tags, pending];
     // The sheet may close during the submit: everything after the await
     // goes through objects read before it.
     final store = ref.read(bookmarkStoreProvider.notifier);
@@ -700,13 +716,13 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                               title: Text(l10n.restrictPrivate),
                               value: _restrict == BookmarkRestrict.private,
                               // The whole edit area is inert while an existing
-                              // bookmark's detail is still in flight: the tag
-                              // editor is replaced by the spinner and the
-                              // switch locks too — a mid-load restrict change
-                              // would dirty the draft so the arriving prefill
-                              // kept the empty tag list and overwrote the
-                              // persisted tags.
-                              onChanged: (awaitingPrefill && !prefillFailed)
+                              // bookmark's detail has not loaded (including
+                              // failed-awaiting-retry): the tag editor is
+                              // replaced by the spinner/retry row and the
+                              // switch locks too — a pre-prefill restrict
+                              // change would dirty the draft so a retried
+                              // prefill skipped restoring persisted tags.
+                              onChanged: awaitingPrefill
                                   ? null
                                   : (private) => setState(
                                       () => _restrict = private

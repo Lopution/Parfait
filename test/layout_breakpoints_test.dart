@@ -118,11 +118,13 @@ void main() {
       expect(FormFactor.phone.hasRail(1200), isFalse);
     });
 
-    test("a PC's rail opens from large until the user toggles it; "
+    test("a PC's rail stays expanded whenever the rail shows; "
         'a large touch rail opens only when requested', () {
-      expect(FormFactor.pc.railExpanded(1199, choice: null), isFalse);
+      expect(FormFactor.pc.canToggleRail(1200, height: 900), isFalse);
+      expect(FormFactor.pc.railExpanded(599, choice: null), isFalse);
+      expect(FormFactor.pc.railExpanded(600, choice: null), isTrue);
       expect(FormFactor.pc.railExpanded(1200, choice: null), isTrue);
-      expect(FormFactor.pc.railExpanded(1920, choice: false), isFalse);
+      expect(FormFactor.pc.railExpanded(1920, choice: false), isTrue);
       expect(FormFactor.pc.railExpanded(800, choice: true), isTrue);
       // Touch defaults collapsed; expanded-size touch allows explicit toggle.
       expect(FormFactor.touch.canToggleRail(840, height: 480), isTrue);

@@ -17,6 +17,7 @@ import 'package:parfait/app/layout/window_layout_spec.dart'
 import 'package:parfait/app/navigation/forward_history.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/navigation/route_extras.dart' show IllustRouteExtra;
+import 'package:parfait/app/widgets/display_actions.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/page_header.dart';
 import 'package:parfait/app/widgets/search_field_button.dart';
@@ -32,6 +33,7 @@ import 'package:parfait/core/platform/desktop_window_channel.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/home/home_page.dart';
+import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart'
     show DetailPageImage;
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
@@ -120,7 +122,7 @@ void main() {
                         ],
                         selectedIndex: 0,
                         onSelected: (_) {},
-                        form: FormFactor.pc,
+                        form: FormFactor.touch,
                         expanded: false,
                         onToggle: () {},
                         onBookmarks: () {},
@@ -805,6 +807,79 @@ void main() {
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
+      }
+    },
+  );
+
+  testWidgets(
+    'context menus open on the root navigator and offstage branch modals do not lock active branch forward history',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final router = pixivRouter('/recommended');
+        setViewSize(tester, const Size(1280, 800));
+        await tester.pumpWidget(
+          localizedRouterApp(
+            router,
+            overrides: [...await signedInAccountOverrides()],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final history = ForwardHistoryStack.ofRouter(router);
+        final branch0Context = tester.element(find.byType(RecommendedHomePage));
+
+        // 1. Display-action context menu pushes onto root navigator, not branch.
+        unawaited(
+          showDisplayActions(
+            branch0Context,
+            position: const Offset(200, 200),
+            onLongPress: () {},
+            actions: [
+              DisplayAction(
+                icon: AppIcons.copy,
+                label: 'Copy',
+                onSelected: () {},
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Copy'), findsOneWidget);
+        expect(history.hasOpenModal, isTrue);
+        expect(
+          Navigator.of(branch0Context, rootNavigator: false).canPop(),
+          isFalse,
+        );
+        expect(
+          Navigator.of(branch0Context, rootNavigator: true).canPop(),
+          isTrue,
+        );
+        Navigator.of(branch0Context, rootNavigator: true).pop();
+        await tester.pumpAndSettle();
+        expect(history.hasOpenModal, isFalse);
+
+        // 2. A local branch modal on /recommended must not lock /ranking.
+        unawaited(
+          showDialog<void>(
+            context: branch0Context,
+            useRootNavigator: false,
+            builder: (_) => const AlertDialog(content: Text('local-modal')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(history.hasOpenModal, isTrue);
+        router.go('/ranking');
+        await tester.pumpAndSettle();
+        expect(history.hasOpenModal, isFalse);
+        router.go('/recommended');
+        await tester.pumpAndSettle();
+        expect(history.hasOpenModal, isTrue);
+        Navigator.of(branch0Context, rootNavigator: false).pop();
+        await tester.pumpAndSettle();
+        expect(history.hasOpenModal, isFalse);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
       }
     },
   );

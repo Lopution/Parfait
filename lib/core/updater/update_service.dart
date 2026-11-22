@@ -79,10 +79,28 @@ class UpdateService {
   final Uri signatureUri;
   Future<UpdateCheckResult>? _checkInFlight;
   UpdateCheckResult? _lastCheck;
+  Future<UpdateApplyResult>? _applyInFlight;
+  UpdateApplyResult? _lastApplyResult;
+  final Set<void Function()> _statusListeners = <void Function()>{};
 
   UpdateCheckResult? get lastCheck => _lastCheck;
+  bool get isChecking => _checkInFlight != null;
+  bool get isApplying => _applyInFlight != null;
+  UpdateApplyResult? get lastApplyResult => _lastApplyResult;
 
-  Future<UpdateApplyResult>? _applyInFlight;
+  void addStatusListener(void Function() listener) {
+    _statusListeners.add(listener);
+  }
+
+  void removeStatusListener(void Function() listener) {
+    _statusListeners.remove(listener);
+  }
+
+  void _notifyStatus() {
+    for (final listener in List<void Function()>.of(_statusListeners)) {
+      listener();
+    }
+  }
 
   /// Downloads and hands a verified APK to the platform installer only after
   /// an explicit user confirmation.
@@ -92,11 +110,34 @@ class UpdateService {
   }) {
     final inFlight = _applyInFlight;
     if (inFlight != null) return inFlight;
-    final future = _applyOnce(release, confirmed: confirmed);
-    _applyInFlight = future;
-    return future.whenComplete(() {
-      if (identical(_applyInFlight, future)) _applyInFlight = null;
+    _lastApplyResult = null;
+    late final Future<UpdateApplyResult> tracked;
+    tracked = _runApply(release, confirmed: confirmed).whenComplete(() {
+      if (identical(_applyInFlight, tracked)) {
+        _applyInFlight = null;
+        _notifyStatus();
+      }
     });
+    _applyInFlight = tracked;
+    _notifyStatus();
+    return tracked;
+  }
+
+  Future<UpdateApplyResult> _runApply(
+    UpdateRelease release, {
+    required bool confirmed,
+  }) async {
+    try {
+      final result = await _applyOnce(release, confirmed: confirmed);
+      _lastApplyResult = result;
+      return result;
+    } on Object {
+      _lastApplyResult = const UpdateApplyResult(
+        status: UpdateApplyStatus.failed,
+        errorCode: 'apply_failed',
+      );
+      rethrow;
+    }
   }
 
   Future<UpdateApplyResult> _applyOnce(
@@ -189,11 +230,17 @@ class UpdateService {
   }) {
     final inFlight = _checkInFlight;
     if (inFlight != null) return inFlight;
-    final future = _checkOnce(channel);
-    _checkInFlight = future;
-    return future.whenComplete(() {
-      if (identical(_checkInFlight, future)) _checkInFlight = null;
+    _lastApplyResult = null;
+    late final Future<UpdateCheckResult> tracked;
+    tracked = _checkOnce(channel).whenComplete(() {
+      if (identical(_checkInFlight, tracked)) {
+        _checkInFlight = null;
+        _notifyStatus();
+      }
     });
+    _checkInFlight = tracked;
+    _notifyStatus();
+    return tracked;
   }
 
   Future<UpdateCheckResult> _checkOnce(UpdateChannel requestedChannel) async {

@@ -270,21 +270,14 @@ ThemeData replicaTheme(
       elevation: 0,
       surfaceTintColor: FuncTokens.transparent,
       // No indicator: the selected destination is told by its tint alone.
-      iconTheme: WidgetStateProperty.resolveWith((states) {
-        return IconThemeData(
-          color: states.contains(WidgetState.selected)
-              ? colorScheme.primary
-              : colorScheme.onSurfaceVariant,
-        );
-      }),
-      labelTextStyle: WidgetStateProperty.resolveWith((states) {
-        final selected = states.contains(WidgetState.selected);
-        return TextStyle(
-          color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-        );
-      }),
+      iconTheme: _SelectedIconThemeProperty(
+        selected: colorScheme.primary,
+        unselected: colorScheme.onSurfaceVariant,
+      ),
+      labelTextStyle: _SelectedLabelStyleProperty(
+        selected: colorScheme.primary,
+        unselected: colorScheme.onSurfaceVariant,
+      ),
     ),
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: background,
@@ -357,10 +350,10 @@ ThemeData replicaTheme(
     ),
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? colorScheme.onSurface.withValues(alpha: _disabledActionAlpha)
-              : null,
+        foregroundColor: _DisabledColorProperty(
+          disabled: colorScheme.onSurface.withValues(
+            alpha: _disabledActionAlpha,
+          ),
         ),
       ),
     ),
@@ -370,15 +363,17 @@ ThemeData replicaTheme(
     // colors.
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? colorScheme.onSurface.withValues(alpha: _disabledContainerAlpha)
-              : brand,
+        backgroundColor: _DisabledColorProperty(
+          enabled: brand,
+          disabled: colorScheme.onSurface.withValues(
+            alpha: _disabledContainerAlpha,
+          ),
         ),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? colorScheme.onSurface.withValues(alpha: _disabledContentAlpha)
-              : onBrand,
+        foregroundColor: _DisabledColorProperty(
+          enabled: onBrand,
+          disabled: colorScheme.onSurface.withValues(
+            alpha: _disabledContentAlpha,
+          ),
         ),
       ),
     ),
@@ -426,4 +421,85 @@ ThemeData replicaTheme(
       unselectedLabelStyle: tabLabelStyle,
     ),
   );
+}
+
+@immutable
+final class _SelectedIconThemeProperty
+    implements WidgetStateProperty<IconThemeData?> {
+  const _SelectedIconThemeProperty({
+    required this.selected,
+    required this.unselected,
+  });
+
+  final Color selected;
+  final Color unselected;
+
+  @override
+  IconThemeData resolve(Set<WidgetState> states) => IconThemeData(
+    color: states.contains(WidgetState.selected) ? selected : unselected,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _SelectedIconThemeProperty &&
+          other.selected == selected &&
+          other.unselected == unselected;
+
+  @override
+  int get hashCode => Object.hash(selected, unselected);
+}
+
+@immutable
+final class _SelectedLabelStyleProperty
+    implements WidgetStateProperty<TextStyle?> {
+  const _SelectedLabelStyleProperty({
+    required this.selected,
+    required this.unselected,
+  });
+
+  final Color selected;
+  final Color unselected;
+
+  @override
+  TextStyle resolve(Set<WidgetState> states) {
+    final isSelected = states.contains(WidgetState.selected);
+    return TextStyle(
+      color: isSelected ? selected : unselected,
+      fontSize: 12,
+      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _SelectedLabelStyleProperty &&
+          other.selected == selected &&
+          other.unselected == unselected;
+
+  @override
+  int get hashCode => Object.hash(selected, unselected);
+}
+
+@immutable
+final class _DisabledColorProperty implements WidgetStateProperty<Color?> {
+  const _DisabledColorProperty({this.enabled, required this.disabled});
+
+  final Color? enabled;
+  final Color disabled;
+
+  @override
+  Color? resolve(Set<WidgetState> states) =>
+      states.contains(WidgetState.disabled) ? disabled : enabled;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _DisabledColorProperty &&
+          other.enabled == enabled &&
+          other.disabled == disabled;
+
+  @override
+  int get hashCode => Object.hash(enabled, disabled);
 }

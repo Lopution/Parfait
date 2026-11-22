@@ -223,7 +223,12 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
         Widget grid = SliverPadding(
           padding: widget.padding,
           sliver: SliverCacheRamp(
+            // Key by column count so cross-column resizes mount a fresh
+            // SliverMasonryGrid instead of hitting flutter_staggered_grid_view
+            // 0.7.0's in-place relayout bug (trailing child with null
+            // layoutOffset / out-of-range crossAxisIndex).
             sliver: SliverMasonryGrid(
+              key: ValueKey(columns),
               gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
               ),

@@ -51,23 +51,40 @@ class WatchLaterStore extends AsyncNotifier<List<WatchLaterEntry>> {
     return true;
   }
 
-  /// Removes [illustIds] from the current account's list in one
-  /// transaction. The result is what [restoreAll] needs to undo it; null
-  /// when signed out or none of the ids is on the list.
-  Future<WatchLaterRemoval?> removeAll(Iterable<int> illustIds) async {
-    final accountId = _accountId;
-    if (accountId == null) return null;
+  /// Removes [illustIds] from [accountId] (or the current account when omitted)
+  /// in one transaction. When [accountId] is supplied after an async delay,
+  /// passing [entries] captured before the delay removes strictly from that
+  /// account without touching another account's rows; without [entries], a
+  /// mismatch against the current account is refused safely.
+  Future<WatchLaterRemoval?> removeAll(
+    Iterable<int> illustIds, {
+    String? accountId,
+    List<WatchLaterEntry>? entries,
+  }) async {
+    final activeAccountId = _accountId;
+    final targetAccountId = accountId ?? activeAccountId;
+    if (targetAccountId == null) return null;
     final ids = illustIds.toSet();
-    final entries = [
-      for (final entry in state.value ?? const <WatchLaterEntry>[])
+    final List<WatchLaterEntry> source;
+    if (entries != null) {
+      source = entries;
+    } else if (activeAccountId == targetAccountId) {
+      source = state.value ?? const <WatchLaterEntry>[];
+    } else {
+      return null;
+    }
+    final toRemove = [
+      for (final entry in source)
         if (ids.contains(entry.entity.id)) entry,
     ];
-    if (entries.isEmpty) return null;
-    await ref.read(watchLaterRepositoryProvider).removeAll(accountId, [
-      for (final entry in entries) entry.entity.id,
+    if (toRemove.isEmpty) return null;
+    await ref.read(watchLaterRepositoryProvider).removeAll(targetAccountId, [
+      for (final entry in toRemove) entry.entity.id,
     ]);
-    ref.invalidateSelf();
-    return (accountId: accountId, entries: entries);
+    if (_accountId == targetAccountId) {
+      ref.invalidateSelf();
+    }
+    return (accountId: targetAccountId, entries: toRemove);
   }
 
   /// Undo for [removeAll]: re-inserts the entries with their original

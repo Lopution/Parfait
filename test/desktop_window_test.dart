@@ -156,6 +156,48 @@ void main() {
     );
 
     test(
+      'onWindowResize debounces without polling bounds and close runs onBeforeDestroy before destroy',
+      () async {
+        final adapter = _FakeDesktopWindowAdapter(size: const Size(1180, 780));
+        final events = <String>[];
+        adapter.onEvent = events.add;
+        final session = DesktopWindowSession(
+          adapter: adapter,
+          host: _FakeDesktopWindowHost(),
+          trayPort: const NoopTrayPort(),
+          readCloseToTray: () => false,
+          readSavedPlace: () => (width: null, height: null, x: null, y: null),
+          saveGeometry: ({width, height, x, y, required maximized}) async {
+            events.add('saveGeometry');
+          },
+          onBeforeDestroy: () async => events.add('beforeDestroy'),
+        );
+        addTearDown(session.dispose);
+
+        for (var i = 0; i < 20; i++) {
+          session.onWindowResize();
+        }
+        await pumpEventQueue();
+        expect(adapter.getSizeCalls, 0);
+
+        session.onWindowResized();
+        await pumpEventQueue();
+        expect(adapter.getSizeCalls, 1);
+
+        await session.handleWindowClose();
+        expect(
+          events,
+          containsAllInOrder([
+            'saveGeometry',
+            'beforeDestroy',
+            'setPreventClose:false',
+            'destroy',
+          ]),
+        );
+      },
+    );
+
+    test(
       'closeToTray hides when tray supported, destroys when unsupported, and quit forces exit',
       () async {
         final adapter = _FakeDesktopWindowAdapter(minimized: true);
@@ -975,6 +1017,7 @@ class _FakeDesktopWindowAdapter implements DesktopWindowAdapter {
   final List<String> calls = <String>[];
   void Function(String event)? onEvent;
   Size? lastSize;
+  int getSizeCalls = 0;
 
   void _record(String event) {
     calls.add(event);
@@ -1040,7 +1083,10 @@ class _FakeDesktopWindowAdapter implements DesktopWindowAdapter {
   Future<bool> isMinimized() async => minimized;
 
   @override
-  Future<Size> getSize() async => size;
+  Future<Size> getSize() async {
+    getSizeCalls++;
+    return size;
+  }
 
   @override
   Future<Offset> getPosition() async {

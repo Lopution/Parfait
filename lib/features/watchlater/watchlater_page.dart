@@ -21,6 +21,7 @@ import '../../app/widgets/selectable_tile.dart';
 import '../../app/widgets/selection_app_bar.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/widgets/undo_snack_bar.dart';
+import '../../core/auth/account_store.dart';
 import '../../core/watchlater/watch_later_repository.dart';
 import '../../core/watchlater/watch_later_store.dart';
 import '../../l10n/context.dart';
@@ -135,20 +136,40 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
   }
 
   /// The tiles leave first, then the rows go in one transaction; Undo puts
-  /// them back in place (D5 — no confirmation). A page closed mid-exit
-  /// still removes them, and a failure is reported either way.
+  /// them back in place (D5 — no confirmation). Account ownership, entry
+  /// snapshots and the Undo prompt host are captured before the exit animation
+  /// so a mid-exit account switch never deletes another account's rows and a
+  /// quick back navigation still surfaces Undo (FB-08, FB-15).
   Future<void> _removeSelected() async {
     final ids = List<int>.of(_selected);
+    final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
+    if (accountId == null) {
+      _exitManaging();
+      return;
+    }
+    final container = ProviderScope.containerOf(context, listen: false);
+    final idSet = ids.toSet();
+    final snapshot = [
+      for (final entry
+          in ref.read(watchLaterStoreProvider).value ??
+              const <WatchLaterEntry>[])
+        if (idSet.contains(entry.entity.id)) entry,
+    ];
     final store = ref.read(watchLaterStoreProvider.notifier);
     final reportFailure = deferErrorSnackBar(
       context,
       action: context.l10n.watchLaterSaveFailed,
     );
+    final showUndo = deferUndoSnackBar(context, context.l10n.watchLaterRemoved);
     _exitManaging();
     await _removals.playExit(ids);
     final WatchLaterRemoval removal;
     try {
-      final removed = await store.removeAll(ids);
+      final removed = await store.removeAll(
+        ids,
+        accountId: accountId,
+        entries: snapshot,
+      );
       if (removed == null) {
         if (mounted) _removals.restore(ids);
         return;
@@ -159,12 +180,16 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
       if (mounted) _removals.restore(ids);
       return;
     }
-    if (!mounted) return;
-    showUndoSnackBar(
-      context,
-      context.l10n.watchLaterRemoved,
-      onUndo: (container) =>
-          container.read(watchLaterStoreProvider.notifier).restoreAll(removal),
+    final currentAccountId = container
+        .read(accountStoreProvider)
+        .value
+        ?.usableCurrent
+        ?.id;
+    if (currentAccountId != accountId) return;
+    showUndo(
+      onUndo: (undoContainer) => undoContainer
+          .read(watchLaterStoreProvider.notifier)
+          .restoreAll(removal),
     );
   }
 

@@ -16,7 +16,7 @@ applies_to:
   - lib/app/widgets/watchlist_toggle.dart
   - lib/app/widgets/comment_composer.dart
   - lib/app/widgets/feed/desktop_gallery_controls.dart
-reviewed: 2026-11-17
+reviewed: 2026-11-22
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -33,9 +33,11 @@ reviewed: 2026-11-17
 
 ### FB-01 Menus are AppMenuButton
 - **Rule:** Overflow and choice menus use `AppMenuButton` / `AppMenuEntry`
-  (styling `MenuStyle` with `surfaceContainerHigh`, `brandHairline`,
-  `FuncShape.card`, and `FuncSpacing.xs`), never `PopupMenuButton`. A touch
-  outside closes the menu and is consumed;
+  (styling `MenuStyle` with `surfaceContainerLowest` in light / `surfaceContainerHigh`
+  in dark, `brandHairline`, `FuncShape.card`, `elevation: 3`, `FuncSpacing.xs`
+  panel inset padding & vertical anchor gap, and `FuncShape.control` rounded
+  rows using `brandTintWeak` + `primary` ink on checked items), never
+  `PopupMenuButton`. A touch outside closes the menu and is consumed;
   back closes the menu before the page. The panel keeps
   `crossAxisUnconstrained: false` so long labels truncate inside the width
   cap. A menu keeps `FuncSpacing.sm` off the side of the screen it lines
@@ -63,7 +65,9 @@ reviewed: 2026-11-17
   presents `AppDatePickerDialog` backed by `FCalendar.grid` with UTC day
   clamping, and dialogs use `AppAlertDialog` backed by `FDialog`. A modal
   surface that places itself (the docked search input, NAV-25) uses
-  `showAppPanel`, and a pointer menu (PAGE-18) uses `showAppContextMenu`.
+  `showAppPanel`, and a pointer menu (PAGE-18) uses `showAppContextMenu` on
+  the root navigator (`useRootNavigator: true`, with `showDisplayActions`
+  converting coordinates against the root overlay).
   The barrier routes close when a touch that started on the scrim is
   released on the scrim, tap or drag; `showAppContextMenu` keeps
   Material's stock menu barrier so an outside tap or Esc closes it.
@@ -110,11 +114,14 @@ reviewed: 2026-11-17
   `PromptAnchor` so prompts rest above it; the shell rail registers one
   on its start edge, so prompts centre on the content beside it. A prompt whose message stops
   being true before its dwell ends takes itself down through the callback
-  `showAppSnackBar` returns (the exit hint, NAV-03).
+  `showAppSnackBar` returns (the exit hint, NAV-03). `PromptCover` compares
+  monotonic open/show sequence numbers so modals cover earlier prompts while
+  prompts triggered inside an open modal stay visible and clickable until a
+  newer modal opens above them.
 - **Why:** Prompts died with their page; action prompts stayed forever for
   users of always-on accessibility services. The dwell runs past the
   entrance and the platform timeout, so it cannot time a window.
-- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits"
+- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits"
 - **Code:** `lib/app/widgets/prompt_host.dart`, `lib/app/widgets/prompt_anchor.dart`
 
 ## Undo
@@ -141,12 +148,17 @@ reviewed: 2026-11-17
 - **Code:** `lib/core/bookmark`, `lib/core/user`
 
 ### FB-08 Undo outlives its page
-- **Rule:** `showUndoSnackBar` captures the `ProviderContainer`, prompt host
-  and localizations when it shows; `onUndo` receives the container. Read
-  stores and actions before awaiting anything.
-- **Why:** Undo pressed after the page closed used a disposed context.
-- **Check:** `test/undo_flows_test.dart` "a private follow comes back private"
-- **Code:** `lib/app/widgets/undo_snack_bar.dart`
+- **Rule:** `showUndoSnackBar` and `deferUndoSnackBar` capture the
+  `ProviderContainer`, prompt host and localizations before any await; `onUndo`
+  receives the container. Flows that animate or write before showing Undo
+  capture the account boundary and entry snapshot up front so quick back keeps
+  Undo on the prior route while an account switch never deletes another
+  account's rows or shows cross-account Undo.
+- **Why:** Undo pressed after the page closed used a disposed context, and
+  gating Undo on `mounted` or reading the account after an exit animation
+  dropped Undo on quick back and deleted the new account's matching rows.
+- **Check:** `test/undo_flows_test.dart` "a private follow comes back private"; `test/watchlater_page_test.dart` "popping mid-exit keeps Undo on previous route and account switch never deletes the other account"
+- **Code:** `lib/app/widgets/undo_snack_bar.dart`, `lib/features/watchlater/watchlater_page.dart`, `lib/core/watchlater/watch_later_store.dart`
 
 ### FB-09 Bookmark and follow have one UI entry each
 - **Rule:** UI code toggles bookmarks through `toggleBookmark` and follows

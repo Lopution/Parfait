@@ -36,6 +36,9 @@ class SpotlightFixture {
   /// Articles on page one, ids from 101.
   int firstPageSize = 2;
 
+  /// When true, `/v1/spotlight/articles` fails with HTTP 500.
+  bool failRequests = false;
+
   http.Client client() => MockClient((request) async {
     if (request.url.path != '/v1/spotlight/articles') {
       fail('unexpected request: ${request.url}');
@@ -47,6 +50,7 @@ class SpotlightFixture {
 
   Future<http.Response> _articles(http.Request request) async {
     requests.add(request.url);
+    if (failRequests) return http.Response('server error', 500);
     final category = request.url.queryParameters['category']!;
     final offset = request.url.queryParameters['offset'];
     if (offset == null) {

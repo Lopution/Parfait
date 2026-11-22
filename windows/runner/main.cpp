@@ -134,6 +134,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (single_instance_mutex != nullptr) {
     ::CloseHandle(single_instance_mutex);
   }
+  // Ensure the window, Flutter engine, and COM-using plugins tear down before
+  // CoUninitialize() even if WM_QUIT arrived without WM_DESTROY.
+  window.Destroy();
   ::CoUninitialize();
   return EXIT_SUCCESS;
 }

@@ -129,13 +129,17 @@ Future<void> pushRoute(
 /// runs the normal entrance transition. `context.replace` keeps the key and
 /// swaps without one — right for updating a page's own query, wrong for
 /// moving on to a different page.
-Future<void> pushReplacementRoute(BuildContext context, String location) async {
+Future<void> pushReplacementRoute(
+  BuildContext context,
+  String location, {
+  Object? extra,
+}) async {
   final router = GoRouter.of(context);
   assert(
     pushStaysInStack(router, location),
     'push of $location leaves the stack of ${router.state.uri}',
   );
-  await router.pushReplacement<void>(location);
+  await router.pushReplacement<void>(location, extra: extra);
 }
 
 /// Branch locations must be pushed from their own visible branch stack. A

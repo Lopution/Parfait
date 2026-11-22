@@ -30,10 +30,8 @@ import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
-import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/layout/card_columns.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
-import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/icons/ui_icons.dart';
 
@@ -304,7 +302,15 @@ class _NewFeedBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final feedAsync = ref.watch(newFeedProvider(feedKey));
+    final provider = newFeedProvider(feedKey);
+    listenFeedRefreshError(
+      context,
+      ref,
+      provider,
+      controller: () => ref.read(provider.notifier),
+      action: context.l10n.newRefreshFailed,
+    );
+    final feedAsync = ref.watch(provider);
     return feedAsync.when(
       loading: () => _loading(context),
       error: (error, _) => FeedError(
@@ -381,30 +387,6 @@ class _NewFeedBody extends ConsumerWidget {
     PagedFeedState feed,
   ) {
     final tail = <Widget>[
-      if (feed.refreshPhase == FeedPhase.error)
-        SliverToBoxAdapter(
-          child: Container(
-            width: double.infinity,
-            color: Theme.of(context).colorScheme.errorContainer,
-            // The retry label, not its padding, ends on the margin.
-            padding: const EdgeInsetsDirectional.fromSTEB(
-              FuncSpacing.lg,
-              FuncSpacing.sm,
-              FuncSpacing.lg - EdgeIconButtons.glyphInset,
-              FuncSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                Expanded(child: Text(context.l10n.newRefreshFailed)),
-                TextButton(
-                  onPressed: () =>
-                      ref.read(newFeedProvider(feedKey).notifier).refresh(),
-                  child: Text(context.l10n.newRetry),
-                ),
-              ],
-            ),
-          ),
-        ),
       SliverToBoxAdapter(
         child: FeedTail(
           feed: feed,

@@ -3,7 +3,7 @@ prefix: SET
 applies_to:
   - lib/app/widgets/settings/**
   - lib/features/settings/**
-reviewed: 2026-11-18
+reviewed: 2026-11-22
 ---
 
 # Settings pages and the Me tab
@@ -157,12 +157,16 @@ reviewed: 2026-11-18
   (`/settings/about/licenses`, `/settings/network/advanced`,
   `/settings/navigation/bottom-bar`, `/settings/translate/credentials`) map to
   their parent category and scroll the active rail entry into view.
+  `SettingsDetailScope` carries a `SettingsDraftRegistry` so any embedded
+  `guardDraft` form prompts via `confirmDiscardDraft` on both left-rail
+  category switches and outer pops (`settingsMasterPopScope`).
 - **Why:** The same setting on two pages drifted apart; hardwareless iPads omit
   dead haptic sliders while Taptic iPhones expose them (and iOS omits Android
   Material You system colors and SAF pickers); and unified `280dp`
   master-detail hosting keeps deep-linked settings pages coherent beside the
-  collapsed shell rail without double headers or orphaned single-column sheets.
-- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column"; `test/shared_widgets_test.dart` "MasterDetailWorkspace wraps scrollable masterBody in vertical ScrollEdgeFade"
+  collapsed shell rail without double headers, orphaned single-column sheets,
+  or silently discarded form drafts on category switch or outer back.
+- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column" "wide settings prompts confirmDiscardDraft on category switch and outer pop for dirty root and child forms"; `test/shared_widgets_test.dart` "MasterDetailWorkspace wraps scrollable masterBody in vertical ScrollEdgeFade"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/navigation/route_branches.dart`, `lib/features/settings/settings_catalog.dart`, `lib/features/settings/settings_page.dart`, `lib/features/settings/settings_helpers.dart`, `lib/features/settings/pages/motion_settings_page.dart`, `lib/features/settings/pages/theme_settings_page.dart`, `lib/features/settings/pages/download_destination_page.dart`
 
 ## Me tab
@@ -203,9 +207,14 @@ reviewed: 2026-11-18
   `*Filled` selected states `heartFilled` / `watchLaterFilled`, including
   `HistoryPage` under data and settings/about on touch tablets without
   `DesktopCommandBarScope`) that opens directly onto the bookmarks pane (`收藏`)
+  on touch tablets — or onto `关注` under `DesktopCommandBarScope`, omitting
+  the `收藏` and `下载` rows already owned by the adjacent desktop `ShellRail` —
   without duplicating profile cards, library metric cards, or history strips in
   a separate overview pane; the bookmarks and following panes defer
-  network-backed filters and feeds until the Me tab's network scope is active.
+  network-backed filters and feeds until the Me tab's network scope is active,
+  and the detail `Navigator` reports `NavigationNotification` to an outer
+  `PopScope(canPop: !_detailCanHandlePop)` so `Esc`/back exits management modes
+  inside detail pages before leaving the Me tab.
 - **Why:** User decision: settings filled two thirds of the page in a
   style of their own, while static multi-hue icon lists under-utilized desktop
   canvas space; monochrome grouped rows clarify visual hierarchy on mobile, and
@@ -214,5 +223,5 @@ reviewed: 2026-11-18
   the shared 280dp `MasterDetailWorkspace` / `SettingsDetailScope` pattern. The
   history row holds its order while covered so Hero landing flights target the
   right cover before sliding to match recent history.
-- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"; `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly"
+- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"; `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly" "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/widgets/scroll_edge_fade.dart`, `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_tile.dart`, `lib/core/history/history_visibility.dart`, `lib/features/settings/me_dashboard_page.dart`

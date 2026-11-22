@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import 'func_tokens.dart';
@@ -370,6 +371,80 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       rank: TextStyle.lerp(rank, other.rank, t)!,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is FuncSemanticTokens &&
+        other.canvas == canvas &&
+        other.surface == surface &&
+        other.surfaceRaised == surfaceRaised &&
+        other.surfaceOverlay == surfaceOverlay &&
+        other.divider == divider &&
+        listEquals(other.barShadow, barShadow) &&
+        listEquals(other.layerLift, layerLift) &&
+        listEquals(other.cardLift, cardLift) &&
+        other.contentPrimary == contentPrimary &&
+        other.contentSecondary == contentSecondary &&
+        other.contentTertiary == contentTertiary &&
+        other.brand == brand &&
+        other.onBrand == onBrand &&
+        other.brandTintWeak == brandTintWeak &&
+        other.brandTint == brandTint &&
+        other.brandTintStroke == brandTintStroke &&
+        other.brandHairline == brandHairline &&
+        other.brandedHeaderSurface == brandedHeaderSurface &&
+        other.brandedHeaderForeground == brandedHeaderForeground &&
+        other.brandedHeaderTabUnselected == brandedHeaderTabUnselected &&
+        other.danger == danger &&
+        other.success == success &&
+        other.warning == warning &&
+        other.display == display &&
+        other.title == title &&
+        other.body == body &&
+        other.label == label &&
+        other.caption == caption &&
+        other.numeric == numeric &&
+        other.workTitle == workTitle &&
+        other.rankPodium == rankPodium &&
+        other.rank == rank;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    canvas,
+    surface,
+    surfaceRaised,
+    surfaceOverlay,
+    divider,
+    Object.hashAll(barShadow),
+    Object.hashAll(layerLift),
+    Object.hashAll(cardLift),
+    contentPrimary,
+    contentSecondary,
+    contentTertiary,
+    brand,
+    onBrand,
+    brandTintWeak,
+    brandTint,
+    brandTintStroke,
+    brandHairline,
+    brandedHeaderSurface,
+    brandedHeaderForeground,
+    brandedHeaderTabUnselected,
+    danger,
+    success,
+    warning,
+    display,
+    title,
+    body,
+    label,
+    caption,
+    numeric,
+    workTitle,
+    rankPodium,
+    rank,
+  ]);
 }
 
 /// Digits of equal width, so a changing number does not shift its

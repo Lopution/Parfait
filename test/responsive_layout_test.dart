@@ -290,4 +290,52 @@ void main() {
     expect(illustColumnsForContext(pcContext, 616, FeedDensity.standard), 3);
     expect(illustColumnsForContext(pcContext, 1140, FeedDensity.standard), 5);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+  testWidgets(
+    'scrolled IllustFeedGrid survives cross-column resizes and taps without blanking',
+    (tester) async {
+      setViewSize(tester, const Size(1100, 800));
+      final ids = [for (var i = 1; i <= 80; i++) i];
+      var tapped = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: replicaTheme(Brightness.light),
+            home: Scaffold(
+              body: CustomScrollView(
+                slivers: [
+                  IllustFeedGrid(
+                    itemCount: ids.length,
+                    itemIds: ids,
+                    itemBuilder: (context, index) => GestureDetector(
+                      onTap: () => tapped++,
+                      child: SizedBox(
+                        height: 90 + (ids[index] * 41 % 6) * 35,
+                        child: Text('item ${ids[index]}'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -1800));
+      await tester.pump();
+
+      for (final width in const [850.0, 620.0, 1250.0, 500.0, 1050.0]) {
+        setViewSize(tester, Size(width, 800));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull, reason: 'width $width');
+        final visible = find.byType(GestureDetector).hitTestable();
+        expect(visible, findsWidgets, reason: 'visible items at $width');
+        await tester.tap(visible.first);
+        await tester.pump();
+      }
+      expect(tapped, 5);
+    },
+  );
 }

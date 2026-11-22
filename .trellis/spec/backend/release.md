@@ -16,7 +16,7 @@ applies_to:
   - rust-toolchain.toml
   - CHANGELOG.md
   - .github/pull_request_template.md
-reviewed: 2026-11-14
+reviewed: 2026-11-22
 ---
 
 # Release artifacts, updater and toolchain
@@ -109,11 +109,15 @@ reviewed: 2026-11-14
   fetches a manifest. Download redirects follow only `kUpdateDownloadHosts`
   and the measured CDN hosts; a new host needs a transport test. A
   download resumed after a restart obeys Cancel like a fresh one, and its
-  end is read from the task before waiting for an event.
+  end is read from the task before waiting for an event. `UpdateService`
+  exposes observable in-flight apply/check state (`isApplying`,
+  `lastApplyResult`, status listeners) so leaving and re-entering About
+  preserves progress and cancellation.
 - **Why:** Installing without checks or from shared storage would allow a
   swapped APK. A resumed download ignored Cancel and opened the installer,
-  or hung when it ended while its state was being saved.
-- **Check:** `test/updater_download_test.dart` "apply requires explicit confirmation and never silently installs" "hash or exact-size mismatch fails closed and cleans the APK" "cancel stops a recovered updater download too" "a recovered download that ends before its state is saved", `test/updater_manifest_test.dart` "F-Droid capability never fetches a manifest or signature"
+  hung when it ended while its state was being saved, or lost its progress
+  and cancel UI when About was reopened mid-download.
+- **Check:** `test/updater_download_test.dart` "apply requires explicit confirmation and never silently installs" "hash or exact-size mismatch fails closed and cleans the APK" "cancel stops a recovered updater download too" "a recovered download that ends before its state is saved", `test/updater_manifest_test.dart` "F-Droid capability never fetches a manifest or signature", `test/updater_about_test.dart` "in-flight update download keeps progress and cancel button across About re-entry"
 - **Code:** `lib/core/updater`, `lib/core/download/download_request.dart`
 
 ## CI

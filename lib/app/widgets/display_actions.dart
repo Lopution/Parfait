@@ -50,11 +50,15 @@ Future<void> showDisplayActions(
     onLongPress();
     return Future.value();
   }
-  // The same Navigator [showAppContextMenu] pushes on: a branch page's
-  // overlay starts below the top bar and beside the rail, so the pointer's
-  // global position must be taken in that overlay or the menu is offset.
+  // Match [showAppContextMenu]'s `useRootNavigator: true` so the menu sits
+  // above the shell rail/command bar (preventing offstage branch switches
+  // while open) and anchors at the exact pointer coordinate.
   final overlay =
-      Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+      Navigator.of(
+            context,
+            rootNavigator: true,
+          ).overlay!.context.findRenderObject()!
+          as RenderBox;
   final local = overlay.globalToLocal(position);
   return showAppContextMenu<void>(
     context: context,
