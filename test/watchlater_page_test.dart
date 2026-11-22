@@ -216,6 +216,44 @@ void main() {
       }
       await _settle(tester);
       expect(find.text('3'), findsOneWidget);
+
+      // In managing mode, Tab focuses the tile itself (never the inner card)
+      // and Enter/Space toggles selection without opening the work.
+      await tester.tap(
+        find.byIcon(UiIcons.close),
+        kind: PointerDeviceKind.mouse,
+      );
+      await _settle(tester);
+      await tester.tap(
+        find.widgetWithText(TextButton, '管理'),
+        kind: PointerDeviceKind.mouse,
+      );
+      await _settle(tester);
+      expect(find.text('0'), findsOneWidget);
+      final exclude = tester.widget<ExcludeFocus>(
+        find.descendant(
+          of: _tile(3).first,
+          matching: find.byType(ExcludeFocus),
+        ),
+      );
+      expect(exclude.excluding, isTrue);
+      final tileNode = Focus.of(
+        tester.element(
+          find.descendant(
+            of: _tile(3).first,
+            matching: find.byType(GestureDetector).first,
+          ),
+        ),
+      );
+      tileNode.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await _settle(tester);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.byType(WatchLaterPage), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await _settle(tester);
+      expect(find.text('0'), findsOneWidget);
     },
   );
 
