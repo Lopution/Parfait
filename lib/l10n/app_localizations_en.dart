@@ -618,6 +618,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyDeleteHint => 'Deleted history cannot be recovered.';
 
   @override
+  String get historySearchHint => 'Title, artist, tag, or ID';
+
+  @override
+  String get historyFilterAll => 'All';
+
+  @override
+  String get historyFilterEmpty => 'No matching history';
+
+  @override
+  String get historyClearFilter => 'Clear filters';
+
+  @override
   String get downloaderSettings => 'Download tasks';
 
   @override

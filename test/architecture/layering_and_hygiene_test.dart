@@ -93,7 +93,6 @@ const _grandfatheredFileLineCaps = <String, int>{
   'lib/core/paging/paged_feed_controller.dart': 911,
   'lib/core/search/search_models.dart': 969,
   'lib/core/settings/app_settings.dart': 1070,
-  'lib/features/history/history_page.dart': 1026,
   'lib/features/illust/detail/illust_detail_pager_page.dart': 1040,
   'lib/features/illust/detail/ugoira_viewer.dart': 1083,
   'lib/features/illust/detail/widgets/page_image.dart': 1062,

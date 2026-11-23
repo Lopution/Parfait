@@ -178,6 +178,12 @@ void main() {
     );
     await settleHistory(tester, repository);
     await _expectSettled(tester, locale, profile);
+
+    final searchButton = find.byKey(const ValueKey('history-search-button'));
+    if (searchButton.evaluate().isNotEmpty) {
+      await tester.tap(searchButton);
+      await _expectSettled(tester, locale, profile);
+    }
   });
 
   // A three-digit rank beside the title, and every corner badge, on the

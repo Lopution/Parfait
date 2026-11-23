@@ -592,6 +592,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historyDeleteHint => '删除后将不可恢复';
 
   @override
+  String get historySearchHint => '搜索标题、画师、标签或 ID';
+
+  @override
+  String get historyFilterAll => '全部';
+
+  @override
+  String get historyFilterEmpty => '没有匹配的历史记录';
+
+  @override
+  String get historyClearFilter => '清除筛选';
+
+  @override
   String get downloaderSettings => '下载任务';
 
   @override

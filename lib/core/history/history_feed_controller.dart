@@ -14,19 +14,22 @@ import 'history_repository.dart';
 /// account watch. The remote-sync outbox lives in the tracker layer and is
 /// untouched by this UI feed.
 class _HistoryFeedController extends PagedFeedController {
-  _HistoryFeedController(this.accountId);
+  _HistoryFeedController(this.query);
 
   /// Local history storage; resolved lazily through the provider graph.
   HistoryRepository get repository => ref.read(historyRepositoryProvider);
 
-  final String accountId;
+  final HistoryFeedQuery query;
 
   static const pageSize = 30;
 
   final Map<int, HistoryRecord> _records = {};
 
   @override
-  String get feedKey => 'history:$accountId';
+  String get feedKey =>
+      'history:${query.accountId}:'
+      '${query.contentType?.storageValue ?? 'all'}:'
+      '${Uri.encodeComponent(query.query)}';
 
   @override
   FeedPagingPolicy get pagingPolicy => FeedPagingPolicy.unlimited;
@@ -44,7 +47,9 @@ class _HistoryFeedController extends PagedFeedController {
       // The cursor is the last row read: deleting a loaded row or viewing
       // a work again never shifts the next page (an offset skipped rows).
       final result = await repository.page(
-        accountId: accountId,
+        accountId: query.accountId,
+        contentType: query.contentType,
+        query: query.query.isEmpty ? null : query.query,
         after: _rowAfter(context.cursor),
         limit: pageSize,
       );
@@ -77,7 +82,7 @@ class _HistoryFeedController extends PagedFeedController {
   /// Deletes one record and drops it from the visible feed.
   Future<void> removeRecord(HistoryRecord record) async {
     await repository.delete(
-      accountId: accountId,
+      accountId: query.accountId,
       contentType: record.contentType,
       contentId: record.contentId,
     );
@@ -94,6 +99,6 @@ class _HistoryFeedController extends PagedFeedController {
 /// Released with the history page: a page opened again reads the history
 /// afresh rather than the list it read last time.
 final historyFeedControllerProvider = AsyncNotifierProvider.autoDispose
-    .family<_HistoryFeedController, PagedFeedState, String>(
+    .family<_HistoryFeedController, PagedFeedState, HistoryFeedQuery>(
       _HistoryFeedController.new,
     );

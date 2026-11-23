@@ -22,6 +22,7 @@ import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
+
 import 'package:parfait/app/icons/ui_icons.dart';
 
 Widget _app(ProviderContainer container) => localizedApp(
@@ -288,7 +289,9 @@ void main() {
           ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, id)),
       ]);
       final container = await makeHistoryWorld(history);
-      final provider = historyFeedControllerProvider('100');
+      final provider = historyFeedControllerProvider(
+        HistoryFeedQuery(accountId: '100'),
+      );
       container.listen(provider, (_, _) {});
       final first = await container.read(provider.future);
       final feed = container.read(provider.notifier);
@@ -468,5 +471,130 @@ void main() {
       ),
       0,
     );
+  });
+
+  testWidgets('content-type filter switches list and clears from empty state', (
+    tester,
+  ) async {
+    final container = await _seedPage(tester, [
+      historyRecord(1, type: HistoryContentType.illust, title: 'Sky Illust'),
+      historyRecord(2, type: HistoryContentType.novel, title: 'Moon Novel'),
+    ]);
+    final repo = container.read(historyRepositoryProvider);
+
+    expect(find.text('Sky Illust'), findsOneWidget);
+    expect(find.text('Moon Novel'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('history-filter-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, '小说'));
+    await settleHistory(tester, repo);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Moon Novel'), findsOneWidget);
+    expect(find.text('Sky Illust'), findsNothing);
+
+    // Search unmatched term in novels -> filtered empty state with reset action.
+    await tester.tap(find.byKey(const ValueKey('history-search-button')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('history-search-field')),
+      'nonexistent',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await settleHistory(tester, repo);
+
+    expect(find.text('没有匹配的历史记录'), findsOneWidget);
+    await tester.tap(find.text('清除筛选'));
+    await settleHistory(tester, repo);
+
+    expect(find.text('Sky Illust'), findsOneWidget);
+    expect(find.text('Moon Novel'), findsOneWidget);
+  });
+
+  testWidgets('narrow search matches tags, supports back layering and delete', (
+    tester,
+  ) async {
+    final container = await _seedPage(tester, [
+      historyRecord(
+        10,
+        title: 'Untitled',
+        authorName: 'Kuro',
+        tagsText: 'ブルーアーカイブ\n圣园未花',
+      ),
+      historyRecord(20, title: 'Other Art', authorName: 'Shiro'),
+    ]);
+    final repo = container.read(historyRepositoryProvider);
+
+    await tester.tap(find.byKey(const ValueKey('history-search-button')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('history-search-field')),
+      '未花',
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await settleHistory(tester, repo);
+
+    expect(find.text('Untitled'), findsOneWidget);
+    expect(find.text('Other Art'), findsNothing);
+
+    // Long-press enters selection mode inside search; first Back exits manage,
+    // second Back exits search and restores all records.
+    await tester.longPress(find.text('Untitled'));
+    await tester.pump();
+    expect(_selectionTitle('已选 1 项'), findsOneWidget);
+
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pump();
+    expect(_selectionTitle('已选 1 项'), findsNothing);
+    expect(find.byKey(const ValueKey('history-search-field')), findsOneWidget);
+
+    // Deleting a matching record inside search removes it from storage and
+    // leaves non-matching records intact after exiting search.
+    await tester.longPress(find.text('Untitled'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('删除历史记录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+    await settleHistory(tester, repo);
+    expect(find.text('Untitled'), findsNothing);
+    expect(find.text('没有匹配的历史记录'), findsOneWidget);
+
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await settleHistory(tester, repo);
+    expect(find.byKey(const ValueKey('history-search-field')), findsNothing);
+    expect(find.text('Other Art'), findsOneWidget);
+    expect(find.text('Untitled'), findsNothing);
+  });
+
+  testWidgets('wide surface renders inline SearchBar beside type filter', (
+    tester,
+  ) async {
+    final container = await _seedPage(tester, [
+      historyRecord(1, title: 'Starlight', authorName: 'Hana'),
+      historyRecord(2, title: 'Raindrop', authorName: 'Sora'),
+    ], surface: const Size(720, 800));
+    final repo = container.read(historyRepositoryProvider);
+
+    expect(find.byKey(const ValueKey('history-filter-type')), findsOneWidget);
+    expect(find.byKey(const ValueKey('history-search-bar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('history-search-button')), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('history-search-bar')),
+      'sora',
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await settleHistory(tester, repo);
+
+    expect(find.text('Raindrop'), findsOneWidget);
+    expect(find.text('Starlight'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('history-search-clear')));
+    await settleHistory(tester, repo);
+
+    expect(find.text('Starlight'), findsOneWidget);
+    expect(find.byKey(const ValueKey('history-search-bar')), findsOneWidget);
   });
 }
