@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/icons/ui_icons.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/ranking_category_sheet.dart';
+import 'package:parfait/features/ranking/ranking_date.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
@@ -16,6 +18,7 @@ import 'package:parfait/l10n/lookup.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/layout_fonts.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
 
 enum _Item { a, b, c, d }
@@ -310,6 +313,84 @@ void main() {
         );
         await tester.pumpWidget(const SizedBox());
       }
+    },
+  );
+
+  testWidgets(
+    'ranking editor requires explicit handle drag or × button and RankingDateBar exposes pick-date',
+    (tester) async {
+      await seedSettings(AppSettings.defaults());
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: const [],
+          builder: promptHostBuilder,
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => unawaited(
+                showRankingCategorySheet(
+                  context,
+                  catalog: illustRankingCatalog,
+                  editing: true,
+                ),
+              ),
+              child: const Text('edit'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('edit'));
+      await tester.pumpAndSettle();
+
+      final firstTile = find.byKey(const ValueKey(RankingMode.day));
+      final secondTile = find.byKey(const ValueKey(RankingMode.week));
+      expect(firstTile, findsOneWidget);
+
+      // Tapping the tile label itself never hides the category.
+      await tester.tap(
+        find.descendant(of: firstTile, matching: find.byType(Text)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: firstTile, matching: find.byIcon(UiIcons.close)),
+        findsOneWidget,
+      );
+
+      // Dragging the explicit handle reorders immediately without 500ms hold.
+      final handle = find.descendant(
+        of: firstTile,
+        matching: find.byIcon(UiIcons.dragHandle),
+      );
+      final delta = tester.getCenter(secondTile) - tester.getCenter(handle);
+      await tester.drag(handle, delta);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(secondTile).dx,
+        lessThan(tester.getTopLeft(firstTile).dx),
+      );
+
+      // Clicking the explicit × button hides the category cleanly.
+      await tester.tap(
+        find.descendant(of: firstTile, matching: find.byIcon(UiIcons.close)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: firstTile, matching: find.byIcon(UiIcons.add)),
+        findsOneWidget,
+      );
+
+      // RankingDateBar exposes direct date picking alongside back-to-latest.
+      var picked = 0;
+      await tester.pumpWidget(
+        localizedApp(
+          body: RankingDateBar(
+            date: DateTime(2026, 1, 10),
+            onPickDate: () => picked += 1,
+            onBackToLatest: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.text('选择日期'));
+      expect(picked, 1);
     },
   );
 }

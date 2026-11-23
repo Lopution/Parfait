@@ -888,7 +888,7 @@
   "rankingMyCategories": "我的分类",
   "rankingEdit": "编辑",
   "rankingEditDone": "完成",
-  "rankingDragHint": "长按拖动排序",
+  "rankingDragHint": "拖动左侧手柄排序，点击 × 隐藏分类",
   "arrangementHidden": "未显示",
   "rankingHiddenEmpty": "所有分类都已显示",
   "restoreDefault": "恢复默认",
@@ -2090,5 +2090,17 @@
   "nextArtworkTooltip": "下一作品",
   "@nextArtworkTooltip": {
     "description": "Tooltip for switching to the next artwork in detail pager"
+  },
+  "batchSelectWork": "选择此作品",
+  "@batchSelectWork": {
+    "description": "Accessibility label for selecting a single artwork card in multi-select mode"
+  },
+  "batchDeselectWork": "取消选择此作品",
+  "@batchDeselectWork": {
+    "description": "Accessibility label for deselecting a single artwork card in multi-select mode"
+  },
+  "cardActionSelect": "多选",
+  "@cardActionSelect": {
+    "description": "Card long-press action on touch tablets to enter multi-select mode with this work"
   }
 }

@@ -92,6 +92,12 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
   Future<void> _share(BuildContext context) async {
     final title =
         ref.read(spotlightArticleStoreProvider)[widget.articleId]?.title ??
+        ref
+            .read(
+              spotlightArticleBodyProvider((id: widget.articleId, url: _url)),
+            )
+            .value
+            ?.title ??
         context.l10n.spotlightTitle;
     final outcome = await ref
         .read(shareServiceProvider)
@@ -112,11 +118,12 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
     final async = ref.watch(
       spotlightArticleBodyProvider((id: widget.articleId, url: _url)),
     );
+    final resolvedTitle = entry?.title ?? async.value?.title;
     return Scaffold(
       appBar: AppTopBar(
         contentWidth: ContentWidths.article,
         title: Text(
-          entry?.title ?? context.l10n.spotlightTitle,
+          resolvedTitle ?? context.l10n.spotlightTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -486,11 +493,18 @@ class _SpotlightIllustCardView extends StatelessWidget {
               ),
             ),
           const SizedBox(height: FuncSpacing.sm),
-          Text(
-            card.title,
-            style: theme.textTheme.titleSmall,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          InkWell(
+            borderRadius: FuncShape.badge,
+            onTap: () => openIllust(context, card.illustId),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xxs),
+              child: Text(
+                card.title,
+                style: theme.textTheme.titleSmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
           if (card.userName case final userName?)
             if (card.userId case final userId?)

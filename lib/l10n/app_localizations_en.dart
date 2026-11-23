@@ -1772,7 +1772,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingEditDone => 'Done';
 
   @override
-  String get rankingDragHint => 'Long-press and drag to reorder';
+  String get rankingDragHint => 'Drag the handle to reorder, or tap × to hide';
 
   @override
   String get arrangementHidden => 'Hidden';
@@ -3434,4 +3434,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => 'Next artwork';
+
+  @override
+  String get batchSelectWork => 'Select work';
+
+  @override
+  String get batchDeselectWork => 'Deselect work';
+
+  @override
+  String get cardActionSelect => 'Select';
 }

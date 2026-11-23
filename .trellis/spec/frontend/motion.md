@@ -10,7 +10,7 @@ applies_to:
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
   - lib/app/startup_gate.dart
-reviewed: 2026-11-21
+reviewed: 2026-11-23
 ---
 
 # Motion, press feedback and the rebuild budget
@@ -159,10 +159,10 @@ reviewed: 2026-11-21
 - **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once", `test/motion_test.dart` "work ahead waits for a running animation to end" "work ahead behind a looping indicator waits once a run"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`
 
-### MOTION-23 Pointer input removes touch press delay, wheel inertia and wide slide travel
-- **Rule:** Under `InputModality.pointer`, `PressScale` skips the 100 ms scroll delay; `HomeBranchStack` over `ShellRail` switches branches with 150 ms `MotionTokens.desktopPageTransition` fade + 12dp slide (cut under reduced motion); `SmoothWheelScroll` jumps directly (`Duration.zero`) while calling `dispatchWheelUserScroll` so `ScrollHide` bars follow wheel ticks.
-- **Why:** Touch tap delays, full-width slides, and synthetic wheel inertia feel sluggish with a mouse.
-- **Check:** `test/motion_test.dart` "Pointer mode skips PressScale 100ms delay and SmoothWheelScroll jumps instantly"; `test/home_branch_stack_test.dart` "desktop ShellRail animates branch switch with 150ms fade+slide"
+### MOTION-23 Pointer input removes touch press delay, eases wheel reversal and shortens branch travel
+- **Rule:** Under `InputModality.pointer`, `PressScale` skips the 100 ms scroll delay; `HomeBranchStack` over `ShellRail` switches branches with 150 ms `MotionTokens.desktopPageTransition` fade + 12dp slide (cut under reduced motion); `SmoothWheelScroll` animates discrete wheel ticks over `MotionTokens.wheelScroll` (240 ms, jumping directly with `Duration.zero` under reduced motion), discarding queued travel and emitting `dispatchWheelUserScroll` immediately on direction reversal so `ScrollHide` bars respond on the first reverse tick.
+- **Why:** Touch tap delays, full-width slides, and stale forward wheel targets feel sluggish with a mouse.
+- **Check:** `test/motion_test.dart` "Pointer mode skips PressScale 100ms delay and SmoothWheelScroll jumps instantly"; `test/smooth_wheel_scroll_test.dart` "reversing wheel direction mid-scroll resets queued target and notifies reversal immediately"; `test/home_branch_stack_test.dart` "desktop ShellRail animates branch switch with 150ms fade+slide"
 - **Code:** `lib/app/motion/press_scale.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/motion/scroll_hide.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/widgets/smooth_wheel_scroll.dart`
 
 ### MOTION-24 Frosted card menu and drag-to-dismiss suppress displacement under reduced motion

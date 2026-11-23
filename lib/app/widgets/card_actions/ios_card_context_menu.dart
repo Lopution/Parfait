@@ -13,11 +13,13 @@ import '../../../l10n/context.dart';
 import '../../motion/motion_tokens.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
+import '../feed/feed_selection.dart';
 import '../feed/illust_card_layout.dart';
 import '../feed/muted_cover.dart';
 import 'card_action.dart';
 import 'illust_card_actions.dart';
 import '../../icons/app_icons.dart';
+import '../../icons/ui_icons.dart';
 
 /// Presents iOS long-press card actions as a full-screen frosted backdrop with
 /// a spring-lifted card preview and a compact action menu docked beside it,
@@ -26,6 +28,11 @@ import '../../icons/app_icons.dart';
 Future<void> showIosCardContextMenu(BuildContext context, IllustEntity entity) {
   final rootNavigator = Navigator.of(context, rootNavigator: true);
   final fallbackNavigator = Navigator.of(context).context;
+  final selection = FeedSelectionScope.maybeOf(context);
+  final onSelect =
+      selection != null && selection.enabled && !selection.hasSelection
+      ? () => selection.toggle(entity.id)
+      : null;
   final anchorRect = _globalRectOf(context);
   final reduceMotion = !MotionTokens.enabled(context);
   final (enterDuration, springCurve) = MotionTokens.springCurve(
@@ -39,6 +46,7 @@ Future<void> showIosCardContextMenu(BuildContext context, IllustEntity entity) {
       entity: entity,
       anchorRect: anchorRect,
       fallbackNavigator: fallbackNavigator,
+      onSelect: onSelect,
       themes: InheritedTheme.capture(from: context, to: rootNavigator.context),
       enterDuration: enterDuration,
       exitDuration: exitDuration,
@@ -62,6 +70,7 @@ class _IosCardContextMenuRoute<T> extends PopupRoute<T> {
     required this.entity,
     required this.anchorRect,
     required this.fallbackNavigator,
+    required this.onSelect,
     required this.themes,
     required this.enterDuration,
     required this.exitDuration,
@@ -73,6 +82,7 @@ class _IosCardContextMenuRoute<T> extends PopupRoute<T> {
   final IllustEntity entity;
   final Rect? anchorRect;
   final BuildContext fallbackNavigator;
+  final VoidCallback? onSelect;
   final CapturedThemes themes;
   final Duration enterDuration;
   final Duration exitDuration;
@@ -106,6 +116,7 @@ class _IosCardContextMenuRoute<T> extends PopupRoute<T> {
         entity: entity,
         anchorRect: anchorRect,
         fallbackNavigator: fallbackNavigator,
+        onSelect: onSelect,
         animation: animation,
         springCurve: springCurve,
         reduceMotion: reduceMotion,
@@ -119,6 +130,7 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
     required this.entity,
     required this.anchorRect,
     required this.fallbackNavigator,
+    required this.onSelect,
     required this.animation,
     required this.springCurve,
     required this.reduceMotion,
@@ -127,6 +139,7 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
   final IllustEntity entity;
   final Rect? anchorRect;
   final BuildContext fallbackNavigator;
+  final VoidCallback? onSelect;
   final Animation<double> animation;
   final Curve springCurve;
   final bool reduceMotion;
@@ -190,7 +203,8 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
       cardPhysicalWidth: decodeWidth,
     );
     final aspect = (1.0 / preview.heightRatio).clamp(0.55, 1.8);
-    final desiredMenuHeight = actions.length * _estimatedRowHeight;
+    final desiredMenuHeight =
+        (actions.length + (onSelect != null ? 1 : 0)) * _estimatedRowHeight;
     final maxAllowedPreview = math.max(
       _minPreviewHeight,
       safeHeight -
@@ -326,6 +340,22 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      if (onSelect != null) ...[
+                                        _ContextActionRow(
+                                          icon: UiIcons.checklist,
+                                          label: l10n.cardActionSelect,
+                                          onTap: () {
+                                            Navigator.of(context).pop();
+                                            onSelect!();
+                                          },
+                                        ),
+                                        if (actions.isNotEmpty)
+                                          Divider(
+                                            height: 1,
+                                            thickness: 0.5,
+                                            color: tokens.divider,
+                                          ),
+                                      ],
                                       for (
                                         var i = 0;
                                         i < actions.length;

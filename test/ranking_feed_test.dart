@@ -12,6 +12,7 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/icons/ui_icons.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/app_date_picker.dart';
@@ -570,8 +571,12 @@ void main() {
       await tester.drag(inSheet('我的分类'), const Offset(0, 300));
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheet), findsOneWidget);
-      // A shown tile's tap hides it.
-      await tester.tap(inSheet('每日'));
+      Finder hideInSheet(String label) => find.descendant(
+        of: find.ancestor(of: inSheet(label), matching: find.byType(Row)).first,
+        matching: find.byIcon(UiIcons.close),
+      );
+      // A shown tile hides only via its trailing × button (not accidental tile tap).
+      await tester.tap(hideInSheet('每日'));
       await tester.pumpAndSettle();
       expect(
         container.read(illustRankingCatalog.arrangementProvider).hidden.first,
@@ -586,7 +591,7 @@ void main() {
       await tester.tap(inSheet('R-18G'));
       await tester.pumpAndSettle();
       expect(tabs(tester).index, 12);
-      await tester.tap(inSheet('R-18G'));
+      await tester.tap(hideInSheet('R-18G'));
       await tester.pumpAndSettle();
       expect(router.state.uri.queryParameters['mode'], 'dayFemaleR18');
       await tester.tap(inSheet('完成'));

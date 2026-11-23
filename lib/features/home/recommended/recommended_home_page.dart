@@ -254,6 +254,7 @@ class _RecommendedHomePageState extends ConsumerState<RecommendedHomePage>
       ),
       body: DesktopInspectableGallery(
         active: showGalleryControls,
+        scopeKey: _types[_tabController.index],
         child: tabBody,
       ),
     );

@@ -594,13 +594,23 @@ class _RankingTabsState<M extends RankingCategory>
               if (_date case final date?)
                 RankingDateBar(
                   date: date,
+                  onPickDate: () => unawaited(
+                    pickRankingDate(
+                      context,
+                      date: _date,
+                      onPicked: _changeDate,
+                    ),
+                  ),
                   onBackToLatest: () => _changeDate(null),
                 ),
               Expanded(child: tabs),
             ],
           );
           return widget.enableDesktopInspector
-              ? DesktopInspectableGallery(child: content)
+              ? DesktopInspectableGallery(
+                  scopeKey: (_modes[_tabController.index], _date),
+                  child: content,
+                )
               : content;
         },
       ),

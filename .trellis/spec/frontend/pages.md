@@ -26,7 +26,7 @@ applies_to:
   - lib/app/layout/content_widths.dart
   - lib/app/widgets/scrollable_form_shell.dart
   - lib/features/illust/detail/author_works_section.dart
-reviewed: 2026-11-21
+reviewed: 2026-11-23
 ---
 
 # Page-specific rules
@@ -62,22 +62,22 @@ reviewed: 2026-11-21
 ## Discovery
 
 ### PAGE-03 A ranking date is part of the feed identity
-- **Rule:** Past rankings use `date=yyyy-MM-dd` (invalid/out-of-range opens latest; picker caps at yesterday JST), key feeds by `(mode, date)`, reject cross-day cursors, and only latest rankings write cold-start snapshots.
-- **Why:** Past-day snapshots previously overwrote latest rankings on next launch.
-- **Check:** `test/ranking_feed_test.dart` "a cursor from another day is rejected" "only the latest ranking writes the cold-start snapshot" "the picker stops at yesterday in Japan"
+- **Rule:** Past rankings use `date=yyyy-MM-dd` (invalid/out-of-range opens latest; picker caps at yesterday JST), key feeds by `(mode, date)`, reject cross-day cursors, expose a direct date-picker button on `RankingDateBar`, and only latest rankings write cold-start snapshots.
+- **Why:** Past-day snapshots previously overwrote latest rankings on next launch, and switching between past dates previously forced reopening the category sheet.
+- **Check:** `test/ranking_feed_test.dart` "a cursor from another day is rejected" "only the latest ranking writes the cold-start snapshot" "the picker stops at yesterday in Japan"; `test/ranking_categories_test.dart` "ranking editor requires explicit handle drag or × button and RankingDateBar exposes pick-date"
 - **Code:** `lib/features/ranking`
 
 ### PAGE-04 Search result types keep their own filters
-- **Rule:** Type switches replace the route and preserve per-type session filter drafts seeded from saved defaults; user searches carry no filters and hide the filter button while keeping search field width constant.
-- **Why:** Switching via user tab previously wiped illustration filters and shifted the bar.
-- **Check:** `test/search_result_page_test.dart` "each type switches to its own session filter set" "a user result route ignores stray filter params" "the user tab hides the filter button while keeping search field width constant"
-- **Code:** `lib/features/search/search_result_page.dart`, `lib/features/search/search_input_page.dart`, `lib/features/search/search_filter_sheet.dart`
+- **Rule:** Type switches replace the route and preserve per-type session filter drafts seeded from saved defaults (`TagSearchPage` stays stateful across tab switches); user searches carry no filters and hide the filter button in both the results bar (keeping search field width constant) and the docked search panel.
+- **Why:** Switching via user tab previously wiped illustration filters, shifted the bar, or left a dead filter control on docked user search.
+- **Check:** `test/search_result_page_test.dart` "each type switches to its own session filter set" "a user result route ignores stray filter params" "the user tab hides the filter button while keeping search field width constant" "TagSearchPage preserves tab switches and grid feeds align with 14dp horizontal margins"
+- **Code:** `lib/features/search/search_result_page.dart`, `lib/features/search/search_input_page.dart`, `lib/features/search/docked_search.dart`, `lib/features/search/search_filter_sheet.dart`, `lib/features/search/tag_search_page.dart`
 
 ### PAGE-21 Search input completes the keyword at the caret
-- **Rule:** Half/full-width spaces split keywords; autocomplete queries only the caret keyword (stripping `-`, silent after space, hiding duplicates); tap searches, ↖/long-press appends a space; the plain text field paints closed keywords as background pills.
-- **Why:** User decision: multi-keyword editing without heavy chip-widget state machines.
+- **Rule:** Half/full-width spaces split keywords; autocomplete queries only the caret keyword on illust/novel tabs (skipping user search, stripping `-`, silent after space or on a bare `-`, hiding duplicates); tap searches, ↖/long-press appends a space; the plain text field paints closed keywords as background pills; search input empty/shortcut/status views respect bottom IME insets.
+- **Why:** User decision: multi-keyword editing without heavy chip-widget state machines, stale tag suggestions on user search, or keyboard-obscured start content.
 - **Check:** `test/search_input_test.dart` "suggestions complete the keyword at the caret" "a suggestion replaces the keyword, keeping its minus"
-- **Code:** `lib/core/search/search_keywords.dart`, `lib/app/widgets/search_keyword_pills.dart`
+- **Code:** `lib/core/search/search_keywords.dart`, `lib/features/search/search_input_engine.dart`, `lib/app/widgets/search_keyword_pills.dart`
 
 ### PAGE-05 Work strips omit hidden works
 - **Rule:** `UserPreviewRow` (up to 3 works) and detail author strips omit blocked/muted works completely (never blurred; empty strips hide); malformed preview payloads fail loudly.
@@ -86,15 +86,15 @@ reviewed: 2026-11-21
 - **Code:** `lib/app/widgets/user_preview_row.dart`, `lib/features/illust/detail/author_works_section.dart`
 
 ### PAGE-06 The Spotlight cover comes from the list entry
-- **Rule:** Spotlight articles use the list entry's pximg `thumbnailUrl`, falling back to the page cover only on deep links without a list entry.
-- **Why:** `embed.pixiv.net` covers sit behind Cloudflare outside the network policy and failed intermittently.
-- **Check:** `test/spotlight_article_test.dart` "the cover comes from the list entry on pximg"
-- **Code:** `lib/features/spotlight/spotlight_article_page.dart`
+- **Rule:** Spotlight articles use the list entry's pximg `thumbnailUrl`, falling back to the page cover and loaded article title (in both `AppTopBar` and share payload) on deep links without a list entry; embedded work titles are directly tappable alongside covers, and `SpotlightChallengeView` adapts safely to compact/landscape viewports.
+- **Why:** `embed.pixiv.net` covers sit behind Cloudflare outside the network policy and failed intermittently, while deep links lacked titles and narrow challenge panes risked overflow.
+- **Check:** `test/spotlight_article_test.dart` "the cover comes from the list entry on pximg" "SpotlightChallengeView skips WebView on unsupported platforms"
+- **Code:** `lib/features/spotlight/spotlight_article_page.dart`, `lib/features/spotlight/spotlight_challenge_view.dart`
 
 ### PAGE-15 Ranking tabs are the user's categories minus the local block
-- **Rule:** Ranking pages display saved categories minus local R-18/R-18G/AI blocks via `RankingTabs` (deep-linked hidden categories prepend transiently; `showRankingCategorySheet` uses a 2–3 column grid clipped above its footer divider). Off-screen edits update routes only when visible; last category persists on hide/close, never per tap.
-- **Why:** User decision; background route updates stole navigation and per-tap writes rebuilt the app root.
-- **Check:** `test/ranking_categories_test.dart` "a hidden route category goes first; a blocked one does not" "showRankingCategorySheet keeps 3 columns and stays above the footer divider across locales at 1280x800", `test/ranking_feed_test.dart` "an edit updates the tabs, keeps the category and saves" "an edit made from another branch waits to write the route" "a ranking opened without a mode lands on the last one", `test/tab_swipe_switcher_test.dart` "a new tab list drops the spring-back of the old one"
+- **Rule:** Ranking pages display saved categories minus local R-18/R-18G/AI blocks via `RankingTabs` (deep-linked hidden categories prepend transiently; `showRankingCategorySheet` uses a 2–3 column grid clipped above its footer divider, with an explicit leading drag handle for immediate reordering and a trailing `×` button to hide instead of accidental whole-tile tap hiding). Off-screen edits update routes only when visible; last category persists on hide/close, never per tap.
+- **Why:** User decision; background route updates stole navigation, per-tap writes rebuilt the app root, and tap-to-hide tiles caused accidental removals when trying to drag.
+- **Check:** `test/ranking_categories_test.dart` "a hidden route category goes first; a blocked one does not" "showRankingCategorySheet keeps 3 columns and stays above the footer divider across locales at 1280x800" "ranking editor requires explicit handle drag or × button and RankingDateBar exposes pick-date", `test/ranking_feed_test.dart` "an edit updates the tabs, keeps the category and saves" "an edit made from another branch waits to write the route" "a ranking opened without a mode lands on the last one", `test/tab_swipe_switcher_test.dart` "a new tab list drops the spring-back of the old one"
 - **Code:** `lib/features/ranking/ranking_tabs.dart`, `lib/app/widgets/ranking_category_sheet.dart`, `lib/core/ranking`
 
 ## Shared page pieces

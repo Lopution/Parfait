@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/feed/load_more_listener.dart';
@@ -337,6 +338,47 @@ void main() {
       await wheelDown(tester, 120);
       await tester.pump();
       expect(loadMoreCalls, greaterThan(0));
+    },
+  );
+
+  testWidgets(
+    'reversing wheel direction mid-scroll resets queued target and notifies reversal immediately',
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final directions = <ScrollDirection>[];
+      await tester.pumpWidget(
+        app(
+          NotificationListener<UserScrollNotification>(
+            onNotification: (n) {
+              directions.add(n.direction);
+              return false;
+            },
+            child: SmoothWheelScroll(
+              controller: controller,
+              builder: (_, c, p) => wheelList(c, p, count: 120),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Queue several downward ticks (far-ahead target), advance partway, then reverse.
+      await wheelDown(tester, 200);
+      await wheelDown(tester, 200);
+      await wheelDown(tester, 200);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final peak = controller.offset;
+      expect(peak, greaterThan(40));
+      expect(directions.last, ScrollDirection.reverse);
+
+      await wheelDown(tester, -100);
+      expect(directions.last, ScrollDirection.forward);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(controller.offset, lessThan(peak));
     },
   );
 }

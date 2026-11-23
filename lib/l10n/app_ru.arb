@@ -776,7 +776,7 @@
   "rankingMyCategories": "Мои категории",
   "rankingEdit": "Изменить",
   "rankingEditDone": "Готово",
-  "rankingDragHint": "Удерживайте и перетащите, чтобы изменить порядок",
+  "rankingDragHint": "Перетащите значок слева для сортировки или нажмите ×, чтобы скрыть",
   "arrangementHidden": "Скрытые",
   "rankingHiddenEmpty": "Показаны все категории",
   "restoreDefault": "Сбросить",
@@ -1456,5 +1456,8 @@
     }
   },
   "previousArtworkTooltip": "Предыдущая работа",
-  "nextArtworkTooltip": "Следующая работа"
+  "nextArtworkTooltip": "Следующая работа",
+  "batchSelectWork": "Выбрать работу",
+  "batchDeselectWork": "Снять выбор с работы",
+  "cardActionSelect": "Выбрать"
 }

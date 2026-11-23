@@ -783,7 +783,7 @@
   "rankingMyCategories": "My categories",
   "rankingEdit": "Edit",
   "rankingEditDone": "Done",
-  "rankingDragHint": "Long-press and drag to reorder",
+  "rankingDragHint": "Drag the handle to reorder, or tap × to hide",
   "arrangementHidden": "Hidden",
   "rankingHiddenEmpty": "Every category is shown",
   "restoreDefault": "Restore defaults",
@@ -1463,5 +1463,8 @@
     }
   },
   "previousArtworkTooltip": "Previous artwork",
-  "nextArtworkTooltip": "Next artwork"
+  "nextArtworkTooltip": "Next artwork",
+  "batchSelectWork": "Select work",
+  "batchDeselectWork": "Deselect work",
+  "cardActionSelect": "Select"
 }

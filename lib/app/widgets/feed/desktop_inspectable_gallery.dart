@@ -22,6 +22,7 @@ class DesktopInspectableGallery extends ConsumerStatefulWidget {
     required this.child,
     this.enabled = true,
     this.active = true,
+    this.scopeKey,
   });
 
   final Widget child;
@@ -32,6 +33,10 @@ class DesktopInspectableGallery extends ConsumerStatefulWidget {
   /// Whether the active view currently renders illust/manga cards. Switching to
   /// non-illust tabs (`novel`, `user`) closes any open inspector automatically.
   final bool active;
+
+  /// Optional view-context key (for example active sibling tab or ranking
+  /// date). Changing [scopeKey] closes any open inspector automatically.
+  final Object? scopeKey;
 
   @override
   ConsumerState<DesktopInspectableGallery> createState() =>
@@ -55,7 +60,9 @@ class _DesktopInspectableGalleryState
   @override
   void didUpdateWidget(DesktopInspectableGallery oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((!widget.enabled || !widget.active) &&
+    if ((!widget.enabled ||
+            !widget.active ||
+            widget.scopeKey != oldWidget.scopeKey) &&
         (_selected != null || _rendered != null)) {
       _snapCloseSync();
     }
@@ -236,6 +243,7 @@ class _DesktopInspectableGalleryState
                   enabled: canInspect,
                   selectedId: _selectedId,
                   onInspect: _open,
+                  onClose: _close,
                   child: widget.child,
                 ),
               ),

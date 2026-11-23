@@ -9,6 +9,7 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/page_header.dart';
 import '../../core/debug/frame_probe.dart';
 import '../../core/search/search_models.dart';
+import 'search_filter_labels.dart';
 import 'search_input_engine.dart'
     show SearchInputEngine, SearchInputEngineState;
 
@@ -214,26 +215,32 @@ class _DockedSearchPanelState extends State<DockedSearchPanel> {
         // so the detail page is never left under the panel (R10).
         onShortcut: (shortcut) =>
             Navigator.of(context).pop(DockedSearchShortcut(shortcut)),
-        builder: (context, parts) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                FuncSpacing.md,
-                FuncSpacing.md,
-                FuncSpacing.sm,
-                FuncSpacing.sm,
+        builder: (context, parts) {
+          final showFilters = switch (parts.filterButton) {
+            SearchFilterButton(muted: true) => false,
+            _ => true,
+          };
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  FuncSpacing.md,
+                  FuncSpacing.md,
+                  FuncSpacing.sm,
+                  FuncSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: parts.field),
+                    if (showFilters) parts.filterButton,
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  Expanded(child: parts.field),
-                  parts.filterButton,
-                ],
-              ),
-            ),
-            parts.tabs,
-            Expanded(child: parts.body),
-          ],
-        ),
+              parts.tabs,
+              Expanded(child: parts.body),
+            ],
+          );
+        },
       ),
     );
   }

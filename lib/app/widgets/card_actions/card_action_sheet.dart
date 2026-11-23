@@ -12,6 +12,7 @@ import '../../motion/app_overlays.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../display_actions.dart';
+import '../feed/feed_selection.dart';
 import '../feed/muted_cover.dart';
 import 'card_action.dart';
 import 'illust_card_actions.dart';
@@ -67,6 +68,9 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
   // open sheet can take the card away: they run on its Navigator's then,
   // which outlives the card and the sheet.
   final navigator = Navigator.of(context).context;
+  final selection = FeedSelectionScope.maybeOf(context);
+  final canSelect =
+      selection != null && selection.enabled && !selection.hasSelection;
   return showAppAdaptiveDialog<void>(
     context: context,
     maxWidth: 420,
@@ -106,6 +110,19 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
                   Divider(
                     height: 1,
                     color: FuncSemanticTokens.of(sheetContext).divider,
+                  ),
+                if (canSelect)
+                  Semantics(
+                    button: true,
+                    label: l10n.cardActionSelect,
+                    child: ListTile(
+                      leading: const Icon(UiIcons.checklist),
+                      title: Text(l10n.cardActionSelect),
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        selection.toggle(entity.id);
+                      },
+                    ),
                   ),
                 for (final action in actions)
                   Semantics(
