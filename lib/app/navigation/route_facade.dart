@@ -277,9 +277,12 @@ Future<void> openAllSettings(BuildContext context) async {
   await GoRouter.of(context).push<void>('/settings/all');
 }
 
+/// Canonical route path for the account management settings page.
+const settingsAccountPath = '/settings/account';
+
 /// Pushes the account management page.
 Future<void> openAccountSettings(BuildContext context) async {
-  await GoRouter.of(context).push<void>('/settings/account');
+  await GoRouter.of(context).push<void>(settingsAccountPath);
 }
 
 /// The update prompt can be shown above any route, including root overlays.

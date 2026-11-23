@@ -422,6 +422,7 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
         resolved.isFullScreen &&
         !resolved.usesSystemTitleBar &&
         platform != TargetPlatform.macOS;
+    if (!showFullscreenHoverOverlay) _hoverReveal = false;
     final showLegacyOverlay =
         resolved.hasCustomChrome && !widget.suppressOverlayBar;
 

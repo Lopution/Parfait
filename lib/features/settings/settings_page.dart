@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/rendering.dart'
     show RenderAbstractViewport, ScrollCacheExtent;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../app/layout/content_widths.dart';
 import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/motion/motion_tokens.dart';
+import '../../app/navigation/forward_history.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/master_detail_workspace.dart';
@@ -110,7 +112,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     debugLabel: 'settings-detail',
   );
   final _draftRegistry = SettingsDraftRegistry();
-  late final _detailObserver = _DetailStackObserver(_syncDetailCanPop);
+  late final _detailObserver = SettingsDetailStackObserver(_syncDetailCanPop);
+  GoRouter? _router;
   late SettingsPageRef _selectedPage;
   late String _initialDetailLocation;
   late bool _initialIsNestedChild;
@@ -126,6 +129,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _initialDetailLocation = target.detailLocation;
     _initialIsNestedChild = target.isNestedChild;
     _pendingRevealSelected = _selectedPage != SettingsPageRef.account;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = GoRouter.maybeOf(context);
+    if (identical(next, _router)) return;
+    if (_router != null) {
+      ForwardHistoryStack.ofRouter(
+        _router!,
+      ).unregisterSettingsDetailSync(_openInDetailPane);
+    }
+    _router = next;
+    if (next != null) {
+      ForwardHistoryStack.ofRouter(
+        next,
+      ).registerSettingsDetailSync(_openInDetailPane);
+    }
   }
 
   @override
@@ -153,6 +174,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   void dispose() {
+    if (_router != null) {
+      ForwardHistoryStack.ofRouter(
+        _router!,
+      ).unregisterSettingsDetailSync(_openInDetailPane);
+    }
     _draftRegistry.dispose();
     _query.dispose();
     super.dispose();
@@ -517,31 +543,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
   }
-}
-
-class _DetailStackObserver extends NavigatorObserver {
-  _DetailStackObserver(this.onChanged);
-
-  final VoidCallback onChanged;
-
-  void _notify() {
-    WidgetsBinding.instance.addPostFrameCallback((_) => onChanged());
-  }
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _notify();
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _notify();
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _notify();
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
-      _notify();
 }
 
 /// The row icon of each settings page, on the index and in the settings

@@ -9,7 +9,7 @@ applies_to:
   - lib/app/widgets/feed/illust_card*.dart
   - lib/features/illust/**
   - android/app/src/main/AndroidManifest.xml
-reviewed: 2026-11-21
+reviewed: 2026-11-23
 ---
 
 # Page transitions, back gesture and Hero flights
@@ -159,7 +159,7 @@ reviewed: 2026-11-21
 - **Code:** `lib/app/motion/hero_anomaly.dart`, `lib/core/debug/hero_anomaly_log.dart`, `lib/features/settings/pages/frame_probe_page.dart`
 
 ### TRANS-24 iOS shared-element routes dim the backdrop on a shrunken opaque-free canvas
-- **Rule:** iOS shared-element `FuncPage` routes start dismiss drags from a 48dp leading edge, 72dp top chrome strip, or top-rested downward scroll without stealing pager swipes. While dragging, the route flips `opaque` and its first overlay entry's `opaque` to `false` so the underlying route shows behind the damped, min-0.85-scaled, `FuncShape.dialog`-rounded canvas, restoring `opaque` on cancel and handing the shrunken rect to the return Hero on commit.
+- **Rule:** iOS shared-element `FuncPage` routes start dismiss drags from a 48dp leading edge, 72dp top chrome strip, or top-rested downward scroll without stealing pager swipes (tracking the settled horizontal page on depth-0 `PageMetrics` so same-page snap-backs never falsely reset the vertical top-of-scroll flag). While dragging, the route flips `opaque` and its first overlay entry's `opaque` to `false` so the underlying route shows behind the damped, min-0.85-scaled, `FuncShape.dialog`-rounded canvas, restoring `opaque` on cancel and handing the shrunken rect to the return Hero on commit.
 - **Why:** Keeping overlay entries opaque culled the underlying route and flashed solid backgrounds until `pop()`.
 - **Check:** `test/func_page_test.dart` "iOS sharedElement route uses damped canvas scale, backdrop fade, widened edge, and gesture cleanup" "iOS sharedElement vertical pull dismisses cleanly without conflicting with scrollables or horizontal pager"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/theme/func_tokens.dart`

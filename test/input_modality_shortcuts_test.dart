@@ -16,6 +16,7 @@ import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
 import 'package:parfait/app/widgets/comment_composer.dart';
+import 'package:parfait/core/navigation/home_destination.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
@@ -503,9 +504,102 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(router.routeInformationProvider.value.uri.path, '/recommended');
+
+        // Custom shown order: digits follow shown destinations, not static enum indices.
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        await tester.pumpWidget(
+          localizedRouterApp(
+            router,
+            builder: (_, child) => KeyboardBack(
+              router: router,
+              destinations: const [HomeDestination.ranking, HomeDestination.me],
+              child: child!,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _sendChord(
+          tester,
+          key: LogicalKeyboardKey.digit1,
+          modifier: LogicalKeyboardKey.controlLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(router.routeInformationProvider.value.uri.path, '/ranking');
+        await _sendChord(
+          tester,
+          key: LogicalKeyboardKey.digit2,
+          modifier: LogicalKeyboardKey.controlLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(router.routeInformationProvider.value.uri.path, '/settings');
+        await _sendChord(
+          tester,
+          key: LogicalKeyboardKey.digit3,
+          modifier: LogicalKeyboardKey.controlLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(router.routeInformationProvider.value.uri.path, '/settings');
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
+    },
+  );
+
+  testWidgets(
+    'mouse side button held past 120ms suppresses duplicate channel back while held and on release',
+    (tester) async {
+      var backCalls = 0;
+      final router = GoRouter(
+        initialLocation: '/ranking',
+        routes: [
+          GoRoute(
+            path: '/ranking',
+            builder: (_, _) => PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) backCalls += 1;
+              },
+              child: const Scaffold(body: Text('ranking')),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          builder: (_, child) => KeyboardBack(router: router, child: child!),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final mouse = TestPointer(9, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(
+        mouse.down(const Offset(100, 100), buttons: kBackMouseButton),
+      );
+      await tester.pumpAndSettle();
+      expect(backCalls, 1);
+
+      // Hold >120ms: channel back while still held and right after release are
+      // both suppressed; a subsequent keyboard channel back still fires.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 160)),
+      );
+      expect(await _invokeNavCommand('back'), isTrue);
+      await tester.pump();
+      expect(backCalls, 1);
+
+      await tester.sendEventToBinding(mouse.up());
+      expect(await _invokeNavCommand('back'), isTrue);
+      await tester.pump();
+      expect(backCalls, 1);
+
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 160)),
+      );
+      await _invokeNavCommand('back');
+      await tester.pump();
+      expect(backCalls, 2);
     },
   );
 }

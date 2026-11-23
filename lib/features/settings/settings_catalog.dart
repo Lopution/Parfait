@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../app/navigation/route_facade.dart';
 import '../../app/widgets/settings/settings_anchor.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/lookup.dart';
@@ -9,7 +10,7 @@ import 'settings_helpers.dart' show languageItems;
 /// page (the settings index for the top level) is anchored at it and
 /// takes its title from it, so the row and the page cannot disagree.
 enum SettingsPageRef implements SettingsEntry {
-  account('/settings/account', 'accountManagement'),
+  account(settingsAccountPath, 'accountManagement'),
   theme('/settings/theme', 'themeSettings'),
   language('/settings/language', 'languageSettings'),
   translate('/settings/translate', 'translateSettings'),

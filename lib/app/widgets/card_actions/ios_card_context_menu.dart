@@ -8,10 +8,12 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/mute/mute_predicate.dart';
 import '../../../core/mute/mute_store.dart';
+import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../../motion/motion_tokens.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
+import '../feed/illust_card_layout.dart';
 import '../feed/muted_cover.dart';
 import 'card_action.dart';
 import 'illust_card_actions.dart';
@@ -178,9 +180,16 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
         )
         .toDouble();
 
-    final aspect = entity.height > 0 && entity.width > 0
-        ? (entity.width / entity.height).clamp(0.55, 1.8)
-        : 1.0;
+    final decodeWidth = PixivImage.feedDecodeWidthOf(
+      context,
+      anchorRect?.width ?? previewWidth,
+    );
+    final preview = illustCardPreview(
+      entity,
+      quality: ref.watch(previewQualityProvider),
+      cardPhysicalWidth: decodeWidth,
+    );
+    final aspect = (1.0 / preview.heightRatio).clamp(0.55, 1.8);
     final desiredMenuHeight = actions.length * _estimatedRowHeight;
     final maxAllowedPreview = math.max(
       _minPreviewHeight,
@@ -269,6 +278,8 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
                   opacity: reduceMotion ? kAlwaysCompleteAnimation : animation,
                   child: _PreviewCard(
                     entity: entity,
+                    preview: preview,
+                    decodeWidth: decodeWidth,
                     muted: muted,
                     width: previewWidth,
                   ),
@@ -373,11 +384,15 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({
     required this.entity,
+    required this.preview,
+    required this.decodeWidth,
     required this.muted,
     required this.width,
   });
 
   final IllustEntity entity;
+  final IllustCardPreview preview;
+  final int decodeWidth;
   final bool muted;
   final double width;
 
@@ -385,7 +400,8 @@ class _PreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = FuncSemanticTokens.of(context);
     final colors = Theme.of(context).colorScheme;
-    final url = entity.squareUrlAt(0);
+    final url = preview.url;
+    final tier = preview.tier;
     return DecoratedBox(
       key: const Key('ios-card-context-preview'),
       decoration: BoxDecoration(
@@ -399,7 +415,7 @@ class _PreviewCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: muted || url == null
+              child: muted || url.isEmpty
                   ? ColoredBox(
                       color: colors.surfaceContainerHighest,
                       child: Center(
@@ -409,7 +425,18 @@ class _PreviewCard extends StatelessWidget {
                         ),
                       ),
                     )
-                  : PixivImage.feed(url, layoutWidth: width, fit: BoxFit.cover),
+                  : PixivImage.feed(
+                      url,
+                      layoutWidth: width,
+                      decodeWidth: decodeWidth,
+                      fit: BoxFit.cover,
+                      alignment: preview.crop == IllustCardCrop.top
+                          ? Alignment.topCenter
+                          : Alignment.center,
+                      tierKey: tier == null ? null : entity.imageTierKeyAt(0),
+                      tier: tier,
+                      tierUpgrade: false,
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(

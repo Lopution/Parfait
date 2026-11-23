@@ -695,5 +695,60 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'adaptive popover scales from anchor direction and re-anchors on resize',
+      (tester) async {
+        setViewSize(tester, const Size(900, 700));
+        final anchorKey = GlobalKey();
+        await tester.pumpWidget(
+          InputModalityScope(
+            initialModality: InputModality.pointer,
+            child: MaterialApp(
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: TextButton(
+                      key: anchorKey,
+                      onPressed: () => showAppAdaptivePopover<void>(
+                        context: anchorKey.currentContext!,
+                        anchorContext: anchorKey.currentContext,
+                        builder: (_) => const SizedBox(
+                          width: 200,
+                          height: 120,
+                          child: Text('anchored-popover'),
+                        ),
+                      ),
+                      child: const Text('anchor'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('anchor'), kind: PointerDeviceKind.mouse);
+        await tester.pump();
+        final scale = tester.widget<ScaleTransition>(
+          find
+              .ancestor(
+                of: find.text('anchored-popover'),
+                matching: find.byType(ScaleTransition),
+              )
+              .first,
+        );
+        expect(scale.alignment, Alignment.topRight);
+        await tester.pumpAndSettle();
+
+        final before = tester.getRect(find.text('anchored-popover'));
+        setViewSize(tester, const Size(1200, 700));
+        await tester.pumpAndSettle();
+        final after = tester.getRect(find.text('anchored-popover'));
+        expect(after.left, greaterThan(before.left + 200));
+      },
+    );
   });
 }

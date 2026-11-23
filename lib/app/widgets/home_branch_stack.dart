@@ -19,6 +19,7 @@ import '../motion/still_work.dart';
 import '../motion/swipe_paging.dart';
 import '../pull_to_refresh.dart';
 import '../navigation/desktop_rail_route.dart';
+import '../navigation/forward_history.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../navigation/route_facade.dart';
 import 'func_bottom_nav.dart';
@@ -61,25 +62,11 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
   controller.animateTo(0, duration: duration, curve: MotionTokens.spatialCurve);
 }
 
-/// The home shell container. Branches remain mounted in place so each branch
-/// retains its navigator stack and scroll state; a switch slides the
-/// outgoing and incoming branch side by side, toward where the chosen
-/// destination sits on the bar. The bar and rail show the user's
-/// destinations in their order. Larger screens get the [ShellRail] from
-/// 600dp wide ([FormFactor.hasRail]); a PC's opens and closes, as the user
-/// last left it.
-///
-/// On a phone, a swipe on a branch's root page moves to the destination
-/// beside it on the bar ([SwipePaging]; user decision, against Material's
-/// guidance). A page's own tabs take the swipe first and hand it over at
-/// their first or last tab ([SwipePagerScope]). The bar's selection moves
-/// when the swipe lands.
-///
-/// The branch on screen mounts at once; the other destinations on the bar
-/// mount one at a time on a still screen ([StillWork]), so a first switch
-/// to one does not build its whole page inside the switch. A mounted
-/// branch stays mounted. The router preloads every branch only to hand
-/// over its Navigator: it builds a page once mounted here.
+/// The home shell container. Branches stay mounted in place so stacks and
+/// scroll positions survive switches (`NAV-12`, `NAV-21`), ordered per
+/// `homeArrangementProvider` (`NAV-19`). Wide layouts mount [ShellRail]
+/// (`NAV-20`); phones allow root-page horizontal branch swipes (`SwipePaging`).
+/// Off-screen bar branches mount lazily on still frames (`StillWork`).
 class HomeBranchStack extends ConsumerStatefulWidget {
   const HomeBranchStack({
     super.key,
@@ -259,9 +246,12 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
       final target = _returnBranch!;
       _returnBranch = null;
       _lastRailSection = DesktopRailSection.none;
-      scheduleMicrotask(() {
-        if (mounted) widget.shell.goBranch(target);
-      });
+      if (router != null) {
+        ForwardHistoryStack.ofRouter(
+          router,
+        ).suppressOrDiscardForward('settings', locationPrefix: '/settings/');
+      }
+      scheduleMicrotask(() => mounted ? widget.shell.goBranch(target) : null);
       return;
     }
     if (nextSection != DesktopRailSection.none) {
@@ -284,15 +274,32 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     setState(() {});
   }
 
+  void _selectHomeDestination(HomeDestination d) {
+    if (mounted) _select(d.branchIndex);
+  }
+
+  void _attachRouter(GoRouter? next) {
+    if (identical(next, _watchedRouter)) return;
+    final prev = _watchedRouter;
+    if (prev != null) {
+      prev.routerDelegate.removeListener(_onRouterChanged);
+      ForwardHistoryStack.ofRouter(
+        prev,
+      ).unregisterHomeDestinationSelector(_selectHomeDestination);
+    }
+    _watchedRouter = next;
+    if (next != null) {
+      next.routerDelegate.addListener(_onRouterChanged);
+      ForwardHistoryStack.ofRouter(
+        next,
+      ).registerHomeDestinationSelector(_selectHomeDestination);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final router = GoRouter.maybeOf(context);
-    if (!identical(router, _watchedRouter)) {
-      _watchedRouter?.routerDelegate.removeListener(_onRouterChanged);
-      _watchedRouter = router;
-      _watchedRouter?.routerDelegate.addListener(_onRouterChanged);
-    }
+    _attachRouter(GoRouter.maybeOf(context));
     final rail = FormFactor.of(
       context,
     ).hasRail(MediaQuery.sizeOf(context).width);
@@ -357,7 +364,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
 
   @override
   void dispose() {
-    _watchedRouter?.routerDelegate.removeListener(_onRouterChanged);
+    _attachRouter(null);
     _rememberDestination();
     WidgetsBinding.instance.removeObserver(this);
     _reTap.dispose();

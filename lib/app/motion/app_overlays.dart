@@ -190,8 +190,8 @@ Future<T?> showAppBottomSheet<T>({
       modalBarrierColor: Theme.of(context).bottomSheetTheme.modalBarrierColor,
       showDragHandle: showDragHandle,
       useSafeArea: useSafeArea,
-      enterDuration: enterDuration,
-      exitDuration: exitDuration,
+      transitionDuration: enterDuration,
+      reverseTransitionDuration: exitDuration,
       enterCurve: enterCurve,
     ),
   );
@@ -449,9 +449,10 @@ Future<T?> showAppAdaptivePopover<T>({
       backgroundColor ??
       theme.bottomSheetTheme.backgroundColor ??
       theme.colorScheme.surfaceContainerHigh;
+  final resolvedAnchorContext = anchorContext ?? context;
   final anchorRect = _resolveAnchorRect(
     navigator: navigator,
-    anchorContext: anchorContext ?? context,
+    anchorContext: resolvedAnchorContext,
     position: position,
   );
   return navigator.push(
@@ -475,6 +476,8 @@ Future<T?> showAppAdaptivePopover<T>({
         ),
       ),
       themes: InheritedTheme.capture(from: context, to: navigator.context),
+      anchorNavigator: navigator,
+      anchorContext: position == null ? resolvedAnchorContext : null,
       anchorRect: anchorRect,
       preferPointOrigin: position != null,
       minWidth: minWidth,
@@ -482,8 +485,11 @@ Future<T?> showAppAdaptivePopover<T>({
       maxHeight: maxHeight,
       barrierDismissible: barrierDismissible,
       barrierLabel: barrierLabel ?? localizations.scrimLabel,
-      duration: MotionTokens.resolve(context, MotionTokens.stateFade),
-      reverseDuration: MotionTokens.resolve(context, MotionTokens.stateFade),
+      transitionDuration: MotionTokens.resolve(context, MotionTokens.stateFade),
+      reverseTransitionDuration: MotionTokens.resolve(
+        context,
+        MotionTokens.stateFade,
+      ),
     ),
   );
 }
@@ -577,8 +583,11 @@ Future<T?> showAppAdaptiveSideSheet<T>({
           Colors.black54,
       barrierDismissible: barrierDismissible,
       barrierLabel: barrierLabel ?? localizations.scrimLabel,
-      duration: enterDuration,
-      reverseDuration: MotionTokens.resolve(context, MotionTokens.sheetExit),
+      transitionDuration: enterDuration,
+      reverseTransitionDuration: MotionTokens.resolve(
+        context,
+        MotionTokens.sheetExit,
+      ),
       curve: curve,
     ),
   );
@@ -664,7 +673,7 @@ Future<T?> showAppPanel<T>({
       themes: InheritedTheme.capture(from: context, to: navigator.context),
       barrierLabel: barrierLabel,
       barrierColor: barrierColor ?? Colors.black54,
-      duration: MotionTokens.enabled(context)
+      transitionDuration: MotionTokens.enabled(context)
           ? MotionTokens.resolve(context, MotionTokens.dialog)
           : Duration.zero,
     ),
@@ -675,29 +684,22 @@ class _AppPanelRoute<T> extends PopupRoute<T> {
   _AppPanelRoute({
     required this.builder,
     required this.themes,
-    required String barrierLabel,
-    required Color barrierColor,
-    required this.duration,
-  }) : _barrierLabel = barrierLabel,
-       _barrierColor = barrierColor;
+    required this.barrierLabel,
+    required this.barrierColor,
+    required this.transitionDuration,
+  });
 
   final WidgetBuilder builder;
   final CapturedThemes themes;
-  final String _barrierLabel;
-  final Color _barrierColor;
-  final Duration duration;
-
   @override
-  Duration get transitionDuration => duration;
+  final String barrierLabel;
+  @override
+  final Color barrierColor;
+  @override
+  final Duration transitionDuration;
 
   @override
   bool get barrierDismissible => true;
-
-  @override
-  Color? get barrierColor => _barrierColor;
-
-  @override
-  String? get barrierLabel => _barrierLabel;
 
   @override
   Widget buildPage(
@@ -787,49 +789,43 @@ class _AppBottomSheetRoute<T> extends PopupRoute<T>
   _AppBottomSheetRoute({
     required this.builder,
     required this.capturedThemes,
-    required String? barrierLabel,
+    required this.barrierLabel,
     this.barrierOnTapHint,
     this.backgroundColor,
     this.modalBarrierColor,
     required this.showDragHandle,
     required this.isScrollControlled,
     required this.useSafeArea,
-    required this.enterDuration,
-    required this.exitDuration,
+    required this.transitionDuration,
+    required this.reverseTransitionDuration,
     required this.enterCurve,
-  }) : _barrierLabel = barrierLabel;
+  });
 
   final WidgetBuilder builder;
   final CapturedThemes capturedThemes;
-  final String? _barrierLabel;
+  @override
+  final String? barrierLabel;
   final String? barrierOnTapHint;
   final Color? backgroundColor;
   final Color? modalBarrierColor;
   final bool showDragHandle;
   final bool isScrollControlled;
   final bool useSafeArea;
-  final Duration enterDuration;
-  final Duration exitDuration;
+  @override
+  final Duration transitionDuration;
+  @override
+  final Duration reverseTransitionDuration;
   final Curve enterCurve;
 
   @override
-  Duration get transitionDuration => enterDuration;
-
-  @override
-  Duration get reverseTransitionDuration => exitDuration;
-
-  @override
   Curve get transitionCurve =>
-      enterDuration == Duration.zero ? Curves.linear : enterCurve;
+      transitionDuration == Duration.zero ? Curves.linear : enterCurve;
 
   @override
   bool get barrierDismissible => true;
 
   @override
   Color get barrierColor => modalBarrierColor ?? Colors.black54;
-
-  @override
-  String? get barrierLabel => _barrierLabel;
 
   @override
   bool get swipeDismissible => true;
@@ -994,66 +990,109 @@ class _AppAdaptivePopoverRoute<T> extends PopupRoute<T> {
   _AppAdaptivePopoverRoute({
     required this.builder,
     required this.themes,
+    required this.anchorNavigator,
+    required this.anchorContext,
     required this.anchorRect,
     required this.preferPointOrigin,
     required this.minWidth,
     required this.maxWidth,
     required this.maxHeight,
-    required bool barrierDismissible,
-    required String barrierLabel,
-    required this.duration,
-    required this.reverseDuration,
-  }) : _barrierDismissible = barrierDismissible,
-       _barrierLabel = barrierLabel;
+    required this.barrierDismissible,
+    required this.barrierLabel,
+    required this.transitionDuration,
+    required this.reverseTransitionDuration,
+  });
 
   final WidgetBuilder builder;
   final CapturedThemes themes;
+  final NavigatorState anchorNavigator;
+  final BuildContext? anchorContext;
   final Rect? anchorRect;
   final bool preferPointOrigin;
   final double minWidth;
   final double maxWidth;
   final double maxHeight;
-  final bool _barrierDismissible;
-  final String _barrierLabel;
-  final Duration duration;
-  final Duration reverseDuration;
-
   @override
-  Duration get transitionDuration => duration;
-
+  final bool barrierDismissible;
   @override
-  Duration get reverseTransitionDuration => reverseDuration;
-
+  final String barrierLabel;
   @override
-  bool get barrierDismissible => _barrierDismissible;
+  final Duration transitionDuration;
+  @override
+  final Duration reverseTransitionDuration;
 
   @override
   Color? get barrierColor => Colors.transparent;
 
-  @override
-  String? get barrierLabel => _barrierLabel;
+  Alignment _scaleAlignment(
+    Rect? anchor,
+    Size viewport,
+    TextDirection direction,
+  ) {
+    if (anchor == null) return Alignment.center;
+    final below = viewport.height - anchor.bottom >= anchor.top;
+    final alignEnd = direction == TextDirection.rtl
+        ? anchor.right - maxWidth >= 0
+        : anchor.left + maxWidth > viewport.width;
+    return Alignment(alignEnd ? 1.0 : -1.0, below ? -1.0 : 1.0);
+  }
+
+  Size? _lastViewport;
+
+  Rect? _liveAnchor() {
+    final ctx = anchorContext;
+    if (ctx == null || !ctx.mounted) return anchorRect;
+    return _resolveAnchorRect(navigator: anchorNavigator, anchorContext: ctx) ??
+        anchorRect;
+  }
 
   @override
   Widget buildPage(
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
-  ) => themes.wrap(
-    CustomSingleChildLayout(
-      delegate: _PopoverLayoutDelegate(
-        anchor: anchorRect,
-        padding:
-            MediaQuery.paddingOf(context) +
-            const EdgeInsets.all(FuncSpacing.md),
-        textDirection: Directionality.of(context),
-        preferPointOrigin: preferPointOrigin,
-        minWidth: minWidth,
-        maxWidth: maxWidth,
-        maxHeight: maxHeight,
+  ) {
+    final viewport = MediaQuery.sizeOf(context);
+    if (anchorContext != null &&
+        _lastViewport != null &&
+        _lastViewport != viewport) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (isActive) changedExternalState();
+      });
+    }
+    _lastViewport = viewport;
+    final direction = Directionality.of(context);
+    final liveAnchor = _liveAnchor();
+    final content = builder(context);
+    final scaled = transitionDuration == Duration.zero
+        ? content
+        : ScaleTransition(
+            alignment: _scaleAlignment(liveAnchor, viewport, direction),
+            scale: animation.drive(
+              Tween<double>(
+                begin: 0.94,
+                end: 1.0,
+              ).chain(CurveTween(curve: Curves.easeOutCubic)),
+            ),
+            child: content,
+          );
+    return themes.wrap(
+      CustomSingleChildLayout(
+        delegate: _PopoverLayoutDelegate(
+          anchor: liveAnchor,
+          padding:
+              MediaQuery.paddingOf(context) +
+              const EdgeInsets.all(FuncSpacing.md),
+          textDirection: direction,
+          preferPointOrigin: preferPointOrigin,
+          minWidth: minWidth,
+          maxWidth: maxWidth,
+          maxHeight: maxHeight,
+        ),
+        child: scaled,
       ),
-      child: builder(context),
-    ),
-  );
+    );
+  }
 
   @override
   Widget buildModalBarrier() => PromptCover(
@@ -1068,18 +1107,10 @@ class _AppAdaptivePopoverRoute<T> extends PopupRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    if (duration == Duration.zero) return child;
+    if (transitionDuration == Duration.zero) return child;
     return FadeTransition(
       opacity: animation.drive(CurveTween(curve: MotionTokens.stateFadeCurve)),
-      child: ScaleTransition(
-        scale: animation.drive(
-          Tween<double>(
-            begin: 0.94,
-            end: 1.0,
-          ).chain(CurveTween(curve: Curves.easeOutCubic)),
-        ),
-        child: child,
-      ),
+      child: child,
     );
   }
 }
@@ -1193,41 +1224,29 @@ class _AppAdaptiveSideSheetRoute<T> extends PopupRoute<T> {
   _AppAdaptiveSideSheetRoute({
     required this.builder,
     required this.themes,
-    required Color barrierColor,
-    required bool barrierDismissible,
-    required String barrierLabel,
-    required this.duration,
-    required this.reverseDuration,
+    required this.barrierColor,
+    required this.barrierDismissible,
+    required this.barrierLabel,
+    required this.transitionDuration,
+    required this.reverseTransitionDuration,
     required this.curve,
     this.topClearance = 0,
-  }) : _barrierColor = barrierColor,
-       _barrierDismissible = barrierDismissible,
-       _barrierLabel = barrierLabel;
+  });
 
   final WidgetBuilder builder;
   final CapturedThemes themes;
-  final Color _barrierColor;
-  final bool _barrierDismissible;
-  final String _barrierLabel;
-  final Duration duration;
-  final Duration reverseDuration;
+  @override
+  final Color barrierColor;
+  @override
+  final bool barrierDismissible;
+  @override
+  final String barrierLabel;
+  @override
+  final Duration transitionDuration;
+  @override
+  final Duration reverseTransitionDuration;
   final Curve curve;
   final double topClearance;
-
-  @override
-  Duration get transitionDuration => duration;
-
-  @override
-  Duration get reverseTransitionDuration => reverseDuration;
-
-  @override
-  bool get barrierDismissible => _barrierDismissible;
-
-  @override
-  Color? get barrierColor => _barrierColor;
-
-  @override
-  String? get barrierLabel => _barrierLabel;
 
   @override
   Widget buildPage(
@@ -1252,7 +1271,7 @@ class _AppAdaptiveSideSheetRoute<T> extends PopupRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    if (duration == Duration.zero) return child;
+    if (transitionDuration == Duration.zero) return child;
     final begin = Directionality.of(context) == TextDirection.rtl
         ? const Offset(-1, 0)
         : const Offset(1, 0);
