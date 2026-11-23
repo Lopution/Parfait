@@ -299,6 +299,33 @@ void openSettingsPage(BuildContext context, String path) {
   unawaited(pushSettingsPage(context, path));
 }
 
+/// Observes the embedded master-detail settings navigator so the master pane's
+/// `PopScope` stays synced with nested push/pop depth.
+class SettingsDetailStackObserver extends NavigatorObserver {
+  SettingsDetailStackObserver(this.onChanged);
+
+  final VoidCallback onChanged;
+
+  void _notify() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => onChanged());
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _notify();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _notify();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _notify();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _notify();
+}
+
 /// Supported app languages as (native display name, BCP-47 tag) pairs —
 /// the language page lists them and the settings root reuses the table
 /// for the current-value summary. Native names are locale-independent

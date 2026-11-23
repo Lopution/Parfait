@@ -10,11 +10,9 @@ import '../../core/auth/account_store.dart';
 import '../../core/platform/desktop_window_channel.dart';
 import '../../core/search/search_models.dart';
 import '../../core/settings/app_settings.dart';
-import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
 import '../icons/app_icons.dart';
 import '../icons/ui_icons.dart';
-import '../layout/form_factor.dart';
 import '../motion/app_overlays.dart';
 import '../navigation/forward_history.dart';
 import '../navigation/keyboard_back.dart';
@@ -24,7 +22,6 @@ import '../navigation/route_search_facade.dart';
 import '../person_avatar.dart';
 import '../pull_to_refresh.dart';
 import '../theme/func_semantic_tokens.dart';
-import '../widgets/settings/persist_settings.dart';
 import 'desktop_command_bar_scope.dart';
 import 'desktop_command_bar_widgets.dart';
 import 'desktop_title_bar.dart';
@@ -40,15 +37,6 @@ const _preHomeExact = {'', '/', '/splash', '/user-agreement'};
 bool isDesktopPreHomePath(String path) {
   if (_preHomeExact.contains(path)) return true;
   for (final prefix in _preHomePrefixes) {
-    if (path == prefix || path.startsWith('$prefix/')) return true;
-  }
-  return false;
-}
-
-const _rootOverlayWithoutRailPrefixes = ['/downloads', '/me', '/reverse-image'];
-
-bool _isRootOverlayWithoutRail(String path) {
-  for (final prefix in _rootOverlayWithoutRailPrefixes) {
     if (path == prefix || path.startsWith('$prefix/')) return true;
   }
   return false;
@@ -345,17 +333,6 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
         ? null
         : DesktopCommandActionsAnchor.activeAction();
     final currentAccount = ref.watch(accountStoreProvider).value?.current;
-    final form = FormFactor.of(context);
-    final canToggleRail =
-        !_isRootOverlayWithoutRail(uri.path) &&
-        form.canToggleRail(windowSize.width, height: windowSize.height);
-    final railChoice =
-        ref.watch(railExpandedProvider) ?? widget.settings.railExpanded;
-    final railExpanded = form.railExpanded(
-      windowSize.width,
-      height: windowSize.height,
-      choice: railChoice,
-    );
     final searchWidth = (windowSize.width * 0.27).clamp(210.0, 360.0);
     final showShortcutBadge = windowSize.width >= 680;
     final showBrandWordmark = windowSize.width >= 600;
@@ -365,7 +342,6 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     final estimatedLeft =
         leadingInset +
         leadingGap +
-        (canToggleRail ? 34.0 : 0.0) +
         (showBrandPill ? (showBrandWordmark ? 110.0 : 42.0) : 0.0) +
         90.0;
     final estimatedRight =
@@ -376,8 +352,10 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
       0.0,
       windowSize.width - estimatedLeft - estimatedRight - FuncSpacing.sm,
     );
-    final compactSearch = compactWindow || freeMiddle < 120.0;
-    final effectiveSearchWidth = math.min(searchWidth, freeMiddle);
+    final reservedDrag = usesSystemTitleBar ? 0.0 : 48.0;
+    final availableForSearch = math.max(0.0, freeMiddle - reservedDrag);
+    final compactSearch = compactWindow || availableForSearch < 120.0;
+    final effectiveSearchWidth = math.min(searchWidth, availableForSearch);
 
     const iconConstraints = BoxConstraints(minWidth: 30, minHeight: 30);
     const iconPadding = EdgeInsets.all(FuncSpacing.xs);
@@ -408,32 +386,6 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
                     ),
                   SizedBox(width: leadingGap),
                   if (!isPreHome) ...[
-                    if (canToggleRail) ...[
-                      desktopCommandIconButton(
-                        context,
-                        key: const Key('desktop-command-rail-toggle'),
-                        constraints: iconConstraints,
-                        padding: iconPadding,
-                        iconSize: 18,
-                        tooltip: railExpanded
-                            ? l10n.railCollapse
-                            : l10n.railExpand,
-                        onPressed: () => unawaited(
-                          persistSettings(
-                            context,
-                            () => ref
-                                .read(settingsProvider.notifier)
-                                .setRailExpanded(!railExpanded),
-                          ),
-                        ),
-                        icon: Icon(
-                          railExpanded
-                              ? AppIcons.sidebarCollapse
-                              : AppIcons.sidebarExpand,
-                        ),
-                      ),
-                      const SizedBox(width: FuncSpacing.xs),
-                    ],
                     if (showBrandPill) ...[
                       DecoratedBox(
                         decoration: BoxDecoration(

@@ -12,14 +12,17 @@ import 'package:go_router/go_router.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/layout/form_factor.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/navigation/forward_history.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/touch_exploration_scope.dart';
 import 'package:parfait/app/widgets/app_snack_bar.dart';
+import 'package:parfait/app/widgets/fit_label.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/app/widgets/shell_rail.dart';
 import 'package:parfait/app/window/desktop_command_bar_scope.dart';
+import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -1103,10 +1106,31 @@ void main() {
         findsOneWidget,
       );
 
-      // Cycle system -> light -> dark -> system.
+      // Cycle system -> light -> dark -> system without shifting primary nav label scale.
+      final navLabelScaleBefore = tester
+          .widget<FitLabel>(
+            find.ancestor(
+              of: find.descendant(of: rail, matching: find.text('推荐')),
+              matching: find.byType(FitLabel),
+            ),
+          )
+          .fit
+          .scale;
       await tester.tap(find.byKey(const Key('rail-theme-toggle')));
       await tester.pumpAndSettle();
       expect(container.read(themeModeProvider), ThemeMode.light);
+      expect(
+        tester
+            .widget<FitLabel>(
+              find.ancestor(
+                of: find.descendant(of: rail, matching: find.text('推荐')),
+                matching: find.byType(FitLabel),
+              ),
+            )
+            .fit
+            .scale,
+        navLabelScaleBefore,
+      );
       expect(
         find.descendant(
           of: find.byKey(const Key('rail-theme-toggle')),
@@ -1130,8 +1154,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(container.read(themeModeProvider), ThemeMode.system);
 
+      // NAV-03 parity: Back is disabled on start branch root, enabled on non-start branch root.
+      final history = ForwardHistoryStack.ofRouter(router);
+      expect(history.canGoBack, isFalse);
+      history.selectHomeDestination(HomeDestination.ranking);
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/ranking');
+      expect(history.canGoBack, isTrue);
+      await history.goBack();
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/recommended');
+      expect(history.canGoBack, isFalse);
+
       // From Recommended, clicking Bookmarks / Downloads / Settings highlights
-      // only that entry (never Me simultaneously) and Back returns to Recommended.
+      // only that entry (never Me simultaneously) and Back returns to Recommended
+      // without polluting the settings branch's forward history.
       await tester.tap(find.byKey(const Key('rail-bookmarks')));
       await tester.pumpAndSettle();
       expect(router.state.uri.toString(), '/settings/me?tab=bookmarks');
@@ -1145,6 +1182,13 @@ void main() {
       expect(tester.widget<ShellRail>(rail).bookmarksSelected, isFalse);
       expect(tester.widget<ShellRail>(rail).downloadsSelected, isTrue);
 
+      // Explicit shortcut/menu selection of Me clears _returnBranch (no bounce-back).
+      history.selectHomeDestination(HomeDestination.me);
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/settings');
+
+      history.selectHomeDestination(HomeDestination.recommended);
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('rail-settings')));
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/settings/all');
@@ -1154,12 +1198,14 @@ void main() {
       await router.routerDelegate.popRoute();
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended');
+      expect(history.canGoForward, isFalse);
 
       // Visiting Me directly omits duplicate Bookmarks & Downloads rows inside
-      // wide desktop MeDashboardPage.
+      // wide desktop MeDashboardPage and keeps no stale forward entry.
       await tester.tap(find.descendant(of: rail, matching: find.text('我的')));
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/settings');
+      expect(history.canGoForward, isFalse);
       expect(tester.getSize(rail).width, ShellRail.expandedWidth);
       expect(
         find.descendant(

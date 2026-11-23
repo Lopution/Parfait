@@ -1045,6 +1045,85 @@ void main() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.windows),
     );
+
+    testWidgets(
+      'exiting fullscreen via hover overlay resets _hoverReveal before next fullscreen',
+      (tester) async {
+        final metrics = ValueNotifier(
+          const DesktopWindowPlatformMetrics(
+            usesSystemTitleBar: false,
+            isFullScreen: true,
+          ),
+        );
+        addTearDown(metrics.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: replicaTheme(
+              Brightness.light,
+            ).copyWith(platform: TargetPlatform.windows),
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: const [Locale('zh', 'CN')],
+            home: DesktopWindowScope(
+              metrics: metrics,
+              actions: DesktopWindowActions(
+                onMinimize: () {},
+                onToggleMaximize: () {},
+                onToggleFullScreen: () => metrics.value = metrics.value
+                    .copyWith(isFullScreen: !metrics.value.isFullScreen),
+                onClose: () {},
+                onStartDragging: () {},
+                onTitleBarDoubleClick: () {},
+                onRegionsChanged: (_) {},
+              ),
+              child: const DesktopWindowFrame(
+                suppressOverlayBar: true,
+                child: SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final mouse = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(mouse.hover(const Offset(200, 2)));
+        await tester.pumpAndSettle();
+        final exitBtn = find.byKey(const Key('desktop-window-maximize'));
+        expect(exitBtn, findsOneWidget);
+        expect(
+          tester
+              .widget<AnimatedOpacity>(
+                find.ancestor(
+                  of: exitBtn,
+                  matching: find.byType(AnimatedOpacity),
+                ),
+              )
+              .opacity,
+          1.0,
+        );
+
+        await tester.tap(exitBtn);
+        await tester.pumpAndSettle();
+        expect(metrics.value.isFullScreen, isFalse);
+
+        // Move pointer away while not fullscreen (overlay unmounted, no onExit),
+        // then re-enter fullscreen: overlay must start hidden.
+        await tester.sendEventToBinding(mouse.hover(const Offset(200, 300)));
+        metrics.value = metrics.value.copyWith(isFullScreen: true);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<AnimatedOpacity>(
+                find.ancestor(
+                  of: find.byKey(const Key('desktop-window-maximize')),
+                  matching: find.byType(AnimatedOpacity),
+                ),
+              )
+              .opacity,
+          0.0,
+        );
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
   });
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/navigation/forward_history.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/navigation/route_observer.dart';
@@ -29,6 +30,7 @@ class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver, RouteAware {
   RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   ModalRoute<dynamic>? _route;
+  GoRouter? _syncedRouter;
   Timer? _exitArmed;
   VoidCallback? _hideExitHint;
 
@@ -82,6 +84,10 @@ class _HomePageState extends ConsumerState<HomePage>
 
   @override
   void dispose() {
+    if (_syncedRouter != null) {
+      ForwardHistoryStack.ofRouter(_syncedRouter!).setHomeBackRootPath(null);
+      _syncedRouter = null;
+    }
     if (_route != null) _routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _disarmExit();
@@ -118,6 +124,16 @@ class _HomePageState extends ConsumerState<HomePage>
     final settings = ref.watch(settingsProvider).value;
     if (settings != null) _launched ??= homeStartDestination(settings);
     final start = homeBackDestination(settings, _launched);
+    final router = GoRouter.maybeOf(context);
+    if (!identical(router, _syncedRouter)) {
+      if (_syncedRouter != null) {
+        ForwardHistoryStack.ofRouter(_syncedRouter!).setHomeBackRootPath(null);
+      }
+      _syncedRouter = router;
+    }
+    if (router != null) {
+      ForwardHistoryStack.ofRouter(router).setHomeBackRootPath(start.rootPath);
+    }
     final atStart =
         shell.currentIndex == start.branchIndex &&
         shell.shellRouteContext.routerState.uri.path == start.rootPath;

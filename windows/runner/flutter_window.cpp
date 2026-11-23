@@ -1281,12 +1281,17 @@ LRESULT FlutterWindow::MessageHandler(HWND hwnd,
 
     case WM_APPCOMMAND: {
       const UINT cmd = GET_APPCOMMAND_LPARAM(lparam);
-      if (cmd == APPCOMMAND_BROWSER_BACKWARD) {
-        SendNavigationCommand("back");
-        return TRUE;
-      }
-      if (cmd == APPCOMMAND_BROWSER_FORWARD) {
-        SendNavigationCommand("forward");
+      const UINT device = GET_DEVICE_LPARAM(lparam);
+      if (cmd == APPCOMMAND_BROWSER_BACKWARD ||
+          cmd == APPCOMMAND_BROWSER_FORWARD) {
+        // Mouse side buttons already arrive via Flutter's PointerDownEvent;
+        // DefWindowProc synthesizes a duplicate WM_APPCOMMAND on mouse release
+        // which would double-navigate when held past Dart's 120ms debounce.
+        if (device == FAPPCOMMAND_MOUSE) {
+          return TRUE;
+        }
+        SendNavigationCommand(cmd == APPCOMMAND_BROWSER_BACKWARD ? "back"
+                                                                 : "forward");
         return TRUE;
       }
       break;
