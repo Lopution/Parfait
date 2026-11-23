@@ -9,17 +9,25 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/press_scale.dart';
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/person_avatar.dart';
 import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
+import 'package:parfait/app/widgets/feed/desktop_gallery_controls.dart';
+import 'package:parfait/app/widgets/feed/desktop_inspectable_gallery.dart';
+import 'package:parfait/app/widgets/feed/desktop_inspector_scope.dart';
 import 'package:parfait/app/widgets/feed/feed_selection.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/app/widgets/smooth_wheel_scroll.dart';
 import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
+import 'package:parfait/app/window/desktop_command_bar_scope.dart';
 import 'package:parfait/core/actionqueue/action_bootstrap.dart';
 import 'package:parfait/core/actionqueue/action_models.dart';
 import 'package:parfait/core/actionqueue/action_store.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/api_responses.dart';
@@ -129,6 +137,7 @@ void main() {
       for (final (platform, modifier) in [
         (TargetPlatform.windows, LogicalKeyboardKey.controlLeft),
         (TargetPlatform.macOS, LogicalKeyboardKey.metaLeft),
+        (TargetPlatform.iOS, LogicalKeyboardKey.metaLeft),
       ]) {
         debugDefaultTargetPlatformOverride = platform;
         try {
@@ -177,6 +186,10 @@ void main() {
             findsOneWidget,
           );
           expect(find.byKey(const Key('feed-select-badge-1')), findsOneWidget);
+          expect(find.byType(ScrollAwareHoverRegion), findsWidgets);
+          final l10n = lookupAppLocalizations(zhCN);
+          expect(find.bySemanticsLabel(l10n.batchDeselectWork), findsOneWidget);
+          expect(find.bySemanticsLabel(l10n.batchSelectWork), findsNWidgets(2));
 
           // Shift+Click selects inclusive range [0..2].
           await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -395,6 +408,191 @@ void main() {
         await tester.pump(const Duration(milliseconds: 250));
       }
       expect(refreshed, [0, 1]);
+    },
+  );
+
+  testWidgets(
+    'touch tablet enters multi-select via card sheet, landscape phone bar clears bottom nav, and inspector respects content width & auto-closes',
+    (tester) async {
+      // 1. Touch tablet long-press sheet exposes '多选', and landscape phone
+      // floating batch bar clears HomeShellChrome.bottomBarExtent.
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final visibleExtent = ValueNotifier<double>(64);
+      addTearDown(visibleExtent.dispose);
+      try {
+        setViewSize(tester, const Size(700, 420));
+        final (container, _, _) = await makeCardWorld();
+        final entity = parseIllust(illustJson(42));
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            builder: (ctx, child) => promptHostBuilder(
+              ctx,
+              InputModalityScope(
+                initialModality: InputModality.touch,
+                child: HomeShellChrome(
+                  bottomBarExtent: 64,
+                  bottomBarVisibleExtent: visibleExtent,
+                  bottomBarVisibility: kAlwaysCompleteAnimation,
+                  onBranchRootScroll: (_) => false,
+                  child: child!,
+                ),
+              ),
+            ),
+            body: SelectableFeedHost(
+              child: Builder(
+                builder: (context) {
+                  FeedSelectionScope.maybeOf(context)!.syncItems([entity]);
+                  return Center(
+                    child: SizedBox(
+                      width: 200,
+                      child: FeedSelectableCardDecorator(
+                        entityId: entity.id,
+                        child: IllustCard(entity: entity),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.byType(IllustCard));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('多选'));
+        await tester.pumpAndSettle();
+        final barRect = tester.getRect(
+          find.byKey(const Key('feed-batch-action-bar')),
+        );
+        expect(barRect.bottom, lessThanOrEqualTo(420 - 64));
+
+        // 2. DesktopGalleryControls & canUseDesktopInspector follow content width
+        // (window minus 204dp rail), and DesktopInspectableGallery auto-closes
+        // on multi-select entry or scopeKey change.
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        setViewSize(tester, const Size(1280, 800));
+        if (!hasDesktopGalleryInspector) {
+          registerDesktopGalleryInspector(
+            ({
+              required target,
+              required panelWidth,
+              required active,
+              required backController,
+              required onClose,
+              required onOpenStage,
+            }) => const SizedBox(key: Key('fake-inspector')),
+          );
+        }
+        final scopeKey = ValueNotifier<int>(0);
+        addTearDown(scopeKey.dispose);
+        final windowWidth = ValueNotifier<double>(760);
+        addTearDown(windowWidth.dispose);
+        final barController = DesktopCommandBarController();
+        addTearDown(barController.dispose);
+        FeedSelectionController? sel;
+        DesktopInspectorScope? inspector;
+        bool? canInspect;
+
+        await tester.pumpWidget(
+          localizedApp(
+            overrides: [
+              desktopDetailModeProvider.overrideWithValue(
+                DesktopDetailMode.inspector,
+              ),
+            ],
+            body: ValueListenableBuilder<double>(
+              valueListenable: windowWidth,
+              builder: (context, w, _) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(size: Size(w, 800)),
+                child: HomeShellChrome(
+                  bottomBarExtent: 0,
+                  railExtent: 204,
+                  bottomBarVisibleExtent: visibleExtent,
+                  bottomBarVisibility: kAlwaysDismissedAnimation,
+                  onBranchRootScroll: (_) => false,
+                  child: DesktopCommandBarScope(
+                    active: true,
+                    controller: barController,
+                    child: SizedBox(
+                      width: w - 204,
+                      height: 800,
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: scopeKey,
+                        builder: (_, keyVal, _) => Column(
+                          children: [
+                            const DesktopGalleryControls(),
+                            Expanded(
+                              child: DesktopInspectableGallery(
+                                scopeKey: keyVal,
+                                child: SelectableFeedHost(
+                                  child: Builder(
+                                    builder: (ctx) {
+                                      sel = FeedSelectionScope.maybeOf(ctx)
+                                        ?..syncItems([entity]);
+                                      inspector = DesktopInspectorScope.watchOf(
+                                        ctx,
+                                      );
+                                      canInspect = canUseDesktopInspector(
+                                        ctx,
+                                        DesktopDetailMode.inspector,
+                                      );
+                                      return const SizedBox.expand();
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // 760 window - 204 rail = 556 < 600: both density and detail mode hide.
+        expect(find.byKey(const Key('feed-density-menu')), findsNothing);
+        expect(find.byKey(const Key('desktop-detail-mode-menu')), findsNothing);
+        expect(canInspect, isFalse);
+
+        // 1000 window - 204 rail = 796 >= 760: inspector activates.
+        windowWidth.value = 1000;
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('feed-density-menu')), findsOneWidget);
+        expect(
+          find.byKey(const Key('desktop-detail-mode-menu')),
+          findsOneWidget,
+        );
+        expect(canInspect, isTrue);
+
+        // At 1280 (1076 content), gallery stays >= 600 beside the open
+        // inspector so entering multi-select closes the inspector cleanly.
+        windowWidth.value = 1280;
+        await tester.pumpAndSettle();
+        inspector!.onInspect(DesktopInspectorTarget(entity: entity));
+        await tester.pumpAndSettle();
+        expect(inspector!.selectedId.value, entity.id);
+        sel!.toggle(entity.id);
+        await tester.pumpAndSettle();
+        expect(inspector!.selectedId.value, isNull);
+
+        // Switching scopeKey also closes an open inspector.
+        sel!.clearSelection();
+        await tester.pump();
+        inspector!.onInspect(DesktopInspectorTarget(entity: entity));
+        await tester.pumpAndSettle();
+        expect(inspector!.selectedId.value, entity.id);
+        scopeKey.value = 1;
+        await tester.pumpAndSettle();
+        expect(inspector!.selectedId.value, isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     },
   );
 }

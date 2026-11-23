@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/settings/app_settings.dart';
+import '../../navigation/home_shell_metrics.dart';
 import '../../window/desktop_command_bar_scope.dart';
 import 'illust_pager_source.dart';
 
@@ -10,17 +11,19 @@ import 'illust_pager_source.dart';
 const double desktopInspectorMinWidth = 1040;
 
 /// Minimum host content width needed so the feed retains >= 320dp alongside
-/// the 440–560dp side inspector panel.
+/// the 420–520dp side inspector panel.
 const double desktopInspectorHostMinWidth = 760;
 
-/// Whether the current desktop surface is wide enough and configured to open
-/// artworks inside the adjacent gallery inspector.
+/// Whether the current desktop surface is wide enough (in content width, after
+/// subtracting any `ShellRail`) and configured to open artworks inside the
+/// adjacent gallery inspector.
 bool canUseDesktopInspector(
   BuildContext context,
   DesktopDetailMode detailMode,
 ) =>
     DesktopCommandBarScope.isActiveOf(context) &&
-    MediaQuery.widthOf(context) >= desktopInspectorMinWidth &&
+    HomeShellChrome.contentSizeOf(context).width >=
+        desktopInspectorHostMinWidth &&
     detailMode == DesktopDetailMode.inspector;
 
 /// Metadata captured from the feed card that launched the desktop inspector,
@@ -49,13 +52,18 @@ class DesktopInspectorScope extends InheritedWidget {
     super.key,
     required this.selectedId,
     required this.onInspect,
+    this.onClose,
     this.enabled = true,
     required super.child,
   });
 
   final ValueListenable<int?> selectedId;
   final ValueChanged<DesktopInspectorTarget> onInspect;
+  final VoidCallback? onClose;
   final bool enabled;
+
+  /// Closes any open side inspector panel in this gallery host.
+  void close() => onClose?.call();
 
   /// Non-subscribing lookup (for gesture callbacks or tests inspecting tree
   /// state). Returns null when the inspector mode is disabled.
@@ -80,7 +88,8 @@ class DesktopInspectorScope extends InheritedWidget {
   bool updateShouldNotify(DesktopInspectorScope oldWidget) =>
       enabled != oldWidget.enabled ||
       !identical(selectedId, oldWidget.selectedId) ||
-      onInspect != oldWidget.onInspect;
+      onInspect != oldWidget.onInspect ||
+      onClose != oldWidget.onClose;
 }
 
 /// Coordinates system back / Esc inside an embedded detail inspector so an

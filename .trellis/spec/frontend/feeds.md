@@ -8,7 +8,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/core/bookmark/bookmark_actions.dart
-reviewed: 2026-11-22
+reviewed: 2026-11-23
 ---
 
 # Feeds: states, grid, pull to refresh, skeletons
@@ -92,18 +92,18 @@ reviewed: 2026-11-22
 - **Code:** `lib/app/widgets/feed/feed_item_cache.dart`, `lib/core/entity/stored_entities.dart`, `lib/app/layout/card_columns.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### FEED-24 Wide feed multi-selection and batch bookmark or download bar
-- **Rule:** `SelectableFeedHost` enables multi-select only at `>= AppBreakpoints.medium` (600dp, clearing when narrowed), supporting hover checkboxes, `Ctrl`/`Cmd`+Click, `Shift`+Click range, `Ctrl`/`Cmd`+A, and `Esc`/back dismissal, with one floating `FeedBatchActionBar` driving bounded-concurrency `BookmarkActions.addBatch` and downloads.
-- **Why:** Gives desktop/tablet users batch triage without cluttering phone views or flooding network writes.
-- **Check:** `test/feed_selection_test.dart` "SelectableFeedHost gates >=600dp multi-select, Ctrl/Cmd+Click, Shift range, Ctrl+A, Esc, and batch bookmark/download"
-- **Code:** `lib/app/widgets/feed/feed_selection.dart`, `lib/app/widgets/feed/feed_grid.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/core/bookmark/bookmark_actions.dart`
+- **Rule:** `SelectableFeedHost` enables multi-select only at `>= AppBreakpoints.medium` (600dp, clearing when narrowed), supporting `ScrollAwareHoverRegion` hover checkboxes with localized per-card select/deselect labels, touch long-press sheet/context-menu "Select" entry, `Ctrl`/`Cmd`+Click, `Shift`+Click range, `Ctrl`/`Cmd`+A (macOS & iPadOS), and `Esc`/back dismissal; entering selection closes any open `DesktopInspectorScope`, and the floating `FeedBatchActionBar` clears `HomeShellChrome.bottomBarExtent` on landscape phones while driving bounded-concurrency `BookmarkActions.addBatch` and downloads.
+- **Why:** Gives desktop and tablet users discoverable, collision-free batch triage without cluttering phones, overlapping bottom navigation, or flooding network writes.
+- **Check:** `test/feed_selection_test.dart` "SelectableFeedHost gates >=600dp multi-select, Ctrl/Cmd+Click, Shift range, Ctrl+A, Esc, and batch bookmark/download" "touch tablet enters multi-select via card sheet, landscape phone bar clears bottom nav, and inspector respects content width & auto-closes"
+- **Code:** `lib/app/widgets/feed/feed_selection.dart`, `lib/app/widgets/feed/feed_grid.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/card_actions/ios_card_context_menu.dart`, `lib/core/bookmark/bookmark_actions.dart`
 
 ## Pull to refresh
 
 ### FEED-07 PullToRefresh is the only refresh wrapper
-- **Rule:** All feeds refresh via `PullToRefresh` (`SakuraRefreshIndicator` on `MotionTokens.refreshSpin`; `FeedTail`/`FeedLoading` use `AppSpinner`), using `clamping: false` so lists pull down with the finger, passing explicit `scrollController` for active-tab re-tap refresh (`reTapScrollToTop`), and surfacing pull-to-refresh failures on loaded feeds via `listenFeedRefreshError` (`showErrorSnackBar` + Retry) rather than silent swallows or bottom-of-list banners. `TabSlideStack` keeps resting neighbors (`|i - pos| >= 1.0`) offstage and `isRenderBoxVisibleOnScreen` excludes offstage/clipped ancestors so refresh and select-all shortcuts hit only the visible tab. Inside `NestedScrollView`, tab bodies pass `isNested: true` with `PullToRefresh.nestedHeader` and the outer view uses `NestedRefreshOuterPhysics` (never wrap the whole `NestedScrollView`).
-- **Why:** User decision: list pulls down cleanly across platforms without clamping bugs, buried refresh errors, clipped neighbor hijacking, or nested profile-header conflicts.
-- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/feed_selection_test.dart` "wide split TabSlideStack keeps resting neighbors offstage for both refresh and select-all", `test/search_result_page_test.dart` "search refresh failure surfaces a Retry prompt and active tab re-tap triggers refresh", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses" "a header pushed up during a refresh stays when it ends"
-- **Code:** `lib/app/pull_to_refresh.dart`, `lib/app/widgets/app_spinner.dart`, `lib/app/widgets/feed/feed_states.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_illust_feed.dart`, `pubspec.yaml`
+- **Rule:** All feeds (including `SearchHomePage` trending tags + Spotlight) refresh via `PullToRefresh` (`SakuraRefreshIndicator` on `MotionTokens.refreshSpin`; `FeedTail`/`FeedLoading` use `AppSpinner`), using `clamping: false` so lists pull down with the finger, passing explicit `scrollController` for active-tab re-tap refresh (`reTapScrollToTop`), exposing `HeaderRefresh` on wide headers, and surfacing pull-to-refresh failures on loaded feeds via `listenFeedRefreshError` (`showErrorSnackBar` + Retry) rather than silent swallows or bottom-of-list banners. `TabSlideStack` keeps resting neighbors (`|i - pos| >= 1.0`) offstage and `isRenderBoxVisibleOnScreen` excludes offstage/clipped ancestors so refresh and select-all shortcuts hit only the visible tab. Inside `NestedScrollView`, tab bodies pass `isNested: true` with `PullToRefresh.nestedHeader` and the outer view uses `NestedRefreshOuterPhysics` (never wrap the whole `NestedScrollView`).
+- **Why:** User decision: list pulls down cleanly across platforms without clamping bugs, dead search headers, buried refresh errors, clipped neighbor hijacking, or nested profile-header conflicts.
+- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/feed_selection_test.dart` "wide split TabSlideStack keeps resting neighbors offstage for both refresh and select-all", `test/search_result_page_test.dart` "search refresh failure surfaces a Retry prompt and active tab re-tap triggers refresh", `test/search_catalog_test.dart` "SearchHomePage supports pull-to-refresh for trending tags & spotlight and InkWell hover/focus on tag tiles", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses" "a header pushed up during a refresh stays when it ends"
+- **Code:** `lib/app/pull_to_refresh.dart`, `lib/app/widgets/app_spinner.dart`, `lib/app/widgets/feed/feed_states.dart`, `lib/features/search/search_page.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_illust_feed.dart`, `pubspec.yaml`
 
 ### FEED-08 The indicator follows observable outcomes
 - **Rule:** Reversing a pull retracts the indicator before scrolling the list; ballistic overscroll after pointer-up never arms a pull; every pull ends with the indicator hidden; qualifying pulls invoke `onRefresh` once and stay refreshing until its future completes.
