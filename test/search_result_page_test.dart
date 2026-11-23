@@ -7,14 +7,18 @@ import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/core/search/search_models.dart';
+import 'package:parfait/features/profile/profile_illust_feed.dart'
+    as profile_feed;
 import 'package:parfait/features/search/docked_search.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
+import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/app/widgets/search_field_button.dart';
 
 import 'helpers/api_responses.dart';
@@ -443,6 +447,31 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
+    },
+  );
+
+  testWidgets(
+    'TagSearchPage preserves tab switches and grid feeds align with 14dp horizontal margins',
+    (tester) async {
+      expect(profile_feed.gridPadding, IllustFeedGrid.defaultPadding);
+      final container = await searchWorld(SearchApi());
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          home: const TagSearchPage(keyword: 'sky'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('小说'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<SearchResultPage>(find.byType(SearchResultPage))
+            .query
+            .type,
+        SearchResultType.novel,
+      );
     },
   );
 }

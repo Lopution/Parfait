@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -737,7 +738,6 @@ void main() {
       addTearDown(
         () => VisibilityDetectorController.instance.updateInterval = interval,
       );
-      final haptics = recordHaptics();
       final router = await pumpSearchRouter(
         tester,
         '/search',
@@ -758,6 +758,7 @@ void main() {
         findsOneWidget,
       );
 
+      final haptics = recordHaptics();
       await tester.longPress(find.text('#风景').hitTestable());
       await tester.pump();
       expect(router.state.uri.path, '/search/illust/901');
@@ -776,8 +777,7 @@ void main() {
           home: SearchHomePage(),
         ),
       );
-      await tester.pump();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       // Three columns at this width; fewer tags than a row still show.
       final grid = tester.widget<SliverGrid>(find.byType(SliverGrid));
@@ -1030,4 +1030,44 @@ void main() {
     expect(router.state.uri.queryParameters['sort'], 'date_desc');
     expect(router.state.uri.queryParameters['q'], 'cat');
   });
+
+  testWidgets(
+    'SearchHomePage supports pull-to-refresh for trending tags & spotlight and InkWell hover/focus on tag tiles',
+    (tester) async {
+      var spotlightCalls = 0;
+      final search = SearchApi();
+      final container = await searchWorld(
+        search,
+        routes: {
+          '/v1/spotlight/articles': (_) async {
+            spotlightCalls += 1;
+            return jsonResponse({
+              'spotlight_articles': const <Object?>[],
+              'next_url': null,
+            });
+          },
+        },
+      );
+      await tester.pumpWidget(
+        localizedApp(container: container, home: const SearchHomePage()),
+      );
+      await tester.pumpAndSettle();
+      expect(search.trendingRequests, ['illust']);
+      expect(spotlightCalls, 1);
+      expect(find.byType(PullToRefresh), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(CustomScrollView),
+          matching: find.byType(InkWell),
+        ),
+        findsWidgets,
+      );
+
+      expect(PullToRefresh.triggerActive(), isTrue);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(search.trendingRequests, ['illust', 'illust']);
+      expect(spotlightCalls, 2);
+    },
+  );
 }

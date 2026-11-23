@@ -358,6 +358,19 @@ void main() {
     expect(pillsOf<SearchInputPage>(), pills(1), reason: '-胡 is unfinished');
     expect(asked, ['胡'], reason: 'only the keyword at the caret, no minus');
     expect(find.text('原神'), findsNothing, reason: 'already in the query');
+
+    // Bare '-' does not flash "no suggestions", and User tab skips tag autocomplete.
+    await type('-');
+    expect(find.text('无建议'), findsNothing);
+    final askedBeforeUser = asked.length;
+    await tester.tap(find.text('用户'));
+    await tester.pumpAndSettle();
+    await type('alice');
+    expect(asked.length, askedBeforeUser);
+    expect(find.text('无建议'), findsNothing);
+    await tester.tap(find.text('插画 & 漫画'));
+    await tester.pumpAndSettle();
+    await type('原神 -胡');
     await tester.longPress(find.text('Hu Tao'));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/search/input');
