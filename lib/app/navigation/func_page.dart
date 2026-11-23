@@ -788,6 +788,7 @@ class _IosEdgeBackDetectorState<T> extends State<_IosEdgeBackDetector<T>>
   _IosBackGestureController<T>? _backGestureController;
   _IosCanvasDismissController<T>? _canvasDismissController;
   bool _verticalScrollAtTop = true;
+  int? _settledHorizontalPage;
 
   late final AnimationController _returnController = AnimationController(
     vsync: this,
@@ -1021,11 +1022,20 @@ class _IosEdgeBackDetectorState<T> extends State<_IosEdgeBackDetector<T>>
             notification.metrics.pixels <=
             notification.metrics.minScrollExtent + 0.5;
       }
-    } else if (notification is ScrollEndNotification &&
-        notification.depth == 0) {
-      // Horizontal work switches in IllustDetailPagerPage land on the next
-      // artwork scrolled to top.
-      _verticalScrollAtTop = true;
+    } else if (notification.depth == 0 && notification.metrics is PageMetrics) {
+      final page = (notification.metrics as PageMetrics).page?.round();
+      if (notification is ScrollStartNotification) {
+        _settledHorizontalPage ??= page;
+      } else if (notification is ScrollEndNotification && page != null) {
+        // Only reset vertical scroll state when the pager actually settled on
+        // a different artwork; a slight horizontal nudge snapping back to the
+        // same scrolled-down work must not arm vertical canvas dismiss.
+        final previous = _settledHorizontalPage;
+        _settledHorizontalPage = page;
+        if (previous != null && page != previous) {
+          _verticalScrollAtTop = true;
+        }
+      }
     }
     return false;
   }

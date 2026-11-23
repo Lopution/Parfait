@@ -11,6 +11,7 @@ import '../../l10n/context.dart';
 import '../icons/app_icons.dart';
 import '../icons/ui_icons.dart';
 import '../navigation/forward_history.dart';
+import '../navigation/route_facade.dart';
 import '../person_avatar.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../widgets/replica_switch_tile.dart';
@@ -308,9 +309,12 @@ class DesktopCommandAccountPopover extends ConsumerWidget {
           onTap: () {
             Navigator.of(context).pop();
             final currentUri = liveRouterUri(router);
-            if (currentUri.path != '/settings/all' ||
-                currentUri.queryParameters['section'] != 'account') {
-              router.go('/settings/all?section=account');
+            if (currentUri.path == settingsAccountPath) {
+              ForwardHistoryStack.ofRouter(
+                router,
+              ).syncSettingsDetail(settingsAccountPath);
+            } else {
+              router.go(settingsAccountPath);
             }
           },
         ),

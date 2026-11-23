@@ -687,6 +687,7 @@ class _UserPageState extends ConsumerState<UserPage>
         Expanded(
           child: DesktopInspectableGallery(
             active: _showsIllustGallery(selectedTab),
+            scopeKey: selectedTab,
             child: NestedScrollView(
               key: const ValueKey('profile-nested-scroll'),
               controller: _outerScrollController,
@@ -865,6 +866,7 @@ class _UserPageState extends ConsumerState<UserPage>
           Expanded(
             child: DesktopInspectableGallery(
               active: _showsIllustGallery(_selectedTab),
+              scopeKey: _selectedTab,
               child: NestedScrollView(
                 key: const ValueKey('profile-wide-scroll'),
                 controller: _outerScrollController,

@@ -75,6 +75,7 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
   double? _futurePosition;
   int _scrollGeneration = 0;
   bool _wheelUserScrolling = false;
+  ScrollDirection? _lastWheelDirection;
 
   ScrollController _resolveController(BuildContext context) =>
       widget.controller ??
@@ -84,6 +85,7 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
   void _endWheelUserScroll([ScrollPosition? pos]) {
     if (!_wheelUserScrolling) return;
     _wheelUserScrolling = false;
+    _lastWheelDirection = null;
     final controller = _activeController;
     final position =
         pos ??
@@ -156,7 +158,13 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
 
     final position = controller.position;
     final current = position.pixels;
-    _futurePosition ??= current;
+    final prevFuture = _futurePosition;
+    // Reversing direction discards queued forward travel so the very first
+    // opposite wheel tick responds immediately instead of fighting stale inertia.
+    if (prevFuture == null ||
+        (prevFuture - current) * event.scrollDelta.dy < 0) {
+      _futurePosition = current;
+    }
 
     // Later ticks in the same stream reach progressively further, so a fast
     // wheel does not stall at a fixed per-tick distance.
@@ -214,8 +222,9 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
       }
     }
 
-    if (!_wheelUserScrolling) {
+    if (!_wheelUserScrolling || _lastWheelDirection != direction) {
       _wheelUserScrolling = true;
+      _lastWheelDirection = direction;
       dispatchWheelUserScroll(position, direction);
     }
 

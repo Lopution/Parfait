@@ -280,6 +280,21 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     final panel = find.byType(DockedSearchPanel);
+    expect(
+      find.descendant(of: panel, matching: find.byTooltip('筛选')),
+      findsOneWidget,
+    );
+    // Switching docked search to User hides the unsupported filter button.
+    await tester.tap(find.descendant(of: panel, matching: find.text('用户')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: panel, matching: find.byTooltip('筛选')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.descendant(of: panel, matching: find.text('插画 & 漫画')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(of: panel, matching: find.byTooltip('筛选')),
     );
@@ -437,7 +452,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(recommendedCalls, 2);
 
-      for (final path in ['/ranking', '/new']) {
+      for (final path in ['/ranking', '/new', '/search']) {
         router.go(path);
         await tester.pumpAndSettle();
         expect(

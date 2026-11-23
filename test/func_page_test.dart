@@ -1071,9 +1071,16 @@ void main() {
       expect(scrolledOffset, greaterThan(150.0));
       expect(find.text('pager-page-2'), findsNothing);
 
+      // A slight horizontal nudge snapping back to the same page must not reset
+      // _verticalScrollAtTop and arm canvas dismiss on the next downward scroll.
+      await tester.dragFrom(const Offset(350, 300), const Offset(-28, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('pager-page-2'), findsNothing);
+
       // Downward drag while scrolled away from top scrolls ListView back to top.
       await tester.dragFrom(const Offset(200, 400), const Offset(0, 140));
       await tester.pumpAndSettle();
+      expect(find.text('page a'), findsNothing);
       expect(verticalController.offset, lessThan(scrolledOffset));
       await tester.dragFrom(const Offset(200, 400), const Offset(0, 160));
       await tester.pumpAndSettle();

@@ -776,7 +776,7 @@
   "rankingMyCategories": "マイカテゴリー",
   "rankingEdit": "編集",
   "rankingEditDone": "完了",
-  "rankingDragHint": "長押しでドラッグして並べ替え",
+  "rankingDragHint": "左のハンドルをドラッグして並べ替え、× で非表示",
   "arrangementHidden": "非表示",
   "rankingHiddenEmpty": "すべてのカテゴリーを表示中",
   "restoreDefault": "デフォルトに戻す",
@@ -1456,5 +1456,8 @@
     }
   },
   "previousArtworkTooltip": "前の作品",
-  "nextArtworkTooltip": "次の作品"
+  "nextArtworkTooltip": "次の作品",
+  "batchSelectWork": "この作品を選択",
+  "batchDeselectWork": "この作品の選択を解除",
+  "cardActionSelect": "複数選択"
 }

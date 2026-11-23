@@ -243,6 +243,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       ),
       body: DesktopInspectableGallery(
         active: isIllust,
+        scopeKey: _scopes[_tabController.index],
         child: Builder(
           builder: (context) {
             _notificationContext = context;

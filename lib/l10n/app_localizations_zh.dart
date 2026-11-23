@@ -1697,7 +1697,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingEditDone => '完成';
 
   @override
-  String get rankingDragHint => '长按拖动排序';
+  String get rankingDragHint => '拖动左侧手柄排序，点击 × 隐藏分类';
 
   @override
   String get arrangementHidden => '未显示';
@@ -3313,4 +3313,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => '下一作品';
+
+  @override
+  String get batchSelectWork => '选择此作品';
+
+  @override
+  String get batchDeselectWork => '取消选择此作品';
+
+  @override
+  String get cardActionSelect => '多选';
 }

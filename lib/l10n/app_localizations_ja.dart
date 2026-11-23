@@ -1721,7 +1721,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingEditDone => '完了';
 
   @override
-  String get rankingDragHint => '長押しでドラッグして並べ替え';
+  String get rankingDragHint => '左のハンドルをドラッグして並べ替え、× で非表示';
 
   @override
   String get arrangementHidden => '非表示';
@@ -3341,4 +3341,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => '次の作品';
+
+  @override
+  String get batchSelectWork => 'この作品を選択';
+
+  @override
+  String get batchDeselectWork => 'この作品の選択を解除';
+
+  @override
+  String get cardActionSelect => '複数選択';
 }

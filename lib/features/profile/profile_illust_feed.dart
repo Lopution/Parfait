@@ -14,12 +14,11 @@ import '../../core/network/api_error.dart';
 import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
-import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
 import '../../app/icons/ui_icons.dart';
 
 /// Grid padding shared by this feed and `ProfileSkeleton`'s grid block.
-const gridPadding = EdgeInsets.all(FuncSpacing.sm);
+const gridPadding = IllustFeedGrid.defaultPadding;
 
 /// Whether [feedKey] currently holds at least one loaded work to show
 /// (including while refreshing or paging over existing items), excluding

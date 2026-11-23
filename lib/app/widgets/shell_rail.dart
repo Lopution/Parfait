@@ -316,7 +316,7 @@ class ShellRail extends StatelessWidget {
                       tooltip: l10n.railExpand,
                       icon: const Icon(AppIcons.sidebarExpand),
                     )
-                  : const _AppIcon(size: FuncSpacing.xxl),
+                  : _appIcon(FuncSpacing.xxl),
             ),
           ),
           const SizedBox(height: FuncSpacing.xl),
@@ -425,29 +425,37 @@ class ShellRail extends StatelessWidget {
         canToggle ?? form.canToggleRail(size.width, height: size.height);
     final hideHeader = DesktopCommandBarScope.isActiveOf(context);
     final themeInfo = _themeToggleInfo(context);
-    final fit = LabelFit.group(
-      labels: [
-        for (final d in destinations) d.label,
-        if (onBookmarks != null) l10n.railBookmarks,
-        if (onDownloads != null) l10n.railDownloads,
-        if (hideHeader && onToggleTheme != null) themeInfo.label,
-        if (hideHeader && onSettings != null) l10n.settingsTitle,
-      ],
-      style: LabelFit.paintedStyle(
-        context,
-        _panelLabelStyle(context, selected: true),
-      ),
+    final style = LabelFit.paintedStyle(
+      context,
+      _panelLabelStyle(context, selected: true),
+    );
+    LabelFit fitFor(List<String> labels) => LabelFit.group(
+      labels: labels,
+      style: style,
       textScaler: MediaQuery.textScalerOf(context),
       textDirection: Directionality.of(context),
       slotWidth: _panelSlotWidth,
       locale: Localizations.maybeLocaleOf(context),
     );
+    final fit = fitFor([
+      for (final d in destinations) d.label,
+      if (onBookmarks != null) l10n.railBookmarks,
+      if (onDownloads != null) l10n.railDownloads,
+      if (hideHeader && onSettings != null) l10n.settingsTitle,
+    ]);
+    final themeFit = hideHeader && onToggleTheme != null
+        ? fitFor([
+            for (final m in [l10n.light, l10n.dark, l10n.system])
+              l10n.labelValue(l10n.themeSettings, m),
+          ])
+        : fit;
     Widget row({
       Key? key,
       required IconData icon,
       required String label,
       required bool selected,
       bool? selectedSemantics,
+      LabelFit? rowFit,
       required VoidCallback onTap,
     }) => _RailEntry(
       key: key,
@@ -476,7 +484,7 @@ class ShellRail extends StatelessWidget {
               Expanded(
                 child: FitLabel(
                   label,
-                  fit: fit,
+                  fit: rowFit ?? fit,
                   textAlign: TextAlign.start,
                   style: _panelLabelStyle(context, selected: selected),
                 ),
@@ -506,7 +514,7 @@ class ShellRail extends StatelessWidget {
                   const SizedBox(width: FuncSpacing.xs),
                 ] else
                   const SizedBox(width: FuncSpacing.sm),
-                const _AppIcon(size: FuncSpacing.xl + FuncSpacing.xs),
+                _appIcon(FuncSpacing.xl + FuncSpacing.xs),
                 const SizedBox(width: FuncSpacing.md),
                 Expanded(
                   child: Text(
@@ -592,6 +600,7 @@ class ShellRail extends StatelessWidget {
                   icon: themeInfo.icon,
                   label: themeInfo.label,
                   selected: false,
+                  rowFit: themeFit,
                   onTap: onToggleTheme!,
                 ),
               if (onSettings != null) ...[
@@ -828,16 +837,9 @@ class _RailEntry extends StatelessWidget {
   }
 }
 
-class _AppIcon extends StatelessWidget {
-  const _AppIcon({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Image.asset(
-    'assets/branding/parfait_icon.png',
-    width: size,
-    height: size,
-    excludeFromSemantics: true,
-  );
-}
+Widget _appIcon(double size) => Image.asset(
+  'assets/branding/parfait_icon.png',
+  width: size,
+  height: size,
+  excludeFromSemantics: true,
+);

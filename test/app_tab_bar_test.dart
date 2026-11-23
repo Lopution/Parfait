@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -302,6 +303,36 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, 400));
       await tester.pumpAndSettle();
       expect(opacity(), 0);
+    },
+  );
+
+  testWidgets(
+    'overflowing AppTabBar scrolls horizontally on vertical mouse wheel',
+    (tester) async {
+      await _pumpBar(tester, const [
+        'Daily',
+        'Weekly',
+        'Monthly',
+        'Rookies',
+        'Original',
+        'Male',
+        'Female',
+        'R-18 Daily',
+      ], width: 260);
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(
+          of: find.byType(TabBar),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(scrollable.position.pixels, 0);
+
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      final center = tester.getCenter(find.byType(AppTabBar));
+      await tester.sendEventToBinding(pointer.hover(center));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 120)));
+      await tester.pump();
+      expect(scrollable.position.pixels, greaterThan(0));
     },
   );
 }

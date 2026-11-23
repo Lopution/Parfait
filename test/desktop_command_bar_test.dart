@@ -24,6 +24,8 @@ import 'package:parfait/app/widgets/page_header.dart';
 import 'package:parfait/app/widgets/search_field_button.dart';
 import 'package:parfait/app/widgets/shell_rail.dart';
 import 'package:parfait/app/window/desktop_command_bar.dart';
+import 'package:parfait/app/window/desktop_command_bar_widgets.dart'
+    show DesktopCommandDragSpacer;
 import 'package:parfait/app/window/desktop_menu_bar.dart';
 import 'package:parfait/app/window/desktop_title_bar.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -38,6 +40,7 @@ import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart'
     show DetailPageImage;
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
+import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -519,9 +522,7 @@ void main() {
         menus = buildDesktopPlatformMenus(
           l10n: l10n,
           router: router,
-          railExpanded: false,
           isFullScreen: false,
-          onToggleRail: () {},
           onCloseWindow: () => closed += 1,
           includeSystemQuit: true,
         );
@@ -555,9 +556,10 @@ void main() {
         expect(providedTypes, contains(expectedType));
       }
       final labels = {for (final item in all) item.label};
+      expect(labels, isNot(contains(l10n.railExpand)));
+      expect(labels, isNot(contains(l10n.railCollapse)));
       for (final expected in [
         l10n.menuPreferences,
-        l10n.railExpand,
         l10n.menuEnterFullScreen,
         l10n.navBack,
         l10n.navForward,
@@ -944,9 +946,7 @@ void main() {
         final blockedMenus = buildDesktopPlatformMenus(
           l10n: l10n,
           router: router,
-          railExpanded: false,
           isFullScreen: false,
-          onToggleRail: () {},
         );
         final blockedItems = <PlatformMenuItem>[];
         _collectMenuItems(blockedMenus, blockedItems);
@@ -954,7 +954,6 @@ void main() {
           l10n.menuPreferences,
           l10n.searchTitle,
           l10n.refresh,
-          l10n.railExpand,
         ]) {
           expect(
             blockedItems.firstWhere((e) => e.label == label).onSelected,
@@ -973,7 +972,6 @@ void main() {
         // 4. Text-editing focus suppresses macOS menu callbacks, and pushed
         //    pre-home routes deactivate DesktopCommandBarScope so their back
         //    button remains visible.
-        var railToggles = 0;
         final preHomeRouter = GoRouter(
           initialLocation: '/user-agreement',
           routes: [
@@ -995,6 +993,10 @@ void main() {
               path: '/recommended',
               builder: (_, _) =>
                   const Scaffold(body: TextField(key: Key('home-text-field'))),
+            ),
+            GoRoute(
+              path: '/settings/all',
+              builder: (_, _) => const Scaffold(body: Text('settings-body')),
             ),
           ],
         );
@@ -1028,14 +1030,137 @@ void main() {
         final typingMenus = buildDesktopPlatformMenus(
           l10n: l10n,
           router: preHomeRouter,
-          railExpanded: false,
           isFullScreen: false,
-          onToggleRail: () => railToggles += 1,
         );
         final typingItems = <PlatformMenuItem>[];
         _collectMenuItems(typingMenus, typingItems);
-        typingItems.firstWhere((e) => e.label == l10n.railExpand).onSelected!();
-        expect(railToggles, 0);
+        typingItems
+            .firstWhere((e) => e.label == l10n.menuPreferences)
+            .onSelected!();
+        await tester.pump();
+        expect(liveRouterUri(preHomeRouter).path, '/recommended');
+
+        // 5. Custom destination order flows into macOS Navigate menu shortcuts.
+        final customMenus = buildDesktopPlatformMenus(
+          l10n: l10n,
+          router: router,
+          isFullScreen: false,
+          destinations: const [HomeDestination.ranking, HomeDestination.me],
+        );
+        final navMenu = customMenus.cast<PlatformMenu>().firstWhere(
+          (m) => m.label == l10n.menuNavigate,
+        );
+        final navItems = <PlatformMenuItem>[];
+        _collectMenuItems(navMenu.menus, navItems);
+        final rankItem = navItems.firstWhere(
+          (e) => e.label == l10n.homeRanking,
+        );
+        final meItem = navItems.firstWhere((e) => e.label == l10n.homeMe);
+        final rankShortcut = rankItem.shortcut! as SingleActivator;
+        expect(rankShortcut.trigger, LogicalKeyboardKey.digit1);
+        expect(rankShortcut.meta, isTrue);
+        final meShortcut = meItem.shortcut! as SingleActivator;
+        expect(meShortcut.trigger, LogicalKeyboardKey.digit2);
+        expect(meShortcut.meta, isTrue);
+        expect(navItems.where((e) => e.label == l10n.homeRecommended), isEmpty);
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'flat AppTopBar occupies exact 52dp, narrow command bar preserves 48dp drag space, and Account settings re-targets wide SettingsPage',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        setViewSize(tester, const Size(600, 800));
+        final router = GoRouter(
+          initialLocation: '/recommended',
+          routes: [
+            GoRoute(
+              path: '/recommended',
+              builder: (_, _) => const Scaffold(
+                appBar: AppTopBar(title: Text('Rec')),
+                body: SizedBox.expand(key: Key('flat-body')),
+              ),
+            ),
+            GoRoute(
+              path: '/settings/account',
+              builder: (_, state) => SettingsAdaptiveHost(
+                location: state.uri.toString(),
+                narrowPage: const AccountSettingsPage(),
+              ),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        final overrides = await signedInAccountOverrides();
+
+        await tester.pumpWidget(
+          localizedRouterApp(
+            router,
+            overrides: overrides,
+            builder: (_, child) => WindowEnvironmentOverride(
+              targetPlatform: TargetPlatform.windows,
+              desktopMetrics: const DesktopWindowPlatformMetrics(
+                usesSystemTitleBar: false,
+              ),
+              desktopActions: DesktopWindowActions.noop,
+              child: AppChrome(
+                settings: AppSettings.defaults(),
+                router: router,
+                child: child!,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // M1-9: flat AppTopBar removes the 4dp gap below its 52dp hairline.
+        final barRect = tester.getRect(find.byType(AppTopBar));
+        final bodyRect = tester.getRect(find.byKey(const Key('flat-body')));
+        expect(barRect.height, kDesktopPageHeaderHeight);
+        expect(bodyRect.top, closeTo(barRect.bottom, 0.1));
+
+        // M1-11: 600dp Windows command bar keeps >= 48dp combined drag spacers.
+        final spacers = tester.widgetList<DesktopCommandDragSpacer>(
+          find.byType(DesktopCommandDragSpacer),
+        );
+        final totalDragWidth = spacers.fold<double>(
+          0,
+          (sum, w) => sum + tester.getSize(find.byWidget(w)).width,
+        );
+        expect(totalDragWidth, greaterThanOrEqualTo(48.0));
+
+        // M1-10 (<1044dp): Account settings opens AccountSettingsPage directly.
+        await tester.tap(find.byKey(const Key('desktop-command-account')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('desktop-command-account-settings')),
+        );
+        await tester.pumpAndSettle();
+        expect(liveRouterUri(router).path, '/settings/account');
+        expect(find.byType(AccountSettingsPage), findsOneWidget);
+
+        // M1-10 (>=1044dp): switching section in wide SettingsPage then clicking
+        // Account settings again re-selects Account despite unchanged route URI.
+        setViewSize(tester, const Size(1280, 800));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('语言').first);
+        await tester.pumpAndSettle();
+        expect(find.byType(LanguageSettingsPage), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('desktop-command-account')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('desktop-command-account-settings')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(AccountSettingsPage), findsOneWidget);
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
       } finally {

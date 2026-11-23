@@ -413,7 +413,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('特辑标题'), findsOneWidget);
+    expect(find.text('特辑标题'), findsNWidgets(2));
     expect(find.text('小节标题'), findsOneWidget);
     // Images hold a square until decoded; the work sits below them.
     await tester.scrollUntilVisible(
@@ -616,6 +616,13 @@ void main() {
       await tester.tap(image);
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/777');
+
+      // Card title is also directly tappable to open the artwork.
+      router.pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('作品标题'));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/recommended/illust/777');
     });
 
     testWidgets('a tall work is drawn narrower, centered, without bars', (
@@ -674,8 +681,9 @@ void main() {
       expect(payload, isNotNull);
       expect(payload!.url, 'https://www.pixivision.net/a/101');
       expect(payload.author, 'pixivision');
-      // No feed entry is seeded, so the title resolves to the page title.
-      expect(payload.title, '特辑');
+      // Deep-link falls back to the loaded article body title in app bar & share.
+      expect(find.text('特辑标题'), findsWidgets);
+      expect(payload.title, '特辑标题');
       // The clipboard fallback is surfaced, never silent.
       expect(find.text('链接已复制'), findsOneWidget);
     });
@@ -683,6 +691,7 @@ void main() {
     testWidgets(
       'SpotlightChallengeView skips WebView on unsupported platforms',
       (tester) async {
+        setViewSize(tester, const Size(320, 260));
         await tester.pumpWidget(
           localizedApp(
             builder: promptHostBuilder,
@@ -700,6 +709,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
         expect(find.text('在浏览器打开'), findsOneWidget);
         expect(find.byType(FilledButton), findsOneWidget);
         expect(find.text('重试'), findsNothing);

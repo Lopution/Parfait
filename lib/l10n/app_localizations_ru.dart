@@ -1760,7 +1760,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get rankingDragHint =>
-      'Удерживайте и перетащите, чтобы изменить порядок';
+      'Перетащите значок слева для сортировки или нажмите ×, чтобы скрыть';
 
   @override
   String get arrangementHidden => 'Скрытые';
@@ -3426,4 +3426,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => 'Следующая работа';
+
+  @override
+  String get batchSelectWork => 'Выбрать работу';
+
+  @override
+  String get batchDeselectWork => 'Снять выбор с работы';
+
+  @override
+  String get cardActionSelect => 'Выбрать';
 }

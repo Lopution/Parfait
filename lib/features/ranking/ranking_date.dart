@@ -40,12 +40,14 @@ class RankingDateBar extends StatelessWidget {
     super.key,
     required this.date,
     required this.onBackToLatest,
+    this.onPickDate,
   });
 
   static const minHeight = 40.0;
 
   final DateTime date;
   final VoidCallback onBackToLatest;
+  final VoidCallback? onPickDate;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +70,11 @@ class RankingDateBar extends StatelessWidget {
                 ),
               ),
             ),
+            if (onPickDate != null)
+              TextButton(
+                onPressed: onPickDate,
+                child: Text(context.l10n.rankingPickDate),
+              ),
             TextButton(
               onPressed: onBackToLatest,
               child: Text(context.l10n.rankingBackToLatest),

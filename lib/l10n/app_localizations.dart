@@ -3302,7 +3302,7 @@ abstract class AppLocalizations {
   /// No description provided for @rankingDragHint.
   ///
   /// In zh, this message translates to:
-  /// **'长按拖动排序'**
+  /// **'拖动左侧手柄排序，点击 × 隐藏分类'**
   String get rankingDragHint;
 
   /// No description provided for @arrangementHidden.
@@ -6298,6 +6298,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下一作品'**
   String get nextArtworkTooltip;
+
+  /// Accessibility label for selecting a single artwork card in multi-select mode
+  ///
+  /// In zh, this message translates to:
+  /// **'选择此作品'**
+  String get batchSelectWork;
+
+  /// Accessibility label for deselecting a single artwork card in multi-select mode
+  ///
+  /// In zh, this message translates to:
+  /// **'取消选择此作品'**
+  String get batchDeselectWork;
+
+  /// Card long-press action on touch tablets to enter multi-select mode with this work
+  ///
+  /// In zh, this message translates to:
+  /// **'多选'**
+  String get cardActionSelect;
 }
 
 class _AppLocalizationsDelegate

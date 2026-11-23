@@ -5,6 +5,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/navigation/home_destination.dart';
+
 const _maxForwardHistoryPerBucket = 50;
 
 const _branchBuckets = <String>[
@@ -14,6 +16,14 @@ const _branchBuckets = <String>[
   'search',
   'settings',
 ];
+
+const _branchRootPaths = <String>{
+  '/recommended',
+  '/ranking',
+  '/new',
+  '/search',
+  '/settings',
+};
 
 bool _isPreHomePath(String path) =>
     path == '/' ||
@@ -160,8 +170,14 @@ class ForwardHistoryStack {
   bool _usesObservers = false;
   bool _pendingCleanupScheduled = false;
   bool _postFramePublishScheduled = false;
+  bool _suppressCleanupScheduled = false;
   int _pushGeneration = 0;
   String _lastActiveShellBucket = 'recommended';
+  String? _homeBackRootPath;
+  void Function(HomeDestination destination)? _homeDestinationSelector;
+  void Function(String location)? _settingsDetailSync;
+  String? _suppressedForwardBucket;
+  String? _suppressedForwardPrefix;
 
   late final NavigatorObserver rootObserver = _ForwardNavigatorObserver(
     this,
@@ -264,7 +280,99 @@ class ForwardHistoryStack {
     final path = _currentPath();
     if (_isPreHomePath(path)) return false;
     if (hasOpenModal) return true;
-    return _safeCanPop();
+    if (_safeCanPop()) return true;
+    return _canReturnToStartBranch(path);
+  }
+
+  bool _canReturnToStartBranch(String path) =>
+      _homeBackRootPath != null &&
+      _branchRootPaths.contains(path) &&
+      path != _homeBackRootPath;
+
+  /// Publishes the runtime root path that `NAV-03` branch-root Back returns to
+  /// (owned by `HomePage` via `homeBackDestination`). Pass `null` on dispose.
+  void setHomeBackRootPath(String? startRootPath) {
+    if (_homeBackRootPath == startRootPath) return;
+    _homeBackRootPath = startRootPath;
+    _publishState();
+  }
+
+  /// Registers the active home shell's explicit branch-selection handler so
+  /// keyboard shortcuts and desktop menus clear dedicated-section return state
+  /// atomically instead of calling `router.go` directly.
+  void registerHomeDestinationSelector(
+    void Function(HomeDestination destination) selector,
+  ) {
+    _homeDestinationSelector = selector;
+  }
+
+  void unregisterHomeDestinationSelector(
+    void Function(HomeDestination destination) selector,
+  ) {
+    if (identical(_homeDestinationSelector, selector)) {
+      _homeDestinationSelector = null;
+    }
+  }
+
+  /// Selects a home destination through the mounted shell if available,
+  /// falling back to `router.go` for standalone test routers.
+  void selectHomeDestination(HomeDestination destination) {
+    final selector = _homeDestinationSelector;
+    if (selector != null) {
+      selector(destination);
+      return;
+    }
+    _router?.go(destination.rootPath);
+  }
+
+  /// Registers the mounted wide `SettingsPage` detail-pane sync callback so
+  /// re-selecting a settings target whose route URI has not changed still
+  /// switches the embedded detail navigator.
+  void registerSettingsDetailSync(void Function(String location) sync) {
+    _settingsDetailSync = sync;
+  }
+
+  void unregisterSettingsDetailSync(void Function(String location) sync) {
+    if (identical(_settingsDetailSync, sync)) _settingsDetailSync = null;
+  }
+
+  void syncSettingsDetail(String location) =>
+      _settingsDetailSync?.call(location);
+
+  /// Removes the top forward entry for [bucket] when it matches
+  /// [locationPrefix], or suppresses the next pop into [bucket] on the same
+  /// frame (covering both observer-before-delegate and delegate-before-observer
+  /// ordering during cross-branch desktop rail returns).
+  void suppressOrDiscardForward(String bucket, {String? locationPrefix}) {
+    final stack = _forwardStacks[bucket];
+    if (stack != null &&
+        stack.isNotEmpty &&
+        (locationPrefix == null ||
+            stack.last.location.startsWith(locationPrefix))) {
+      stack.removeLast();
+      if (stack.isEmpty) _forwardStacks.remove(bucket);
+      _publishState();
+      return;
+    }
+    _suppressedForwardBucket = bucket;
+    _suppressedForwardPrefix = locationPrefix;
+    if (!_suppressCleanupScheduled) {
+      _suppressCleanupScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _suppressCleanupScheduled = false;
+        _suppressedForwardBucket = null;
+        _suppressedForwardPrefix = null;
+      });
+    }
+  }
+
+  bool _consumeSuppressedForward(ForwardHistoryEntry entry) {
+    if (_suppressedForwardBucket != entry.bucket) return false;
+    final prefix = _suppressedForwardPrefix;
+    if (prefix != null && !entry.location.startsWith(prefix)) return false;
+    _suppressedForwardBucket = null;
+    _suppressedForwardPrefix = null;
+    return true;
   }
 
   bool get canGoForward {
@@ -444,6 +552,7 @@ class ForwardHistoryStack {
   }
 
   void _pushForwardEntry(ForwardHistoryEntry entry) {
+    if (_consumeSuppressedForward(entry)) return;
     final stack = _forwardStacks.putIfAbsent(
       entry.bucket,
       () => <ForwardHistoryEntry>[],

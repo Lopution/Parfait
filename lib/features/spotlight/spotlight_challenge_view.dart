@@ -227,10 +227,13 @@ class _SpotlightChallengeViewState
         left: FuncSpacing.lg,
         right: FuncSpacing.lg,
         bottom: FuncSpacing.xl,
-        child: Text(
-          context.l10n.spotlightChallengeVerifying,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
+        child: SafeArea(
+          top: false,
+          child: Text(
+            context.l10n.spotlightChallengeVerifying,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ),
       ),
     ],
@@ -238,6 +241,10 @@ class _SpotlightChallengeViewState
 
   Widget _interactive(BuildContext context) {
     final l10n = context.l10n;
+    final actions = [
+      TextButton(onPressed: _openInBrowser, child: Text(l10n.openInBrowser)),
+      TextButton(onPressed: _fail, child: Text(l10n.cancel)),
+    ];
     return Column(
       children: [
         Material(
@@ -250,15 +257,24 @@ class _SpotlightChallengeViewState
               FuncSpacing.lg - EdgeIconButtons.glyphInset,
               FuncSpacing.sm,
             ),
-            child: Row(
-              children: [
-                Expanded(child: Text(l10n.spotlightChallengeManual)),
-                TextButton(
-                  onPressed: _openInBrowser,
-                  child: Text(l10n.openInBrowser),
-                ),
-                TextButton(onPressed: _fail, child: Text(l10n.cancel)),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 400) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(l10n.spotlightChallengeManual),
+                      Wrap(alignment: WrapAlignment.end, children: actions),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: Text(l10n.spotlightChallengeManual)),
+                    ...actions,
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -282,27 +298,29 @@ class _SpotlightChallengeViewState
 
   Widget _failed(BuildContext context) {
     final l10n = context.l10n;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(FuncSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              AppIcons.globeOff,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: FuncSpacing.md),
-            Text(l10n.spotlightChallengeFailed, textAlign: TextAlign.center),
-            const SizedBox(height: FuncSpacing.md),
-            StateActionButton(label: l10n.retry, onPressed: _retry),
-            TextButton.icon(
-              icon: const Icon(AppIcons.externalLink),
-              label: Text(l10n.openInBrowser),
-              onPressed: _openInBrowser,
-            ),
-          ],
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(FuncSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                AppIcons.globeOff,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: FuncSpacing.md),
+              Text(l10n.spotlightChallengeFailed, textAlign: TextAlign.center),
+              const SizedBox(height: FuncSpacing.md),
+              StateActionButton(label: l10n.retry, onPressed: _retry),
+              TextButton.icon(
+                icon: const Icon(AppIcons.externalLink),
+                label: Text(l10n.openInBrowser),
+                onPressed: _openInBrowser,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -310,29 +328,31 @@ class _SpotlightChallengeViewState
 
   Widget _unsupported(BuildContext context) {
     final l10n = context.l10n;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(FuncSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              AppIcons.externalLink,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: FuncSpacing.md),
-            Text(
-              l10n.spotlightExternalBrowserHint,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: FuncSpacing.lg),
-            FilledButton.icon(
-              icon: const Icon(AppIcons.externalLink),
-              label: Text(l10n.openInBrowser),
-              onPressed: _openInBrowser,
-            ),
-          ],
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(FuncSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                AppIcons.externalLink,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: FuncSpacing.md),
+              Text(
+                l10n.spotlightExternalBrowserHint,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: FuncSpacing.lg),
+              FilledButton.icon(
+                icon: const Icon(AppIcons.externalLink),
+                label: Text(l10n.openInBrowser),
+                onPressed: _openInBrowser,
+              ),
+            ],
+          ),
         ),
       ),
     );

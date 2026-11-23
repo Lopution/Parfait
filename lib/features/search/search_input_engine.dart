@@ -181,6 +181,7 @@ class SearchInputEngineState extends ConsumerState<SearchInputEngine>
       return;
     }
     setState(() => _selectedIndex = _tabController.index);
+    _complete();
     widget.onTypeChanged?.call(_textController.text, _types[_selectedIndex]);
   }
 
@@ -249,6 +250,12 @@ class SearchInputEngineState extends ConsumerState<SearchInputEngine>
   /// the caret moves to another one. An id or a link opens directly; tag
   /// suggestions for it would only fill the list with noise.
   void _complete() {
+    if (type == SearchResultType.user) {
+      if (ref.read(searchAutocompleteProvider).keyword.isNotEmpty) {
+        ref.read(searchAutocompleteProvider.notifier).update('');
+      }
+      return;
+    }
     final value = _textController.value;
     final range = keywordAtCaret(value);
     final query = range == null || searchShortcutFor(value.text, type) != null
@@ -430,10 +437,14 @@ class _SearchInputBody extends ConsumerWidget {
     if (text.trim().isEmpty) {
       return _SearchStart(type: type, onSearch: onSearch, onFill: onFill);
     }
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final shortcut = searchShortcutFor(text, type);
     if (shortcut != null) {
       return ListView(
-        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+        padding: EdgeInsets.only(
+          top: FuncSpacing.sm,
+          bottom: FuncSpacing.sm + bottomInset,
+        ),
         children: [
           ListTile(
             leading: const Icon(AppIcons.externalLink),
@@ -449,29 +460,45 @@ class _SearchInputBody extends ConsumerWidget {
         ],
       );
     }
-    if (state.loading) {
-      return const FeedLoading();
-    }
-    if (state.error != null) {
-      return FeedError(
-        title: context.l10n.searchLoadFailed,
-        error: state.error!,
-        retryLabel: context.l10n.searchRetry,
-        onRetry: () =>
-            ref.read(searchAutocompleteProvider.notifier).update(state.keyword),
-        scrollable: false,
-      );
+    if (type == SearchResultType.user) {
+      return const SizedBox.shrink();
     }
     final keyword = keywordAtCaret(value);
-    // Right after a space: the next keyword is not started yet.
-    if (keyword == null) return const SizedBox.shrink();
+    // Right after a space or a bare exclusion '-': no tag query started yet.
+    if (keyword == null ||
+        completionQueryOf(keyword.textInside(text)).isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (state.loading) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: const FeedLoading(),
+      );
+    }
+    if (state.error != null) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: FeedError(
+          title: context.l10n.searchLoadFailed,
+          error: state.error!,
+          retryLabel: context.l10n.searchRetry,
+          onRetry: () => ref
+              .read(searchAutocompleteProvider.notifier)
+              .update(state.keyword),
+          scrollable: false,
+        ),
+      );
+    }
     final present = otherKeywords(text, keyword);
     final suggestions = [
       for (final suggestion in state.suggestions)
         if (!present.contains(suggestion.keyword)) suggestion,
     ];
     if (suggestions.isEmpty) {
-      return Center(child: Text(context.l10n.searchNoSuggestions));
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Center(child: Text(context.l10n.searchNoSuggestions)),
+      );
     }
     void complete(String suggestion) => onComplete(
       replaceKeyword(value, keyword, suggestion, thenSeparate: true),
@@ -550,13 +577,18 @@ class _SearchStart extends ConsumerWidget {
         ? const <TrendingTag>[]
         : ref.watch(trendingTagsProvider(type)).value ?? const <TrendingTag>[];
     if (history.isEmpty && trending.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.xl),
-          child: Text(
-            l10n.searchHint,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(FuncSpacing.xl),
+            child: Text(
+              l10n.searchHint,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
           ),
         ),
       );

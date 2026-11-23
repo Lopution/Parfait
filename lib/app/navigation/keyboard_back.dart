@@ -123,11 +123,13 @@ class KeyboardBack extends StatefulWidget {
   const KeyboardBack({
     super.key,
     required this.router,
+    this.destinations = HomeDestination.values,
     this.onToggleRail,
     required this.child,
   });
 
   final GoRouter router;
+  final List<HomeDestination> destinations;
   final VoidCallback? onToggleRail;
   final Widget child;
 
@@ -163,6 +165,9 @@ class _KeyboardBackState extends State<KeyboardBack>
 
   static const _hardwareNavDebounce = Duration(milliseconds: 120);
 
+  final Set<int> _heldBackPointers = <int>{};
+  final Set<int> _heldForwardPointers = <int>{};
+
   String? _lastPointerNavDir;
   DateTime? _lastPointerNavAt;
   int _lastPointerPushGen = -1;
@@ -174,6 +179,12 @@ class _KeyboardBackState extends State<KeyboardBack>
   ForwardHistoryStack get _history =>
       ForwardHistoryStack.ofRouter(widget.router);
 
+  bool _isPointerHeldForDirection(String direction) => switch (direction) {
+    'back' => _heldBackPointers.isNotEmpty,
+    'forward' => _heldForwardPointers.isNotEmpty,
+    _ => false,
+  };
+
   bool _shouldSuppressCrossSource(
     String direction, {
     required bool fromChannel,
@@ -181,6 +192,9 @@ class _KeyboardBackState extends State<KeyboardBack>
     final now = DateTime.now();
     final gen = _history.pushGeneration;
     if (fromChannel) {
+      if (_isPointerHeldForDirection(direction)) {
+        return true;
+      }
       if (_lastPointerNavDir == direction &&
           _lastPointerPushGen == gen &&
           _lastPointerNavAt != null &&
@@ -269,11 +283,13 @@ class _KeyboardBackState extends State<KeyboardBack>
 
   void _handlePointerDown(PointerDownEvent event) {
     if ((event.buttons & kBackMouseButton) != 0) {
+      _heldBackPointers.add(event.pointer);
       if (_shouldSuppressCrossSource('back', fromChannel: false)) return;
       unawaited(widget.router.routerDelegate.popRoute());
       return;
     }
     if ((event.buttons & kForwardMouseButton) != 0) {
+      _heldForwardPointers.add(event.pointer);
       if (_shouldSuppressCrossSource('forward', fromChannel: false)) return;
       if (_history.canGoForward) {
         unawaited(_history.goForward());
@@ -282,11 +298,28 @@ class _KeyboardBackState extends State<KeyboardBack>
     }
   }
 
+  void _handlePointerRelease(int pointer) {
+    if (_heldBackPointers.remove(pointer)) {
+      _lastPointerNavDir = 'back';
+      _lastPointerNavAt = DateTime.now();
+      _lastPointerPushGen = _history.pushGeneration;
+    }
+    if (_heldForwardPointers.remove(pointer)) {
+      _lastPointerNavDir = 'forward';
+      _lastPointerNavAt = DateTime.now();
+      _lastPointerPushGen = _history.pushGeneration;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
     final isApple =
         platform == TargetPlatform.macOS || platform == TargetPlatform.iOS;
+    final destinations = widget.destinations;
+    final digitCount = destinations.length < _digitKeys.length
+        ? destinations.length
+        : _digitKeys.length;
     final shortcuts = <ShortcutActivator, Intent>{
       const SingleActivator(LogicalKeyboardKey.escape): const _BackIntent(
         unfocusEditing: true,
@@ -308,9 +341,9 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _OpenSettingsIntent(),
         const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
             const _ToggleRailIntent(),
-        for (var i = 0; i < HomeDestination.values.length; i++)
+        for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], meta: true): _GoHomeDestinationIntent(
-            i,
+            destinations[i],
           ),
       } else ...{
         const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true):
@@ -329,9 +362,9 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _OpenSettingsIntent(),
         const SingleActivator(LogicalKeyboardKey.keyB, control: true):
             const _ToggleRailIntent(),
-        for (var i = 0; i < HomeDestination.values.length; i++)
+        for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], control: true):
-              _GoHomeDestinationIntent(i),
+              _GoHomeDestinationIntent(destinations[i]),
       },
       const SingleActivator(LogicalKeyboardKey.slash): const _SearchIntent(),
       const SingleActivator(LogicalKeyboardKey.f5): const _RefreshIntent(),
@@ -349,6 +382,8 @@ class _KeyboardBackState extends State<KeyboardBack>
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: _handlePointerDown,
+        onPointerUp: (event) => _handlePointerRelease(event.pointer),
+        onPointerCancel: (event) => _handlePointerRelease(event.pointer),
         child: Shortcuts(
           shortcuts: shortcuts,
           child: Actions(
@@ -388,9 +423,9 @@ class _ToggleRailIntent extends Intent {
 }
 
 class _GoHomeDestinationIntent extends Intent {
-  const _GoHomeDestinationIntent(this.index);
+  const _GoHomeDestinationIntent(this.destination);
 
-  final int index;
+  final HomeDestination destination;
 }
 
 class _ForwardIntent extends Intent {
@@ -599,10 +634,9 @@ class _GoHomeDestinationAction extends Action<_GoHomeDestinationIntent> {
 
   @override
   Object? invoke(_GoHomeDestinationIntent intent) {
-    if (intent.index < 0 || intent.index >= HomeDestination.values.length) {
-      return null;
-    }
-    router.go(HomeDestination.values[intent.index].rootPath);
+    ForwardHistoryStack.ofRouter(
+      router,
+    ).selectHomeDestination(intent.destination);
     return null;
   }
 }

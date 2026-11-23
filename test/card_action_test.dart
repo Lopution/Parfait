@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -615,6 +616,14 @@ void main() {
       expect(find.byKey(const Key('ios-card-context-preview')), findsOneWidget);
       expect(find.byKey(const Key('ios-card-context-menu')), findsOneWidget);
       expect(find.byType(ListTile), findsNothing);
+      final previewImage = tester.widget<PixivImage>(
+        find.descendant(
+          of: find.byKey(const Key('ios-card-context-preview')),
+          matching: find.byType(PixivImage),
+        ),
+      );
+      expect(previewImage.url, entity.previewUrl(PreviewQuality.medium));
+      expect(previewImage.url, isNot(entity.squareUrlAt(0)));
       await tester.pumpAndSettle();
 
       for (final label in ['下载', '稍后再看', '屏蔽此作品', '屏蔽作者', '分享']) {

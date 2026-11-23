@@ -3,23 +3,19 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/navigation/home_destination.dart';
 import '../../core/settings/app_settings.dart';
-import '../../core/settings/settings_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/context.dart';
-import '../layout/form_factor.dart';
 import '../layout/input_modality.dart';
 import '../navigation/forward_history.dart';
 import '../navigation/keyboard_back.dart';
 import '../navigation/route_facade.dart';
 import '../navigation/route_search_facade.dart';
 import '../pull_to_refresh.dart';
-import '../widgets/settings/persist_settings.dart';
 import 'desktop_title_bar.dart';
 
 const _digitKeys = [
@@ -71,10 +67,8 @@ String _destinationLabel(AppLocalizations l10n, HomeDestination destination) =>
 List<PlatformMenuItem> buildDesktopPlatformMenus({
   required AppLocalizations l10n,
   required GoRouter router,
-  required bool railExpanded,
   required bool isFullScreen,
-  required VoidCallback onToggleRail,
-  bool canToggleRail = true,
+  List<HomeDestination> destinations = HomeDestination.values,
   VoidCallback? onToggleFullScreen,
   VoidCallback? onMinimize,
   VoidCallback? onZoom,
@@ -247,12 +241,16 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
         ),
         PlatformMenuItemGroup(
           members: [
-            for (var i = 0; i < HomeDestination.values.length; i++)
+            for (
+              var i = 0;
+              i < destinations.length && i < _digitKeys.length;
+              i++
+            )
               PlatformMenuItem(
-                label: _destinationLabel(l10n, HomeDestination.values[i]),
+                label: _destinationLabel(l10n, destinations[i]),
                 shortcut: SingleActivator(_digitKeys[i], meta: true),
                 onSelected: guard(
-                  () => router.go(HomeDestination.values[i].rootPath),
+                  () => history.selectHomeDestination(destinations[i]),
                 ),
               ),
           ],
@@ -274,15 +272,6 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
     PlatformMenu(
       label: l10n.menuView,
       menus: [
-        if (canToggleRail)
-          PlatformMenuItem(
-            label: railExpanded ? l10n.railCollapse : l10n.railExpand,
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyB,
-              meta: true,
-            ),
-            onSelected: guard(onToggleRail),
-          ),
         PlatformMenuItemGroup(
           members: [
             PlatformMenuItem(
@@ -324,25 +313,27 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
 
 /// Hosts the macOS native menu bar via [PlatformMenuBar] on real macOS builds
 /// (or when [forcePlatformMenuBar] is enabled in tests).
-class DesktopMenuBar extends ConsumerStatefulWidget {
+class DesktopMenuBar extends StatefulWidget {
   const DesktopMenuBar({
     super.key,
     required this.settings,
     required this.router,
+    this.destinations = HomeDestination.values,
     required this.child,
     this.forcePlatformMenuBar = false,
   });
 
   final AppSettings settings;
   final GoRouter router;
+  final List<HomeDestination> destinations;
   final Widget child;
   final bool forcePlatformMenuBar;
 
   @override
-  ConsumerState<DesktopMenuBar> createState() => _DesktopMenuBarState();
+  State<DesktopMenuBar> createState() => _DesktopMenuBarState();
 }
 
-class _DesktopMenuBarState extends ConsumerState<DesktopMenuBar> {
+class _DesktopMenuBarState extends State<DesktopMenuBar> {
   bool _rebuildPending = false;
 
   @override
@@ -396,16 +387,6 @@ class _DesktopMenuBarState extends ConsumerState<DesktopMenuBar> {
     final chrome = DesktopChromeMetrics.maybeOf(context);
     final actions =
         chrome?.actions ?? DesktopWindowScope.maybeOf(context)?.actions;
-    final railChoice =
-        ref.watch(railExpandedProvider) ?? widget.settings.railExpanded;
-    final size = MediaQuery.sizeOf(context);
-    final form = FormFactor.of(context);
-    final canToggleRail = form.canToggleRail(size.width, height: size.height);
-    final railExpanded = form.railExpanded(
-      size.width,
-      height: size.height,
-      choice: railChoice,
-    );
     final history = ForwardHistoryStack.ofRouter(widget.router);
     final includeSystemQuit =
         defaultTargetPlatform == TargetPlatform.macOS &&
@@ -425,27 +406,8 @@ class _DesktopMenuBarState extends ConsumerState<DesktopMenuBar> {
           menus: buildDesktopPlatformMenus(
             l10n: l10n,
             router: widget.router,
-            railExpanded: railExpanded,
-            canToggleRail: canToggleRail,
+            destinations: widget.destinations,
             isFullScreen: chrome?.isFullScreen ?? false,
-            onToggleRail: () {
-              final next = !railExpanded;
-              final nav = _navContextOf(widget.router);
-              if (nav != null) {
-                unawaited(
-                  persistSettings(
-                    nav,
-                    () => ref
-                        .read(settingsProvider.notifier)
-                        .setRailExpanded(next),
-                  ),
-                );
-              } else {
-                unawaited(
-                  ref.read(settingsProvider.notifier).setRailExpanded(next),
-                );
-              }
-            },
             onToggleFullScreen: actions?.onToggleFullScreen,
             onMinimize: actions?.onMinimize,
             onZoom: actions?.onToggleMaximize,
