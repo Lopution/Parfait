@@ -35,10 +35,10 @@ final backupFilePickerProvider = Provider<Future<List<int>?> Function()>((ref) {
   };
 });
 
-/// Export/import entry for the `pixivfunc.backup.v1` document. Export picks
-/// a SAF tree and streams the JSON; import parses the file, asks for the
-/// merge/overwrite strategy explicitly, then applies through
-/// [BackupService].
+/// Export/import entry for the `pixivfunc.backup.v1` document. Export delegates
+/// to [BackupService]: Android SAF tree streaming, desktop folder picker, or
+/// iOS share sheet via a temporary file; import parses the file, asks for the
+/// merge/overwrite strategy explicitly, then applies through [BackupService].
 class BackupSettingsPage extends ConsumerStatefulWidget {
   const BackupSettingsPage({super.key});
 

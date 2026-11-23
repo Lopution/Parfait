@@ -22,7 +22,9 @@ import 'package:parfait/core/comments/comment_assets.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
+import 'package:parfait/features/illust/detail/illust_detail_shells.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_overlay_frame.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/comment_composer.dart';
@@ -1287,6 +1289,156 @@ void main() {
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
+      },
+    );
+
+    testWidgets(
+      'IllustDetailTwoPaneShell applies SafeArea insets outside overlay and adapts for tabletop hinge',
+      (tester) async {
+        final (container, _, _) = await makeWorld();
+        final entity = parseIllust(
+          illustJson(42, pageCount: 1, withMetaSinglePage: true),
+        );
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+
+        Widget twoPaneShell(String heroScope) => IllustDetailTwoPaneShell(
+          entity: entity,
+          detailUrlFor: (_) => null,
+          downloadMode: false,
+          selectedPages: const {},
+          onToggleSelect: (_) {},
+          onLongPress: () {},
+          onExitDownloadMode: () {},
+          heroScope: heroScope,
+          initialPage: 0,
+          onPageChanged: (_) {},
+          heroImageUrl: null,
+          heroImageDecodeWidth: null,
+          inspectorHeader: const SizedBox(
+            key: ValueKey('h15-inspector-header'),
+            height: 48,
+          ),
+          metaScrollController: scroll,
+          metaSlivers: const [SliverToBoxAdapter(child: SizedBox(height: 120))],
+          onScrollNotification: (_) => false,
+          composerLayer: null,
+        );
+
+        Widget buildShell({
+          required Size size,
+          required EdgeInsets padding,
+          List<ui.DisplayFeature> features = const [],
+        }) => localizedApp(
+          container: container,
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                size: size,
+                padding: padding,
+                viewPadding: padding,
+                displayFeatures: features,
+              ),
+              child: Scaffold(body: twoPaneShell('h15')),
+            ),
+          ),
+        );
+
+        // 1. Non-overlay side-by-side (e.g., tablet/deep-link): clears top/left/right.
+        setViewSize(tester, const Size(1200, 800));
+        await tester.pumpWidget(
+          buildShell(
+            size: const Size(1200, 800),
+            padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+          ),
+        );
+        await tester.pump();
+        final backSide = tester.getRect(
+          find.byKey(const ValueKey('two-pane-primary-back')),
+        );
+        final headerSide = tester.getRect(
+          find.byKey(const ValueKey('h15-inspector-header')),
+        );
+        expect(backSide.top, closeTo(48, 0.5));
+        expect(backSide.left, closeTo(28, 0.5));
+        expect(headerSide.top, closeTo(36, 0.5));
+        expect(headerSide.right, closeTo(1188, 0.5));
+
+        // 2. Non-overlay tabletop hinge: primary clears top+sides; secondary sits
+        //    below the hinge with zero duplicate top inset and clears both sides.
+        setViewSize(tester, const Size(900, 800));
+        await tester.pumpWidget(
+          buildShell(
+            size: const Size(900, 800),
+            padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+            features: const [
+              ui.DisplayFeature(
+                bounds: Rect.fromLTWH(0, 390, 900, 20),
+                type: ui.DisplayFeatureType.hinge,
+                state: ui.DisplayFeatureState.postureHalfOpened,
+              ),
+            ],
+          ),
+        );
+        await tester.pump();
+        final backTabletop = tester.getRect(
+          find.byKey(const ValueKey('two-pane-primary-back')),
+        );
+        final headerTabletop = tester.getRect(
+          find.byKey(const ValueKey('h15-inspector-header')),
+        );
+        expect(backTabletop.top, closeTo(48, 0.5));
+        expect(backTabletop.left, closeTo(28, 0.5));
+        expect(headerTabletop.top, closeTo(411, 1.5));
+        expect(headerTabletop.left, closeTo(16, 0.5));
+        expect(headerTabletop.right, closeTo(888, 0.5));
+
+        // 3. Modal overlay frame (pushed above a feed route): shell applies
+        //    zero inner safe-area padding while DetailOverlayFrame owns outer
+        //    SafeArea margins.
+        setViewSize(tester, const Size(1200, 800));
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                size: const Size(1200, 800),
+                padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+                viewPadding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+              ),
+              child: child!,
+            ),
+            home: Builder(
+              builder: (rootContext) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(rootContext).push<void>(
+                    PageRouteBuilder<void>(
+                      opaque: false,
+                      pageBuilder: (_, _, _) =>
+                          DetailOverlayFrame(child: twoPaneShell('h15-modal')),
+                    ),
+                  ),
+                  child: const Text('open-overlay'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.text('open-overlay'));
+        await tester.pumpAndSettle();
+        final shellRect = tester.getRect(find.byType(IllustDetailTwoPaneShell));
+        final backModal = tester.getRect(
+          find.byKey(const ValueKey('two-pane-primary-back')),
+        );
+        final headerModal = tester.getRect(
+          find.byKey(const ValueKey('h15-inspector-header')),
+        );
+        expect(backModal.top - shellRect.top, closeTo(12, 0.5));
+        expect(headerModal.top - shellRect.top, closeTo(0, 0.5));
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
       },
     );
   });

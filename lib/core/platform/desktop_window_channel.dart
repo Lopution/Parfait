@@ -144,6 +144,7 @@ enum DesktopWindowCommand {
   startDragging,
   titleBarDoubleClick,
   toggleFullScreen,
+  restoreEditMenu,
 }
 
 /// Port communicating with native desktop runner chrome hooks.

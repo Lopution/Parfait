@@ -3,11 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart'
-    show
-        GestureBinding,
-        PointerScrollEvent,
-        PointerSignalEvent,
-        TapGestureRecognizer;
+    show GestureBinding, PointerScrollEvent, PointerSignalEvent;
 import 'package:flutter/rendering.dart'
     show
         BoxHitTestEntry,
@@ -18,7 +14,6 @@ import 'package:flutter/rendering.dart'
         PipelineOwner,
         RenderProxyBox,
         ScrollCacheExtent,
-        SelectedContent,
         ShaderMaskLayer;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
@@ -35,8 +30,8 @@ import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/reader_settings.dart';
 import '../../l10n/context.dart';
-import 'novel_illustration.dart';
 import 'novel_layout.dart';
+import 'novel_reader_text_blocks.dart';
 part 'novel_reader_handle.dart';
 part 'novel_reader_views.dart';
 
@@ -188,7 +183,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   static const int _wheelTurnCooldownMs = 150;
 
   final FocusNode _selectionFocusNode = FocusNode(debugLabel: 'novelSelection');
-  bool _hasSelection = false;
+  final NovelReaderTapGate _tapGate = NovelReaderTapGate();
   bool _spread = false;
   bool? _requestedSpread;
   double _originDx = 0;
@@ -214,6 +209,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
 
   /// The scroll mode's column over [_layout], built when first read.
   NovelScrollColumn? _column;
+  NovelScrollParagraphBlocks? _scrollBlocks;
 
   /// The anchor the scroll mode last reported, so a scroll that settles on
   /// the line it started from writes nothing.
@@ -261,26 +257,16 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
 
   int _viewIndexForPage(int page) => _spread ? page ~/ 2 : page;
 
+  int _canonicalPage(int page, bool spread, int count) => (!_scrolls && spread)
+      ? (page.clamp(0, count - 1) ~/ 2) * 2
+      : page.clamp(0, count - 1);
+
   int _viewCount(NovelLayout layout) =>
       _spread ? (layout.pages.length + 1) ~/ 2 : layout.pages.length;
 
-  int _stepTargetPage(int delta) {
-    if (_scrolls || !_spread) return _reader.currentPage + delta;
-    final spread = _reader.currentPage ~/ 2;
-    return (spread + delta) * 2;
-  }
-
-  void _onSelectionChanged(SelectedContent? content) {
-    final text = content?.plainText;
-    _hasSelection = text != null && text.isNotEmpty;
-  }
-
-  bool _clearSelectionOnTap() {
-    if (!_hasSelection) return false;
-    _selectionFocusNode.unfocus();
-    _hasSelection = false;
-    return true;
-  }
+  int _stepTargetPage(int delta) => (_scrolls || !_spread)
+      ? _reader.currentPage + delta
+      : (_reader.currentPage ~/ 2 + delta) * 2;
 
   @override
   void initState() {
@@ -434,7 +420,11 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final layout = _layout;
     final anchor = _anchorOnScreen(scrolls: !_scrolls);
     if (layout == null || anchor == null) return;
-    final page = layout.pageIndexForAnchor(anchor);
+    final page = _canonicalPage(
+      layout.pageIndexForAnchor(anchor),
+      _spread,
+      layout.pages.length,
+    );
     _reader.setPage(page);
     if (_scrolls) {
       final column = _columnOf(layout);
@@ -509,58 +499,52 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         }
         final color = widget.textColor ?? theme.colorScheme.onSurface;
         if (_scrolls) return _scrollBody(layout, color);
-        return SelectionArea(
-          focusNode: _selectionFocusNode,
-          onSelectionChanged: _onSelectionChanged,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (details) {
-              if (_clearSelectionOnTap()) return;
-              final zone = _reader.zoneForTap(
-                details.localPosition.dx,
-                constraints.maxWidth,
-              );
-              if (zone == NovelTapZone.center) {
-                // Chrome toggle owns the middle zone; paging keeps the edges.
-                widget.onCenterTap?.call();
-                return;
-              }
-              // Drive the physical page only — onPageChanged is the single
-              // writer of the logical page, so a stale in-flight notification
-              // can never clobber a newer target.
-              final target = _stepTargetPage(
-                zone == NovelTapZone.next ? 1 : -1,
-              );
-              if (target < 0 || target >= _reader.pageCount) return;
-              turnPage(context, _pageController, _viewIndexForPage(target));
-            },
-            child: _PageWheelInterceptor(
-              onPointerScroll: _onPagePointerScroll,
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _onPageScroll,
-                child: PageView.builder(
-                  controller: _pageController,
-                  scrollDirection: Axis.horizontal,
-                  allowImplicitScrolling: true,
-                  scrollCacheExtent: _neighbourPages,
-                  itemCount: _viewCount(layout),
-                  onPageChanged: (viewIndex) {
-                    // Nothing built reads the page: a rebuild here, mid-swipe,
-                    // rebuilt every line of the pages on screen.
-                    final page = _spread
-                        ? (viewIndex * 2).clamp(0, _reader.pageCount - 1)
-                        : viewIndex;
-                    _reader.setPage(page);
-                    _notifyAnchor(
-                      _layoutEchoPending
-                          ? NovelAnchorCause.layoutEcho
-                          : NovelAnchorCause.userTurn,
-                    );
-                    _notifyProgress();
-                  },
-                  itemBuilder: (context, viewIndex) =>
-                      _buildPageViewItem(layout, viewIndex, color),
-                ),
+        return NovelReaderTapSurface(
+          selectionFocusNode: _selectionFocusNode,
+          tapGate: _tapGate,
+          onTap: (localPosition) {
+            final zone = _reader.zoneForTap(
+              localPosition.dx,
+              constraints.maxWidth,
+            );
+            if (zone == NovelTapZone.center) {
+              // Chrome toggle owns the middle zone; paging keeps the edges.
+              widget.onCenterTap?.call();
+              return;
+            }
+            // Drive the physical page only — onPageChanged is the single
+            // writer of the logical page, so a stale in-flight notification
+            // can never clobber a newer target.
+            final target = _stepTargetPage(zone == NovelTapZone.next ? 1 : -1);
+            if (target < 0 || target >= _reader.pageCount) return;
+            turnPage(context, _pageController, _viewIndexForPage(target));
+          },
+          child: _PageWheelInterceptor(
+            onPointerScroll: _onPagePointerScroll,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _onPageScroll,
+              child: PageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.horizontal,
+                allowImplicitScrolling: true,
+                scrollCacheExtent: _neighbourPages,
+                itemCount: _viewCount(layout),
+                onPageChanged: (viewIndex) {
+                  // Nothing built reads the page: a rebuild here, mid-swipe,
+                  // rebuilt every line of the pages on screen.
+                  final page = _spread
+                      ? (viewIndex * 2).clamp(0, _reader.pageCount - 1)
+                      : viewIndex;
+                  _reader.setPage(page);
+                  _notifyAnchor(
+                    _layoutEchoPending
+                        ? NovelAnchorCause.layoutEcho
+                        : NovelAnchorCause.userTurn,
+                  );
+                  _notifyProgress();
+                },
+                itemBuilder: (context, viewIndex) =>
+                    _buildPageViewItem(layout, viewIndex, color),
               ),
             ),
           ),
@@ -600,8 +584,16 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       style: _style,
       color: color,
       novel: widget.novel,
-      onImageTap: widget.onImageTap,
-      onLinkTap: _followLink,
+      onImageTap: widget.onImageTap == null
+          ? null
+          : (image) {
+              _tapGate.markChildHandled();
+              widget.onImageTap!(image);
+            },
+      onLinkTap: (target) {
+        _tapGate.markChildHandled();
+        _followLink(target);
+      },
       openAddresses: widget.onLinkTap != null,
       // The layout viewport already carries the line-length cap —
       // the text column centers inside it while tap zones keep the
@@ -723,6 +715,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   /// moving: then it only stops it, as a tap on any list does.
   Widget _scrollBody(NovelLayout layout, Color color) {
     final column = _columnOf(layout);
+    final blocks = _scrollBlocksOf(layout);
     final styles = {
       for (final kind in NovelLineKind.values)
         kind: _style.lineStyle(kind, color),
@@ -737,84 +730,79 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       topPadding: topPadding,
       bottomSafe: bottomSafe,
     );
-    return SelectionArea(
-      focusNode: _selectionFocusNode,
-      onSelectionChanged: _onSelectionChanged,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          if (_clearSelectionOnTap()) return;
-          if (_scrollController.caughtScroll) return;
-          widget.onCenterTap?.call();
-        },
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _onColumnScroll,
-          child: _TextAreaClip(
-            bottomInset: bottomSafe,
-            cleanBottom: cleanBottom,
+    return NovelReaderTapSurface(
+      selectionFocusNode: _selectionFocusNode,
+      tapGate: _tapGate,
+      onTap: (_) {
+        if (_scrollController.caughtScroll) return;
+        widget.onCenterTap?.call();
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onColumnScroll,
+        child: _TextAreaClip(
+          bottomInset: bottomSafe,
+          cleanBottom: cleanBottom,
+          controller: _scrollController,
+          child: SmoothWheelScroll(
             controller: _scrollController,
-            child: SmoothWheelScroll(
-              controller: _scrollController,
-              builder: (context, controller, physics) => ListView.builder(
-                controller: controller,
-                physics: physics,
-                padding: EdgeInsets.only(
-                  top: topPadding,
-                  bottom: bottomPadding,
-                ),
-                itemCount: column.items.length,
-                itemExtentBuilder: (index, _) =>
-                    index < column.items.length ? column.extentAt(index) : null,
-                itemBuilder: (context, index) {
-                  final item = column.items[index];
-                  final line = item.line;
-                  if (line == null) {
-                    // A null child would end the list here.
-                    if (item.gap != NovelPageBreak.newPage) {
-                      return const SizedBox.shrink();
-                    }
-                    return Center(
-                      child: SizedBox(
-                        width: _style.fontSize * _newPageRuleCharacters,
-                        height: 1,
-                        child: ColoredBox(
-                          color: color.withValues(alpha: _newPageRuleAlpha),
-                        ),
-                      ),
-                    );
+            builder: (context, controller, physics) => ListView.builder(
+              controller: controller,
+              physics: physics,
+              padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
+              itemCount: blocks.length,
+              itemExtentBuilder: (index, _) =>
+                  index < blocks.length ? blocks.extentAt(index) : null,
+              itemBuilder: (context, index) {
+                final block = blocks.blocks[index];
+                final slice = block.slice;
+                if (slice == null) {
+                  // A null child would end the list here.
+                  if (block.gap != NovelPageBreak.newPage) {
+                    return const SizedBox.shrink();
                   }
-                  return Align(
-                    alignment: Alignment.topCenter,
+                  return Center(
                     child: SizedBox(
-                      // The layout viewport carries the line-length cap; the
-                      // column centres in the list, which scrolls at full width.
-                      width: layout.key.viewport.width,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: _style.horizontalPadding,
-                        ),
-                        child: _NovelLine(
-                          line: line,
-                          style: styles[line.kind],
-                          color: color,
-                          novel: widget.novel,
-                          onImageTap: onImageTap == null
-                              ? null
-                              : (image) {
-                                  if (_scrollController.caughtScroll) return;
-                                  onImageTap(image);
-                                },
-                          onLinkTap: (target) {
-                            if (_scrollController.caughtScroll) return;
-                            _followLink(target);
-                          },
-                          openAddresses: widget.onLinkTap != null,
-                        ),
+                      width: _style.fontSize * _newPageRuleCharacters,
+                      height: 1,
+                      child: ColoredBox(
+                        color: color.withValues(alpha: _newPageRuleAlpha),
                       ),
                     ),
                   );
-                },
-              ),
+                }
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    // The layout viewport carries the line-length cap; the
+                    // column centres in the list, which scrolls at full width.
+                    width: layout.key.viewport.width,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: _style.horizontalPadding,
+                      ),
+                      child: NovelParagraphSliceView(
+                        slice: slice,
+                        style: styles[slice.kind],
+                        color: color,
+                        novel: widget.novel,
+                        onImageTap: onImageTap == null
+                            ? null
+                            : (image) {
+                                _tapGate.markChildHandled();
+                                if (_scrollController.caughtScroll) return;
+                                onImageTap(image);
+                              },
+                        onLinkTap: (target) {
+                          _tapGate.markChildHandled();
+                          if (_scrollController.caughtScroll) return;
+                          _followLink(target);
+                        },
+                        openAddresses: widget.onLinkTap != null,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -890,7 +878,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   NovelScrollColumn _columnOf(NovelLayout layout) {
     final column = _column;
     if (column != null && identical(column.layout, layout)) return column;
+    _scrollBlocks = null;
     return _column = NovelScrollColumn(layout, _style);
+  }
+
+  NovelScrollParagraphBlocks _scrollBlocksOf(NovelLayout layout) {
+    final column = _columnOf(layout);
+    return _scrollBlocks ??= NovelScrollParagraphBlocks.fromColumn(column);
   }
 
   /// The scroll offset that puts [item] at the top of the text, short of
@@ -1053,13 +1047,27 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         action: () {
           // Restore the stable paragraph/UTF-16 anchor of the page on
           // screen now — the first layout restores the persisted resume
-          // anchor. A swipe made while the layout ran is a user choice
-          // and wins; its anchor, unlike its index, still names the same
-          // text once translations have moved the page breaks.
-          final anchor = _liveAnchor ?? widget.initialAnchor;
-          final restoredPage = anchor == null
-              ? _reader.currentPage.clamp(0, result.pages.length - 1)
-              : result.pageIndexForAnchor(anchor);
+          // anchor. In scroll mode capture exact sub-item pixel offset before
+          // swapping layouts so off-screen updates never jump back or cancel
+          // an active scroll.
+          final prevLayout = _layout;
+          final scrollSnapshot =
+              _scrolls && prevLayout != null && _scrollController.hasClients
+              ? NovelScrollRelayoutAnchor.capture(
+                  column: _columnOf(prevLayout),
+                  pixels: _scrollController.offset,
+                  leadExtra: _scrollLeadExtra,
+                )
+              : null;
+          final anchor =
+              scrollSnapshot?.anchor ?? _liveAnchor ?? widget.initialAnchor;
+          final restoredPage = _canonicalPage(
+            anchor == null
+                ? _reader.currentPage
+                : result.pageIndexForAnchor(anchor),
+            spread,
+            result.pages.length,
+          );
           setState(() {
             _reader.updatePageCount(result.pages.length, page: restoredPage);
           });
@@ -1090,13 +1098,24 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             if (!mounted || !_commitGate.isCurrent(layoutContext)) return;
             if (_scrolls) {
               if (!_scrollController.hasClients) return;
-              final offset = scrollOffset();
-              // As with pages, a jump cuts short a scroll in progress, so
-              // the column jumps only when the line moved.
-              if (_scrollController.offset != offset) {
-                _layoutEchoPending = true;
-                _scrollController.jumpTo(offset);
-                _layoutEchoPending = false;
+              if (scrollSnapshot != null) {
+                scrollSnapshot.applyToController(
+                  controller: _scrollController,
+                  nextColumn: _columnOf(result),
+                  leadExtra: _scrollLeadExtra,
+                  runAsLayoutEcho: (fn) {
+                    _layoutEchoPending = true;
+                    fn();
+                    _layoutEchoPending = false;
+                  },
+                );
+              } else {
+                final offset = scrollOffset();
+                if ((_scrollController.offset - offset).abs() >= 0.5) {
+                  _layoutEchoPending = true;
+                  _scrollController.jumpTo(offset);
+                  _layoutEchoPending = false;
+                }
               }
               _settledAnchor = _liveAnchor;
             } else {

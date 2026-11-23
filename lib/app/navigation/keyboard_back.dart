@@ -425,7 +425,7 @@ class _BackAction extends Action<_BackIntent> {
       return null;
     }
     if (intent.unfocusEditing &&
-        !_hasModalOrRootOverlay(router) &&
+        !hasModalOrRootOverlay(router) &&
         FeedSelectionAnchor.clearActiveSelection()) {
       return null;
     }
@@ -449,14 +449,23 @@ class _ForwardAction extends Action<_ForwardIntent> {
       ForwardHistoryStack.ofRouter(router).goForward();
 }
 
-bool _hasModalOrRootOverlay(GoRouter router) {
+/// Whether a modal route, popup, or non-shell root overlay (such as the
+/// fullscreen image viewer) currently covers the branch stack.
+///
+/// Pass [checkFocusRoute] = `false` when calling during a widget `build`
+/// method: inspecting `ModalRoute.of(primaryFocus.context)` registers an
+/// inherited dependency on another element and throws if focus still points at
+/// a widget being deactivated in the same frame.
+bool hasModalOrRootOverlay(GoRouter router, {bool checkFocusRoute = true}) {
   if (ForwardHistoryStack.ofRouter(router).hasOpenModal) return true;
-  final focusContext = primaryFocus?.context;
-  if (focusContext != null) {
-    final focusRoute = ModalRoute.of(focusContext);
-    if (focusRoute is PopupRoute ||
-        (focusRoute != null && focusRoute.settings is! Page)) {
-      return true;
+  if (checkFocusRoute) {
+    final focusContext = primaryFocus?.context;
+    if (focusContext != null && focusContext.mounted) {
+      final focusRoute = ModalRoute.of(focusContext);
+      if (focusRoute is PopupRoute ||
+          (focusRoute != null && focusRoute.settings is! Page)) {
+        return true;
+      }
     }
   }
   final config = router.routerDelegate.currentConfiguration;
@@ -474,7 +483,7 @@ bool _hasModalOrRootOverlay(GoRouter router) {
 }
 
 bool _canOpenSearchShortcut(GoRouter router) {
-  if (_hasModalOrRootOverlay(router)) return false;
+  if (hasModalOrRootOverlay(router)) return false;
   final path = liveRouterUri(router).path;
   if (path.endsWith('/search/input')) return false;
   return _stackRootOfPath(path) != null;
@@ -488,7 +497,7 @@ class _SelectAllFeedAction extends Action<_SelectAllFeedIntent> {
   @override
   bool isEnabled(_SelectAllFeedIntent intent) =>
       !isTextEditingFocused() &&
-      !_hasModalOrRootOverlay(router) &&
+      !hasModalOrRootOverlay(router) &&
       FeedSelectionAnchor.hasSelectableHost;
 
   @override
@@ -539,7 +548,7 @@ class _RefreshAction extends Action<_RefreshIntent> {
 }
 
 bool _canUseShellShortcut(GoRouter router) =>
-    !_hasModalOrRootOverlay(router) &&
+    !hasModalOrRootOverlay(router) &&
     _stackRootOfPath(liveRouterUri(router).path) != null;
 
 class _OpenSettingsAction extends Action<_OpenSettingsIntent> {

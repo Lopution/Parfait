@@ -515,6 +515,9 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
 
   ApiError? _stateError;
 
+  /// Whether an unconsumed refresh error is waiting to be surfaced.
+  bool get hasRefreshError => _stateError != null;
+
   /// The last refresh error, if any (UI may show a transient banner).
   ApiError? consumeRefreshError() {
     final error = _stateError;

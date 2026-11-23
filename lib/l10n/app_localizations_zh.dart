@@ -3307,4 +3307,10 @@ class AppLocalizationsZh extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get previousArtworkTooltip => '上一作品';
+
+  @override
+  String get nextArtworkTooltip => '下一作品';
 }

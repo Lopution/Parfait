@@ -300,10 +300,21 @@ final class MacosDesktopWindowBridge: NSObject {
   private weak var window: NSWindow?
   private var channel: FlutterMethodChannel?
   private var observers: [NSObjectProtocol] = []
+  private var preservedEditMenuItem: NSMenuItem?
 
   func register(window: NSWindow, messenger: FlutterBinaryMessenger) {
     removeObservers()
     self.window = window
+    captureEditMenuIfNeeded()
+    observers.append(
+      NotificationCenter.default.addObserver(
+        forName: NSApplication.didFinishLaunchingNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] _ in
+        self?.captureEditMenuIfNeeded()
+      }
+    )
 
     let channel = FlutterMethodChannel(
       name: "parfait/desktop_window",
@@ -398,6 +409,11 @@ final class MacosDesktopWindowBridge: NSObject {
     case "toggleFullScreen":
       window.toggleFullScreen(nil)
       result(nil)
+    case "restoreEditMenu":
+      DispatchQueue.main.async { [weak self] in
+        self?.restoreEditMenuIfNeeded()
+      }
+      result(nil)
     case "startDragging":
       if let event = NSApp.currentEvent {
         window.performDrag(with: event)
@@ -417,6 +433,50 @@ final class MacosDesktopWindowBridge: NSObject {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func captureEditMenuIfNeeded() {
+    guard preservedEditMenuItem == nil, let mainMenu = NSApp.mainMenu else { return }
+    for item in mainMenu.items {
+      if let sub = item.submenu, isEditMenu(sub) {
+        preservedEditMenuItem = item.copy() as? NSMenuItem
+        break
+      }
+    }
+  }
+
+  private func isEditMenu(_ menu: NSMenu) -> Bool {
+    return menu.items.contains { item in
+      item.action == #selector(NSText.copy(_:)) ||
+        item.action == #selector(NSText.paste(_:))
+    }
+  }
+
+  private func restoreEditMenuIfNeeded() {
+    guard let mainMenu = NSApp.mainMenu else { return }
+    if mainMenu.items.contains(where: { $0.submenu.map(isEditMenu) ?? false }) {
+      return
+    }
+    let item = (preservedEditMenuItem?.copy() as? NSMenuItem) ?? buildDefaultEditMenuItem()
+    let insertIndex = min(2, mainMenu.items.count)
+    mainMenu.insertItem(item, at: insertIndex)
+  }
+
+  private func buildDefaultEditMenuItem() -> NSMenuItem {
+    let menu = NSMenu(title: "Edit")
+    menu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+    let redo = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+    redo.keyEquivalentModifierMask = [.command, .shift]
+    menu.addItem(redo)
+    menu.addItem(.separator())
+    menu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+    menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+    menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+    menu.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
+    menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+    let container = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
+    container.submenu = menu
+    return container
   }
 }
 

@@ -1454,5 +1454,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "previousArtworkTooltip": "前の作品",
+  "nextArtworkTooltip": "次の作品"
 }

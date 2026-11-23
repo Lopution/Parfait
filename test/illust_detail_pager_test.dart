@@ -21,6 +21,7 @@ import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
@@ -730,8 +731,25 @@ void main() {
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: const Offset(700, 450));
         addTearDown(mouse.removePointer);
-        await mouse.moveTo(const Offset(1390, 450));
+        // Right artwork button stays inset 16dp clear of the scrollbar track.
+        final nextArtworkRect = tester.getRect(
+          find.byKey(const Key('pager-next-artwork')),
+        );
+        expect(nextArtworkRect.right, lessThanOrEqualTo(1400 - 16));
+        await mouse.moveTo(const Offset(1360, 450));
         await tester.pump();
+        final l10n = lookupAppLocalizations(zhCN);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.descendant(
+                  of: find.byKey(const Key('pager-next-artwork')),
+                  matching: find.byType(IconButton),
+                ),
+              )
+              .tooltip,
+          l10n.nextArtworkTooltip,
+        );
         await tester.tap(
           find.descendant(
             of: find.byKey(const Key('pager-next-artwork')),
@@ -744,6 +762,17 @@ void main() {
 
         await mouse.moveTo(const Offset(10, 450));
         await tester.pump();
+        expect(
+          tester
+              .widget<IconButton>(
+                find.descendant(
+                  of: find.byKey(const Key('pager-prev-artwork')),
+                  matching: find.byType(IconButton),
+                ),
+              )
+              .tooltip,
+          l10n.previousArtworkTooltip,
+        );
         await tester.tap(
           find.descendant(
             of: find.byKey(const Key('pager-prev-artwork')),
@@ -773,6 +802,10 @@ void main() {
         await tester.pumpWidget(
           localizedApp(
             container: container,
+            builder: (_, child) => InputModalityScope(
+              initialModality: InputModality.pointer,
+              child: child!,
+            ),
             home: IllustDetailPagerPage(
               source: IllustPagerSource()..update(const [42, 43]),
               initialIllustId: 42,
@@ -813,9 +846,29 @@ void main() {
           expect(pageOf(innerPager), page);
         }
 
-        await step(() => tester.tap(nextBtn), 1.0);
+        await step(
+          () => tester.tap(nextBtn, kind: PointerDeviceKind.mouse),
+          1.0,
+        );
         expect(prevBtn, findsOneWidget);
-        await step(() => tester.tap(prevBtn), 0.0);
+        // Inner page prev button sits in bottom corner, never overlapping the
+        // outer artwork prev button vertically centered on the left edge.
+        final outerPrevButton = find.descendant(
+          of: find.byKey(const Key('pager-prev-artwork')),
+          matching: find.byType(IconButton),
+        );
+        expect(
+          tester.getRect(prevBtn).overlaps(tester.getRect(outerPrevButton)),
+          isFalse,
+        );
+        expect(
+          tester.widget<IconButton>(prevBtn).tooltip,
+          isNot(tester.widget<IconButton>(outerPrevButton).tooltip),
+        );
+        await step(
+          () => tester.tap(prevBtn, kind: PointerDeviceKind.mouse),
+          0.0,
+        );
         await step(
           () => tester.sendEventToBinding(mouse.scroll(const Offset(0, 120))),
           1.0,

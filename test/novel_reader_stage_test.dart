@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -539,6 +540,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       await tester.tapAt(const Offset(550, 400), kind: PointerDeviceKind.mouse);
+      await tester.pump(kDoubleTapTimeout);
       await tester.pumpAndSettle();
 
       Rect panelRect(Finder content) => tester.getRect(

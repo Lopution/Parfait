@@ -493,25 +493,28 @@ class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
       bottom: widget.edge == _ChromeEdge.bottom ? 0 : null,
       left: 0,
       right: 0,
-      child: ExcludeSemantics(
+      child: ExcludeFocus(
         excluding: !widget.visible,
-        child: IgnorePointer(
-          ignoring: !widget.visible,
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) => Opacity(
-              opacity: _controller.value,
-              // alwaysIncludeSemantics: ExcludeSemantics owns the hidden
-              // state; the Opacity stays semantics-complete so the tree
-              // never sees a node vanish mid-flush.
-              alwaysIncludeSemantics: true,
-              child: child,
-            ),
-            // The stage is always black, whatever the theme.
-            child: ArtworkControls(
-              glyph: FuncTokens.onImageControl,
-              halo: Colors.black,
-              child: widget.child,
+        child: ExcludeSemantics(
+          excluding: !widget.visible,
+          child: IgnorePointer(
+            ignoring: !widget.visible,
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) => Opacity(
+                opacity: _controller.value,
+                // alwaysIncludeSemantics: ExcludeSemantics owns the hidden
+                // state; the Opacity stays semantics-complete so the tree
+                // never sees a node vanish mid-flush.
+                alwaysIncludeSemantics: true,
+                child: child,
+              ),
+              // The stage is always black, whatever the theme.
+              child: ArtworkControls(
+                glyph: FuncTokens.onImageControl,
+                halo: Colors.black,
+                child: widget.child,
+              ),
             ),
           ),
         ),
@@ -546,22 +549,25 @@ class _ViewerPageNavButton extends StatelessWidget {
       top: 0,
       bottom: 0,
       child: Center(
-        child: ExcludeSemantics(
+        child: ExcludeFocus(
           excluding: !visible,
-          child: IgnorePointer(
-            ignoring: !visible,
-            child: AnimatedOpacity(
-              opacity: visible ? 1 : 0,
-              duration: MotionTokens.resolve(context, MotionTokens.chrome),
-              child: Material(
-                color: Colors.black54,
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: IconButton(
-                  color: FuncTokens.white,
-                  tooltip: tooltip,
-                  onPressed: onPressed,
-                  icon: Icon(icon),
+          child: ExcludeSemantics(
+            excluding: !visible,
+            child: IgnorePointer(
+              ignoring: !visible,
+              child: AnimatedOpacity(
+                opacity: visible ? 1 : 0,
+                duration: MotionTokens.resolve(context, MotionTokens.chrome),
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: IconButton(
+                    color: FuncTokens.white,
+                    tooltip: tooltip,
+                    onPressed: onPressed,
+                    icon: Icon(icon),
+                  ),
                 ),
               ),
             ),

@@ -335,24 +335,21 @@ class _DetailImagePagerState extends State<DetailImagePager>
     return PositionedDirectional(
       start: isNext ? null : FuncSpacing.sm,
       end: isNext ? FuncSpacing.sm : null,
-      top: 0,
-      bottom: 0,
-      child: Center(
-        child: IgnorePointer(
-          ignoring: !_hovered,
-          child: AnimatedOpacity(
-            opacity: _hovered ? 1.0 : 0.0,
-            duration: MotionTokens.resolve(context, MotionTokens.stateFade),
-            curve: MotionTokens.stateFadeCurve,
-            child: ArtworkControls(
-              glyph: FuncTokens.white,
-              halo: const Color(0xCC0C0914),
-              child: IconButton(
-                key: Key(isNext ? 'detail-pager-next' : 'detail-pager-prev'),
-                tooltip: tooltip,
-                onPressed: onPressed,
-                icon: Icon(icon, size: 28),
-              ),
+      bottom: FuncSpacing.md,
+      child: IgnorePointer(
+        ignoring: !_hovered,
+        child: AnimatedOpacity(
+          opacity: _hovered ? 1.0 : 0.0,
+          duration: MotionTokens.resolve(context, MotionTokens.stateFade),
+          curve: MotionTokens.stateFadeCurve,
+          child: ArtworkControls(
+            glyph: FuncTokens.white,
+            halo: const Color(0xCC0C0914),
+            child: IconButton(
+              key: Key(isNext ? 'detail-pager-next' : 'detail-pager-prev'),
+              tooltip: tooltip,
+              onPressed: onPressed,
+              icon: Icon(icon, size: 28),
             ),
           ),
         ),

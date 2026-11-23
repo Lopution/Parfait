@@ -25,9 +25,11 @@ import '../../../app/motion/still_work.dart';
 import '../../../app/motion/swipe_paging.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/scroll_behavior.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/feed/illust_pager_source.dart';
 import '../../../app/widgets/feed/feed_text_warmup.dart';
 import '../../../core/entity/illust_store.dart';
+import '../../../l10n/context.dart';
 import 'detail_page_activity.dart';
 import 'illust_detail_page.dart';
 import 'widgets/info_block.dart';
@@ -521,8 +523,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
                 isStart: true,
                 enabled: index > 0,
                 hovered: _startEdgeHovered,
-                icon: UiIcons.chevronLeft,
-                tooltip: MaterialLocalizations.of(context).previousPageTooltip,
+                icon: UiIcons.arrowBack,
+                tooltip: context.l10n.previousArtworkTooltip,
                 onHoverChanged: (hovered) {
                   if (_startEdgeHovered != hovered) {
                     setState(() => _startEdgeHovered = hovered);
@@ -535,8 +537,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
                 isStart: false,
                 enabled: index + 1 < ids.length,
                 hovered: _endEdgeHovered,
-                icon: UiIcons.chevronRight,
-                tooltip: MaterialLocalizations.of(context).nextPageTooltip,
+                icon: UiIcons.arrowForward,
+                tooltip: context.l10n.nextArtworkTooltip,
                 onHoverChanged: (hovered) {
                   if (_endEdgeHovered != hovered) {
                     setState(() => _endEdgeHovered = hovered);
@@ -579,10 +581,10 @@ class _PagerEdgeNavButton extends StatelessWidget {
     return Positioned.directional(
       textDirection: Directionality.of(context),
       start: isStart ? 0 : null,
-      end: isStart ? null : 0,
+      end: isStart ? null : FuncSpacing.lg,
       top: kToolbarHeight + 48,
       bottom: 88,
-      width: 72,
+      width: 52,
       child: MouseRegion(
         opaque: false,
         onEnter: (event) {

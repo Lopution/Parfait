@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ import 'layout/form_factor.dart';
 import 'motion/motion_tokens.dart';
 import 'scroll_behavior.dart';
 import 'system_ui.dart';
+import 'navigation/forward_history.dart';
 import 'navigation/keyboard_back.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
@@ -407,9 +409,47 @@ class _AppChromeState extends ConsumerState<AppChrome> {
   final DesktopSystemBarsController _systemBars = DesktopSystemBarsController();
   final DesktopCommandBarController _commandBar = DesktopCommandBarController();
   final GlobalKey _routerSubtreeKey = GlobalKey();
+  bool _isPreHome = false;
+  bool _preHomeRebuildPending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isPreHome = isDesktopPreHomePath(liveRouterUri(widget.router).path);
+    widget.router.routerDelegate.addListener(_onRouterChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppChrome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.router != widget.router) {
+      oldWidget.router.routerDelegate.removeListener(_onRouterChanged);
+      widget.router.routerDelegate.addListener(_onRouterChanged);
+      _isPreHome = isDesktopPreHomePath(liveRouterUri(widget.router).path);
+    }
+  }
+
+  void _onRouterChanged() {
+    final next = isDesktopPreHomePath(liveRouterUri(widget.router).path);
+    if (next == _isPreHome) return;
+    _isPreHome = next;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      if (_preHomeRebuildPending) return;
+      _preHomeRebuildPending = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _preHomeRebuildPending = false;
+        if (mounted) setState(() {});
+      });
+      return;
+    }
+    setState(() {});
+  }
 
   @override
   void dispose() {
+    widget.router.routerDelegate.removeListener(_onRouterChanged);
     _commandBar.dispose();
     _systemBars.dispose();
     super.dispose();
@@ -453,14 +493,14 @@ class _AppChromeState extends ConsumerState<AppChrome> {
     return DesktopMenuBar(
       settings: widget.settings,
       router: widget.router,
-      child: DesktopCommandBarScope(
-        active: true,
-        controller: _commandBar,
-        child: ValueListenableBuilder<bool>(
-          valueListenable: _commandBar.hidden,
-          builder: (context, commandBarHidden, _) {
-            final showCommandBar = !isFullScreen && !commandBarHidden;
-            return Overlay.wrap(
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _commandBar.hidden,
+        builder: (context, commandBarHidden, _) {
+          final showCommandBar = !isFullScreen && !commandBarHidden;
+          return DesktopCommandBarScope(
+            active: showCommandBar && !_isPreHome,
+            controller: _commandBar,
+            child: Overlay.wrap(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -486,9 +526,9 @@ class _AppChromeState extends ConsumerState<AppChrome> {
                   ),
                 ],
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

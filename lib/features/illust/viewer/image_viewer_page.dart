@@ -547,13 +547,19 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     ..scaleByDouble(scale, scale, scale, 1)
     ..translateByDouble(-focal.dx, -focal.dy, 0, 1);
 
+  void _stopZoomAnimation([int? page]) {
+    if (page != null) _targetZoomMatrices.remove(page);
+    if (page != null && _zoomTargetPage != page) return;
+    _zoomController.stop();
+    _zoomTarget = null;
+    _zoomTargetPage = null;
+    _zoomTween = null;
+  }
+
   void _animateZoom(TransformationController target, Matrix4 end) {
     final duration = MotionTokens.resolve(context, MotionTokens.spatial);
     if (duration == Duration.zero) {
-      _zoomController.stop();
-      _zoomTarget = null;
-      _zoomTargetPage = null;
-      _zoomTween = null;
+      _stopZoomAnimation();
       _targetZoomMatrices.remove(_activePage);
       target.value = end;
       return;
@@ -1093,17 +1099,18 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       ImageViewerPage.minScale,
       ImageViewerPage.maxScale,
     );
-    if (factor < 1 && next <= 1.001 && next >= 0.99) {
+    if ((factor < 1 && scale <= 1.001) || (next >= 0.94 && next <= 1.06)) {
       _animateZoom(target, Matrix4.identity());
       return;
     }
     final end = _focalZoom(focal, next / scale)..multiply(base);
+    final size = _stageSize();
     if (next > 1.0) {
-      final size = _stageSize();
-      final minTx = size.width * (1 - next);
-      final minTy = size.height * (1 - next);
-      end.setEntry(0, 3, end.entry(0, 3).clamp(minTx, 0.0));
-      end.setEntry(1, 3, end.entry(1, 3).clamp(minTy, 0.0));
+      end.setEntry(0, 3, end.entry(0, 3).clamp(size.width * (1 - next), 0.0));
+      end.setEntry(1, 3, end.entry(1, 3).clamp(size.height * (1 - next), 0.0));
+    } else {
+      end.setEntry(0, 3, size.width * (1 - next) / 2);
+      end.setEntry(1, 3, size.height * (1 - next) / 2);
     }
     _animateZoom(target, end);
   }
@@ -1164,15 +1171,18 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   void _handlePagePointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent || !mounted || _pageCount == 0) return;
+    final dy = event.scrollDelta.dy;
     if (_isShiftPressed()) {
-      if (event.scrollDelta.dy > 0) {
+      final delta = dy != 0 ? dy : event.scrollDelta.dx;
+      if (delta > 0) {
         _pageForward();
-      } else if (event.scrollDelta.dy < 0) {
+      } else if (delta < 0) {
         _pageBackward();
       }
       return;
     }
-    _zoomAt(event.localPosition, event.scrollDelta.dy < 0 ? 1.2 : 1 / 1.2);
+    if (dy == 0) return;
+    _zoomAt(event.localPosition, dy < 0 ? 1.2 : 1 / 1.2);
   }
 
   bool _isShiftPressed() => HardwareKeyboard.instance.logicalKeysPressed.any(
@@ -1204,7 +1214,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               minScale: ImageViewerPage.minScale,
               maxScale: ImageViewerPage.maxScale,
               panEnabled: _isZoomed(page),
-              onInteractionStart: (_) => _targetZoomMatrices.remove(page),
+              onInteractionStart: (_) => _stopZoomAnimation(page),
               // Tight constraints (U3): Center alone gives loose
               // constraints, so RenderImage laid out at its intrinsic
               // size (original pixels / DPR) and BoxFit.contain had
