@@ -1074,6 +1074,18 @@ abstract class AppLocalizations {
   /// **'无法得出结论——换个网络或稍后重试。'**
   String get networkProbeAdviceInconclusive;
 
+  /// No description provided for @networkProbeApplyCompat.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换到兼容优先'**
+  String get networkProbeApplyCompat;
+
+  /// No description provided for @networkProbeEnableDoh.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启 DoH 解析'**
+  String get networkProbeEnableDoh;
+
   /// No description provided for @copy.
   ///
   /// In zh, this message translates to:
@@ -1299,8 +1311,20 @@ abstract class AppLocalizations {
   /// No description provided for @profileEditUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'当前没有可用的应用内资料编辑通道。'**
+  /// **'暂无法编辑个人资料，请重新登录后再试。'**
   String get profileEditUnavailable;
+
+  /// No description provided for @profileEditNoChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'资料未作修改'**
+  String get profileEditNoChanges;
+
+  /// No description provided for @profileEditSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存个人资料失败，请稍后重试'**
+  String get profileEditSaveFailed;
 
   /// No description provided for @profileEditConfirmed.
   ///
@@ -1341,7 +1365,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileEditFieldUnsupported.
   ///
   /// In zh, this message translates to:
-  /// **'当前通道不支持此字段'**
+  /// **'当前暂不支持编辑此项'**
   String get profileEditFieldUnsupported;
 
   /// No description provided for @profileEditImageChoose.
@@ -2518,6 +2542,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'清除已完成'**
   String get downloadClearCompleted;
+
+  /// No description provided for @downloadFilterAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get downloadFilterAll;
+
+  /// No description provided for @downloadFilterActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'进行中'**
+  String get downloadFilterActive;
+
+  /// No description provided for @downloadFilterFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get downloadFilterFailed;
+
+  /// No description provided for @downloadFilterCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get downloadFilterCompleted;
+
+  /// No description provided for @downloadRetryAllFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试全部失败任务'**
+  String get downloadRetryAllFailed;
+
+  /// No description provided for @downloadFilterEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前筛选下暂无任务'**
+  String get downloadFilterEmpty;
+
+  /// No description provided for @downloadFailedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 项失败'**
+  String downloadFailedCount(int count);
 
   /// Undo prompt after download task records were removed
   ///
@@ -5078,7 +5144,7 @@ abstract class AppLocalizations {
   /// No description provided for @novelContentUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'当前 API 未提供小说正文'**
+  /// **'暂时无法获取小说正文'**
   String get novelContentUnavailable;
 
   /// No description provided for @novelLoadFailed.
@@ -6436,6 +6502,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'仅支持导入 .txt 文件'**
   String get localNovelsDropUnsupported;
+
+  /// Semantics label for starting ugoira animation playback
+  ///
+  /// In zh, this message translates to:
+  /// **'播放动图'**
+  String get ugoiraPlay;
+
+  /// Semantics label for pausing ugoira animation playback
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停动图'**
+  String get ugoiraPause;
+
+  /// Tooltip and semantics label for ugoira playback speed selector
+  ///
+  /// In zh, this message translates to:
+  /// **'播放倍速'**
+  String get ugoiraPlaybackSpeed;
 }
 
 class _AppLocalizationsDelegate

@@ -102,7 +102,7 @@ class MePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountStoreProvider);
     return accounts.when(
-      loading: () => const Scaffold(body: FeedLoading()),
+      loading: () => const Scaffold(body: ProfileSkeleton()),
       error: (error, _) => _ProfileStatusPage(
         icon: AppIcons.cloudOff,
         title: context.l10n.profileLoadFailed,
@@ -562,8 +562,12 @@ class _UserPageState extends ConsumerState<UserPage>
     );
     // The skeleton hands over to the profile with a fade; status pages are
     // FeedEmpty, which fades in by itself.
-    return Scaffold(
-      body: StateFade(kind: body is ProfileSkeleton, child: body),
+    return PrimaryScrollController(
+      controller: _outerScrollController,
+      automaticallyInheritForPlatforms: const {},
+      child: Scaffold(
+        body: StateFade(kind: body is ProfileSkeleton, child: body),
+      ),
     );
   }
 

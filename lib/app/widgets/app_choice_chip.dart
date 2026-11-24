@@ -1,8 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../haptics/app_haptics.dart';
-import '../motion/motion_tokens.dart';
-import '../motion/press_scale.dart';
 
 /// The app's only [ChoiceChip] / [FilterChip], with the haptic and the
 /// pill press scale built in.
@@ -44,13 +42,7 @@ class AppChoiceChip extends StatelessWidget {
   final bool _toggle;
 
   @override
-  Widget build(BuildContext context) {
-    return PressScale(
-      scale: MotionTokens.pillPressScale,
-      enabled: _onSelected != null || _onToggled != null,
-      child: _chip(),
-    );
-  }
+  Widget build(BuildContext context) => _chip();
 
   Widget _chip() {
     if (_toggle) {

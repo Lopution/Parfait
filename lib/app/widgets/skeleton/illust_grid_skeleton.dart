@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/settings/settings_controller.dart';
+import '../../layout/window_layout_spec.dart';
+import '../../navigation/home_shell_metrics.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../feed/feed_grid.dart';
 import '../feed/illust_card.dart';
@@ -37,11 +39,104 @@ class IllustGridSkeleton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final density = ref.watch(feedDensityProvider);
+    final direction = Directionality.of(context);
+    final pad = padding.resolve(direction);
+    final rail = HomeShellChrome.maybeOf(context)?.railExtent ?? 0.0;
+    final leftOrigin = direction == TextDirection.ltr ? rail : 0.0;
+    final windowSpec = WindowLayoutSpec.of(context);
     return FuncSkeleton(
       label: label,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final horizontal = padding.horizontal;
+          final tokens = FuncSemanticTokens.of(context);
+          Widget buildColumns({
+            required int columns,
+            required double columnWidth,
+            required EdgeInsets resolvedPadding,
+            required int columnOffset,
+          }) => Padding(
+            padding: resolvedPadding,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var c = 0; c < columns; c++) ...[
+                  if (c > 0) SizedBox(width: crossAxisSpacing),
+                  Expanded(
+                    child: _SkeletonColumn(
+                      column: c + columnOffset,
+                      columnWidth: columnWidth,
+                      maxHeight: constraints.maxHeight,
+                      mainAxisSpacing: mainAxisSpacing,
+                      titleStyle: tokens.label,
+                      authorStyle: tokens.caption,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+
+          final bookSplit = windowSpec.bookSplitFor(
+            constraints.maxWidth,
+            leftOrigin: leftOrigin,
+          );
+          if (bookSplit != null) {
+            final seamPad = crossAxisSpacing / 2;
+            final leftPad = EdgeInsets.fromLTRB(
+              pad.left,
+              pad.top,
+              seamPad,
+              pad.bottom,
+            );
+            final rightPad = EdgeInsets.fromLTRB(
+              seamPad,
+              pad.top,
+              pad.right,
+              pad.bottom,
+            );
+            final leftInner = bookSplit.leftWidth - leftPad.horizontal;
+            final rightInner = bookSplit.rightWidth - rightPad.horizontal;
+            final leftCols = math.max(
+              1,
+              illustColumnsForContext(context, leftInner, density),
+            );
+            final rightCols = math.max(
+              1,
+              illustColumnsForContext(context, rightInner, density),
+            );
+            return ClipRect(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: bookSplit.leftWidth,
+                    child: buildColumns(
+                      columns: leftCols,
+                      columnWidth:
+                          (leftInner - (leftCols - 1) * crossAxisSpacing) /
+                          leftCols,
+                      resolvedPadding: leftPad,
+                      columnOffset: 0,
+                    ),
+                  ),
+                  if (bookSplit.hingeGap > 0)
+                    SizedBox(width: bookSplit.hingeGap),
+                  Expanded(
+                    child: buildColumns(
+                      columns: rightCols,
+                      columnWidth:
+                          (rightInner - (rightCols - 1) * crossAxisSpacing) /
+                          rightCols,
+                      resolvedPadding: rightPad,
+                      columnOffset: leftCols,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final horizontal = pad.horizontal;
           final columns = illustColumnsForContext(
             context,
             constraints.maxWidth - horizontal,
@@ -52,28 +147,12 @@ class IllustGridSkeleton extends ConsumerWidget {
                   horizontal -
                   (columns - 1) * crossAxisSpacing) /
               columns;
-          final tokens = FuncSemanticTokens.of(context);
           return ClipRect(
-            child: Padding(
-              padding: padding,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var c = 0; c < columns; c++) ...[
-                    if (c > 0) SizedBox(width: crossAxisSpacing),
-                    Expanded(
-                      child: _SkeletonColumn(
-                        column: c,
-                        columnWidth: columnWidth,
-                        maxHeight: constraints.maxHeight,
-                        mainAxisSpacing: mainAxisSpacing,
-                        titleStyle: tokens.label,
-                        authorStyle: tokens.caption,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+            child: buildColumns(
+              columns: columns,
+              columnWidth: columnWidth,
+              resolvedPadding: pad,
+              columnOffset: 0,
             ),
           );
         },

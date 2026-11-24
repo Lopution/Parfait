@@ -12,6 +12,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/page_header.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../core/network/api_error.dart';
@@ -84,9 +85,7 @@ class _SpotlightFeedPageState extends State<SpotlightFeedPage>
 
   void _onTabChanged() {
     final category = _active;
-    if (!_loaded.contains(category)) {
-      setState(() => _loaded.add(category));
-    }
+    setState(() => _loaded.add(category));
     announceTabScroll(_notificationContext, _scrollControllerFor(category));
   }
 
@@ -99,49 +98,52 @@ class _SpotlightFeedPageState extends State<SpotlightFeedPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppTopBar(
-        contentWidth: ContentWidths.article,
-        title: Text(context.l10n.spotlightTitle),
-        tabsBesideTitle: PageHeader.isWide(context),
-        bottom: AppTabBar(
-          controller: _tabController,
-          onTap: (index) {
-            if (!_tabController.indexIsChanging) {
-              reTapScrollToTop(
-                context,
-                _scrollControllerFor(_categories[index]),
-              );
-            }
-          },
-          labels: [
-            for (final category in _categories)
-              l10nLookup(context.l10n, category.labelKey),
-          ],
+    return bindPrimaryScroll(
+      controller: _scrollControllerFor(_active),
+      child: Scaffold(
+        appBar: AppTopBar(
+          contentWidth: ContentWidths.article,
+          title: Text(context.l10n.spotlightTitle),
+          tabsBesideTitle: PageHeader.isWide(context),
+          bottom: AppTabBar(
+            controller: _tabController,
+            onTap: (index) {
+              if (!_tabController.indexIsChanging) {
+                reTapScrollToTop(
+                  context,
+                  _scrollControllerFor(_categories[index]),
+                );
+              }
+            },
+            labels: [
+              for (final category in _categories)
+                l10nLookup(context.l10n, category.labelKey),
+            ],
+          ),
         ),
-      ),
-      body: Builder(
-        builder: (context) {
-          _notificationContext = context;
-          return TabSwipeSwitcher(
-            tabController: _tabController,
-            prepareTab: _prepareTab,
-            child: TabSlideStack(
-              controller: _tabController,
-              children: [
-                for (final category in _categories)
-                  if (_loaded.contains(category))
-                    _SpotlightCategoryFeed(
-                      key: ValueKey(category),
-                      category: category,
-                      scrollController: _scrollControllerFor(category),
-                    )
-                  else
-                    const SizedBox.shrink(),
-              ],
-            ),
-          );
-        },
+        body: Builder(
+          builder: (context) {
+            _notificationContext = context;
+            return TabSwipeSwitcher(
+              tabController: _tabController,
+              prepareTab: _prepareTab,
+              child: TabSlideStack(
+                controller: _tabController,
+                children: [
+                  for (final category in _categories)
+                    if (_loaded.contains(category))
+                      _SpotlightCategoryFeed(
+                        key: ValueKey(category),
+                        category: category,
+                        scrollController: _scrollControllerFor(category),
+                      )
+                    else
+                      const SizedBox.shrink(),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -169,7 +171,7 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
     );
     final async = ref.watch(provider);
     return async.when(
-      loading: () => const FeedLoading(),
+      loading: () => SpotlightListSkeleton(label: context.l10n.contentLoading),
       error: (error, _) => FeedError(
         title: context.l10n.spotlightLoadFailed,
         error: error,
@@ -186,7 +188,7 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const FeedLoading();
+          return SpotlightListSkeleton(label: context.l10n.contentLoading);
         }
         final store = ref.watch(spotlightArticleStoreProvider);
         final articles = [

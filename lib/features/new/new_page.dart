@@ -27,6 +27,7 @@ import '../../app/widgets/page_header.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
@@ -202,75 +203,78 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final isIllust = widget.type == NewFeedType.illust;
-    return Scaffold(
-      // Root pages own no inline composer: leaving the default `true`
-      // would subscribe this whole subtree to per-frame viewInsets churn
-      // every time the IME animates (e.g. the push that hides the search
-      // keyboard) — a relayout storm across all five live branches.
-      resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(
-        titleSpacing: 0,
-        title: AppTabBar(
-          controller: _tabController,
-          onTap: _onTabTap,
-          labels: [
-            for (final scope in _scopes)
-              _newText(context, _scopeLabelKey(scope)),
+    return bindPrimaryScroll(
+      controller: _scrollControllerFor(_activeKey),
+      child: Scaffold(
+        // Root pages own no inline composer: leaving the default `true`
+        // would subscribe this whole subtree to per-frame viewInsets churn
+        // every time the IME animates (e.g. the push that hides the search
+        // keyboard) — a relayout storm across all five live branches.
+        resizeToAvoidBottomInset: false,
+        appBar: AppTopBar(
+          titleSpacing: 0,
+          title: AppTabBar(
+            controller: _tabController,
+            onTap: _onTabTap,
+            labels: [
+              for (final scope in _scopes)
+                _newText(context, _scopeLabelKey(scope)),
+            ],
+          ),
+          // Same entry as the ranking page's novel ranking. Other feature
+          // entries (watchlist, local novels) live in the Me tab's content
+          // group.
+          actions: [
+            if (isIllust) const DesktopGalleryControls(),
+            if (isIllust)
+              IconButton(
+                tooltip: context.l10n.newNovels,
+                onPressed: () => openNewNovels(context),
+                icon: const Icon(AppIcons.novel),
+              ),
+            const HeaderRefresh(),
+            HeaderSearch(
+              // The header searches the kind this page shows. The pushed
+              // novel page draws no entry (no branch root), but the kind it
+              // would open must still match its feeds.
+              type: switch (widget.type) {
+                NewFeedType.illust => SearchResultType.illust,
+                NewFeedType.novel => SearchResultType.novel,
+              },
+            ),
           ],
         ),
-        // Same entry as the ranking page's novel ranking. Other feature
-        // entries (watchlist, local novels) live in the Me tab's content
-        // group.
-        actions: [
-          if (isIllust) const DesktopGalleryControls(),
-          if (isIllust)
-            IconButton(
-              tooltip: context.l10n.newNovels,
-              onPressed: () => openNewNovels(context),
-              icon: const Icon(AppIcons.novel),
-            ),
-          const HeaderRefresh(),
-          HeaderSearch(
-            // The header searches the kind this page shows. The pushed
-            // novel page draws no entry (no branch root), but the kind it
-            // would open must still match its feeds.
-            type: switch (widget.type) {
-              NewFeedType.illust => SearchResultType.illust,
-              NewFeedType.novel => SearchResultType.novel,
+        body: DesktopInspectableGallery(
+          active: isIllust,
+          scopeKey: _scopes[_tabController.index],
+          child: Builder(
+            builder: (context) {
+              _notificationContext = context;
+              return TabSwipeSwitcher(
+                tabController: _tabController,
+                prepareTab: _prepareTab,
+                child: TabSlideStack(
+                  controller: _tabController,
+                  children: [
+                    for (final key in _scopes.map(_keyFor))
+                      // A scope slot builds its feed on first visit (or swipe
+                      // warm-up) and keeps it from then on.
+                      if (_loadedKeys.contains(key))
+                        _bodies.putIfAbsent(
+                          key,
+                          () => _NewFeedBody(
+                            key: ValueKey(key),
+                            feedKey: key,
+                            scrollController: _scrollControllerFor(key),
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                  ],
+                ),
+              );
             },
           ),
-        ],
-      ),
-      body: DesktopInspectableGallery(
-        active: isIllust,
-        scopeKey: _scopes[_tabController.index],
-        child: Builder(
-          builder: (context) {
-            _notificationContext = context;
-            return TabSwipeSwitcher(
-              tabController: _tabController,
-              prepareTab: _prepareTab,
-              child: TabSlideStack(
-                controller: _tabController,
-                children: [
-                  for (final key in _scopes.map(_keyFor))
-                    // A scope slot builds its feed on first visit (or swipe
-                    // warm-up) and keeps it from then on.
-                    if (_loadedKeys.contains(key))
-                      _bodies.putIfAbsent(
-                        key,
-                        () => _NewFeedBody(
-                          key: ValueKey(key),
-                          feedKey: key,
-                          scrollController: _scrollControllerFor(key),
-                        ),
-                      )
-                    else
-                      const SizedBox.shrink(),
-                ],
-              ),
-            );
-          },
         ),
       ),
     );
@@ -299,7 +303,7 @@ class _NewFeedBody extends ConsumerWidget {
 
   Widget _loading(BuildContext context) => feedKey.type == NewFeedType.illust
       ? IllustGridSkeleton(label: context.l10n.newLoading)
-      : FeedLoading(label: context.l10n.newLoading);
+      : NovelListSkeleton(label: context.l10n.newLoading);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

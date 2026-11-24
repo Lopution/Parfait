@@ -612,13 +612,19 @@ class _ToggleRailAction extends Action<_ToggleRailIntent> {
 
   @override
   bool isEnabled(_ToggleRailIntent intent) =>
-      onToggleRail != null &&
-      !isTextEditingFocused() &&
-      _canUseShellShortcut(router);
+      !isTextEditingFocused() && _canUseShellShortcut(router);
 
   @override
   Object? invoke(_ToggleRailIntent intent) {
-    onToggleRail?.call();
+    if (onToggleRail != null) {
+      onToggleRail!.call();
+      return null;
+    }
+    // On FormFactor.pc the rail is fixed expanded (onToggleRail == null), so
+    // Ctrl/Cmd+B opens Bookmarks instead of being a dead binding.
+    if (liveRouterUri(router).toString() != '/settings/me?tab=bookmarks') {
+      router.go('/settings/me?tab=bookmarks');
+    }
     return null;
   }
 }

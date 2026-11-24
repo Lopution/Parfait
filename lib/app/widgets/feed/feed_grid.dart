@@ -8,10 +8,13 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../layout/app_breakpoints.dart';
 import '../../layout/form_factor.dart';
 import '../../layout/sliver_cache_ramp.dart';
 import '../../layout/sliver_width_builder.dart';
+import '../../layout/window_layout_spec.dart';
 import '../../motion/motion_tokens.dart';
+import '../../navigation/home_shell_metrics.dart';
 import '../../theme/func_semantic_tokens.dart';
 import 'feed_item_cache.dart';
 import 'feed_selection.dart';
@@ -75,15 +78,17 @@ int illustColumnsFor(double crossAxisExtent, FeedDensity density) {
     };
 
 /// Column count for a masonry grid with the given cross-axis extent at
-/// [density]. On desktop (`FormFactor.pc`) all three densities use balanced
-/// desktop card extents ([_pcDensityGrid]) while mobile/tablet viewports keep
-/// [illustColumnsFor] unchanged.
+/// [density]. Wide viewports (`>= AppBreakpoints.expanded`, 840dp) and PC
+/// surfaces use balanced wider card extents ([_pcDensityGrid]) so large tablets
+/// and desktops avoid cramped 10-column strips, while phone/medium widths keep
+/// [illustColumnsFor].
 int illustColumnsForContext(
   BuildContext context,
   double crossAxisExtent,
   FeedDensity density,
 ) {
-  if (FormFactor.of(context) == FormFactor.pc) {
+  if (FormFactor.of(context) == FormFactor.pc ||
+      crossAxisExtent >= AppBreakpoints.expanded) {
     final grid = _pcDensityGrid(density);
     if (crossAxisExtent <= 0) return grid.minColumns;
     return math.max(
@@ -205,75 +210,163 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
       ]);
     }
     final density = ref.watch(feedDensityProvider);
-    final horizontal = widget.padding
-        .resolve(Directionality.of(context))
-        .horizontal;
+    final direction = Directionality.of(context);
+    final pad = widget.padding.resolve(direction);
+    final horizontal = pad.horizontal;
+    final rail = HomeShellChrome.maybeOf(context)?.railExtent ?? 0.0;
+    final leftOrigin = direction == TextDirection.ltr ? rail : 0.0;
+    final windowSpec = WindowLayoutSpec.of(context);
+
+    Widget buildMasonry({
+      required int columns,
+      required double columnWidth,
+      required EdgeInsets resolvedPadding,
+      required int count,
+      required int Function(int localIndex) sourceIndex,
+      required Object gridKey,
+    }) => SliverPadding(
+      padding: resolvedPadding,
+      sliver: SliverCacheRamp(
+        // Key by column count so cross-column resizes mount a fresh
+        // SliverMasonryGrid instead of hitting flutter_staggered_grid_view
+        // 0.7.0's in-place relayout bug (trailing child with null
+        // layoutOffset / out-of-range crossAxisIndex).
+        sliver: SliverMasonryGrid(
+          key: ValueKey(gridKey),
+          gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+          ),
+          mainAxisSpacing: widget.mainAxisSpacing,
+          crossAxisSpacing: widget.crossAxisSpacing,
+          delegate: SliverChildBuilderDelegate(
+            (context, localIndex) {
+              final index = sourceIndex(localIndex);
+              if (widget.warmTexts != null) _warmup.built(context, index);
+              final ids = widget.itemIds;
+              final rawItem =
+                  widget.items != null && index < widget.items!.length
+                  ? widget.items![index]
+                  : null;
+              final entityId = ids != null && index < ids.length
+                  ? ids[index]
+                  : (rawItem is IllustEntity ? rawItem.id : null);
+              final id = entityId ?? index;
+              Widget card = _cards.build(context, index, widget.itemBuilder);
+              if (selection != null && entityId != null) {
+                card = FeedSelectableCardDecorator(
+                  entityId: entityId,
+                  child: card,
+                );
+              }
+              return FeedItemExtent(
+                width: columnWidth,
+                child: TickerPartition(key: ValueKey(id), child: card),
+              );
+            },
+            childCount: count,
+            addAutomaticKeepAlives: false,
+          ),
+        ),
+      ),
+    );
+
     return SliverWidthBuilder(
       builder: (context, crossAxisExtent) {
-        final columns = illustColumnsForContext(
-          context,
-          crossAxisExtent - horizontal,
-          density,
+        final bookSplit = windowSpec.bookSplitFor(
+          crossAxisExtent,
+          leftOrigin: leftOrigin,
         );
-        final columnWidth =
-            (crossAxisExtent -
-                horizontal -
-                (columns - 1) * widget.crossAxisSpacing) /
-            columns;
-        Widget grid = SliverPadding(
-          padding: widget.padding,
-          sliver: SliverCacheRamp(
-            // Key by column count so cross-column resizes mount a fresh
-            // SliverMasonryGrid instead of hitting flutter_staggered_grid_view
-            // 0.7.0's in-place relayout bug (trailing child with null
-            // layoutOffset / out-of-range crossAxisIndex).
-            sliver: SliverMasonryGrid(
-              key: ValueKey(columns),
-              gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
+        Widget grid;
+        if (bookSplit != null) {
+          final seamPad = widget.crossAxisSpacing / 2;
+          final leftPad = EdgeInsets.fromLTRB(
+            pad.left,
+            pad.top,
+            seamPad,
+            pad.bottom,
+          );
+          final rightPad = EdgeInsets.fromLTRB(
+            seamPad,
+            pad.top,
+            pad.right,
+            pad.bottom,
+          );
+          final leftInner = bookSplit.leftWidth - leftPad.horizontal;
+          final rightInner = bookSplit.rightWidth - rightPad.horizontal;
+          final leftCols = math.max(
+            1,
+            illustColumnsForContext(context, leftInner, density),
+          );
+          final rightCols = math.max(
+            1,
+            illustColumnsForContext(context, rightInner, density),
+          );
+          final leftWidth =
+              (leftInner - (leftCols - 1) * widget.crossAxisSpacing) / leftCols;
+          final rightWidth =
+              (rightInner - (rightCols - 1) * widget.crossAxisSpacing) /
+              rightCols;
+          final totalCols = leftCols + rightCols;
+          final leftIndices = <int>[];
+          final rightIndices = <int>[];
+          for (var i = 0; i < widget.itemCount; i++) {
+            if (i % totalCols < leftCols) {
+              leftIndices.add(i);
+            } else {
+              rightIndices.add(i);
+            }
+          }
+          grid = SliverCrossAxisGroup(
+            slivers: [
+              SliverConstrainedCrossAxis(
+                maxExtent: bookSplit.leftWidth,
+                sliver: buildMasonry(
+                  columns: leftCols,
+                  columnWidth: leftWidth,
+                  resolvedPadding: leftPad,
+                  count: leftIndices.length,
+                  sourceIndex: (i) => leftIndices[i],
+                  gridKey: ('book-left', leftCols),
+                ),
               ),
-              mainAxisSpacing: widget.mainAxisSpacing,
-              crossAxisSpacing: widget.crossAxisSpacing,
-              // Feed cards are provider-backed/stateless. They do not own
-              // scroll-position state, so the default AutomaticKeepAlive
-              // wrapper only adds elements and notifications to every card.
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  if (widget.warmTexts != null) _warmup.built(context, index);
-                  final ids = widget.itemIds;
-                  final rawItem =
-                      widget.items != null && index < widget.items!.length
-                      ? widget.items![index]
-                      : null;
-                  final entityId = ids != null && index < ids.length
-                      ? ids[index]
-                      : (rawItem is IllustEntity ? rawItem.id : null);
-                  final id = entityId ?? index;
-                  Widget card = _cards.build(
-                    context,
-                    index,
-                    widget.itemBuilder,
-                  );
-                  if (selection != null && entityId != null) {
-                    card = FeedSelectableCardDecorator(
-                      entityId: entityId,
-                      child: card,
-                    );
-                  }
-                  // Keyed by work: a slot taking a different work mounts
-                  // afresh. Cards land in place, as in Shaft; only their
-                  // images fade in.
-                  return FeedItemExtent(
-                    width: columnWidth,
-                    child: TickerPartition(key: ValueKey(id), child: card),
-                  );
-                },
-                childCount: widget.itemCount,
-                addAutomaticKeepAlives: false,
+              if (bookSplit.hingeGap > 0)
+                SliverConstrainedCrossAxis(
+                  maxExtent: bookSplit.hingeGap,
+                  sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
+                ),
+              SliverCrossAxisExpanded(
+                flex: 1,
+                sliver: buildMasonry(
+                  columns: rightCols,
+                  columnWidth: rightWidth,
+                  resolvedPadding: rightPad,
+                  count: rightIndices.length,
+                  sourceIndex: (i) => rightIndices[i],
+                  gridKey: ('book-right', rightCols),
+                ),
               ),
-            ),
-          ),
-        );
+            ],
+          );
+        } else {
+          final columns = illustColumnsForContext(
+            context,
+            crossAxisExtent - horizontal,
+            density,
+          );
+          final columnWidth =
+              (crossAxisExtent -
+                  horizontal -
+                  (columns - 1) * widget.crossAxisSpacing) /
+              columns;
+          grid = buildMasonry(
+            columns: columns,
+            columnWidth: columnWidth,
+            resolvedPadding: pad,
+            count: widget.itemCount,
+            sourceIndex: (i) => i,
+            gridKey: columns,
+          );
+        }
         // Cards inside a grid with stable ids get the feed's work list as
         // their detail-pager source — tapping one opens the swipeable
         // detail, grids without ids (spotlight rows etc.) leave cards on

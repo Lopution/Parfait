@@ -187,6 +187,25 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>>
     observeRemote(key, bookmarked: bookmarked, restrict: restrict);
   }
 
+  /// Rolls back a queued offline intent whose background replay failed
+  /// permanently so the entry leaves `MutationStatus.queued` and accepts
+  /// subsequent taps and remote snapshots.
+  void failQueued(
+    BookmarkKey key, {
+    required bool bookmarked,
+    required Object error,
+  }) {
+    final entry = state[key];
+    final pending = entry?.pending;
+    if (entry == null ||
+        !entry.isQueued ||
+        pending == null ||
+        (pending.kind == BookmarkOpKind.add) != bookmarked) {
+      return;
+    }
+    fail(pending, error);
+  }
+
   /// Merges a remote bookmark snapshot. Pending/local-confirmed state is
   /// protected by the same revision boundary used by the request owner.
   void observeRemote(

@@ -428,14 +428,16 @@ class _NovelRubyInline extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          child: SelectionContainer.disabled(
-            child: Text(
-              reading,
-              textAlign: TextAlign.center,
-              style: rubyStyle,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
+          child: ExcludeSemantics(
+            child: SelectionContainer.disabled(
+              child: Text(
+                reading,
+                textAlign: TextAlign.center,
+                style: rubyStyle,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+              ),
             ),
           ),
         ),

@@ -234,7 +234,7 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
                   ),
                   textStyle: labelStyle,
                   minimumSize: minSize,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  tapTargetSize: MaterialTapTargetSize.padded,
                   // The long-press haptic is AppHaptics.longPress; the
                   // framework's own would double it (this also drops the tap
                   // click sound).

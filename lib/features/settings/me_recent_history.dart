@@ -316,10 +316,6 @@ class _MeRecentHistoryState extends ConsumerState<MeRecentHistory>
                   ),
                 ),
                 TextButton(
-                  style: TextButton.styleFrom(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  ),
                   onPressed: () => unawaited(openHistory(context)),
                   child: Text(context.l10n.detailViewAll),
                 ),

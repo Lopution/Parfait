@@ -62,10 +62,10 @@ reviewed: 2026-11-23
 ## Press and removal
 
 ### MOTION-06 One kind of press feedback per element
-- **Rule:** Each tappable element uses one press style: surface ink highlight (`THEME-01`) for rows/tiles/menus/buttons/bottom bar, or `PressScale` for cards (0.97) and pills (0.96); cards holding inner buttons (`PersonCard`) use surface highlight; `TagChip` omits ink because its 48dp target exceeds the pill; disabled controls show no press.
+- **Rule:** Each tappable element uses one press style: surface ink highlight (`THEME-01`) for rows/tiles/menus/buttons/chips/bottom bar, or `PressScale` for cards (0.97) and pills (0.96); cards pairing `PressScale` with `InkWell` for hover/focus silence press ink via `NoSplash.splashFactory` + `pressScaleInkOverlay`; cards holding inner buttons (`PersonCard`, `IllustSeriesSection`) use surface highlight; `TagChip` omits ink because its 48dp target exceeds the pill; disabled controls show no press.
 - **Why:** Combining ripple and scale read as double-presses, and raw pointer scaling shrank cards when inner buttons were tapped.
-- **Check:** `test/motion_test.dart` "inside a scrollable a swipe never shows the press" "the press-feedback setting turns the scale off"; `test/spotlight_feed_test.dart` "spotlight feed page lists articles, switches category, opens article"
-- **Code:** `lib/app/motion/press_scale.dart`
+- **Check:** `test/motion_test.dart` "inside a scrollable a swipe never shows the press" "the press-feedback setting turns the scale off"; `test/spotlight_feed_test.dart` "spotlight feed page lists articles, switches category, opens article" "SpotlightListSkeleton renders bones, AppChoiceChip omits PressScale, and UserPreviewRow mounts Hero without press ink"
+- **Code:** `lib/app/motion/press_scale.dart`, `lib/app/widgets/app_choice_chip.dart`, `lib/features/illust/detail/widgets/illust_series_section.dart`
 
 ### MOTION-18 Drags take the device's slop; sideways pagers judge the angle
 - **Rule:** Custom drag recognizers read `MediaQuery.maybeGestureSettingsOf(context)` and `computeHitSlop` (never hard-coded `kTouchSlop`). Viewer pagers use `PagingSlop` / `PagingSlopPage` (`minFlingDistance` stays device slop); detail pagers inside `SelectionArea` judge angle at 1x device slop (excluding mouse) so `SelectableRegion`'s 18px recognizer cannot steal touch swipes; tab/branch swipes (`SwipePagingRecognizer`) require `<= swipePagingMaxDegrees` (40 deg) off horizontal.

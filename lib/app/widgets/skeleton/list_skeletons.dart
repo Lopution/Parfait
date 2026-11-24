@@ -87,6 +87,54 @@ class UserListSkeleton extends StatelessWidget {
   );
 }
 
+/// First-load placeholder matching [SpotlightArticleCard] (16:9 cover,
+/// two-line title, date) inside [ContentWidths.management].
+class SpotlightListSkeleton extends StatelessWidget {
+  const SpotlightListSkeleton({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => FuncSkeleton(
+    label: label,
+    child: _SkeletonList(
+      carded: false,
+      rowExtent: (width) => width * 9 / 16 + 76,
+      row: (context) {
+        final tokens = FuncSemanticTokens.of(context);
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FuncSpacing.lg,
+            vertical: FuncSpacing.sm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AspectRatio(
+                aspectRatio: 16 / 9,
+                child: SkeletonBone(
+                  height: double.infinity,
+                  borderRadius: FuncShape.card,
+                ),
+              ),
+              const SizedBox(height: FuncSpacing.xs),
+              FractionallySizedBox(
+                widthFactor: 0.78,
+                child: SkeletonBone.text(style: tokens.title),
+              ),
+              const SizedBox(height: FuncSpacing.xs),
+              FractionallySizedBox(
+                widthFactor: 0.32,
+                child: SkeletonBone.text(style: tokens.caption),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
 /// The card margin every list row uses.
 const _cardMargin = EdgeInsets.symmetric(
   horizontal: FuncSpacing.md,

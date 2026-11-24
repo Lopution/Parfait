@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart'
     show PointerDeviceKind, kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
+import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
@@ -22,9 +24,11 @@ import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
+import 'package:parfait/features/novel/novel_reader_series_nav.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
+import 'helpers/fake_account.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/localized_app.dart';
@@ -277,6 +281,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(binding.saves, hasLength(2));
   });
+
+  testWidgets(
+    'Home/End jump pages, T opens TOC, and B toggles novel bookmark',
+    (tester) async {
+      final log = <String>[];
+      final container = await signedInApiContainer(
+        MockClient((request) async {
+          log.add(request.url.path);
+          return jsonResponse({});
+        }),
+      );
+      addTearDown(container.dispose);
+      final binding = _RecordingBinding();
+      await tester.pumpWidget(
+        _stageApp(binding, chapters: true, container: container),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // End jumps to the last page, Home returns to page 1.
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('1/'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('1/'), findsOneWidget);
+
+      // B toggles bookmark for online novels (id > 0).
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.pumpAndSettle();
+      expect(log, contains('/v2/novel/bookmark/add'));
+
+      // T opens the TOC / progress sheet.
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+      await tester.pumpAndSettle();
+      expect(find.text('第 2 章'), findsOneWidget);
+    },
+  );
 
   testWidgets('chrome and page turns keep the reader and its lines', (
     tester,
@@ -843,6 +886,140 @@ void main() {
       expect(scrollEngine.batches.first, isNot(contains('paragraph 0')));
     },
   );
+
+  testWidgets(
+    'iOS left-edge swipe pops NovelReaderStage even while chrome is visible and restores edgeToEdge',
+    (tester) async {
+      final systemUiModes = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+              systemUiModes.add(call.arguments as String);
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      installPreferencesForTest(memoryPreferences({}));
+      setViewSize(tester, const Size(400, 800));
+
+      final container = ProviderContainer.test();
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: Builder(
+            builder: (rootCtx) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(rootCtx).push<void>(
+                  FuncPage<void>(
+                    child: NovelReaderStage(
+                      spec: NovelReaderStageSpec(
+                        novel: _novel('reader ' * 200),
+                        infoTooltip: 'info',
+                        infoSheet: (_) => const Text('info sheet'),
+                        progress: _RecordingBinding(),
+                      ),
+                    ),
+                  ).createRoute(rootCtx),
+                ),
+                child: const Text('open-reader'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open-reader'));
+      await tester.pumpAndSettle();
+
+      // Open chrome so _chromeVisible == true.
+      await tester.tapAt(const Offset(200, 400));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsOneWidget);
+      systemUiModes.clear();
+
+      // Left-edge iOS swipe pops the reader and restores SystemUiMode.edgeToEdge.
+      await tester.dragFrom(const Offset(12, 400), const Offset(280, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('open-reader'), findsOneWidget);
+      expect(find.byType(NovelReaderStage), findsNothing);
+      expect(systemUiModes, contains('SystemUiMode.edgeToEdge'));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
+    'accessibleNavigation pins reader chrome open with canPop, F toggles chrome, ruby excludes reading, and 1.5x chapters/series/pointer-cue keep >=48dp without overflow',
+    (tester) async {
+      // 1. accessibleNavigation pins chrome open and keeps PopScope canPop true.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final binding = _RecordingBinding();
+      await tester.pumpWidget(_stageApp(binding, chapters: true));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsOneWidget);
+      final popScope = tester.widget<PopScope<dynamic>>(
+        find.byWidgetPredicate((w) => w is PopScope),
+      );
+      expect(popScope.canPop, isTrue);
+
+      // 2. F toggles chrome open and closed in standard mode; pointer cue >= 48dp.
+      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          text: '[[rb:漢字 > かんじ]] text ' * 40,
+          inputModality: InputModality.pointer,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cueSize = tester.getSize(
+        find.byKey(const ValueKey('novel-pointer-cue')),
+      );
+      expect(cueSize.width, greaterThanOrEqualTo(48));
+      expect(cueSize.height, greaterThanOrEqualTo(48));
+
+      // Ruby reading is excluded from semantics tree while base remains.
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(find.bySemanticsLabel(RegExp('かんじ')), findsNothing);
+      } finally {
+        semantics.dispose();
+      }
+
+      expect(find.byTooltip('info'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsNothing);
+
+      // 3. Large text scale (1.5x) renders NovelAdjacentBar with zero overflow.
+      await tester.pumpWidget(
+        localizedApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(360, 640),
+              textScaler: TextScaler.linear(1.5),
+            ),
+            child: const Scaffold(body: NovelAdjacentBar(prevId: 1, nextId: 3)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.byType(NovelAdjacentBar)).height,
+        greaterThanOrEqualTo(novelSeriesBarHeight),
+      );
+    },
+  );
 }
 
 class _CountingPreferences extends SharedPreferencesAsync {
@@ -922,6 +1099,7 @@ Widget _stageApp(
   NovelSpreadMode spreadMode = NovelSpreadMode.auto,
   InputModality? inputModality,
   NovelMarkerBinding? marker,
+  ProviderContainer? container,
 }) {
   installPreferencesForTest(
     memoryPreferences({
@@ -945,12 +1123,15 @@ Widget _stageApp(
     ),
   );
   return localizedApp(
-    overrides: [
-      if (preferences != null)
-        sharedPreferencesProvider.overrideWithValue(preferences),
-      if (translation != null)
-        translationServiceProvider.overrideWithValue(translation),
-    ],
+    container: container,
+    overrides: container != null
+        ? null
+        : [
+            if (preferences != null)
+              sharedPreferencesProvider.overrideWithValue(preferences),
+            if (translation != null)
+              translationServiceProvider.overrideWithValue(translation),
+          ],
     builder: promptHostBuilder,
     theme: theme,
     body: inputModality == null

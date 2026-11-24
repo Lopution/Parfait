@@ -475,4 +475,59 @@ void main() {
     expect(await world.store.listFor('100'), hasLength(1));
     expect(world.fixture.requests, hasLength(1));
   });
+
+  test(
+    'permanent replay failure rolls back queued bookmark and follow so taps and snapshots recover',
+    () async {
+      final world = await _makeWorld();
+      addTearDown(world.container.dispose);
+      world.fixture.failures['illust'] = http.ClientException('offline');
+      world.fixture.failures['follow'] = http.ClientException('offline');
+
+      await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
+      await world.container.read(followActionsProvider).toggle(42);
+      expect(
+        world.container.read(bookmarkStoreProvider)[_illustKey]!.isQueued,
+        isTrue,
+      );
+      expect(world.container.read(followStoreProvider)[42]!.isQueued, isTrue);
+
+      // Connectivity returns, then the server permanently rejects both (403).
+      world.fixture.failures.clear();
+      world.fixture.statuses['illust'] = 403;
+      world.fixture.statuses['follow'] = 403;
+      final queue = world.container.read(actionQueueProvider);
+      for (var i = 0; i < queue.maxAttempts; i++) {
+        for (final row in await world.store.listFor('100')) {
+          if (row.status == ActionStatus.pending) {
+            await world.store.markPending(row.id, attempt: row.attempt);
+          }
+        }
+        await queue.drain('100');
+      }
+
+      final bm = world.container.read(bookmarkStoreProvider)[_illustKey]!;
+      final fl = world.container.read(followStoreProvider)[42]!;
+      expect(bm.isUnsettled, isFalse);
+      expect(bm.shown, isFalse);
+      expect(bm.status, MutationStatus.failed);
+      expect(fl.isUnsettled, isFalse);
+      expect(fl.shown, isFalse);
+      expect(fl.status, MutationStatus.failed);
+      expect(queue.telemetry.dropped, 2);
+
+      // Remote snapshots merge again, and a fresh tap succeeds instead of deadlocking.
+      world.fixture.statuses.clear();
+      world.container
+          .read(bookmarkStoreProvider.notifier)
+          .observeRemote(_illustKey, bookmarked: false);
+      await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
+      await world.container.read(followActionsProvider).toggle(42);
+      expect(
+        world.container.read(bookmarkStoreProvider)[_illustKey]!.bookmarked,
+        isTrue,
+      );
+      expect(world.container.read(followStoreProvider)[42]!.followed, isTrue);
+    },
+  );
 }

@@ -15,6 +15,7 @@ import '../../layout/app_breakpoints.dart';
 import '../../layout/input_modality.dart';
 import '../../motion/app_overlays.dart';
 import '../../motion/motion_tokens.dart';
+import '../../motion/spring_size.dart';
 import '../../navigation/home_shell_metrics.dart';
 import '../../navigation/route_facade.dart';
 import '../../pull_to_refresh.dart';
@@ -455,71 +456,6 @@ class _FeedClearSelectionAction extends Action<_FeedClearSelectionIntent> {
   }
 }
 
-/// Top sliver strip shown above `>= 600dp` grids once selection mode is
-/// active, exposing count, Select All, and Clear Selection controls.
-class FeedSelectionHeaderStrip extends StatelessWidget {
-  const FeedSelectionHeaderStrip({super.key, required this.controller});
-
-  final FeedSelectionController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        if (!controller.hasSelection) {
-          return const SizedBox.shrink();
-        }
-        final l10n = context.l10n;
-        final colors = Theme.of(context).colorScheme;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            FuncSpacing.sm,
-            FuncSpacing.xs,
-            FuncSpacing.sm,
-            FuncSpacing.xs,
-          ),
-          child: Material(
-            color: colors.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: FuncShape.control,
-              side: BorderSide(color: colors.outlineVariant),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: FuncSpacing.md,
-                vertical: FuncSpacing.xs,
-              ),
-              child: Row(
-                children: [
-                  Icon(UiIcons.checkCircle, size: 18, color: colors.primary),
-                  const SizedBox(width: FuncSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      l10n.selectedCount(controller.selectedCount),
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: controller.selectAll,
-                    icon: const Icon(UiIcons.selectAll, size: 18),
-                    label: Text(l10n.selectAll),
-                  ),
-                  const SizedBox(width: FuncSpacing.xs),
-                  TextButton(
-                    onPressed: controller.clearSelection,
-                    child: Text(l10n.batchClearSelection),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 /// Contextual batch action bar rendered by [SelectableFeedHost] while items
 /// are selected (`Download Original`, `Public Bookmark`, `Private Bookmark`,
 /// `Clear Selection`): an inline top toolbar on desktop pointer layouts and a
@@ -536,15 +472,11 @@ class FeedBatchActionBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final (duration, curve) = MotionTokens.springCurve(
-      context,
-      MotionSpring.spatialFast,
-    );
     final content = ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
         if (!controller.hasSelection) {
-          return const SizedBox.shrink();
+          return const SizedBox.shrink(key: ValueKey('feed-batch-empty'));
         }
         final l10n = context.l10n;
         final theme = Theme.of(context);
@@ -671,12 +603,19 @@ class FeedBatchActionBar extends ConsumerWidget {
         );
       },
     );
-    if (!inlineTop) return content;
-    return AnimatedSize(
-      duration: duration,
-      curve: curve,
-      alignment: Alignment.topCenter,
-      child: content,
+    if (inlineTop) {
+      return SpringSize(alignment: Alignment.topCenter, child: content);
+    }
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => AnimatedSwitcher(
+        duration: MotionTokens.resolve(context, MotionTokens.chrome),
+        switchInCurve: MotionTokens.chromeCurve,
+        switchOutCurve: MotionTokens.chromeCurve,
+        child: controller.hasSelection
+            ? content
+            : const SizedBox.shrink(key: ValueKey('feed-batch-hidden')),
+      ),
     );
   }
 

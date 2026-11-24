@@ -221,3 +221,19 @@ void announceTabScroll(BuildContext context, ScrollController controller) {
     ).dispatch(context);
   });
 }
+
+/// Binds [controller] to the route's [PrimaryScrollController] for explicit
+/// lookups such as iOS status-bar tap-to-top (`Scaffold.handleStatusBarTap`)
+/// while disabling automatic inheritance so sibling or nested scrollables
+/// never collide on the same controller.
+Widget bindPrimaryScroll({
+  required ScrollController? controller,
+  required Widget child,
+}) {
+  if (controller == null) return child;
+  return PrimaryScrollController(
+    controller: controller,
+    automaticallyInheritForPlatforms: const {},
+    child: child,
+  );
+}

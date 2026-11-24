@@ -88,6 +88,10 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> completeGuide() =>
       _update((settings) => settings.copyWith(guideCompleted: true));
 
+  Future<void> acknowledgeLoginProxyNotice() => _update(
+    (settings) => settings.copyWith(loginProxyNoticeAcknowledged: true),
+  );
+
   Future<void> selectImageSource(String imageSource) {
     if (!ImageMirror.isValidSource(imageSource)) {
       throw ArgumentError.value(imageSource, 'imageSource');

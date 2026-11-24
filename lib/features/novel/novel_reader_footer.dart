@@ -35,8 +35,10 @@ double novelReaderFooterReserve(
       textDirection: textDirection,
       maxLines: 1,
     )..layout();
-    final cueHeight =
-        math.max(_cueIconSize, cuePainter.height) + FuncSpacing.xxs * 2;
+    final cueHeight = math.max(
+      kMinInteractiveDimension,
+      math.max(_cueIconSize, cuePainter.height) + FuncSpacing.xxs * 2,
+    );
     cuePainter.dispose();
     bandHeight = math.max(bandHeight, cueHeight);
   }
@@ -199,33 +201,49 @@ class NovelReaderFooterStrip extends StatelessWidget {
                   ),
                   const SizedBox(width: FuncSpacing.sm),
                   Material(
-                    color: cueBackground,
-                    shape: const StadiumBorder(),
+                    type: MaterialType.transparency,
                     child: InkWell(
                       key: const ValueKey('novel-pointer-cue'),
                       customBorder: const StadiumBorder(),
                       onTap: onShowChrome,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: FuncSpacing.sm,
-                          vertical: FuncSpacing.xxs,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minWidth: kMinInteractiveDimension,
+                          minHeight: kMinInteractiveDimension,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              UiIcons.more,
-                              size: _cueIconSize,
-                              color: cueForeground,
+                        child: Center(
+                          widthFactor: 1,
+                          child: DecoratedBox(
+                            decoration: ShapeDecoration(
+                              color: cueBackground,
+                              shape: const StadiumBorder(),
                             ),
-                            const SizedBox(width: FuncSpacing.xs),
-                            Text(
-                              showToolbarLabel,
-                              maxLines: 1,
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(color: cueForeground),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: FuncSpacing.sm,
+                                vertical: FuncSpacing.xxs,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    UiIcons.more,
+                                    size: _cueIconSize,
+                                    color: cueForeground,
+                                  ),
+                                  const SizedBox(width: FuncSpacing.xs),
+                                  Text(
+                                    showToolbarLabel,
+                                    maxLines: 1,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(color: cueForeground),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

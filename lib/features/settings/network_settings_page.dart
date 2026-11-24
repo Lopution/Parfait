@@ -14,6 +14,7 @@ import '../../app/widgets/settings/settings_action_tile.dart';
 import '../../app/widgets/app_spinner.dart';
 import '../../app/widgets/settings/settings_anchor.dart';
 import '../../app/widgets/settings/settings_choice_tile.dart';
+import '../../app/widgets/settings/settings_control.dart';
 import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings/settings_group_content.dart';
 import '../../app/widgets/settings/settings_tile.dart';
@@ -563,6 +564,22 @@ class _NetworkAdvancedSettingsPageState
               bottom: FuncSpacing.xxxl,
             ),
             children: [
+              // Instant-save toggle stays separate from the draft Save card (SET-09).
+              SettingsGroup(
+                children: [
+                  SettingsControl(
+                    setting: Setting.dohEnabled,
+                    subtitle: Text(context.l10n.networkDohHint),
+                    value: settings.enableDoh,
+                    onChanged: (value) => persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .setDohEnabled(value),
+                    ),
+                  ),
+                ],
+              ),
               // One card: Save commits both fields, so they share it.
               SettingsGroup(
                 children: [

@@ -7,15 +7,17 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/widgets/app_accordion.dart';
+import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_spinner.dart';
 import '../../app/widgets/app_top_bar.dart';
-import '../../core/network/compat/network_contracts.dart';
+import '../../core/network/compat/network_contracts.dart' hide NetworkMode;
 import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/network/compat/secure_resolver.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../core/network/pixiv_client_identity.dart';
+import '../../core/settings/app_settings.dart' show NetworkMode;
 import '../../core/settings/settings_controller.dart';
 import '../../core/log.dart';
 import '../../l10n/context.dart';
@@ -303,7 +305,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
 
 /// Summary-first overview (design §9): conclusion counts, the worst host and
 /// one actionable suggestion sit above the per-host detail cards.
-class NetworkProbeOverview extends StatelessWidget {
+class NetworkProbeOverview extends ConsumerWidget {
   const NetworkProbeOverview({
     super.key,
     required this.reports,
@@ -337,8 +339,10 @@ class NetworkProbeOverview extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final networkMode = ref.watch(networkModeProvider);
+    final dohEnabled = ref.watch(dohEnabledProvider);
     final finished = reports.values.whereType<NetworkProbeReport>().toList();
     final counts = <NetworkProbeConclusion, int>{};
     for (final report in finished) {
@@ -352,6 +356,15 @@ class NetworkProbeOverview extends StatelessWidget {
             (a, b) =>
                 _severity(a.conclusion) >= _severity(b.conclusion) ? a : b,
           );
+    final suggestCompat =
+        worst != null &&
+        (worst.conclusion == NetworkProbeConclusion.sniBlocked ||
+            worst.conclusion == NetworkProbeConclusion.noSniAvailable) &&
+        networkMode != NetworkMode.compatPrefer;
+    final suggestDoh =
+        worst != null &&
+        worst.conclusion == NetworkProbeConclusion.dnsPolluted &&
+        !dohEnabled;
     return Card(
       margin: const EdgeInsets.only(bottom: FuncSpacing.md),
       child: Padding(
@@ -412,6 +425,32 @@ class NetworkProbeOverview extends StatelessWidget {
                 _probeText(context, _adviceKey(worst.conclusion)),
                 style: theme.textTheme.bodySmall,
               ),
+              if (suggestCompat || suggestDoh) ...[
+                const SizedBox(height: FuncSpacing.sm),
+                OutlinedButton.icon(
+                  icon: const Icon(AppIcons.network, size: 18),
+                  label: Text(
+                    suggestCompat
+                        ? context.l10n.networkProbeApplyCompat
+                        : context.l10n.networkProbeEnableDoh,
+                  ),
+                  onPressed: () async {
+                    final saved = await persistSettings(
+                      context,
+                      () => suggestCompat
+                          ? ref
+                                .read(settingsProvider.notifier)
+                                .setNetworkMode(NetworkMode.compatPrefer)
+                          : ref
+                                .read(settingsProvider.notifier)
+                                .setDohEnabled(true),
+                    );
+                    if (saved && context.mounted) {
+                      showAppSnackBar(context, context.l10n.saved);
+                    }
+                  },
+                ),
+              ],
             ],
           ],
         ),

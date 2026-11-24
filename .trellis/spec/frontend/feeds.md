@@ -24,10 +24,10 @@ reviewed: 2026-11-23
 ## Status views
 
 ### FEED-01 Status views come from feed_states.dart
-- **Rule:** Empty, error, and tail states use `FeedEmpty`, `FeedError`, and `FeedTail` (custom restricted/blocked states use `StateActionButton`) with required localized strings and no English fallbacks. Empty/error views place a 40dp `onSurfaceVariant` icon on a `surfaceContainerHigh` disc above a `titleSmall` title (no explanatory prose, PAGE-20), positioned at optical center (40% free space above, accounting for toolbar extensions at layout). Oversized empty views scroll only when taller than their viewport so pull-to-refresh keeps normal drags.
-- **Why:** Prevents untranslated fallbacks, drifting status layouts, off-center views under tabs, and overflow on landscape phones.
-- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without" "an empty state scrolls only when the window cannot hold it"
-- **Code:** `lib/app/widgets/feed/feed_states.dart`
+- **Rule:** Empty, error, and tail states use `FeedEmpty`, `FeedError`, and `FeedTail` (custom restricted/blocked states use `StateActionButton`) with required localized strings and no English fallbacks. Empty/error views place a 40dp `onSurfaceVariant` icon on a `surfaceContainerHigh` disc above a `titleSmall` title (no explanatory prose, PAGE-20), positioned at optical center (40% free space above, accounting for toolbar extensions at layout). `FeedError` offers category-scoped secondary recovery buttons (Network settings for network/DNS/TLS errors, Account settings for auth errors) guarded by `GoRouter.maybeOf` and popping `PopupRoute` ancestors first; signed-out `HistoryPage` uses `FeedEmpty` with a Login action. Oversized empty views scroll only when taller than their viewport so pull-to-refresh keeps normal drags.
+- **Why:** Prevents untranslated fallbacks, drifting status layouts, dead-end network/auth error walls, off-center views under tabs, and overflow on landscape phones.
+- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without" "an empty state scrolls only when the window cannot hold it" "FeedError exposes category-scoped settings action with GoRouter and LoginWebViewErrorCard offers browser fallback", `test/history_page_test.dart` "signed-out state uses FeedEmpty with Login action"
+- **Code:** `lib/app/widgets/feed/feed_states.dart`, `lib/features/history/history_page.dart`
 
 ### FEED-02 Refresh only where content can still arrive
 - **Rule:** Empty views offer `refresh` only on live feeds; genuinely empty views (no works, empty history, no search hits) offer no refresh/retry (at most an alternate action). When user settings explain emptiness (history off, active search filters), name it and offer a one-tap reversal.
@@ -56,10 +56,10 @@ reviewed: 2026-11-23
 - **Code:** `lib/app/widgets/feed/feed_grid.dart`
 
 ### FEED-19 Grid columns follow the user's density
-- **Rule:** Every illustration grid uses `IllustFeedGrid` with `illustColumnsForContext(context, extent, density)` over `illustColumnsFor(extent, density)`: mobile/tablet min card extent 120/180/360dp and min columns 3/2/1 (compact/standard/comfortable); `FormFactor.pc` uses 176/204/268dp for compact/standard/comfortable (min columns 3/2/1; keeping 3 columns beside the 1280px inspector and ~5 columns full-width at 1440px).
-- **Why:** User decision: unified density preference with comfortable desktop proportions.
-- **Check:** `test/responsive_layout_test.dart` "illustColumnsFor derives columns from the extent and density" "IllustFeedGrid counts columns on the sliver extent, not the window" "PC standard grid keeps 3 columns at 1280px inspector width"
-- **Code:** `lib/app/widgets/feed/feed_grid.dart`, `lib/core/settings/app_settings.dart`
+- **Rule:** Every illustration grid uses `IllustFeedGrid` with `illustColumnsForContext(context, extent, density)` over `illustColumnsFor(extent, density)`: compact/medium touch viewports (`< AppBreakpoints.expanded`) use min card extent 120/180/360dp and min columns 3/2/1 (compact/standard/comfortable); `FormFactor.pc` and wide tablets (`crossAxisExtent >= AppBreakpoints.expanded`, 840dp) use 176/204/268dp for compact/standard/comfortable (min columns 3/2/1; keeping 3 columns beside the 1280px inspector, ~5 columns full-width at 1440px, and avoiding 10-column cramping on 1366dp tablets). Under `FoldPosture.book`, `IllustFeedGrid` splits items across left/right wings around `hingeBounds` via `WindowLayoutSpec.bookSplitFor` so cards never straddle the hinge.
+- **Why:** User decision: unified density preference with comfortable desktop/large-tablet proportions and hinge-safe foldable grids.
+- **Check:** `test/responsive_layout_test.dart` "illustColumnsFor derives columns from the extent and density" "IllustFeedGrid counts columns on the sliver extent, not the window" "PC standard grid keeps 3 columns at 1280px inspector width" "FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping"
+- **Code:** `lib/app/widgets/feed/feed_grid.dart`, `lib/app/layout/window_layout_spec.dart`, `lib/core/settings/app_settings.dart`
 
 ### FEED-05 No feed prefetch
 - **Rule:** Feeds never prefetch images; grid cache extent mounts cards ahead and each card fetches on mount.
@@ -152,10 +152,10 @@ reviewed: 2026-11-23
 ## First-load skeletons
 
 ### FEED-14 Skeletons cover the first load only
-- **Rule:** Initial loads paint a layout-shaped skeleton (never `FeedEmpty`, blank space, or a lone spinner; non-grid surfaces use `FeedLoading`); refresh and load-more keep existing content; `IllustDetailSkeleton` shows only without `initialEntity`.
-- **Why:** Dropping content on refresh or masking snapshots broke Hero hand-offs.
-- **Check:** manual
-- **Code:** `lib/app/widgets/skeleton/func_skeleton.dart`, `lib/features/illust/detail/widgets/illust_detail_skeleton.dart`
+- **Rule:** Initial loads of network feeds paint a layout-shaped skeleton (`IllustGridSkeleton`, `NovelListSkeleton`, `UserListSkeleton`, `SpotlightListSkeleton`, `ProfileSkeleton`; never `FeedEmpty`, blank space, or a lone spinner; instant local SQLite pages may omit shimmer); refresh and load-more keep existing content; `IllustDetailSkeleton` shows only without `initialEntity`.
+- **Why:** Dropping content on refresh or masking snapshots broke Hero hand-offs, while bare spinners on slow network lists caused layout jumps.
+- **Check:** `test/spotlight_feed_test.dart` "SpotlightListSkeleton renders bones, AppChoiceChip omits PressScale, and UserPreviewRow mounts Hero without press ink"
+- **Code:** `lib/app/widgets/skeleton/func_skeleton.dart`, `lib/app/widgets/skeleton/list_skeletons.dart`, `lib/features/illust/detail/widgets/illust_detail_skeleton.dart`
 
 ### FEED-15 One skeleton root paints, animates and speaks
 - **Rule:** The outermost `FuncSkeleton` owns the single shimmer controller, shared gradient (painted per `SkeletonBone`, no `ShaderMask`), and single localized loading semantics node (`UserListSkeleton` separates title and `@handle` bones). Nested `FuncSkeleton`s render their child as-is; reduced motion keeps bones static.
@@ -164,9 +164,9 @@ reviewed: 2026-11-23
 - **Code:** `lib/app/widgets/skeleton/func_skeleton.dart`, `lib/app/widgets/skeleton/list_skeletons.dart`
 
 ### FEED-16 Skeleton geometry matches the real layout
-- **Rule:** `IllustGridSkeleton` matches `illustColumnsFor`, padding, and spacing (non-scrolling, clipped); `ProfileSkeleton` aligns avatar/name with the real header and keeps a real `BackButton` outside excluded semantics.
+- **Rule:** `IllustGridSkeleton` matches `illustColumnsForContext`, `FoldPosture.book` wing splits (`WindowLayoutSpec.bookSplitFor`), padding, and spacing (non-scrolling, clipped); `ProfileSkeleton` aligns avatar/name with the real header and keeps a real `BackButton` outside excluded semantics.
 - **Why:** Prevents layout jumps on load and lets users leave slow profiles.
-- **Check:** `test/user_profile_test.dart` "a pending profile shows the skeleton and the back button leaves"
+- **Check:** `test/user_profile_test.dart` "a pending profile shows the skeleton and the back button leaves"; `test/responsive_layout_test.dart` "FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping"
 - **Code:** `lib/app/widgets/skeleton/illust_grid_skeleton.dart`, `lib/features/profile/profile_skeleton.dart`
 
 ### FEED-23 A restored offset lands on content or on a skeleton that reaches it

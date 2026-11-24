@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/accessibility/immersive_chrome_policy.dart';
 import '../../../app/clipboard.dart';
 import '../../../app/format/app_format.dart';
 import '../../../app/layout/app_breakpoints.dart';
@@ -56,6 +57,8 @@ export '../../../app/navigation/viewer_session.dart'
     show beginImageViewerSession, debugResetViewerSession;
 export '../../../app/window/desktop_command_bar_scope.dart'
     show DesktopCommandBarScope;
+
+import 'image_viewer_shortcuts.dart';
 
 part 'image_viewer_chrome.dart';
 
@@ -181,6 +184,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   bool _chromeHotzoneHovered = false;
   bool _scrubberHovered = false;
   bool _infoPanelOpen = false;
+  bool _accessibleNav = false;
   Timer? _chromeHideTimer;
   DesktopCommandBarController? _commandBarController;
   ModalRoute<dynamic>? _observedRoute;
@@ -194,7 +198,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       : viewer.urls.length;
 
   bool get _chromeVisible =>
-      viewerSessionChromeVisible || _pointerChromeRevealed;
+      viewerSessionChromeVisible || _pointerChromeRevealed || _accessibleNav;
 
   @override
   void initState() {
@@ -237,12 +241,13 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       _observedAnimation = nextAnimation;
       _observedAnimation?.addStatusListener(_onRouteAnimationStatus);
     }
+    _accessibleNav = pinsImmersiveChromeForAccessibility(context);
+    if (_accessibleNav) _setSystemChrome(visible: true);
     _syncCommandBarHidden();
   }
 
-  void _onRouteAnimationStatus(AnimationStatus status) {
-    _syncCommandBarHidden();
-  }
+  void _onRouteAnimationStatus(AnimationStatus status) =>
+      _syncCommandBarHidden();
 
   void _syncCommandBarHidden() {
     final controller = _commandBarController;
@@ -433,13 +438,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   bool _activeZoomedSnapshot = false;
 
-  void _setSystemChrome({required bool visible}) {
-    unawaited(
-      setSystemUiMode(
-        visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
-      ),
-    );
-  }
+  void _setSystemChrome({required bool visible}) => unawaited(
+    setSystemUiMode(
+      visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+    ),
+  );
 
   void _setChromeVisible(bool visible) {
     _chromeHideTimer?.cancel();
@@ -607,7 +610,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     showDownloadSubmittedSnackBar(context);
   }
 
-  Future<void> _share(IllustEntity entity) => shareIllust(context, ref, entity);
+  Future<void> _share(
+    IllustEntity entity, {
+    BuildContext? anchor,
+    Offset? at,
+  }) => shareIllust(anchor ?? context, ref, entity, globalPosition: at);
 
   Future<void> _downloadAll(IllustEntity entity) =>
       downloadAllIllustPages(context, ref, entity);
@@ -669,9 +676,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       setState(() => _infoPanelOpen = !_infoPanelOpen);
       return;
     }
-    final darkTheme = Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context)
-        : replicaTheme(Brightness.dark);
+    final darkTheme = darkReplicaThemeOf(context);
     unawaited(
       showAppAdaptiveSideSheet<void>(
         context: context,
@@ -791,7 +796,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             DisplayAction(
               icon: AppIcons.share,
               label: l10n.share,
-              onSelected: () => unawaited(_share(entity)),
+              onSelected: () =>
+                  unawaited(_share(entity, at: details.globalPosition)),
             ),
             DisplayAction(
               icon: AppIcons.link,
@@ -845,7 +851,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   static Widget _onStage(BuildContext context, Widget child) =>
       Theme.of(context).brightness == Brightness.dark
       ? child
-      : Theme(data: replicaTheme(Brightness.dark), child: child);
+      : Theme(data: darkReplicaThemeOf(context), child: child);
 
   @override
   Widget build(BuildContext context) {
@@ -1046,27 +1052,21 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     );
   }
 
-  /// Keyboard parity (desktop + hardware keyboards on mobile): every
-  /// toolbar/gesture action has a key. Esc/Backspace pops imperatively —
-  /// same contract as the back button and drag-dismiss (W1 split).
-  Map<ShortcutActivator, VoidCallback> _shortcuts() => {
-    const SingleActivator(LogicalKeyboardKey.arrowLeft): _pageBackward,
-    const SingleActivator(LogicalKeyboardKey.keyK): _pageBackward,
-    const SingleActivator(LogicalKeyboardKey.arrowRight): _pageForward,
-    const SingleActivator(LogicalKeyboardKey.keyJ): _pageForward,
-    const SingleActivator(LogicalKeyboardKey.equal): _zoomIn,
-    const SingleActivator(LogicalKeyboardKey.add): _zoomIn,
-    const SingleActivator(LogicalKeyboardKey.numpadAdd): _zoomIn,
-    const SingleActivator(LogicalKeyboardKey.minus): _zoomOut,
-    const SingleActivator(LogicalKeyboardKey.numpadSubtract): _zoomOut,
-    const SingleActivator(LogicalKeyboardKey.digit0): _resetZoom,
-    const SingleActivator(LogicalKeyboardKey.numpad0): _resetZoom,
-    const SingleActivator(LogicalKeyboardKey.keyF): _toggleChrome,
-    const SingleActivator(LogicalKeyboardKey.escape): _handleBackShortcut,
-    const SingleActivator(LogicalKeyboardKey.backspace): _handleBackShortcut,
-    const SingleActivator(LogicalKeyboardKey.keyS): _saveActivePageIfAny,
-    const SingleActivator(LogicalKeyboardKey.keyI): _showInfoIfAny,
-  };
+  Map<ShortcutActivator, VoidCallback> _shortcuts() =>
+      buildImageViewerShortcuts(
+        context,
+        entity: widget.entity,
+        activePage: () => _activePage,
+        onPageBackward: _pageBackward,
+        onPageForward: _pageForward,
+        onZoomIn: _zoomIn,
+        onZoomOut: _zoomOut,
+        onResetZoom: _resetZoom,
+        onToggleChrome: _toggleChrome,
+        onBack: _handleBackShortcut,
+        onSave: _saveActivePageIfAny,
+        onShowInfo: _showInfoIfAny,
+      );
 
   void _pageForward() {
     if (_activePage + 1 >= _pageCount) return;
@@ -1402,12 +1402,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                         _ => const Icon(AppIcons.download),
                       },
                     ),
-                    IconButton(
-                      tooltip: l10n.cardActionShare,
-                      onPressed: hasPages
-                          ? () => unawaited(_share(entity))
-                          : null,
-                      icon: const Icon(AppIcons.share),
+                    Builder(
+                      builder: (c) => IconButton(
+                        tooltip: l10n.cardActionShare,
+                        onPressed: hasPages
+                            ? () => unawaited(_share(entity, anchor: c))
+                            : null,
+                        icon: const Icon(AppIcons.share),
+                      ),
                     ),
                     IconButton(
                       tooltip: l10n.viewerInfo,

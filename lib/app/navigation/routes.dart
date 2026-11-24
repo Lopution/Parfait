@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -81,6 +79,7 @@ import 'route_facade.dart';
 import 'route_query_codecs.dart';
 import 'route_search_facade.dart';
 
+export 'external_intent_routing.dart' show routeExternalIntent;
 export 'route_extras.dart';
 export 'route_facade.dart';
 export 'route_query_codecs.dart';
@@ -209,6 +208,9 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           state,
           appRootRouteObserver,
           LoginPage(
+            isFirst: state.uri.queryParameters['first'] == 'true',
+            returnToHomeOnSuccess:
+                state.uri.queryParameters['return'] == 'true',
             callback: state.extra is AccountCallbackRoute
                 ? state.extra! as AccountCallbackRoute
                 : null,
@@ -369,59 +371,4 @@ void _markPages(GoRouter router) {
     final top = delegate.currentConfiguration.lastOrNull;
     if (top != null) TraceMarks.page(top.matchedLocation);
   });
-}
-
-Future<void> routeExternalIntent(
-  GoRouter router,
-  AndroidIntentResult result,
-) async {
-  switch (result) {
-    case SharedImageAndroidIntent(
-      :final contentUri,
-      :final mimeType,
-      :final sizeBytes,
-    ):
-      await router.push<void>(
-        '/reverse-image',
-        extra: ReverseImageInputReference(
-          contentUri: contentUri.toString(),
-          mimeType: mimeType,
-          sizeBytes: sizeBytes,
-          hasReadUriPermission: true,
-          source: ReverseImageInputSource.androidSend,
-        ),
-      );
-    case RoutedAndroidIntent(:final route):
-      switch (route) {
-        case IllustRoute(:final illustId):
-          router.go('/recommended/illust/$illustId');
-        case UserRoute(:final userId):
-          router.go('/recommended/user/$userId');
-        case AccountCallbackRoute():
-          final top = router
-              .routerDelegate
-              .currentConfiguration
-              .lastOrNull
-              ?.matchedLocation;
-          if (top == '/login/web' && router.canPop()) {
-            router.pop();
-          }
-          final nextTop = router
-              .routerDelegate
-              .currentConfiguration
-              .lastOrNull
-              ?.matchedLocation;
-          if (nextTop == '/login' || nextTop == '/login/callback') {
-            await router.pushReplacement<void>('/login/callback', extra: route);
-          } else {
-            await router.push<void>('/login/callback', extra: route);
-          }
-        case UnknownRoute():
-        case ForeignUri():
-          break;
-      }
-    case RejectedAndroidIntent():
-    case IgnoredAndroidIntent():
-      break;
-  }
 }

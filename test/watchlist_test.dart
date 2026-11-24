@@ -314,6 +314,50 @@ void main() {
         );
       },
     );
+
+    test(
+      'permanent replay failure rolls back queued watchlist entry',
+      () async {
+        final store = InMemoryActionStore();
+        final fixture = _Fixture()
+          ..failures['manga'] = http.ClientException('offline');
+        final world = await _makeWorld(fixture: fixture, store: store);
+        addTearDown(world.container.dispose);
+
+        await world.container.read(watchlistActionsProvider).toggle(_mangaKey);
+        expect(
+          world.container.read(watchlistStoreProvider)[_mangaKey]!.isQueued,
+          isTrue,
+        );
+
+        fixture.failures.clear();
+        fixture.statuses['manga'] = 403;
+        final queue = world.container.read(actionQueueProvider);
+        for (var i = 0; i < queue.maxAttempts; i++) {
+          final rows = await store.listFor('100');
+          if (rows.isNotEmpty) {
+            await store.markPending(
+              rows.single.id,
+              attempt: rows.single.attempt,
+            );
+          }
+          await queue.drain('100');
+        }
+
+        final entry = world.container.read(watchlistStoreProvider)[_mangaKey]!;
+        expect(entry.isUnsettled, isFalse);
+        expect(entry.shown, isFalse);
+        expect(entry.status, MutationStatus.failed);
+
+        // Fresh tap succeeds after rollback.
+        fixture.statuses.clear();
+        await world.container.read(watchlistActionsProvider).toggle(_mangaKey);
+        expect(
+          world.container.read(watchlistStoreProvider)[_mangaKey]!.added,
+          isTrue,
+        );
+      },
+    );
   });
 
   group('read cursor', () {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -10,11 +12,14 @@ import '../../core/settings/settings_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
+import '../motion/hero_transition.dart';
+import '../motion/motion_tokens.dart';
 import '../motion/press_scale.dart';
 import '../navigation/route_facade.dart';
 import '../pixiv_image.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'author_summary.dart';
+import 'feed/illust_card_layout.dart';
 import 'follow_switch_button.dart';
 
 /// A user and their recent works: who they are, a follow switch, and up to
@@ -152,6 +157,10 @@ class _UserPreviewThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final url = entity.imageUrls.squareMedium;
+    final hasHero = !entity.isUgoira && isTopSquareThumbnail(url);
+    final heroScope = 'user-preview-${entity.user.id}';
+    final heroTag = illustHeroTag(heroScope, entity.id);
     return PressScale(
       child: Semantics(
         container: true,
@@ -159,26 +168,62 @@ class _UserPreviewThumbnail extends StatelessWidget {
         label: entity.title,
         child: AspectRatio(
           aspectRatio: 1,
-          child: ClipRRect(
-            borderRadius: FuncShape.control,
-            child: LayoutBuilder(
-              builder: (context, constraints) => Stack(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final decodeWidth = PixivImage.decodeWidthOf(
+                context,
+                constraints.maxWidth,
+              );
+              Widget image = ClipRRect(
+                borderRadius: FuncShape.control,
+                child: PixivImage.feed(
+                  url,
+                  layoutWidth: constraints.maxWidth,
+                  decodeWidth: decodeWidth,
+                  transitionKey: hasHero ? heroTag : null,
+                ),
+              );
+              if (hasHero) {
+                image = Hero(
+                  tag: heroTag,
+                  curve: MotionTokens.spatialCurve,
+                  createRectTween: illustHeroRectTween,
+                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                  child: IllustHeroCardFrame(
+                    cropAspect: entity.pageAspectRatioAt(0),
+                    topSquare: true,
+                    child: image,
+                  ),
+                );
+              }
+              return Stack(
                 fit: StackFit.expand,
                 children: [
-                  PixivImage.feed(
-                    entity.imageUrls.squareMedium,
-                    layoutWidth: constraints.maxWidth,
-                  ),
+                  image,
                   Material(
                     type: MaterialType.transparency,
                     child: InkWell(
-                      onTap: () =>
-                          openIllust(context, entity.id, initialEntity: entity),
+                      borderRadius: FuncShape.control,
+                      splashFactory: NoSplash.splashFactory,
+                      overlayColor: pressScaleInkOverlay,
+                      onTap: () {
+                        if (hasHero) noteHeroCardOpened(context, heroTag);
+                        unawaited(
+                          openIllust(
+                            context,
+                            entity.id,
+                            initialEntity: entity,
+                            heroScope: heroScope,
+                            heroImageUrl: hasHero ? url : null,
+                            heroImageDecodeWidth: hasHero ? decodeWidth : null,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
+import '../../app/accessibility/immersive_chrome_policy.dart';
 import '../../app/layout/app_breakpoints.dart';
 import '../../app/layout/input_modality.dart';
 import '../../app/layout/window_layout_spec.dart';
@@ -16,6 +17,8 @@ import '../../app/widgets/app_spinner.dart';
 import '../../app/system_ui.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/bookmark_switch_button.dart';
+import '../../core/bookmark/bookmark_models.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/window/desktop_command_bar_scope.dart'
@@ -32,6 +35,7 @@ import 'novel_layout.dart';
 import 'novel_reader.dart';
 import 'novel_reader_footer.dart';
 import 'novel_reader_series_nav.dart';
+import 'novel_reader_shortcuts.dart';
 import 'novel_reader_theme.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
@@ -345,6 +349,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _chrome.duration = MotionTokens.resolve(context, MotionTokens.chrome);
+    if (pinsImmersiveChromeForAccessibility(context) && !_chromeVisible) {
+      _chromeVisible = true;
+      _chromeHidden = false;
+      _chrome.value = 1;
+      unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
+    }
     final size = MediaQuery.sizeOf(context);
     final live = MediaQuery.viewPaddingOf(context);
     final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
@@ -450,19 +460,20 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   }
 
   void _setChromeVisible(bool visible) {
-    setState(() => _chromeVisible = visible);
+    final effective = visible || pinsImmersiveChromeForAccessibility(context);
+    setState(() => _chromeVisible = effective);
     // System bars share the chrome's visibility: immersive while hidden,
     // edge-to-edge while the bars are up.
     unawaited(
       setSystemUiMode(
-        visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+        effective ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
       ),
     );
     if (!MotionTokens.enabled(context)) {
       // Reduced motion: land the end state — a zeroed controller still
       // drives the hittable/dismissed boundary correctly.
-      _chrome.value = visible ? 1 : 0;
-    } else if (visible) {
+      _chrome.value = effective ? 1 : 0;
+    } else if (effective) {
       _chrome.forward();
     } else {
       _chrome.reverse();
@@ -572,7 +583,13 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       _bottomBar = _buildBottomBar(context, l10n, palette);
     }
     return PopScope(
-      canPop: !_chromeVisible,
+      // On iOS there is no hardware back button, so keep interactive left-edge
+      // swipe-back active even while reader chrome is open (TRANS-02/NOVEL-05);
+      // Android/desktop still dismiss chrome first on back/Esc.
+      canPop:
+          !_chromeVisible ||
+          Theme.of(context).platform == TargetPlatform.iOS ||
+          pinsImmersiveChromeForAccessibility(context),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           // Restore the bars as the pop starts — dispose only runs
@@ -676,71 +693,23 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     );
   }
 
-  /// Keyboard navigation: arrow keys, PageUp/PageDown, and Space/Shift+Space
-  /// scroll in scroll mode or turn pages/spreads in page mode when not editing
-  /// text, covered by an overlay route, or combined with system modifiers.
-  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return KeyEventResult.ignored;
-    }
-    final hw = HardwareKeyboard.instance;
-    if (hw.isAltPressed || hw.isControlPressed || hw.isMetaPressed) {
-      return KeyEventResult.ignored;
-    }
-    if (isTextEditingFocused()) return KeyEventResult.ignored;
-    final route = ModalRoute.of(context);
-    if (route != null && !route.isCurrent) return KeyEventResult.ignored;
-
-    final key = event.logicalKey;
-    final shift = hw.isShiftPressed;
-
-    if (_settings.pageTurn == NovelPageTurn.scroll) {
-      final viewport = _readerHandle.viewportHeight?.call() ?? 480;
-      const lineStep = 72.0;
-      final pageStep = math.max(lineStep, viewport * 0.85);
-      final double? delta;
-      if (!shift && key == LogicalKeyboardKey.arrowDown) {
-        delta = lineStep;
-      } else if (!shift && key == LogicalKeyboardKey.arrowUp) {
-        delta = -lineStep;
-      } else if (key == LogicalKeyboardKey.pageDown ||
-          (!shift && key == LogicalKeyboardKey.space)) {
-        delta = pageStep;
-      } else if (key == LogicalKeyboardKey.pageUp ||
-          (shift && key == LogicalKeyboardKey.space)) {
-        delta = -pageStep;
-      } else {
-        delta = null;
-      }
-      if (delta != null) {
-        _readerHandle.scrollBy?.call(delta, animate: event is KeyDownEvent);
-        return KeyEventResult.handled;
-      }
-    }
-
-    final int? step;
-    if (!shift &&
-        (key == LogicalKeyboardKey.arrowRight ||
-            key == LogicalKeyboardKey.arrowDown)) {
-      step = 1;
-    } else if (!shift &&
-        (key == LogicalKeyboardKey.arrowLeft ||
-            key == LogicalKeyboardKey.arrowUp)) {
-      step = -1;
-    } else if (key == LogicalKeyboardKey.pageDown ||
-        (!shift && key == LogicalKeyboardKey.space)) {
-      step = 1;
-    } else if (key == LogicalKeyboardKey.pageUp ||
-        (shift && key == LogicalKeyboardKey.space)) {
-      step = -1;
-    } else {
-      step = null;
-    }
-    if (step == null) return KeyEventResult.ignored;
-    if (_readerHandle.pageCount?.call() == null) return KeyEventResult.ignored;
-    _readerHandle.stepPage?.call(step, animate: event is KeyDownEvent);
-    return KeyEventResult.handled;
-  }
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) =>
+      handleNovelReaderKeyEvent(
+        context,
+        event,
+        pageTurn: _settings.pageTurn,
+        readerHandle: _readerHandle,
+        onToggleChrome: _toggleChrome,
+        onOpenToc: () => _showProgressSheet(context),
+        onToggleBookmark: novel.id > 0
+            ? () => unawaited(
+                toggleBookmark(
+                  context,
+                  BookmarkKey(BookmarkEntityType.novel, novel.id),
+                ),
+              )
+            : null,
+      );
 
   /// The hint's text style, shared by the rendered `Text` and the
   /// [TextPainter] that sizes the reserved band — the two must never

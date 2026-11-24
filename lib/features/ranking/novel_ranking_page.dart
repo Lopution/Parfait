@@ -8,6 +8,7 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/novel_entry.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/network/api_date.dart';
 import '../../core/network/api_error.dart';
@@ -84,7 +85,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
     );
     final state = ref.watch(provider);
     return state.when(
-      loading: () => const FeedLoading(),
+      loading: () => NovelListSkeleton(label: context.l10n.novelLoading),
       error: (error, _) => FeedError(
         title: rankingLoadFailedTitle(context, feedKey.mode),
         error: error,
@@ -104,7 +105,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const FeedLoading();
+          return NovelListSkeleton(label: context.l10n.novelLoading);
         }
         if (feed.isAllHidden) {
           return FeedAllHidden(

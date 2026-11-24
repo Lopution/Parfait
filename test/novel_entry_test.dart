@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -175,5 +177,32 @@ void main() {
     await tester.tap(find.byType(NovelEntry));
     await tester.pump();
     expect(router.state.uri.path, '/recommended/novel/77');
+  });
+
+  testWidgets('pointer secondary click on NovelEntry opens context menu', (
+    tester,
+  ) async {
+    var opened = 0;
+    await tester.pumpWidget(
+      _host(
+        InputModalityScope(
+          initialModality: InputModality.pointer,
+          child: NovelEntry.regular(entity: _novel(88), onTap: () => opened++),
+        ),
+      ),
+    );
+    await tester.tap(
+      find.byType(NovelEntry),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('打开作品'), findsOneWidget);
+    expect(find.text('编辑收藏'), findsOneWidget);
+    expect(find.text('复制链接'), findsOneWidget);
+
+    await tester.tap(find.text('打开作品'));
+    await tester.pumpAndSettle();
+    expect(opened, 1);
   });
 }

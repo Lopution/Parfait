@@ -9,6 +9,7 @@ import '../../../core/entity/illust_entity.dart';
 import '../../../core/mute/mute_predicate.dart';
 import '../../../core/mute/mute_store.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../core/share/share_service.dart';
 import '../../../l10n/context.dart';
 import '../../motion/motion_tokens.dart';
 import '../../pixiv_image.dart';
@@ -378,12 +379,29 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
                                             l10n,
                                           ),
                                           onTap: () {
-                                            Navigator.of(context).pop();
-                                            unawaited(
-                                              actions[i].run(
+                                            final action = actions[i];
+                                            final targetContext =
                                                 fallbackNavigator.mounted
-                                                    ? fallbackNavigator
-                                                    : context,
+                                                ? fallbackNavigator
+                                                : context;
+                                            final origin =
+                                                anchorRect ??
+                                                shareOriginOf(context);
+                                            Navigator.of(context).pop();
+                                            if (action is ShareIllustAction) {
+                                              unawaited(
+                                                action.run(
+                                                  targetContext,
+                                                  providers,
+                                                  entity,
+                                                  sharePositionOrigin: origin,
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                            unawaited(
+                                              action.run(
+                                                targetContext,
                                                 providers,
                                                 entity,
                                               ),

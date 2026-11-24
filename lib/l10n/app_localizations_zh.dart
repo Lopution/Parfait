@@ -524,6 +524,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkProbeAdviceInconclusive => '无法得出结论——换个网络或稍后重试。';
 
   @override
+  String get networkProbeApplyCompat => '切换到兼容优先';
+
+  @override
+  String get networkProbeEnableDoh => '开启 DoH 解析';
+
+  @override
   String get copy => '复制';
 
   @override
@@ -637,7 +643,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditLoadFailed => '个人资料加载失败';
 
   @override
-  String get profileEditUnavailable => '当前没有可用的应用内资料编辑通道。';
+  String get profileEditUnavailable => '暂无法编辑个人资料，请重新登录后再试。';
+
+  @override
+  String get profileEditNoChanges => '资料未作修改';
+
+  @override
+  String get profileEditSaveFailed => '保存个人资料失败，请稍后重试';
 
   @override
   String get profileEditConfirmed => '资料已确认并同步。';
@@ -658,7 +670,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditBackground => '背景图';
 
   @override
-  String get profileEditFieldUnsupported => '当前通道不支持此字段';
+  String get profileEditFieldUnsupported => '当前暂不支持编辑此项';
 
   @override
   String get profileEditImageChoose => '选择一张受支持的图片';
@@ -1275,6 +1287,29 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get downloadClearCompleted => '清除已完成';
+
+  @override
+  String get downloadFilterAll => '全部';
+
+  @override
+  String get downloadFilterActive => '进行中';
+
+  @override
+  String get downloadFilterFailed => '失败';
+
+  @override
+  String get downloadFilterCompleted => '已完成';
+
+  @override
+  String get downloadRetryAllFailed => '重试全部失败任务';
+
+  @override
+  String get downloadFilterEmpty => '当前筛选下暂无任务';
+
+  @override
+  String downloadFailedCount(int count) {
+    return '$count 项失败';
+  }
 
   @override
   String downloadTasksRemoved(int count) {
@@ -2641,7 +2676,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelRestricted => '该小说受限，无法阅读';
 
   @override
-  String get novelContentUnavailable => '当前 API 未提供小说正文';
+  String get novelContentUnavailable => '暂时无法获取小说正文';
 
   @override
   String get novelLoadFailed => '小说加载失败';
@@ -3386,4 +3421,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localNovelsDropUnsupported => '仅支持导入 .txt 文件';
+
+  @override
+  String get ugoiraPlay => '播放动图';
+
+  @override
+  String get ugoiraPause => '暂停动图';
+
+  @override
+  String get ugoiraPlaybackSpeed => '播放倍速';
 }

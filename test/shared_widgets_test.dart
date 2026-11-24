@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/layout/card_columns.dart';
@@ -30,6 +31,7 @@ import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
+import 'package:parfait/features/login/login_webview_error_card.dart';
 import 'package:parfait/features/settings/settings_catalog.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
@@ -134,6 +136,104 @@ void main() {
       await tester.pump();
       expect(retries, 0);
     });
+
+    testWidgets(
+      'FeedError exposes category-scoped settings action with GoRouter and LoginWebViewErrorCard offers browser fallback',
+      (tester) async {
+        // Without GoRouter, network errors omit secondary action safely.
+        await pumpError(
+          tester,
+          FeedError(
+            title: 'Failed',
+            error: const ApiNetworkError('socket closed'),
+            onRetry: () {},
+            retryLabel: 'Retry',
+          ),
+        );
+        expect(find.text('网络'), findsNothing);
+
+        final visited = <String>[];
+        GoRouter buildRouter(Object error) => GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => Scaffold(
+                body: FeedError(
+                  title: 'Failed',
+                  error: error,
+                  onRetry: () {},
+                  retryLabel: 'Retry',
+                ),
+              ),
+            ),
+            GoRoute(
+              path: '/settings/network',
+              builder: (_, _) {
+                visited.add('/settings/network');
+                return const Scaffold(body: Text('net-settings'));
+              },
+            ),
+            GoRoute(
+              path: '/settings/account',
+              builder: (_, _) {
+                visited.add('/settings/account');
+                return const Scaffold(body: Text('acct-settings'));
+              },
+            ),
+          ],
+        );
+
+        final container = ProviderContainer.test();
+        final netRouter = buildRouter(const ApiTimeout());
+        addTearDown(netRouter.dispose);
+        await tester.pumpWidget(
+          localizedRouterApp(netRouter, container: container),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('网络'));
+        await tester.pumpAndSettle();
+        expect(visited, ['/settings/network']);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        final authRouter = buildRouter(const ApiUnauthorized());
+        addTearDown(authRouter.dispose);
+        await tester.pumpWidget(
+          localizedRouterApp(authRouter, container: container),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('账号'));
+        await tester.pumpAndSettle();
+        expect(visited, ['/settings/network', '/settings/account']);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        final permRouter = buildRouter(const ApiHttpError(404));
+        addTearDown(permRouter.dispose);
+        await tester.pumpWidget(
+          localizedRouterApp(permRouter, container: container),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('网络'), findsNothing);
+        expect(find.text('账号'), findsNothing);
+
+        // LoginWebViewErrorCard shows external browser fallback on recoverable errors.
+        var openedBrowser = false;
+        await tester.pumpWidget(
+          localizedApp(
+            body: LoginWebViewErrorCard(
+              message: 'Load failed',
+              fatal: false,
+              signup: false,
+              onReload: () {},
+              onRestart: () {},
+              onDismiss: () {},
+              onOpenInBrowser: () => openedBrowser = true,
+            ),
+          ),
+        );
+        await tester.tap(find.text('在浏览器打开'));
+        expect(openedBrowser, isTrue);
+      },
+    );
   });
 
   testWidgets('a section retries twice on its own, then waits for the user', (

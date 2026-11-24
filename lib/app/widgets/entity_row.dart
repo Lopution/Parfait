@@ -36,6 +36,7 @@ class EntityRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTapAt,
     this.selected = false,
     this.semanticLabel,
     this.padding = const EdgeInsets.all(FuncSpacing.md),
@@ -98,6 +99,7 @@ class EntityRow extends StatelessWidget {
 
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<Offset>? onSecondaryTapAt;
 
   /// Management-mode selected state: paints the whole row with the
   /// selection surface and appends a check mark.
@@ -261,7 +263,10 @@ class EntityRow extends StatelessWidget {
         excludeFromSemantics: true,
         onTap: onTap,
         onLongPress: onLongPress,
-        onSecondaryTap: onLongPress,
+        onSecondaryTap: onSecondaryTapAt == null ? onLongPress : null,
+        onSecondaryTapUp: onSecondaryTapAt == null
+            ? null
+            : (details) => onSecondaryTapAt!(details.globalPosition),
         // A long-press host plays its own AppHaptics role; the ink
         // response's vibration would double it.
         enableFeedback: onLongPress == null,

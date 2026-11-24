@@ -11,11 +11,19 @@ import 'func_semantic_tokens.dart';
 FTypeface _typefaceFrom(
   TextTheme textTheme,
   Color foreground, {
+  required TargetPlatform platform,
   required bool touch,
 }) {
   final sample = textTheme.bodyMedium;
   final baseFamily = sample?.fontFamily;
   final fallback = sample?.fontFamilyFallback;
+  final resolvedFamily = (baseFamily != null && baseFamily.isNotEmpty)
+      ? baseFamily
+      : (fallback != null && fallback.isNotEmpty)
+      ? fallback.first
+      : Typography.material2021(
+          platform: platform,
+        ).black.bodyMedium!.fontFamily!;
   TextStyle slot(
     double desktopSize,
     double desktopHeight,
@@ -31,7 +39,7 @@ FTypeface _typefaceFrom(
   );
 
   return FTypeface(
-    fontFamily: baseFamily ?? 'system-ui',
+    fontFamily: resolvedFamily,
     fontFamilyFallback: fallback,
     xs3: slot(8, 1, 10, 1),
     xs2: slot(10, 1, 12, 1),
@@ -91,6 +99,7 @@ FThemeData foruiThemeFrom(
   final typeface = _typefaceFrom(
     theme.textTheme,
     scheme.onSurface,
+    platform: theme.platform,
     touch: touch,
   );
   final typography = FTypography(display: typeface, body: typeface);

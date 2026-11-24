@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
@@ -33,6 +34,7 @@ class _DetailOverlayScope extends InheritedWidget {
 
 class _DetailOverlayFrameState extends State<DetailOverlayFrame> {
   static final _scrimCurves = Expando<Animation<double>>();
+  static const _neverPopGesture = AlwaysStoppedAnimation<bool>(false);
 
   final _childKey = GlobalKey();
   int? _scrimPointer;
@@ -141,96 +143,138 @@ class _DetailOverlayFrameState extends State<DetailOverlayFrame> {
         hasRouteBelow &&
         AppBreakpoints.useBoundedDetailOverlayOf(context, outerSize);
     if (_modalScrim != null && bounded != _registered) {
-      _syncModalScrim();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncModalScrim();
+      });
     }
     if (!bounded) return content;
 
     final tokens = FuncSemanticTokens.of(context);
     final outerChrome = HomeShellChrome.maybeOf(context);
     final outerMedia = MediaQuery.of(context);
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: (event) => _scrimPointer = event.pointer,
-          onPointerUp: (event) {
-            if (_scrimPointer == event.pointer) {
-              _scrimPointer = null;
-              unawaited(_dismissOverlay());
-            }
-          },
-          onPointerCancel: (event) {
-            if (_scrimPointer == event.pointer) {
-              _scrimPointer = null;
-            }
-          },
-          child: GestureDetector(
-            key: const ValueKey('detail-overlay-scrim'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => unawaited(_dismissOverlay()),
-            child: const ColoredBox(color: Color(0x990C0B0E)),
+    // Compute the bounded card size directly from MediaQuery instead of a
+    // LayoutBuilder so crossing the 960x600 threshold never reparents
+    // `_childKey` across build and layout scopes or runs child
+    // `didChangeDependencies` during performLayout.
+    final cardWidth = math.min(
+      1680.0,
+      math.max(
+        0.0,
+        outerSize.width - outerMedia.padding.horizontal - FuncSpacing.lg * 2,
+      ),
+    );
+    final cardHeight = math.max(
+      0.0,
+      outerSize.height - outerMedia.padding.vertical - FuncSpacing.md * 2,
+    );
+    final cardSize = Size(cardWidth, cardHeight);
+    final framedChild = MediaQuery(
+      data: outerMedia
+          .copyWith(size: cardSize)
+          .removePadding(
+            removeTop: true,
+            removeBottom: true,
+            removeLeft: true,
+            removeRight: true,
           ),
+      child: _DetailOverlayScope(
+        child: outerChrome == null
+            ? content
+            : HomeShellChrome(
+                bottomBarExtent: 0,
+                railExtent: 0,
+                bottomBarVisibleExtent: outerChrome.bottomBarVisibleExtent,
+                bottomBarVisibility: outerChrome.bottomBarVisibility,
+                onBranchRootScroll: outerChrome.onBranchRootScroll,
+                child: content,
+              ),
+      ),
+    );
+
+    final routeAnimation = RouteAnimationScope.of(context);
+    final popGesture =
+        RouteAnimationScope.popGestureOf(context) ?? _neverPopGesture;
+    final isRtl = Directionality.maybeOf(context) == TextDirection.rtl;
+    final scrimLayer = Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (event) => _scrimPointer = event.pointer,
+      onPointerUp: (event) {
+        if (_scrimPointer == event.pointer) {
+          _scrimPointer = null;
+          unawaited(_dismissOverlay());
+        }
+      },
+      onPointerCancel: (event) {
+        if (_scrimPointer == event.pointer) {
+          _scrimPointer = null;
+        }
+      },
+      child: GestureDetector(
+        key: const ValueKey('detail-overlay-scrim'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => unawaited(_dismissOverlay()),
+        child: const ColoredBox(color: Color(0x990C0B0E)),
+      ),
+    );
+    final cardLayer = SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.lg,
+          vertical: FuncSpacing.md,
         ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: FuncSpacing.lg,
-              vertical: FuncSpacing.md,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1680),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cardSize = Size(
-                      constraints.maxWidth,
-                      constraints.maxHeight,
-                    );
-                    final framedChild = MediaQuery(
-                      data: outerMedia
-                          .copyWith(size: cardSize)
-                          .removePadding(
-                            removeTop: true,
-                            removeBottom: true,
-                            removeLeft: true,
-                            removeRight: true,
-                          ),
-                      child: _DetailOverlayScope(
-                        child: outerChrome == null
-                            ? content
-                            : HomeShellChrome(
-                                bottomBarExtent: 0,
-                                railExtent: 0,
-                                bottomBarVisibleExtent:
-                                    outerChrome.bottomBarVisibleExtent,
-                                bottomBarVisibility:
-                                    outerChrome.bottomBarVisibility,
-                                onBranchRootScroll:
-                                    outerChrome.onBranchRootScroll,
-                                child: content,
-                              ),
-                      ),
-                    );
-                    return DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: FuncShape.dialog,
-                        border: Border.all(color: tokens.brandHairline),
-                        boxShadow: tokens.layerLift,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: FuncShape.dialog,
-                        child: framedChild,
-                      ),
-                    );
-                  },
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1680),
+            child: SizedBox.expand(
+              child: DecoratedBox(
+                key: const ValueKey('detail-overlay-card'),
+                decoration: BoxDecoration(
+                  borderRadius: FuncShape.dialog,
+                  border: Border.all(color: tokens.brandHairline),
+                  boxShadow: tokens.layerLift,
+                ),
+                child: ClipRRect(
+                  borderRadius: FuncShape.dialog,
+                  child: framedChild,
                 ),
               ),
             ),
           ),
         ),
-      ],
+      ),
+    );
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: popGesture,
+      child: cardLayer,
+      builder: (context, gestureActive, builtCard) {
+        final driveGesture = gestureActive && routeAnimation != null;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            FadeTransition(
+              opacity: driveGesture ? routeAnimation : kAlwaysCompleteAnimation,
+              child: scrimLayer,
+            ),
+            // Use Transform.translate (not SlideTransition/FractionalTranslation)
+            // so descendant `localToGlobal` reads during narrow->wide rebuilds
+            // never hit an unlaid-out RenderFractionalTranslation.
+            AnimatedBuilder(
+              animation: driveGesture
+                  ? routeAnimation
+                  : kAlwaysCompleteAnimation,
+              child: builtCard,
+              builder: (_, child) {
+                final progress = driveGesture
+                    ? 1.0 - routeAnimation.value
+                    : 0.0;
+                final dx = (isRtl ? -1.0 : 1.0) * progress * outerSize.width;
+                return Transform.translate(offset: Offset(dx, 0), child: child);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

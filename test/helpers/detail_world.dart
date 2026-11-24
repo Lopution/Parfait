@@ -132,6 +132,10 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       if (request.url.path == '/v1/mute/edit') {
         return okJson({});
       }
+      if (request.url.path == '/v2/illust/bookmark/add' ||
+          request.url.path == '/v1/illust/bookmark/delete') {
+        return okJson({});
+      }
       return http.Response('unexpected', 404);
     }),
     overrides: [

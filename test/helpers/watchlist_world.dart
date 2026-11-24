@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/actionqueue/action_bootstrap.dart';
@@ -19,9 +20,11 @@ class WatchlistFixture {
   String? mangaNextUrl;
   bool failNextPageOnce = false;
   int mutationStatus = 200;
+  Completer<void>? hold;
 
   http.Client build() => MockClient((request) async {
     requests.add(request);
+    await hold?.future;
     if (request.method == 'GET') {
       if (request.url.queryParameters['offset'] != null) {
         if (failNextPageOnce) {

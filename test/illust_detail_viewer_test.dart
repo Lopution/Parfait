@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/navigation/viewer_session.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/core/download/download_providers.dart';
@@ -994,5 +995,63 @@ void main() {
         }
       },
     );
+
+    testWidgets('accessibleNavigation pins ImageViewerPage chrome open', (
+      tester,
+    ) async {
+      viewerSessionChromeVisible = false;
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(() {
+        viewerSessionChromeVisible = true;
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+      });
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: const [],
+          home: const ImageViewerPage(
+            urls: ['https://i.pximg.net/img-master/img/1_p0.jpg'],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('1 / 1'), findsOneWidget);
+    });
+
+    testWidgets('Ctrl+S saves active page and B toggles bookmark', (
+      tester,
+    ) async {
+      final log = <String>[];
+      final (container, _, _) = await makeWorld(requestLog: log);
+      final entity = parseIllust(
+        illustJson(42, pageCount: 2, withMetaPages: true),
+      );
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: ImageViewerPage(
+            urls: const [
+              'https://i.pximg.net/1/original.jpg',
+              'https://i.pximg.net/2/original.jpg',
+            ],
+            entity: entity,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(container.read(downloadManagerProvider).tasks, hasLength(1));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.pumpAndSettle();
+      expect(log, contains('/v2/illust/bookmark/add'));
+    });
   });
 }

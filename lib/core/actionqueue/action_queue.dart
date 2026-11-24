@@ -32,6 +32,11 @@ import 'action_store.dart';
 /// the engine classifies the error into a [RetryScope].
 typedef ActionHandler = FutureOr<void> Function(StoredAction action);
 
+/// Notified whenever a queued row reaches a terminal [ActionStatus.failed]
+/// state (unknown handler type or [ActionQueue.maxAttempts] exhausted).
+typedef ActionPermanentFailureListener =
+    void Function(StoredAction action, Object error);
+
 final class ActionQueue {
   ActionQueue({
     required ActionStore store,
@@ -55,6 +60,7 @@ final class ActionQueue {
   final ActionStore _store;
   final DateTime Function() _now;
   final Map<String, ActionHandler> _handlers = {};
+  final List<ActionPermanentFailureListener> _failureListeners = [];
   final Set<String> _draining = {};
   final Map<String, DateTime> _cooldownUntil = {};
   final Map<String, Timer> _wakes = {};
@@ -68,6 +74,16 @@ final class ActionQueue {
   /// Registers the replay handler for one action type.
   void registerHandler(String type, ActionHandler handler) {
     _handlers[type] = handler;
+  }
+
+  /// Registers a listener invoked when a queued action fails permanently.
+  void addPermanentFailureListener(ActionPermanentFailureListener listener) {
+    _failureListeners.add(listener);
+  }
+
+  /// Removes a previously registered permanent failure listener.
+  void removePermanentFailureListener(ActionPermanentFailureListener listener) {
+    _failureListeners.remove(listener);
   }
 
   /// Enqueues [payload] under `type`/`dedupeKey` for [owner]. A pending row
@@ -143,6 +159,7 @@ final class ActionQueue {
       wake.cancel();
     }
     _wakes.clear();
+    _failureListeners.clear();
   }
 
   Future<void> _drainExclusive(String owner) async {
@@ -229,6 +246,10 @@ final class ActionQueue {
       // spin on a row that can never succeed.
       await _store.markFailed(action.id);
       telemetry.dropped++;
+      _notifyPermanentFailure(
+        action,
+        UnsupportedError('Unknown action type: ${action.type}'),
+      );
       return;
     }
     // Dropped between nextReady and here: the user took the intent back.
@@ -261,6 +282,7 @@ final class ActionQueue {
     if (attempt >= maxAttempts) {
       await _store.markFailed(action.id);
       telemetry.dropped++;
+      _notifyPermanentFailure(action, error);
       return;
     }
     await _store.markPending(
@@ -268,6 +290,14 @@ final class ActionQueue {
       attempt: attempt,
       nextAttemptAtMs: _now().add(rowBackoff * attempt).millisecondsSinceEpoch,
     );
+  }
+
+  void _notifyPermanentFailure(StoredAction action, Object error) {
+    for (final listener in List<ActionPermanentFailureListener>.of(
+      _failureListeners,
+    )) {
+      listener(action, error);
+    }
   }
 
   /// Network/timeout/429/5xx pause the queue; business rejections (4xx,

@@ -174,8 +174,13 @@ final class SqliteActionStore implements ActionStore {
     return db.transaction((txn) async {
       await txn.delete(
         ActionDatabase.actionTable,
-        where: 'owner = ? AND dedupe_key = ? AND status = ?',
-        whereArgs: [draft.owner, draft.dedupeKey, ActionStatus.pending.dbValue],
+        where: 'owner = ? AND dedupe_key = ? AND status IN (?, ?)',
+        whereArgs: [
+          draft.owner,
+          draft.dedupeKey,
+          ActionStatus.pending.dbValue,
+          ActionStatus.failed.dbValue,
+        ],
       );
       return txn.insert(ActionDatabase.actionTable, _toRow(draft));
     });
@@ -352,7 +357,8 @@ final class InMemoryActionStore implements ActionStore {
       (row) =>
           row.owner == draft.owner &&
           row.dedupeKey == draft.dedupeKey &&
-          row.status == ActionStatus.pending,
+          (row.status == ActionStatus.pending ||
+              row.status == ActionStatus.failed),
     );
     final row = StoredAction(
       id: _nextId++,

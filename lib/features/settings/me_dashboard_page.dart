@@ -23,7 +23,6 @@ import '../../app/window/desktop_command_bar_scope.dart'
     show DesktopCommandBarScope;
 import '../../core/auth/account_store.dart';
 import '../../core/download/download_providers.dart';
-import '../../core/download/download_task.dart' show isTerminal;
 import '../../core/localnovel/local_novel_store.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/platform/package_info_provider.dart';
@@ -166,7 +165,7 @@ class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
       child: RefreshActionAnchor(
         onRefresh: () {
           ref.invalidate(meRecentHistoryProvider);
-          ref.invalidate(_downloadStatsProvider);
+          ref.invalidate(downloadStatsProvider);
           ref.invalidate(watchLaterStoreProvider);
           ref.invalidate(localNovelStoreProvider);
           if (usable != null && _hasBeenVisible) {
@@ -395,32 +394,6 @@ class _MeDashboardPageState extends ConsumerState<MeDashboardPage> {
   }
 }
 
-typedef _DownloadStats = ({int active, int total});
-
-/// Live active and total download counts; emits only when either count changes
-/// so progress ticks never rebuild the dashboard rows.
-final _downloadStatsProvider = StreamProvider.autoDispose<_DownloadStats>((
-  ref,
-) async* {
-  final manager = ref.watch(downloadManagerProvider);
-  _DownloadStats snapshot() {
-    final tasks = manager.tasks;
-    var active = 0;
-    for (final task in tasks) {
-      if (!isTerminal(task.status)) active++;
-    }
-    return (active: active, total: tasks.length);
-  }
-
-  var last = snapshot();
-  yield last;
-  await for (final _ in manager.changes) {
-    final next = snapshot();
-    if (next == last) continue;
-    yield last = next;
-  }
-});
-
 String? _joinSubtitleParts(Iterable<String?> parts) {
   final clean = [
     for (final part in parts)
@@ -456,7 +429,8 @@ class _MeNavGroups extends ConsumerWidget {
     final l10n = context.l10n;
     final wide = onSelectSection != null;
     final downloadStats =
-        ref.watch(_downloadStatsProvider).value ?? (active: 0, total: 0);
+        ref.watch(downloadStatsProvider).value ??
+        (active: 0, failed: 0, total: 0);
     final watchLaterCount = ref.watch(watchLaterStoreProvider).value?.length;
     final localNovelsCount = ref.watch(localNovelStoreProvider).value?.length;
     final watchlistEntries = ref.watch(watchlistStoreProvider);
@@ -580,11 +554,17 @@ class _MeNavGroups extends ConsumerWidget {
                 section: _MeSection.downloads,
                 icon: AppIcons.downloading,
                 title: l10n.downloaderSettings,
-                trailingText: downloadStats.active == 0
+                trailingText: downloadStats.failed > 0
+                    ? l10n.downloadFailedCount(downloadStats.failed)
+                    : downloadStats.active == 0
                     ? countText(downloadStats.total)
                     : null,
                 trailingBadge: Badge(
                   isLabelVisible: downloadStats.active > 0,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  textColor: Theme.of(context).colorScheme.onPrimaryContainer,
                   label: Text(AppFormat.count(context, downloadStats.active)),
                 ),
                 onPush: () => unawaited(openDownloadTasks(context)),

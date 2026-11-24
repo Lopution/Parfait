@@ -33,6 +33,7 @@ import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/icons/app_icons.dart';
 import '../../../app/icons/ui_icons.dart';
+import 'widgets/ugoira_speed_button.dart';
 import 'ugoira_export_action.dart';
 
 /// Inline beta56-compatible Ugoira surface. The cover, play affordance and
@@ -125,6 +126,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   var _disposed = false;
   final FocusNode _focusNode = FocusNode();
   bool _hovered = false;
+  bool _focused = false;
   double _speed = 1.0;
 
   /// Same hand-off guard as DetailPageImage: detail data can land while the
@@ -143,10 +145,12 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   }
 
   bool _handleKeyEvent(KeyEvent event) {
-    if (_disposed ||
-        !mounted ||
-        event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.space) {
+    final key = event.logicalKey;
+    final isActivate =
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter;
+    if (_disposed || !mounted || event is! KeyDownEvent || !isActivate) {
       return false;
     }
     if (!TickerMode.valuesOf(context).enabled) return false;
@@ -225,90 +229,110 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
         onExit: (_) => _hovered = false,
         child: Focus(
           focusNode: _focusNode,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          child: Semantics(
+            button: true,
+            label: (scheduler?.isPlaying ?? false)
+                ? context.l10n.ugoiraPause
+                : context.l10n.ugoiraPlay,
             onTap: _togglePlayback,
-            // An explicit no-op long-press handler keeps LongPressGesture-
-            // Recognizer in the arena: without it a held tap still resolves
-            // [onTap] on release and would toggle playback (the "inert
-            // long-press" test).
-            onLongPress: () {},
-            onSecondaryTapUp: _openContextMenu,
-            child: AspectRatio(
-              aspectRatio: aspectRatio,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildCover(currentImage),
-                  if (_loading)
-                    const FeedLoading()
-                  else if (_failure case final failure?)
-                    _ErrorOverlay(failure: failure, onRetry: _togglePlayback)
-                  else if (scheduler == null || !scheduler.isPlaying)
-                    const _PlayOverlay(),
-                  Positioned(
-                    left: 7,
-                    bottom: 7,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: FuncShape.control,
-                        color: const Color(0x99343838),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _togglePlayback,
+              onLongPress: () {},
+              onSecondaryTapUp: _openContextMenu,
+              child: DecoratedBox(
+                position: DecorationPosition.foreground,
+                decoration: BoxDecoration(
+                  border: _focused
+                      ? Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        )
+                      : null,
+                ),
+                child: AspectRatio(
+                  aspectRatio: aspectRatio,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildCover(currentImage),
+                      if (_loading)
+                        const FeedLoading()
+                      else if (_failure case final failure?)
+                        _ErrorOverlay(
+                          failure: failure,
+                          onRetry: _togglePlayback,
+                        )
+                      else if (scheduler == null || !scheduler.isPlaying)
+                        const _PlayOverlay(),
+                      Positioned(
+                        left: 7,
+                        bottom: 7,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: FuncShape.control,
+                            color: const Color(0x99343838),
+                          ),
+                          child: const Icon(
+                            AppIcons.ugoira,
+                            color: FuncTokens.white,
+                            size: 30,
+                          ),
+                        ),
                       ),
-                      child: const Icon(
-                        AppIcons.ugoira,
-                        color: FuncTokens.white,
-                        size: 30,
+                      Positioned(
+                        left: 40,
+                        bottom: 0,
+                        child: UgoiraSpeedButton(
+                          speed: _speed,
+                          onSelected: _setSpeed,
+                        ),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 44,
-                    bottom: 8,
-                    child: _UgoiraSpeedButton(
-                      speed: _speed,
-                      onSelected: _setSpeed,
-                    ),
-                  ),
-                  if (_asset != null)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: IgnorePointer(
-                        child: SizedBox(
-                          height: 3,
-                          child: ColoredBox(
-                            color: Colors.black38,
-                            child: Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: FractionallySizedBox(
-                                widthFactor: _playbackProgress(
-                                  _asset,
-                                  scheduler,
-                                ),
-                                heightFactor: 1,
-                                child: ColoredBox(
-                                  color: Theme.of(context).colorScheme.primary,
+                      if (_asset != null)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: IgnorePointer(
+                            child: SizedBox(
+                              height: 3,
+                              child: ColoredBox(
+                                color: Colors.black38,
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: FractionallySizedBox(
+                                    widthFactor: _playbackProgress(
+                                      _asset,
+                                      scheduler,
+                                    ),
+                                    heightFactor: 1,
+                                    child: ColoredBox(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
+                      // Always-visible GIF export entry backed by the app-level
+                      // controller: works on demand before playback starts and
+                      // exposes live progress + cancel across detail re-entries.
+                      Positioned(
+                        right: 7,
+                        bottom: 7,
+                        child: _ExportButton(
+                          exportState: exportState,
+                          onExport: _export,
+                          onCancel: _cancelExport,
+                        ),
                       ),
-                    ),
-                  // Always-visible GIF export entry backed by the app-level
-                  // controller: works on demand before playback starts and
-                  // exposes live progress + cancel across detail re-entries.
-                  Positioned(
-                    right: 7,
-                    bottom: 7,
-                    child: _ExportButton(
-                      exportState: exportState,
-                      onExport: _export,
-                      onCancel: _cancelExport,
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -729,7 +753,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           DisplayAction(
             icon: AppIcons.share,
             label: l10n.share,
-            onSelected: () => unawaited(_share()),
+            onSelected: () => unawaited(
+              _share(origin: shareOriginAt(context, details.globalPosition)),
+            ),
           ),
           DisplayAction(
             icon: AppIcons.link,
@@ -747,7 +773,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     );
   }
 
-  Future<void> _share() async {
+  Future<void> _share({Rect? origin}) async {
     final entity = ref.read(illustStoreProvider).get(widget.illustId);
     final outcome = await ref
         .read(shareServiceProvider)
@@ -759,7 +785,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                 '${context.l10n.illustDetailTitle} #${widget.illustId}',
             author: entity?.user.name ?? '',
           ),
-          sharePositionOrigin: shareOriginOf(context),
+          sharePositionOrigin: origin != null
+              ? clampShareOrigin(context, origin)
+              : shareOriginOf(context),
         );
     if (outcome == ShareOutcome.copiedToClipboard && mounted) {
       showAppSnackBar(context, context.l10n.linkCopied);
@@ -869,53 +897,6 @@ class _ErrorOverlay extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UgoiraSpeedButton extends StatelessWidget {
-  const _UgoiraSpeedButton({required this.speed, required this.onSelected});
-
-  final double speed;
-  final ValueChanged<double> onSelected;
-
-  String _format(double value) =>
-      value == value.roundToDouble() ? '${value.toInt()}x' : '${value}x';
-
-  @override
-  Widget build(BuildContext context) {
-    return MenuAnchor(
-      menuChildren: [
-        for (final option in const [0.5, 1.0, 1.5, 2.0])
-          MenuItemButton(
-            onPressed: () => onSelected(option),
-            leadingIcon: option == speed
-                ? const Icon(UiIcons.check, size: 18)
-                : const SizedBox(width: 18),
-            child: Text(_format(option)),
-          ),
-      ],
-      builder: (context, controller, child) => Material(
-        color: const Color(0x99343838),
-        borderRadius: FuncShape.control,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () =>
-              controller.isOpen ? controller.close() : controller.open(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: FuncSpacing.sm,
-              vertical: FuncSpacing.xs,
-            ),
-            child: Text(
-              _format(speed),
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(color: FuncTokens.white),
             ),
           ),
         ),

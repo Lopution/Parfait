@@ -539,12 +539,11 @@ class _NovelChapterListState extends State<_NovelChapterList> {
       child: ListView.builder(
         controller: _controller,
         primary: false,
-        itemExtent: _NovelChapterList.rowExtent,
         itemCount: widget.chapters.length,
         itemBuilder: (context, index) {
           final chapter = widget.chapters[index];
           return ListTile(
-            dense: true,
+            minTileHeight: _NovelChapterList.rowExtent,
             selected: index == widget.current,
             contentPadding: EdgeInsets.zero,
             title: Text(

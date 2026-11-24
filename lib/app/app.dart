@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/actionqueue/action_bootstrap.dart';
+import '../core/actionqueue/action_models.dart';
+import '../core/actionqueue/action_queue.dart';
 import '../core/auth/account_store.dart';
 import '../core/auth/account_transfer_service.dart';
 import '../core/navigation/home_destination.dart';
@@ -44,6 +46,7 @@ import 'window/desktop_command_bar.dart';
 import 'window/desktop_menu_bar.dart';
 import 'window/desktop_title_bar.dart';
 import 'touch_exploration_scope.dart';
+import 'widgets/errors/error_details.dart';
 import 'widgets/prompt_host.dart';
 import 'widgets/settings_load_error.dart';
 import 'window/desktop_window.dart';
@@ -88,33 +91,44 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
   late final GoRouter _router = createPixivRouter();
 
   final _promptHostKey = GlobalKey<PromptHostState>();
+  ActionQueue? _actionQueue;
   bool _warmedUp = false;
   ColorScheme? _cachedLightSystemColors;
+  Locale? _cachedLightLocale;
   ThemeData? _cachedLightTheme;
   ColorScheme? _cachedDarkSystemColors;
+  Locale? _cachedDarkLocale;
   ThemeData? _cachedDarkTheme;
 
-  ThemeData _lightThemeFor(ColorScheme? systemColors) {
+  ThemeData _lightThemeFor(ColorScheme? systemColors, Locale locale) {
     final cached = _cachedLightTheme;
-    if (cached != null && _cachedLightSystemColors == systemColors) {
+    if (cached != null &&
+        _cachedLightSystemColors == systemColors &&
+        _cachedLightLocale == locale) {
       return cached;
     }
     _cachedLightSystemColors = systemColors;
+    _cachedLightLocale = locale;
     return _cachedLightTheme = replicaTheme(
       Brightness.light,
       systemColors: systemColors,
+      locale: locale,
     );
   }
 
-  ThemeData _darkThemeFor(ColorScheme? systemColors) {
+  ThemeData _darkThemeFor(ColorScheme? systemColors, Locale locale) {
     final cached = _cachedDarkTheme;
-    if (cached != null && _cachedDarkSystemColors == systemColors) {
+    if (cached != null &&
+        _cachedDarkSystemColors == systemColors &&
+        _cachedDarkLocale == locale) {
       return cached;
     }
     _cachedDarkSystemColors = systemColors;
+    _cachedDarkLocale = locale;
     return _cachedDarkTheme = replicaTheme(
       Brightness.dark,
       systemColors: systemColors,
+      locale: locale,
     );
   }
 
@@ -137,6 +151,9 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // account listener, which drains each account's queued mutations as it
     // becomes current; the resumed hook below repeats it on foreground.
     ref.read(actionQueuePumpProvider);
+    final queue = ref.read(actionQueueProvider);
+    _actionQueue = queue;
+    queue.addPermanentFailureListener(_onQueuedActionFailed);
     unawaited(_retireLegacyTranslationSession());
     _sweepExpiredTransferClipboard();
     // R2: one delayed background update check per throttle window.
@@ -206,8 +223,29 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     }
   }
 
+  void _onQueuedActionFailed(StoredAction action, Object error) {
+    if (!mounted) return;
+    final currentId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
+    if (currentId == null || currentId != action.owner) return;
+    final host = _promptHostKey.currentState;
+    if (host == null || !host.mounted) return;
+    final l10n = host.context.l10n;
+    final label = switch (action.type) {
+      ActionTypes.bookmarkAdd ||
+      ActionTypes.bookmarkDelete => l10n.bookmarkOperationFailed,
+      ActionTypes.followAdd || ActionTypes.followDelete => l10n.followFailed,
+      ActionTypes.watchlistAdd ||
+      ActionTypes.watchlistDelete => l10n.watchlistFailed,
+      _ => null,
+    };
+    if (label == null) return;
+    // Background replay failure stays haptically silent (FB-10, FB-13).
+    showErrorSnackBar(host.context, action: label, error: error);
+  }
+
   @override
   void dispose() {
+    _actionQueue?.removePermanentFailureListener(_onQueuedActionFailed);
     WidgetsBinding.instance.removeObserver(this);
     _router.dispose();
     super.dispose();
@@ -336,13 +374,13 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
         Locale('ru', 'RU'),
       ],
       localizationsDelegates: appLocalizationsDelegates,
-      theme: _lightThemeFor(systemColors?.light),
-      darkTheme: _darkThemeFor(systemColors?.dark),
+      theme: _lightThemeFor(systemColors?.light, settings.locale),
+      darkTheme: _darkThemeFor(systemColors?.dark, settings.locale),
       themeMode: themeMode,
       restorationScopeId: 'parfait',
       routerConfig: _router,
-      // Desktop affordance: mouse and trackpad drag like touch. Wheel
-      // smoothing stays per-scrollable — see SmoothWheelScroll.
+      // Platform-adapted scroll physics and drag devices (see FuncScrollBehavior
+      // and FEED-11). Wheel smoothing stays per-scrollable via SmoothWheelScroll.
       scrollBehavior: const FuncScrollBehavior(),
       // The light/dark and palette cross-fade. MaterialApp sits above
       // MotionScope, so the settings are passed in directly.

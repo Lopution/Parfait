@@ -549,6 +549,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Inconclusive — try another network or retry later.';
 
   @override
+  String get networkProbeApplyCompat => 'Switch to Compatibility-first';
+
+  @override
+  String get networkProbeEnableDoh => 'Turn on DoH';
+
+  @override
   String get copy => 'Copy';
 
   @override
@@ -664,7 +670,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileEditUnavailable =>
-      'No in-app profile-edit route is available.';
+      'Profile editing is unavailable right now. Please sign in again and try later.';
+
+  @override
+  String get profileEditNoChanges => 'No profile changes to save';
+
+  @override
+  String get profileEditSaveFailed =>
+      'Couldn\'t save your profile. Please try again.';
 
   @override
   String get profileEditConfirmed => 'Profile confirmed and synchronized.';
@@ -686,7 +699,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileEditFieldUnsupported =>
-      'This field is not supported by the current route';
+      'This field cannot be edited right now';
 
   @override
   String get profileEditImageChoose => 'Choose a supported image';
@@ -1321,6 +1334,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadClearCompleted => 'Clear completed';
+
+  @override
+  String get downloadFilterAll => 'All';
+
+  @override
+  String get downloadFilterActive => 'In progress';
+
+  @override
+  String get downloadFilterFailed => 'Failed';
+
+  @override
+  String get downloadFilterCompleted => 'Completed';
+
+  @override
+  String get downloadRetryAllFailed => 'Retry all failed';
+
+  @override
+  String get downloadFilterEmpty => 'No tasks match this filter';
+
+  @override
+  String downloadFailedCount(int count) {
+    return '$count failed';
+  }
 
   @override
   String downloadTasksRemoved(int count) {
@@ -2744,8 +2780,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelRestricted => 'This novel is restricted';
 
   @override
-  String get novelContentUnavailable =>
-      'The current API did not provide the novel body';
+  String get novelContentUnavailable => 'Novel text is currently unavailable';
 
   @override
   String get novelLoadFailed => 'Failed to load novel';
@@ -3507,4 +3542,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localNovelsDropUnsupported => 'Only .txt files can be imported';
+
+  @override
+  String get ugoiraPlay => 'Play animation';
+
+  @override
+  String get ugoiraPause => 'Pause animation';
+
+  @override
+  String get ugoiraPlaybackSpeed => 'Playback speed';
 }

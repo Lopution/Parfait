@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/accessibility/immersive_chrome_policy.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/icons/app_icons.dart';
 import '../../../app/icons/ui_icons.dart';
@@ -36,6 +37,7 @@ import 'illust_detail_shells.dart';
 import 'related_illusts_section.dart';
 import 'widgets/detail_action_bar.dart';
 import 'widgets/detail_comment_layer.dart';
+import 'widgets/detail_keyboard_shortcuts.dart';
 import 'widgets/detail_overlay_frame.dart';
 import 'widgets/illust_detail_skeleton.dart';
 
@@ -147,7 +149,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       context,
       MotionTokens.chrome,
     );
-    _touchExploration = MediaQuery.accessibleNavigationOf(context);
+    _touchExploration = pinsImmersiveChromeForAccessibility(context);
     if (_touchExploration && !_downloadMode && !_composing) {
       _barVisibility.value = 1;
     }
@@ -211,6 +213,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       }
       _fadeLayoutIn(context);
     } else if (wasTwoPane == false && twoPane) {
+      _scroll.cancelNarrowReveal();
       final index = _scroll.narrowTopImage(context, layout);
       if (index != null) _scroll.imageIndex = index;
       final metaOffset = _scroll.captureNarrowMetaOffset(prevTopChromeExtent);
@@ -441,56 +444,72 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         onRefresh: () => ref
             .read(illustDetailControllerProvider(widget.illustId).notifier)
             .reload(),
-        child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          extendBodyBehindAppBar: immersive,
-          appBar: hideTwoPaneAppBar || hideInspectorAppBar
-              ? null
-              : _downloadMode && entity != null
-              ? _buildSelectionAppBar(context, entity)
-              : _buildAppBar(context, async, immersive: immersive),
-          body: _fadeStates(
-            async.when(
-              loading: () {
-                final snapshot = _snapshotEntity();
-                if (snapshot != null) {
-                  return _buildContent(context, snapshot);
-                }
-                return const IllustDetailSkeleton();
-              },
-              error: (Object error, StackTrace _) => FeedError(
-                title: context.l10n.illustDetailLoadFailed,
-                error: error,
-                retryLabel: context.l10n.retry,
-                onRetry: () => ref
-                    .read(
-                      illustDetailControllerProvider(widget.illustId).notifier,
-                    )
-                    .reload(),
+        child: _wrapNarrowPrimaryScroll(
+          enabled: !twoPane && !widget.embeddedInspector,
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            extendBodyBehindAppBar: immersive,
+            appBar: hideTwoPaneAppBar || hideInspectorAppBar
+                ? null
+                : _downloadMode && entity != null
+                ? _buildSelectionAppBar(context, entity)
+                : _buildAppBar(context, async, immersive: immersive),
+            body: _fadeStates(
+              async.when(
+                loading: () {
+                  final snapshot = _snapshotEntity();
+                  if (snapshot != null) {
+                    return _buildContent(context, snapshot);
+                  }
+                  return const IllustDetailSkeleton();
+                },
+                error: (Object error, StackTrace _) => FeedError(
+                  title: context.l10n.illustDetailLoadFailed,
+                  error: error,
+                  retryLabel: context.l10n.retry,
+                  onRetry: () => ref
+                      .read(
+                        illustDetailControllerProvider(
+                          widget.illustId,
+                        ).notifier,
+                      )
+                      .reload(),
+                ),
+                data: (state) => switch (state) {
+                  IllustDetailRestricted(:final entity) => FeedEmpty(
+                    icon: AppIcons.eyeOff,
+                    title: context.l10n.illustDetailRestricted(entity.id),
+                  ),
+                  IllustDetailNotFound() => FeedEmpty(
+                    icon: AppIcons.searchOff,
+                    title: context.l10n.illustDetailNotFound,
+                  ),
+                  IllustDetailReady(:final entity) => _buildContent(
+                    context,
+                    entity,
+                    detailReady: true,
+                  ),
+                  IllustDetailError(:final error, :final snapshot) =>
+                    _errorOrSnapshot(context, error, snapshot),
+                },
               ),
-              data: (state) => switch (state) {
-                IllustDetailRestricted(:final entity) => FeedEmpty(
-                  icon: AppIcons.eyeOff,
-                  title: context.l10n.illustDetailRestricted(entity.id),
-                ),
-                IllustDetailNotFound() => FeedEmpty(
-                  icon: AppIcons.searchOff,
-                  title: context.l10n.illustDetailNotFound,
-                ),
-                IllustDetailReady(:final entity) => _buildContent(
-                  context,
-                  entity,
-                  detailReady: true,
-                ),
-                IllustDetailError(:final error, :final snapshot) =>
-                  _errorOrSnapshot(context, error, snapshot),
-              },
             ),
           ),
         ),
       ),
     );
   }
+
+  Widget _wrapNarrowPrimaryScroll({
+    required bool enabled,
+    required Widget child,
+  }) => enabled
+      ? PrimaryScrollController(
+          controller: _scroll.narrowScroll,
+          automaticallyInheritForPlatforms: const {},
+          child: child,
+        )
+      : child;
 
   Widget _fadeStates(Widget body) =>
       StateFade(kind: body is IllustDetailSkeleton, child: body);
@@ -740,7 +759,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       opacity: _layoutFadeOpacity,
       child: layoutBody,
     );
-    return IllustDetailHistoryScope(entity: entity, child: page);
+    return IllustDetailHistoryScope(
+      entity: entity,
+      child: DetailKeyboardShortcuts(entity: entity, child: page),
+    );
   }
 
   IllustEntity? _entityOf(AsyncValue<IllustDetailState> async) {

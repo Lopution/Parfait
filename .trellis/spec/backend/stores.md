@@ -144,9 +144,15 @@ reviewed: 2026-10-30
 - **Rule:** A connectivity failure queues the intent and marks the entry
   `queued`. A tap on a queued entry calls `ActionQueue.dropPending`; a row
   already running cannot be dropped and the tap is ignored.
-  `markRunning` claims only a still-pending row.
-- **Why:** A row dropped after `nextReady` read it replayed anyway.
-- **Check:** `test/action_queue_test.dart` "a dropped pending row never replays, even if already read", `test/watchlist_test.dart` "a tap on a queued watch takes the intent back"
+  `markRunning` claims only a still-pending row. When a queued row fails
+  permanently (`maxAttempts` exhausted or unknown handler), `ActionQueue`
+  notifies permanent-failure listeners so `action_bootstrap` rolls back the
+  still-queued store entry (`failQueued`), keeping taps and remote snapshots
+  unblocked while reporting the error silently (`FB-10`).
+- **Why:** A row dropped after `nextReady` read it replayed anyway; silent
+  permanent failures left entries stuck in `queued`, ignoring remote
+  snapshots and deadlocking taps on `deletePending`.
+- **Check:** `test/action_queue_test.dart` "a dropped pending row never replays, even if already read", `test/watchlist_test.dart` "a tap on a queued watch takes the intent back" "permanent replay failure rolls back queued watchlist entry", `test/action_replay_test.dart` "permanent replay failure rolls back queued bookmark and follow so taps and snapshots recover"
 - **Code:** `lib/core/actionqueue`
 
 ### STORE-13 The queue recovers interrupted replays and wakes itself
