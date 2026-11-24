@@ -94,6 +94,30 @@ class _DetailImagePagerState extends State<DetailImagePager>
   }
 
   @override
+  void didUpdateWidget(DetailImagePager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final entityChanged = widget.entity.id != oldWidget.entity.id;
+    final initialChanged = widget.initialPage != oldWidget.initialPage;
+    if (entityChanged || initialChanged) {
+      final target = _clamp(widget.initialPage);
+      if (target != _page) {
+        _page = target;
+        if (_controller.hasClients && _controller.page?.round() != target) {
+          _controller.jumpToPage(target);
+        }
+      }
+      return;
+    }
+    final clamped = _clamp(_page);
+    if (clamped != _page) {
+      _page = clamped;
+      if (_controller.hasClients) {
+        _controller.jumpToPage(clamped);
+      }
+    }
+  }
+
+  @override
   int get pageCount => _count;
 
   @override

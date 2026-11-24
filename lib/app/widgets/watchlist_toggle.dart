@@ -45,18 +45,6 @@ class WatchlistToggle extends ConsumerWidget {
       });
     }
     final added = entry?.shown ?? detailAdded ?? false;
-    ref.listen<Object?>(
-      watchlistStoreProvider.select((state) => state[key]?.error),
-      (previous, next) {
-        if (next != null && previous != next) {
-          showErrorSnackBar(
-            context,
-            action: context.l10n.watchlistFailed,
-            error: next,
-          );
-        }
-      },
-    );
     final icon = Icon(
       added ? AppIcons.watchlistAdded : AppIcons.watchlistAdd,
       size: iconOnly ? null : 18,
@@ -67,12 +55,12 @@ class WatchlistToggle extends ConsumerWidget {
         tooltip: added
             ? context.l10n.watchlistRemove
             : context.l10n.watchlistAdd,
-        onPressed: () => _toggle(ref, key),
+        onPressed: () => _toggle(context, ref, key),
         icon: StateIconSwitcher(value: added, child: icon),
       );
     }
     return OutlinedButton.icon(
-      onPressed: () => _toggle(ref, key),
+      onPressed: () => _toggle(context, ref, key),
       icon: StateIconSwitcher(value: added, child: icon),
       label: Text(
         added ? context.l10n.watchlistRemove : context.l10n.watchlistAdd,
@@ -81,13 +69,25 @@ class WatchlistToggle extends ConsumerWidget {
   }
 
   /// The toggle flips on this frame (optimistic), so its haptic plays now;
-  /// a failure rolls it back with an error haptic and a prompt.
-  Future<void> _toggle(WidgetRef ref, WatchlistKey key) async {
-    // Read the notifier up front: the toggle may outlive this widget.
+  /// a failure rolls it back with an error haptic and a prompt that outlives
+  /// this widget (FB-09, FB-15).
+  Future<void> _toggle(
+    BuildContext context,
+    WidgetRef ref,
+    WatchlistKey key,
+  ) async {
+    // Read up front: the toggle may outlive this widget.
+    final reportFailure = deferErrorSnackBar(
+      context,
+      action: context.l10n.watchlistFailed,
+    );
     final store = ref.read(watchlistStoreProvider.notifier);
     final shown = store.entryOf(key)?.shown ?? detailAdded ?? false;
     shown ? AppHaptics.toggleOff() : AppHaptics.toggleOn();
     await ref.read(watchlistActionsProvider).toggle(key);
-    if (store.entryOf(key)?.error != null) AppHaptics.error();
+    if (store.entryOf(key)?.error case final error?) {
+      AppHaptics.error();
+      reportFailure(error);
+    }
   }
 }

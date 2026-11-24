@@ -32,6 +32,7 @@ import '../../../core/entity/illust_store.dart';
 import '../../../l10n/context.dart';
 import 'detail_page_activity.dart';
 import 'illust_detail_page.dart';
+import 'illust_detail_shells.dart' show detailTwoPaneMetrics;
 import 'widgets/info_block.dart';
 import '../../../app/icons/ui_icons.dart';
 
@@ -864,7 +865,10 @@ class _SlotStandIn extends ConsumerWidget {
           );
     if (twoPane) {
       final stage = Theme.of(context).colorScheme.surfaceContainerLow;
+      final metrics = detailTwoPaneMetrics(context);
       return AdaptiveTwoPane(
+        secondaryFraction: metrics.secondaryFraction,
+        secondaryMaxWidth: metrics.secondaryMaxWidth,
         primary: ColoredBox(
           key: ValueKey('pager-slot-image-$illustId'),
           color: stage,

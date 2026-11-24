@@ -211,6 +211,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       }
       _fadeLayoutIn(context);
     } else if (wasTwoPane == false && twoPane) {
+      _scroll.cancelNarrowReveal();
       final index = _scroll.narrowTopImage(context, layout);
       if (index != null) _scroll.imageIndex = index;
       final metaOffset = _scroll.captureNarrowMetaOffset(prevTopChromeExtent);

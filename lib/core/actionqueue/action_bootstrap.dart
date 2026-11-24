@@ -163,6 +163,65 @@ void _registerMutationHandlers(Ref ref, ActionQueue queue) {
     if (!_ownerIsCurrent(ref, action)) return;
     ref.read(watchlistStoreProvider.notifier).settleQueued(key, added: false);
   });
+  queue.addPermanentFailureListener(
+    (action, error) => _settlePermanentFailure(ref, action, error),
+  );
+}
+
+void _settlePermanentFailure(Ref ref, StoredAction action, Object error) {
+  if (!_ownerIsCurrent(ref, action)) return;
+  try {
+    switch (action.type) {
+      case ActionTypes.bookmarkAdd:
+        ref
+            .read(bookmarkStoreProvider.notifier)
+            .failQueued(
+              _bookmarkKey(action.decodePayload()),
+              bookmarked: true,
+              error: error,
+            );
+      case ActionTypes.bookmarkDelete:
+        ref
+            .read(bookmarkStoreProvider.notifier)
+            .failQueued(
+              _bookmarkKey(action.decodePayload()),
+              bookmarked: false,
+              error: error,
+            );
+      case ActionTypes.followAdd:
+        final userId = action.decodePayload()['user'];
+        if (userId is int) {
+          ref
+              .read(followStoreProvider.notifier)
+              .failQueued(userId, followed: true, error: error);
+        }
+      case ActionTypes.followDelete:
+        final userId = action.decodePayload()['user'];
+        if (userId is int) {
+          ref
+              .read(followStoreProvider.notifier)
+              .failQueued(userId, followed: false, error: error);
+        }
+      case ActionTypes.watchlistAdd:
+        ref
+            .read(watchlistStoreProvider.notifier)
+            .failQueued(
+              _watchlistKey(action.decodePayload()),
+              added: true,
+              error: error,
+            );
+      case ActionTypes.watchlistDelete:
+        ref
+            .read(watchlistStoreProvider.notifier)
+            .failQueued(
+              _watchlistKey(action.decodePayload()),
+              added: false,
+              error: error,
+            );
+    }
+  } on FormatException {
+    // Malformed legacy payloads cannot be matched to a store key.
+  }
 }
 
 /// The stores hold the current account's state: a replay that finished

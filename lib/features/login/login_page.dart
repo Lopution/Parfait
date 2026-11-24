@@ -15,6 +15,7 @@ import '../../app/widgets/app_spinner.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/scrollable_form_shell.dart';
+import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
@@ -181,24 +182,32 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _openLoginWebview({bool create = false}) async {
-    final confirmed = await showAppDialog<bool>(
-      context: context,
-      builder: (context) => AppAlertDialog(
-        title: Text(context.l10n.loginProxyNoticeTitle),
-        content: Text(context.l10n.loginProxyNoticeBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.l10n.loginProxyNoticeCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(context.l10n.loginProxyNoticeContinue),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+    final acknowledged =
+        ref.read(settingsProvider).value?.loginProxyNoticeAcknowledged ?? false;
+    if (!acknowledged) {
+      final confirmed = await showAppDialog<bool>(
+        context: context,
+        builder: (context) => AppAlertDialog(
+          title: Text(context.l10n.loginProxyNoticeTitle),
+          content: Text(context.l10n.loginProxyNoticeBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(context.l10n.loginProxyNoticeCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(context.l10n.loginProxyNoticeContinue),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      unawaited(
+        ref.read(settingsProvider.notifier).acknowledgeLoginProxyNotice(),
+      );
+    }
+    if (!mounted) return;
     // R7 was cancelled: the first login always goes through the WebView
     // page (C16). The native interception entry is removed.
     final result = await context.push<bool>(
@@ -335,16 +344,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     BuildContext context, {
     required String Function(String) text,
   }) {
+    final tokens = FuncSemanticTokens.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ReplicaSwitchTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-          value: _networkMode != NetworkMode.directOnly,
-          title: _buildNetworkTitle(context, text),
-          onTap: _toggleNetworkMode,
+        SettingsCard(
+          child: ReplicaSwitchTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: FuncSpacing.lg,
+              vertical: FuncSpacing.sm,
+            ),
+            value: _networkMode != NetworkMode.directOnly,
+            title: _buildNetworkTitle(context, text),
+            onTap: _toggleNetworkMode,
+          ),
         ),
-        const Divider(),
+        Padding(
+          padding: const EdgeInsets.only(top: FuncSpacing.sm),
+          child: Text(text('loginProxyNoticeBody'), style: tokens.caption),
+        ),
       ],
     );
   }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -155,6 +157,47 @@ void main() {
     expect(find.text('Unfollow series'), findsOneWidget);
     expect(fixture.requests.single.url.path, '/v1/watchlist/manga/add');
     expect(container.read(watchlistStoreProvider)[key]!.added, isTrue);
+  });
+
+  testWidgets('toggle reports failure through PromptHost even after unmount', (
+    tester,
+  ) async {
+    final fixture = WatchlistFixture()
+      ..mutationStatus = 403
+      ..hold = Completer<void>();
+    final (container, _) = await makeWatchlistWorld(fixture: fixture);
+    const key = WatchlistKey(WatchlistType.manga, 9);
+    final showToggle = ValueNotifier<bool>(true);
+    addTearDown(showToggle.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(
+          Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: showToggle,
+              builder: (_, visible, _) => visible
+                  ? const Center(child: WatchlistToggle(seriesKey: key))
+                  : const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Follow series'));
+    await tester.pump();
+    // Unmount WatchlistToggle while the request is still in flight.
+    showToggle.value = false;
+    await tester.pump();
+
+    fixture.hold!.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.textContaining('Series follow action failed'), findsOneWidget);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a seen cursor that fails to save still opens the work', (

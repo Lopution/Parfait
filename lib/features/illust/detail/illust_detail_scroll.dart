@@ -171,12 +171,18 @@ class IllustDetailScrollController {
   bool _pagesToggleCheckScheduled = false;
   bool _metricsSyncScheduled = false;
   bool _revealScheduled = false;
+  bool _revealingNarrow = false;
+
+  void cancelNarrowReveal() {
+    _revealingNarrow = false;
+  }
 
   GlobalKey keyForPage(int index) =>
       pageKeys.putIfAbsent(index, () => GlobalKey());
 
   void dispose() {
     _disposed = true;
+    _revealingNarrow = false;
     narrowScroll.dispose();
     metaScroll.dispose();
     topVisiblePage.dispose();
@@ -225,7 +231,12 @@ class IllustDetailScrollController {
     final Object? viewport = box == null
         ? null
         : RenderAbstractViewport.maybeOf(box);
-    if (box is! RenderBox || !box.hasSize || viewport is! RenderBox) {
+    if (box is! RenderBox ||
+        !box.attached ||
+        !box.hasSize ||
+        viewport is! RenderBox ||
+        !viewport.attached ||
+        !viewport.hasSize) {
       pagesToggleOnScreen.value = false;
       return;
     }
@@ -249,7 +260,7 @@ class IllustDetailScrollController {
         ? null
         : _visiblePages.reduce(math.min);
     final top = topVisiblePage.value;
-    if (top != null) imageIndex = top;
+    if (top != null && !_revealingNarrow) imageIndex = top;
   }
 
   void updateNarrowInfoStartOffset([double? topChromeOverride]) {
@@ -261,8 +272,10 @@ class IllustDetailScrollController {
     final scrollRo = narrowScroll.position.context.notificationContext
         ?.findRenderObject();
     if (infoRo is! RenderBox ||
+        !infoRo.attached ||
         !infoRo.hasSize ||
         scrollRo is! RenderBox ||
+        !scrollRo.attached ||
         !scrollRo.hasSize) {
       return;
     }
@@ -358,6 +371,7 @@ class IllustDetailScrollController {
   }) {
     if (_revealScheduled || _disposed) return;
     _revealScheduled = true;
+    if (imageIndex > 0) _revealingNarrow = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _revealScheduled = false;
       unawaited(
@@ -379,30 +393,34 @@ class IllustDetailScrollController {
     required bool Function() isPagesExpanded,
     required VoidCallback onExpandPages,
   }) async {
-    if (_disposed || !isMounted()) return;
-    final index = imageIndex;
-    if (index <= 0) return;
-    final layout = IllustFirstImageLayout.of(
-      getContext(),
-      entity,
-      expanded: isPagesExpanded(),
-    );
-    if (index >= layout.shownPages) {
-      onExpandPages();
-      await WidgetsBinding.instance.endOfFrame;
+    try {
       if (_disposed || !isMounted()) return;
-    }
-    await _walkLazyNarrowScrollUntil(isMounted, () {
+      final index = imageIndex;
+      if (index <= 0) return;
+      final layout = IllustFirstImageLayout.of(
+        getContext(),
+        entity,
+        expanded: isPagesExpanded(),
+      );
+      if (index >= layout.shownPages) {
+        onExpandPages();
+        await WidgetsBinding.instance.endOfFrame;
+        if (_disposed || !isMounted()) return;
+      }
+      await _walkLazyNarrowScrollUntil(isMounted, () {
+        final page = pageKeys[index]?.currentContext;
+        return page != null && page.mounted;
+      });
+      if (_disposed || !isMounted()) return;
       final page = pageKeys[index]?.currentContext;
-      return page != null && page.mounted;
-    });
-    if (_disposed || !isMounted()) return;
-    final page = pageKeys[index]?.currentContext;
-    if (page == null || !page.mounted) return;
-    await Scrollable.ensureVisible(
-      page,
-      duration: MotionTokens.resolve(page, MotionTokens.spatial),
-    );
+      if (page == null || !page.mounted) return;
+      await Scrollable.ensureVisible(
+        page,
+        duration: MotionTokens.resolve(page, MotionTokens.spatial),
+      );
+    } finally {
+      _revealingNarrow = false;
+    }
   }
 
   /// The image at the top of the single column right now, read directly from
@@ -412,7 +430,7 @@ class IllustDetailScrollController {
     int? top;
     for (final entry in pageKeys.entries) {
       final box = entry.value.currentContext?.findRenderObject();
-      if (box is! RenderBox || !box.hasSize) continue;
+      if (box is! RenderBox || !box.attached || !box.hasSize) continue;
       final rect = box.localToGlobal(Offset.zero) & box.size;
       if (rect.bottom <= layout.topChrome || rect.top >= bottom) continue;
       if (top == null || entry.key < top) top = entry.key;
@@ -424,7 +442,7 @@ class IllustDetailScrollController {
     if (!narrowScroll.hasClients) return MediaQuery.sizeOf(context).height;
     final viewport = narrowScroll.position.context.notificationContext
         ?.findRenderObject();
-    if (viewport is! RenderBox || !viewport.hasSize) {
+    if (viewport is! RenderBox || !viewport.attached || !viewport.hasSize) {
       return MediaQuery.sizeOf(context).height;
     }
     return viewport.localToGlobal(Offset.zero).dy + viewport.size.height;

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/testing.dart';
 
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/app_dialog.dart';
@@ -18,6 +19,7 @@ import 'package:parfait/core/network/compat/network_contracts.dart'
     as network_contracts;
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/platform/intent_router.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -193,26 +195,84 @@ void main() {
       expect(tester.widget<TextButton>(button).onPressed, isNotNull);
     });
 
-    testWidgets('register and login open the proxy notice dialog', (
-      tester,
-    ) async {
-      await pumpLogin(tester, size: const Size(390, 844));
+    testWidgets(
+      'proxy notice dialog appears once, remembers acknowledgement, and shows inline hint',
+      (tester) async {
+        final pushed = <String>[];
+        final router = GoRouter(
+          initialLocation: '/login',
+          routes: [
+            GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
+            GoRoute(
+              path: '/login/web',
+              builder: (context, state) {
+                pushed.add(state.uri.toString());
+                return Scaffold(
+                  body: TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('close-web'),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await seedSettings(
+          const AppSettings(
+            guideCompleted: false,
+            languageTag: 'zh-CN',
+            themeCode: AppSettings.systemTheme,
+          ),
+        );
+        await tester.pumpWidget(
+          localizedRouterApp(
+            router,
+            locale: const Locale('zh', 'CN'),
+            overrides: [
+              ...accountProviderOverrides(),
+              networkAccessPolicyProvider.overrideWithValue(
+                stubNetworkPolicy(),
+              ),
+            ],
+            builder: promptHostBuilder,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(Divider), findsNothing);
 
-      await tester.tap(find.widgetWithText(ReplicaButton, '登录'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(ReplicaButton, '登录'));
+        await tester.pumpAndSettle();
 
-      // The proxy notice stays a dialog on every breakpoint (D7).
-      final dialog = find.byType(AppAlertDialog);
-      expect(dialog, findsOneWidget);
-      expect(find.text('提示'), findsOneWidget);
-      expect(find.text('取消'), findsOneWidget);
-      expect(find.text('我已开启代理'), findsOneWidget);
+        final dialog = find.byType(AppAlertDialog);
+        expect(dialog, findsOneWidget);
+        expect(find.text('提示'), findsOneWidget);
+        expect(find.text('取消'), findsOneWidget);
+        expect(find.text('我已开启代理'), findsOneWidget);
 
-      await tester.tap(find.text('取消'));
-      await tester.pumpAndSettle();
-      expect(dialog, findsNothing);
-      expect(find.byType(LoginPage), findsOneWidget);
-    });
+        await tester.tap(find.text('取消'));
+        await tester.pumpAndSettle();
+        expect(dialog, findsNothing);
+        expect(pushed, isEmpty);
+
+        // Confirm once: pushes /login/web and remembers acknowledgement.
+        await tester.tap(find.widgetWithText(ReplicaButton, '登录'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('我已开启代理'));
+        await tester.pumpAndSettle();
+        expect(dialog, findsNothing);
+        expect(pushed, ['/login/web']);
+
+        await tester.tap(find.text('close-web'));
+        await tester.pumpAndSettle();
+
+        // Second tap skips the blocking dialog and goes straight to /login/web.
+        await tester.tap(find.widgetWithText(ReplicaButton, '登录'));
+        await tester.pumpAndSettle();
+        expect(dialog, findsNothing);
+        expect(pushed, ['/login/web', '/login/web']);
+      },
+    );
 
     testWidgets(
       'compatPrefer renders enabled and restores after toggling off and back on',
@@ -375,6 +435,70 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(LoginPage), findsNothing);
+        expect(router.state.uri.path, '/recommended');
+      },
+    );
+
+    testWidgets(
+      'reduced-motion external callback from /login/web keeps PKCE session and preserves first/return flags',
+      (tester) async {
+        await seedAccounts(const []);
+        final oauth = OAuthService(
+          client: MockClient((request) async {
+            expect(request.url.path, '/auth/token');
+            return jsonResponse({
+              'access_token': 'tok-a',
+              'refresh_token': 'tok-r',
+              'expires_in': 3600,
+              'user': {
+                'id': '300',
+                'name': 'ReducedMotionUser',
+                'mail_address': '',
+                'profile_image_urls': {'px_170x170': ''},
+                'is_premium': false,
+              },
+            });
+          }),
+        );
+        final router = createPixivRouter(
+          initialLocation: '/login?first=true&return=true',
+        );
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: localizedRouterApp(
+              router,
+              overrides: [
+                ...accountProviderOverrides(
+                  credentialStore: FakeCredentialStore(),
+                ),
+                oauthServiceProvider.overrideWithValue(oauth),
+                platformCapsProvider.overrideWithValue(
+                  const PlatformCaps(isLinux: true),
+                ),
+              ],
+              builder: promptHostBuilder,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        unawaited(router.push<void>('/login/web'));
+        await tester.pumpAndSettle();
+        expect(oauth.hasLiveSession, isTrue);
+
+        unawaited(
+          routeExternalIntent(
+            router,
+            const RoutedAndroidIntent(AccountCallbackRoute('rm-code')),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // /login/web disposal under Duration.zero must not wipe the verifier,
+        // and the callback completes sign-in to /recommended.
         expect(router.state.uri.path, '/recommended');
       },
     );
