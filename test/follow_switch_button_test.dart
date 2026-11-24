@@ -162,7 +162,7 @@ void main() {
     expect(find.byType(CupertinoActivityIndicator), findsNothing);
     expect(
       tester.getSize(find.byType(FollowSwitchButton)),
-      const Size(116, 42),
+      const Size(116, 48),
     );
 
     gate.complete();

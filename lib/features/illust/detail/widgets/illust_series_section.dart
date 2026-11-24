@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../detail_page_activity.dart';
-import '../../../../app/motion/press_scale.dart';
 import '../../../../app/navigation/route_facade.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../core/entity/illust_store.dart';
@@ -104,64 +103,62 @@ class _SeriesCardView extends ConsumerWidget {
       );
     }
 
-    return PressScale(
-      child: Card(
-        margin: const EdgeInsets.symmetric(
-          horizontal: FuncSpacing.lg,
-          vertical: FuncSpacing.sm,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => openIllustSeries(buildContext, detail.id),
-          child: Padding(
-            padding: const EdgeInsets.all(FuncSpacing.md),
-            child: Row(
-              children: [
-                if (cover != null)
-                  ClipRRect(
-                    borderRadius: FuncShape.control,
-                    child: PixivImage(
-                      url: cover,
-                      width: 56,
-                      height: 56,
-                      memCacheWidth: PixivImage.decodeWidthOf(buildContext, 56),
+    return Card(
+      margin: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.lg,
+        vertical: FuncSpacing.sm,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => openIllustSeries(buildContext, detail.id),
+        child: Padding(
+          padding: const EdgeInsets.all(FuncSpacing.md),
+          child: Row(
+            children: [
+              if (cover != null)
+                ClipRRect(
+                  borderRadius: FuncShape.control,
+                  child: PixivImage(
+                    url: cover,
+                    width: 56,
+                    height: 56,
+                    memCacheWidth: PixivImage.decodeWidthOf(buildContext, 56),
+                  ),
+                ),
+              if (cover != null) const SizedBox(width: FuncSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      detail.title,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                if (cover != null) const SizedBox(width: FuncSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        detail.title,
-                        style: theme.textTheme.titleSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: FuncSpacing.xxs),
-                      Text(
-                        _episode(buildContext.l10n),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
+                    const SizedBox(height: FuncSpacing.xxs),
+                    Text(
+                      _episode(buildContext.l10n),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                 ),
-                IconButton(
-                  tooltip: buildContext.l10n.seriesPrevious,
-                  onPressed: context.prevIllustId == null
-                      ? null
-                      : () => openNeighbour(context.prevIllustId),
-                  icon: const Icon(UiIcons.chevronLeft),
-                ),
-                IconButton(
-                  tooltip: buildContext.l10n.seriesNext,
-                  onPressed: context.nextIllustId == null
-                      ? null
-                      : () => openNeighbour(context.nextIllustId),
-                  icon: const Icon(UiIcons.chevronRight),
-                ),
-              ],
-            ),
+              ),
+              IconButton(
+                tooltip: buildContext.l10n.seriesPrevious,
+                onPressed: context.prevIllustId == null
+                    ? null
+                    : () => openNeighbour(context.prevIllustId),
+                icon: const Icon(UiIcons.chevronLeft),
+              ),
+              IconButton(
+                tooltip: buildContext.l10n.seriesNext,
+                onPressed: context.nextIllustId == null
+                    ? null
+                    : () => openNeighbour(context.nextIllustId),
+                icon: const Icon(UiIcons.chevronRight),
+              ),
+            ],
           ),
         ),
       ),

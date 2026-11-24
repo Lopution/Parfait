@@ -23,6 +23,7 @@ import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
+import 'package:parfait/features/novel/novel_reader_series_nav.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
@@ -906,6 +907,77 @@ void main() {
       expect(systemUiModes, contains('SystemUiMode.edgeToEdge'));
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
+    'accessibleNavigation pins reader chrome open with canPop, F toggles chrome, ruby excludes reading, and 1.5x chapters/series/pointer-cue keep >=48dp without overflow',
+    (tester) async {
+      // 1. accessibleNavigation pins chrome open and keeps PopScope canPop true.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final binding = _RecordingBinding();
+      await tester.pumpWidget(_stageApp(binding, chapters: true));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsOneWidget);
+      final popScope = tester.widget<PopScope<dynamic>>(
+        find.byWidgetPredicate((w) => w is PopScope),
+      );
+      expect(popScope.canPop, isTrue);
+
+      // 2. F toggles chrome open and closed in standard mode; pointer cue >= 48dp.
+      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          text: '[[rb:漢字 > かんじ]] text ' * 40,
+          inputModality: InputModality.pointer,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cueSize = tester.getSize(
+        find.byKey(const ValueKey('novel-pointer-cue')),
+      );
+      expect(cueSize.width, greaterThanOrEqualTo(48));
+      expect(cueSize.height, greaterThanOrEqualTo(48));
+
+      // Ruby reading is excluded from semantics tree while base remains.
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(find.bySemanticsLabel(RegExp('かんじ')), findsNothing);
+      } finally {
+        semantics.dispose();
+      }
+
+      expect(find.byTooltip('info'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsNothing);
+
+      // 3. Large text scale (1.5x) renders NovelAdjacentBar with zero overflow.
+      await tester.pumpWidget(
+        localizedApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(360, 640),
+              textScaler: TextScaler.linear(1.5),
+            ),
+            child: const Scaffold(body: NovelAdjacentBar(prevId: 1, nextId: 3)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.byType(NovelAdjacentBar)).height,
+        greaterThanOrEqualTo(novelSeriesBarHeight),
+      );
+    },
   );
 }
 

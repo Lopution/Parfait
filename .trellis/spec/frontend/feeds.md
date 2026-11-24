@@ -152,10 +152,10 @@ reviewed: 2026-11-23
 ## First-load skeletons
 
 ### FEED-14 Skeletons cover the first load only
-- **Rule:** Initial loads paint a layout-shaped skeleton (never `FeedEmpty`, blank space, or a lone spinner; non-grid surfaces use `FeedLoading`); refresh and load-more keep existing content; `IllustDetailSkeleton` shows only without `initialEntity`.
-- **Why:** Dropping content on refresh or masking snapshots broke Hero hand-offs.
-- **Check:** manual
-- **Code:** `lib/app/widgets/skeleton/func_skeleton.dart`, `lib/features/illust/detail/widgets/illust_detail_skeleton.dart`
+- **Rule:** Initial loads of network feeds paint a layout-shaped skeleton (`IllustGridSkeleton`, `NovelListSkeleton`, `UserListSkeleton`, `SpotlightListSkeleton`, `ProfileSkeleton`; never `FeedEmpty`, blank space, or a lone spinner; instant local SQLite pages may omit shimmer); refresh and load-more keep existing content; `IllustDetailSkeleton` shows only without `initialEntity`.
+- **Why:** Dropping content on refresh or masking snapshots broke Hero hand-offs, while bare spinners on slow network lists caused layout jumps.
+- **Check:** `test/spotlight_feed_test.dart` "SpotlightListSkeleton renders bones, AppChoiceChip omits PressScale, and UserPreviewRow mounts Hero without press ink"
+- **Code:** `lib/app/widgets/skeleton/func_skeleton.dart`, `lib/app/widgets/skeleton/list_skeletons.dart`, `lib/features/illust/detail/widgets/illust_detail_skeleton.dart`
 
 ### FEED-15 One skeleton root paints, animates and speaks
 - **Rule:** The outermost `FuncSkeleton` owns the single shimmer controller, shared gradient (painted per `SkeletonBone`, no `ShaderMask`), and single localized loading semantics node (`UserListSkeleton` separates title and `@handle` bones). Nested `FuncSkeleton`s render their child as-is; reduced motion keeps bones static.

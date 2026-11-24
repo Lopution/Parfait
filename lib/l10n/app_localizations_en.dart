@@ -3542,4 +3542,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localNovelsDropUnsupported => 'Only .txt files can be imported';
+
+  @override
+  String get ugoiraPlay => 'Play animation';
+
+  @override
+  String get ugoiraPause => 'Pause animation';
+
+  @override
+  String get ugoiraPlaybackSpeed => 'Playback speed';
 }

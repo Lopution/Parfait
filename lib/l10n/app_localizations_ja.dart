@@ -3449,4 +3449,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localNovelsDropUnsupported => 'インポートできるのは .txt ファイルのみです';
+
+  @override
+  String get ugoiraPlay => 'うごイラを再生';
+
+  @override
+  String get ugoiraPause => 'うごイラを一時停止';
+
+  @override
+  String get ugoiraPlaybackSpeed => '再生速度';
 }

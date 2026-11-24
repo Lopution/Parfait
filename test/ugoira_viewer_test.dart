@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -316,6 +317,70 @@ void main() {
       await tester.tap(find.byTooltip('取消'));
       await pumpIoUntil(tester, () => find.text('GIF 保存已取消').tryEvaluate());
       expect(tempDir.listSync(), isEmpty);
+    },
+  );
+
+  testWidgets(
+    'UgoiraViewer exposes play semantics, handles Enter key, and speed button keeps >=48dp hit target',
+    (tester) async {
+      answerConnectivityChannels();
+      var metadataCalls = 0;
+      final api = PixivApi({
+        '/v1/ugoira/metadata': (request) {
+          metadataCalls++;
+          return answer({
+            'ugoira_metadata': {
+              'frames': [
+                {'file': '0.jpg', 'delay': 100},
+              ],
+              'zip_urls': {'medium': 'https://i.pximg.net/42/ugoira.zip'},
+            },
+          })(request);
+        },
+      });
+      final container = await signedInApiContainer(api.client);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          withStalledImages(
+            localizedApp(
+              container: container,
+              home: const Scaffold(
+                body: UgoiraViewer(
+                  illustId: 42,
+                  previewUrl: 'https://i.pximg.net/42/large.jpg',
+                  width: 800,
+                  height: 600,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.bySemanticsLabel('播放动图'), findsOneWidget);
+        final speedFinder = find.byTooltip('播放倍速');
+        expect(speedFinder, findsOneWidget);
+        final speedSize = tester.getSize(speedFinder);
+        expect(speedSize.width, greaterThanOrEqualTo(48));
+        expect(speedSize.height, greaterThanOrEqualTo(48));
+
+        // Focus viewer and press Enter to trigger playback load.
+        final focus = tester.widget<Focus>(
+          find.descendant(
+            of: find.byType(UgoiraViewer),
+            matching: find.byWidgetPredicate(
+              (w) => w is Focus && w.focusNode != null,
+            ),
+          ),
+        );
+        focus.focusNode!.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(metadataCalls, 1);
+      } finally {
+        semantics.dispose();
+      }
     },
   );
 }

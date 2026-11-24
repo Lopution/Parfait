@@ -27,6 +27,7 @@ import '../../app/widgets/page_header.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
@@ -302,7 +303,7 @@ class _NewFeedBody extends ConsumerWidget {
 
   Widget _loading(BuildContext context) => feedKey.type == NewFeedType.illust
       ? IllustGridSkeleton(label: context.l10n.newLoading)
-      : FeedLoading(label: context.l10n.newLoading);
+      : NovelListSkeleton(label: context.l10n.newLoading);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

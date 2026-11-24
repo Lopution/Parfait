@@ -15,6 +15,7 @@ import '../../app/widgets/app_spinner.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
 import '../../app/widgets/novel_entry.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/entity/stored_entities.dart';
 import '../../core/network/api_error.dart';
@@ -37,7 +38,7 @@ class NovelMarkersPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppTopBar(title: Text(l10n.novelMarkers)),
       body: async.when(
-        loading: () => const FeedLoading(),
+        loading: () => NovelListSkeleton(label: l10n.novelLoading),
         error: (error, _) => FeedError(
           title: l10n.novelMarkersLoadFailed,
           error: error,
@@ -53,7 +54,9 @@ class NovelMarkersPage extends ConsumerWidget {
               onRetry: controller.retryInitial,
             );
           }
-          if (feed.showInitialSpinner) return const FeedLoading();
+          if (feed.showInitialSpinner) {
+            return NovelListSkeleton(label: l10n.novelLoading);
+          }
           final novels = ref
               .watch(
                 novelStoreProvider.select(

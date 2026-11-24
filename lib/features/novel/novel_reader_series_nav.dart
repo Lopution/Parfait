@@ -146,27 +146,23 @@ class _SeriesBarRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: novelSeriesBarHeight,
-      child: NavigationToolbar(
-        middleSpacing: 0,
-        leading: IconButton(
-          tooltip: context.l10n.novelPrevious,
-          onPressed: onPrevious,
-          icon: const Icon(UiIcons.chevronLeft),
-        ),
-        middle: center,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ?trailing,
-            IconButton(
-              tooltip: context.l10n.novelNext,
-              onPressed: onNext,
-              icon: const Icon(UiIcons.chevronRight),
-            ),
-          ],
-        ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: novelSeriesBarHeight),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: context.l10n.novelPrevious,
+            onPressed: onPrevious,
+            icon: const Icon(UiIcons.chevronLeft),
+          ),
+          Expanded(child: Center(child: center ?? const SizedBox.shrink())),
+          ?trailing,
+          IconButton(
+            tooltip: context.l10n.novelNext,
+            onPressed: onNext,
+            icon: const Icon(UiIcons.chevronRight),
+          ),
+        ],
       ),
     );
   }

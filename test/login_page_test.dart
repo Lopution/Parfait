@@ -502,6 +502,21 @@ void main() {
         expect(router.state.uri.path, '/recommended');
       },
     );
+
+    testWidgets('user agreement and network help buttons keep >=48dp targets', (
+      tester,
+    ) async {
+      await pumpLogin(tester, size: const Size(390, 1000));
+      final agreementSize = tester.getSize(
+        find.widgetWithText(TextButton, '《Parfait 用户使用协议》'),
+      );
+      expect(agreementSize.height, greaterThanOrEqualTo(48));
+      final helpSize = tester.getSize(
+        find.widgetWithIcon(IconButton, AppIcons.info),
+      );
+      expect(helpSize.width, greaterThanOrEqualTo(48));
+      expect(helpSize.height, greaterThanOrEqualTo(48));
+    });
   });
 }
 
