@@ -1032,6 +1032,21 @@ void main() {
         expect(task.status, DownloadStatus.failed, reason: code);
         expect(task.failureKind, value, reason: code);
       }
+      // iOS Photo Library channel error codes map to permission / noSpace / storage.
+      const iosCases = {
+        'ios_photo_permission_denied': DownloadFailureKind.permission,
+        'ios_photo_no_space': DownloadFailureKind.noSpace,
+        'ios_photo_save_failed': DownloadFailureKind.storage,
+        'ios_photo_not_found': DownloadFailureKind.storage,
+        'ios_photo_invalid_argument': DownloadFailureKind.storage,
+      };
+      for (final MapEntry(key: code, :value) in iosCases.entries) {
+        final iosTask = await failed(
+          ThrowAfterWriteSinkFactory(PlatformException(code: code)),
+        );
+        expect(iosTask.status, DownloadStatus.failed, reason: code);
+        expect(iosTask.failureKind, value, reason: code);
+      }
       // dart:io reports a full disk by its errno.
       const full = FileSystemException(
         'write failed',
