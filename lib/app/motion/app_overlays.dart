@@ -462,7 +462,7 @@ Future<T?> showAppAdaptivePopover<T>({
         surfaceTintColor: Colors.transparent,
         elevation: 6,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: FuncShape.panel,
           side: _overlayBorder(routeContext),
         ),
         clipBehavior: Clip.antiAlias,

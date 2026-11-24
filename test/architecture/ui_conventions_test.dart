@@ -137,7 +137,7 @@ const _rawMotionTokenCensus = <String, int>{
 // ── Spacing & radius tokens ─────────────────────────────────────────────────
 
 final _spacingCall = RegExp(
-  r'(?<!\w)(?:EdgeInsets\.(?:all|symmetric|only|fromLTRB)|Radius\.circular)\(',
+  r'(?<!\w)(?:EdgeInsets\.(?:all|symmetric|only|fromLTRB)|(?:Border)?Radius\.circular)\(',
 );
 final _numberLiteral = RegExp(r'(?<![\w.])(\d+\.?\d*)(?![\w.])');
 const _spacingAllowList = <String, int>{};

@@ -23,6 +23,11 @@ abstract final class FuncShape {
 
   /// Corner badges over artwork (R-18, page count, AI).
   static const BorderRadius badge = BorderRadius.all(Radius.circular(6));
+
+  /// Novel list covers (regular 68×88 and compact 56×72 rows).
+  static const BorderRadius cover = BorderRadius.all(Radius.circular(6));
+  static const BorderRadius coverCompact = BorderRadius.all(Radius.circular(4));
+
   static const BorderRadius control = BorderRadius.all(Radius.circular(10));
   static const BorderRadius pill = BorderRadius.all(Radius.circular(999));
   static const BorderRadius dialog = BorderRadius.all(Radius.circular(18));

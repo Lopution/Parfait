@@ -201,7 +201,7 @@ class _DockedSearchPanelState extends State<DockedSearchPanel> {
     return Material(
       color: colors.surfaceContainer,
       elevation: 8,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: FuncShape.panel,
       clipBehavior: Clip.antiAlias,
       child: SearchInputEngine(
         key: _engine,

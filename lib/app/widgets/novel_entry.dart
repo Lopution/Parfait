@@ -39,7 +39,7 @@ class NovelEntry extends ConsumerWidget {
     required this.entity,
     required double coverWidth,
     required double coverHeight,
-    required double coverRadius,
+    required BorderRadius coverBorderRadius,
     this.rank,
     this.overline,
     this.showSeries = true,
@@ -51,7 +51,7 @@ class NovelEntry extends ConsumerWidget {
     this.semanticLabel,
   }) : _coverWidth = coverWidth,
        _coverHeight = coverHeight,
-       _coverRadius = coverRadius,
+       _coverBorderRadius = coverBorderRadius,
        // Work-id default key — same slot-hand-off contract as IllustCard:
        // the element follows the work across feed refreshes.
        super(key: key ?? ValueKey('novel-${entity.id}'));
@@ -71,7 +71,7 @@ class NovelEntry extends ConsumerWidget {
          entity: entity,
          coverWidth: 56,
          coverHeight: 72,
-         coverRadius: 4,
+         coverBorderRadius: FuncShape.coverCompact,
          progress: progress,
          trailing: trailing,
          onTap: onTap,
@@ -97,7 +97,7 @@ class NovelEntry extends ConsumerWidget {
          entity: entity,
          coverWidth: 68,
          coverHeight: 88,
-         coverRadius: 6,
+         coverBorderRadius: FuncShape.cover,
          overline: overline,
          showSeries: showSeries,
          progress: progress,
@@ -125,7 +125,7 @@ class NovelEntry extends ConsumerWidget {
          entity: entity,
          coverWidth: 68,
          coverHeight: 88,
-         coverRadius: 6,
+         coverBorderRadius: FuncShape.cover,
          rank: rank,
          progress: progress,
          trailing: trailing,
@@ -138,7 +138,7 @@ class NovelEntry extends ConsumerWidget {
   final NovelEntity entity;
   final double _coverWidth;
   final double _coverHeight;
-  final double _coverRadius;
+  final BorderRadius _coverBorderRadius;
 
   /// Ranking position — set only by [NovelEntry.ranking].
   final int? rank;
@@ -280,7 +280,7 @@ class NovelEntry extends ConsumerWidget {
   Widget _cover(BuildContext context, {required bool muted}) {
     final colorScheme = Theme.of(context).colorScheme;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(_coverRadius),
+      borderRadius: _coverBorderRadius,
       child: SizedBox(
         width: _coverWidth,
         height: _coverHeight,
