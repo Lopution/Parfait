@@ -129,6 +129,22 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
           context.l10n.importFileTooLarge(error.maxMegabytes),
         ),
       );
+    } on LocalNovelTooLargeException catch (error) {
+      if (!context.mounted) return;
+      final reason = switch (error.kind) {
+        LocalNovelLimitKind.chars => context.l10n.localNovelsTooManyChars(
+          error.limit,
+        ),
+        LocalNovelLimitKind.paragraphs =>
+          context.l10n.localNovelsTooManyParagraphs(error.limit),
+      };
+      showAppSnackBar(
+        context,
+        context.l10n.errorWithReason(
+          context.l10n.localNovelsImportFailed,
+          reason,
+        ),
+      );
     } on Object catch (error) {
       if (!context.mounted) return;
       showErrorSnackBar(
@@ -235,13 +251,17 @@ class _LocalNovelTile extends ConsumerWidget {
       context,
       listen: false,
     ).read(localNovelStoreProvider.notifier);
+    final failed = deferErrorSnackBar(
+      context,
+      action: context.l10n.localNovelsDeleteFailed,
+    );
     final removals = RemovalScope.of(context);
     await removals.playExit([novel.id]);
     try {
       await store.delete(novel);
-    } on Object {
+    } on Object catch (error, stack) {
       removals.restore([novel.id]);
-      rethrow;
+      failed(error, stack);
     }
   }
 }

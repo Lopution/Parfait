@@ -13,7 +13,6 @@ import 'helpers/card_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
-import 'package:parfait/app/icons/app_icons.dart';
 
 NovelEntity _novel(
   int id, {
@@ -21,6 +20,8 @@ NovelEntity _novel(
   List<NovelTag> tags = const [],
   String? seriesTitle,
   int totalBookmarks = 0,
+  int xRestrict = 0,
+  int novelAiType = 0,
 }) => NovelEntity(
   id: id,
   title: 'novel $id',
@@ -33,6 +34,8 @@ NovelEntity _novel(
   coverImageUrl: coverUrl,
   seriesTitle: seriesTitle,
   totalBookmarks: totalBookmarks,
+  xRestrict: xRestrict,
+  novelAiType: novelAiType,
 );
 
 Widget _host(Widget child, {MuteState mutes = const MuteState()}) =>
@@ -61,23 +64,64 @@ void main() {
     expect(find.textContaining('saga · '), findsOneWidget);
     // Four tags at most on the footnote line.
     expect(find.text('#t1 #t2 #t3 #t4'), findsOneWidget);
-    // The count sits on the cover, in the scrim badge.
-    final badge = find.byType(EntityBadge);
-    expect(
-      find.descendant(of: find.byType(ClipRRect), matching: badge),
-      findsOneWidget,
-    );
-    expect(
-      tester.getBottomLeft(badge).dy,
-      lessThanOrEqualTo(tester.getBottomLeft(find.byType(ClipRRect)).dy),
-    );
-    expect(find.byIcon(AppIcons.heartFilled), findsOneWidget);
+    // Bookmark count lives in the meta line instead of clipping on the narrow cover.
+    expect(find.byType(EntityBadge), findsNothing);
+    expect(find.textContaining('次收藏'), findsOneWidget);
     expect(
       find.bySemanticsLabel(RegExp(r'^novel 6, author, .+ 次收藏$')),
       findsOneWidget,
     );
     semantics.dispose();
   });
+
+  testWidgets(
+    'R-18, R-18G and AI marks appear in meta and semantics until muted',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          _host(
+            NovelEntry.compact(
+              entity: _novel(
+                12,
+                xRestrict: 1,
+                novelAiType: 2,
+                totalBookmarks: 99,
+              ),
+            ),
+          ),
+        );
+        expect(find.textContaining('R-18 · AI 生成'), findsOneWidget);
+        expect(find.textContaining('99 次收藏'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(
+            RegExp(r'novel 12, author, R-18, AI 生成, 99 次收藏'),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          _host(
+            NovelEntry.compact(
+              entity: _novel(
+                13,
+                xRestrict: 2,
+                tags: [const NovelTag(name: 't1')],
+              ),
+            ),
+            mutes: const MuteState(tags: {'t1'}),
+          ),
+        );
+        expect(find.textContaining('R-18G'), findsNothing);
+        await tester.tap(find.byType(NovelEntry));
+        await tester.pump();
+        expect(find.textContaining('R-18G'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
 
   testWidgets('a muted novel shows the reason until a tap reveals it', (
     tester,

@@ -1220,6 +1220,23 @@
   },
   "localNovelsImportedLossy": "Imported, but the encoding was not fully recognized — the text may contain mojibake",
   "localNovelsDelete": "Delete",
+  "localNovelsDeleteFailed": "Failed to delete local novel",
+  "localNovelsTooManyChars": "Exceeds the {limit}-character reader limit",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "Exceeds the {limit}-paragraph reader limit",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "Delete \"{title}\"? The local file will be removed too.",
   "@localNovelsDeleteConfirm": {
     "placeholders": {

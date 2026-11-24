@@ -41,6 +41,38 @@ class LocalNovel {
   final int? readOffset;
 
   File get file => File(path);
+
+  LocalNovel withReadOffset(int? readOffset) => LocalNovel(
+    id: id,
+    title: title,
+    author: author,
+    path: path,
+    charCount: charCount,
+    importedAt: importedAt,
+    encoding: encoding,
+    readOffset: readOffset,
+  );
+}
+
+/// Which decoded text budget [LocalNovelRepository.importBytes] rejected.
+enum LocalNovelLimitKind { chars, paragraphs }
+
+/// Decoded TXT exceeds what the novel layout engine (`NovelLayoutBudget`) can
+/// open; rejected at import time before writing files or database rows.
+class LocalNovelTooLargeException implements Exception {
+  const LocalNovelTooLargeException({
+    required this.kind,
+    required this.actual,
+    required this.limit,
+  });
+
+  final LocalNovelLimitKind kind;
+  final int actual;
+  final int limit;
+
+  @override
+  String toString() =>
+      'LocalNovelTooLargeException(${kind.name}: $actual > $limit)';
 }
 
 /// CRUD + import boundary for the local TXT library. The file is written
@@ -52,9 +84,13 @@ class LocalNovelRepository {
 
   final LocalNovelDatabase _database;
 
-  /// Largest TXT accepted for import. The whole text is decoded and held
-  /// in memory, and a very long web novel is a few tens of MiB.
+  /// Largest raw TXT file accepted by the document picker.
   static const maxImportBytes = 64 * 1024 * 1024;
+
+  /// Decoded text limits matching `NovelLayoutBudget` (4M UTF-16 units and
+  /// 100k paragraphs) so an imported TXT never fails permanently on open.
+  static const maxImportChars = 4 * 1024 * 1024;
+  static const maxImportParagraphs = 100000;
 
   /// Directory that owns copied-in TXT files; injectable for tests.
   static Future<Directory> defaultNovelsDirectory() async {
@@ -94,9 +130,25 @@ class LocalNovelRepository {
       throw const DocumentTooLargeException(maxImportBytes);
     }
     final (text, encoding) = decodeLocalNovelText(bytes);
+    if (text.length > maxImportChars) {
+      throw LocalNovelTooLargeException(
+        kind: LocalNovelLimitKind.chars,
+        actual: text.length,
+        limit: maxImportChars,
+      );
+    }
+    final paragraphs = _countParagraphs(text);
+    if (paragraphs > maxImportParagraphs) {
+      throw LocalNovelTooLargeException(
+        kind: LocalNovelLimitKind.paragraphs,
+        actual: paragraphs,
+        limit: maxImportParagraphs,
+      );
+    }
     await targetDir.create(recursive: true);
     final file = await _createUniqueFile(targetDir, fileName);
 
+    final importedAt = DateTime.now();
     final int id;
     try {
       await file.writeAsString(text, flush: true);
@@ -106,8 +158,9 @@ class LocalNovelRepository {
         'author': null,
         'path': file.path,
         'char_count': text.length,
-        'imported_at': DateTime.now().millisecondsSinceEpoch,
+        'imported_at': importedAt.millisecondsSinceEpoch,
         'read_offset': null,
+        'encoding': encoding.name,
       });
     } on Object {
       try {
@@ -122,7 +175,7 @@ class LocalNovelRepository {
       title: _titleOf(fileName),
       path: file.path,
       charCount: text.length,
-      importedAt: DateTime.now(),
+      importedAt: importedAt,
       encoding: encoding,
     );
   }
@@ -178,6 +231,14 @@ class LocalNovelRepository {
     return dot > 0 ? base.substring(0, dot) : base;
   }
 
+  static int _countParagraphs(String text) {
+    var count = 1;
+    for (var i = 0; i < text.length; i++) {
+      if (text.codeUnitAt(i) == 0x0A) count += 1;
+    }
+    return count;
+  }
+
   LocalNovel _fromRow(Map<String, Object?> row) {
     return LocalNovel(
       id: row['id']! as int,
@@ -188,6 +249,8 @@ class LocalNovelRepository {
       importedAt: DateTime.fromMillisecondsSinceEpoch(
         row['imported_at']! as int,
       ),
+      encoding: LocalNovelEncoding.values
+          .asNameMap()[row['encoding'] as String?],
       readOffset: row['read_offset'] as int?,
     );
   }

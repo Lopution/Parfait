@@ -1213,6 +1213,23 @@
   },
   "localNovelsImportedLossy": "インポートしましたが、エンコーディングを完全に認識できず文字化けしている可能性があります",
   "localNovelsDelete": "削除",
+  "localNovelsDeleteFailed": "ローカル小説の削除に失敗しました",
+  "localNovelsTooManyChars": "リーダーの上限（{limit} 文字）を超えています",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "リーダーの上限（{limit} 段落）を超えています",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "「{title}」を削除しますか？ローカルファイルも削除されます。",
   "@localNovelsDeleteConfirm": {
     "placeholders": {

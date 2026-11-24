@@ -643,27 +643,236 @@ void main() {
   );
 
   testWidgets(
-    'pointer reader shows top-end cue while chrome is hidden and restores chrome on tap',
+    'pointer reader shows bottom-strip cue clear of body text and restores chrome on tap',
     (tester) async {
-      setViewSize(tester, const Size(1100, 800));
+      for (final size in const [Size(600, 800), Size(1100, 800)]) {
+        setViewSize(tester, size);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          _stageApp(_RecordingBinding(), inputModality: InputModality.pointer),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
+        final cue = find.byKey(const ValueKey('novel-pointer-cue'));
+        expect(cue, findsOneWidget);
+        expect(find.byIcon(AppIcons.info), findsNothing);
+        final cueRect = tester.getRect(cue);
+        final readerText = find.descendant(
+          of: find.byType(NovelReader),
+          matching: find.byType(RichText),
+        );
+        for (final element in readerText.evaluate()) {
+          final box = element.renderObject! as RenderBox;
+          final rect = box.localToGlobal(Offset.zero) & box.size;
+          expect(
+            cueRect.overlaps(rect),
+            isFalse,
+            reason: 'cue $cueRect must not overlap body text $rect at $size',
+          );
+        }
+
+        await tester.tap(cue, kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(AppIcons.info), findsOneWidget);
+        expect(cue, findsNothing);
+      }
+    },
+  );
+
+  testWidgets(
+    'even-page wide spread reaches 100%, highlights last chapter, and bookmarks right leaf',
+    (tester) async {
+      setViewSize(tester, const Size(1100, 700));
+      final novel = _novel('').withWebContent(
+        '[chapter:第一章]\nP1[newpage][chapter:第二章]\nP2[newpage][chapter:第三章]\nP3[newpage][chapter:第四章]\nP4',
+      );
+      int? writtenMarker;
+      final markerPageProvider = Provider<int?>((_) => null);
+      final markerPendingProvider = Provider<bool>((_) => false);
+      final binding = _RecordingBinding();
       await tester.pumpWidget(
-        _stageApp(_RecordingBinding(), inputModality: InputModality.pointer),
+        _stageApp(
+          binding,
+          novel: novel,
+          pageTurn: NovelPageTurn.pages,
+          spreadMode: NovelSpreadMode.auto,
+          marker: NovelMarkerBinding(
+            page: markerPageProvider,
+            pending: markerPendingProvider,
+            write: (page) async => writtenMarker = page,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('2/4 · 50%'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('4/4 · 100%'), findsOneWidget);
+
+      await tester.tapAt(const Offset(550, 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('阅读进度'));
+      await tester.pumpAndSettle();
+      final lastChapterTile = tester.widget<ListTile>(
+        find.ancestor(of: find.text('第四章'), matching: find.byType(ListTile)),
+      );
+      expect(lastChapterTile.selected, isTrue);
+
+      await tester.tap(find.text('在此页加书签'));
+      await tester.pumpAndSettle();
+      expect(writtenMarker, 4);
+    },
+  );
+
+  testWidgets(
+    'key repeat turns pages without animation and settings sliders persist onChangeEnd',
+    (tester) async {
+      final prefs = _CountingPreferences();
+      final novel = _novel(
+        '',
+      ).withWebContent('P1\n[newpage]\nP2\n[newpage]\nP3\n[newpage]\nP4');
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          novel: novel,
+          preferences: prefs,
+          pageTurn: NovelPageTurn.pages,
+          spreadMode: NovelSpreadMode.off,
+        ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      final cue = find.byKey(const ValueKey('novel-pointer-cue'));
-      expect(cue, findsOneWidget);
-      expect(find.byIcon(AppIcons.info), findsNothing);
-
-      await tester.tap(cue, kind: PointerDeviceKind.mouse);
+      // KeyRepeatEvent jumps immediately without resetting a 300ms animation.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
+      expect(find.text('P4'), findsOneWidget);
 
-      expect(find.byIcon(AppIcons.info), findsOneWidget);
-      expect(cue, findsNothing);
+      // Font-size slider has 18 integer steps and persists only on onChangeEnd.
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('阅读设置'));
+      await tester.pumpAndSettle();
+      final sliders = tester
+          .widgetList<AppSlider>(find.byType(AppSlider))
+          .toList();
+      expect(sliders, hasLength(2));
+      expect(sliders[0].divisions, 18);
+      expect(sliders[1].divisions, 11);
+
+      final writesBefore = prefs.writtenValues.length;
+      sliders[0].onChanged!(20.0);
+      await tester.pump();
+      expect(find.text('20'), findsOneWidget);
+      expect(prefs.writtenValues.length, writesBefore);
+
+      sliders[0].onChangeEnd!(20.0);
+      await tester.pump();
+      expect(prefs.writtenValues.length, writesBefore + 1);
+
+      sliders[1].onChanged!(2.0);
+      await tester.pump();
+      expect(prefs.writtenValues.length, writesBefore + 1);
+      sliders[1].onChangeEnd!(2.0);
+      await tester.pumpAndSettle();
+      expect(prefs.writtenValues.length, writesBefore + 2);
     },
   );
+
+  testWidgets(
+    'bilingual mode batches both spread leaves and skips scrolled-past paragraphs in scroll mode',
+    (tester) async {
+      // Wide spread: first batch translates both page 0 and page 1 together,
+      // then prewarms pages 2 and 3.
+      setViewSize(tester, const Size(1100, 700));
+      final spreadEngine = _BatchRecordingTranslationEngine();
+      final spreadNovel = _novel('').withWebContent(
+        'LEFT1\n[newpage]\nRIGHT2\n[newpage]\nLEFT3\n[newpage]\nRIGHT4',
+      );
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          novel: spreadNovel,
+          translation: spreadEngine,
+          pageTurn: NovelPageTurn.pages,
+          spreadMode: NovelSpreadMode.auto,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(const Offset(550, 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('翻译本页'));
+      await tester.pumpAndSettle();
+
+      expect(spreadEngine.batches.first, ['LEFT1', 'RIGHT2']);
+      expect(spreadEngine.batches[1], ['LEFT3', 'RIGHT4']);
+
+      // Scroll mode: scrolled-past paragraphs above viewport anchor are skipped.
+      setViewSize(tester, const Size(800, 600));
+      await tester.pumpWidget(const SizedBox.shrink());
+      final scrollEngine = _BatchRecordingTranslationEngine();
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          novel: _novelOfParagraphs(80),
+          translation: scrollEngine,
+          pageTurn: NovelPageTurn.scroll,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final list = tester.widget<ListView>(find.byType(ListView));
+      list.controller!.jumpTo(260);
+      await tester.pumpAndSettle();
+
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('翻译本页'));
+      await tester.pumpAndSettle();
+
+      expect(scrollEngine.batches, isNotEmpty);
+      expect(scrollEngine.batches.first, isNot(contains('paragraph 0')));
+    },
+  );
+}
+
+class _CountingPreferences extends SharedPreferencesAsync {
+  final List<String> writtenValues = [];
+
+  @override
+  Future<void> setString(String key, String value) {
+    writtenValues.add(value);
+    return super.setString(key, value);
+  }
+}
+
+class _BatchRecordingTranslationEngine implements TranslationTransport {
+  final List<List<String>> batches = [];
+
+  @override
+  Future<String> translate(
+    String text, {
+    required String targetLanguage,
+  }) async =>
+      (await translateAll([text], targetLanguage: targetLanguage)).single;
+
+  @override
+  Future<List<String>> translateAll(
+    List<String> sources, {
+    required String targetLanguage,
+  }) async {
+    batches.add(List<String>.of(sources));
+    return [for (final source in sources) '译 $source'];
+  }
 }
 
 /// setString always fails — the in-memory platform still backs getString
@@ -712,6 +921,7 @@ Widget _stageApp(
   NovelPageTurn pageTurn = NovelPageTurn.pages,
   NovelSpreadMode spreadMode = NovelSpreadMode.auto,
   InputModality? inputModality,
+  NovelMarkerBinding? marker,
 }) {
   installPreferencesForTest(
     memoryPreferences({
@@ -731,6 +941,7 @@ Widget _stageApp(
       infoTooltip: 'info',
       infoSheet: (context) => const Text('info sheet'),
       progress: binding,
+      marker: marker,
     ),
   );
   return localizedApp(

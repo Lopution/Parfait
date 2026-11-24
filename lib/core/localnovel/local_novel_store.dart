@@ -35,9 +35,21 @@ final localNovelFilePickerProvider =
     });
 
 class LocalNovelStore extends AsyncNotifier<List<LocalNovel>> {
+  final Map<int, int> _pendingOffsets = {};
+
   @override
-  Future<List<LocalNovel>> build() {
-    return ref.watch(localNovelRepositoryProvider).list();
+  Future<List<LocalNovel>> build() async {
+    final rows = await ref.watch(localNovelRepositoryProvider).list();
+    if (_pendingOffsets.isEmpty) return rows;
+    final pending = Map<int, int>.of(_pendingOffsets);
+    _pendingOffsets.clear();
+    return [
+      for (final item in rows)
+        if (pending[item.id] case final offset?)
+          item.withReadOffset(offset)
+        else
+          item,
+    ];
   }
 
   /// Picks a TXT file, decodes it, copies it into the library directory
@@ -55,12 +67,28 @@ class LocalNovelStore extends AsyncNotifier<List<LocalNovel>> {
   }
 
   Future<void> delete(LocalNovel novel) async {
+    _pendingOffsets.remove(novel.id);
     await ref.read(localNovelRepositoryProvider).delete(novel);
     final current = state.value;
     if (current == null) return;
     state = AsyncData([
       for (final item in current)
         if (item.id != novel.id) item,
+    ]);
+  }
+
+  /// Persists [offset] and updates the in-memory list entry immediately so
+  /// returning to the library reflects the new reading progress without a
+  /// manual reload.
+  Future<void> updateReadOffset(int id, int offset) async {
+    _pendingOffsets[id] = offset;
+    await ref.read(localNovelRepositoryProvider).updateReadOffset(id, offset);
+    final current = state.value;
+    if (current == null) return;
+    _pendingOffsets.remove(id);
+    state = AsyncData([
+      for (final item in current)
+        if (item.id == id) item.withReadOffset(offset) else item,
     ]);
   }
 }

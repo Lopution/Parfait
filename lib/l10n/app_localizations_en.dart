@@ -3005,6 +3005,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get localNovelsDelete => 'Delete';
 
   @override
+  String get localNovelsDeleteFailed => 'Failed to delete local novel';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'Exceeds the $limit-character reader limit';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'Exceeds the $limit-paragraph reader limit';
+  }
+
+  @override
   String localNovelsDeleteConfirm(String title) {
     return 'Delete \"$title\"? The local file will be removed too.';
   }

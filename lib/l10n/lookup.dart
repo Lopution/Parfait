@@ -338,6 +338,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'linkCopied' => l10n.linkCopied,
   'localNovelFileInfo' => l10n.localNovelFileInfo,
   'localNovelsDelete' => l10n.localNovelsDelete,
+  'localNovelsDeleteFailed' => l10n.localNovelsDeleteFailed,
   'localNovelsEmpty' => l10n.localNovelsEmpty,
   'localNovelsImport' => l10n.localNovelsImport,
   'localNovelsImportFailed' => l10n.localNovelsImportFailed,

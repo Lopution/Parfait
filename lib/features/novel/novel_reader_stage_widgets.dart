@@ -8,7 +8,7 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
     final l10n = context.l10n;
     final pageCount = _pageCount;
     final chapters = _readerHandle.chapters?.call() ?? const [];
-    var preview = _page;
+    var preview = _displayPage;
     _showReaderSideSheet(
       isScrollControlled: true,
       builder: (sheetContext) {
@@ -128,7 +128,7 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
     final document = widget.spec.novel.markup;
     if (marker == null || document == null) return null;
     final starts = document.pixivPageStarts;
-    final anchor = _anchor;
+    final anchor = _readerHandle.displayAnchor?.call() ?? _anchor;
     return _NovelMarkerSection(
       binding: marker,
       pixivPages: starts.length,
@@ -161,7 +161,9 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
         : _chapterListMinHeight;
     return _NovelChapterList(
       chapters: chapters,
-      current: chapters.lastIndexWhere((chapter) => chapter.pageIndex <= _page),
+      current: chapters.lastIndexWhere(
+        (chapter) => chapter.pageIndex <= _displayPage,
+      ),
       height: math.min(
         chapters.length * _NovelChapterList.rowExtent,
         math.max(floor, window / 2),
@@ -179,10 +181,18 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            void preview(NovelReaderSettings next) {
+              if (next == _settings) return;
+              setSheetState(() {});
+              _previewSettings(next);
+            }
+
             void apply(NovelReaderSettings next) {
               setSheetState(() {});
               _applySettings(next);
             }
+
+            double quantizeLineHeight(double v) => (v * 10).round() / 10;
 
             // The sheet is at most 9/16 of the screen: on a turned phone
             // the settings scroll inside it.
@@ -226,8 +236,16 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
                         value: _settings.fontSize,
                         min: NovelReaderSettings.minFontSize,
                         max: NovelReaderSettings.maxFontSize,
-                        onChanged: (v) =>
-                            apply(_settings.copyWith(fontSize: v)),
+                        divisions:
+                            (NovelReaderSettings.maxFontSize -
+                                    NovelReaderSettings.minFontSize)
+                                .round(),
+                        onChanged: (v) => preview(
+                          _settings.copyWith(fontSize: v.roundToDouble()),
+                        ),
+                        onChangeEnd: (v) => apply(
+                          _settings.copyWith(fontSize: v.roundToDouble()),
+                        ),
                       ),
                       // Slider range == the model's clamp range (1.3–2.4):
                       // the old 1.1–2.2 span was a dead zone at the bottom
@@ -238,8 +256,12 @@ extension _NovelReaderStageSheets on _NovelReaderStageState {
                         min: NovelReaderSettings.minLineHeight,
                         max: NovelReaderSettings.maxLineHeight,
                         divisions: 11,
-                        onChanged: (v) =>
-                            apply(_settings.copyWith(lineHeight: v)),
+                        onChanged: (v) => preview(
+                          _settings.copyWith(lineHeight: quantizeLineHeight(v)),
+                        ),
+                        onChangeEnd: (v) => apply(
+                          _settings.copyWith(lineHeight: quantizeLineHeight(v)),
+                        ),
                       ),
                       const SizedBox(height: FuncSpacing.md),
                       Wrap(
@@ -368,6 +390,7 @@ class _SettingsSliderRow extends StatelessWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.onChangeEnd,
     this.divisions,
   });
 
@@ -377,6 +400,7 @@ class _SettingsSliderRow extends StatelessWidget {
   final double max;
   final int? divisions;
   final ValueChanged<double> onChanged;
+  final ValueChanged<double>? onChangeEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -405,6 +429,7 @@ class _SettingsSliderRow extends StatelessWidget {
           max: max,
           divisions: divisions,
           onChanged: onChanged,
+          onChangeEnd: onChangeEnd,
         ),
       ],
     );

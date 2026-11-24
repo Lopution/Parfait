@@ -5567,6 +5567,24 @@ abstract class AppLocalizations {
   /// **'删除'**
   String get localNovelsDelete;
 
+  /// No description provided for @localNovelsDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除本地小说失败'**
+  String get localNovelsDeleteFailed;
+
+  /// No description provided for @localNovelsTooManyChars.
+  ///
+  /// In zh, this message translates to:
+  /// **'超过阅读器上限（{limit} 字）'**
+  String localNovelsTooManyChars(int limit);
+
+  /// No description provided for @localNovelsTooManyParagraphs.
+  ///
+  /// In zh, this message translates to:
+  /// **'超过阅读器上限（{limit} 段）'**
+  String localNovelsTooManyParagraphs(int limit);
+
   /// No description provided for @localNovelsDeleteConfirm.
   ///
   /// In zh, this message translates to:

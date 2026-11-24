@@ -1213,6 +1213,23 @@
   },
   "localNovelsImportedLossy": "Импортировано, но кодировка распознана не полностью — текст может содержать искажённые символы",
   "localNovelsDelete": "Удалить",
+  "localNovelsDeleteFailed": "Не удалось удалить локальную новеллу",
+  "localNovelsTooManyChars": "Превышен лимит читалки ({limit} символов)",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "Превышен лимит читалки ({limit} абзацев)",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "Удалить «{title}»? Локальный файл тоже будет удалён.",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
