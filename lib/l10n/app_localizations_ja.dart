@@ -3375,4 +3375,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tagMuteModeDone => '完了';
+
+  @override
+  String get downloadOpenFile => 'ファイルを開く';
+
+  @override
+  String get downloadShowInFolder => 'フォルダに表示';
+
+  @override
+  String get downloadFileMissing => 'ファイルが見つかりません';
+
+  @override
+  String get downloadOpenFailed => 'ファイルを開けませんでした';
+
+  @override
+  String get reverseImagePasteImage => '画像を貼り付け';
+
+  @override
+  String get reverseImagePasteEmpty => 'クリップボードに画像がありません';
+
+  @override
+  String get reverseImageDropHint => '画像をドロップして検索';
+
+  @override
+  String get localNovelsDropHint => 'TXT ファイルをドロップしてインポート';
+
+  @override
+  String get localNovelsDropUnsupported => 'インポートできるのは .txt ファイルのみです';
 }

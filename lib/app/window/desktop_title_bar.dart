@@ -10,6 +10,7 @@ import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'desktop_caption_buttons.dart';
+import 'desktop_drag_region.dart';
 import 'desktop_fallback_chrome_stack.dart';
 import 'desktop_title_bar_region_publisher.dart';
 
@@ -540,11 +541,10 @@ List<Widget> _buildWindowChromeStripLayers({
       key: dragKey,
       child: platform == TargetPlatform.windows
           ? windowsDragChild
-          : GestureDetector(
+          : DesktopDragRegion(
               behavior: HitTestBehavior.translucent,
-              onPanStart: actions == null
-                  ? null
-                  : (_) => actions.onStartDragging(),
+              platformOverride: platform,
+              onStartDragging: actions?.onStartDragging,
               onDoubleTap: actions?.onTitleBarDoubleClick,
               child: const SizedBox.expand(),
             ),

@@ -121,7 +121,7 @@ const _grandfatheredLibraryLineCaps = <String, int>{
   'lib/features/novel/novel_reader.dart': 1881,
   'lib/features/novel/novel_reader_stage.dart': 1841,
   'lib/features/profile/user_page.dart': 1297,
-  'lib/features/settings/pages/download_tasks_page.dart': 1284,
+  'lib/features/settings/pages/download_tasks_page.dart': 1280,
 };
 
 final _partOfRegExp = RegExp(r'^\s*part\s+of\b', multiLine: true);

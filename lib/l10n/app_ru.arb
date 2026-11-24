@@ -1480,5 +1480,14 @@
   "cardActionSelect": "Выбрать",
   "viewerZoomIn": "Увеличить (2.5×)",
   "ugoiraPreparingExport": "Подготовка угоиры…",
-  "tagMuteModeDone": "Готово"
+  "tagMuteModeDone": "Готово",
+  "downloadOpenFile": "Открыть файл",
+  "downloadShowInFolder": "Показать в папке",
+  "downloadFileMissing": "Скачанный файл больше не существует",
+  "downloadOpenFailed": "Не удалось открыть файл",
+  "reverseImagePasteImage": "Вставить изображение",
+  "reverseImagePasteEmpty": "В буфере обмена нет изображения",
+  "reverseImageDropHint": "Перетащите изображение для поиска",
+  "localNovelsDropHint": "Перетащите файлы TXT для импорта",
+  "localNovelsDropUnsupported": "Поддерживается импорт только файлов .txt"
 }

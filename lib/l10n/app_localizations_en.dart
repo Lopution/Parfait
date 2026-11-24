@@ -3468,4 +3468,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tagMuteModeDone => 'Done';
+
+  @override
+  String get downloadOpenFile => 'Open file';
+
+  @override
+  String get downloadShowInFolder => 'Show in folder';
+
+  @override
+  String get downloadFileMissing => 'Downloaded file no longer exists';
+
+  @override
+  String get downloadOpenFailed => 'Could not open downloaded file';
+
+  @override
+  String get reverseImagePasteImage => 'Paste image';
+
+  @override
+  String get reverseImagePasteEmpty => 'No image in clipboard';
+
+  @override
+  String get reverseImageDropHint => 'Drop an image to search';
+
+  @override
+  String get localNovelsDropHint => 'Drop TXT files to import';
+
+  @override
+  String get localNovelsDropUnsupported => 'Only .txt files can be imported';
 }

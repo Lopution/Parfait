@@ -9,10 +9,15 @@ import 'package:go_router/go_router.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/platform/desktop_file_actions.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/pages/download_task_presentation.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -994,5 +999,139 @@ void main() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.windows),
     );
+
+    testWidgets(
+      'desktop succeeded row opens file, reveals in folder with bookmark, and surfaces missing file',
+      (tester) async {
+        const bookmark =
+            'Ym9vawAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+        final calls = <(String, String, String?)>[];
+        var nextResult = DesktopFileActionResult.opened;
+        final fakeActions = _RecordingDesktopFileActions(
+          onCall: (op, path, bm) {
+            calls.add((op, path, bm));
+            return nextResult;
+          },
+        );
+        final sinkFactory = _FileUriMemorySinkFactory();
+        final manager = DownloadManager(
+          transport: FakeTransport()..responses.addAll(done(1)),
+          sinkFactory: sinkFactory,
+          enforceDefaultDestination: false,
+          submissionContext: () => const DownloadSubmissionContext(
+            accountId: 'a',
+            destination: DownloadDestination.safFolder(bookmark),
+          ),
+        );
+        final container = ProviderContainer.test(
+          overrides: [
+            downloadManagerProvider.overrideWithValue(manager),
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isMacOS: true),
+            ),
+            downloadDestinationProvider.overrideWithValue(
+              const DownloadDestination.safFolder(bookmark),
+            ),
+            desktopFileActionsProvider.overrideWithValue(fakeActions),
+          ],
+        );
+        final task = manager.submit(downloadRequest(9));
+        await _pumpPage(tester, container);
+        await pumpUntil(
+          tester,
+          () => manager.tasks.single.status == DownloadStatus.succeeded,
+        );
+        await tester.pump();
+
+        final row = _taskRow(task.id);
+        await tester.tap(
+          find.descendant(
+            of: row,
+            matching: find.byIcon(AppIcons.externalLink),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(
+          find.descendant(of: row, matching: find.byIcon(AppIcons.folderOpen)),
+        );
+        await tester.pump();
+        expect(calls, [
+          ('openFile', '/tmp/9_p0.jpg', bookmark),
+          ('showInFolder', '/tmp/9_p0.jpg', bookmark),
+        ]);
+
+        nextResult = DesktopFileActionResult.notFound;
+        await tester.tap(
+          find.descendant(
+            of: row,
+            matching: find.byIcon(AppIcons.externalLink),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('文件已不存在'), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
   });
+}
+
+class _RecordingDesktopFileActions implements DesktopFileActions {
+  _RecordingDesktopFileActions({required this.onCall});
+
+  final DesktopFileActionResult Function(
+    String op,
+    String path,
+    String? bookmark,
+  )
+  onCall;
+
+  @override
+  Future<DesktopFileActionResult> openFile(
+    String path, {
+    String? macosBookmark,
+  }) async => onCall('openFile', path, macosBookmark);
+
+  @override
+  Future<DesktopFileActionResult> showInFolder(
+    String path, {
+    String? macosBookmark,
+  }) async => onCall('showInFolder', path, macosBookmark);
+}
+
+class _FileUriMemorySinkFactory extends MemorySinkFactory {
+  @override
+  Future<DownloadSink> begin(
+    DownloadRequest request,
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async {
+    final inner = await super.begin(
+      request,
+      displayName,
+      destination: destination,
+    );
+    return _FileUriDownloadSink(
+      inner,
+      Uri.file('/tmp/$displayName').toString(),
+    );
+  }
+}
+
+class _FileUriDownloadSink implements DownloadSink {
+  _FileUriDownloadSink(this._inner, this._uri);
+
+  final DownloadSink _inner;
+  final String _uri;
+
+  @override
+  Future<void> write(List<int> chunk) => _inner.write(chunk);
+
+  @override
+  Future<String> finalize() async {
+    await _inner.finalize();
+    return _uri;
+  }
+
+  @override
+  Future<void> abort() => _inner.abort();
 }

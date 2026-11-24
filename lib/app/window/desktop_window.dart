@@ -202,6 +202,7 @@ class DesktopWindowSession with WindowListener {
     _adapter.addListener(this);
     _metricsSub = _host.metricsStream.listen(_applyHostMetrics);
     _traySub = _trayPort.actions.listen(_handleTrayAction);
+    _host.setApplicationShouldTerminateHandler(prepareForApplicationTerminate);
     _desiredLabels ??= initialLabels;
 
     try {
@@ -331,6 +332,44 @@ class DesktopWindowSession with WindowListener {
   @override
   void onWindowClose() {
     unawaited(handleWindowClose());
+  }
+
+  /// Flushes pending window geometry and runs [onBeforeDestroy] when the OS
+  /// initiates application-level termination (e.g. macOS `Cmd+Q` or Dock Quit),
+  /// always bypassing close-to-tray so termination is never cancelled.
+  Future<void> prepareForApplicationTerminate() async {
+    if (_disposed) return;
+    final inflight = _terminateFuture;
+    if (inflight != null) return inflight;
+    final future = _runApplicationTerminateFlush();
+    _terminateFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_terminateFuture, future)) {
+        _terminateFuture = null;
+      }
+    }
+  }
+
+  Future<void>? _terminateFuture;
+
+  Future<void> _runApplicationTerminateFlush() async {
+    _saveTimer?.cancel();
+    try {
+      await saveNow().timeout(_closeSaveTimeout);
+    } on TimeoutException {
+      log('window: saveNow timed out during application terminate');
+    } on Object catch (error) {
+      log('window: saveNow failed during application terminate: $error');
+    }
+    if (onBeforeDestroy case final cleanup?) {
+      try {
+        await cleanup().timeout(_beforeDestroyTimeout);
+      } on Object catch (error) {
+        log('window: beforeDestroy cleanup failed during terminate: $error');
+      }
+    }
   }
 
   /// Handles close requests with close-to-tray check and flush-before-destroy.
@@ -602,6 +641,7 @@ class DesktopWindowSession with WindowListener {
   void dispose() {
     _disposed = true;
     _saveTimer?.cancel();
+    _host.setApplicationShouldTerminateHandler(null);
     _adapter.removeListener(this);
     unawaited(_metricsSub?.cancel());
     unawaited(_traySub?.cancel());

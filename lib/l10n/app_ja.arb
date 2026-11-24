@@ -1480,5 +1480,14 @@
   "cardActionSelect": "複数選択",
   "viewerZoomIn": "拡大 (2.5×)",
   "ugoiraPreparingExport": "うごイラを準備中…",
-  "tagMuteModeDone": "完了"
+  "tagMuteModeDone": "完了",
+  "downloadOpenFile": "ファイルを開く",
+  "downloadShowInFolder": "フォルダに表示",
+  "downloadFileMissing": "ファイルが見つかりません",
+  "downloadOpenFailed": "ファイルを開けませんでした",
+  "reverseImagePasteImage": "画像を貼り付け",
+  "reverseImagePasteEmpty": "クリップボードに画像がありません",
+  "reverseImageDropHint": "画像をドロップして検索",
+  "localNovelsDropHint": "TXT ファイルをドロップしてインポート",
+  "localNovelsDropUnsupported": "インポートできるのは .txt ファイルのみです"
 }

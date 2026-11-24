@@ -1,0 +1,20 @@
+# Desktop entry template for Parfait on Linux (registers parfait:// and pixiv:// URI schemes).
+#
+# Install for the current user (replace Exec= with the full binary path if not on PATH):
+#   install -Dm644 linux/packaging/io.github.lopution.parfait.desktop \
+#     "$HOME/.local/share/applications/io.github.lopution.parfait.desktop"
+#   update-desktop-database "$HOME/.local/share/applications"
+#   xdg-mime default io.github.lopution.parfait.desktop x-scheme-handler/parfait x-scheme-handler/pixiv
+
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Parfait
+Comment=Third-party Pixiv client
+Exec=parfait %u
+Icon=io.github.lopution.parfait
+Terminal=false
+Categories=Graphics;Network;Viewer;
+MimeType=x-scheme-handler/parfait;x-scheme-handler/pixiv;
+StartupWMClass=io.github.lopution.parfait
+StartupNotify=true

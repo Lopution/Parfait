@@ -1,21 +1,11 @@
+import '../../core/platform/desktop_file_sink.dart'
+    show isMacosSecurityBookmark;
 import '../../l10n/app_localizations.dart';
 
-final _sdCardVolume = RegExp(r'^[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}$');
+export '../../core/platform/desktop_file_sink.dart'
+    show isMacosSecurityBookmark;
 
-/// Whether [value] looks like an opaque macOS security-scoped bookmark
-/// encoded as base64 rather than a filesystem path or Android `content://` URI.
-bool isMacosSecurityBookmark(String value) {
-  if (value.isEmpty) return false;
-  if (value.startsWith('content://') ||
-      value.startsWith('/') ||
-      value.startsWith(r'\\') ||
-      RegExp(r'^[A-Za-z]:[/\\]').hasMatch(value)) {
-    return false;
-  }
-  final compact = value.replaceAll(RegExp(r'[\r\n]'), '');
-  if (compact.startsWith('Ym9v')) return true;
-  return compact.length >= 64 && RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(compact);
-}
+final _sdCardVolume = RegExp(r'^[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}$');
 
 /// Best-effort human label for a persisted SAF tree identifier (R6).
 ///
