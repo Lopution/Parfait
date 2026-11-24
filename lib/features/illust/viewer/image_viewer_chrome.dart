@@ -201,9 +201,7 @@ class _ViewerInfoPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final darkTheme = Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context)
-        : replicaTheme(Brightness.dark);
+    final darkTheme = darkReplicaThemeOf(context);
     final createDate = DateTime.tryParse(entity.createDate ?? '');
     final dateText = createDate == null
         ? null

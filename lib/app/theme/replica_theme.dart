@@ -13,10 +13,91 @@ const _disabledActionAlpha = 0.48;
 /// and prompts (THEME-20).
 const double _layerElevation = 6;
 
-/// [fontFamilyFallback] is for layout tests only: the locale layout
-/// harness loads its own Latin and CJK stand-ins and names them here.
-/// The app leaves it null and keeps the engine's system fallback chain
-/// behind the platform font.
+const _windowsZhFallback = <String>[
+  'Segoe UI Variable',
+  'Segoe UI',
+  'Microsoft YaHei UI',
+  'Microsoft YaHei',
+  'Yu Gothic UI',
+];
+
+const _windowsJaFallback = <String>[
+  'Segoe UI Variable',
+  'Segoe UI',
+  'Yu Gothic UI',
+  'Meiryo',
+  'Microsoft YaHei UI',
+];
+
+const _windowsOtherFallback = <String>[
+  'Segoe UI Variable',
+  'Segoe UI',
+  'Microsoft YaHei UI',
+  'Yu Gothic UI',
+];
+
+const _linuxZhFallback = <String>[
+  'Noto Sans',
+  'Ubuntu',
+  'Cantarell',
+  'Noto Sans CJK SC',
+  'Source Han Sans SC',
+  'WenQuanYi Micro Hei',
+  'Noto Sans CJK JP',
+];
+
+const _linuxJaFallback = <String>[
+  'Noto Sans',
+  'Ubuntu',
+  'Cantarell',
+  'Noto Sans CJK JP',
+  'Source Han Sans JP',
+  'Noto Sans CJK SC',
+];
+
+const _linuxOtherFallback = <String>[
+  'Noto Sans',
+  'Ubuntu',
+  'Cantarell',
+  'Noto Sans CJK SC',
+  'Noto Sans CJK JP',
+];
+
+/// Returns the locale-aware system CJK font fallback chain for Windows and
+/// Linux without bundling any font assets (THEME-02).
+///
+/// Android, iOS, and macOS return `null` to preserve their ROM / PingFang /
+/// SF Pro platform typography and engine fallback chain.
+List<String>? platformFontFamilyFallback(
+  TargetPlatform platform, {
+  Locale? locale,
+}) {
+  final language = locale?.languageCode.toLowerCase();
+  return switch (platform) {
+    TargetPlatform.windows => switch (language) {
+      'zh' => _windowsZhFallback,
+      'ja' => _windowsJaFallback,
+      _ => _windowsOtherFallback,
+    },
+    TargetPlatform.linux => switch (language) {
+      'zh' => _linuxZhFallback,
+      'ja' => _linuxJaFallback,
+      _ => _linuxOtherFallback,
+    },
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.macOS ||
+    TargetPlatform.fuchsia => null,
+  };
+}
+
+/// Builds Parfait's sole light or dark [ThemeData] (THEME-01).
+///
+/// [fontFamilyFallback] overrides the platform fallback chain when provided
+/// (for example in the locale layout test harness). When omitted, Windows and
+/// Linux receive [platformFontFamilyFallback] for [locale], while Android,
+/// iOS, and macOS stay on `null` and keep the engine's system fallback chain
+/// behind the platform font (THEME-02).
 ///
 /// [systemColors] is the platform dynamic color scheme (wallpaper / system
 /// accent); when provided, both accent roles and the full M3 surface/container
@@ -33,7 +114,14 @@ ThemeData replicaTheme(
   Brightness brightness, {
   ColorScheme? systemColors,
   List<String>? fontFamilyFallback,
+  Locale? locale,
+  TargetPlatform? platform,
 }) {
+  final baseTheme = ThemeData(brightness: brightness, platform: platform);
+  final resolvedPlatform = baseTheme.platform;
+  final effectiveFallback =
+      fontFamilyFallback ??
+      platformFontFamilyFallback(resolvedPlatform, locale: locale);
   final dark = brightness == Brightness.dark;
   final background =
       systemColors?.surface ??
@@ -77,9 +165,10 @@ ThemeData replicaTheme(
   final brand = systemColors?.primary ?? FuncTokens.primary;
   final onBrand = systemColors?.onPrimary ?? FuncTokens.white;
 
-  final baseTextTheme = ThemeData(
-    brightness: brightness,
-  ).textTheme.apply(bodyColor: text, displayColor: text);
+  final baseTextTheme = baseTheme.textTheme.apply(
+    bodyColor: text,
+    displayColor: text,
+  );
 
   final seeded = ColorScheme.fromSeed(
     seedColor: systemColors?.primary ?? FuncTokens.primary,
@@ -126,57 +215,58 @@ ThemeData replicaTheme(
   );
 
   // One type scale feeds both TextTheme roles and the semantic token ramp
-  // (FuncSemanticTokens derives its type slots from these roles).
+  // (FuncSemanticTokens derives its type slots from these roles). Copy from
+  // baseTextTheme rather than constructing bare TextStyles so platform font
+  // family, baseline, and Typography.localize inheritance stay intact.
   final textTheme = baseTextTheme
       .copyWith(
-        headlineSmall: TextStyle(
+        headlineSmall: baseTextTheme.headlineSmall?.copyWith(
           fontSize: 18,
           fontWeight: FontWeight.w500,
           color: text,
         ),
-        titleLarge: TextStyle(
+        titleLarge: baseTextTheme.titleLarge?.copyWith(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: text,
         ),
-        titleMedium: TextStyle(
+        titleMedium: baseTextTheme.titleMedium?.copyWith(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: text,
         ),
-        titleSmall: TextStyle(
+        titleSmall: baseTextTheme.titleSmall?.copyWith(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: text,
         ),
-        bodyLarge: TextStyle(
+        bodyLarge: baseTextTheme.bodyLarge?.copyWith(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: text,
         ),
-        bodyMedium: TextStyle(
+        bodyMedium: baseTextTheme.bodyMedium?.copyWith(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: text,
         ),
-        bodySmall: TextStyle(
+        bodySmall: baseTextTheme.bodySmall?.copyWith(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           color: text,
         ),
-        labelLarge: TextStyle(
+        labelLarge: baseTextTheme.labelLarge?.copyWith(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: text,
         ),
-        labelSmall: TextStyle(
+        labelSmall: baseTextTheme.labelSmall?.copyWith(
           fontSize: 11,
           fontWeight: FontWeight.w500,
           color: text,
         ),
       )
-      // The slots above are new styles; the fallback has to reach them too.
-      .apply(fontFamilyFallback: fontFamilyFallback);
+      .apply(fontFamilyFallback: effectiveFallback);
 
   final semanticTokens = FuncSemanticTokens.fromBrightness(
     brightness,
@@ -194,6 +284,7 @@ ThemeData replicaTheme(
 
   final theme = ThemeData(
     brightness: brightness,
+    platform: resolvedPlatform,
     // Restrained flat state layers replace M3's expanding ripple circle:
     // every InkWell and ListTile gets an immediate tactile surface tint on
     // press, hover and keyboard focus.
@@ -202,9 +293,10 @@ ThemeData replicaTheme(
     highlightColor: colorScheme.onSurface.withValues(alpha: dark ? 0.10 : 0.08),
     hoverColor: colorScheme.onSurface.withValues(alpha: dark ? 0.07 : 0.05),
     focusColor: colorScheme.onSurface.withValues(alpha: 0.10),
-    // No bundled font: the platform family renders everything, with the
-    // engine's system fallback chain covering scripts it lacks.
-    fontFamilyFallback: fontFamilyFallback,
+    // No bundled font: the platform family renders everything, with
+    // locale-aware system CJK fallbacks on Windows/Linux and engine fallbacks
+    // elsewhere (THEME-02).
+    fontFamilyFallback: effectiveFallback,
     primaryColor: colorScheme.primary,
     extensions: [semanticTokens],
     // The prompt card (PromptHost) takes its surface, shape, elevation and
@@ -420,6 +512,18 @@ ThemeData replicaTheme(
       labelStyle: tabLabelStyle,
       unselectedLabelStyle: tabLabelStyle,
     ),
+  );
+}
+
+/// Returns a dark [ThemeData] preserving [context]'s ambient font fallback and
+/// platform, or `Theme.of(context)` directly when already dark.
+ThemeData darkReplicaThemeOf(BuildContext context) {
+  final current = Theme.of(context);
+  if (current.brightness == Brightness.dark) return current;
+  return replicaTheme(
+    Brightness.dark,
+    fontFamilyFallback: current.textTheme.bodyMedium?.fontFamilyFallback,
+    platform: current.platform,
   );
 }
 
