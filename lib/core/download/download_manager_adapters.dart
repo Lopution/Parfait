@@ -84,16 +84,22 @@ DownloadFailureKind classifyDownloadFailure(Object error) {
 /// POSIX errno for a full disk (Linux, Android, macOS).
 const _enospc = 28;
 
-/// The SAF and MediaStore hosts' `<channel>_<reason>` codes (DROID-02).
-/// A SAF permission failure means the folder grant is gone, and a missing
-/// SAF document means the folder or the file in it is gone: either way the
-/// folder has to be picked again. MediaStore's permission is the app's
-/// storage permission.
+/// The SAF, MediaStore, and iOS Photo Library hosts' `<channel>_<reason>` codes
+/// (DROID-02, DL-13). A SAF permission failure means the folder grant is gone,
+/// and a missing SAF document means the folder or the file in it is gone:
+/// either way the folder has to be picked again. MediaStore and iOS Photos
+/// permission errors map to app storage/photo permission.
 DownloadFailureKind? _hostFailureKind(String code) => switch (code) {
   'saf_permission' || 'saf_not_found' => DownloadFailureKind.destination,
-  'mediastore_permission' => DownloadFailureKind.permission,
-  'saf_no_space' || 'mediastore_no_space' => DownloadFailureKind.noSpace,
-  _ when code.startsWith('saf_') || code.startsWith('mediastore_') =>
+  'mediastore_permission' ||
+  'ios_photo_permission_denied' => DownloadFailureKind.permission,
+  'saf_no_space' ||
+  'mediastore_no_space' ||
+  'ios_photo_no_space' => DownloadFailureKind.noSpace,
+  _
+      when code.startsWith('saf_') ||
+          code.startsWith('mediastore_') ||
+          code.startsWith('ios_photo_') =>
     DownloadFailureKind.storage,
   _ => null,
 };

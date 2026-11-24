@@ -34,6 +34,7 @@ class _DetailOverlayScope extends InheritedWidget {
 
 class _DetailOverlayFrameState extends State<DetailOverlayFrame> {
   static final _scrimCurves = Expando<Animation<double>>();
+  static const _neverPopGesture = AlwaysStoppedAnimation<bool>(false);
 
   final _childKey = GlobalKey();
   int? _scrimPointer;
@@ -190,57 +191,90 @@ class _DetailOverlayFrameState extends State<DetailOverlayFrame> {
       ),
     );
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: (event) => _scrimPointer = event.pointer,
-          onPointerUp: (event) {
-            if (_scrimPointer == event.pointer) {
-              _scrimPointer = null;
-              unawaited(_dismissOverlay());
-            }
-          },
-          onPointerCancel: (event) {
-            if (_scrimPointer == event.pointer) {
-              _scrimPointer = null;
-            }
-          },
-          child: GestureDetector(
-            key: const ValueKey('detail-overlay-scrim'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => unawaited(_dismissOverlay()),
-            child: const ColoredBox(color: Color(0x990C0B0E)),
-          ),
+    final routeAnimation = RouteAnimationScope.of(context);
+    final popGesture =
+        RouteAnimationScope.popGestureOf(context) ?? _neverPopGesture;
+    final isRtl = Directionality.maybeOf(context) == TextDirection.rtl;
+    final scrimLayer = Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (event) => _scrimPointer = event.pointer,
+      onPointerUp: (event) {
+        if (_scrimPointer == event.pointer) {
+          _scrimPointer = null;
+          unawaited(_dismissOverlay());
+        }
+      },
+      onPointerCancel: (event) {
+        if (_scrimPointer == event.pointer) {
+          _scrimPointer = null;
+        }
+      },
+      child: GestureDetector(
+        key: const ValueKey('detail-overlay-scrim'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => unawaited(_dismissOverlay()),
+        child: const ColoredBox(color: Color(0x990C0B0E)),
+      ),
+    );
+    final cardLayer = SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.lg,
+          vertical: FuncSpacing.md,
         ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: FuncSpacing.lg,
-              vertical: FuncSpacing.md,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1680),
-                child: SizedBox.expand(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: FuncShape.dialog,
-                      border: Border.all(color: tokens.brandHairline),
-                      boxShadow: tokens.layerLift,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: FuncShape.dialog,
-                      child: framedChild,
-                    ),
-                  ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1680),
+            child: SizedBox.expand(
+              child: DecoratedBox(
+                key: const ValueKey('detail-overlay-card'),
+                decoration: BoxDecoration(
+                  borderRadius: FuncShape.dialog,
+                  border: Border.all(color: tokens.brandHairline),
+                  boxShadow: tokens.layerLift,
+                ),
+                child: ClipRRect(
+                  borderRadius: FuncShape.dialog,
+                  child: framedChild,
                 ),
               ),
             ),
           ),
         ),
-      ],
+      ),
+    );
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: popGesture,
+      child: cardLayer,
+      builder: (context, gestureActive, builtCard) {
+        final driveGesture = gestureActive && routeAnimation != null;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            FadeTransition(
+              opacity: driveGesture ? routeAnimation : kAlwaysCompleteAnimation,
+              child: scrimLayer,
+            ),
+            // Use Transform.translate (not SlideTransition/FractionalTranslation)
+            // so descendant `localToGlobal` reads during narrow->wide rebuilds
+            // never hit an unlaid-out RenderFractionalTranslation.
+            AnimatedBuilder(
+              animation: driveGesture
+                  ? routeAnimation
+                  : kAlwaysCompleteAnimation,
+              child: builtCard,
+              builder: (_, child) {
+                final progress = driveGesture
+                    ? 1.0 - routeAnimation.value
+                    : 0.0;
+                final dx = (isRtl ? -1.0 : 1.0) * progress * outerSize.width;
+                return Transform.translate(offset: Offset(dx, 0), child: child);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -572,7 +572,11 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       _bottomBar = _buildBottomBar(context, l10n, palette);
     }
     return PopScope(
-      canPop: !_chromeVisible,
+      // On iOS there is no hardware back button, so keep interactive left-edge
+      // swipe-back active even while reader chrome is open (TRANS-02/NOVEL-05);
+      // Android/desktop still dismiss chrome first on back/Esc.
+      canPop:
+          !_chromeVisible || Theme.of(context).platform == TargetPlatform.iOS,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           // Restore the bars as the pop starts — dispose only runs

@@ -170,57 +170,58 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
       onPressed: () => openReverseImageSearch(context),
       icon: const Icon(AppIcons.imageSearch),
     );
-    // The wide header puts the kind tabs on the title row and the shared
-    // search field next to the camera (R7); a phone keeps the field over
-    // the tabs.
+    // Wide header puts kind tabs on the title row; phone keeps field over tabs.
     final wide = PageHeader.isWide(context);
     final hasCommandBar = DesktopCommandBarScope.isActiveOf(context);
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: wide
-          ? AppTopBar(
-              titleSpacing: 0,
-              title: tabs,
-              actions: hasCommandBar
-                  ? const []
-                  : [
-                      const HeaderRefresh(),
-                      camera,
-                      _GuideHeaderSearch(type: _active),
-                    ],
-            )
-          : AppTopBar(
-              title: SearchFieldButton(
-                text: l10n.searchBarHint,
-                isHint: true,
-                onTap: () => openSearchInput(context, type: _active),
+    return bindPrimaryScroll(
+      controller: _scrollControllerFor(_active),
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        appBar: wide
+            ? AppTopBar(
+                titleSpacing: 0,
+                title: tabs,
+                actions: hasCommandBar
+                    ? const []
+                    : [
+                        const HeaderRefresh(),
+                        camera,
+                        _GuideHeaderSearch(type: _active),
+                      ],
+              )
+            : AppTopBar(
+                title: SearchFieldButton(
+                  text: l10n.searchBarHint,
+                  isHint: true,
+                  onTap: () => openSearchInput(context, type: _active),
+                ),
+                actions: [camera],
+                bottom: tabs,
               ),
-              actions: [camera],
-              bottom: tabs,
-            ),
-      body: Builder(
-        builder: (context) {
-          _notificationContext = context;
-          return TabSwipeSwitcher(
-            tabController: _tabController,
-            prepareTab: _prepareTab,
-            child: TabSlideStack(
-              controller: _tabController,
-              children: [
-                for (final type in _types)
-                  if (_loaded.contains(type))
-                    _TrendingTab(
-                      key: ValueKey(type),
-                      type: type,
-                      scrollController: _scrollControllerFor(type),
-                      scrollKey: _scrollKeys.putIfAbsent(type, GlobalKey.new),
-                    )
-                  else
-                    const SizedBox.shrink(),
-              ],
-            ),
-          );
-        },
+        body: Builder(
+          builder: (context) {
+            _notificationContext = context;
+            return TabSwipeSwitcher(
+              tabController: _tabController,
+              prepareTab: _prepareTab,
+              child: TabSlideStack(
+                controller: _tabController,
+                children: [
+                  for (final type in _types)
+                    if (_loaded.contains(type))
+                      _TrendingTab(
+                        key: ValueKey(type),
+                        type: type,
+                        scrollController: _scrollControllerFor(type),
+                        scrollKey: _scrollKeys.putIfAbsent(type, GlobalKey.new),
+                      )
+                    else
+                      const SizedBox.shrink(),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -129,10 +129,12 @@ class NovelPage extends ConsumerWidget {
         byline: [novel.user.name, ?novel.seriesTitle].join(' · '),
       ),
       topActions: [
-        IconButton(
-          tooltip: context.l10n.cardActionShare,
-          onPressed: () => _shareNovel(context, ref, novel),
-          icon: const Icon(AppIcons.share),
+        Builder(
+          builder: (buttonContext) => IconButton(
+            tooltip: context.l10n.cardActionShare,
+            onPressed: () => _shareNovel(buttonContext, ref, novel),
+            icon: const Icon(AppIcons.share),
+          ),
         ),
         BookmarkSwitchButton(
           illustId: novel.id,

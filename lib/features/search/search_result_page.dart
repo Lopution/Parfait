@@ -388,81 +388,84 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
               child: filterButton,
             )
           : null,
-      child: Scaffold(
-        // No inline composer: a `true` here would subscribe this page (and
-        // every live branch page) to per-frame viewInsets churn while the
-        // IME hides during the push transition — the constant-low-FPS
-        // search-suggestion push came from that relayout storm.
-        resizeToAvoidBottomInset: false,
-        appBar: AppTopBar(
-          titleSpacing: 0,
-          title: !wide
-              ? Builder(builder: keywordField)
-              : hideWideSearchControls
-              ? tabBar
-              : Row(
-                  children: [
-                    Padding(
-                      padding: EdgeInsetsDirectional.only(
-                        start: impliesDismissal ? 0 : FuncSpacing.lg,
-                        end: FuncSpacing.md,
+      child: bindPrimaryScroll(
+        controller: _scrollControllerFor(_selectedType),
+        child: Scaffold(
+          // No inline composer: a `true` here would subscribe this page (and
+          // every live branch page) to per-frame viewInsets churn while the
+          // IME hides during the push transition — the constant-low-FPS
+          // search-suggestion push came from that relayout storm.
+          resizeToAvoidBottomInset: false,
+          appBar: AppTopBar(
+            titleSpacing: 0,
+            title: !wide
+                ? Builder(builder: keywordField)
+                : hideWideSearchControls
+                ? tabBar
+                : Row(
+                    children: [
+                      Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: impliesDismissal ? 0 : FuncSpacing.lg,
+                          end: FuncSpacing.md,
+                        ),
+                        child: SizedBox(
+                          width: PageHeader.searchFieldWidth(context),
+                          child: Builder(builder: keywordField),
+                        ),
                       ),
-                      child: SizedBox(
-                        width: PageHeader.searchFieldWidth(context),
-                        child: Builder(builder: keywordField),
-                      ),
-                    ),
-                    Expanded(child: tabBar),
-                  ],
-                ),
-          bottom: wide ? null : tabBar,
-          actions: [
-            if (hasCommandBar)
-              DesktopGalleryControls(visible: showGalleryControls),
-            if (hideWideSearchControls && showGalleryControls)
-              const SizedBox(width: FuncSpacing.sm),
-            if (!hideWideSearchControls)
-              if (filterButton != null)
-                Padding(
-                  padding: EdgeInsetsDirectional.only(
-                    end: wide ? FuncSpacing.xs : 0,
+                      Expanded(child: tabBar),
+                    ],
                   ),
-                  child: filterButton,
-                )
-              else if (!wide)
-                // Reserve the trailing 48dp slot on compact headers so the
-                // stadium query pill keeps its exact width across tab switches.
-                const SizedBox(width: kMinInteractiveDimension),
-          ],
-        ),
-        body: DesktopInspectableGallery(
-          active: showGalleryControls,
-          scopeKey: (_selectedType, widget.query),
-          child: Column(
-            children: [
-              ?summary,
-              Expanded(
-                child: Builder(
-                  builder: (context) {
-                    _notificationContext = context;
-                    return TabSwipeSwitcher(
-                      tabController: _tabController,
-                      prepareTab: _prepareTab,
-                      child: TabSlideStack(
-                        controller: _tabController,
-                        children: [
-                          for (final type in SearchResultType.values)
-                            if (_loadedTypes.contains(type))
-                              _bodyFor(type)
-                            else
-                              const SizedBox.shrink(),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
+            bottom: wide ? null : tabBar,
+            actions: [
+              if (hasCommandBar)
+                DesktopGalleryControls(visible: showGalleryControls),
+              if (hideWideSearchControls && showGalleryControls)
+                const SizedBox(width: FuncSpacing.sm),
+              if (!hideWideSearchControls)
+                if (filterButton != null)
+                  Padding(
+                    padding: EdgeInsetsDirectional.only(
+                      end: wide ? FuncSpacing.xs : 0,
+                    ),
+                    child: filterButton,
+                  )
+                else if (!wide)
+                  // Reserve the trailing 48dp slot on compact headers so the
+                  // stadium query pill keeps its exact width across tab switches.
+                  const SizedBox(width: kMinInteractiveDimension),
             ],
+          ),
+          body: DesktopInspectableGallery(
+            active: showGalleryControls,
+            scopeKey: (_selectedType, widget.query),
+            child: Column(
+              children: [
+                ?summary,
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      _notificationContext = context;
+                      return TabSwipeSwitcher(
+                        tabController: _tabController,
+                        prepareTab: _prepareTab,
+                        child: TabSlideStack(
+                          controller: _tabController,
+                          children: [
+                            for (final type in SearchResultType.values)
+                              if (_loadedTypes.contains(type))
+                                _bodyFor(type)
+                              else
+                                const SizedBox.shrink(),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

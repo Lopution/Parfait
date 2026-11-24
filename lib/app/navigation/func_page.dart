@@ -389,6 +389,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       // The controller: [animation] reads complete while a Hero measures
       // the opening page (see RouteAnimationScope).
       animation: controller!,
+      popGesture: _popGestureNotifier,
       child: Semantics(
         scopesRoute: true,
         explicitChildNodes: true,
@@ -514,17 +515,6 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     }
 
     if (platform == TargetPlatform.iOS) {
-      if (!shared && boundedOverlay) {
-        return FuncTransitionGuard(
-          animation: animation,
-          secondaryAnimation: secondary,
-          transition: (child) => IgnorePointer(
-            ignoring: animation.status == AnimationStatus.reverse,
-            child: FadeTransition(opacity: _desktopMotion, child: child),
-          ),
-          child: child,
-        );
-      }
       final canvasDismiss = _supportsCanvasDismiss(context);
       return FuncTransitionGuard(
         animation: animation,
@@ -540,6 +530,13 @@ class _FuncPageRoute<T> extends PageRoute<T> {
                     popGestureInProgress: popGestureInProgress,
                     supportsCanvasDismiss: canvasDismiss,
                   )
+                : boundedOverlay
+                ? FadeTransition(
+                    opacity: popGestureInProgress
+                        ? kAlwaysCompleteAnimation
+                        : _desktopMotion,
+                    child: builtChild!,
+                  )
                 : builtChild!;
             return IgnorePointer(
               // Leaving, nothing of the page takes a touch, so the page below
@@ -552,9 +549,13 @@ class _FuncPageRoute<T> extends PageRoute<T> {
               // On iOS we attach our own edge-back/canvas-dismiss detector inside
               // CupertinoPageTransition (instead of CupertinoPageTransitionsBuilder)
               // so horizontal drags inside DetailImagePager/PageView stay intact.
+              // Wide bounded overlays keep the outer page stationary so
+              // DetailOverlayFrame can fade its scrim in place while sliding
+              // only the foreground card.
               child: CupertinoPageTransition(
                 primaryRouteAnimation:
-                    shared && (canvasDismiss || !popGestureInProgress)
+                    boundedOverlay ||
+                        (shared && (canvasDismiss || !popGestureInProgress))
                     ? kAlwaysCompleteAnimation
                     : _linearSlideIn,
                 secondaryRouteAnimation: still

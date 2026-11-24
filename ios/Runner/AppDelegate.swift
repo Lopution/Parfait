@@ -148,8 +148,8 @@ private enum IosPhotosBridge {
       return
     }
 
-    ensureAuthorization(requiresAlbumWrite: album != nil) { authorized in
-      guard authorized else {
+    ensureAuthorization(requiresAlbumWrite: album != nil) { status in
+      guard status == .authorized || status == .limited else {
         result(FlutterError(
           code: "ios_photo_permission_denied",
           message: album != nil
@@ -162,7 +162,9 @@ private enum IosPhotosBridge {
 
       albumQueue.async {
         var createdLocalIdentifier: String?
-        let semaphore = DispatchSemaphore(value: 0)
+        var createSuccess = false
+        var createError: Error?
+        let createSemaphore = DispatchSemaphore(value: 0)
         PHPhotoLibrary.shared().performChanges({
           let options = PHAssetResourceCreationOptions()
           if let displayName, !displayName.isEmpty {
@@ -176,38 +178,85 @@ private enum IosPhotosBridge {
             fileURL: fileURL,
             options: options
           )
-          let placeholder = request.placeholderForCreatedAsset
-          createdLocalIdentifier = placeholder?.localIdentifier
-          if let album, let placeholder {
-            if let existing = findAlbum(named: album),
-               let albumRequest = PHAssetCollectionChangeRequest(for: existing) {
-              albumRequest.addAssets([placeholder] as NSArray)
-            } else {
-              let albumRequest =
-                PHAssetCollectionChangeRequest.creationRequestForAssetCollection(
-                  withTitle: album
-                )
-              albumRequest.addAssets([placeholder] as NSArray)
-            }
-          }
+          createdLocalIdentifier =
+            request.placeholderForCreatedAsset?.localIdentifier
         }) { success, error in
-          semaphore.signal()
+          createSuccess = success
+          createError = error
+          createSemaphore.signal()
+        }
+        createSemaphore.wait()
+
+        guard createSuccess,
+              let localId = createdLocalIdentifier,
+              !localId.isEmpty else {
+          let code = isNoSpaceError(createError)
+            ? "ios_photo_no_space"
+            : "ios_photo_save_failed"
           DispatchQueue.main.async {
-            if success, let localId = createdLocalIdentifier, !localId.isEmpty {
-              result("ph:///\(localId)")
-            } else {
-              result(FlutterError(
-                code: "ios_photo_save_failed",
-                message: error?.localizedDescription
-                  ?? "Failed to save asset to Photo Library",
-                details: nil
-              ))
+            result(FlutterError(
+              code: code,
+              message: createError?.localizedDescription
+                ?? "Failed to save asset to Photo Library",
+              details: nil
+            ))
+          }
+          return
+        }
+
+        // Only place into a named album under full `.authorized` access so
+        // `.limited` photo selection still saves cleanly into Recents without
+        // rolling back the asset creation transaction.
+        if status == .authorized, let album, !album.isEmpty {
+          let fetched = PHAsset.fetchAssets(
+            withLocalIdentifiers: [localId],
+            options: nil
+          )
+          if let asset = fetched.firstObject {
+            let albumSemaphore = DispatchSemaphore(value: 0)
+            PHPhotoLibrary.shared().performChanges({
+              if let existing = findAlbum(named: album),
+                 let albumRequest = PHAssetCollectionChangeRequest(for: existing) {
+                albumRequest.addAssets([asset] as NSArray)
+              } else {
+                let albumRequest =
+                  PHAssetCollectionChangeRequest.creationRequestForAssetCollection(
+                    withTitle: album
+                  )
+                albumRequest.addAssets([asset] as NSArray)
+              }
+            }) { _, _ in
+              albumSemaphore.signal()
             }
+            albumSemaphore.wait()
           }
         }
-        semaphore.wait()
+
+        DispatchQueue.main.async {
+          result("ph:///\(localId)")
+        }
       }
     }
+  }
+
+  private static func isNoSpaceError(_ error: Error?) -> Bool {
+    guard let nsError = error as NSError? else { return false }
+    if nsError.domain == NSCocoaErrorDomain &&
+        nsError.code == NSFileWriteOutOfSpaceError {
+      return true
+    }
+    if nsError.domain == NSPOSIXErrorDomain &&
+        nsError.code == Int(ENOSPC) {
+      return true
+    }
+    if nsError.domain == PHPhotosErrorDomain &&
+        nsError.code == PHPhotosError.Code.notEnoughSpace.rawValue {
+      return true
+    }
+    if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+      return isNoSpaceError(underlying)
+    }
+    return false
   }
 
   private static func findAlbum(named title: String) -> PHAssetCollection? {
@@ -230,21 +279,21 @@ private enum IosPhotosBridge {
 
   private static func ensureAuthorization(
     requiresAlbumWrite: Bool,
-    completion: @escaping (Bool) -> Void
+    completion: @escaping (PHAuthorizationStatus) -> Void
   ) {
     let accessLevel: PHAccessLevel = requiresAlbumWrite ? .readWrite : .addOnly
     let current = PHPhotoLibrary.authorizationStatus(for: accessLevel)
     switch current {
     case .authorized, .limited:
-      completion(true)
+      completion(current)
     case .notDetermined:
       PHPhotoLibrary.requestAuthorization(for: accessLevel) { status in
         DispatchQueue.main.async {
-          completion(status == .authorized || status == .limited)
+          completion(status)
         }
       }
     default:
-      completion(false)
+      completion(current)
     }
   }
 }

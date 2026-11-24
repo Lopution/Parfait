@@ -681,6 +681,13 @@ void main() {
       expect(payload, isNotNull);
       expect(payload!.url, 'https://www.pixivision.net/a/101');
       expect(payload.author, 'pixivision');
+      final shareRect = tester.getRect(
+        find.ancestor(
+          of: find.byTooltip('分享'),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(share.lastOrigin, shareRect);
       // Deep-link falls back to the loaded article body title in app bar & share.
       expect(find.text('特辑标题'), findsWidgets);
       expect(payload.title, '特辑标题');

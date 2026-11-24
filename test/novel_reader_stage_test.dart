@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
+import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
@@ -842,6 +843,69 @@ void main() {
       expect(scrollEngine.batches, isNotEmpty);
       expect(scrollEngine.batches.first, isNot(contains('paragraph 0')));
     },
+  );
+
+  testWidgets(
+    'iOS left-edge swipe pops NovelReaderStage even while chrome is visible and restores edgeToEdge',
+    (tester) async {
+      final systemUiModes = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+              systemUiModes.add(call.arguments as String);
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      installPreferencesForTest(memoryPreferences({}));
+      setViewSize(tester, const Size(400, 800));
+
+      final container = ProviderContainer.test();
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: Builder(
+            builder: (rootCtx) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(rootCtx).push<void>(
+                  FuncPage<void>(
+                    child: NovelReaderStage(
+                      spec: NovelReaderStageSpec(
+                        novel: _novel('reader ' * 200),
+                        infoTooltip: 'info',
+                        infoSheet: (_) => const Text('info sheet'),
+                        progress: _RecordingBinding(),
+                      ),
+                    ),
+                  ).createRoute(rootCtx),
+                ),
+                child: const Text('open-reader'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open-reader'));
+      await tester.pumpAndSettle();
+
+      // Open chrome so _chromeVisible == true.
+      await tester.tapAt(const Offset(200, 400));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('info'), findsOneWidget);
+      systemUiModes.clear();
+
+      // Left-edge iOS swipe pops the reader and restores SystemUiMode.edgeToEdge.
+      await tester.dragFrom(const Offset(12, 400), const Offset(280, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('open-reader'), findsOneWidget);
+      expect(find.byType(NovelReaderStage), findsNothing);
+      expect(systemUiModes, contains('SystemUiMode.edgeToEdge'));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 }
 

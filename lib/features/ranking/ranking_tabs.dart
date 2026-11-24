@@ -522,97 +522,101 @@ class _RankingTabsState<M extends RankingCategory>
   Widget build(BuildContext context) {
     // The tab menu offers what the arrangement allows now.
     final arrangement = ref.watch(_catalog.arrangementProvider);
-    return Scaffold(
-      // Root pages own no inline composer: leaving the default `true`
-      // would subscribe this whole subtree to per-frame viewInsets churn
-      // every time the IME animates (e.g. the push that hides the search
-      // keyboard) — a relayout storm across all five live branches.
-      resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(
-        titleSpacing: 0,
-        actions: [
-          if (widget.showGalleryControls) const DesktopGalleryControls(),
-          IconButton(
-            tooltip: context.l10n.rankingAllCategories,
-            onPressed: _openSheet,
-            icon: const Icon(AppIcons.categoryGrid),
-          ),
-          const HeaderRefresh(),
-          const HeaderSearch(),
-        ],
-        title: AppTabBar(
-          controller: _tabController,
-          onTap: (index) {
-            // TabBar already ran controller.animateTo before this
-            // callback — and TabController._changeIndex early-returns on
-            // a same-index tap, so indexIsChanging is still false only
-            // for a re-tap. That is the in-page re-tap contract: scroll
-            // the current mode's feed to top, nothing else.
-            if (!_tabController.indexIsChanging) {
-              reTapScrollToTop(context, _scrollControllerFor(_modes[index]));
-            }
-          },
-          labels: [
-            for (final mode in _modes) l10nLookup(context.l10n, mode.labelKey),
-          ],
-          labelWrapper: (index, label) => _tabMenu(arrangement, index, label),
-        ),
-      ),
-      body: Builder(
-        builder: (context) {
-          _notificationContext = context;
-          final tabs = TabSwipeSwitcher(
-            tabController: _tabController,
-            // Warm the neighbor slots before a drag uncovers them — the
-            // strip slide shows real feeds instead of blank placeholders.
-            prepareTab: _prepareTab,
-            child: TabSlideStack(
-              controller: _tabController,
-              children: [
-                for (final mode in _modes)
-                  if (_loadedModes.contains(mode))
-                    _bodies.putIfAbsent(
-                      mode,
-                      () => KeyedSubtree(
-                        key: ValueKey((mode, _date)),
-                        child: widget.bodyBuilder(
-                          mode,
-                          _date,
-                          _scrollControllerFor(mode),
-                        ),
-                      ),
-                    )
-                  else
-                    const SizedBox.shrink(),
-              ],
+    return bindPrimaryScroll(
+      controller: _scrollControllerFor(_selected),
+      child: Scaffold(
+        // Root pages own no inline composer: leaving the default `true`
+        // would subscribe this whole subtree to per-frame viewInsets churn
+        // every time the IME animates (e.g. the push that hides the search
+        // keyboard) — a relayout storm across all five live branches.
+        resizeToAvoidBottomInset: false,
+        appBar: AppTopBar(
+          titleSpacing: 0,
+          actions: [
+            if (widget.showGalleryControls) const DesktopGalleryControls(),
+            IconButton(
+              tooltip: context.l10n.rankingAllCategories,
+              onPressed: _openSheet,
+              icon: const Icon(AppIcons.categoryGrid),
             ),
-          );
-          // Always a Column, so the bar coming and going keeps the tab
-          // strip's element.
-          final content = Column(
-            children: [
-              if (_date case final date?)
-                RankingDateBar(
-                  date: date,
-                  onPickDate: () => unawaited(
-                    pickRankingDate(
-                      context,
-                      date: _date,
-                      onPicked: _changeDate,
-                    ),
-                  ),
-                  onBackToLatest: () => _changeDate(null),
-                ),
-              Expanded(child: tabs),
+            const HeaderRefresh(),
+            const HeaderSearch(),
+          ],
+          title: AppTabBar(
+            controller: _tabController,
+            onTap: (index) {
+              // TabBar already ran controller.animateTo before this
+              // callback — and TabController._changeIndex early-returns on
+              // a same-index tap, so indexIsChanging is still false only
+              // for a re-tap. That is the in-page re-tap contract: scroll
+              // the current mode's feed to top, nothing else.
+              if (!_tabController.indexIsChanging) {
+                reTapScrollToTop(context, _scrollControllerFor(_modes[index]));
+              }
+            },
+            labels: [
+              for (final mode in _modes)
+                l10nLookup(context.l10n, mode.labelKey),
             ],
-          );
-          return widget.enableDesktopInspector
-              ? DesktopInspectableGallery(
-                  scopeKey: (_modes[_tabController.index], _date),
-                  child: content,
-                )
-              : content;
-        },
+            labelWrapper: (index, label) => _tabMenu(arrangement, index, label),
+          ),
+        ),
+        body: Builder(
+          builder: (context) {
+            _notificationContext = context;
+            final tabs = TabSwipeSwitcher(
+              tabController: _tabController,
+              // Warm the neighbor slots before a drag uncovers them — the
+              // strip slide shows real feeds instead of blank placeholders.
+              prepareTab: _prepareTab,
+              child: TabSlideStack(
+                controller: _tabController,
+                children: [
+                  for (final mode in _modes)
+                    if (_loadedModes.contains(mode))
+                      _bodies.putIfAbsent(
+                        mode,
+                        () => KeyedSubtree(
+                          key: ValueKey((mode, _date)),
+                          child: widget.bodyBuilder(
+                            mode,
+                            _date,
+                            _scrollControllerFor(mode),
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox.shrink(),
+                ],
+              ),
+            );
+            // Always a Column, so the bar coming and going keeps the tab
+            // strip's element.
+            final content = Column(
+              children: [
+                if (_date case final date?)
+                  RankingDateBar(
+                    date: date,
+                    onPickDate: () => unawaited(
+                      pickRankingDate(
+                        context,
+                        date: _date,
+                        onPicked: _changeDate,
+                      ),
+                    ),
+                    onBackToLatest: () => _changeDate(null),
+                  ),
+                Expanded(child: tabs),
+              ],
+            );
+            return widget.enableDesktopInspector
+                ? DesktopInspectableGallery(
+                    scopeKey: (_modes[_tabController.index], _date),
+                    child: content,
+                  )
+                : content;
+          },
+        ),
       ),
     );
   }

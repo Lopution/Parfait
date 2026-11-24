@@ -157,11 +157,16 @@ reviewed: 2026-11-22
   isolated temporary `.part` file under a per-album, per-transfer directory
   and commit into `PHPhotoLibrary` via `parfait/ios_photos` (`saveImage`) on
   `finalize()`, cleaning staging files in a `finally` block; permission
-  denials or native failures raise an error rather than faking success. When
-  an album name is passed, `IosPhotosBridge` requests `.readWrite` photo library
-  authorization, serializes album lookup/creation on `albumQueue`, and adds
-  created assets to a matching or newly created `.albumRegular`
-  `PHAssetCollection` via `PHAssetCollectionChangeRequest`. `DownloadDestinationPage`
+  denials or native failures raise an error rather than faking success, and
+  `download_manager_adapters` maps `ios_photo_permission_denied` -> `permission`,
+  `ios_photo_no_space` -> `noSpace`, and remaining `ios_photo_*` codes ->
+  `storage`. When an album name is passed, `IosPhotosBridge` requests
+  `.readWrite` photo library authorization, serializes work on `albumQueue`,
+  and splits asset creation (`PHAssetCreationRequest`) from named-album
+  placement (`PHAssetCollectionChangeRequest`): asset creation runs for both
+  `.authorized` and `.limited`, while album lookup/creation runs only under
+  full `.authorized` access so `.limited` access saves cleanly into Recents
+  instead of rolling back. `DownloadDestinationPage`
   hides the Android SAF folder option on iOS and uses desktop folder/subfolder
   copy on Windows/macOS/Linux. Because `file_selector_ios` requires non-empty
   Apple `uniformTypeIdentifiers` on every filtered `XTypeGroup` and does not
@@ -171,12 +176,14 @@ reviewed: 2026-11-22
   (`share_plus` with `sharePositionOrigin`).
 - **Why:** iOS does not expose a shared writable Pictures folder or MediaStore
   API; staging keeps chunked writes and resume anchors working without
-  leaving half-written assets in the Photos library, native album placement
-  avoids dropping custom-album destinations on iOS, and UTIs plus share-sheet
-  export keep iOS import/export and image picking from throwing
-  `ArgumentError` / `UnimplementedError`.
-- **Check:** `test/windows_capability_test.dart` "IosPhotoLibraryMediaStoreSession stages chunks, commits via channel, and resumes detached .part"; `test/settings_test.dart` "DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label"; `test/backup_test.dart` "iOS share exporter writes temp JSON, handles cancel and keeps shared file" "DesktopDocumentPicker supplies non-empty Apple UTIs for iOS"; `test/reverse_image_search_test.dart` "DesktopReverseImageInputPlatform supplies Apple UTIs for iOS picker"
-- **Code:** `lib/core/platform/ios_photo_library.dart`, `lib/core/platform/desktop_file_sink.dart`, `lib/core/reverse_image/desktop_image_input.dart`, `lib/core/backup/backup_service.dart`, `ios/Runner/AppDelegate.swift`, `ios/Runner/Info.plist`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/settings_helpers.dart`
+  leaving half-written assets in the Photos library, splitting asset creation
+  from album placement preserves named `"Parfait"` album organization under
+  full access while preventing `.limited` permission rollbacks, explicit
+  `ios_photo_*` classification surfaces actionable retry/permission feedback,
+  and UTIs plus share-sheet export keep iOS import/export and image picking
+  from throwing `ArgumentError` / `UnimplementedError`.
+- **Check:** `test/windows_capability_test.dart` "IosPhotoLibraryMediaStoreSession stages chunks, commits via channel, and resumes detached .part"; `test/download_manager_test.dart` "a storage failure says what the user can do about it"; `test/settings_test.dart` "DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label"; `test/backup_test.dart` "iOS share exporter writes temp JSON, handles cancel and keeps shared file" "DesktopDocumentPicker supplies non-empty Apple UTIs for iOS"; `test/reverse_image_search_test.dart` "DesktopReverseImageInputPlatform supplies Apple UTIs for iOS picker"
+- **Code:** `lib/core/platform/ios_photo_library.dart`, `lib/core/download/download_manager_adapters.dart`, `lib/core/platform/desktop_file_sink.dart`, `lib/core/reverse_image/desktop_image_input.dart`, `lib/core/backup/backup_service.dart`, `ios/Runner/AppDelegate.swift`, `ios/Runner/Info.plist`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/settings_helpers.dart`
 
 ### DL-14 macOS sandboxed tree destinations and desktop file actions respect security-scoped bookmarks
 - **Rule:** When `supportsSecurityScopedBookmarks` is enabled, picked custom

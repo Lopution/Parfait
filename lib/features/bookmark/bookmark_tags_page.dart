@@ -42,8 +42,9 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
   late final TabController _tabController;
   final _scrollControllers = <BookmarkRestrict, ScrollController>{};
   BuildContext? _notificationContext;
+  int _selectedIndex = 0;
 
-  BookmarkRestrict get _active => _restricts[_tabController.index];
+  BookmarkRestrict get _active => _restricts[_selectedIndex];
 
   ScrollController _scrollControllerFor(BookmarkRestrict restrict) =>
       _scrollControllers.putIfAbsent(
@@ -59,6 +60,9 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
       );
 
   void _onTabChanged() {
+    if (_tabController.index != _selectedIndex) {
+      setState(() => _selectedIndex = _tabController.index);
+    }
     final ctx = _notificationContext;
     if (ctx != null) {
       announceTabScroll(ctx, _scrollControllerFor(_active));
@@ -68,10 +72,11 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
   @override
   void initState() {
     super.initState();
+    _selectedIndex = _restricts.indexOf(widget.initialRestrict);
     _tabController = TabController(
       length: _restricts.length,
       vsync: this,
-      initialIndex: _restricts.indexOf(widget.initialRestrict),
+      initialIndex: _selectedIndex,
     )..addListener(_onTabChanged);
   }
 
@@ -79,7 +84,8 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
   void didUpdateWidget(covariant BookmarkTagsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialRestrict != widget.initialRestrict) {
-      _tabController.index = _restricts.indexOf(widget.initialRestrict);
+      _selectedIndex = _restricts.indexOf(widget.initialRestrict);
+      _tabController.index = _selectedIndex;
     }
   }
 
@@ -97,36 +103,39 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Scaffold(
-      appBar: AppTopBar(
-        contentWidth: ContentWidths.management,
-        title: Text(l10n.bookmarkTags),
-        tabsBesideTitle: PageHeader.isWide(context),
-        // The lists sit inside the TabBarView's page view.
-        notificationPredicate: (notification) => notification.depth == 1,
-        bottom: AppTabBar(
-          controller: _tabController,
-          labels: [l10n.restrictPublic, l10n.restrictPrivate],
-        ),
-      ),
-      body: Builder(
-        builder: (context) {
-          _notificationContext = context;
-          return TabBarView(
+    return bindPrimaryScroll(
+      controller: _scrollControllerFor(_active),
+      child: Scaffold(
+        appBar: AppTopBar(
+          contentWidth: ContentWidths.management,
+          title: Text(l10n.bookmarkTags),
+          tabsBesideTitle: PageHeader.isWide(context),
+          // The lists sit inside the TabBarView's page view.
+          notificationPredicate: (notification) => notification.depth == 1,
+          bottom: AppTabBar(
             controller: _tabController,
-            children: [
-              for (final restrict in _restricts)
-                ContentWidthCap(
-                  maxWidth: ContentWidths.management,
-                  child: _RestrictTags(
-                    kind: widget.kind,
-                    restrict: restrict,
-                    scrollController: _scrollControllerFor(restrict),
+            labels: [l10n.restrictPublic, l10n.restrictPrivate],
+          ),
+        ),
+        body: Builder(
+          builder: (context) {
+            _notificationContext = context;
+            return TabBarView(
+              controller: _tabController,
+              children: [
+                for (final restrict in _restricts)
+                  ContentWidthCap(
+                    maxWidth: ContentWidths.management,
+                    child: _RestrictTags(
+                      kind: widget.kind,
+                      restrict: restrict,
+                      scrollController: _scrollControllerFor(restrict),
+                    ),
                   ),
-                ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }

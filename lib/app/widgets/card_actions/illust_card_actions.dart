@@ -33,7 +33,7 @@ final illustCardActionsProvider = Provider<List<CardAction>>((ref) {
     if (isDesktopImageClipboardSupported) copyImageCardAction,
     watchLaterCardAction,
     ...muteCardActions,
-    const _ShareAction(),
+    const ShareIllustAction(),
   ];
 });
 
@@ -281,8 +281,8 @@ class _MuteUserAction extends CardAction {
   );
 }
 
-class _ShareAction extends CardAction {
-  const _ShareAction();
+class ShareIllustAction extends CardAction {
+  const ShareIllustAction();
 
   @override
   String get id => 'share';
@@ -305,8 +305,9 @@ class _ShareAction extends CardAction {
   Future<void> run(
     BuildContext context,
     ProviderContainer container,
-    IllustEntity entity,
-  ) async {
+    IllustEntity entity, {
+    Rect? sharePositionOrigin,
+  }) async {
     final outcome = await container
         .read(shareServiceProvider)
         .share(
@@ -315,7 +316,9 @@ class _ShareAction extends CardAction {
             title: entity.title,
             author: entity.user.name,
           ),
-          sharePositionOrigin: shareOriginOf(context),
+          sharePositionOrigin: sharePositionOrigin != null
+              ? clampShareOrigin(context, sharePositionOrigin)
+              : shareOriginOf(context),
         );
     if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
       showAppSnackBar(context, context.l10n.linkCopied);

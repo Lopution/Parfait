@@ -562,8 +562,12 @@ class _UserPageState extends ConsumerState<UserPage>
     );
     // The skeleton hands over to the profile with a fade; status pages are
     // FeedEmpty, which fades in by itself.
-    return Scaffold(
-      body: StateFade(kind: body is ProfileSkeleton, child: body),
+    return PrimaryScrollController(
+      controller: _outerScrollController,
+      automaticallyInheritForPlatforms: const {},
+      child: Scaffold(
+        body: StateFade(kind: body is ProfileSkeleton, child: body),
+      ),
     );
   }
 
