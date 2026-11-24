@@ -2714,6 +2714,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get followSwitchToPublic => 'Make public';
 
   @override
+  String get followSwitchVisibility => 'Switch public/private follow';
+
+  @override
   String get followFailed => 'Follow action failed';
 
   @override

@@ -3,21 +3,28 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/translation/translation_service.dart'
     show translationCredentialStoreProvider;
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
+import 'package:parfait/features/localnovel/local_novels_page.dart';
+import 'package:parfait/features/settings/me_account_header.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
+import 'package:parfait/features/settings/pages/translation_credentials_page.dart';
 import 'package:parfait/features/settings/settings_catalog.dart';
 import 'package:parfait/features/settings/settings_helpers.dart';
 import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/features/watchlist/watchlist_page.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 
 import 'helpers/api_responses.dart';
@@ -353,5 +360,136 @@ void main() {
       expect(router.state.uri.path, '/recommended');
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'wide settings translation summary refreshes immediately on credential save and clear',
+    (tester) async {
+      await seedSettings(
+        baseTestSettings().copyWith(
+          translateIndex: TranslationProvider.baidu.code,
+        ),
+      );
+      setViewSize(tester, const Size(1280, 800));
+      final router = pixivRouter(SettingsPageRef.translate.path);
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          overrides: _overrides(),
+          builder: promptHostBuilder,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '${zh.translateBaidu} · ${zh.settingsCredentialNotConfigured}',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(TranslateSettingsPage),
+          matching: find.text(zh.translateBaiduCredential),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final fields = find.descendant(
+        of: find.byType(TranslationCredentialsPage),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(fields.at(0), 'app-id');
+      await tester.enterText(fields.at(1), 'secret-key');
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(TranslationCredentialsPage),
+          matching: find.text(zh.translateCredentialsSave),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('${zh.translateBaidu} · ${zh.settingsCredentialConfigured}'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text(zh.translateCredentialsClear));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(zh.translateCredentialsClear).last);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '${zh.translateBaidu} · ${zh.settingsCredentialNotConfigured}',
+        ),
+        findsOneWidget,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'embedded management pages start-align ContentWidthCap and MeAccountHeader myPixiv opens myPixiv tab',
+    (tester) async {
+      setViewSize(tester, const Size(1400, 800));
+      for (final page in const [
+        WatchlistPage(),
+        DownloadTasksPage(),
+        LocalNovelsPage(),
+      ]) {
+        await tester.pumpWidget(
+          localizedApp(
+            overrides: _overrides(),
+            builder: promptHostBuilder,
+            home: EmbeddedHeaderScope(child: page),
+          ),
+        );
+        await tester.pump();
+        final cap = tester.widget<ContentWidthCap>(
+          find.byType(ContentWidthCap).first,
+        );
+        expect(cap.alignStart, isTrue, reason: '${page.runtimeType}');
+      }
+
+      // Narrow MeAccountHeader myPixiv stat cell routes to /me?tab=myPixiv.
+      setViewSize(tester, const Size(390, 844));
+      final myPixivHeader = MeAccountHeader(
+        account: testerAccount,
+        detail: const UserEntity(
+          id: 100,
+          name: 'Tester',
+          account: 'tester',
+          totalIllustBookmarksPublic: 10,
+          totalFollowUsers: 20,
+          totalMyPixivUsers: 5,
+          hasDetail: true,
+        ),
+      );
+      final headerRouter = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => Scaffold(body: myPixivHeader),
+          ),
+          GoRoute(
+            path: '/me',
+            builder: (_, state) =>
+                Scaffold(body: Text('tab:${state.uri.queryParameters['tab']}')),
+          ),
+        ],
+      );
+      addTearDown(headerRouter.dispose);
+      await tester.pumpWidget(
+        localizedRouterApp(
+          headerRouter,
+          overrides: _overrides(),
+          builder: promptHostBuilder,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(zh.profileMyPixiv));
+      await tester.pumpAndSettle();
+      expect(find.text('tab:myPixiv'), findsOneWidget);
+    },
   );
 }

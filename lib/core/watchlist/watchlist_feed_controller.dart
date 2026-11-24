@@ -67,10 +67,29 @@ class _WatchlistFeedController extends AsyncNotifier<WatchlistFeedState> {
 
   Future<void> loadMore() async {
     final current = state.value;
-    final nextUrl = current?.nextUrl;
-    if (current == null || nextUrl == null || current.loadingMore) return;
+    if (current == null ||
+        current.nextUrl == null ||
+        current.loadingMore ||
+        current.loadMoreError != null) {
+      return;
+    }
+    await _loadMore(current);
+  }
+
+  Future<void> retryLoadMore() async {
+    final current = state.value;
+    if (current == null || current.nextUrl == null || current.loadingMore) {
+      return;
+    }
+    await _loadMore(current);
+  }
+
+  Future<void> _loadMore(WatchlistFeedState current) async {
+    final nextUrl = current.nextUrl!;
     final claim = AccountClaim(ref);
-    state = AsyncData(current.copyWith(loadingMore: true));
+    state = AsyncData(
+      current.copyWith(loadingMore: true, clearLoadMoreError: true),
+    );
     try {
       final page = await _fetch(nextUrl, claim);
       // [current] is the previous account's list after a switch.
@@ -98,6 +117,21 @@ class _WatchlistFeedController extends AsyncNotifier<WatchlistFeedState> {
     state = const AsyncLoading();
     final next = await AsyncValue.guard(() => _fetch(null, claim));
     if (claim.holds) state = next;
+  }
+
+  /// Drops one removed series from the loaded list in place without reloading
+  /// from page 1 or jumping the scroll position back to the top.
+  void removeEntry(WatchlistKey key) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(
+        entries: [
+          for (final entry in current.entries)
+            if (entry.key != key) entry,
+        ],
+      ),
+    );
   }
 
   /// One page for the build or method that took [claim]; the store is

@@ -148,7 +148,7 @@ class MeAccountHeader extends StatelessWidget {
                   child: _HeaderStatCell(
                     label: l10n.profileMyPixiv,
                     value: AppFormat.count(context, detail.totalMyPixivUsers),
-                    onTap: () => unawaited(openMe(context)),
+                    onTap: () => unawaited(openMe(context, tab: MeTab.myPixiv)),
                   ),
                 ),
               ],

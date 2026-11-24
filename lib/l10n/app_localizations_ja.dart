@@ -2637,6 +2637,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get followSwitchToPublic => '公開に切り替え';
 
   @override
+  String get followSwitchVisibility => '公開・非公開フォロー切替';
+
+  @override
   String get followFailed => 'フォロー操作に失敗しました';
 
   @override

@@ -35,7 +35,6 @@ import '../../app/widgets/selectable_tile.dart';
 import '../../app/widgets/selection_app_bar.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
-import '../../core/errors/error_category.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_feed_controller.dart';
 import '../../core/history/history_repository.dart';
@@ -293,7 +292,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       AppMenuEntry(
                         value: _HistoryMenuAction.deleteAll,
                         label: context.l10n.historyDeleteAll,
-                        enabled: accountId != null,
+                        enabled: accountId != null && _hasRecords(accountId),
                       ),
                     ],
                   ),
@@ -555,40 +554,18 @@ class _HistoryBody extends ConsumerWidget {
                         ),
                       ),
                       SliverToBoxAdapter(
-                        child: switch ((
-                          state.showLoadMoreSpinner,
-                          state.loadMoreError,
-                        )) {
-                          (true, _) => const Padding(
-                            padding: EdgeInsets.all(FuncSpacing.lg),
-                            child: FeedLoading(),
-                          ),
-                          (_, final error?) => Padding(
-                            padding: const EdgeInsets.all(FuncSpacing.lg),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  context.l10n.historyLoadFailed,
-                                  textAlign: TextAlign.center,
-                                ),
-                                Text(
-                                  errorCategoryText(
-                                    context,
-                                    categorizeError(error),
-                                  ),
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                  textAlign: TextAlign.center,
-                                ),
-                                FailureReport(
-                                  action: context.l10n.historyLoadFailed,
-                                  error: error,
-                                ),
-                              ],
-                            ),
-                          ),
-                          _ => const SizedBox(height: FuncSpacing.lg),
-                        },
+                        child: FeedTail(
+                          feed: state,
+                          errorTitle: context.l10n.historyLoadFailed,
+                          retryLabel: context.l10n.retry,
+                          onRetry: () => ref
+                              .read(
+                                historyFeedControllerProvider(
+                                  accountId,
+                                ).notifier,
+                              )
+                              .retryLoadMore(),
+                        ),
                       ),
                     ],
                   ),

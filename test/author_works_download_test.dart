@@ -34,6 +34,7 @@ class _WorksPages {
 
   /// When set, answers wait on it — a request still in flight.
   Completer<void>? gate;
+  bool failOnce = false;
 
   void script(String type, List<List<Map<String, dynamic>>> scripted) {
     pages[type]!.addAll(scripted);
@@ -45,6 +46,12 @@ class _WorksPages {
       final type = query['type']!;
       calls.add((type, query['offset']));
       await gate?.future;
+      if (failOnce) {
+        failOnce = false;
+        return jsonResponse({
+          'error': {'message': 'boom'},
+        }, 500);
+      }
       final queue = pages[type]!;
       if (queue.isEmpty) throw StateError('no scripted page for $type');
       final page = queue.removeAt(0);
@@ -291,6 +298,24 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(manager.groups, isEmpty);
+    });
+
+    testWidgets('enumeration failure offers Retry and recovers on retry', (
+      tester,
+    ) async {
+      final repository = _WorksPages()
+        ..failOnce = true
+        ..script('illust', [
+          [_work(1)],
+        ])
+        ..script('manga', [[]]);
+      await pumpDialog(tester, repository);
+      await tester.pumpAndSettle();
+      expect(find.text('重试'), findsOneWidget);
+
+      await tester.tap(find.text('重试'));
+      await tester.pumpAndSettle();
+      expect(find.text('确定'), findsOneWidget);
     });
   });
 }

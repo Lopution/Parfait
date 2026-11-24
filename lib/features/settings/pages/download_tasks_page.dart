@@ -448,6 +448,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
               ),
         body: ContentWidthCap(
           maxWidth: ContentWidths.management,
+          alignStart: EmbeddedHeaderScope.isActiveOf(context),
           child: tasks.isEmpty
               ? FeedEmpty(title: context.l10n.downloadTasksEmpty)
               : RemovalScope(

@@ -61,49 +61,48 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
           ),
         ],
       ),
-      // Management-list cap (parent §5.5): below
-      // ContentWidths.management the constraint is a no-op.
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: ContentWidths.management),
-          child: async.when(
-            loading: () => const FeedLoading(),
-            error: (error, _) => FeedError(
-              title: context.l10n.localNovelsLoadFailed,
-              error: error,
-              retryLabel: context.l10n.retry,
-              onRetry: () => ref.invalidate(localNovelStoreProvider),
-            ),
-            data: (novels) {
-              if (novels.isEmpty) {
-                return FeedEmpty(
-                  icon: AppIcons.localNovel,
-                  title: context.l10n.localNovelsEmpty,
-                  actionLabel: context.l10n.localNovelsImport,
-                  actionIcon: AppIcons.folderOpen,
-                  onAction: () => unawaited(_import(context, ref)),
-                );
-              }
-              return PullToRefresh(
-                onRefresh: () async => ref.invalidate(localNovelStoreProvider),
-                child: RemovalScope(
-                  controller: _removals,
-                  child: SmoothWheelScroll(
-                    builder: (context, controller, physics) => ListView.builder(
-                      controller: controller,
-                      physics: physics,
-                      restorationId: 'local-novels',
-                      itemCount: novels.length,
-                      itemBuilder: (context, index) => Removable(
-                        id: novels[index].id,
-                        child: _LocalNovelTile(novel: novels[index]),
-                      ),
+      // Management-list cap (parent §5.5): left-aligned inside embedded
+      // workspaces to follow AppTopBar (PAGE-23), centered standalone.
+      body: ContentWidthCap(
+        maxWidth: ContentWidths.management,
+        alignStart: EmbeddedHeaderScope.isActiveOf(context),
+        child: async.when(
+          loading: () => const FeedLoading(),
+          error: (error, _) => FeedError(
+            title: context.l10n.localNovelsLoadFailed,
+            error: error,
+            retryLabel: context.l10n.retry,
+            onRetry: () => ref.invalidate(localNovelStoreProvider),
+          ),
+          data: (novels) {
+            if (novels.isEmpty) {
+              return FeedEmpty(
+                icon: AppIcons.localNovel,
+                title: context.l10n.localNovelsEmpty,
+                actionLabel: context.l10n.localNovelsImport,
+                actionIcon: AppIcons.folderOpen,
+                onAction: () => unawaited(_import(context, ref)),
+              );
+            }
+            return PullToRefresh(
+              onRefresh: () async => ref.invalidate(localNovelStoreProvider),
+              child: RemovalScope(
+                controller: _removals,
+                child: SmoothWheelScroll(
+                  builder: (context, controller, physics) => ListView.builder(
+                    controller: controller,
+                    physics: physics,
+                    restorationId: 'local-novels',
+                    itemCount: novels.length,
+                    itemBuilder: (context, index) => Removable(
+                      id: novels[index].id,
+                      child: _LocalNovelTile(novel: novels[index]),
                     ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

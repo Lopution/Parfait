@@ -176,10 +176,10 @@ reviewed: 2026-11-23
 - **Code:** `lib/app/widgets/scrollable_form_shell.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/features/profile/profile_skeleton.dart`
 
 ### PAGE-23 A constrained page's top bar follows its content column
-- **Rule:** Column-capped pages pass `contentWidth` to `AppTopBar` via `ReplicaScaffold` (`settings`, `management`, or `form`; reverse-image search stays left-aligned) so back/title/actions align with the centered column while the bar surface spans full width.
-- **Why:** Anchors header controls visually to narrow centered content on wide windows.
-- **Check:** `test/shared_widgets_test.dart` "a capped top bar follows the content column"
-- **Code:** `lib/app/widgets/app_top_bar.dart`, `lib/app/widgets/replica_scaffold.dart`, `lib/app/layout/content_widths.dart`
+- **Rule:** Column-capped pages pass `contentWidth` to `AppTopBar` via `ReplicaScaffold` (`settings`, `management`, or `form`; reverse-image search stays left-aligned) so back/title/actions align with the centered column while the bar surface spans full width. Inside an `EmbeddedHeaderScope` detail workspace, management-capped pages (`WatchlistPage`, `DownloadTasksPage`, `LocalNovelsPage`) pass `alignStart: EmbeddedHeaderScope.isActiveOf(context)` to `ContentWidthCap` so the list column stays flush with the start-aligned header.
+- **Why:** Anchors header controls visually to narrow centered content on wide windows and keeps embedded workspace lists aligned with their headers.
+- **Check:** `test/shared_widgets_test.dart` "a capped top bar follows the content column"; `test/settings_master_detail_test.dart` "embedded management pages start-align ContentWidthCap and MeAccountHeader myPixiv opens myPixiv tab"
+- **Code:** `lib/app/widgets/app_top_bar.dart`, `lib/app/widgets/replica_scaffold.dart`, `lib/app/layout/content_widths.dart`, `lib/features/watchlist/watchlist_page.dart`, `lib/features/settings/pages/download_tasks_page.dart`, `lib/features/localnovel/local_novels_page.dart`
 
 ### PAGE-18 A mouse gets right-click, hover and scrollbars
 - **Rule:** Every long-press surface also handles right-click: on PC it opens a pointer-anchored context menu via `showDisplayActions` (same items/order; single direct actions become one-item menus; Arrow/Esc navigate; non-menu forms open their panel); on touch it opens the bottom panel (or `IosCardContextMenu` on iOS `IllustCard`, FB-17). Work cards add hover layers, click cursor, keyboard focus (`FocusableActionDetector`, 2dp primary ring, Enter/Space open, Menu/Shift+F10 actions), and `mouseScrollbar` on vertical lists (outside coordinated `NestedScrollView` views).

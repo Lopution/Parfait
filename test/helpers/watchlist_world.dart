@@ -14,16 +14,28 @@ import 'test_preferences.dart';
 class WatchlistFixture {
   final requests = <http.Request>[];
   List<Map<String, Object?>> mangaSeries = const [];
+  List<Map<String, Object?>> mangaNextSeries = const [];
   List<Map<String, Object?>> novelSeries = const [];
+  String? mangaNextUrl;
+  bool failNextPageOnce = false;
   int mutationStatus = 200;
 
   http.Client build() => MockClient((request) async {
     requests.add(request);
     if (request.method == 'GET') {
+      if (request.url.queryParameters['offset'] != null) {
+        if (failNextPageOnce) {
+          failNextPageOnce = false;
+          return jsonResponse({
+            'error': {'message': 'next page failed'},
+          }, 500);
+        }
+        return jsonResponse({'series': mangaNextSeries, 'next_url': null});
+      }
       final isNovel = request.url.path.contains('/novel');
       return jsonResponse({
         'series': isNovel ? novelSeries : mangaSeries,
-        'next_url': null,
+        'next_url': isNovel ? null : mangaNextUrl,
       });
     }
     if (mutationStatus != 200) {

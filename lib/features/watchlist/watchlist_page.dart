@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/format/app_format.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/removal.dart';
 import '../../app/navigation/route_facade.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
-import '../../app/widgets/app_spinner.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/page_header.dart';
@@ -19,9 +19,10 @@ import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/errors/error_category.dart';
 import '../../core/log.dart';
+import '../../core/network/api_error.dart';
 import '../../core/novel/reader_settings.dart';
+import '../../core/paging/paged_feed_controller.dart';
 import '../../core/series/series_recent_open_store.dart';
 import '../../core/watchlist/watchlist_actions.dart';
 import '../../core/watchlist/watchlist_feed_controller.dart';
@@ -66,42 +67,58 @@ class WatchlistPage extends StatelessWidget {
   }
 }
 
-class _WatchlistFeedBody extends ConsumerWidget {
+class _WatchlistFeedBody extends ConsumerStatefulWidget {
   const _WatchlistFeedBody({required this.type});
 
   final WatchlistType type;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_WatchlistFeedBody> createState() => _WatchlistFeedBodyState();
+}
+
+class _WatchlistFeedBodyState extends ConsumerState<_WatchlistFeedBody> {
+  final _removals = RemovalController();
+
+  @override
+  void dispose() {
+    _removals.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final type = widget.type;
     final async = ref.watch(watchlistFeedProvider(type));
-    // Management-list cap (parent §5.5): below ContentWidths.management
-    // the constraint is a no-op, so there is no breakpoint branch.
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: ContentWidths.management),
-        child: async.when(
-          loading: () => const FeedLoading(),
-          error: (error, _) => FeedError(
-            title: context.l10n.watchlistLoadFailed,
-            error: error,
-            retryLabel: context.l10n.retry,
-            onRetry: () =>
+    // Management-list cap (parent §5.5): left-aligned inside embedded
+    // workspaces to follow AppTopBar (PAGE-23), centered standalone.
+    return ContentWidthCap(
+      maxWidth: ContentWidths.management,
+      alignStart: EmbeddedHeaderScope.isActiveOf(context),
+      child: async.when(
+        loading: () => const FeedLoading(),
+        error: (error, _) => FeedError(
+          title: context.l10n.watchlistLoadFailed,
+          error: error,
+          retryLabel: context.l10n.retry,
+          onRetry: () =>
+              ref.read(watchlistFeedProvider(type).notifier).refresh(),
+        ),
+        data: (feed) {
+          if (feed.entries.isEmpty) {
+            return FeedEmpty(
+              icon: AppIcons.watchlist,
+              title: context.l10n.watchlistEmpty,
+            );
+          }
+          return PullToRefresh(
+            onRefresh: () =>
                 ref.read(watchlistFeedProvider(type).notifier).refresh(),
-          ),
-          data: (feed) {
-            if (feed.entries.isEmpty) {
-              return FeedEmpty(
-                icon: AppIcons.watchlist,
-                title: context.l10n.watchlistEmpty,
-              );
-            }
-            return PullToRefresh(
-              onRefresh: () =>
-                  ref.read(watchlistFeedProvider(type).notifier).refresh(),
-              child: LoadMoreListener(
-                itemCount: feed.entries.length,
-                onLoadMore: () =>
-                    ref.read(watchlistFeedProvider(type).notifier).loadMore(),
+            child: LoadMoreListener(
+              itemCount: feed.entries.length,
+              onLoadMore: () =>
+                  ref.read(watchlistFeedProvider(type).notifier).loadMore(),
+              child: RemovalScope(
+                controller: _removals,
                 child: SmoothWheelScroll(
                   builder: (context, controller, physics) => ListView.builder(
                     controller: controller,
@@ -109,59 +126,62 @@ class _WatchlistFeedBody extends ConsumerWidget {
                     itemCount: feed.entries.length + 1,
                     itemBuilder: (context, index) {
                       if (index == feed.entries.length) {
-                        return _LoadMoreFooter(feed: feed);
+                        return _LoadMoreFooter(
+                          feed: feed,
+                          onRetry: () => ref
+                              .read(watchlistFeedProvider(type).notifier)
+                              .retryLoadMore(),
+                        );
                       }
-                      return _WatchlistEntryTile(entry: feed.entries[index]);
+                      final entry = feed.entries[index];
+                      return Removable(
+                        id: entry.key,
+                        style: RemovalStyle.row,
+                        child: _WatchlistEntryTile(
+                          entry: entry,
+                          removals: _removals,
+                        ),
+                      );
                     },
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
 class _LoadMoreFooter extends StatelessWidget {
-  const _LoadMoreFooter({required this.feed});
+  const _LoadMoreFooter({required this.feed, required this.onRetry});
 
   final WatchlistFeedState feed;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final loadMoreError = feed.loadMoreError;
-    if (loadMoreError != null) {
-      return Padding(
-        padding: const EdgeInsets.all(FuncSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              context.l10n.watchlistLoadMoreFailed,
-              textAlign: TextAlign.center,
-            ),
-            Text(
-              errorCategoryText(context, categorizeError(loadMoreError)),
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            FailureReport(
-              action: context.l10n.watchlistLoadMoreFailed,
-              error: loadMoreError,
-            ),
-          ],
-        ),
-      );
-    }
-    if (feed.loadingMore) {
-      return const Padding(
-        padding: EdgeInsets.all(FuncSpacing.lg),
-        child: Center(child: AppSpinner(size: 20, strokeWidth: 2)),
-      );
-    }
-    return const SizedBox(height: FuncSpacing.lg);
+    final tailState = PagedFeedState(
+      initialPhase: FeedPhase.idle,
+      loadMorePhase: feed.loadingMore
+          ? FeedPhase.loading
+          : loadMoreError != null
+          ? FeedPhase.error
+          : FeedPhase.idle,
+      loadMoreError: loadMoreError == null
+          ? null
+          : loadMoreError is ApiError
+          ? loadMoreError
+          : ApiParseError(loadMoreError),
+    );
+    return FeedTail(
+      feed: tailState,
+      errorTitle: context.l10n.watchlistLoadMoreFailed,
+      retryLabel: context.l10n.retry,
+      onRetry: onRetry,
+    );
   }
 }
 
@@ -176,9 +196,10 @@ final _watchlistSeenProvider = FutureProvider.autoDispose
     });
 
 class _WatchlistEntryTile extends ConsumerWidget {
-  const _WatchlistEntryTile({required this.entry});
+  const _WatchlistEntryTile({required this.entry, required this.removals});
 
   final WatchlistSeriesEntry entry;
+  final RemovalController removals;
 
   static const _coverSize = Size(84, 112);
 
@@ -195,7 +216,6 @@ class _WatchlistEntryTile extends ConsumerWidget {
           data: (seen) => seen == null || latest > seen,
           orElse: () => false,
         );
-    final canOpen = entry.type == WatchlistType.manga || latest != null;
     final published = DateTime.tryParse(
       entry.lastPublishedContentDatetime ?? '',
     );
@@ -249,7 +269,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
         entry.userName,
         if (count != null) context.l10n.seriesWorksCount(count),
       ].join(', '),
-      onTap: canOpen ? () => unawaited(_viewLatest(context, ref)) : null,
+      onTap: () => unawaited(_viewLatest(context, ref)),
       trailing: Builder(
         builder: (buttonContext) => IconButton(
           icon: const Icon(UiIcons.more),
@@ -278,7 +298,11 @@ class _WatchlistEntryTile extends ConsumerWidget {
     }
     ref.invalidate(_watchlistSeenProvider(entry.key));
     if (entry.type == WatchlistType.novel) {
-      await openNovel(context, latest!);
+      if (latest != null) {
+        await openNovel(context, latest);
+      } else {
+        await openNovelSeries(context, entry.id);
+      }
     } else if (latest != null) {
       await openIllust(context, latest);
     } else {
@@ -356,19 +380,37 @@ class _WatchlistEntryTile extends ConsumerWidget {
                 leading: const Icon(UiIcons.removeCircle),
                 title: Text(sheetContext.l10n.watchlistRemove),
                 onTap: () {
+                  final reportFailure = deferErrorSnackBar(
+                    context,
+                    action: context.l10n.watchlistRemove,
+                  );
                   Navigator.of(sheetContext).pop();
-                  // The container outlives the tile — after the feed
-                  // invalidation rebuilds the list a defunct WidgetRef
-                  // would throw here.
+                  // The container outlives the tile — read once before the
+                  // exit animation and network call run.
                   final container = ProviderScope.containerOf(
                     context,
                     listen: false,
                   );
                   unawaited(() async {
+                    await removals.playExit([entry.key]);
                     await container
                         .read(watchlistActionsProvider)
                         .toggle(entry.key);
-                    container.invalidate(watchlistFeedProvider(entry.type));
+                    final storeEntry = container.read(
+                      watchlistStoreProvider,
+                    )[entry.key];
+                    if (storeEntry?.error case final error?) {
+                      removals.restore([entry.key]);
+                      reportFailure(error);
+                      return;
+                    }
+                    if (storeEntry?.shown == true) {
+                      removals.restore([entry.key]);
+                      return;
+                    }
+                    container
+                        .read(watchlistFeedProvider(entry.type).notifier)
+                        .removeEntry(entry.key);
                   }());
                 },
               ),

@@ -1534,6 +1534,10 @@
   "@followSwitchToPublic": {
     "description": "Follow sheet, followed privately: switch the follow to public."
   },
+  "followSwitchVisibility": "切换公开/私密关注",
+  "@followSwitchVisibility": {
+    "description": "Profile overflow menu, followed with unknown visibility: open the sheet to switch between public and private follow."
+  },
   "followFailed": "关注操作失败",
   "userPreviewFollow": "关注",
   "novelLoading": "正在加载小说",

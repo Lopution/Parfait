@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +8,7 @@ import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
 import '../haptics/app_haptics.dart';
+import '../icons/app_icons.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
@@ -14,6 +16,7 @@ import '../motion/motion_tokens.dart';
 import '../motion/spring_pop.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
+import 'display_actions.dart';
 import 'errors/error_details.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
@@ -111,6 +114,69 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
     unawaited(toggleFollowWithUndo(context, userId));
   }
 
+  void _showSecondaryMenu(
+    BuildContext context,
+    Offset position,
+    PointerDeviceKind kind,
+  ) {
+    final entry = ref.read(followStoreProvider)[userId];
+    if (entry?.isUnsettled ?? false) return;
+    final followed = entry?.shown ?? false;
+    final restrict = entry?.restrict;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final navigator = Navigator.of(context).context;
+    void run(_FollowSheetAction action) {
+      final host = context.mounted ? context : navigator;
+      if (!host.mounted) return;
+      if (!followed && action != _FollowSheetAction.unfollow && mounted) {
+        setState(() => _pops++);
+      }
+      unawaited(_applyFollowSheetAction(host, container, userId, action));
+    }
+
+    final actions = followed
+        ? [
+            if (restrict != FollowRestrict.private)
+              DisplayAction(
+                icon: AppIcons.lock,
+                label: _followText(context, 'followSwitchToPrivate'),
+                onSelected: () => run(_FollowSheetAction.followPrivate),
+              ),
+            if (restrict != FollowRestrict.public)
+              DisplayAction(
+                icon: AppIcons.follow,
+                label: _followText(context, 'followSwitchToPublic'),
+                onSelected: () => run(_FollowSheetAction.followPublic),
+              ),
+            DisplayAction(
+              icon: AppIcons.userOff,
+              label: _followText(context, 'unfollow'),
+              onSelected: () => run(_FollowSheetAction.unfollow),
+            ),
+          ]
+        : [
+            DisplayAction(
+              icon: AppIcons.follow,
+              label: _followText(context, 'followPublicAction'),
+              onSelected: () => run(_FollowSheetAction.followPublic),
+            ),
+            DisplayAction(
+              icon: AppIcons.lock,
+              label: _followText(context, 'followPrivately'),
+              onSelected: () => run(_FollowSheetAction.followPrivate),
+            ),
+          ];
+    unawaited(
+      showDisplayActions(
+        context,
+        position: position,
+        kind: kind,
+        onLongPress: () => unawaited(_showActionsSheet(context)),
+        actions: actions,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final entry = ref.watch(
@@ -199,37 +265,32 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
         ),
       ),
     );
-    return SpringPop(pops: _pops, peak: _followPopPeak, child: button);
+    return SpringPop(
+      pops: _pops,
+      peak: _followPopPeak,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapUp: unsettled
+            ? null
+            : (details) => _showSecondaryMenu(
+                context,
+                details.globalPosition,
+                details.kind,
+              ),
+        child: button,
+      ),
+    );
   }
 }
 
 enum _FollowSheetAction { followPublic, followPrivate, unfollow }
 
-/// The follow sheet of [FollowSwitchButton]'s long press and the profile
-/// header: direct actions for the current state — follow publicly or
-/// privately; once followed, switch the visibility or unfollow (with Undo).
-Future<void> showFollowActionsSheet(
-  BuildContext context, {
-  required int userId,
-  required String userName,
-  String userAccount = '',
-}) async {
-  // A refresh landing under the open sheet can take the button away: the
-  // pick then runs on its Navigator, which outlives it.
-  final navigator = Navigator.of(context).context;
-  final container = ProviderScope.containerOf(context, listen: false);
-  final action = await showAppAdaptivePopover<_FollowSheetAction>(
-    context: context,
-    anchorContext: context,
-    backgroundColor: useWideOverlay(context) ? null : FuncTokens.transparent,
-    builder: (_) => _FollowActionsSheet(
-      userId: userId,
-      userName: userName,
-      userAccount: userAccount,
-    ),
-  );
-  final host = context.mounted ? context : navigator;
-  if (action == null || !host.mounted) return;
+Future<void> _applyFollowSheetAction(
+  BuildContext host,
+  ProviderContainer container,
+  int userId,
+  _FollowSheetAction action,
+) async {
   final store = container.read(followStoreProvider.notifier);
   switch (action) {
     case _FollowSheetAction.unfollow:
@@ -257,6 +318,34 @@ Future<void> showFollowActionsSheet(
         reportFailure(error);
       }
   }
+}
+
+/// The follow sheet of [FollowSwitchButton]'s long press and the profile
+/// header: direct actions for the current state — follow publicly or
+/// privately; once followed, switch the visibility or unfollow (with Undo).
+Future<void> showFollowActionsSheet(
+  BuildContext context, {
+  required int userId,
+  required String userName,
+  String userAccount = '',
+}) async {
+  // A refresh landing under the open sheet can take the button away: the
+  // pick then runs on its Navigator, which outlives it.
+  final navigator = Navigator.of(context).context;
+  final container = ProviderScope.containerOf(context, listen: false);
+  final action = await showAppAdaptivePopover<_FollowSheetAction>(
+    context: context,
+    anchorContext: context,
+    backgroundColor: useWideOverlay(context) ? null : FuncTokens.transparent,
+    builder: (_) => _FollowActionsSheet(
+      userId: userId,
+      userName: userName,
+      userAccount: userAccount,
+    ),
+  );
+  final host = context.mounted ? context : navigator;
+  if (action == null || !host.mounted) return;
+  await _applyFollowSheetAction(host, container, userId, action);
 }
 
 class _FollowActionsSheet extends ConsumerWidget {

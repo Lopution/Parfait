@@ -2611,6 +2611,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followSwitchToPublic => '改为公开关注';
 
   @override
+  String get followSwitchVisibility => '切换公开/私密关注';
+
+  @override
   String get followFailed => '关注操作失败';
 
   @override

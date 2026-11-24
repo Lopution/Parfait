@@ -1104,6 +1104,7 @@
   "followPublicAction": "Follow",
   "followSwitchToPrivate": "Make private",
   "followSwitchToPublic": "Make public",
+  "followSwitchVisibility": "Switch public/private follow",
   "followFailed": "Follow action failed",
   "userPreviewFollow": "Follow",
   "novelLoading": "Loading novel",

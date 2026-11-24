@@ -248,8 +248,8 @@ Future<void> openSpotlightArticle(
 }
 
 /// Own-profile tabs another page can open the profile on (the "me"
-/// dashboard's bookmarks and following entries).
-enum MeTab { bookmarks, following }
+/// dashboard's bookmarks, following, and myPixiv entries).
+enum MeTab { bookmarks, following, myPixiv }
 
 Future<void> openMe(BuildContext context, {MeTab? tab}) async {
   // The profile is an app-level page: it opens on whatever stack is
