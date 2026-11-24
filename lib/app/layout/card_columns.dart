@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../motion/motion_tokens.dart';
+import '../navigation/home_shell_metrics.dart';
 import '../widgets/feed/feed_item_cache.dart';
 import '../widgets/feed/feed_text_warmup.dart';
 import 'sliver_cache_ramp.dart';
 import 'sliver_width_builder.dart';
+import 'window_layout_spec.dart';
 
 /// Card lists (novels, users, series episodes) put their cards side by side
 /// on wide surfaces instead of stretching one row across the window: a
@@ -143,8 +145,67 @@ class _SliverCardListState extends State<SliverCardList> {
       );
     }
     _cards.update(widget.items, widget.itemDeps);
+    final rail = HomeShellChrome.maybeOf(context)?.railExtent ?? 0.0;
+    final leftOrigin = Directionality.of(context) == TextDirection.ltr
+        ? rail
+        : 0.0;
+    final windowSpec = WindowLayoutSpec.of(context);
     return SliverWidthBuilder(
       builder: (context, width) {
+        final bookSplit = windowSpec.bookSplitFor(
+          width,
+          leftOrigin: leftOrigin,
+        );
+        if (bookSplit != null) {
+          final leftCols = CardColumns.of(bookSplit.leftWidth);
+          final rightCols = CardColumns.of(bookSplit.rightWidth);
+          final columns = leftCols + rightCols;
+          return SliverCacheRamp(
+            sliver: SliverList.builder(
+              itemCount: CardColumns.rowCount(widget.itemCount, columns),
+              itemBuilder: (context, row) {
+                if (warmTexts != null) {
+                  final last =
+                      math.min((row + 1) * columns, widget.itemCount) - 1;
+                  _warmup.built(context, last);
+                }
+                final start = row * columns;
+                Widget buildWing(int offset, int wingCols) => Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var c = 0; c < wingCols; c++)
+                      Expanded(
+                        child: start + offset + c < widget.itemCount
+                            ? CardCellScope(
+                                columns: columns,
+                                child: TickerPartition(
+                                  child: _cards.build(
+                                    context,
+                                    start + offset + c,
+                                    widget.itemBuilder,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                  ],
+                );
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: bookSplit.leftWidth,
+                      child: buildWing(0, leftCols),
+                    ),
+                    if (bookSplit.hingeGap > 0)
+                      SizedBox(width: bookSplit.hingeGap),
+                    Expanded(child: buildWing(leftCols, rightCols)),
+                  ],
+                );
+              },
+            ),
+          );
+        }
         final columns = CardColumns.of(width);
         return SliverCacheRamp(
           sliver: SliverList.builder(

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -14,6 +15,14 @@ enum WindowWidthClass { compact, medium, expanded, large, extraLarge }
 
 /// Physical or virtual hinge/fold posture across the viewport.
 enum FoldPosture { flat, book, tabletop }
+
+/// Left wing, hinge gap, and right wing widths inside a pane split by a
+/// vertical [FoldPosture.book] hinge.
+typedef BookHingeSplit = ({
+  double leftWidth,
+  double hingeGap,
+  double rightWidth,
+});
 
 /// Ephemeral host environment overrides (simulated shell, headless review).
 ///
@@ -87,6 +96,29 @@ class WindowLayoutSpec {
 
   bool get isHingeVertical => posture == FoldPosture.book;
   bool get isHingeHorizontal => posture == FoldPosture.tabletop;
+
+  /// Computes left wing, hinge gap, and right wing widths for a pane of
+  /// [paneWidth] starting at window x-coordinate [leftOrigin] under
+  /// [FoldPosture.book], or `null` when flat/tabletop or either side would be
+  /// narrower than [minSideWidth].
+  BookHingeSplit? bookSplitFor(
+    double paneWidth, {
+    double leftOrigin = 0,
+    double minSideWidth = 180,
+  }) {
+    if (posture != FoldPosture.book) return null;
+    final hinge = hingeBounds;
+    if (hinge == null) return null;
+    final localLeft = hinge.left - leftOrigin;
+    final localRight = hinge.right - leftOrigin;
+    final rightWidth = paneWidth - localRight;
+    if (localLeft < minSideWidth || rightWidth < minSideWidth) return null;
+    return (
+      leftWidth: localLeft,
+      hingeGap: math.max(0.0, localRight - localLeft),
+      rightWidth: rightWidth,
+    );
+  }
 
   static WindowWidthClass widthClassFor(double width) {
     if (width >= AppBreakpoints.extraLarge) return WindowWidthClass.extraLarge;

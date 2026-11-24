@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -18,6 +19,7 @@ import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
 import 'package:parfait/features/localnovel/local_novels_page.dart';
+import 'package:parfait/app/widgets/master_detail_workspace.dart';
 import 'package:parfait/features/settings/me_account_header.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/pages/translation_credentials_page.dart';
@@ -490,6 +492,56 @@ void main() {
       await tester.tap(find.text(zh.profileMyPixiv));
       await tester.pumpAndSettle();
       expect(find.text('tab:myPixiv'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'MasterDetailWorkspace activates and splits along FoldPosture.book hinge on 760dp foldable',
+    (tester) async {
+      const hinge = Rect.fromLTWH(372, 0, 16, 700);
+      late bool canDisplay;
+      await tester.pumpWidget(
+        localizedApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(760, 700),
+              displayFeatures: [
+                ui.DisplayFeature(
+                  bounds: hinge,
+                  type: ui.DisplayFeatureType.hinge,
+                  state: ui.DisplayFeatureState.postureHalfOpened,
+                ),
+              ],
+            ),
+            child: Builder(
+              builder: (context) {
+                canDisplay = MasterDetailWorkspace.canDisplay(context);
+                return const MasterDetailWorkspace(
+                  title: Text('Settings'),
+                  masterBody: SizedBox(
+                    key: Key('book-master-pane'),
+                    child: Text('Master'),
+                  ),
+                  detail: SizedBox(
+                    key: Key('book-detail-pane'),
+                    child: Text('Detail'),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(canDisplay, isTrue);
+      final masterRect = tester.getRect(
+        find.byKey(const Key('book-master-pane')),
+      );
+      final detailRect = tester.getRect(
+        find.byKey(const Key('book-detail-pane')),
+      );
+      expect(masterRect.right, lessThanOrEqualTo(hinge.left + 0.01));
+      expect(detailRect.left, greaterThanOrEqualTo(hinge.right - 0.01));
     },
   );
 }

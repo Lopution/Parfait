@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -11,6 +13,7 @@ import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/localized_app.dart';
@@ -336,6 +339,129 @@ void main() {
         await tester.pump();
       }
       expect(tapped, 5);
+    },
+  );
+
+  testWidgets(
+    'FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping',
+    (tester) async {
+      // 1. Wide touch tablets (>= 840dp) use wider card ladder instead of 10+ cramped compact columns.
+      late BuildContext touchContext;
+      await tester.pumpWidget(
+        FormFactorScope(
+          choice: InterfaceForm.touch,
+          child: Builder(
+            builder: (context) {
+              touchContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      expect(
+        illustColumnsForContext(touchContext, 1024, FeedDensity.compact),
+        5,
+      );
+      expect(
+        illustColumnsForContext(touchContext, 1366, FeedDensity.compact),
+        7,
+      );
+
+      // 2. Book posture (760dp and 800dp) keeps every card & skeleton column off the hinge.
+      for (final (width, hinge) in [
+        (760.0, const Rect.fromLTWH(372, 0, 16, 700)),
+        (800.0, const Rect.fromLTWH(392, 0, 16, 700)),
+      ]) {
+        final data = MediaQueryData(
+          size: Size(width, 700),
+          displayFeatures: [
+            ui.DisplayFeature(
+              bounds: hinge,
+              type: ui.DisplayFeatureType.hinge,
+              state: ui.DisplayFeatureState.postureHalfOpened,
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: replicaTheme(Brightness.light),
+              home: MediaQuery(
+                data: data,
+                child: Scaffold(
+                  body: CustomScrollView(
+                    slivers: [
+                      IllustFeedGrid(
+                        itemCount: 8,
+                        itemIds: const [1, 2, 3, 4, 5, 6, 7, 8],
+                        itemBuilder: (_, i) =>
+                            SizedBox(key: ValueKey('grid-$i'), height: 80),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        for (var i = 0; i < 8; i++) {
+          final rect = tester.getRect(find.byKey(ValueKey('grid-$i')));
+          expect(
+            rect.right <= hinge.left + 0.01 || rect.left >= hinge.right - 0.01,
+            isTrue,
+            reason: 'grid-$i $rect crossed hinge $hinge at width $width',
+          );
+        }
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: replicaTheme(Brightness.light),
+              home: MediaQuery(
+                data: data,
+                child: Scaffold(
+                  body: CustomScrollView(
+                    slivers: [
+                      SliverCardList(
+                        itemCount: 4,
+                        itemBuilder: (_, i) =>
+                            SizedBox(key: ValueKey('row-$i'), height: 64),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        for (var i = 0; i < 4; i++) {
+          final rect = tester.getRect(find.byKey(ValueKey('row-$i')));
+          expect(
+            rect.right <= hinge.left + 0.01 || rect.left >= hinge.right - 0.01,
+            isTrue,
+            reason: 'row-$i $rect crossed hinge $hinge at width $width',
+          );
+        }
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: replicaTheme(Brightness.light),
+              home: MediaQuery(
+                data: data,
+                child: const Scaffold(
+                  body: IllustGridSkeleton(label: 'loading'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      }
     },
   );
 }
