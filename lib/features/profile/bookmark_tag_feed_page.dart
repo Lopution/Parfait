@@ -13,6 +13,7 @@ import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/icons/app_icons.dart';
+import '../../app/icons/ui_icons.dart';
 
 /// The signed-in user's bookmarks of one [kind] filtered to one tag — the
 /// profile's own list (`ProfileIllustFeed` or `ProfileNovelFeed`) with
@@ -98,6 +99,18 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
                 AppIcons.search,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
+              trailing: _filter.isEmpty
+                  ? null
+                  : [
+                      IconButton(
+                        tooltip: l10n.searchClear,
+                        onPressed: () {
+                          _filterController.clear();
+                          setState(() => _filter = '');
+                        },
+                        icon: const Icon(UiIcons.close),
+                      ),
+                    ],
               onChanged: (value) => setState(() => _filter = value),
               textInputAction: TextInputAction.search,
             ),
@@ -126,7 +139,11 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
       bookmarkTag: widget.tag,
     );
     return widget.kind == BookmarkEntityType.novel
-        ? ProfileNovelFeed(feedKey: key, localFilter: _filter)
-        : ProfileIllustFeed(feedKey: key, localFilter: _filter);
+        ? ProfileNovelFeed(feedKey: key, localFilter: _filter, isNested: false)
+        : ProfileIllustFeed(
+            feedKey: key,
+            localFilter: _filter,
+            isNested: false,
+          );
   }
 }

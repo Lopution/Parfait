@@ -5015,6 +5015,12 @@ abstract class AppLocalizations {
   /// **'改为公开关注'**
   String get followSwitchToPublic;
 
+  /// Profile overflow menu, followed with unknown visibility: open the sheet to switch between public and private follow.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换公开/私密关注'**
+  String get followSwitchVisibility;
+
   /// No description provided for @followFailed.
   ///
   /// In zh, this message translates to:

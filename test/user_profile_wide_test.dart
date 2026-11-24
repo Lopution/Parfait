@@ -4,9 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/layout/content_widths.dart';
+import 'package:parfait/app/navigation/route_facade.dart';
+import 'package:parfait/app/widgets/expandable_text.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/app/window/desktop_command_bar.dart';
+import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
 import 'package:parfait/features/profile/user_page.dart';
 
@@ -16,6 +19,7 @@ import 'helpers/profile_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
 import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/icons/ui_icons.dart';
 
 /// The profile header on a wide window, away from the phone-sized cases in
 /// user_profile_test.dart (which also keeps that file under the size limit).
@@ -152,6 +156,91 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(FeedEmpty), findsOneWidget);
       expect(find.textContaining('共 '), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'wide desktop collapsed sticky bar shows artist name and folds primary & follow-visibility actions into overflow',
+    (tester) async {
+      setViewSize(tester, const Size(1280, 640));
+      final container = await makeProfileWorld(
+        users: UserApi(
+          works: [
+            for (var id = 1; id <= 24; id++)
+              illustJson(id, width: 300, height: 400),
+          ],
+          detail: sampleUser(42).copyWith(
+            totalIllusts: 24,
+            isFollowed: true,
+            comment: 'Line 1\nLine 2\nLine 3\nLine 4 extra bio text',
+            hasDetail: true,
+          ),
+        ),
+      );
+      container
+          .read(followStoreProvider.notifier)
+          .observeRemote(42, followed: true);
+      await tester.pumpWidget(
+        DesktopCommandBarScope(
+          active: true,
+          child: localizedApp(
+            container: container,
+            builder: promptHostBuilder,
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ExpandableText), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-wide-collapsed-name')),
+        findsNothing,
+      );
+
+      // Scroll past the banner so Band 1 scrolls offscreen.
+      await tester.drag(
+        find.byKey(const ValueKey('profile-wide-scroll')),
+        const Offset(0, -320),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('profile-wide-collapsed-name')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byIcon(UiIcons.more));
+      await tester.pumpAndSettle();
+      expect(find.text('分享用户'), findsOneWidget);
+      expect(find.text('取消关注'), findsOneWidget);
+      expect(find.text('切换公开/私密关注'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'own profile exposes About tab, ExpandableText bio, and honors MeTab.myPixiv',
+    (tester) async {
+      setViewSize(tester, const Size(1280, 800));
+      final container = await makeProfileWorld(
+        users: UserApi(
+          detail: sampleUser(100).copyWith(
+            comment: 'My own long bio',
+            totalMyPixivUsers: 3,
+            hasDetail: true,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: MePage(initialTab: MeTab.myPixiv, onEditProfile: () {}),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('关于'), findsOneWidget);
+      expect(find.byType(ExpandableText), findsOneWidget);
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(tabBar.controller!.index, 3);
     },
   );
 }

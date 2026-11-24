@@ -112,6 +112,7 @@ const _appFilledStates = <String, Set<String>>{
   'lib/features/novel/novel_markers_page.dart': {'watchLaterFilled'},
   'lib/features/novel/novel_reader_stage_widgets.dart': {'watchLaterFilled'},
   'lib/features/profile/profile_header_delegate.dart': {'userOffFilled'},
+  'lib/features/profile/profile_wide_header.dart': {'userOffFilled'},
   'lib/features/settings/pages/download_task_presentation.dart': {'banFilled'},
 };
 

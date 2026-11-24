@@ -940,6 +940,13 @@ class _TranslationSummaryState extends ConsumerState<_TranslationSummary>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(translationCredentialsRevisionProvider, (_, _) {
+      final probe = _probe();
+      if (!mounted) return;
+      setState(() {
+        _configured = probe;
+      });
+    });
     final label = translationProviderLabel(context, widget.provider);
     final configured = _configured;
     if (configured == null) return Text(label);

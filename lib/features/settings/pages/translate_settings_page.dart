@@ -93,6 +93,9 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(translationCredentialsRevisionProvider, (_, _) {
+      if (mounted) setState(_refreshCredentials);
+    });
     final state = ref.watch(settingsProvider);
     final settings = state.value;
     if (settings == null) {

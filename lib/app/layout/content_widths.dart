@@ -30,25 +30,33 @@ abstract final class ContentWidths {
   static const double management = 840;
 }
 
-/// Centres [child] at no more than [maxWidth]; narrower surfaces pass
-/// through unchanged. The child keeps tight constraints either way.
+/// Constrains [child] to at most [maxWidth]; narrower surfaces pass through
+/// unchanged. Centered by default, or start-aligned when [alignStart] is true
+/// (e.g. inside an `EmbeddedHeaderScope` detail pane matching `AppTopBar`).
+/// The child keeps tight constraints either way.
 class ContentWidthCap extends StatelessWidget {
   const ContentWidthCap({
     super.key,
     required this.maxWidth,
+    this.alignStart = false,
     required this.child,
   });
 
   final double maxWidth;
+  final bool alignStart;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final inset = (constraints.maxWidth - maxWidth) / 2;
+        final free = constraints.maxWidth - maxWidth;
+        if (free <= 0) return child;
+        final half = free / 2;
         return Padding(
-          padding: EdgeInsets.symmetric(horizontal: inset > 0 ? inset : 0),
+          padding: alignStart
+              ? EdgeInsetsDirectional.only(end: free)
+              : EdgeInsets.symmetric(horizontal: half),
           child: child,
         );
       },

@@ -64,8 +64,10 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   NetworkMode _networkMode = NetworkMode.automatic;
+  NetworkMode _preferredCompatMode = NetworkMode.automatic;
   bool _help = false;
   bool _clipboardBusy = false;
+  bool _callbackBusy = false;
 
   /// Where a successful login lands: the user's start page.
   String get _homeStart =>
@@ -79,66 +81,102 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       network_contracts.NetworkMode.directOnly => NetworkMode.directOnly,
       network_contracts.NetworkMode.compatPrefer => NetworkMode.compatPrefer,
     };
+    if (_networkMode != NetworkMode.directOnly) {
+      _preferredCompatMode = _networkMode;
+    }
     if (widget.callback != null) {
+      _callbackBusy = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_handleExternalCallback());
       });
     }
   }
 
+  void _finishLoginSuccess({
+    required bool hadUsableAccount,
+    bool fallbackToHomeWhenUnpoppable = false,
+  }) {
+    if (!mounted) return;
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      if (widget.returnToHomeOnSuccess ||
+          (!hadUsableAccount && fallbackToHomeWhenUnpoppable)) {
+        router.go(_homeStart);
+      } else if (router.canPop()) {
+        // Add account: return directly to the route that pushed login (NAV-23).
+        router.pop();
+      } else if (fallbackToHomeWhenUnpoppable) {
+        router.go(_homeStart);
+      }
+      return;
+    }
+    if (hadUsableAccount && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _handleExternalCallback() async {
     final callback = widget.callback;
     if (callback == null) return;
-    final uri = Uri(
-      scheme: 'pixiv',
-      host: 'account',
-      queryParameters: {
-        'code': callback.code,
-        if (callback.state != null) 'state': callback.state!,
-      },
-    );
-    final service = ref.read(oauthServiceProvider);
-    final parsed = service.validateRedirect(uri);
-    switch (parsed) {
-      case PixivCallbackCode(:final code):
-        try {
-          final result = await service.exchangeCode(code);
-          if (!mounted) return;
-          await ref
-              .read(accountStoreProvider.notifier)
-              .upsertAccount(
-                Account(
-                  id: result.accountId,
-                  userId: result.profile.userId,
-                  name: result.profile.name,
-                  mailAddress: result.profile.mailAddress,
-                  profileImageUrl: result.profile.profileImageUrl,
-                  isPremium: result.profile.isPremium,
-                ),
-                result.credential,
-                // Leaving the page cancels the login, as in the WebView.
-                stillWanted: () => mounted,
-              );
-          if (mounted) context.go(_homeStart);
-        } on Object catch (error, stackTrace) {
-          if (mounted) {
-            showErrorSnackBar(
-              context,
-              action: context.l10n.loginFailed,
-              error: error,
-              stack: stackTrace,
+    final hadUsableAccount =
+        ref.read(accountStoreProvider).value?.usableCurrent != null;
+    try {
+      final uri = Uri(
+        scheme: 'pixiv',
+        host: 'account',
+        queryParameters: {
+          'code': callback.code,
+          if (callback.state != null) 'state': callback.state!,
+        },
+      );
+      final service = ref.read(oauthServiceProvider);
+      final parsed = service.validateRedirect(uri);
+      switch (parsed) {
+        case PixivCallbackCode(:final code):
+          try {
+            final result = await service.exchangeCode(code);
+            if (!mounted) return;
+            await ref
+                .read(accountStoreProvider.notifier)
+                .upsertAccount(
+                  Account(
+                    id: result.accountId,
+                    userId: result.profile.userId,
+                    name: result.profile.name,
+                    mailAddress: result.profile.mailAddress,
+                    profileImageUrl: result.profile.profileImageUrl,
+                    isPremium: result.profile.isPremium,
+                  ),
+                  result.credential,
+                  // Leaving the page cancels the login, as in the WebView.
+                  stillWanted: () => mounted,
+                );
+            _finishLoginSuccess(
+              hadUsableAccount: hadUsableAccount,
+              fallbackToHomeWhenUnpoppable: true,
             );
+          } on Object catch (error, stackTrace) {
+            if (mounted) {
+              showErrorSnackBar(
+                context,
+                action: context.l10n.loginFailed,
+                error: error,
+                stack: stackTrace,
+              );
+            }
           }
-        }
-      case PixivCallbackInvalid(:final reason):
-        // The reason is a developer diagnostic, not copy — it goes to the
-        // crash log and the SnackBar stays a plain sentence.
-        CrashLog.record(StateError('login callback invalid: $reason'));
-        if (mounted) {
-          showAppSnackBar(context, context.l10n.loginCallbackInvalid);
-        }
-      case PixivCallbackOther():
-        break;
+        case PixivCallbackInvalid(:final reason):
+          // The reason is a developer diagnostic, not copy — it goes to the
+          // crash log and the SnackBar stays a plain sentence.
+          CrashLog.record(StateError('login callback invalid: $reason'));
+          if (mounted) {
+            showAppSnackBar(context, context.l10n.loginCallbackInvalid);
+          }
+        case PixivCallbackOther():
+          break;
+      }
+    } finally {
+      if (mounted) setState(() => _callbackBusy = false);
     }
   }
 
@@ -198,7 +236,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _importFromClipboard() {
-    if (_clipboardBusy) return;
+    if (_clipboardBusy || _callbackBusy) return;
+    final hadUsableAccount =
+        ref.read(accountStoreProvider).value?.usableCurrent != null;
+    final present = deferAppSnackBarPresenter(context);
+    final importedMessage = _loginText('accountTransferImported');
+    final replacedMessage = _loginText('accountTransferClipboardReplaced');
     setState(() => _clipboardBusy = true);
     unawaited(() async {
       try {
@@ -206,13 +249,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             .read(accountTransferServiceProvider)
             .importFromClipboard();
         if (!mounted) return;
-        showAppSnackBar(context, _loginText('accountTransferImported'));
+        present(importedMessage);
         if (!result.clipboardCleared) {
-          showAppSnackBar(
-            context,
-            _loginText('accountTransferClipboardReplaced'),
-          );
+          present(replacedMessage, replaceCurrent: false);
         }
+        _finishLoginSuccess(hadUsableAccount: hadUsableAccount);
       } on AccountTransferException catch (error) {
         if (mounted) {
           showAppSnackBar(context, _loginTransferErrorText(error.code));
@@ -299,7 +340,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       children: [
         ReplicaSwitchTile(
           contentPadding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-          value: _networkMode == NetworkMode.automatic,
+          value: _networkMode != NetworkMode.directOnly,
           title: _buildNetworkTitle(context, text),
           onTap: _toggleNetworkMode,
         ),
@@ -312,22 +353,36 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   /// regardless of the help toggle — `_help` only reveals the network
   /// compatibility note below it, it never replaces this row.
   Widget _buildMainActions(String Function(String) text) {
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
-          child: ReplicaButton(
-            label: text('register'),
-            outlined: true,
-            onPressed:
-                widget.onRegister ?? () => _openLoginWebview(create: true),
+        if (_callbackBusy)
+          const Padding(
+            padding: EdgeInsets.only(bottom: FuncSpacing.md),
+            child: AppSpinner(size: 20, strokeWidth: 2),
           ),
-        ),
-        const SizedBox(width: FuncSpacing.lg),
-        Expanded(
-          child: ReplicaButton(
-            label: text('login'),
-            onPressed: widget.onLogin ?? () => _openLoginWebview(),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: ReplicaButton(
+                label: text('register'),
+                outlined: true,
+                onPressed: _callbackBusy
+                    ? null
+                    : widget.onRegister ??
+                          () => _openLoginWebview(create: true),
+              ),
+            ),
+            const SizedBox(width: FuncSpacing.lg),
+            Expanded(
+              child: ReplicaButton(
+                label: text('login'),
+                onPressed: _callbackBusy
+                    ? null
+                    : widget.onLogin ?? () => _openLoginWebview(),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -362,7 +417,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           style: TextButton.styleFrom(
             foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          onPressed: _clipboardBusy ? null : onClipboardLogin,
+          onPressed: _clipboardBusy || _callbackBusy ? null : onClipboardLogin,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -443,10 +498,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _toggleNetworkMode() {
+    if (_callbackBusy) return;
     setState(() {
-      _networkMode = _networkMode == NetworkMode.automatic
-          ? NetworkMode.directOnly
-          : NetworkMode.automatic;
+      if (_networkMode != NetworkMode.directOnly) {
+        _preferredCompatMode = _networkMode;
+        _networkMode = NetworkMode.directOnly;
+      } else {
+        _networkMode = _preferredCompatMode;
+      }
     });
     ref.read(networkAccessPolicyProvider).setMode(switch (_networkMode) {
       NetworkMode.automatic => network_contracts.NetworkMode.automatic,

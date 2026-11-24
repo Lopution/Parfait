@@ -198,11 +198,16 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
     final l10n = context.l10n;
     final entries = ref.watch(watchLaterStoreProvider);
     final list = entries.value ?? const <WatchLaterEntry>[];
-    // Entries removed elsewhere (a card's own action) leave the selection.
+    // Entries removed elsewhere (a card's own action) leave the selection;
+    // when the last item disappears, leave managing mode too.
     ref.listen(watchLaterStoreProvider, (_, next) {
       final ids = {
         for (final e in next.value ?? const <WatchLaterEntry>[]) e.entity.id,
       };
+      if (ids.isEmpty && _managing) {
+        _exitManaging();
+        return;
+      }
       if (_selected.any((id) => !ids.contains(id))) {
         setState(() => _selected.retainAll(ids));
       }

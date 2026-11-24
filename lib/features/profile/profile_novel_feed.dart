@@ -14,16 +14,25 @@ import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
 import '../../app/layout/card_columns.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/icons/ui_icons.dart';
 
 /// A user's novels, or their novel bookmarks when [feedKey] is a
 /// bookmarks key. [localFilter] narrows the loaded list to titles and tags
 /// that contain it, as on the illust list.
 class ProfileNovelFeed extends ConsumerWidget {
-  const ProfileNovelFeed({super.key, required this.feedKey, this.localFilter});
+  const ProfileNovelFeed({
+    super.key,
+    required this.feedKey,
+    this.localFilter,
+    this.isNested = true,
+  });
 
   final ProfileFeedKey feedKey;
   final String? localFilter;
+
+  /// True inside [UserPage]'s `NestedScrollView`; false on standalone pages.
+  final bool isNested;
 
   bool get _bookmarks => feedKey.kind == ProfileFeedKind.bookmarks;
 
@@ -76,59 +85,74 @@ class ProfileNovelFeed extends ConsumerWidget {
         final storageId = _bookmarks
             ? 'profile-$feedKey'
             : 'profile-novel-${feedKey.userId}';
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () => controller().refresh(),
-          child: LoadMoreListener(
-            itemCount: feed.ids.length,
-            onLoadMore: () => controller().loadMore(),
-            child: CustomScrollView(
-              key: PageStorageKey(storageId),
-              restorationId: storageId,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                PullToRefresh.nestedHeader,
-                if (novels.isEmpty)
-                  // Same centred empty state as the works tab — not a
-                  // top-aligned list item.
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: feed.isAllHidden && query.isEmpty
-                        ? FeedAllHidden(
-                            feed: feed,
-                            onLoadMore: () => controller().retryLoadMore(),
-                          )
-                        : FeedEmpty(
-                            icon: UiIcons.inbox,
-                            title: query.isEmpty
-                                ? context.l10n.profileItemsEmpty
-                                : context.l10n.bookmarkTagFilterEmpty,
-                          ),
-                  )
-                else
-                  SliverCardList(
-                    itemCount: novels.length,
-                    firstId: novels.first.id,
-                    warmTexts: (context, index) =>
-                        NovelEntry.warmTexts(context, novels[index]),
-                    items: novels,
-                    itemBuilder: (context, index) =>
-                        NovelEntry.regular(entity: novels[index]),
+        Widget buildScroll(
+          ScrollController? scrollController,
+          ScrollPhysics? physics,
+        ) {
+          return PullToRefresh(
+            isNested: isNested,
+            scrollController: scrollController,
+            onRefresh: () => controller().refresh(),
+            child: LoadMoreListener(
+              itemCount: feed.ids.length,
+              onLoadMore: () => controller().loadMore(),
+              child: CustomScrollView(
+                key: PageStorageKey(storageId),
+                controller: scrollController,
+                restorationId: storageId,
+                physics: physics,
+                slivers: [
+                  if (isNested) PullToRefresh.nestedHeader,
+                  if (novels.isEmpty)
+                    // Same centred empty state as the works tab — not a
+                    // top-aligned list item.
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: feed.isAllHidden && query.isEmpty
+                          ? FeedAllHidden(
+                              feed: feed,
+                              onLoadMore: () => controller().retryLoadMore(),
+                            )
+                          : FeedEmpty(
+                              icon: UiIcons.inbox,
+                              title: query.isEmpty
+                                  ? context.l10n.profileItemsEmpty
+                                  : context.l10n.bookmarkTagFilterEmpty,
+                            ),
+                    )
+                  else
+                    SliverCardList(
+                      itemCount: novels.length,
+                      firstId: novels.first.id,
+                      warmTexts: (context, index) =>
+                          NovelEntry.warmTexts(context, novels[index]),
+                      items: novels,
+                      itemBuilder: (context, index) =>
+                          NovelEntry.regular(entity: novels[index]),
+                    ),
+                  // Under a filter that matches nothing too: the pages not
+                  // loaded yet may hold a match.
+                  SliverToBoxAdapter(
+                    child: FeedTail(
+                      feed: feed,
+                      onRetry: () => controller().retryLoadMore(),
+                      errorTitle: context.l10n.profileLoadMoreFailed,
+                      retryLabel: context.l10n.profileRetry,
+                    ),
                   ),
-                // Under a filter that matches nothing too: the pages not
-                // loaded yet may hold a match.
-                SliverToBoxAdapter(
-                  child: FeedTail(
-                    feed: feed,
-                    onRetry: () => controller().retryLoadMore(),
-                    errorTitle: context.l10n.profileLoadMoreFailed,
-                    retryLabel: context.l10n.profileRetry,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
+          );
+        }
+
+        return isNested
+            ? buildScroll(null, const AlwaysScrollableScrollPhysics())
+            : SmoothWheelScroll(
+                basePhysics: const AlwaysScrollableScrollPhysics(),
+                builder: (context, scrollController, physics) =>
+                    buildScroll(scrollController, physics),
+              );
       },
     );
   }

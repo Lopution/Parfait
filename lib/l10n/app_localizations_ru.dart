@@ -2699,6 +2699,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get followSwitchToPublic => 'Сделать публичной';
 
   @override
+  String get followSwitchVisibility => 'Изменить видимость подписки';
+
+  @override
   String get followFailed => 'Не удалось изменить подписку';
 
   @override

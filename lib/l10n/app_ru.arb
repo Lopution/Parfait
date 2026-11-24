@@ -1097,6 +1097,7 @@
   "followPublicAction": "Подписаться",
   "followSwitchToPrivate": "Сделать приватной",
   "followSwitchToPublic": "Сделать публичной",
+  "followSwitchVisibility": "Изменить видимость подписки",
   "followFailed": "Не удалось изменить подписку",
   "userPreviewFollow": "Подписаться",
   "novelLoading": "Загрузка новеллы",

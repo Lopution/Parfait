@@ -260,6 +260,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'followRemoved' => l10n.followRemoved,
   'followSwitchToPrivate' => l10n.followSwitchToPrivate,
   'followSwitchToPublic' => l10n.followSwitchToPublic,
+  'followSwitchVisibility' => l10n.followSwitchVisibility,
   'followSystemColors' => l10n.followSystemColors,
   'followSystemColorsHint' => l10n.followSystemColorsHint,
   'followSystemColorsUnavailable' => l10n.followSystemColorsUnavailable,

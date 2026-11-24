@@ -36,7 +36,7 @@ enum _Phase { enumerating, confirming, failed }
 
 class _AuthorWorksDownloadDialogState
     extends ConsumerState<AuthorWorksDownloadDialog> {
-  final _cancelToken = CancelToken();
+  CancelToken _cancelToken = CancelToken();
   _Phase _phase = _Phase.enumerating;
   int _scanned = 0;
   AuthorWorksResult? _result;
@@ -85,6 +85,24 @@ class _AuthorWorksDownloadDialogState
   void _cancel() {
     _cancelToken.cancel();
     Navigator.of(context).pop();
+  }
+
+  void _retry() {
+    if (_result != null) {
+      setState(() {
+        _error = null;
+        _phase = _Phase.confirming;
+      });
+      unawaited(_confirm());
+      return;
+    }
+    _cancelToken = CancelToken();
+    setState(() {
+      _error = null;
+      _scanned = 0;
+      _phase = _Phase.enumerating;
+    });
+    unawaited(_enumerate());
   }
 
   Future<void> _confirm() async {
@@ -205,6 +223,8 @@ class _AuthorWorksDownloadDialogState
             onPressed: () => Navigator.of(context).pop(),
             child: Text(l10n.dismiss),
           ),
+          if (_error != null)
+            FilledButton(onPressed: _retry, child: Text(l10n.retry)),
         ],
       ),
     };

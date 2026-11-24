@@ -34,10 +34,10 @@ Widget profileFilterBar({
 );
 
 Widget profileIllustFeed(ProfileFeedKey feedKey) =>
-    ProfileIllustFeed(feedKey: feedKey);
+    ProfileIllustFeed(feedKey: feedKey, isNested: false);
 
 Widget profileNovelFeed(ProfileFeedKey feedKey) =>
-    ProfileNovelFeed(feedKey: feedKey);
+    ProfileNovelFeed(feedKey: feedKey, isNested: false);
 
 Widget profileUserFeed(ProfileFeedKey feedKey) =>
-    ProfileUserFeed(feedKey: feedKey);
+    ProfileUserFeed(feedKey: feedKey, isNested: false);

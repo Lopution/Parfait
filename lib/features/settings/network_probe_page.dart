@@ -557,7 +557,6 @@ class _ConclusionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final (key, color) = switch (conclusion) {
       NetworkProbeConclusion.allReachable => (
         'networkProbeConclusionAllReachable',
@@ -605,7 +604,7 @@ class _ConclusionBadge extends StatelessWidget {
       child: Text(
         _probeText(context, key),
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onPrimary,
+          color: FuncTokens.white,
           fontWeight: FontWeight.w600,
         ),
       ),

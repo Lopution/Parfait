@@ -93,7 +93,7 @@ const _grandfatheredFileLineCaps = <String, int>{
   'lib/core/paging/paged_feed_controller.dart': 911,
   'lib/core/search/search_models.dart': 969,
   'lib/core/settings/app_settings.dart': 1070,
-  'lib/features/history/history_page.dart': 1026,
+  'lib/features/history/history_page.dart': 1010,
   'lib/features/illust/detail/illust_detail_pager_page.dart': 1040,
   'lib/features/illust/detail/ugoira_viewer.dart': 1021,
   'lib/features/illust/detail/widgets/page_image.dart': 1062,
@@ -101,8 +101,8 @@ const _grandfatheredFileLineCaps = <String, int>{
   'lib/features/novel/novel_layout.dart': 1756,
   'lib/features/novel/novel_reader.dart': 1243,
   'lib/features/novel/novel_reader_stage.dart': 1197,
-  'lib/features/profile/profile_header_delegate.dart': 1216,
-  'lib/features/profile/user_page.dart': 1389,
+  'lib/features/profile/profile_header_delegate.dart': 1188,
+  'lib/features/profile/user_page.dart': 1087,
   'lib/features/search/search_filter_sheet.dart': 934,
   'lib/features/search/search_page.dart': 824,
   'lib/features/search/search_result_page.dart': 869,
@@ -120,7 +120,7 @@ const _grandfatheredLibraryLineCaps = <String, int>{
   'lib/features/illust/viewer/image_viewer_page.dart': 2276,
   'lib/features/novel/novel_reader.dart': 1885,
   'lib/features/novel/novel_reader_stage.dart': 1851,
-  'lib/features/profile/user_page.dart': 1599,
+  'lib/features/profile/user_page.dart': 1297,
   'lib/features/settings/pages/download_tasks_page.dart': 1284,
 };
 
