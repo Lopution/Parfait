@@ -9,6 +9,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../core/errors/no_retry.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
+import '../../core/localnovel/local_novel_store.dart';
 import '../../core/localnovel/read_offset_anchor.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/user/user_entity.dart';
@@ -195,7 +196,7 @@ class _LocalProgressBinding implements ReaderProgressBinding {
       offset += paragraph.text.length + 1;
     }
     return _container
-        .read(localNovelRepositoryProvider)
+        .read(localNovelStoreProvider.notifier)
         .updateReadOffset(novel.id, offset);
   }
 }

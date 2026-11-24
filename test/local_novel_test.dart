@@ -12,6 +12,7 @@ import 'package:parfait/core/localnovel/local_novel_repository.dart';
 import 'package:parfait/core/localnovel/local_novel_store.dart';
 import 'package:parfait/core/localnovel/read_offset_anchor.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
+import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -103,6 +104,54 @@ void main() {
         final listed = await repository.list();
         expect(listed, hasLength(1));
         expect(listed.single.id, novel.id);
+        expect(listed.single.encoding, LocalNovelEncoding.utf8);
+        expect(
+          (await repository.get(novel.id))!.encoding,
+          LocalNovelEncoding.utf8,
+        );
+      },
+    );
+
+    test(
+      'decoded char and paragraph caps match NovelLayoutBudget and reject before storing',
+      () async {
+        const budget = NovelLayoutBudget();
+        expect(LocalNovelRepository.maxImportChars, budget.maxTextUnits);
+        expect(LocalNovelRepository.maxImportParagraphs, budget.maxParagraphs);
+
+        final target = Directory('${dir.path}/budget');
+        await expectLater(
+          repository.importBytes(
+            fileName: 'too-many-chars.txt',
+            bytes: Uint8List(LocalNovelRepository.maxImportChars + 1)
+              ..fillRange(0, LocalNovelRepository.maxImportChars + 1, 0x61),
+            targetDir: target,
+          ),
+          throwsA(
+            isA<LocalNovelTooLargeException>().having(
+              (e) => e.kind,
+              'kind',
+              LocalNovelLimitKind.chars,
+            ),
+          ),
+        );
+        await expectLater(
+          repository.importBytes(
+            fileName: 'too-many-paragraphs.txt',
+            bytes: Uint8List(LocalNovelRepository.maxImportParagraphs)
+              ..fillRange(0, LocalNovelRepository.maxImportParagraphs, 0x0A),
+            targetDir: target,
+          ),
+          throwsA(
+            isA<LocalNovelTooLargeException>().having(
+              (e) => e.kind,
+              'kind',
+              LocalNovelLimitKind.paragraphs,
+            ),
+          ),
+        );
+        expect(await repository.list(), isEmpty);
+        expect(target.existsSync(), isFalse);
       },
     );
 
@@ -138,15 +187,88 @@ void main() {
       expect(target.listSync(), isEmpty);
     });
 
-    test('GBK import stores decoded UTF-8 text on disk', () async {
-      final novel = await repository.importBytes(
-        fileName: 'legacy.txt',
-        bytes: Uint8List.fromList(gbk.encode('古早文本')),
-        targetDir: dir,
-      );
-      expect(novel.encoding, LocalNovelEncoding.gbk);
-      expect(await File(novel.path).readAsString(), '古早文本');
-    });
+    test(
+      'GBK import stores decoded UTF-8 text and persists encoding',
+      () async {
+        final novel = await repository.importBytes(
+          fileName: 'legacy.txt',
+          bytes: Uint8List.fromList(gbk.encode('古早文本')),
+          targetDir: dir,
+        );
+        expect(novel.encoding, LocalNovelEncoding.gbk);
+        expect(await File(novel.path).readAsString(), '古早文本');
+        expect(
+          (await repository.get(novel.id))!.encoding,
+          LocalNovelEncoding.gbk,
+        );
+        expect(
+          (await repository.list()).single.encoding,
+          LocalNovelEncoding.gbk,
+        );
+      },
+    );
+
+    test(
+      'v1 database upgrades to v2 preserving legacy rows and persisting encoding',
+      () async {
+        final v1Path = '${dir.path}/v1_novels.db';
+        final legacyFile = File('${dir.path}/legacy_v1.txt')
+          ..writeAsStringSync('旧版正文');
+        final raw = await databaseFactoryFfi.openDatabase(
+          v1Path,
+          options: OpenDatabaseOptions(
+            version: 1,
+            onCreate: (db, _) => db.execute('''
+              CREATE TABLE ${LocalNovelDatabase.table} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                author TEXT,
+                path TEXT NOT NULL UNIQUE,
+                char_count INTEGER NOT NULL DEFAULT 0,
+                imported_at INTEGER NOT NULL,
+                read_offset INTEGER
+              )
+            '''),
+          ),
+        );
+        final legacyId = await raw.insert(LocalNovelDatabase.table, {
+          'title': '旧版小说',
+          'author': null,
+          'path': legacyFile.path,
+          'char_count': 4,
+          'imported_at': 1700000000000,
+          'read_offset': 2,
+        });
+        await raw.close();
+
+        final upgradedDb = LocalNovelDatabase(
+          factory: databaseFactoryFfi,
+          databasePath: v1Path,
+        );
+        addTearDown(upgradedDb.close);
+        final upgradedRepo = LocalNovelRepository(database: upgradedDb);
+
+        final legacy = await upgradedRepo.get(legacyId);
+        expect(legacy, isNotNull);
+        expect(legacy!.title, '旧版小说');
+        expect(legacy.readOffset, 2);
+        expect(legacy.encoding, isNull);
+
+        final imported = await upgradedRepo.importBytes(
+          fileName: 'gbk_after_upgrade.txt',
+          bytes: Uint8List.fromList(gbk.encode('升级后导入')),
+          targetDir: dir,
+        );
+        final reloaded = await upgradedRepo.get(imported.id);
+        expect(reloaded!.encoding, LocalNovelEncoding.gbk);
+        final all = await upgradedRepo.list();
+        expect(
+          all.firstWhere((item) => item.id == imported.id).encoding,
+          LocalNovelEncoding.gbk,
+        );
+        expect(all.firstWhere((item) => item.id == legacyId).encoding, isNull);
+      },
+    );
 
     test('same file name imports get unique paths, even at once', () async {
       Future<LocalNovel> import(String text) => repository.importBytes(
@@ -232,6 +354,32 @@ void main() {
       expect(container.read(localNovelStoreProvider).value, isEmpty);
       expect(await File(novel.path).exists(), isFalse);
     });
+
+    test(
+      'updateReadOffset persists and refreshes list state immediately',
+      () async {
+        await container.read(localNovelStoreProvider.future);
+        final novel = (await container
+            .read(localNovelStoreProvider.notifier)
+            .importPicked())!;
+        expect(
+          container.read(localNovelStoreProvider).value!.single.readOffset,
+          isNull,
+        );
+
+        await container
+            .read(localNovelStoreProvider.notifier)
+            .updateReadOffset(novel.id, 3);
+        expect(
+          container.read(localNovelStoreProvider).value!.single.readOffset,
+          3,
+        );
+        final stored = await container
+            .read(localNovelRepositoryProvider)
+            .get(novel.id);
+        expect(stored!.readOffset, 3);
+      },
+    );
   });
 
   group('read offset anchor', () {

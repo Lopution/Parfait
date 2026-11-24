@@ -88,7 +88,6 @@ final _iconButton = RegExp(
 
 const _appFilledStates = <String, Set<String>>{
   'lib/app/widgets/bookmark_switch_button.dart': {'heartFilled'},
-  'lib/app/widgets/novel_entry.dart': {'heartFilled'},
   'lib/app/widgets/card_actions/illust_card_actions.dart': {
     'eyeOffFilled',
     'userOffFilled',

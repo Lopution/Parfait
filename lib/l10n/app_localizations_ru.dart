@@ -2989,6 +2989,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get localNovelsDelete => 'Удалить';
 
   @override
+  String get localNovelsDeleteFailed => 'Не удалось удалить локальную новеллу';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'Превышен лимит читалки ($limit символов)';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'Превышен лимит читалки ($limit абзацев)';
+  }
+
+  @override
   String localNovelsDeleteConfirm(String title) {
     return 'Удалить «$title»? Локальный файл тоже будет удалён.';
   }

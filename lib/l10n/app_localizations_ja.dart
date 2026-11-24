@@ -2926,6 +2926,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get localNovelsDelete => '削除';
 
   @override
+  String get localNovelsDeleteFailed => 'ローカル小説の削除に失敗しました';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'リーダーの上限（$limit 文字）を超えています';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'リーダーの上限（$limit 段落）を超えています';
+  }
+
+  @override
   String localNovelsDeleteConfirm(String title) {
     return '「$title」を削除しますか？ローカルファイルも削除されます。';
   }

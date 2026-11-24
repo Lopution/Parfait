@@ -172,33 +172,43 @@ class NovelEntry extends ConsumerWidget {
   /// Tags shown on the footnote line; the rest would be cut anyway.
   static const _maxTags = 4;
 
-  /// Inset of the cover's bookmark badge — tighter than a feed card's 7dp,
-  /// the cover is a fraction of its size.
-  static const double _badgeInset = 4;
-
   /// The row's text lines for [entity], as every variant lays them out
-  /// under [context], for [FeedTextWarmup]. The rank and the bookmark count
-  /// are digits in the primary font and left out.
-  static List<WarmText> warmTexts(BuildContext context, NovelEntity entity) =>
-      EntityRow.warmTexts(
-        context,
-        title: entity.title,
-        subtitle: entity.user.name,
-        meta: _meta(context, entity),
-        footnote: _footnote(entity),
-      );
+  /// under [context], for [FeedTextWarmup]. The rank is digits in the
+  /// primary font and left out.
+  static List<WarmText> warmTexts(BuildContext context, NovelEntity entity) {
+    final bookmarks = entity.totalBookmarks > 0
+        ? AppFormat.count(context, entity.totalBookmarks)
+        : null;
+    return EntityRow.warmTexts(
+      context,
+      title: entity.title,
+      subtitle: entity.user.name,
+      meta: _meta(context, entity, bookmarks: bookmarks),
+      footnote: _footnote(entity),
+    );
+  }
 
-  /// Series (when any and [showSeries]) and word count.
+  /// Content marks (R-18 / R-18G / AI), series (when any and [showSeries]),
+  /// word count, and bookmark count. Keeping bookmarks and marks in the text
+  /// column avoids clipping on 56/68dp narrow covers (LAYOUT-01, PAGING-10).
   static String _meta(
     BuildContext context,
     NovelEntity entity, {
     bool showSeries = true,
+    String? bookmarks,
   }) {
+    final l10n = context.l10n;
     final words =
-        '${AppFormat.count(context, entity.textLength)} '
-        '${context.l10n.novelWords}';
+        '${AppFormat.count(context, entity.textLength)} ${l10n.novelWords}';
     final series = showSeries ? entity.seriesTitle : null;
-    return series == null || series.isEmpty ? words : '$series · $words';
+    return [
+      if (entity.isR18) 'R-18',
+      if (entity.isR18G) 'R-18G',
+      if (entity.isAi) l10n.badgeAi,
+      if (series != null && series.isNotEmpty) series,
+      words,
+      if (bookmarks != null) l10n.novelEntryBookmarks(bookmarks),
+    ].join(' · ');
   }
 
   static String? _footnote(NovelEntity entity) => entity.tags.isEmpty
@@ -226,6 +236,9 @@ class NovelEntry extends ConsumerWidget {
       if (rank != null) l10n.rankLabel(rank!),
       title,
       entity.user.name,
+      if (!muted && entity.isR18) 'R-18',
+      if (!muted && entity.isR18G) 'R-18G',
+      if (!muted && entity.isAi) l10n.badgeAi,
       if (bookmarks != null) l10n.novelEntryBookmarks(bookmarks),
     ].join(', ');
     // Full-bleed row with list-row ink (HCI 11): no card chrome, so a
@@ -235,12 +248,19 @@ class NovelEntry extends ConsumerWidget {
         horizontal: FuncSpacing.lg,
         vertical: FuncSpacing.md,
       ),
-      leading: _cover(context, bookmarks, muted: muted),
+      leading: _cover(context, muted: muted),
       overline: overline,
       title: title,
       titleLeading: rank == null ? null : EntityRankLabel(rank!),
       subtitle: entity.user.name,
-      meta: muted ? null : _meta(context, entity, showSeries: showSeries),
+      meta: muted
+          ? null
+          : _meta(
+              context,
+              entity,
+              showSeries: showSeries,
+              bookmarks: bookmarks,
+            ),
       footnote: muted ? null : _footnote(entity),
       progress: progress,
       trailing: trailing,
@@ -255,46 +275,25 @@ class NovelEntry extends ConsumerWidget {
     );
   }
 
-  /// The cover with its bookmark count laid over the bottom edge, in the
-  /// same scrim badge the illust cards use.
-  Widget _cover(
-    BuildContext context,
-    String? bookmarks, {
-    required bool muted,
-  }) {
+  /// Unoccluded cover thumbnail — bookmarks and R-18/AI marks live in `_meta`
+  /// so compact 56×72 covers never clip overlays.
+  Widget _cover(BuildContext context, {required bool muted}) {
     final colorScheme = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(_coverRadius),
       child: SizedBox(
         width: _coverWidth,
         height: _coverHeight,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // The placeholder takes the same clip — the old NovelRow let it
-            // fall outside ClipRRect and painted square corners.
-            if (entity.coverImageUrl == null)
-              ColoredBox(
+        child: entity.coverImageUrl == null
+            ? ColoredBox(
                 color: colorScheme.surfaceContainer,
                 child: const Icon(AppIcons.novel),
               )
-            else
-              PixivImage.feed(
+            : PixivImage.feed(
                 entity.coverImageUrl!,
                 layoutWidth: _coverWidth,
                 blur: muted ? MutedCover.blurSigma : null,
               ),
-            if (bookmarks != null)
-              Positioned(
-                left: _badgeInset,
-                bottom: _badgeInset,
-                child: EntityBadge(
-                  icon: AppIcons.heartFilled,
-                  label: bookmarks,
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

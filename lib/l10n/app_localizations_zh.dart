@@ -2899,6 +2899,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get localNovelsDelete => '删除';
 
   @override
+  String get localNovelsDeleteFailed => '删除本地小说失败';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return '超过阅读器上限（$limit 字）';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return '超过阅读器上限（$limit 段）';
+  }
+
+  @override
   String localNovelsDeleteConfirm(String title) {
     return '删除「$title」？本地文件会一并删除。';
   }

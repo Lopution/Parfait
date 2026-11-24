@@ -27,7 +27,8 @@ import 'helpers/waits.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
 
-Widget _app(Widget child) => localizedApp(locale: null, home: child);
+Widget _app(Widget child) =>
+    localizedApp(locale: null, builder: promptHostBuilder, home: child);
 
 /// Alternates real-async waits (file/db IO) with frames until [condition]
 /// holds — `pumpAndSettle` cannot be used because the loading spinner
@@ -114,34 +115,147 @@ void main() {
     );
   }
 
-  testWidgets('a TXT over the limit is refused with the limit', (tester) async {
-    final refusing = ProviderContainer.test(
-      overrides: [
-        localNovelDatabaseProvider.overrideWithValue(database),
-        localNovelDirectoryProvider.overrideWithValue(() async => dir),
-        localNovelFilePickerProvider.overrideWithValue(
-          () async => throw const DocumentTooLargeException(
-            LocalNovelRepository.maxImportBytes,
+  testWidgets(
+    'a TXT over the byte or layout budget is refused with the limit',
+    (tester) async {
+      for (final (Object error, String expected) in const [
+        (
+          DocumentTooLargeException(LocalNovelRepository.maxImportBytes),
+          'larger than 64 MB',
+        ),
+        (
+          LocalNovelTooLargeException(
+            kind: LocalNovelLimitKind.chars,
+            actual: 5000000,
+            limit: LocalNovelRepository.maxImportChars,
+          ),
+          'character reader limit',
+        ),
+      ]) {
+        final refusing = ProviderContainer.test(
+          overrides: [
+            localNovelDatabaseProvider.overrideWithValue(database),
+            localNovelDirectoryProvider.overrideWithValue(() async => dir),
+            localNovelFilePickerProvider.overrideWithValue(
+              () async => throw error,
+            ),
+          ],
+        );
+        await tester.runAsync(
+          () => refusing.read(localNovelRepositoryProvider).list(),
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: refusing,
+            child: _app(const LocalNovelsPage()),
+          ),
+        );
+        await _pumpUntil(tester, find.byTooltip('Import TXT'));
+        await tester.tap(find.byTooltip('Import TXT'));
+        await _pumpUntil(tester, find.textContaining(expected));
+        expect(find.textContaining(expected), findsOneWidget);
+      }
+    },
+  );
+
+  testWidgets('delete failure restores row and reports an error snackbar', (
+    tester,
+  ) async {
+    await warmDatabase(tester);
+    final novel = await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .importBytes(
+            fileName: 'Keep Me.txt',
+            bytes: Uint8List.fromList(utf8.encode('body')),
+            targetDir: dir,
+          ),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const LocalNovelsPage()),
+      ),
+    );
+    await _pumpUntil(tester, find.text('Keep Me'));
+    await tester.runAsync(
+      () async => (await database.database).execute(
+        'DROP TABLE ${LocalNovelDatabase.table}',
+      ),
+    );
+
+    await tester.tap(find.byIcon(UiIcons.more));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(AppIcons.trash));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await _pumpUntil(
+      tester,
+      find.textContaining('Failed to delete local novel'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Keep Me'), findsOneWidget);
+    expect(File(novel!.path).existsSync(), isTrue);
+  });
+
+  testWidgets('returning from reader refreshes list progress without reload', (
+    tester,
+  ) async {
+    await warmDatabase(tester);
+    final text = [
+      'opening paragraph',
+      for (var i = 0; i < 120; i++) 'filler line $i',
+      'closing paragraph',
+    ].join('\n');
+    await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .importBytes(
+            fileName: 'Live Progress.txt',
+            bytes: Uint8List.fromList(utf8.encode(text)),
+            targetDir: dir,
+          ),
+    );
+    final router = GoRouter(
+      initialLocation: '/settings/local-novels',
+      routes: [
+        GoRoute(
+          path: '/settings/local-novels',
+          builder: (_, _) => const LocalNovelsPage(),
+        ),
+        GoRoute(
+          path: '/settings/local-novels/:localId',
+          builder: (_, state) => LocalNovelReaderPage(
+            localId: int.parse(state.pathParameters['localId']!),
           ),
         ),
       ],
     );
-    await tester.runAsync(
-      () => refusing.read(localNovelRepositoryProvider).list(),
-    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
-      localizedApp(
-        container: refusing,
+      localizedRouterApp(
+        router,
+        container: container,
         locale: null,
         builder: promptHostBuilder,
-        home: const LocalNovelsPage(),
       ),
     );
-    await _pumpUntil(tester, find.byTooltip('Import TXT'));
-    await tester.tap(find.byTooltip('Import TXT'));
-    await _pumpUntil(tester, find.textContaining('larger than 64 MB'));
+    await _pumpUntil(tester, find.text('Live Progress'));
+    expect(find.textContaining('Continue reading'), findsNothing);
 
-    expect(find.textContaining('larger than 64 MB'), findsOneWidget);
+    await tester.tap(find.text('Live Progress'));
+    await _pumpUntil(tester, find.text('opening paragraph'));
+    await tester.drag(
+      find.descendant(
+        of: find.byType(LocalNovelReaderPage),
+        matching: find.byType(ListView),
+      ),
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
+    router.pop();
+    await _pumpUntil(tester, find.textContaining('Continue reading'));
   });
 
   testWidgets('tile tap pushes the local reader route', (tester) async {

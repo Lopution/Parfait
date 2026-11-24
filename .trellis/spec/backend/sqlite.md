@@ -38,7 +38,9 @@ reviewed: 2026-11-14
 - **Rule:** Every database owner sets `onDowngrade` explicitly. `feeds.db`, a
   cache, holds only feed snapshots and is dropped and created afresh
   (`onDatabaseDowngradeDelete`). `actions.db`, `history.db`, `watchlater.db`
-  and `local_novels.db` refuse to open (`SqliteDatabase.refuseDowngrade`) with
+  `local_novels.db` (schema v2 with explicit `ALTER TABLE` migration adding
+  nullable `encoding TEXT`, persisting detected `LocalNovelEncoding` on import
+  and reloading it via `list`/`get`) refuse to open (`SqliteDatabase.refuseDowngrade`) with
   a `StateError` naming the database and both versions; their feature shows
   its load error. `SqliteActionStore` idempotently migrates any legacy
   `action_queue` rows from `feeds.db` into `actions.db` on first open and
@@ -47,5 +49,5 @@ reviewed: 2026-11-14
   tables, so the newer build, back again, re-ran a migration it had run and
   the database stopped opening; keeping queued offline actions inside a
   drop-on-downgrade cache database also lost pending mutations on rollback.
-- **Check:** `test/database_downgrade_test.dart` "a database a newer build left behind", `test/action_queue_test.dart` "migrates legacy feeds.db action_queue once and survives feeds downgrade"
+- **Check:** `test/database_downgrade_test.dart` "a database a newer build left behind", `test/action_queue_test.dart` "migrates legacy feeds.db action_queue once and survives feeds downgrade", `test/local_novel_test.dart` "v1 database upgrades to v2 preserving legacy rows and persisting encoding"
 - **Code:** `lib/core/sqlite/sqlite_database.dart`, `lib/core/actionqueue/action_database.dart`, `lib/core/actionqueue/action_store.dart`, `lib/core/history/history_database.dart`, `lib/core/paging/feed_database.dart`, `lib/core/watchlater/watch_later_database.dart`, `lib/core/localnovel/local_novel_database.dart`
