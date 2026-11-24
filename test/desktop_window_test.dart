@@ -15,6 +15,7 @@ import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/shell_rail.dart';
+import 'package:parfait/app/window/desktop_drag_region.dart';
 import 'package:parfait/app/window/desktop_title_bar.dart';
 import 'package:parfait/app/window/desktop_window.dart';
 import 'package:parfait/core/platform/desktop_tray.dart';
@@ -1045,6 +1046,177 @@ void main() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.windows),
     );
+
+    testWidgets(
+      'exiting fullscreen via hover overlay resets _hoverReveal before next fullscreen',
+      (tester) async {
+        final metrics = ValueNotifier(
+          const DesktopWindowPlatformMetrics(
+            usesSystemTitleBar: false,
+            isFullScreen: true,
+          ),
+        );
+        addTearDown(metrics.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: replicaTheme(
+              Brightness.light,
+            ).copyWith(platform: TargetPlatform.windows),
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: const [Locale('zh', 'CN')],
+            home: DesktopWindowScope(
+              metrics: metrics,
+              actions: DesktopWindowActions(
+                onMinimize: () {},
+                onToggleMaximize: () {},
+                onToggleFullScreen: () => metrics.value = metrics.value
+                    .copyWith(isFullScreen: !metrics.value.isFullScreen),
+                onClose: () {},
+                onStartDragging: () {},
+                onTitleBarDoubleClick: () {},
+                onRegionsChanged: (_) {},
+              ),
+              child: const DesktopWindowFrame(
+                suppressOverlayBar: true,
+                child: SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final mouse = TestPointer(1, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(mouse.hover(const Offset(200, 2)));
+        await tester.pumpAndSettle();
+        final exitBtn = find.byKey(const Key('desktop-window-maximize'));
+        expect(exitBtn, findsOneWidget);
+        expect(
+          tester
+              .widget<AnimatedOpacity>(
+                find.ancestor(
+                  of: exitBtn,
+                  matching: find.byType(AnimatedOpacity),
+                ),
+              )
+              .opacity,
+          1.0,
+        );
+
+        await tester.tap(exitBtn);
+        await tester.pumpAndSettle();
+        expect(metrics.value.isFullScreen, isFalse);
+
+        // Move pointer away while not fullscreen (overlay unmounted, no onExit),
+        // then re-enter fullscreen: overlay must start hidden.
+        await tester.sendEventToBinding(mouse.hover(const Offset(200, 300)));
+        metrics.value = metrics.value.copyWith(isFullScreen: true);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<AnimatedOpacity>(
+                find.ancestor(
+                  of: find.byKey(const Key('desktop-window-maximize')),
+                  matching: find.byType(AnimatedOpacity),
+                ),
+              )
+              .opacity,
+          0.0,
+        );
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+
+    test(
+      'applicationShouldTerminate flushes saveNow and onBeforeDestroy bypassing closeToTray',
+      () async {
+        final adapter = _FakeDesktopWindowAdapter();
+        final host = _FakeDesktopWindowHost();
+        final tray = _FakeTrayPort(supported: true);
+        var savedCount = 0;
+        var destroyedCount = 0;
+        final session = DesktopWindowSession(
+          adapter: adapter,
+          host: host,
+          trayPort: tray,
+          readCloseToTray: () => true,
+          readSavedPlace: () => (width: null, height: null, x: null, y: null),
+          saveGeometry: ({width, height, x, y, required maximized}) async {
+            savedCount++;
+          },
+          onBeforeDestroy: () async {
+            destroyedCount++;
+          },
+        );
+        await session.attach(
+          initialLabels: const TrayMenuLabels(
+            tooltip: 'Parfait',
+            showWindow: 'Show',
+            downloads: 'Downloads',
+            quit: 'Quit',
+          ),
+        );
+        expect(host.terminateHandler, isNotNull);
+        await host.terminateHandler!();
+        expect(savedCount, 1);
+        expect(destroyedCount, 1);
+        expect(adapter.calls, isNot(contains('hide')));
+        session.dispose();
+        expect(host.terminateHandler, isNull);
+      },
+    );
+
+    testWidgets(
+      'DesktopDragRegion starts macOS drag after 3dp move and preserves double-click',
+      (tester) async {
+        var drags = 0;
+        var doubleClicks = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 300,
+                height: 48,
+                child: DesktopDragRegion(
+                  platformOverride: TargetPlatform.macOS,
+                  onStartDragging: () => drags++,
+                  onDoubleTap: () => doubleClicks++,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        );
+        // Short 4dp move triggers drag immediately without waiting for 18dp kPanSlop.
+        final gesture = await tester.startGesture(
+          const Offset(80, 24),
+          kind: PointerDeviceKind.mouse,
+          buttons: kPrimaryMouseButton,
+        );
+        await gesture.moveBy(const Offset(4, 0));
+        await tester.pump();
+        expect(drags, 1);
+        await gesture.up();
+        await tester.pump();
+
+        // Two stationary clicks within 350ms fire double-click without dragging.
+        final click1 = await tester.startGesture(
+          const Offset(120, 24),
+          kind: PointerDeviceKind.mouse,
+          buttons: kPrimaryMouseButton,
+        );
+        await click1.up();
+        await tester.pump(const Duration(milliseconds: 80));
+        final click2 = await tester.startGesture(
+          const Offset(121, 24),
+          kind: PointerDeviceKind.mouse,
+          buttons: kPrimaryMouseButton,
+        );
+        await click2.up();
+        await tester.pump();
+        expect(doubleClicks, 1);
+        expect(drags, 1);
+      },
+    );
   });
 }
 
@@ -1179,11 +1351,17 @@ class _FakeDesktopWindowHost implements DesktopWindowHost {
   final DesktopWindowPlatformMetrics _initial;
   final void Function(DesktopWindowCommand command)? _onCommand;
   final List<DesktopWindowCommand> commands = <DesktopWindowCommand>[];
+  Future<void> Function()? terminateHandler;
   final StreamController<DesktopWindowPlatformMetrics> _controller =
       StreamController<DesktopWindowPlatformMetrics>.broadcast();
 
   void emitMetrics(DesktopWindowPlatformMetrics metrics) =>
       _controller.add(metrics);
+
+  @override
+  void setApplicationShouldTerminateHandler(Future<void> Function()? handler) {
+    terminateHandler = handler;
+  }
 
   @override
   Future<DesktopWindowPlatformMetrics> getMetrics() async => _initial;

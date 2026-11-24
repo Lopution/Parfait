@@ -57,8 +57,23 @@ mixin BilingualReading<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     final page = bilingualReader.currentPage?.call();
     if (layout == null || page == null) return;
     _syncSources();
-    var ids = _untranslated(layout, page);
-    if (ids.isEmpty) ids = _untranslated(layout, page + 1);
+    final spread = bilingualReader.isSpread?.call() ?? false;
+    final scrollMode = bilingualReader.isScrollMode?.call() ?? false;
+    List<String> ids;
+    if (spread) {
+      final left = (page ~/ 2) * 2;
+      ids = _untranslatedPages(layout, [left, left + 1]);
+      if (ids.isEmpty) {
+        ids = _untranslatedPages(layout, [left + 2, left + 3]);
+      }
+    } else if (scrollMode) {
+      final anchorId = bilingualReader.viewportAnchor?.call()?.paragraphId;
+      ids = _untranslated(layout, page, fromParagraphId: anchorId);
+      if (ids.isEmpty) ids = _untranslated(layout, page + 1);
+    } else {
+      ids = _untranslated(layout, page);
+      if (ids.isEmpty) ids = _untranslated(layout, page + 1);
+    }
     if (ids.isEmpty) return;
     final version = _sourcesVersion;
     final sources = [for (final id in ids) _sources[id]!];
@@ -120,18 +135,54 @@ mixin BilingualReading<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     _translations = const {};
   }
 
-  /// Paragraphs on [page] with text and no translation yet, in order.
-  List<String> _untranslated(NovelLayout layout, int page) {
-    if (page < 0 || page >= layout.pages.length) return const [];
+  /// Paragraphs across [pages] with text and no translation yet, in order.
+  List<String> _untranslatedPages(NovelLayout layout, List<int> pages) {
     final ids = <String>{};
-    for (final line in layout.pages[page].lines) {
+    for (final page in pages) {
+      _collectUntranslated(layout, page, ids);
+    }
+    return ids.toList();
+  }
+
+  /// Paragraphs on [page] with text and no translation yet, in order.
+  /// When [fromParagraphId] is supplied (scroll mode), lines strictly before
+  /// the current viewport paragraph are skipped.
+  List<String> _untranslated(
+    NovelLayout layout,
+    int page, {
+    String? fromParagraphId,
+  }) {
+    final ids = <String>{};
+    _collectUntranslated(layout, page, ids, fromParagraphId: fromParagraphId);
+    return ids.toList();
+  }
+
+  void _collectUntranslated(
+    NovelLayout layout,
+    int page,
+    Set<String> out, {
+    String? fromParagraphId,
+  }) {
+    if (page < 0 || page >= layout.pages.length) return;
+    final lines = layout.pages[page].lines;
+    var startIndex = 0;
+    if (fromParagraphId != null) {
+      final found = lines.indexWhere(
+        (line) =>
+            !line.isTranslation &&
+            !line.isTitleBlock &&
+            line.paragraphId == fromParagraphId,
+      );
+      if (found >= 0) startIndex = found;
+    }
+    for (var i = startIndex; i < lines.length; i++) {
+      final line = lines[i];
       final id = line.paragraphId;
       if (line.isTranslation || line.isTitleBlock) continue;
       if (_translations.containsKey(id)) continue;
       if ((_sources[id] ?? '').trim().isEmpty) continue;
-      ids.add(id);
+      out.add(id);
     }
-    return ids.toList();
   }
 
   void _showFailure(TranslationFailureKind kind) {

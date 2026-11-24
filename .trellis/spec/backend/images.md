@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-11-21
+reviewed: 2026-11-23
 ---
 
 # Image pipeline and animated media
@@ -208,12 +208,17 @@ reviewed: 2026-11-21
 ## Ugoira
 
 ### IMG-10 An animated work owns its resources and frees them
-- **Rule:** A ugoira load owns one temporary archive, one index, one
+- **Rule:** Each ugoira load owns one temporary archive, one index, one
   bounded frame cache and one scheduler. The cache disposes every
   `ui.Image` it evicts or replaces; the viewer stops the scheduler before
-  teardown.
-- **Why:** Undisposed frames and temp files leaked across viewers.
-- **Check:** `test/ugoira_test.dart` "evicts the least recently used frame and disposes it"
+  teardown. Playback (`UgoiraViewer`) and app-level GIF export
+  (`UgoiraExportController`) each load and dispose their own independent
+  `UgoiraAsset` and temporary archive — an export never borrows the viewer's
+  playback asset.
+- **Why:** Undisposed frames and temp files leaked across viewers, and
+  borrowing the viewer's asset deleted the ZIP mid-export when leaving the
+  detail page.
+- **Check:** `test/ugoira_test.dart` "evicts the least recently used frame and disposes it" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state"
 - **Code:** `lib/core/ugoira`
 
 ### IMG-15 A ugoira entry never inflates past its declared size
@@ -226,14 +231,21 @@ reviewed: 2026-11-21
 - **Check:** `test/ugoira_test.dart` "a forged entry fails once it inflates past its declared size" "rejects metadata count mismatch and forged local sizes"
 - **Code:** `lib/core/ugoira/ugoira_zip.dart`
 
-### IMG-11 GIF export is a cancellable worker job with one terminal state
-- **Rule:** GIF export quantizes in a worker isolate, checks cancellation
-  between frames and before finalize, owns one pending MediaStore item and
-  emits exactly one terminal snapshot. It never holds the full decoded
-  frame list on the UI isolate. Its recovery record uses its own key and
-  owner prefix and never enters the download retry queue; after a restart
-  an unfinished export becomes `orphaned`.
-- **Why:** Quantization on the UI isolate froze the app; a synthetic GIF
-  URL in the download queue retried forever.
-- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output", `test/download_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned"
-- **Code:** `lib/core/ugoira/ugoira_export.dart`, `lib/core/ugoira/ugoira_recovery.dart`
+### IMG-11 GIF export is a cancellable app-level worker job with one terminal state
+- **Rule:** GIF export runs through app-level `UgoiraExportController`
+  (`ugoiraExportControllerProvider`, invoked on demand from `UgoiraViewer`,
+  `DetailActionBar`, or inspector download actions without requiring prior
+  playback and never falling back to a static first-frame JPEG). It
+  quantizes in a worker isolate, checks cancellation between frames and
+  before finalize, owns one pending MediaStore item and its own temporary
+  archive, continues after leaving the detail page (delivering terminal
+  feedback through `PromptHost` and showing live progress + cancel on
+  same-process re-entry), and emits exactly one terminal snapshot. It never
+  holds the full decoded frame list on the UI isolate. Its recovery record
+  uses its own key and owner prefix and never enters the download retry
+  queue; after a process restart an unfinished export becomes `orphaned`.
+- **Why:** Quantization on the UI isolate froze the app, page-scoped jobs
+  died on back navigation, bottom-bar downloads saved static JPEGs, and a
+  synthetic GIF URL in the download queue retried forever.
+- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state", `test/ugoira_viewer_test.dart` "UgoiraViewer exports GIF on demand without prior playback, survives leaving page, and shows progress/cancel on re-entry", `test/illust_detail_download_test.dart` "blank-area tap keeps page selection, single-page hides select-pages, and ugoira bottom button routes to GIF export", `test/download_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned"
+- **Code:** `lib/core/ugoira/ugoira_export.dart`, `lib/core/ugoira/ugoira_export_controller.dart`, `lib/core/ugoira/ugoira_recovery.dart`, `lib/features/illust/detail/ugoira_export_action.dart`, `lib/features/illust/detail/ugoira_viewer.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`

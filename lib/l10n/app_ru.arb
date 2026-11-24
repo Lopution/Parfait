@@ -780,7 +780,7 @@
   "rankingMyCategories": "Мои категории",
   "rankingEdit": "Изменить",
   "rankingEditDone": "Готово",
-  "rankingDragHint": "Удерживайте и перетащите, чтобы изменить порядок",
+  "rankingDragHint": "Перетащите значок слева для сортировки или нажмите ×, чтобы скрыть",
   "arrangementHidden": "Скрытые",
   "rankingHiddenEmpty": "Показаны все категории",
   "restoreDefault": "Сбросить",
@@ -1101,6 +1101,7 @@
   "followPublicAction": "Подписаться",
   "followSwitchToPrivate": "Сделать приватной",
   "followSwitchToPublic": "Сделать публичной",
+  "followSwitchVisibility": "Изменить видимость подписки",
   "followFailed": "Не удалось изменить подписку",
   "userPreviewFollow": "Подписаться",
   "novelLoading": "Загрузка новеллы",
@@ -1216,6 +1217,23 @@
   },
   "localNovelsImportedLossy": "Импортировано, но кодировка распознана не полностью — текст может содержать искажённые символы",
   "localNovelsDelete": "Удалить",
+  "localNovelsDeleteFailed": "Не удалось удалить локальную новеллу",
+  "localNovelsTooManyChars": "Превышен лимит читалки ({limit} символов)",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "Превышен лимит читалки ({limit} абзацев)",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "Удалить «{title}»? Локальный файл тоже будет удалён.",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
@@ -1460,5 +1478,20 @@
     }
   },
   "previousArtworkTooltip": "Предыдущая работа",
-  "nextArtworkTooltip": "Следующая работа"
+  "nextArtworkTooltip": "Следующая работа",
+  "batchSelectWork": "Выбрать работу",
+  "batchDeselectWork": "Снять выбор с работы",
+  "cardActionSelect": "Выбрать",
+  "viewerZoomIn": "Увеличить (2.5×)",
+  "ugoiraPreparingExport": "Подготовка угоиры…",
+  "tagMuteModeDone": "Готово",
+  "downloadOpenFile": "Открыть файл",
+  "downloadShowInFolder": "Показать в папке",
+  "downloadFileMissing": "Скачанный файл больше не существует",
+  "downloadOpenFailed": "Не удалось открыть файл",
+  "reverseImagePasteImage": "Вставить изображение",
+  "reverseImagePasteEmpty": "В буфере обмена нет изображения",
+  "reverseImageDropHint": "Перетащите изображение для поиска",
+  "localNovelsDropHint": "Перетащите файлы TXT для импорта",
+  "localNovelsDropUnsupported": "Поддерживается импорт только файлов .txt"
 }

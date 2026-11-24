@@ -16,7 +16,7 @@ applies_to:
   - lib/app/widgets/watchlist_toggle.dart
   - lib/app/widgets/comment_composer.dart
   - lib/app/widgets/feed/desktop_gallery_controls.dart
-reviewed: 2026-11-22
+reviewed: 2026-11-23
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -61,7 +61,9 @@ reviewed: 2026-11-22
   bounded centered dialogs or trailing side sheets for tablets as well as
   desktops, while `usePointerOverlay` (width >= 600dp, height >= 480dp,
   and pointer input) limits pointer-anchored popovers to cursor inputs so
-  wide touch viewports fall back to `showAppAdaptiveDialog`. `showAppDatePicker`
+  wide touch viewports fall back to `showAppAdaptiveDialog`. Adaptive popovers
+  scale from their anchor corner/edge (never screen center) and re-resolve live
+  `anchorContext` post-frame on viewport resize. `showAppDatePicker`
   presents `AppDatePickerDialog` backed by `FCalendar.grid` with UTC day
   clamping, and dialogs use `AppAlertDialog` backed by `FDialog`. A modal
   surface that places itself (the docked search input, NAV-25) uses
@@ -75,7 +77,7 @@ reviewed: 2026-11-22
   and Android tablets full-width mobile bottom sheets; decoupling
   `useWideOverlay` from `usePointerOverlay` gives touch tablets bounded
   dialogs and side sheets while avoiding pointer-anchored popovers.
-- **Check:** `test/architecture/ui_conventions_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "a drag outside closes it on release, one layer only" "useWideOverlay and usePointerOverlay split container shape from pointer anchoring" "wide touch viewports render bounded dialog, side sheet, and dialog popover" "AppDatePickerDialog clamps out-of-range today and returns a local DateTime" "AppAlertDialog mounts FDialog with inner Material for TextField"
+- **Check:** `test/architecture/ui_conventions_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "a drag outside closes it on release, one layer only" "useWideOverlay and usePointerOverlay split container shape from pointer anchoring" "wide touch viewports render bounded dialog, side sheet, and dialog popover" "AppDatePickerDialog clamps out-of-range today and returns a local DateTime" "AppAlertDialog mounts FDialog with inner Material for TextField" "adaptive popover scales from anchor direction and re-anchors on resize"
 - **Code:** `lib/app/motion/app_overlays.dart`, `lib/app/widgets/app_dialog.dart`, `lib/app/widgets/app_date_picker.dart`
 
 ### FB-03 Each action appears once at a time
@@ -228,19 +230,25 @@ reviewed: 2026-11-22
 - **Check:** `test/architecture/ui_conventions_test.dart` "UI clipboard writes go through copyToClipboard"
 - **Code:** `lib/app/clipboard.dart`
 
-### FB-16 Desktop original image clipboard copy uses ImageClipboard and deferAppSnackBar
+### FB-16 Desktop image clipboard copy/paste and file drop use native channels and deferAppSnackBar
 - **Rule:** On desktop platforms (`isDesktopImageClipboardSupported` on Windows,
   macOS, and Linux), card and detail action sheets expose original-image copy
   via `copyIllustOriginalImageToClipboard`: read strings and prompt host before
   any `await` (`deferAppSnackBar`), resolve original image bytes through
   `imageWorkerProvider`, invoke `MethodChannel('parfait/image_clipboard')`, emit
   `AppHaptics.success()` on success, and surface `imageCopyFailed` explicitly on
-  failure; non-desktop platforms omit this action.
-- **Why:** Native image copying spans async fetch and OS clipboard codecs;
-  capturing the prompt host upfront guarantees feedback outlives a scrolled or
-  dismissed opener without showing broken controls on mobile.
-- **Check:** `test/illust_detail_actions_test.dart` "ImageClipboard channel and copy-image action copy original bytes with desktop-only gating and deferAppSnackBar"
-- **Code:** `lib/core/platform/image_clipboard.dart`, `lib/app/clipboard.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `windows/runner/flutter_window.cpp`, `macos/Runner/MainFlutterWindow.swift`, `linux/runner/my_application.cc`
+  failure; non-desktop platforms omit this action. `ImageClipboard.readImageBytes`
+  (`readImage`) backs `Ctrl/Cmd+V` and the desktop paste button on
+  `ReverseImageSearchPage`, surfacing `reverseImagePasteEmpty` when no image is
+  present. `DesktopFileDropTarget` listens to `EventChannel('parfait/file_drop/events')`
+  only while its route `isCurrent`, paints a `FuncShape.panel` highlight overlay
+  during drag hover, and forwards dropped files to `ReverseImageSearchPage` and
+  `LocalNovelsPage`.
+- **Why:** Native image copy/paste and file drops span async OS codecs and
+  sandbox permissions; capturing prompt hosts upfront guarantees feedback
+  outlives dismissed openers while keeping mobile chrome uncluttered.
+- **Check:** `test/illust_detail_actions_test.dart` "ImageClipboard channel and copy-image action copy original bytes with desktop-only gating and deferAppSnackBar"; `test/reverse_image_search_page_test.dart` "desktop Ctrl+V pastes clipboard image, reports empty clipboard, and handles file drop"; `test/local_novel_page_test.dart` "desktop file drop shows highlight, rejects non-TXT, and imports TXT"
+- **Code:** `lib/core/platform/image_clipboard.dart`, `lib/core/platform/desktop_file_drop.dart`, `lib/app/widgets/desktop_file_drop_target.dart`, `lib/app/clipboard.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/features/search/reverse_image_search_page.dart`, `lib/features/localnovel/local_novels_page.dart`, `windows/runner/flutter_window.cpp`, `macos/Runner/MainFlutterWindow.swift`, `linux/runner/my_application.cc`
 
 ## Late callbacks
 
@@ -271,7 +279,7 @@ reviewed: 2026-11-22
 - **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/comment_composer.dart`, `lib/features/settings/pages/account_settings_page.dart`, `lib/app/widgets/settings/persist_settings.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/follow_switch_button.dart`, `lib/features/watchlater/watchlater_page.dart`
 
 ### FB-17 iOS Taptic Engine probing and frosted preview card context menu
-- **Rule:** On iOS, `IosHapticsDriver` probes `parfait/haptics` (`capabilities`) for Taptic Engine hardware and maps semantic roles through `UINotificationFeedbackGenerator` (`success`, `warning`, `error`) and `UIImpactFeedbackGenerator`, while `hapticsDriverProvider` watches `hapticsCapabilityProvider` and downgrades unsupported devices (hardwareless iPads) to `NoHapticsDriver` at runtime. Touch long-press on `IllustCard` under `TargetPlatform.iOS` replaces the Material bottom sheet with `IosCardContextMenu` (frosted blur backdrop, spring-lifted card preview respecting mute blur, compact action menu with deduplicated `Semantics`), reflecting live action state updates.
+- **Rule:** On iOS, `IosHapticsDriver` probes `parfait/haptics` (`capabilities`) for Taptic Engine hardware and maps semantic roles through `UINotificationFeedbackGenerator` (`success`, `warning`, `error`) and `UIImpactFeedbackGenerator`, while `hapticsDriverProvider` watches `hapticsCapabilityProvider` and downgrades unsupported devices (hardwareless iPads) to `NoHapticsDriver` at runtime. Touch long-press on `IllustCard` under `TargetPlatform.iOS` replaces the Material bottom sheet with `IosCardContextMenu` (frosted blur backdrop, spring-lifted card preview reusing `PixivImage.feedDecodeWidthOf`, `previewQualityProvider`, and the full `illustCardPreview` tuple while respecting mute blur, compact action menu with deduplicated `Semantics`), reflecting live action state updates.
 - **Why:** Hardwareless iPads avoid no-op channel calls while iPhones get system notification waveforms, and frosted card preview keeps visual focus on the long-pressed artwork instead of pulling the thumb across a bottom modal sheet.
 - **Check:** `test/app_haptics_test.dart` "notification waveforms map success, warning, and error" "capability distinguishes iPhone Taptic Engine vs hardwareless iPad" "play swallows platform errors on notification channel", `test/card_action_test.dart` "iOS long-press replaces bottom sheet with frosted preview context menu and runs actions"
 - **Code:** `lib/app/haptics/haptics_driver.dart`, `ios/Runner/AppDelegate.swift`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/card_actions/ios_card_context_menu.dart`

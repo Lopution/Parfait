@@ -518,6 +518,20 @@ final translationCredentialStoreProvider = Provider<TranslationCredentialStore>(
   (ref) => SecureTranslationCredentialStore(),
 );
 
+class _TranslationCredentialsRevisionNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
+}
+
+/// Monotonic revision bumped whenever [TranslationCredentialStore] writes or
+/// deletes credentials so wide-settings summaries refresh immediately.
+final translationCredentialsRevisionProvider =
+    NotifierProvider<_TranslationCredentialsRevisionNotifier, int>(
+      _TranslationCredentialsRevisionNotifier.new,
+    );
+
 /// Live translation provider selection (non-secret). A cleared credential is
 /// observed on the next tap because selection and credentials are read per
 /// request.

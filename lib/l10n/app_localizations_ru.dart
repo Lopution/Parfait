@@ -1772,7 +1772,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get rankingDragHint =>
-      'Удерживайте и перетащите, чтобы изменить порядок';
+      'Перетащите значок слева для сортировки или нажмите ×, чтобы скрыть';
 
   @override
   String get arrangementHidden => 'Скрытые';
@@ -2711,6 +2711,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get followSwitchToPublic => 'Сделать публичной';
 
   @override
+  String get followSwitchVisibility => 'Изменить видимость подписки';
+
+  @override
   String get followFailed => 'Не удалось изменить подписку';
 
   @override
@@ -2996,6 +2999,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get localNovelsDelete => 'Удалить';
+
+  @override
+  String get localNovelsDeleteFailed => 'Не удалось удалить локальную новеллу';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'Превышен лимит читалки ($limit символов)';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'Превышен лимит читалки ($limit абзацев)';
+  }
 
   @override
   String localNovelsDeleteConfirm(String title) {
@@ -3438,4 +3454,50 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => 'Следующая работа';
+
+  @override
+  String get batchSelectWork => 'Выбрать работу';
+
+  @override
+  String get batchDeselectWork => 'Снять выбор с работы';
+
+  @override
+  String get cardActionSelect => 'Выбрать';
+
+  @override
+  String get viewerZoomIn => 'Увеличить (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => 'Подготовка угоиры…';
+
+  @override
+  String get tagMuteModeDone => 'Готово';
+
+  @override
+  String get downloadOpenFile => 'Открыть файл';
+
+  @override
+  String get downloadShowInFolder => 'Показать в папке';
+
+  @override
+  String get downloadFileMissing => 'Скачанный файл больше не существует';
+
+  @override
+  String get downloadOpenFailed => 'Не удалось открыть файл';
+
+  @override
+  String get reverseImagePasteImage => 'Вставить изображение';
+
+  @override
+  String get reverseImagePasteEmpty => 'В буфере обмена нет изображения';
+
+  @override
+  String get reverseImageDropHint => 'Перетащите изображение для поиска';
+
+  @override
+  String get localNovelsDropHint => 'Перетащите файлы TXT для импорта';
+
+  @override
+  String get localNovelsDropUnsupported =>
+      'Поддерживается импорт только файлов .txt';
 }

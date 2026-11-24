@@ -11,10 +11,12 @@ import '../../l10n/context.dart';
 import '../icons/app_icons.dart';
 import '../icons/ui_icons.dart';
 import '../navigation/forward_history.dart';
+import '../navigation/route_facade.dart';
 import '../person_avatar.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../widgets/replica_switch_tile.dart';
 import '../widgets/settings/persist_settings.dart';
+import 'desktop_drag_region.dart';
 import 'desktop_title_bar.dart';
 
 /// Draggable title-bar spacer between command-bar clusters.
@@ -31,9 +33,9 @@ class DesktopCommandDragSpacer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
-      child: GestureDetector(
+      child: DesktopDragRegion(
         behavior: HitTestBehavior.opaque,
-        onPanStart: actions == null ? null : (_) => actions!.onStartDragging(),
+        onStartDragging: actions?.onStartDragging,
         onDoubleTap: actions?.onTitleBarDoubleClick,
         child: SizedBox(height: height),
       ),
@@ -308,9 +310,12 @@ class DesktopCommandAccountPopover extends ConsumerWidget {
           onTap: () {
             Navigator.of(context).pop();
             final currentUri = liveRouterUri(router);
-            if (currentUri.path != '/settings/all' ||
-                currentUri.queryParameters['section'] != 'account') {
-              router.go('/settings/all?section=account');
+            if (currentUri.path == settingsAccountPath) {
+              ForwardHistoryStack.ofRouter(
+                router,
+              ).syncSettingsDetail(settingsAccountPath);
+            } else {
+              router.go(settingsAccountPath);
             }
           },
         ),

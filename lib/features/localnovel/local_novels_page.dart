@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../app/widgets/danger_filled_button.dart';
+import '../../app/widgets/desktop_file_drop_target.dart';
 import '../../app/format/app_format.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/layout/content_widths.dart';
@@ -61,11 +63,15 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
           ),
         ],
       ),
-      // Management-list cap (parent §5.5): below
-      // ContentWidths.management the constraint is a no-op.
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: ContentWidths.management),
+      // Management-list cap (parent §5.5): left-aligned inside embedded
+      // workspaces to follow AppTopBar (PAGE-23), centered standalone.
+      body: DesktopFileDropTarget(
+        hint: context.l10n.localNovelsDropHint,
+        icon: AppIcons.fileImport,
+        onFilesDropped: (paths) => unawaited(_handleDroppedFiles(paths)),
+        child: ContentWidthCap(
+          maxWidth: ContentWidths.management,
+          alignStart: EmbeddedHeaderScope.isActiveOf(context),
           child: async.when(
             loading: () => const FeedLoading(),
             error: (error, _) => FeedError(
@@ -109,11 +115,36 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
     );
   }
 
-  Future<void> _import(BuildContext context, WidgetRef ref) async {
+  Future<void> _import(BuildContext context, WidgetRef ref) => _runImport(
+    context,
+    () => ref.read(localNovelStoreProvider.notifier).importPicked(),
+  );
+
+  Future<void> _handleDroppedFiles(List<String> paths) async {
+    final txtPaths = [
+      for (final path in paths)
+        if (p.extension(path).toLowerCase() == '.txt') path,
+    ];
+    if (txtPaths.isEmpty) {
+      if (!mounted) return;
+      showAppSnackBar(context, context.l10n.localNovelsDropUnsupported);
+      return;
+    }
+    for (final path in txtPaths) {
+      if (!mounted) return;
+      await _runImport(
+        context,
+        () => ref.read(localNovelStoreProvider.notifier).importFilePath(path),
+      );
+    }
+  }
+
+  Future<void> _runImport(
+    BuildContext context,
+    Future<LocalNovel?> Function() action,
+  ) async {
     try {
-      final novel = await ref
-          .read(localNovelStoreProvider.notifier)
-          .importPicked();
+      final novel = await action();
       if (!context.mounted || novel == null) return;
       showAppSnackBar(
         context,
@@ -128,6 +159,22 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
         context.l10n.errorWithReason(
           context.l10n.localNovelsImportFailed,
           context.l10n.importFileTooLarge(error.maxMegabytes),
+        ),
+      );
+    } on LocalNovelTooLargeException catch (error) {
+      if (!context.mounted) return;
+      final reason = switch (error.kind) {
+        LocalNovelLimitKind.chars => context.l10n.localNovelsTooManyChars(
+          error.limit,
+        ),
+        LocalNovelLimitKind.paragraphs =>
+          context.l10n.localNovelsTooManyParagraphs(error.limit),
+      };
+      showAppSnackBar(
+        context,
+        context.l10n.errorWithReason(
+          context.l10n.localNovelsImportFailed,
+          reason,
         ),
       );
     } on Object catch (error) {
@@ -236,13 +283,17 @@ class _LocalNovelTile extends ConsumerWidget {
       context,
       listen: false,
     ).read(localNovelStoreProvider.notifier);
+    final failed = deferErrorSnackBar(
+      context,
+      action: context.l10n.localNovelsDeleteFailed,
+    );
     final removals = RemovalScope.of(context);
     await removals.playExit([novel.id]);
     try {
       await store.delete(novel);
-    } on Object {
+    } on Object catch (error, stack) {
       removals.restore([novel.id]);
-      rethrow;
+      failed(error, stack);
     }
   }
 }

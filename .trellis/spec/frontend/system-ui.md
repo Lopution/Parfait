@@ -37,15 +37,20 @@ reviewed: 2026-11-17
 - **Check:** `test/system_ui_test.dart` "a scoped FuncSystemBars overrides the root and restores"
 - **Code:** `lib/app/system_ui.dart`, `lib/app/widgets/app_top_bar.dart`
 
-### SYS-03 Immersive pages restore the bars on the successful pop
+### SYS-03 Immersive pages restore the bars on pop and when covered
 - **Rule:** A page that hides the system bars enters `immersiveSticky` in
-  `initState`, shows `edgeToEdge` while its chrome is shown, and restores
-  `edgeToEdge` in `onPopInvokedWithResult` when `didPop` is true, and again
-  in `dispose`. Every call is `unawaited` through `setSystemUiMode`, which
-  logs a platform failure instead of throwing.
-- **Why:** The page below needs its status bar while the pop animation is
-  still on screen; `dispose` catches pops that never notify.
-- **Check:** `test/system_ui_test.dart` "the viewer hides to immersiveSticky and exits to edgeToEdge"
+  `initState`, shows `edgeToEdge` while its chrome is shown, subscribes to
+  `RouteObserverScope` (`RouteAware`) so pushing a covering route restores
+  `edgeToEdge` (`didPushNext`) and returning re-applies `immersiveSticky` when
+  chrome is still hidden (`didPopNext` and after covering route transition
+  dismissal), and restores `edgeToEdge` in `onPopInvokedWithResult` when
+  `didPop` is true and again in `dispose`. Every call is `unawaited` through
+  `setSystemUiMode`, which logs a platform failure instead of throwing.
+- **Why:** Covered pages (such as `[[jumpuri]]` destinations) must never inherit
+  hidden bars, returning from an immersive illustration viewer must restore the
+  reader's hidden bars after the viewer disposes, and the page below needs its
+  status bar while the pop animation is on screen.
+- **Check:** `test/system_ui_test.dart` "the viewer hides to immersiveSticky and exits to edgeToEdge" "novel reader restores edgeToEdge when covered and re-enters immersiveSticky on pop"
 - **Code:** `lib/app/system_ui.dart`, `lib/features/novel/novel_reader_stage.dart`
 
 ### SYS-04 Lay out from stable insets while the bars hide

@@ -542,17 +542,24 @@ class _NovelIntroState extends ConsumerState<_NovelIntro>
         ] else
           const SizedBox(height: FuncSpacing.md),
         _NovelFacts(novel: novel),
-        if (novel.caption.isNotEmpty) ...[
-          const SizedBox(height: FuncSpacing.md),
-          // Caption HTML renders through the shared parser — <br> tags
-          // become real line breaks and links stay clickable.
-          CaptionRichText(caption: novel.caption),
-        ],
-        TranslationPanel(
-          translating: translating,
-          translations: translations,
-          failure: translationFailure,
-          emphasizeFirst: true,
+        SelectionArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (novel.caption.isNotEmpty) ...[
+                const SizedBox(height: FuncSpacing.md),
+                // Caption HTML renders through the shared parser — <br> tags
+                // become real line breaks and links stay clickable.
+                CaptionRichText(caption: novel.caption),
+              ],
+              TranslationPanel(
+                translating: translating,
+                translations: translations,
+                failure: translationFailure,
+                emphasizeFirst: true,
+              ),
+            ],
+          ),
         ),
       ],
     );

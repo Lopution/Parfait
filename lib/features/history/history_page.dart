@@ -300,6 +300,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     } else if (accountId == null) {
       _hadAnyContent = false;
     }
+    final canDeleteAll =
+        activeQuery != null &&
+        (hasVisibleRecords || (activeQuery.hasFilter && _hadAnyContent));
     final isInitialEmptyUnfiltered =
         activeQuery != null &&
         !activeQuery.hasFilter &&
@@ -391,7 +394,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         ),
                       // The overflow stays visible signed out: the record
                       // switches are global settings; only delete-all needs
-                      // an account.
+                      // an account with records.
                       AppMenuButton<_HistoryMenuAction>(
                         onSelected: (menuContext, action) => _onMenuAction(
                           menuContext,
@@ -415,7 +418,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                           AppMenuEntry(
                             value: _HistoryMenuAction.deleteAll,
                             label: context.l10n.historyDeleteAll,
-                            enabled: accountId != null,
+                            enabled: canDeleteAll,
                           ),
                         ],
                       ),

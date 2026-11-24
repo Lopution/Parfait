@@ -2,14 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/gestures.dart'
-    show GestureBinding, PointerScrollEvent, PointerSignalEvent;
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/rendering.dart'
     show
-        BoxHitTestEntry,
-        BoxHitTestResult,
         ClipRectLayer,
-        HitTestEntry,
         LayerHandle,
         PipelineOwner,
         RenderProxyBox,
@@ -31,7 +27,9 @@ import '../../core/novel/novel_entity.dart';
 import '../../core/novel/reader_settings.dart';
 import '../../l10n/context.dart';
 import 'novel_layout.dart';
+import 'novel_reader_footer.dart' show initialNovelCleanBottom;
 import 'novel_reader_text_blocks.dart';
+import 'novel_reader_wheel_interceptor.dart';
 part 'novel_reader_handle.dart';
 part 'novel_reader_views.dart';
 
@@ -178,21 +176,16 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   static const double _spreadGap = 44;
   static const double _minHingeGap = 16;
   static const double _spreadSpineAlpha = 0.09;
-  static const double _wheelTurnThreshold = 48;
-  static const int _wheelIdleResetMs = 300;
-  static const int _wheelTurnCooldownMs = 150;
 
   final FocusNode _selectionFocusNode = FocusNode(debugLabel: 'novelSelection');
   final NovelReaderTapGate _tapGate = NovelReaderTapGate();
+  final NovelPageWheelAccumulator _wheel = NovelPageWheelAccumulator();
   bool _spread = false;
   bool? _requestedSpread;
   double _originDx = 0;
   bool _originCheckScheduled = false;
   ({double leftWidth, double gap, double rightWidth})? _bookSplit;
   double _lastViewportHeight = 0;
-  double _wheelAccum = 0;
-  int? _lastWheelEventMs;
-  int? _lastWheelTurnMs;
 
   Object? _layoutError;
   Size? _requestedViewport;
@@ -214,6 +207,17 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   /// The anchor the scroll mode last reported, so a scroll that settles on
   /// the line it started from writes nothing.
   NovelAnchor? _settledAnchor;
+
+  /// Whether scroll mode currently sits within bottom tolerance of
+  /// `maxScrollExtent`, allowing display progress/chapters/bookmarks to reach
+  /// the end while preserving the top-line restore anchor (M5-1).
+  bool _scrollAtBottom = false;
+
+  /// Pending target view index while an animated programmatic page turn is in
+  /// flight so rapid consecutive taps/keys accumulate instead of dropping turns.
+  int? _targetViewIndex;
+  int _turnEpoch = 0;
+  bool _pagePointerDown = false;
 
   bool get _scrolls => widget.settings.pageTurn == NovelPageTurn.scroll;
 
@@ -264,9 +268,45 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   int _viewCount(NovelLayout layout) =>
       _spread ? (layout.pages.length + 1) ~/ 2 : layout.pages.length;
 
-  int _stepTargetPage(int delta) => (_scrolls || !_spread)
-      ? _reader.currentPage + delta
-      : (_reader.currentPage ~/ 2 + delta) * 2;
+  int _stepTargetPage(int delta) {
+    if (_scrolls) return _reader.currentPage + delta;
+    final baseView = _targetViewIndex ?? _viewIndexForPage(_reader.currentPage);
+    final nextView = baseView + delta;
+    return _spread ? nextView * 2 : nextView;
+  }
+
+  bool _computeScrollAtBottom() {
+    if (!_scrolls || !_scrollController.hasClients) return false;
+    final pos = _scrollController.position;
+    return pos.hasContentDimensions &&
+        pos.maxScrollExtent > 0 &&
+        pos.pixels >= pos.maxScrollExtent - 1.0;
+  }
+
+  int _displayPage() {
+    final count = _reader.pageCount;
+    if (count <= 1) return 0;
+    if (_scrolls) {
+      return _scrollAtBottom ? count - 1 : _reader.currentPage;
+    }
+    if (_spread) {
+      return math.min(_reader.currentPage + 1, count - 1);
+    }
+    return _reader.currentPage;
+  }
+
+  NovelAnchor? _displayAnchor() {
+    final layout = _layout;
+    if (layout == null || layout.pages.isEmpty) return null;
+    if (_scrolls) {
+      return _scrollAtBottom ? layout.pages.last.endAnchor : _liveAnchor;
+    }
+    if (_spread) {
+      final right = math.min(_reader.currentPage + 1, layout.pages.length - 1);
+      return layout.pages[right].startAnchor;
+    }
+    return _liveAnchor;
+  }
 
   @override
   void initState() {
@@ -277,6 +317,11 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (handle != null) {
       handle.currentPage = () => _reader.currentPage;
       handle.pageCount = () => _reader.pageCount;
+      handle.displayPage = _displayPage;
+      handle.displayAnchor = _displayAnchor;
+      handle.viewportAnchor = () => _liveAnchor;
+      handle.isSpread = () => !_scrolls && _spread;
+      handle.isScrollMode = () => _scrolls;
       handle.goToPage = _goToPage;
       handle.stepPage = _stepPage;
       handle.scrollBy = _scrollBy;
@@ -309,9 +354,12 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (!_pageController.hasClients) return;
     final viewIndex = _viewIndexForPage(target);
     if (!animate) {
+      _targetViewIndex = null;
       _pageController.jumpToPage(viewIndex);
       return;
     }
+    _targetViewIndex = viewIndex;
+    _turnEpoch += 1;
     turnPage(context, _pageController, viewIndex);
   }
 
@@ -396,6 +444,11 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (handle != null) {
       handle.currentPage = null;
       handle.pageCount = null;
+      handle.displayPage = null;
+      handle.displayAnchor = null;
+      handle.viewportAnchor = null;
+      handle.isSpread = null;
+      handle.isScrollMode = null;
       handle.goToPage = null;
       handle.stepPage = null;
       handle.scrollBy = null;
@@ -443,7 +496,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         keepPage: false,
       );
     }
-    _wheelAccum = 0;
+    _wheel.reset();
+    _targetViewIndex = null;
+    _scrollAtBottom = false;
   }
 
   @override
@@ -515,36 +570,40 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             // Drive the physical page only — onPageChanged is the single
             // writer of the logical page, so a stale in-flight notification
             // can never clobber a newer target.
-            final target = _stepTargetPage(zone == NovelTapZone.next ? 1 : -1);
-            if (target < 0 || target >= _reader.pageCount) return;
-            turnPage(context, _pageController, _viewIndexForPage(target));
+            _stepPage(zone == NovelTapZone.next ? 1 : -1);
           },
-          child: _PageWheelInterceptor(
-            onPointerScroll: _onPagePointerScroll,
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _onPageScroll,
-              child: PageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.horizontal,
-                allowImplicitScrolling: true,
-                scrollCacheExtent: _neighbourPages,
-                itemCount: _viewCount(layout),
-                onPageChanged: (viewIndex) {
-                  // Nothing built reads the page: a rebuild here, mid-swipe,
-                  // rebuilt every line of the pages on screen.
-                  final page = _spread
-                      ? (viewIndex * 2).clamp(0, _reader.pageCount - 1)
-                      : viewIndex;
-                  _reader.setPage(page);
-                  _notifyAnchor(
-                    _layoutEchoPending
-                        ? NovelAnchorCause.layoutEcho
-                        : NovelAnchorCause.userTurn,
-                  );
-                  _notifyProgress();
-                },
-                itemBuilder: (context, viewIndex) =>
-                    _buildPageViewItem(layout, viewIndex, color),
+          child: Listener(
+            onPointerDown: (_) => _pagePointerDown = true,
+            onPointerUp: (_) => _pagePointerDown = false,
+            onPointerCancel: (_) => _pagePointerDown = false,
+            child: PageWheelInterceptor(
+              onPointerScroll: _onPagePointerScroll,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _onPageScroll,
+                child: PageView.builder(
+                  controller: _pageController,
+                  scrollDirection: Axis.horizontal,
+                  allowImplicitScrolling: true,
+                  scrollCacheExtent: _neighbourPages,
+                  itemCount: _viewCount(layout),
+                  onPageChanged: (viewIndex) {
+                    // Nothing built reads the page: a rebuild here, mid-swipe,
+                    // rebuilt every line of the pages on screen.
+                    if (_targetViewIndex == viewIndex) _targetViewIndex = null;
+                    final page = _spread
+                        ? (viewIndex * 2).clamp(0, _reader.pageCount - 1)
+                        : viewIndex;
+                    _reader.setPage(page);
+                    _notifyAnchor(
+                      _layoutEchoPending
+                          ? NovelAnchorCause.layoutEcho
+                          : NovelAnchorCause.userTurn,
+                    );
+                    _notifyProgress();
+                  },
+                  itemBuilder: (context, viewIndex) =>
+                      _buildPageViewItem(layout, viewIndex, color),
+                ),
               ),
             ),
           ),
@@ -678,36 +737,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   }
 
   void _onPagePointerScroll(PointerScrollEvent event) {
-    final dx = event.scrollDelta.dx;
-    final dy = event.scrollDelta.dy;
-    final primaryDelta = dy.abs() >= dx.abs() ? dy : dx;
-    if (primaryDelta == 0) return;
-
-    final stampMs = event.timeStamp.inMilliseconds;
-    if (_lastWheelEventMs != null &&
-        stampMs >= _lastWheelEventMs! &&
-        stampMs - _lastWheelEventMs! > _wheelIdleResetMs) {
-      _wheelAccum = 0;
-    }
-    if ((_wheelAccum > 0 && primaryDelta < 0) ||
-        (_wheelAccum < 0 && primaryDelta > 0)) {
-      _wheelAccum = 0;
-    }
-    _lastWheelEventMs = stampMs;
-
-    if (_lastWheelTurnMs != null &&
-        stampMs >= _lastWheelTurnMs! &&
-        stampMs - _lastWheelTurnMs! < _wheelTurnCooldownMs) {
-      return;
-    }
-
-    _wheelAccum += primaryDelta;
-    if (_wheelAccum.abs() < _wheelTurnThreshold) return;
-
-    final delta = _wheelAccum > 0 ? 1 : -1;
-    _wheelAccum = 0;
-    _lastWheelTurnMs = stampMs;
-    _stepPage(delta);
+    final delta = _wheel.stepFor(event);
+    if (delta != 0) _stepPage(delta);
   }
 
   /// The scroll mode: the pages' lines in one column, each at its measured
@@ -724,7 +755,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final topPadding = _scrollTopPadding;
     final bottomPadding = _scrollBottomPadding;
     final bottomSafe = _style.verticalPadding;
-    final cleanBottom = _initialCleanBottom(
+    final cleanBottom = initialNovelCleanBottom(
       column,
       viewportHeight: layout.key.viewport.height,
       topPadding: topPadding,
@@ -810,36 +841,6 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     );
   }
 
-  static double? _initialCleanBottom(
-    NovelScrollColumn column, {
-    required double viewportHeight,
-    required double topPadding,
-    required double bottomSafe,
-  }) {
-    final maxBottom = viewportHeight - bottomSafe;
-    if (maxBottom <= topPadding) return null;
-    double? lastFullBottom;
-    var hasPartialLine = false;
-    for (var i = 0; i < column.items.length; i++) {
-      final itemTop = topPadding + column.offsetOf(i);
-      if (itemTop >= maxBottom) break;
-      final line = column.items[i].line;
-      if (line == null || (line.text.isEmpty && line.image == null)) {
-        continue;
-      }
-      final lineBottom = itemTop + line.height;
-      if (lineBottom <= maxBottom) {
-        lastFullBottom = lineBottom;
-      } else {
-        if (line.image == null) hasPartialLine = true;
-        break;
-      }
-    }
-    if (!hasPartialLine || lastFullBottom == null) return null;
-    if (lastFullBottom < viewportHeight * 0.5) return null;
-    return lastFullBottom;
-  }
-
   double get _scrollTopPadding =>
       widget.scrollTopPadding ?? _style.verticalPadding;
 
@@ -867,10 +868,19 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       _contentOffsetForPixels(notification.metrics.pixels),
     );
     final anchor = column.anchorAt(item);
-    if (anchor == _settledAnchor) return false;
-    _settledAnchor = anchor;
-    _reader.setPage(column.items[item].page);
-    _notifyAnchor(NovelAnchorCause.userTurn);
+    final atBottom =
+        notification.metrics.maxScrollExtent > 0 &&
+        notification.metrics.pixels >=
+            notification.metrics.maxScrollExtent - 1.0;
+    final anchorChanged = anchor != _settledAnchor;
+    final bottomChanged = atBottom != _scrollAtBottom;
+    if (!anchorChanged && !bottomChanged) return false;
+    _scrollAtBottom = atBottom;
+    if (anchorChanged) {
+      _settledAnchor = anchor;
+      _reader.setPage(column.items[item].page);
+      _notifyAnchor(NovelAnchorCause.userTurn);
+    }
     _notifyProgress();
     return false;
   }
@@ -922,8 +932,26 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
 
   bool _onPageScroll(ScrollNotification notification) {
     if (notification.depth != 0) return false;
-    if (notification is ScrollStartNotification) _warmup.clear();
-    if (notification is ScrollEndNotification) _warmPagesAhead();
+    if (notification is ScrollStartNotification) {
+      _warmup.clear();
+      if (notification.dragDetails != null) _targetViewIndex = null;
+    }
+    if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      _targetViewIndex = null;
+    }
+    if (notification is ScrollEndNotification) {
+      final epoch = _turnEpoch;
+      scheduleMicrotask(() {
+        if (!mounted || _turnEpoch != epoch || _pagePointerDown) return;
+        if (_pageController.hasClients &&
+            _pageController.position.isScrollingNotifier.value) {
+          return;
+        }
+        _targetViewIndex = null;
+      });
+      _warmPagesAhead();
+    }
     return false;
   }
 
@@ -1118,11 +1146,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
                 }
               }
               _settledAnchor = _liveAnchor;
+              _scrollAtBottom = _computeScrollAtBottom();
             } else {
               if (!_pageController.hasClients) return;
               // Jump only when the page moved: a jump idles the position,
               // which would cut short a swipe the user is making while a
               // relayout (a translation arriving) lands.
+              _targetViewIndex = null;
               final restoredViewIndex = _viewIndexForPage(restoredPage);
               if (_pageController.page?.round() != restoredViewIndex) {
                 _layoutEchoPending = true;
@@ -1176,67 +1206,5 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
 
   void _notifyProgress() {
     widget.onProgressChanged?.call(_reader.currentPage, _reader.pageCount);
-  }
-}
-
-/// Captures pointer-scroll events before the inner horizontal [PageView]
-/// consumes horizontal deltas via raw pixel offsets without page snapping.
-class _PageWheelInterceptor extends SingleChildRenderObjectWidget {
-  const _PageWheelInterceptor({
-    required this.onPointerScroll,
-    required super.child,
-  });
-
-  final void Function(PointerScrollEvent event) onPointerScroll;
-
-  @override
-  _RenderPageWheelInterceptor createRenderObject(BuildContext context) =>
-      _RenderPageWheelInterceptor(onPointerScroll: onPointerScroll);
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    _RenderPageWheelInterceptor renderObject,
-  ) {
-    renderObject.onPointerScroll = onPointerScroll;
-  }
-}
-
-class _PageWheelHitTestEntry extends BoxHitTestEntry {
-  _PageWheelHitTestEntry(super.target, super.localPosition);
-
-  bool enabled = true;
-}
-
-class _RenderPageWheelInterceptor extends RenderProxyBox {
-  _RenderPageWheelInterceptor({required this.onPointerScroll});
-
-  void Function(PointerScrollEvent event) onPointerScroll;
-
-  @override
-  bool hitTest(BoxHitTestResult result, {required Offset position}) {
-    if (!size.contains(position)) return false;
-    final entry = _PageWheelHitTestEntry(this, position);
-    result.add(entry);
-    if (!hitTestChildren(result, position: position)) {
-      entry.enabled = false;
-      return false;
-    }
-    return true;
-  }
-
-  @override
-  void handleEvent(PointerEvent event, HitTestEntry entry) {
-    if (entry is _PageWheelHitTestEntry &&
-        entry.enabled &&
-        event is PointerScrollEvent) {
-      GestureBinding.instance.pointerSignalResolver.register(event, _resolve);
-    }
-  }
-
-  void _resolve(PointerSignalEvent event) {
-    if (event is PointerScrollEvent) {
-      onPointerScroll(event);
-    }
   }
 }

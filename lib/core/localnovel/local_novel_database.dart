@@ -24,7 +24,7 @@ class LocalNovelDatabase {
 
   static const databaseName = 'local_novels.db';
   static const table = 'local_novels';
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   final SqliteDatabase _sqlite;
 
@@ -41,7 +41,8 @@ class LocalNovelDatabase {
         path TEXT NOT NULL UNIQUE,
         char_count INTEGER NOT NULL DEFAULT 0,
         imported_at INTEGER NOT NULL,
-        read_offset INTEGER
+        read_offset INTEGER,
+        encoding TEXT
       )
     ''');
   }
@@ -53,6 +54,10 @@ class LocalNovelDatabase {
   ) async {
     if (oldVersion < 1) {
       await _createSchema(db);
+      return;
+    }
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE $table ADD COLUMN encoding TEXT');
     }
   }
 }

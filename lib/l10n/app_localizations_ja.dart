@@ -1733,7 +1733,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingEditDone => '完了';
 
   @override
-  String get rankingDragHint => '長押しでドラッグして並べ替え';
+  String get rankingDragHint => '左のハンドルをドラッグして並べ替え、× で非表示';
 
   @override
   String get arrangementHidden => '非表示';
@@ -2649,6 +2649,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get followSwitchToPublic => '公開に切り替え';
 
   @override
+  String get followSwitchVisibility => '公開・非公開フォロー切替';
+
+  @override
   String get followFailed => 'フォロー操作に失敗しました';
 
   @override
@@ -2933,6 +2936,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localNovelsDelete => '削除';
+
+  @override
+  String get localNovelsDeleteFailed => 'ローカル小説の削除に失敗しました';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'リーダーの上限（$limit 文字）を超えています';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'リーダーの上限（$limit 段落）を超えています';
+  }
 
   @override
   String localNovelsDeleteConfirm(String title) {
@@ -3353,4 +3369,49 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => '次の作品';
+
+  @override
+  String get batchSelectWork => 'この作品を選択';
+
+  @override
+  String get batchDeselectWork => 'この作品の選択を解除';
+
+  @override
+  String get cardActionSelect => '複数選択';
+
+  @override
+  String get viewerZoomIn => '拡大 (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => 'うごイラを準備中…';
+
+  @override
+  String get tagMuteModeDone => '完了';
+
+  @override
+  String get downloadOpenFile => 'ファイルを開く';
+
+  @override
+  String get downloadShowInFolder => 'フォルダに表示';
+
+  @override
+  String get downloadFileMissing => 'ファイルが見つかりません';
+
+  @override
+  String get downloadOpenFailed => 'ファイルを開けませんでした';
+
+  @override
+  String get reverseImagePasteImage => '画像を貼り付け';
+
+  @override
+  String get reverseImagePasteEmpty => 'クリップボードに画像がありません';
+
+  @override
+  String get reverseImageDropHint => '画像をドロップして検索';
+
+  @override
+  String get localNovelsDropHint => 'TXT ファイルをドロップしてインポート';
+
+  @override
+  String get localNovelsDropUnsupported => 'インポートできるのは .txt ファイルのみです';
 }

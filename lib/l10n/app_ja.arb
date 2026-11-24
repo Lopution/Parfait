@@ -780,7 +780,7 @@
   "rankingMyCategories": "マイカテゴリー",
   "rankingEdit": "編集",
   "rankingEditDone": "完了",
-  "rankingDragHint": "長押しでドラッグして並べ替え",
+  "rankingDragHint": "左のハンドルをドラッグして並べ替え、× で非表示",
   "arrangementHidden": "非表示",
   "rankingHiddenEmpty": "すべてのカテゴリーを表示中",
   "restoreDefault": "デフォルトに戻す",
@@ -1101,6 +1101,7 @@
   "followPublicAction": "フォローする",
   "followSwitchToPrivate": "非公開に切り替え",
   "followSwitchToPublic": "公開に切り替え",
+  "followSwitchVisibility": "公開・非公開フォロー切替",
   "followFailed": "フォロー操作に失敗しました",
   "userPreviewFollow": "フォロー",
   "novelLoading": "小説を読み込み中",
@@ -1216,6 +1217,23 @@
   },
   "localNovelsImportedLossy": "インポートしましたが、エンコーディングを完全に認識できず文字化けしている可能性があります",
   "localNovelsDelete": "削除",
+  "localNovelsDeleteFailed": "ローカル小説の削除に失敗しました",
+  "localNovelsTooManyChars": "リーダーの上限（{limit} 文字）を超えています",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "リーダーの上限（{limit} 段落）を超えています",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "「{title}」を削除しますか？ローカルファイルも削除されます。",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
@@ -1460,5 +1478,20 @@
     }
   },
   "previousArtworkTooltip": "前の作品",
-  "nextArtworkTooltip": "次の作品"
+  "nextArtworkTooltip": "次の作品",
+  "batchSelectWork": "この作品を選択",
+  "batchDeselectWork": "この作品の選択を解除",
+  "cardActionSelect": "複数選択",
+  "viewerZoomIn": "拡大 (2.5×)",
+  "ugoiraPreparingExport": "うごイラを準備中…",
+  "tagMuteModeDone": "完了",
+  "downloadOpenFile": "ファイルを開く",
+  "downloadShowInFolder": "フォルダに表示",
+  "downloadFileMissing": "ファイルが見つかりません",
+  "downloadOpenFailed": "ファイルを開けませんでした",
+  "reverseImagePasteImage": "画像を貼り付け",
+  "reverseImagePasteEmpty": "クリップボードに画像がありません",
+  "reverseImageDropHint": "画像をドロップして検索",
+  "localNovelsDropHint": "TXT ファイルをドロップしてインポート",
+  "localNovelsDropUnsupported": "インポートできるのは .txt ファイルのみです"
 }

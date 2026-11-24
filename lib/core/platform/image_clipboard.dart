@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Whether the current platform supports writing encoded image bytes to the OS
-/// clipboard through [ImageClipboard].
+/// Whether the current platform supports reading/writing encoded image bytes
+/// through [ImageClipboard].
 bool get isDesktopImageClipboardSupported {
   if (kIsWeb) return false;
   return switch (defaultTargetPlatform) {
@@ -41,4 +42,30 @@ class ImageClipboard {
       return false;
     }
   }
+
+  /// Reads an encoded image (PNG) from the OS clipboard on desktop platforms.
+  /// Returns `null` when the clipboard has no image or on unsupported targets.
+  static Future<Uint8List?> readImageBytes({MethodChannel? channel}) async {
+    if (!isDesktopImageClipboardSupported) {
+      return null;
+    }
+    try {
+      final bytes = await (channel ?? _channel).invokeMethod<Uint8List>(
+        'readImage',
+      );
+      if (bytes == null || bytes.isEmpty) return null;
+      return bytes;
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
 }
+
+/// Injectable desktop clipboard image reader so widget tests can supply
+/// pasted image bytes without a live OS clipboard.
+final desktopImageClipboardReaderProvider =
+    Provider<Future<Uint8List?> Function()>(
+      (ref) => ImageClipboard.readImageBytes,
+    );

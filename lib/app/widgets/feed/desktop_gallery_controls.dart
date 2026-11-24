@@ -8,6 +8,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../../haptics/app_haptics.dart';
 import '../../layout/app_breakpoints.dart';
+import '../../navigation/home_shell_metrics.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../../window/desktop_command_bar_scope.dart';
 import '../app_menu_button.dart';
@@ -31,9 +32,9 @@ class DesktopGalleryControls extends ConsumerWidget {
     if (!visible || !DesktopCommandBarScope.isActiveOf(context)) {
       return const SizedBox.shrink();
     }
-    final width = MediaQuery.widthOf(context);
+    final width = HomeShellChrome.contentSizeOf(context).width;
     final showDensity = width >= AppBreakpoints.medium;
-    final showDetailMode = width >= desktopInspectorMinWidth;
+    final showDetailMode = width >= desktopInspectorHostMinWidth;
     if (!showDensity && !showDetailMode) {
       return const SizedBox.shrink();
     }

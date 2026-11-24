@@ -15,14 +15,17 @@ import '../../layout/app_breakpoints.dart';
 import '../../layout/input_modality.dart';
 import '../../motion/app_overlays.dart';
 import '../../motion/motion_tokens.dart';
+import '../../navigation/home_shell_metrics.dart';
 import '../../navigation/route_facade.dart';
 import '../../pull_to_refresh.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../../window/desktop_command_bar_scope.dart';
 import '../app_snack_bar.dart';
 import '../errors/error_details.dart';
+import '../smooth_wheel_scroll.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/ui_icons.dart';
+import 'desktop_inspector_scope.dart';
 
 bool _isHostOnScreen(BuildContext context) =>
     isRenderBoxVisibleOnScreen(context);
@@ -310,23 +313,36 @@ class SelectableFeedHost extends StatefulWidget {
 class _SelectableFeedHostState extends State<SelectableFeedHost> {
   final _controller = FeedSelectionController();
   final _childKey = GlobalKey();
+  var _hadSelection = false;
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onSelectionChanged);
     FeedSelectionAnchor._attach(this);
+  }
+
+  void _onSelectionChanged() {
+    final hasSelection = _controller.hasSelection;
+    if (hasSelection && !_hadSelection && mounted) {
+      DesktopInspectorScope.maybeOf(context)?.close();
+    }
+    _hadSelection = hasSelection;
   }
 
   @override
   void dispose() {
     FeedSelectionAnchor._detach(this);
+    _controller.removeListener(_onSelectionChanged);
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isMac = Theme.of(context).platform == TargetPlatform.macOS;
+    final platform = Theme.of(context).platform;
+    final isApple =
+        platform == TargetPlatform.macOS || platform == TargetPlatform.iOS;
     return LayoutBuilder(
       builder: (context, constraints) {
         _controller.syncEnabledFromLayout(
@@ -341,7 +357,7 @@ class _SelectableFeedHostState extends State<SelectableFeedHost> {
           controller: _controller,
           child: Shortcuts(
             shortcuts: <ShortcutActivator, Intent>{
-              if (isMac)
+              if (isApple)
                 const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
                     const _FeedSelectAllIntent()
               else
@@ -376,7 +392,13 @@ class _SelectableFeedHostState extends State<SelectableFeedHost> {
                           start: FuncSpacing.lg,
                           end: FuncSpacing.lg,
                           bottom:
-                              MediaQuery.paddingOf(context).bottom +
+                              math.max(
+                                MediaQuery.paddingOf(context).bottom,
+                                HomeShellChrome.maybeOf(
+                                      context,
+                                    )?.bottomBarExtent ??
+                                    0,
+                              ) +
                               FuncSpacing.lg,
                           child: Center(
                             child: FeedBatchActionBar(controller: _controller),
@@ -762,12 +784,9 @@ class _FeedSelectableCardDecoratorState
         InputModalityScope.maybeOf(context) ??
         defaultInputModalityFor(Theme.of(context).platform);
     final colors = Theme.of(context).colorScheme;
-    return MouseRegion(
-      onEnter: (_) {
-        if (!_hovered) setState(() => _hovered = true);
-      },
-      onExit: (_) {
-        if (_hovered) setState(() => _hovered = false);
+    return ScrollAwareHoverRegion(
+      onHover: (hovered) {
+        if (_hovered != hovered) setState(() => _hovered = hovered);
       },
       child: ListenableBuilder(
         listenable: controller,
@@ -807,8 +826,8 @@ class _FeedSelectableCardDecoratorState
                     button: true,
                     selected: selected,
                     label: selected
-                        ? context.l10n.batchClearSelection
-                        : context.l10n.selectAll,
+                        ? context.l10n.batchDeselectWork
+                        : context.l10n.batchSelectWork,
                     child: GestureDetector(
                       key: Key('feed-select-badge-${widget.entityId}'),
                       behavior: HitTestBehavior.opaque,

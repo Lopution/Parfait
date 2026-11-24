@@ -1784,7 +1784,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingEditDone => 'Done';
 
   @override
-  String get rankingDragHint => 'Long-press and drag to reorder';
+  String get rankingDragHint => 'Drag the handle to reorder, or tap × to hide';
 
   @override
   String get arrangementHidden => 'Hidden';
@@ -2726,6 +2726,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get followSwitchToPublic => 'Make public';
 
   @override
+  String get followSwitchVisibility => 'Switch public/private follow';
+
+  @override
   String get followFailed => 'Follow action failed';
 
   @override
@@ -3012,6 +3015,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localNovelsDelete => 'Delete';
+
+  @override
+  String get localNovelsDeleteFailed => 'Failed to delete local novel';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'Exceeds the $limit-character reader limit';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'Exceeds the $limit-paragraph reader limit';
+  }
 
   @override
   String localNovelsDeleteConfirm(String title) {
@@ -3446,4 +3462,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => 'Next artwork';
+
+  @override
+  String get batchSelectWork => 'Select work';
+
+  @override
+  String get batchDeselectWork => 'Deselect work';
+
+  @override
+  String get cardActionSelect => 'Select';
+
+  @override
+  String get viewerZoomIn => 'Zoom in (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => 'Preparing ugoira…';
+
+  @override
+  String get tagMuteModeDone => 'Done';
+
+  @override
+  String get downloadOpenFile => 'Open file';
+
+  @override
+  String get downloadShowInFolder => 'Show in folder';
+
+  @override
+  String get downloadFileMissing => 'Downloaded file no longer exists';
+
+  @override
+  String get downloadOpenFailed => 'Could not open downloaded file';
+
+  @override
+  String get reverseImagePasteImage => 'Paste image';
+
+  @override
+  String get reverseImagePasteEmpty => 'No image in clipboard';
+
+  @override
+  String get reverseImageDropHint => 'Drop an image to search';
+
+  @override
+  String get localNovelsDropHint => 'Drop TXT files to import';
+
+  @override
+  String get localNovelsDropUnsupported => 'Only .txt files can be imported';
 }

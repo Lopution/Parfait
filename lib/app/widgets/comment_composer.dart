@@ -533,10 +533,12 @@ class CommentComposerState extends State<CommentComposer>
                       width: double.infinity,
                       // On the page's 16dp margin; the close glyph, not its
                       // target, ends on it (LAYOUT-15).
-                      padding: const EdgeInsetsDirectional.fromSTEB(
+                      padding: EdgeInsetsDirectional.fromSTEB(
                         FuncSpacing.lg,
                         FuncSpacing.sm,
-                        FuncSpacing.lg - EdgeIconButtons.glyphInset,
+                        widget.onCancelReply == null
+                            ? FuncSpacing.lg
+                            : FuncSpacing.lg - EdgeIconButtons.glyphInset,
                         0,
                       ),
                       child: Row(
@@ -552,11 +554,12 @@ class CommentComposerState extends State<CommentComposer>
                               style: theme.textTheme.bodySmall,
                             ),
                           ),
-                          IconButton(
-                            tooltip: context.l10n.commentCancelReply,
-                            onPressed: _disabled ? null : widget.onCancelReply,
-                            icon: const Icon(UiIcons.close, size: 18),
-                          ),
+                          if (widget.onCancelReply case final cancel?)
+                            IconButton(
+                              tooltip: context.l10n.commentCancelReply,
+                              onPressed: _disabled ? null : cancel,
+                              icon: const Icon(UiIcons.close, size: 18),
+                            ),
                         ],
                       ),
                     ),

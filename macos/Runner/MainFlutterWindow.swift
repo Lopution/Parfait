@@ -2,6 +2,20 @@ import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
+  private(set) var lastPrimaryMouseEvent: NSEvent?
+
+  override func sendEvent(_ event: NSEvent) {
+    switch event.type {
+    case .leftMouseDown, .leftMouseDragged:
+      lastPrimaryMouseEvent = event
+    case .leftMouseUp:
+      lastPrimaryMouseEvent = nil
+    default:
+      break
+    }
+    super.sendEvent(event)
+  }
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     // The desktop default and floor from lib/app/window/window_geometry.dart
@@ -27,6 +41,15 @@ class MainFlutterWindow: NSWindow {
     self.styleMask.insert(.fullSizeContentView)
     self.titlebarAppearsTransparent = true
     self.titleVisibility = .hidden
+    if #available(macOS 11.0, *) {
+      let unifiedToolbar = NSToolbar(
+        identifier: NSToolbar.Identifier("ParfaitUnifiedToolbar")
+      )
+      unifiedToolbar.showsBaselineSeparator = false
+      unifiedToolbar.displayMode = .iconOnly
+      self.toolbar = unifiedToolbar
+      self.toolbarStyle = .unified
+    }
 
     MacosDesktopWindowBridge.shared.register(
       window: self,
@@ -40,6 +63,13 @@ class MainFlutterWindow: NSWindow {
       messenger: flutterViewController.engine.binaryMessenger
     )
     MacosImageClipboardBridge.shared.register(
+      messenger: flutterViewController.engine.binaryMessenger
+    )
+    MacosDesktopFileActionsBridge.shared.register(
+      messenger: flutterViewController.engine.binaryMessenger
+    )
+    MacosFileDropBridge.shared.register(
+      window: self,
       messenger: flutterViewController.engine.binaryMessenger
     )
   }
@@ -163,6 +193,54 @@ final class MacosBookmarkBridge {
       }
     }
     result(nil)
+  }
+
+  func withOptionalBookmarkAccess<T>(
+    token: String?,
+    onDenied: T,
+    _ body: () -> T
+  ) -> T {
+    guard let token, !token.isEmpty else {
+      return body()
+    }
+    guard let data = Data(base64Encoded: token) else {
+      return onDenied
+    }
+    if var existing = activeAccess[token] {
+      existing.count += 1
+      activeAccess[token] = existing
+      defer { releaseToken(token) }
+      return body()
+    }
+    do {
+      var isStale = false
+      let resolvedUrl = try URL(
+        resolvingBookmarkData: data,
+        options: [.withSecurityScope],
+        relativeTo: nil,
+        bookmarkDataIsStale: &isStale
+      )
+      guard resolvedUrl.startAccessingSecurityScopedResource() else {
+        return onDenied
+      }
+      activeAccess[token] = (url: resolvedUrl, count: 1)
+      defer { releaseToken(token) }
+      return body()
+    } catch {
+      return onDenied
+    }
+  }
+
+  private func releaseToken(_ token: String) {
+    if var existing = activeAccess[token] {
+      existing.count -= 1
+      if existing.count <= 0 {
+        activeAccess.removeValue(forKey: token)
+        existing.url.stopAccessingSecurityScopedResource()
+      } else {
+        activeAccess[token] = existing
+      }
+    }
   }
 }
 
@@ -301,6 +379,8 @@ final class MacosDesktopWindowBridge: NSObject {
   private var channel: FlutterMethodChannel?
   private var observers: [NSObjectProtocol] = []
   private var preservedEditMenuItem: NSMenuItem?
+  private var isTerminating = false
+  private var pendingTerminateCompletion: (() -> Void)?
 
   func register(window: NSWindow, messenger: FlutterBinaryMessenger) {
     removeObservers()
@@ -333,11 +413,42 @@ final class MacosDesktopWindowBridge: NSObject {
       NSWindow.didBecomeKeyNotification,
       NSWindow.didResignKeyNotification,
     ]
-    observers = names.map { name in
+    observers.append(contentsOf: names.map { name in
       center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
         self?.emitMetrics()
       }
+    })
+  }
+
+  func requestApplicationTermination(
+    reply: @escaping () -> Void
+  ) -> NSApplication.TerminateReply {
+    guard !isTerminating, let channel else {
+      return .terminateNow
     }
+    isTerminating = true
+    var replied = false
+    let timeoutWorkItem = DispatchWorkItem { [weak self] in
+      guard !replied else { return }
+      replied = true
+      self?.pendingTerminateCompletion = nil
+      reply()
+    }
+    let finish: () -> Void = { [weak self] in
+      guard !replied else { return }
+      replied = true
+      timeoutWorkItem.cancel()
+      self?.pendingTerminateCompletion = nil
+      reply()
+    }
+    pendingTerminateCompletion = finish
+    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: timeoutWorkItem)
+    channel.invokeMethod("applicationShouldTerminate", arguments: nil) { _ in
+      DispatchQueue.main.async {
+        finish()
+      }
+    }
+    return .terminateLater
   }
 
   private func removeObservers() {
@@ -415,8 +526,15 @@ final class MacosDesktopWindowBridge: NSObject {
       }
       result(nil)
     case "startDragging":
-      if let event = NSApp.currentEvent {
-        window.performDrag(with: event)
+      let dragEvent: NSEvent?
+      if let current = NSApp.currentEvent,
+         current.type == .leftMouseDown || current.type == .leftMouseDragged {
+        dragEvent = current
+      } else {
+        dragEvent = (window as? MainFlutterWindow)?.lastPrimaryMouseEvent
+      }
+      if let dragEvent {
+        window.performDrag(with: dragEvent)
       }
       result(nil)
     case "titleBarDoubleClick":
@@ -632,6 +750,7 @@ final class MacosImageClipboardBridge {
   static let shared = MacosImageClipboardBridge()
 
   private let channelName = "parfait/image_clipboard"
+  private static let maxReadBytes = 32 * 1024 * 1024
   private var channel: FlutterMethodChannel?
 
   func register(messenger: FlutterBinaryMessenger) {
@@ -641,24 +760,31 @@ final class MacosImageClipboardBridge {
     )
     channel = methodChannel
     methodChannel.setMethodCallHandler { call, result in
-      guard call.method == "copyImage" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
-      guard
-        let args = call.arguments as? [String: Any],
-        let typed = args["bytes"] as? FlutterStandardTypedData
-      else {
-        result(
-          FlutterError(
-            code: "INVALID_ARGS",
-            message: "Missing image bytes",
-            details: nil
+      switch call.method {
+      case "copyImage":
+        guard
+          let args = call.arguments as? [String: Any],
+          let typed = args["bytes"] as? FlutterStandardTypedData
+        else {
+          result(
+            FlutterError(
+              code: "INVALID_ARGS",
+              message: "Missing image bytes",
+              details: nil
+            )
           )
-        )
-        return
+          return
+        }
+        result(Self.copyImageData(typed.data))
+      case "readImage":
+        if let data = Self.readImageData() {
+          result(FlutterStandardTypedData(bytes: data))
+        } else {
+          result(nil)
+        }
+      default:
+        result(FlutterMethodNotImplemented)
       }
-      result(Self.copyImageData(typed.data))
     }
   }
 
@@ -674,6 +800,191 @@ final class MacosImageClipboardBridge {
     let pasteboard = NSPasteboard.general
     pasteboard.clearContents()
     return pasteboard.setData(png, forType: .png)
+  }
+
+  private static func readImageData() -> Data? {
+    let pasteboard = NSPasteboard.general
+    if let png = pasteboard.data(forType: .png),
+       !png.isEmpty,
+       png.count <= maxReadBytes {
+      return png
+    }
+    guard let image = NSImage(pasteboard: pasteboard),
+          let tiff = image.tiffRepresentation,
+          let bitmap = NSBitmapImageRep(data: tiff),
+          let png = bitmap.representation(using: .png, properties: [:]),
+          !png.isEmpty,
+          png.count <= maxReadBytes
+    else {
+      return nil
+    }
+    return png
+  }
+}
+
+final class MacosDesktopFileActionsBridge {
+  static let shared = MacosDesktopFileActionsBridge()
+
+  private var channel: FlutterMethodChannel?
+
+  func register(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "parfait/desktop_file_actions",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard let args = call.arguments as? [String: Any],
+            let path = args["path"] as? String,
+            !path.isEmpty else {
+        result("failed")
+        return
+      }
+      let bookmark = args["bookmark"] as? String
+      switch call.method {
+      case "openFile":
+        let status = MacosBookmarkBridge.shared.withOptionalBookmarkAccess(
+          token: bookmark,
+          onDenied: "failed"
+        ) { () -> String in
+          guard FileManager.default.fileExists(atPath: path) else {
+            return "notFound"
+          }
+          let url = URL(fileURLWithPath: path)
+          return NSWorkspace.shared.open(url) ? "opened" : "failed"
+        }
+        result(status)
+      case "showInFolder":
+        let status = MacosBookmarkBridge.shared.withOptionalBookmarkAccess(
+          token: bookmark,
+          onDenied: "failed"
+        ) { () -> String in
+          guard FileManager.default.fileExists(atPath: path) else {
+            return "notFound"
+          }
+          let url = URL(fileURLWithPath: path)
+          NSWorkspace.shared.activateFileViewerSelecting([url])
+          return "opened"
+        }
+        result(status)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    self.channel = channel
+  }
+}
+
+private final class ParfaitFileDropOverlayView: NSView {
+  var onEntered: (() -> Void)?
+  var onExited: (() -> Void)?
+  var onDropped: (([String]) -> Void)?
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    registerForDraggedTypes([.fileURL])
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    registerForDraggedTypes([.fileURL])
+  }
+
+  override func hitTest(_ point: NSPoint) -> NSView? {
+    // Pass all regular pointer events straight through to FlutterView.
+    return nil
+  }
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    guard !extractFilePaths(from: sender).isEmpty else {
+      return []
+    }
+    onEntered?()
+    return .copy
+  }
+
+  override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    return extractFilePaths(from: sender).isEmpty ? [] : .copy
+  }
+
+  override func draggingExited(_ sender: NSDraggingInfo?) {
+    onExited?()
+  }
+
+  override func draggingEnded(_ sender: NSDraggingInfo) {
+    onExited?()
+  }
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    let paths = extractFilePaths(from: sender)
+    onExited?()
+    guard !paths.isEmpty else {
+      return false
+    }
+    onDropped?(paths)
+    return true
+  }
+
+  private func extractFilePaths(from sender: NSDraggingInfo) -> [String] {
+    let options: [NSPasteboard.ReadingOptionKey: Any] = [
+      .urlReadingFileURLsOnly: true,
+    ]
+    guard let urls = sender.draggingPasteboard.readObjects(
+      forClasses: [NSURL.self],
+      options: options
+    ) as? [URL] else {
+      return []
+    }
+    return urls.compactMap { $0.isFileURL ? $0.path : nil }
+  }
+}
+
+final class MacosFileDropBridge: NSObject, FlutterStreamHandler {
+  static let shared = MacosFileDropBridge()
+
+  private var eventChannel: FlutterEventChannel?
+  private var eventSink: FlutterEventSink?
+  private weak var dropView: ParfaitFileDropOverlayView?
+
+  func register(window: NSWindow, messenger: FlutterBinaryMessenger) {
+    let channel = FlutterEventChannel(
+      name: "parfait/file_drop/events",
+      binaryMessenger: messenger
+    )
+    channel.setStreamHandler(self)
+    self.eventChannel = channel
+
+    guard let contentView = window.contentView else { return }
+    dropView?.removeFromSuperview()
+    let overlay = ParfaitFileDropOverlayView(frame: contentView.bounds)
+    overlay.autoresizingMask = [.width, .height]
+    overlay.onEntered = { [weak self] in
+      self?.emit(["type": "entered"])
+    }
+    overlay.onExited = { [weak self] in
+      self?.emit(["type": "exited"])
+    }
+    overlay.onDropped = { [weak self] paths in
+      self?.emit(["type": "dropped", "paths": paths])
+    }
+    contentView.addSubview(overlay)
+    dropView = overlay
+  }
+
+  private func emit(_ payload: [String: Any]) {
+    eventSink?(payload)
+  }
+
+  func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    self.eventSink = events
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    self.eventSink = nil
+    return nil
   }
 }
 

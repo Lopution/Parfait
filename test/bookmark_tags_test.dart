@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:parfait/app/pull_to_refresh.dart';
+import 'package:parfait/app/widgets/smooth_wheel_scroll.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_tags_controller.dart';
@@ -585,6 +587,83 @@ void main() {
             .feedKey;
 
         expect(snapshotKey(null), isNot(snapshotKey('null')));
+      },
+    );
+
+    testWidgets(
+      'BookmarkTagsPage wires scrollController to PullToRefresh and keeps short & empty lists pull-refreshable',
+      (tester) async {
+        var calls = 0;
+        final container = await _makeContainer(_users(), {
+          '/v1/user/bookmark-tags/illust': (_) async {
+            calls += 1;
+            return jsonResponse({
+              'bookmark_tags': calls == 1
+                  ? const <Object?>[]
+                  : [
+                      {'name': 'procreate', 'count': 5},
+                    ],
+              'next_url': null,
+            });
+          },
+        });
+        await tester.pumpWidget(_testApp(container, const BookmarkTagsPage()));
+        await tester.pumpAndSettle();
+        expect(calls, 1);
+        final refresh = tester.widget<PullToRefresh>(
+          find.byType(PullToRefresh),
+        );
+        expect(refresh.scrollController, isNotNull);
+        expect(find.byType(CustomScrollView), findsOneWidget);
+
+        // Empty list triggers refresh and transitions to short AlwaysScrollable list.
+        expect(PullToRefresh.triggerActive(), isTrue);
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(calls, 2);
+        expect(find.text('procreate'), findsOneWidget);
+        final list = tester.widget<ListView>(find.byType(ListView));
+        expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
+      },
+    );
+
+    testWidgets(
+      'BookmarkTagFeedPage mounts non-nested feed with SmoothWheelScroll and searchClear button',
+      (tester) async {
+        final container = await _makeContainer(_users(), {
+          '/v1/user/bookmarks/illust': (_) async => jsonResponse({
+            'illusts': [
+              {...illustJson(1), 'title': 'Sunset'},
+              {...illustJson(2), 'title': 'Moon'},
+            ],
+            'next_url': null,
+          }),
+        });
+        await tester.pumpWidget(
+          _testApp(
+            container,
+            const BookmarkTagFeedPage(
+              tag: 'scenery',
+              restrict: BookmarkRestrict.public,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final refresh = tester.widget<PullToRefresh>(
+          find.byType(PullToRefresh),
+        );
+        expect(refresh.isNested, isFalse);
+        expect(refresh.scrollController, isNotNull);
+        expect(find.byType(SmoothWheelScroll), findsOneWidget);
+        expect(find.byTooltip('清除'), findsNothing);
+
+        await tester.enterText(find.byType(TextField), 'sunset');
+        await tester.pump();
+        expect(find.text('Moon'), findsNothing);
+        await tester.tap(find.byTooltip('清除'));
+        await tester.pump();
+        expect(find.text('Moon'), findsOneWidget);
+        expect(find.byTooltip('清除'), findsNothing);
       },
     );
   });

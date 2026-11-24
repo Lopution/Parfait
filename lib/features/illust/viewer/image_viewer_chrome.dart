@@ -8,6 +8,7 @@ class _PageScrubber extends StatefulWidget {
     required this.count,
     required this.current,
     required this.value,
+    required this.dragging,
     required this.onChanged,
     required this.onChangeEnd,
     required this.pageLabel,
@@ -22,6 +23,7 @@ class _PageScrubber extends StatefulWidget {
   final int count;
   final int current;
   final int value;
+  final bool dragging;
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
   final String Function(int page) pageLabel;
@@ -58,8 +60,7 @@ class _PageScrubberState extends State<_PageScrubber> {
   @override
   Widget build(BuildContext context) {
     const color = FuncTokens.white;
-    final dragging = widget.value != widget.current;
-    final previewPage = dragging ? widget.value : _hoverPage;
+    final previewPage = widget.dragging ? widget.value : _hoverPage;
     final thumbnail = previewPage == null
         ? null
         : widget.thumbnailUrl(previewPage);

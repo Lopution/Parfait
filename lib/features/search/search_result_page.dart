@@ -48,7 +48,7 @@ import '../../app/widgets/feed/load_more_listener.dart';
 import '../../app/icons/app_icons.dart';
 
 /// Grid padding shared by the result sliver and its first-load skeleton.
-const _illustGridPadding = EdgeInsets.all(FuncSpacing.sm);
+const _illustGridPadding = IllustFeedGrid.defaultPadding;
 
 /// Height of the filter summary row under the type tabs.
 const _filterBarHeight = 44.0;
@@ -437,6 +437,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
         ),
         body: DesktopInspectableGallery(
           active: showGalleryControls,
+          scopeKey: (_selectedType, widget.query),
           child: Column(
             children: [
               ?summary,

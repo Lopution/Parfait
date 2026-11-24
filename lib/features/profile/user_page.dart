@@ -7,24 +7,19 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/layout/app_breakpoints.dart';
-import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
-import '../../app/motion/hero_transition.dart' show LiftableBar;
 import '../../app/motion/motion_tokens.dart';
 import '../../app/motion/reveal.dart';
 import '../../app/motion/state_fade.dart';
-import '../../app/format/app_format.dart';
 import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/navigation/route_facade.dart';
 import '../../app/widgets/feed/desktop_inspectable_gallery.dart';
-import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
-import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
-import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/feed/desktop_gallery_controls.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -36,6 +31,7 @@ import '../../core/network/api_error.dart';
 import '../../app/widgets/unmute_undo.dart';
 import '../../core/mute/mute_models.dart';
 import '../../core/mute/mute_store.dart';
+import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
@@ -47,6 +43,7 @@ import 'profile_skeleton.dart';
 import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
 import 'profile_statistics.dart';
+import 'profile_wide_header.dart';
 import 'user_series_feed.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/novel/novel_feed_controller.dart';
@@ -182,11 +179,23 @@ class _UserPageState extends ConsumerState<UserPage>
   /// identity block reports its first layout; the delegate renders one
   /// transparent estimate frame before that.
   double? _headerExtent;
+  bool _wideHeaderCollapsed = false;
 
   @override
   void initState() {
     super.initState();
-    _outerScrollController = ScrollController();
+    _outerScrollController = ScrollController()
+      ..addListener(_syncWideHeaderCollapsed);
+  }
+
+  void _syncWideHeaderCollapsed() {
+    if (!_outerScrollController.hasClients) return;
+    final collapsed =
+        _outerScrollController.offset >=
+        WideProfileBannerHeader.collapseThreshold;
+    if (collapsed != _wideHeaderCollapsed && mounted) {
+      setState(() => _wideHeaderCollapsed = collapsed);
+    }
   }
 
   @override
@@ -194,7 +203,9 @@ class _UserPageState extends ConsumerState<UserPage>
     _tabController
       ?..removeListener(_onTabChanged)
       ..dispose();
-    _outerScrollController.dispose();
+    _outerScrollController
+      ..removeListener(_syncWideHeaderCollapsed)
+      ..dispose();
     super.dispose();
   }
 
@@ -218,6 +229,7 @@ class _UserPageState extends ConsumerState<UserPage>
             _ProfileTab.fans,
             _ProfileTab.myPixiv,
             ...works,
+            _ProfileTab.about,
           ]
         : [
             ...works,
@@ -237,6 +249,7 @@ class _UserPageState extends ConsumerState<UserPage>
         switch (widget.initialTab) {
           MeTab.bookmarks => _ProfileTab.bookmarks,
           MeTab.following => _ProfileTab.following,
+          MeTab.myPixiv => _ProfileTab.myPixiv,
           null => null,
         };
     final index = kept == null ? 0 : math.max(0, tabs.indexOf(kept));
@@ -605,13 +618,13 @@ class _UserPageState extends ConsumerState<UserPage>
     final tabController = _syncTabs(_tabsFor(user));
     final selectedTab = _selectedTab;
     final statistics = _profileStatistics(user);
+    final followEntry = widget.isMe
+        ? null
+        : ref.watch(followStoreProvider.select((state) => state[user.id]));
     final followed = widget.isMe
         ? user.isFollowed ?? false
-        : ref.watch(
-                followStoreProvider.select((state) => state[user.id]?.shown),
-              ) ??
-              user.isFollowed ??
-              false;
+        : followEntry?.shown ?? user.isFollowed ?? false;
+    final followRestrict = followEntry?.restrict;
     final canBulkDownload =
         selectedTab == _ProfileTab.illust || selectedTab == _ProfileTab.manga;
     final muted = ref.watch(
@@ -673,6 +686,7 @@ class _UserPageState extends ConsumerState<UserPage>
         tabController: tabController,
         statistics: statistics,
         followed: followed,
+        followRestrict: followRestrict,
         muted: muted,
         staleBanner: staleBanner,
         onFollowPrivately: onFollowPrivately,
@@ -687,6 +701,7 @@ class _UserPageState extends ConsumerState<UserPage>
         Expanded(
           child: DesktopInspectableGallery(
             active: _showsIllustGallery(selectedTab),
+            scopeKey: selectedTab,
             child: NestedScrollView(
               key: const ValueKey('profile-nested-scroll'),
               controller: _outerScrollController,
@@ -727,6 +742,7 @@ class _UserPageState extends ConsumerState<UserPage>
                     onShare: (originContext) =>
                         unawaited(_shareProfile(originContext, ref, user)),
                     isFollowed: followed,
+                    followRestrict: followRestrict,
                     onToggleFollow: widget.isMe
                         ? null
                         : () => toggleFollowWithUndo(context, user.id),
@@ -787,6 +803,7 @@ class _UserPageState extends ConsumerState<UserPage>
     required TabController tabController,
     required List<ProfileStatisticData> statistics,
     required bool followed,
+    required FollowRestrict? followRestrict,
     required bool muted,
     required Widget staleBanner,
     required VoidCallback? onFollowPrivately,
@@ -804,6 +821,14 @@ class _UserPageState extends ConsumerState<UserPage>
     final overflowMenu = ProfileSecondaryMenuButton(
       isMe: widget.isMe,
       isFollowed: followed,
+      followRestrict: followRestrict,
+      includePrimary: _wideHeaderCollapsed,
+      onShare: (originContext) =>
+          unawaited(_shareProfile(originContext, ref, user)),
+      onEditProfile: widget.isMe ? widget.onEditProfile : null,
+      onToggleFollow: widget.isMe
+          ? null
+          : () => unawaited(toggleFollowWithUndo(context, user.id)),
       onFollowPrivately: onFollowPrivately,
       onDownloadAll: onDownloadAll,
       onCopyLink: onCopyLink,
@@ -865,6 +890,7 @@ class _UserPageState extends ConsumerState<UserPage>
           Expanded(
             child: DesktopInspectableGallery(
               active: _showsIllustGallery(_selectedTab),
+              scopeKey: _selectedTab,
               child: NestedScrollView(
                 key: const ValueKey('profile-wide-scroll'),
                 controller: _outerScrollController,
@@ -875,7 +901,7 @@ class _UserPageState extends ConsumerState<UserPage>
                 ),
                 headerSliverBuilder: (context, innerBoxIsScrolled) => [
                   SliverToBoxAdapter(
-                    child: _WideProfileBannerHeader(
+                    child: WideProfileBannerHeader(
                       user: user,
                       bio: bio,
                       stats: stats,
@@ -885,17 +911,19 @@ class _UserPageState extends ConsumerState<UserPage>
                   ),
                   SliverPersistentHeader(
                     pinned: true,
-                    delegate: _WideProfileTabsDelegate(
+                    delegate: WideProfileTabsDelegate(
                       controller: tabController,
                       labels: [for (final tab in _tabs) _tabLabel(tab)],
                       onTabTap: _onTabTap,
                       dragBehavior: tabDragBehavior,
                       scrolled: innerBoxIsScrolled,
+                      collapsed: _wideHeaderCollapsed,
+                      user: user,
                       useDesktopChrome: useDesktopChrome,
                       showsGalleryControls: _showsIllustGallery(_selectedTab),
                       followed: followed,
                       muted: muted,
-                      selectedTab: _selectedTab,
+                      selectedTabKey: _selectedTab,
                       hairline: hairline,
                       trailing: useDesktopChrome
                           ? Row(
@@ -929,336 +957,6 @@ class _UserPageState extends ConsumerState<UserPage>
       ),
     );
   }
-}
-
-class _WideProfileBannerHeader extends StatelessWidget {
-  const _WideProfileBannerHeader({
-    required this.user,
-    required this.bio,
-    required this.stats,
-    required this.primaryAction,
-    required this.shareButton,
-  });
-
-  static const double _bannerHeight = 164.0;
-  static const double _avatarDiameter = 88.0;
-
-  final UserEntity user;
-  final String? bio;
-  final List<ProfileHeaderStat> stats;
-  final Widget? primaryAction;
-  final Widget shareButton;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isRtl = Directionality.of(context) == TextDirection.rtl;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: _bannerHeight,
-              child: ProfileBannerBackground(user: user),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: FuncSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Band 1: Full header width framing name/@handle beside the
-                  // avatar's lower half and actions flush to the right margin.
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: _avatarDiameter / 2 + FuncSpacing.md,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                        FuncSpacing.lg + _avatarDiameter + FuncSpacing.lg,
-                        FuncSpacing.sm,
-                        FuncSpacing.lg - EdgeIconButtons.glyphInset,
-                        0,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  key: const ValueKey('profile-expanded-name'),
-                                  user.name,
-                                  style: theme.textTheme.headlineSmall
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (user.account.isNotEmpty) ...[
-                                  const SizedBox(height: FuncSpacing.xxs),
-                                  Text(
-                                    '@${user.account}',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: FuncSpacing.lg),
-                          if (primaryAction != null) ...[
-                            primaryAction!,
-                            const SizedBox(width: FuncSpacing.xs),
-                          ],
-                          shareButton,
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Band 2: Single-line inline stats and bio flush-left with
-                  // the 16dp avatar margin, capped for readable bio measure.
-                  if (stats.isNotEmpty || (bio != null && bio!.isNotEmpty))
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FuncSpacing.lg,
-                      ),
-                      child: Align(
-                        alignment: AlignmentDirectional.topStart,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: ContentWidths.management,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (stats.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: FuncSpacing.xs,
-                                  ),
-                                  child: Transform.translate(
-                                    offset: Offset(
-                                      isRtl ? FuncSpacing.xs : -FuncSpacing.xs,
-                                      0,
-                                    ),
-                                    child: _WideProfileInlineStats(
-                                      stats: stats,
-                                    ),
-                                  ),
-                                ),
-                              if (bio != null && bio!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: FuncSpacing.xs,
-                                  ),
-                                  child: Text(
-                                    key: const ValueKey('profile-wide-bio'),
-                                    bio!,
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      height: 1.45,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        PositionedDirectional(
-          start: FuncSpacing.lg,
-          top: _bannerHeight - _avatarDiameter / 2,
-          child: KeyedSubtree(
-            key: const ValueKey('profile-expanded-avatar'),
-            child: PersonAvatar(
-              imageUrl: user.profileImageUrl,
-              radius: _avatarDiameter / 2,
-              ring: true,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Horizontal inline counters for the wide panoramic profile header (`50 关注`),
-/// preserving per-stat semantics keys and tap navigation.
-class _WideProfileInlineStats extends StatelessWidget {
-  const _WideProfileInlineStats({required this.stats});
-
-  final List<ProfileHeaderStat> stats;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final figureStyle = theme.textTheme.titleMedium
-        ?.copyWith(fontWeight: FontWeight.w700)
-        .tabular;
-    final labelStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: colors.onSurfaceVariant,
-    );
-
-    return Wrap(
-      spacing: FuncSpacing.md,
-      runSpacing: FuncSpacing.xxs,
-      children: [
-        for (final stat in stats)
-          Builder(
-            builder: (context) {
-              final figure = AppFormat.count(context, stat.value);
-              return Semantics(
-                key: ValueKey('profile-stat-${stat.id}-header'),
-                container: true,
-                button: stat.onTap != null,
-                label: '${stat.label}, $figure',
-                onTap: stat.onTap,
-                child: ExcludeSemantics(
-                  child: InkWell(
-                    borderRadius: FuncShape.control,
-                    onTap: stat.onTap,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 36),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: FuncSpacing.xs,
-                          vertical: FuncSpacing.xxs,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(figure, style: figureStyle),
-                            const SizedBox(width: FuncSpacing.xs),
-                            Text(stat.label, style: labelStyle),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-      ],
-    );
-  }
-}
-
-class _WideProfileTabsDelegate extends SliverPersistentHeaderDelegate {
-  const _WideProfileTabsDelegate({
-    required this.controller,
-    required this.labels,
-    required this.onTabTap,
-    required this.dragBehavior,
-    required this.scrolled,
-    required this.useDesktopChrome,
-    required this.showsGalleryControls,
-    required this.followed,
-    required this.muted,
-    required this.selectedTab,
-    required this.hairline,
-    required this.trailing,
-  });
-
-  final TabController controller;
-  final List<String> labels;
-  final ValueChanged<int> onTabTap;
-  final ScrollBehavior dragBehavior;
-  final bool scrolled;
-  final bool useDesktopChrome;
-  final bool showsGalleryControls;
-  final bool followed;
-  final bool muted;
-  final _ProfileTab? selectedTab;
-  final Color hairline;
-  final Widget? trailing;
-
-  @override
-  double get minExtent =>
-      useDesktopChrome ? kDesktopPageHeaderHeight : kToolbarHeight;
-
-  @override
-  double get maxExtent => minExtent;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final theme = Theme.of(context);
-    return LiftableBar(
-      child: ScrollEdgeShadow(
-        visible: scrolled,
-        child: Material(
-          key: const ValueKey('profile-tabs'),
-          color: theme.scaffoldBackgroundColor,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: scrolled
-                  ? null
-                  : Border(bottom: BorderSide(color: hairline)),
-            ),
-            child: SizedBox(
-              height: minExtent,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(
-                        start: FuncSpacing.xxs,
-                      ),
-                      child: ScrollConfiguration(
-                        behavior: dragBehavior,
-                        child: AppTabBar(
-                          controller: controller,
-                          onTap: onTabTap,
-                          labels: labels,
-                          maxEqualSlotWidth: 76,
-                        ),
-                      ),
-                    ),
-                  ),
-                  ?trailing,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant _WideProfileTabsDelegate oldDelegate) =>
-      oldDelegate.controller != controller ||
-      !listEquals(oldDelegate.labels, labels) ||
-      oldDelegate.onTabTap != onTabTap ||
-      oldDelegate.dragBehavior != dragBehavior ||
-      oldDelegate.scrolled != scrolled ||
-      oldDelegate.useDesktopChrome != useDesktopChrome ||
-      oldDelegate.showsGalleryControls != showsGalleryControls ||
-      oldDelegate.followed != followed ||
-      oldDelegate.muted != muted ||
-      oldDelegate.selectedTab != selectedTab ||
-      oldDelegate.hairline != hairline;
 }
 
 class _LiveWorksTotal extends ConsumerWidget {

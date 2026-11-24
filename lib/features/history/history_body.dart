@@ -9,7 +9,6 @@ import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/motion/removal.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/theme/func_semantic_tokens.dart';
-import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
@@ -17,7 +16,6 @@ import '../../app/widgets/feed/load_more_listener.dart';
 import '../../app/widgets/settings/persist_settings.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/entity/illust_store.dart';
-import '../../core/errors/error_category.dart';
 import '../../core/history/history_feed_controller.dart';
 import '../../core/history/history_models.dart';
 import '../../core/settings/settings_controller.dart';
@@ -171,42 +169,18 @@ class HistoryBody extends ConsumerWidget {
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(bottom: keyboardInset),
-                          child: switch ((
-                            state.showLoadMoreSpinner,
-                            state.loadMoreError,
-                          )) {
-                            (true, _) => const Padding(
-                              padding: EdgeInsets.all(FuncSpacing.lg),
-                              child: FeedLoading(),
-                            ),
-                            (_, final error?) => Padding(
-                              padding: const EdgeInsets.all(FuncSpacing.lg),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    context.l10n.historyLoadFailed,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  Text(
-                                    errorCategoryText(
-                                      context,
-                                      categorizeError(error),
-                                    ),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  FailureReport(
-                                    action: context.l10n.historyLoadFailed,
-                                    error: error,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            _ => const SizedBox(height: FuncSpacing.lg),
-                          },
+                          child: FeedTail(
+                            feed: state,
+                            errorTitle: context.l10n.historyLoadFailed,
+                            retryLabel: context.l10n.retry,
+                            onRetry: () => ref
+                                .read(
+                                  historyFeedControllerProvider(
+                                    feedQuery,
+                                  ).notifier,
+                                )
+                                .retryLoadMore(),
+                          ),
                         ),
                       ),
                     ],

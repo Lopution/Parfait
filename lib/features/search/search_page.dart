@@ -12,6 +12,7 @@ import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/navigation/route_facade.dart';
 import '../../app/navigation/route_search_facade.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/pull_to_refresh.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/window/desktop_command_bar_scope.dart';
@@ -44,19 +45,9 @@ import '../../app/icons/app_icons.dart';
 export 'search_input_engine.dart';
 export 'search_input_page.dart';
 
-/// Search guide shown by the Home bottom-navigation entry: a search field
-/// and the reverse-image camera in the app bar, then one tab per work kind
-/// (illust & manga, novel) with that kind's trending tags. The illust tab
-/// leads with the newest Spotlight articles.
-///
-/// Restoration tiers: the selected tab is session memory —
-/// `trendingKindProvider` resets to illust after process death, and
-/// `trendingTagsProvider` stays non-autoDispose on purpose so leaving the
-/// branch does not re-request. Each tab's scroll offset rides its own
-/// `PageStorageKey` + `restorationId`; the explicit scroll controllers
-/// exist so the branch and tab re-tap can address the visible list (on
-/// desktop `SmoothWheelScroll` would otherwise own a private controller
-/// `PrimaryScrollController` cannot reach).
+/// Search guide shown by the Home search destination: Spotlight strip (illust
+/// tab) and trending tags per work kind, with explicit per-tab scroll
+/// controllers for branch/tab re-tap and pull-to-refresh.
 class SearchHomePage extends ConsumerStatefulWidget {
   const SearchHomePage({super.key});
 
@@ -70,6 +61,7 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
 
   late final TabController _tabController;
   final _scrollControllers = <SearchResultType, ScrollController>{};
+  final _scrollKeys = <SearchResultType, GlobalKey>{};
   final _loaded = <SearchResultType>{};
   ReTapChannel? _reTapChannel;
 
@@ -184,10 +176,6 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
     final wide = PageHeader.isWide(context);
     final hasCommandBar = DesktopCommandBarScope.isActiveOf(context);
     return Scaffold(
-      // Root pages own no inline composer: leaving the default `true`
-      // would subscribe this whole subtree to per-frame viewInsets churn
-      // every time the IME animates (e.g. the push that hides the search
-      // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
       appBar: wide
           ? AppTopBar(
@@ -195,11 +183,14 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
               title: tabs,
               actions: hasCommandBar
                   ? const []
-                  : [camera, _GuideHeaderSearch(type: _active)],
+                  : [
+                      const HeaderRefresh(),
+                      camera,
+                      _GuideHeaderSearch(type: _active),
+                    ],
             )
           : AppTopBar(
               title: SearchFieldButton(
-                // The input page body spells out what can be searched.
                 text: l10n.searchBarHint,
                 isHint: true,
                 onTap: () => openSearchInput(context, type: _active),
@@ -222,6 +213,7 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
                       key: ValueKey(type),
                       type: type,
                       scrollController: _scrollControllerFor(type),
+                      scrollKey: _scrollKeys.putIfAbsent(type, GlobalKey.new),
                     )
                   else
                     const SizedBox.shrink(),
@@ -296,15 +288,30 @@ class _TrendingTab extends ConsumerWidget {
     super.key,
     required this.type,
     required this.scrollController,
+    required this.scrollKey,
   });
 
   final SearchResultType type;
   final ScrollController scrollController;
+  final GlobalKey scrollKey;
+
+  Future<void> _onRefresh(WidgetRef ref) async {
+    await Future.wait<Object?>([
+      ref
+          .refresh(trendingTagsProvider(type).future)
+          .catchError((_) => const <TrendingTag>[]),
+      if (type == SearchResultType.illust)
+        ref
+            .read(spotlightFeedProvider(SpotlightCategory.all).notifier)
+            .refresh(),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trending = ref.watch(trendingTagsProvider(type));
-    return SmoothWheelScroll(
+    final scrollView = SmoothWheelScroll(
+      key: scrollKey,
       controller: scrollController,
       builder: (context, controller, physics) => CustomScrollView(
         key: PageStorageKey('search-home-${type.name}'),
@@ -346,6 +353,14 @@ class _TrendingTab extends ConsumerWidget {
         ],
       ),
     );
+    Future<void> refresh() => _onRefresh(ref);
+    return trending.hasValue
+        ? PullToRefresh(
+            scrollController: scrollController,
+            onRefresh: refresh,
+            child: scrollView,
+          )
+        : RefreshActionAnchor(onRefresh: refresh, child: scrollView);
   }
 }
 
@@ -719,22 +734,20 @@ class _TrendingTagTile extends ConsumerWidget {
               ),
             );
           };
+    void searchTag() => openSearchResults(
+      context,
+      searchQueryForType(
+        type,
+        keyword: tag.name,
+        illustFilters: ref.read(searchIllustFiltersProvider),
+        novelFilters: ref.read(searchNovelFiltersProvider),
+      ),
+    );
     return PressScale(
       child: Semantics(
         button: true,
         child: GestureDetector(
-          // Tapping searches the tag; the image is context. Every entry
-          // starts from the type's persisted default filter set.
-          onTap: () => openSearchResults(
-            context,
-            searchQueryForType(
-              type,
-              keyword: tag.name,
-              illustFilters: ref.read(searchIllustFiltersProvider),
-              novelFilters: ref.read(searchNovelFiltersProvider),
-            ),
-          ),
-          onLongPress: openWork,
+          behavior: HitTestBehavior.translucent,
           onSecondaryTapUp: openWork == null
               ? null
               : (details) => unawaited(
@@ -751,10 +764,16 @@ class _TrendingTagTile extends ConsumerWidget {
                     ],
                   ),
                 ),
-          child: ClipRRect(
+          child: Material(
+            color: scheme.surfaceContainer,
             borderRadius: FuncShape.card,
-            child: ColoredBox(
-              color: scheme.surfaceContainer,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              borderRadius: FuncShape.card,
+              enableFeedback: false,
+              mouseCursor: SystemMouseCursors.click,
+              onTap: searchTag,
+              onLongPress: openWork,
               child: representative == null
                   ? Center(
                       child: Padding(

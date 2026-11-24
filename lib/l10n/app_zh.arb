@@ -904,7 +904,7 @@
   "rankingMyCategories": "我的分类",
   "rankingEdit": "编辑",
   "rankingEditDone": "完成",
-  "rankingDragHint": "长按拖动排序",
+  "rankingDragHint": "拖动左侧手柄排序，点击 × 隐藏分类",
   "arrangementHidden": "未显示",
   "rankingHiddenEmpty": "所有分类都已显示",
   "restoreDefault": "恢复默认",
@@ -1550,6 +1550,10 @@
   "@followSwitchToPublic": {
     "description": "Follow sheet, followed privately: switch the follow to public."
   },
+  "followSwitchVisibility": "切换公开/私密关注",
+  "@followSwitchVisibility": {
+    "description": "Profile overflow menu, followed with unknown visibility: open the sheet to switch between public and private follow."
+  },
   "followFailed": "关注操作失败",
   "userPreviewFollow": "关注",
   "novelLoading": "正在加载小说",
@@ -1704,6 +1708,23 @@
   },
   "localNovelsImportedLossy": "已导入，但编码无法完全识别，可能包含乱码",
   "localNovelsDelete": "删除",
+  "localNovelsDeleteFailed": "删除本地小说失败",
+  "localNovelsTooManyChars": "超过阅读器上限（{limit} 字）",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "超过阅读器上限（{limit} 段）",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "删除「{title}」？本地文件会一并删除。",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
@@ -2106,5 +2127,65 @@
   "nextArtworkTooltip": "下一作品",
   "@nextArtworkTooltip": {
     "description": "Tooltip for switching to the next artwork in detail pager"
+  },
+  "batchSelectWork": "选择此作品",
+  "@batchSelectWork": {
+    "description": "Accessibility label for selecting a single artwork card in multi-select mode"
+  },
+  "batchDeselectWork": "取消选择此作品",
+  "@batchDeselectWork": {
+    "description": "Accessibility label for deselecting a single artwork card in multi-select mode"
+  },
+  "cardActionSelect": "多选",
+  "@cardActionSelect": {
+    "description": "Card long-press action on touch tablets to enter multi-select mode with this work"
+  },
+  "viewerZoomIn": "放大 (2.5×)",
+  "@viewerZoomIn": {
+    "description": "Context menu action in the full-screen image viewer to zoom to 2.5x"
+  },
+  "ugoiraPreparingExport": "正在准备动图…",
+  "@ugoiraPreparingExport": {
+    "description": "Status tooltip while downloading the ugoira archive prior to GIF encoding"
+  },
+  "tagMuteModeDone": "完成",
+  "@tagMuteModeDone": {
+    "description": "Button label to exit batch tag-muting mode on the artwork detail page"
+  },
+  "downloadOpenFile": "打开文件",
+  "@downloadOpenFile": {
+    "description": "Desktop action on a completed download row to open the downloaded file with the system app"
+  },
+  "downloadShowInFolder": "在文件夹中显示",
+  "@downloadShowInFolder": {
+    "description": "Desktop action on a completed download row to reveal the downloaded file in the system file manager"
+  },
+  "downloadFileMissing": "文件已不存在",
+  "@downloadFileMissing": {
+    "description": "SnackBar shown when trying to open or reveal a downloaded file that has been moved or deleted"
+  },
+  "downloadOpenFailed": "无法打开文件",
+  "@downloadOpenFailed": {
+    "description": "SnackBar shown when the OS fails to open or reveal a downloaded file"
+  },
+  "reverseImagePasteImage": "粘贴图片",
+  "@reverseImagePasteImage": {
+    "description": "Desktop button on the reverse image search page to search with an image from the clipboard"
+  },
+  "reverseImagePasteEmpty": "剪贴板中没有图片",
+  "@reverseImagePasteEmpty": {
+    "description": "SnackBar shown when pressing Paste on the reverse image search page with no image in the clipboard"
+  },
+  "reverseImageDropHint": "松开以搜索这张图片",
+  "@reverseImageDropHint": {
+    "description": "Overlay hint shown when dragging an image file over the reverse image search page"
+  },
+  "localNovelsDropHint": "松开以导入 TXT 小说",
+  "@localNovelsDropHint": {
+    "description": "Overlay hint shown when dragging TXT files over the local novels page"
+  },
+  "localNovelsDropUnsupported": "仅支持导入 .txt 文件",
+  "@localNovelsDropUnsupported": {
+    "description": "SnackBar shown when dropping non-TXT files onto the local novels page"
   }
 }

@@ -86,6 +86,8 @@ class UgoiraRepository {
        _temporaryDirectory =
            temporaryDirectory ?? AppStoragePaths.active.resolveTempDir;
 
+  static int _tempFileSeq = 0;
+
   final PixivHttpClient _client;
   final DownloadTransport _transport;
   final Future<Directory> Function() _temporaryDirectory;
@@ -121,7 +123,7 @@ class UgoiraRepository {
     final file = File(
       p.join(
         directory.path,
-        '.parfait-ugoira-$illustId-${DateTime.now().microsecondsSinceEpoch}.zip',
+        '.parfait-ugoira-$illustId-${DateTime.now().microsecondsSinceEpoch}-${_tempFileSeq++}.zip',
       ),
     );
     final transferCancel = DownloadCancelToken();

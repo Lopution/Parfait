@@ -15,6 +15,7 @@ import '../../app/motion/hero_transition.dart' show LiftableBar;
 import '../../app/system_ui.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/window/desktop_command_bar_scope.dart';
+import '../../core/user/follow_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../app/widgets/ambient_wash.dart';
 import '../../app/widgets/app_menu_button.dart';
@@ -125,6 +126,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onShare,
     this.stats = const [],
     this.isFollowed = false,
+    this.followRestrict,
     this.onEditProfile,
     this.onToggleFollow,
     this.onFollowPrivately,
@@ -145,6 +147,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   /// The counters under the name: following and My Pixiv.
   final List<ProfileHeaderStat> stats;
   final bool isFollowed;
+  final FollowRestrict? followRestrict;
   final VoidCallback? onEditProfile;
   final VoidCallback? onToggleFollow;
   final VoidCallback? onFollowPrivately;
@@ -235,6 +238,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
       context,
       isMe: isMe,
       isFollowed: isFollowed,
+      followRestrict: followRestrict,
       onFollowPrivately: onFollowPrivately,
       onDownloadAll: onDownloadAll,
       onCopyLink: onCopyLink,
@@ -247,16 +251,23 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     BuildContext context, {
     required bool isMe,
     required bool isFollowed,
+    FollowRestrict? followRestrict,
     required VoidCallback? onFollowPrivately,
     required VoidCallback? onDownloadAll,
     required VoidCallback? onCopyLink,
     required bool isMuted,
     required VoidCallback? onToggleMute,
   }) => [
-    if (!isMe && !isFollowed && onFollowPrivately != null)
+    if (!isMe && onFollowPrivately != null)
       _ProfileHeaderAction(
         value: 'followPrivately',
-        label: context.l10n.followPrivately,
+        label: !isFollowed
+            ? context.l10n.followPrivately
+            : switch (followRestrict) {
+                FollowRestrict.private => context.l10n.followSwitchToPublic,
+                FollowRestrict.public => context.l10n.followSwitchToPrivate,
+                null => context.l10n.followSwitchVisibility,
+              },
         icon: AppIcons.lock,
         onSelected: (_) => onFollowPrivately(),
       ),
@@ -452,6 +463,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.selectedTabIndex != selectedTabIndex ||
         oldDelegate.onEditProfile != onEditProfile ||
         oldDelegate.isFollowed != isFollowed ||
+        oldDelegate.followRestrict != followRestrict ||
         oldDelegate.onToggleFollow != onToggleFollow ||
         oldDelegate.onFollowPrivately != onFollowPrivately ||
         oldDelegate.onCopyLink != onCopyLink ||
@@ -592,46 +604,6 @@ class ProfileBannerBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _ProfileBackground(user: user);
-}
-
-/// Overflow menu for secondary profile actions (private follow, bulk
-/// download, copy link, mute) rendered on wide-layout toolbars.
-class ProfileSecondaryMenuButton extends StatelessWidget {
-  const ProfileSecondaryMenuButton({
-    super.key,
-    required this.isMe,
-    this.isFollowed = false,
-    this.onFollowPrivately,
-    this.onDownloadAll,
-    this.onCopyLink,
-    this.isMuted = false,
-    this.onToggleMute,
-  });
-
-  final bool isMe;
-  final bool isFollowed;
-  final VoidCallback? onFollowPrivately;
-  final VoidCallback? onDownloadAll;
-  final VoidCallback? onCopyLink;
-  final bool isMuted;
-  final VoidCallback? onToggleMute;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ProfileHeaderMoreButton(
-      actions: ReplicaProfileHeaderDelegate._secondaryProfileActions(
-        context,
-        isMe: isMe,
-        isFollowed: isFollowed,
-        onFollowPrivately: onFollowPrivately,
-        onDownloadAll: onDownloadAll,
-        onCopyLink: onCopyLink,
-        isMuted: isMuted,
-        onToggleMute: onToggleMute,
-      ),
-      includePrimary: false,
-    );
-  }
 }
 
 /// Banner artwork band. Its lower part fades into the page surface, so the

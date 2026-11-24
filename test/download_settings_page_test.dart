@@ -1,7 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kSecondaryMouseButton;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
@@ -259,5 +263,93 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('放弃未保存的修改？'), findsNothing);
     },
+  );
+
+  testWidgets(
+    'DownloadDestinationPage clears album to default, offers reset row, and exposes copy button & right-click menu',
+    (tester) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await seedSettings(
+        baseTestSettings().copyWith(
+          downloadDestination: DownloadDestination.customAlbum('MyPixiv'),
+        ),
+      );
+      setViewSize(tester, const Size(800, 1200));
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: const [],
+          builder: promptHostBuilder,
+          home: const DownloadDestinationPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('恢复默认'), findsOneWidget);
+
+      // Clearing the custom album field enables Save and restores builtin default.
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+      expect(
+        (await storedSettings().load()).downloadDestination,
+        DownloadDestination.builtin,
+      );
+      expect(find.text('恢复默认'), findsNothing);
+
+      // Custom SAF/folder path exposes visible copy button, right-click menu, and reset.
+      await tester.pumpWidget(const SizedBox());
+      await seedSettings(
+        baseTestSettings().copyWith(
+          downloadDestination: DownloadDestination.safFolder(
+            r'C:\Users\demo\Pixiv',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: const [],
+          builder: promptHostBuilder,
+          home: const DownloadDestinationPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(AppIcons.copy));
+      await tester.pumpAndSettle();
+      expect(copied, r'C:\Users\demo\Pixiv');
+
+      copied = null;
+      await tester.tap(
+        find.text(r'C:\Users\demo\Pixiv').first,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('复制'));
+      await tester.pumpAndSettle();
+      expect(copied, r'C:\Users\demo\Pixiv');
+
+      await tester.tap(find.text('恢复默认'));
+      await tester.pumpAndSettle();
+      expect(
+        (await storedSettings().load()).downloadDestination,
+        DownloadDestination.builtin,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 }

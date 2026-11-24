@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../core/actionqueue/action_bootstrap.dart';
 import '../core/auth/account_store.dart';
 import '../core/auth/account_transfer_service.dart';
+import '../core/navigation/home_destination.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
 import '../core/log.dart';
@@ -460,6 +461,9 @@ class _AppChromeState extends ConsumerState<AppChrome> {
     TargetPlatform platform,
   ) {
     final form = FormFactor.of(scopeContext);
+    final size = MediaQuery.sizeOf(scopeContext);
+    final shownDestinations = ref.watch(homeArrangementProvider).shown;
+    final canToggleRail = form.canToggleRail(size.width, height: size.height);
     final usesCommandBar =
         !kIsWeb &&
         form == FormFactor.pc &&
@@ -478,8 +482,30 @@ class _AppChromeState extends ConsumerState<AppChrome> {
           intentSource: widget.intentSource,
           child: KeyboardBack(
             router: widget.router,
+            destinations: shownDestinations,
+            onToggleRail: canToggleRail
+                ? () {
+                    final current = form.railExpanded(
+                      size.width,
+                      height: size.height,
+                      choice:
+                          ref.read(railExpandedProvider) ??
+                          widget.settings.railExpanded,
+                    );
+                    unawaited(
+                      ref
+                          .read(settingsProvider.notifier)
+                          .setRailExpanded(!current),
+                    );
+                  }
+                : null,
             child: usesCommandBar
-                ? Builder(builder: _buildDesktopCommandBarShell)
+                ? Builder(
+                    builder: (frameContext) => _buildDesktopCommandBarShell(
+                      frameContext,
+                      shownDestinations: shownDestinations,
+                    ),
+                  )
                 : widget.child,
           ),
         ),
@@ -487,12 +513,16 @@ class _AppChromeState extends ConsumerState<AppChrome> {
     );
   }
 
-  Widget _buildDesktopCommandBarShell(BuildContext frameContext) {
+  Widget _buildDesktopCommandBarShell(
+    BuildContext frameContext, {
+    required List<HomeDestination> shownDestinations,
+  }) {
     final chrome = DesktopChromeMetrics.maybeOf(frameContext);
     final isFullScreen = chrome?.isFullScreen ?? false;
     return DesktopMenuBar(
       settings: widget.settings,
       router: widget.router,
+      destinations: shownDestinations,
       child: ValueListenableBuilder<bool>(
         valueListenable: _commandBar.hidden,
         builder: (context, commandBarHidden, _) {

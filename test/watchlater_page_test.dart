@@ -322,4 +322,21 @@ void main() {
       expect(find.text('已从稍后再看移除'), findsNothing);
     },
   );
+
+  testWidgets('externally removing the last watch-later item exits managing', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+    await enterManaging(tester);
+    expect(find.byTooltip('从稍后再看移除'), findsOneWidget);
+
+    await container.read(watchLaterStoreProvider.notifier).removeAll(const [
+      1,
+      2,
+      3,
+    ]);
+    await _settle(tester);
+    expect(find.byTooltip('从稍后再看移除'), findsNothing);
+    expect(find.text('稍后再看'), findsOneWidget);
+  });
 }

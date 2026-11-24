@@ -1709,7 +1709,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingEditDone => '完成';
 
   @override
-  String get rankingDragHint => '长按拖动排序';
+  String get rankingDragHint => '拖动左侧手柄排序，点击 × 隐藏分类';
 
   @override
   String get arrangementHidden => '未显示';
@@ -2623,6 +2623,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followSwitchToPublic => '改为公开关注';
 
   @override
+  String get followSwitchVisibility => '切换公开/私密关注';
+
+  @override
   String get followFailed => '关注操作失败';
 
   @override
@@ -2906,6 +2909,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localNovelsDelete => '删除';
+
+  @override
+  String get localNovelsDeleteFailed => '删除本地小说失败';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return '超过阅读器上限（$limit 字）';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return '超过阅读器上限（$limit 段）';
+  }
 
   @override
   String localNovelsDeleteConfirm(String title) {
@@ -3325,4 +3341,49 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get nextArtworkTooltip => '下一作品';
+
+  @override
+  String get batchSelectWork => '选择此作品';
+
+  @override
+  String get batchDeselectWork => '取消选择此作品';
+
+  @override
+  String get cardActionSelect => '多选';
+
+  @override
+  String get viewerZoomIn => '放大 (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => '正在准备动图…';
+
+  @override
+  String get tagMuteModeDone => '完成';
+
+  @override
+  String get downloadOpenFile => '打开文件';
+
+  @override
+  String get downloadShowInFolder => '在文件夹中显示';
+
+  @override
+  String get downloadFileMissing => '文件已不存在';
+
+  @override
+  String get downloadOpenFailed => '无法打开文件';
+
+  @override
+  String get reverseImagePasteImage => '粘贴图片';
+
+  @override
+  String get reverseImagePasteEmpty => '剪贴板中没有图片';
+
+  @override
+  String get reverseImageDropHint => '松开以搜索这张图片';
+
+  @override
+  String get localNovelsDropHint => '松开以导入 TXT 小说';
+
+  @override
+  String get localNovelsDropUnsupported => '仅支持导入 .txt 文件';
 }

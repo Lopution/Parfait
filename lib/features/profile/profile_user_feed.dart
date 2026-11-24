@@ -17,12 +17,20 @@ import '../../app/widgets/follow_switch_button.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/layout/card_columns.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/icons/ui_icons.dart';
 
 class ProfileUserFeed extends ConsumerWidget {
-  const ProfileUserFeed({super.key, required this.feedKey});
+  const ProfileUserFeed({
+    super.key,
+    required this.feedKey,
+    this.isNested = true,
+  });
 
   final ProfileFeedKey feedKey;
+
+  /// True inside [UserPage]'s `NestedScrollView`; false on standalone pages.
+  final bool isNested;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -57,53 +65,69 @@ class ProfileUserFeed extends ConsumerWidget {
               ),
             )
             .items;
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () =>
-              ref.read(profileUserFeedProvider(feedKey).notifier).refresh(),
-          child: LoadMoreListener(
-            itemCount: feed.ids.length,
-            onLoadMore: () =>
-                ref.read(profileUserFeedProvider(feedKey).notifier).loadMore(),
-            child: CustomScrollView(
-              key: PageStorageKey(feedKey),
-              restorationId: 'profile-${feedKey.toString()}',
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                PullToRefresh.nestedHeader,
-                if (users.isEmpty)
-                  // Match the works tab: the empty state centres in the
-                  // remaining viewport instead of sitting as a small block
-                  // at the top of the scroll area.
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: FeedEmpty(
-                      icon: UiIcons.inbox,
-                      title: context.l10n.profileItemsEmpty,
+        Widget buildScroll(
+          ScrollController? scrollController,
+          ScrollPhysics? physics,
+        ) {
+          return PullToRefresh(
+            isNested: isNested,
+            scrollController: scrollController,
+            onRefresh: () =>
+                ref.read(profileUserFeedProvider(feedKey).notifier).refresh(),
+            child: LoadMoreListener(
+              itemCount: feed.ids.length,
+              onLoadMore: () => ref
+                  .read(profileUserFeedProvider(feedKey).notifier)
+                  .loadMore(),
+              child: CustomScrollView(
+                key: PageStorageKey(feedKey),
+                controller: scrollController,
+                restorationId: 'profile-${feedKey.toString()}',
+                physics: physics,
+                slivers: [
+                  if (isNested) PullToRefresh.nestedHeader,
+                  if (users.isEmpty)
+                    // Match the works tab: the empty state centres in the
+                    // remaining viewport instead of sitting as a small block
+                    // at the top of the scroll area.
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: FeedEmpty(
+                        icon: UiIcons.inbox,
+                        title: context.l10n.profileItemsEmpty,
+                      ),
+                    )
+                  else ...[
+                    SliverCardList(
+                      itemCount: users.length,
+                      items: users,
+                      itemBuilder: (context, index) =>
+                          _UserPreviewTile(user: users[index]),
                     ),
-                  )
-                else ...[
-                  SliverCardList(
-                    itemCount: users.length,
-                    items: users,
-                    itemBuilder: (context, index) =>
-                        _UserPreviewTile(user: users[index]),
-                  ),
-                  SliverToBoxAdapter(
-                    child: FeedTail(
-                      feed: feed,
-                      onRetry: () => ref
-                          .read(profileUserFeedProvider(feedKey).notifier)
-                          .retryLoadMore(),
-                      errorTitle: context.l10n.profileLoadMoreFailed,
-                      retryLabel: context.l10n.profileRetry,
+                    SliverToBoxAdapter(
+                      child: FeedTail(
+                        feed: feed,
+                        onRetry: () => ref
+                            .read(profileUserFeedProvider(feedKey).notifier)
+                            .retryLoadMore(),
+                        errorTitle: context.l10n.profileLoadMoreFailed,
+                        retryLabel: context.l10n.profileRetry,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        );
+          );
+        }
+
+        return isNested
+            ? buildScroll(null, const AlwaysScrollableScrollPhysics())
+            : SmoothWheelScroll(
+                basePhysics: const AlwaysScrollableScrollPhysics(),
+                builder: (context, scrollController, physics) =>
+                    buildScroll(scrollController, physics),
+              );
       },
     );
   }

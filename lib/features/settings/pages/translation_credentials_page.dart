@@ -175,6 +175,7 @@ class _TranslationCredentialsPageState
           ),
         );
       }
+      ref.read(translationCredentialsRevisionProvider.notifier).bump();
       if (mounted) {
         setState(() {
           _pristine = submitted;
@@ -240,6 +241,7 @@ class _TranslationCredentialsPageState
       } else {
         await store.deleteLlm();
       }
+      ref.read(translationCredentialsRevisionProvider.notifier).bump();
       if (mounted) {
         // The stored row is gone, so the form must not keep showing the
         // deleted values as if they were still configured.

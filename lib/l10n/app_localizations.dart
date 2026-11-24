@@ -3326,7 +3326,7 @@ abstract class AppLocalizations {
   /// No description provided for @rankingDragHint.
   ///
   /// In zh, this message translates to:
-  /// **'长按拖动排序'**
+  /// **'拖动左侧手柄排序，点击 × 隐藏分类'**
   String get rankingDragHint;
 
   /// No description provided for @arrangementHidden.
@@ -5039,6 +5039,12 @@ abstract class AppLocalizations {
   /// **'改为公开关注'**
   String get followSwitchToPublic;
 
+  /// Profile overflow menu, followed with unknown visibility: open the sheet to switch between public and private follow.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换公开/私密关注'**
+  String get followSwitchVisibility;
+
   /// No description provided for @followFailed.
   ///
   /// In zh, this message translates to:
@@ -5584,6 +5590,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'删除'**
   String get localNovelsDelete;
+
+  /// No description provided for @localNovelsDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除本地小说失败'**
+  String get localNovelsDeleteFailed;
+
+  /// No description provided for @localNovelsTooManyChars.
+  ///
+  /// In zh, this message translates to:
+  /// **'超过阅读器上限（{limit} 字）'**
+  String localNovelsTooManyChars(int limit);
+
+  /// No description provided for @localNovelsTooManyParagraphs.
+  ///
+  /// In zh, this message translates to:
+  /// **'超过阅读器上限（{limit} 段）'**
+  String localNovelsTooManyParagraphs(int limit);
 
   /// No description provided for @localNovelsDeleteConfirm.
   ///
@@ -6322,6 +6346,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下一作品'**
   String get nextArtworkTooltip;
+
+  /// Accessibility label for selecting a single artwork card in multi-select mode
+  ///
+  /// In zh, this message translates to:
+  /// **'选择此作品'**
+  String get batchSelectWork;
+
+  /// Accessibility label for deselecting a single artwork card in multi-select mode
+  ///
+  /// In zh, this message translates to:
+  /// **'取消选择此作品'**
+  String get batchDeselectWork;
+
+  /// Card long-press action on touch tablets to enter multi-select mode with this work
+  ///
+  /// In zh, this message translates to:
+  /// **'多选'**
+  String get cardActionSelect;
+
+  /// Context menu action in the full-screen image viewer to zoom to 2.5x
+  ///
+  /// In zh, this message translates to:
+  /// **'放大 (2.5×)'**
+  String get viewerZoomIn;
+
+  /// Status tooltip while downloading the ugoira archive prior to GIF encoding
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备动图…'**
+  String get ugoiraPreparingExport;
+
+  /// Button label to exit batch tag-muting mode on the artwork detail page
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get tagMuteModeDone;
+
+  /// Desktop action on a completed download row to open the downloaded file with the system app
+  ///
+  /// In zh, this message translates to:
+  /// **'打开文件'**
+  String get downloadOpenFile;
+
+  /// Desktop action on a completed download row to reveal the downloaded file in the system file manager
+  ///
+  /// In zh, this message translates to:
+  /// **'在文件夹中显示'**
+  String get downloadShowInFolder;
+
+  /// SnackBar shown when trying to open or reveal a downloaded file that has been moved or deleted
+  ///
+  /// In zh, this message translates to:
+  /// **'文件已不存在'**
+  String get downloadFileMissing;
+
+  /// SnackBar shown when the OS fails to open or reveal a downloaded file
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开文件'**
+  String get downloadOpenFailed;
+
+  /// Desktop button on the reverse image search page to search with an image from the clipboard
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴图片'**
+  String get reverseImagePasteImage;
+
+  /// SnackBar shown when pressing Paste on the reverse image search page with no image in the clipboard
+  ///
+  /// In zh, this message translates to:
+  /// **'剪贴板中没有图片'**
+  String get reverseImagePasteEmpty;
+
+  /// Overlay hint shown when dragging an image file over the reverse image search page
+  ///
+  /// In zh, this message translates to:
+  /// **'松开以搜索这张图片'**
+  String get reverseImageDropHint;
+
+  /// Overlay hint shown when dragging TXT files over the local novels page
+  ///
+  /// In zh, this message translates to:
+  /// **'松开以导入 TXT 小说'**
+  String get localNovelsDropHint;
+
+  /// SnackBar shown when dropping non-TXT files onto the local novels page
+  ///
+  /// In zh, this message translates to:
+  /// **'仅支持导入 .txt 文件'**
+  String get localNovelsDropUnsupported;
 }
 
 class _AppLocalizationsDelegate

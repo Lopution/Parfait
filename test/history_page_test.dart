@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
+import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_database.dart';
@@ -465,6 +466,17 @@ void main() {
     expect(find.text('work 1'), findsNothing);
     expect(find.text('work 2'), findsNothing);
     expect(find.text('暂无浏览历史'), findsOneWidget);
+    // Empty history disables "delete all" in the overflow menu.
+    await tester.tap(find.byIcon(UiIcons.more));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MenuItemButton>(
+            find.widgetWithText(MenuItemButton, '删除全部历史记录'),
+          )
+          .onPressed,
+      isNull,
+    );
     expect(
       await tester.runAsync(
         () => container.read(historyRepositoryProvider).count(accountId: '100'),
@@ -596,5 +608,49 @@ void main() {
 
     expect(find.text('Starlight'), findsOneWidget);
     expect(find.byKey(const ValueKey('history-search-bar')), findsOneWidget);
+  });
+
+  testWidgets('history load-more error shows FeedTail Retry action', (
+    tester,
+  ) async {
+    late HistoryDatabase database;
+    late ProviderContainer container;
+    await tester.runAsync(() async {
+      database = HistoryDatabase();
+      addTearDown(database.close);
+      await database.database;
+      final repository = HistoryRepository(database: database);
+      for (var id = 1; id <= 31; id++) {
+        await repository.upsert(
+          historyRecord(
+            id,
+          ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, id)),
+        );
+      }
+      container = await makeHistoryWorld(repository);
+    });
+    setViewSize(tester, const Size(390, 844));
+    await tester.pumpWidget(_app(container));
+    await settleHistory(tester, container.read(historyRepositoryProvider));
+    await tester.pumpAndSettle();
+
+    await tester.runAsync(database.close);
+    await tester.runAsync(
+      () => container
+          .read(
+            historyFeedControllerProvider(
+              HistoryFeedQuery(accountId: '100'),
+            ).notifier,
+          )
+          .loadMore(),
+    );
+    await tester.pump();
+    await tester.drag(
+      find.bySubtype<CustomScrollView>(),
+      const Offset(0, -4000),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(FeedTail), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '重试'), findsOneWidget);
   });
 }

@@ -88,7 +88,6 @@ final _iconButton = RegExp(
 
 const _appFilledStates = <String, Set<String>>{
   'lib/app/widgets/bookmark_switch_button.dart': {'heartFilled'},
-  'lib/app/widgets/novel_entry.dart': {'heartFilled'},
   'lib/app/widgets/card_actions/illust_card_actions.dart': {
     'eyeOffFilled',
     'userOffFilled',
@@ -112,6 +111,7 @@ const _appFilledStates = <String, Set<String>>{
   'lib/features/novel/novel_markers_page.dart': {'watchLaterFilled'},
   'lib/features/novel/novel_reader_stage_widgets.dart': {'watchLaterFilled'},
   'lib/features/profile/profile_header_delegate.dart': {'userOffFilled'},
+  'lib/features/profile/profile_wide_header.dart': {'userOffFilled'},
   'lib/features/settings/pages/download_task_presentation.dart': {'banFilled'},
 };
 
@@ -137,7 +137,7 @@ const _rawMotionTokenCensus = <String, int>{
 // ── Spacing & radius tokens ─────────────────────────────────────────────────
 
 final _spacingCall = RegExp(
-  r'(?<!\w)(?:EdgeInsets\.(?:all|symmetric|only|fromLTRB)|Radius\.circular)\(',
+  r'(?<!\w)(?:EdgeInsets\.(?:all|symmetric|only|fromLTRB)|(?:Border)?Radius\.circular)\(',
 );
 final _numberLiteral = RegExp(r'(?<![\w.])(\d+\.?\d*)(?![\w.])');
 const _spacingAllowList = <String, int>{};

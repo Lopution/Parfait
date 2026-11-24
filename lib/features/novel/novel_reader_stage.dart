@@ -22,6 +22,7 @@ import '../../app/window/desktop_command_bar_scope.dart'
     show DesktopCommandBarScope;
 import '../../app/window/desktop_title_bar.dart' show DesktopChromeMetrics;
 import '../../core/log.dart';
+import '../../core/navigation/route_observer.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/reader_settings.dart';
 import '../../l10n/app_localizations.dart';
@@ -29,6 +30,7 @@ import '../../l10n/context.dart';
 import 'novel_bilingual.dart';
 import 'novel_layout.dart';
 import 'novel_reader.dart';
+import 'novel_reader_footer.dart';
 import 'novel_reader_series_nav.dart';
 import 'novel_reader_theme.dart';
 import '../../app/theme/func_semantic_tokens.dart';
@@ -275,6 +277,7 @@ class NovelReaderStage extends ConsumerStatefulWidget {
 class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     with
         SingleTickerProviderStateMixin,
+        RouteAware,
         BilingualReading,
         _ReaderRailSuppression {
   /// One controller drives both bars and the passive hint: the hint
@@ -294,7 +297,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   final NovelReaderHandle _readerHandle = NovelReaderHandle();
   NovelAnchor? _anchor;
   int _page = 0;
+  int _displayPage = 0;
   int _pageCount = 1;
+  RouteObserver<ModalRoute<dynamic>>? _routeObserver;
+  ModalRoute<dynamic>? _subscribedRoute;
 
   /// The reader subtree and what it was built from ([_buildStage]).
   Widget? _reader;
@@ -345,6 +351,51 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     _insetsSize = size;
     if (next != _stableInsets) _stableInsets = next;
     updateRailSuppression();
+    final route = ModalRoute.of(context);
+    final observer =
+        RouteObserverScope.maybeOf(context) ?? replicaRouteObserver;
+    if (route != _subscribedRoute || observer != _routeObserver) {
+      _subscribedRoute?.secondaryAnimation?.removeStatusListener(
+        _onRouteSecondaryAnimationStatus,
+      );
+      _routeObserver?.unsubscribe(this);
+      _subscribedRoute = route;
+      _routeObserver = observer;
+      if (route != null) {
+        observer.subscribe(this, route);
+        route.secondaryAnimation?.addStatusListener(
+          _onRouteSecondaryAnimationStatus,
+        );
+      }
+    }
+  }
+
+  @override
+  void didPushNext() {
+    // Another page route (e.g. [[jumpuri]] destination or illustration viewer)
+    // covers the reader — restore system bars so immersive mode never leaks.
+    unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
+  }
+
+  @override
+  void didPopNext() {
+    // Returned from a covering route — re-enter immersion if chrome is hidden.
+    if (!_chromeVisible) {
+      unawaited(setSystemUiMode(SystemUiMode.immersiveSticky));
+    }
+  }
+
+  void _onRouteSecondaryAnimationStatus(AnimationStatus status) {
+    if (status != AnimationStatus.dismissed) return;
+    // An exiting immersive route (such as ImageViewerPage) restores edgeToEdge
+    // in its dispose on the frame the pop transition finishes; re-assert
+    // immersiveSticky once the reader is the sole active route again.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _chromeVisible) return;
+      if (_subscribedRoute?.isCurrent ?? false) {
+        unawaited(setSystemUiMode(SystemUiMode.immersiveSticky));
+      }
+    });
   }
 
   static EdgeInsets _maxEdges(EdgeInsets a, EdgeInsets b) => EdgeInsets.only(
@@ -356,6 +407,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
 
   @override
   void dispose() {
+    _subscribedRoute?.secondaryAnimation?.removeStatusListener(
+      _onRouteSecondaryAnimationStatus,
+    );
+    _routeObserver?.unsubscribe(this);
     // Leaving without a pop (route replace, go()) skips the pop callback —
     // restore the ambient bars here as the fallback. Re-setting
     // edgeToEdge is harmless when the route left through a normal pop.
@@ -419,8 +474,13 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     if (hidden != _chromeHidden) setState(() => _chromeHidden = hidden);
   }
 
-  void _applySettings(NovelReaderSettings next) {
+  void _previewSettings(NovelReaderSettings next) {
+    if (next == _settings) return;
     setState(() => _settings = next);
+  }
+
+  void _applySettings(NovelReaderSettings next) {
+    if (next != _settings) setState(() => _settings = next);
     unawaited(_saveSettings(next));
   }
 
@@ -493,7 +553,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final l10n = context.l10n;
     final percent = _pageCount <= 1
         ? 100
-        : ((_page + 1) / _pageCount * 100).round();
+        : ((_displayPage + 1) / _pageCount * 100).round();
     final windowSpec = WindowLayoutSpec.of(context);
     final bookLeft =
         windowSpec.posture == FoldPosture.book &&
@@ -534,8 +594,14 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
               palette.background ?? Theme.of(context).scaffoldBackgroundColor,
           child: LayoutBuilder(
             builder: (context, stageConstraints) {
+              final hintStyle = _hintStyle(context, palette);
               final stagePadding = _stableInsets.copyWith(
-                bottom: _hintReserve(context, palette),
+                bottom: novelReaderFooterReserve(
+                  context,
+                  hintStyle: hintStyle,
+                  stableInsets: _stableInsets,
+                  isPointer: isPointer,
+                ),
               );
               final readerViewport = Size(
                 math.max(
@@ -562,116 +628,24 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                   Positioned.fill(
                     child: _buildStage(context, palette, stagePadding),
                   ),
-                  if (_chromeHidden && isPointer)
-                    PositionedDirectional(
-                      top: _stableInsets.top + FuncSpacing.sm,
-                      end: _stableInsets.right + FuncSpacing.md,
-                      child: Material(
-                        color: cueBg,
-                        shape: const StadiumBorder(),
-                        child: InkWell(
-                          key: const ValueKey('novel-pointer-cue'),
-                          customBorder: const StadiumBorder(),
-                          onTap: _showChrome,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: FuncSpacing.md,
-                              vertical: FuncSpacing.xs,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(UiIcons.more, size: 18, color: cueFg),
-                                const SizedBox(width: FuncSpacing.xs),
-                                Text(
-                                  l10n.novelShowToolbar,
-                                  style: Theme.of(context).textTheme.labelMedium
-                                      ?.copyWith(color: cueFg),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  // Keep the passive progress hint out of the bottom chrome's
-                  // paint and semantics tree. The chrome owns the interactive
-                  // progress readout while it is visible; the hint returns
-                  // when the reader is immersive again.
-                  // In single-column mode it starts on the body text's edge
-                  // (R4); in flat two-page spreads it centers on the spine
-                  // axis; in book posture it aligns to the left leaf's column.
+                  // Keep the passive progress hint (and pointer toolbar cue)
+                  // inside the reserved bottom strip while chrome is dismissed.
                   if (_chromeHidden)
-                    Positioned(
-                      left: 0,
-                      right: bookLeft == null ? 0 : null,
-                      width: bookLeft,
-                      bottom: 4 + _stableInsets.bottom,
-                      child: IgnorePointer(
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.only(
-                            start: _stableInsets.left,
-                            end: bookLeft != null
-                                ? FuncSpacing.sm
-                                : _stableInsets.right,
-                          ),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final style = NovelLayoutStyle(
-                                fontSize: _settings.fontSize,
-                              );
-                              final textScaler = MediaQuery.textScalerOf(
-                                context,
-                              );
-                              final width = isSpread && bookLeft != null
-                                  ? style.spreadContentWidth(
-                                      availableWidth: constraints.maxWidth,
-                                      textScaler: textScaler,
-                                    )
-                                  : style.contentWidth(
-                                      availableWidth: constraints.maxWidth,
-                                      textScaler: textScaler,
-                                    );
-                              final centerOnSpine =
-                                  isSpread && bookLeft == null;
-                              final hintStyle = _hintStyle(context, palette);
-                              return Center(
-                                child: SizedBox(
-                                  width: width,
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: style.horizontalPadding,
-                                    ),
-                                    child: MergeSemantics(
-                                      child: Row(
-                                        mainAxisAlignment: centerOnSpine
-                                            ? MainAxisAlignment.center
-                                            : MainAxisAlignment.start,
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              novel.title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: hintStyle,
-                                            ),
-                                          ),
-                                          Text(
-                                            ' · ${_page + 1}/$_pageCount · $percent%'
-                                            '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
-                                            maxLines: 1,
-                                            style: hintStyle,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
+                    NovelReaderFooterStrip(
+                      title: novel.title,
+                      suffix:
+                          ' · ${_displayPage + 1}/$_pageCount · $percent%'
+                          '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
+                      hintStyle: hintStyle,
+                      fontSize: _settings.fontSize,
+                      stableInsets: _stableInsets,
+                      bookLeft: bookLeft,
+                      isSpread: isSpread,
+                      isPointer: isPointer,
+                      cueForeground: cueFg,
+                      cueBackground: cueBg,
+                      showToolbarLabel: l10n.novelShowToolbar,
+                      onShowChrome: _showChrome,
                     ),
                   // Dismissed bars go offstage here, on the status-driven
                   // setState frame — not inside the animation builder,
@@ -764,7 +738,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     }
     if (step == null) return KeyEventResult.ignored;
     if (_readerHandle.pageCount?.call() == null) return KeyEventResult.ignored;
-    _readerHandle.stepPage?.call(step);
+    _readerHandle.stepPage?.call(step, animate: event is KeyDownEvent);
     return KeyEventResult.handled;
   }
 
@@ -776,23 +750,6 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
         color: (palette.foreground ?? Theme.of(context).colorScheme.onSurface)
             .withValues(alpha: novelReaderHintAlpha),
       );
-
-  /// Bottom padding that keeps the last body line clear of the progress
-  /// hint. The hint hangs `4dp` above the (stable) bottom inset, so the
-  /// body must yield the inset itself plus whatever part of the hint band
-  /// is not already covered by the layout's bottom whitespace.
-  double _hintReserve(BuildContext context, NovelReaderPalette palette) {
-    final painter = TextPainter(
-      text: TextSpan(text: '0', style: _hintStyle(context, palette)),
-      textScaler: MediaQuery.textScalerOf(context),
-      textDirection: Directionality.of(context),
-      maxLines: 1,
-    )..layout();
-    final hintBand = 4 + painter.height;
-    painter.dispose();
-    return _stableInsets.bottom +
-        math.max(0, hintBand - const NovelLayoutStyle().verticalPadding);
-  }
 
   Widget _buildStage(
     BuildContext context,
@@ -872,9 +829,15 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   }
 
   void _onProgressChanged(int page, int pageCount) {
-    if (page == _page && pageCount == _pageCount) return;
+    final displayPage = _readerHandle.displayPage?.call() ?? page;
+    if (page == _page &&
+        displayPage == _displayPage &&
+        pageCount == _pageCount) {
+      return;
+    }
     setState(() {
       _page = page;
+      _displayPage = displayPage;
       _pageCount = pageCount;
     });
   }
@@ -998,7 +961,9 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     AppLocalizations l10n,
     NovelReaderPalette palette,
   ) {
-    final percent = _pageCount <= 1 ? 100 : ((_page + 1) / _pageCount * 100);
+    final percent = _pageCount <= 1
+        ? 100
+        : ((_displayPage + 1) / _pageCount * 100);
     final foreground =
         palette.foreground ?? Theme.of(context).colorScheme.onSurface;
     final hairline = foreground.withValues(alpha: 0.10);
@@ -1054,7 +1019,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         iconAlignment: IconAlignment.end,
                         icon: const Icon(UiIcons.expandLess),
                         label: Text(
-                          '${_page + 1}/$_pageCount · ${percent.round()}%',
+                          '${_displayPage + 1}/$_pageCount · ${percent.round()}%',
                           semanticsLabel: l10n.novelReadingProgress,
                           maxLines: 1,
                           style: Theme.of(

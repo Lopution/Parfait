@@ -246,6 +246,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       _exitDownloadMode();
       return true;
     }
+    if (_blockMode) {
+      setState(() => _blockMode = false);
+      return true;
+    }
     return false;
   }
 
@@ -428,7 +432,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     return PopScope(
       canPop:
           widget.embeddedBackController != null ||
-          (!_downloadMode && !_composing),
+          (!_downloadMode && !_composing && !_blockMode),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         _handleEmbeddedBack();
@@ -669,7 +673,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         selectedPages: _selectedPages ?? const <int>{},
         onToggleSelect: _togglePageSelected,
         onLongPress: _enterDownloadMode,
-        onExitDownloadMode: _exitDownloadMode,
         heroScope: widget.heroScope,
         initialPage: _scroll.imageIndex,
         onPageChanged: (page) => _scroll.imageIndex = page,
@@ -696,7 +699,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         slivers: [...imageSlivers, ...metaSlivers],
         onScrollNotification: _onScrollNotification,
         downloadMode: _downloadMode,
-        onExitDownloadMode: _exitDownloadMode,
         forceSelectionArea: widget.embeddedInspector,
         topChrome: layout.topChrome,
         topVisiblePage: _scroll.topVisiblePage,

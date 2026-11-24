@@ -393,12 +393,9 @@ class _AppTopBarState extends State<AppTopBar> {
     );
     final sizedToolbar = !flatWorkspace
         ? toolbar
-        : Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              height: kDesktopPageHeaderHeight + bottomHeight + topPadding,
-              child: toolbar,
-            ),
+        : SizedBox(
+            height: kDesktopPageHeaderHeight + bottomHeight + topPadding,
+            child: toolbar,
           );
     if (widget.entrance == null) {
       return sizedToolbar;

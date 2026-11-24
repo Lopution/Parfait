@@ -15,7 +15,6 @@ import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/removal.dart';
 import '../../../app/motion/state_icon_switcher.dart';
 import '../../../app/navigation/route_facade.dart';
-import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_dialog.dart';
 import '../../../app/widgets/app_menu_button.dart';
@@ -31,7 +30,10 @@ import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart';
 import '../../../core/errors/error_category.dart';
+import '../../../core/platform/desktop_file_actions.dart';
+import '../../../core/platform/platform_caps.dart';
 import '../../../l10n/context.dart';
+import 'download_desktop_file_actions.dart';
 import 'download_task_presentation.dart';
 import '../../../app/icons/app_icons.dart';
 import '../../../app/icons/ui_icons.dart';
@@ -448,6 +450,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
               ),
         body: ContentWidthCap(
           maxWidth: ContentWidths.management,
+          alignStart: EmbeddedHeaderScope.isActiveOf(context),
           child: tasks.isEmpty
               ? FeedEmpty(title: context.l10n.downloadTasksEmpty)
               : RemovalScope(

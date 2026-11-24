@@ -135,6 +135,7 @@ class _MeBookmarksPaneState extends ConsumerState<MeBookmarksPane> {
           Expanded(
             child: DesktopInspectableGallery(
               active: _kind == BookmarkEntityType.illust,
+              scopeKey: feedKey,
               child: _kind == BookmarkEntityType.novel
                   ? widget.novelFeedBuilder(feedKey)
                   : widget.illustFeedBuilder(feedKey),
