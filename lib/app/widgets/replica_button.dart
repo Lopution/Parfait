@@ -16,7 +16,7 @@ class ReplicaButton extends StatelessWidget {
   });
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool outlined;
 
   @override
@@ -24,11 +24,22 @@ class ReplicaButton extends StatelessWidget {
     const radius = FuncShape.pill;
     final scheme = Theme.of(context).colorScheme;
     final tokens = FuncSemanticTokens.of(context);
+    final enabled = onPressed != null;
     return Material(
-      color: outlined ? Colors.transparent : tokens.brand,
+      color: outlined
+          ? Colors.transparent
+          : enabled
+          ? tokens.brand
+          : scheme.onSurface.withValues(alpha: 0.12),
       shape: RoundedRectangleBorder(
         borderRadius: radius,
-        side: outlined ? BorderSide(color: scheme.outline) : BorderSide.none,
+        side: outlined
+            ? BorderSide(
+                color: enabled
+                    ? scheme.outline
+                    : scheme.onSurface.withValues(alpha: 0.12),
+              )
+            : BorderSide.none,
       ),
       child: InkWell(
         borderRadius: radius,
@@ -40,7 +51,11 @@ class ReplicaButton extends StatelessWidget {
               label,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: outlined ? scheme.onSurface : tokens.onBrand,
+                color: !enabled
+                    ? scheme.onSurface.withValues(alpha: 0.38)
+                    : outlined
+                    ? scheme.onSurface
+                    : tokens.onBrand,
                 fontWeight: FontWeight.bold,
               ),
             ),

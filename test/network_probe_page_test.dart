@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_probe.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -58,6 +59,10 @@ void main() {
     // Counts row: one badge per observed conclusion plus its count, and the
     // failed-probe tally.
     expect(find.text('可访问'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('可访问')).style?.color,
+      FuncTokens.white,
+    );
     expect(find.text(' ×2'), findsOneWidget);
     // The worst conclusion appears twice: the counts row and the worst row.
     expect(find.text('SNI 被封'), findsNWidgets(2));

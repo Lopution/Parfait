@@ -76,13 +76,14 @@ reviewed: 2026-11-22
 
 ### SET-09 A form is one card with its save at the end
 - **Rule:** A form's fields and its `FilledButton` save sit in one
-  `SettingsGroupContent` card, the save at the card's bottom end. Reset
-  and clear actions are `SettingsActionTile` rows in a group under it.
-  "Optional" is a field's helper text, never part of its label.
+  `SettingsGroupContent` card, the save at the card's bottom end. Clearing an
+  optional override field (such as a custom download album name) saves back to
+  default, and reset/clear actions sit as `SettingsActionTile` rows in a group
+  under the form. "Optional" is a field's helper text, never part of its label.
 - **Why:** User decision: loose fields and buttons on the page surface
   did not read as one form. A long label was cut at narrow widths.
-- **Check:** `test/translation_credentials_page_test.dart` "typing while the store reads or writes stays a draft" "a dirty draft asks before leaving, a clean one pops"
-- **Code:** `lib/features/settings/pages/translation_credentials_page.dart`, `lib/features/settings/network_settings_page.dart`
+- **Check:** `test/translation_credentials_page_test.dart` "typing while the store reads or writes stays a draft" "a dirty draft asks before leaving, a clean one pops"; `test/download_settings_page_test.dart` "DownloadDestinationPage clears album to default, offers reset row, and exposes copy button & right-click menu"
+- **Code:** `lib/features/settings/pages/translation_credentials_page.dart`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/network_settings_page.dart`
 
 ### SET-10 A row's end says what a tap does
 - **Rule:** A row that opens a page of the app is a `SettingsTile` and

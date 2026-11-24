@@ -74,10 +74,10 @@ reviewed: 2026-11-23
 - **Code:** `lib/app/navigation/routes.dart`, `lib/features/search/search_result_page.dart`, `lib/features/search/docked_search.dart`
 
 ### NAV-23 The startup gate rescues only an auth stack
-- **Rule:** When signed in, `StartupGate` routes home only when both the top path and base configuration URI (`routerDelegate.currentConfiguration.uri`) are login/welcome/splash. Add-account login pushed over an app page stays and pops on success; cold-start shares over splash stay until back returns to splash. The gate listens to `routerDelegate` post-frame as well.
-- **Why:** Prevented token refreshes from aborting add-account OAuth or dismissing cold-start shared images.
-- **Check:** `test/startup_gate_test.dart` "add account survives the gate rebuilding under it" "an image shared into a cold start stays open until back"
-- **Code:** `lib/app/startup_gate.dart`, `lib/features/login/login_page.dart`
+- **Rule:** When signed in, `StartupGate` routes home only when both the top path and base configuration URI (`routerDelegate.currentConfiguration.uri`) are login/welcome/splash. Add-account login pushed over an app page stays and pops on success (including WebView, clipboard import, and external OAuth callback via top-level `/login/callback`, which replaces an active `/login` or `/login/callback` instead of stacking); cold-start shares over splash stay until back returns to splash. The gate listens to `routerDelegate` post-frame as well.
+- **Why:** Prevented token refreshes from aborting add-account OAuth or dismissing cold-start shared images, and stopped repeated OAuth callbacks from stacking multiple login pages.
+- **Check:** `test/startup_gate_test.dart` "add account survives the gate rebuilding under it" "an image shared into a cold start stays open until back"; `test/login_page_test.dart` "add-account clipboard import pops login and queues clipboard-replaced toast without dropping success toast" "external OAuth callback shows busy spinner, replaces /login without stacking, and pops back on add-account"
+- **Code:** `lib/app/startup_gate.dart`, `lib/features/login/login_page.dart`, `lib/app/navigation/routes.dart`
 
 ## Bottom bar
 
