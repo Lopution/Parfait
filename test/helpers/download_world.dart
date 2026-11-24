@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parfait/core/download/download_destination.dart';
@@ -10,6 +11,7 @@ import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart'
     show DownloadCancelledException, RawHop;
+import 'package:parfait/core/ugoira/ugoira_export.dart';
 
 /// Scripted transport: each open() pops the next [ScriptedResponse].
 class FakeTransport implements DownloadTransport {
@@ -257,4 +259,38 @@ class _ThrowAfterWriteSink implements DownloadSink {
 
   @override
   Future<void> abort() => inner.abort();
+}
+
+/// Shared fake [UgoiraGifEncoder] for export tests; pass [gate] to hold
+/// [addFrame] open while asserting mid-export UI, navigation, or cancellation.
+class FakeUgoiraGifEncoder implements UgoiraGifEncoder {
+  FakeUgoiraGifEncoder({this.gate, this.started});
+
+  final Completer<void>? gate;
+  final Completer<void>? started;
+
+  @override
+  Future<void> addFrame(ui.Image image, {required Duration delay}) async {
+    if (started case final ready? when !ready.isCompleted) {
+      ready.complete();
+    }
+    if (gate case final completer?) await completer.future;
+  }
+
+  @override
+  Future<List<int>> finish() async => const [
+    0x47,
+    0x49,
+    0x46,
+    0x38,
+    0x39,
+    0x61,
+  ];
+
+  @override
+  Future<void> dispose() async {
+    if (gate case final completer? when !completer.isCompleted) {
+      completer.complete();
+    }
+  }
 }

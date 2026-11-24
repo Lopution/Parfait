@@ -3322,4 +3322,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cardActionSelect => '多选';
+
+  @override
+  String get viewerZoomIn => '放大 (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => '正在准备动图…';
+
+  @override
+  String get tagMuteModeDone => '完成';
 }

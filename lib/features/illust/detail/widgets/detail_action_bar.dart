@@ -13,6 +13,7 @@ import '../../../../core/download/download_providers.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../app/widgets/app_spinner.dart';
 import '../../../../core/illust/illust_download_controller.dart';
+import '../../../../core/ugoira/ugoira_providers.dart';
 import '../../../../l10n/context.dart';
 import '../../../../app/icons/app_icons.dart';
 import '../../../../app/icons/ui_icons.dart';
@@ -206,13 +207,52 @@ class _DetailDownloadButtonState extends ConsumerState<DetailDownloadButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    if (widget.entity.isUgoira) {
+      final exportState = ref.watch(
+        ugoiraExportControllerProvider.select((m) => m[widget.entity.id]),
+      );
+      final (state, progress, tooltip) = switch (exportState?.phase) {
+        UgoiraExportPhase.preparing => (
+          IllustPageSaveState.downloading,
+          null,
+          l10n.ugoiraPreparingExport,
+        ),
+        UgoiraExportPhase.running || UgoiraExportPhase.finalizing => (
+          IllustPageSaveState.downloading,
+          exportState!.progress,
+          l10n.ugoiraExporting(((exportState.progress ?? 0) * 100).round()),
+        ),
+        UgoiraExportPhase.succeeded => (
+          IllustPageSaveState.exist,
+          null,
+          l10n.ugoiraSaved,
+        ),
+        UgoiraExportPhase.failed => (
+          IllustPageSaveState.error,
+          null,
+          l10n.ugoiraSaveFailed,
+        ),
+        _ => (IllustPageSaveState.none, null, l10n.ugoiraSaveGif),
+      };
+      return _buildButton(
+        colors: colors,
+        state: state,
+        progress: progress,
+        tooltip: tooltip,
+        onPressed: state == IllustPageSaveState.downloading
+            ? null
+            : widget.onPressed,
+      );
+    }
     final save = ref
         .watch(illustDownloadControllerProvider)
         .workStateFor(widget.entity);
-    final colors = Theme.of(context).colorScheme;
-    final l10n = context.l10n;
-    final progress = save.progress;
-    return IconButton(
+    return _buildButton(
+      colors: colors,
+      state: save.state,
+      progress: save.progress,
       tooltip: switch (save.state) {
         IllustPageSaveState.none => l10n.downloadAll,
         IllustPageSaveState.downloading => l10n.downloadRunning,
@@ -220,9 +260,22 @@ class _DetailDownloadButtonState extends ConsumerState<DetailDownloadButton> {
         IllustPageSaveState.error => l10n.downloadFailed,
       },
       onPressed: widget.onPressed,
+    );
+  }
+
+  Widget _buildButton({
+    required ColorScheme colors,
+    required IllustPageSaveState state,
+    required double? progress,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
       icon: StateIconSwitcher(
-        value: save.state,
-        child: switch (save.state) {
+        value: state,
+        child: switch (state) {
           IllustPageSaveState.downloading => AppSpinner(
             size: 22,
             // Nothing measured yet (queued, unknown length): spin.

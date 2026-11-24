@@ -1466,5 +1466,8 @@
   "nextArtworkTooltip": "Next artwork",
   "batchSelectWork": "Select work",
   "batchDeselectWork": "Deselect work",
-  "cardActionSelect": "Select"
+  "cardActionSelect": "Select",
+  "viewerZoomIn": "Zoom in (2.5×)",
+  "ugoiraPreparingExport": "Preparing ugoira…",
+  "tagMuteModeDone": "Done"
 }

@@ -1459,5 +1459,8 @@
   "nextArtworkTooltip": "Следующая работа",
   "batchSelectWork": "Выбрать работу",
   "batchDeselectWork": "Снять выбор с работы",
-  "cardActionSelect": "Выбрать"
+  "cardActionSelect": "Выбрать",
+  "viewerZoomIn": "Увеличить (2.5×)",
+  "ugoiraPreparingExport": "Подготовка угоиры…",
+  "tagMuteModeDone": "Готово"
 }
