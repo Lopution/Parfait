@@ -203,6 +203,8 @@
   "networkProbeAdviceIpBlackholed": "IP-адреса в чёрной дыре — приложение это не обойдёт; смените сеть.",
   "networkProbeAdviceAppLayer": "Транспорт в порядке — сбой на уровне приложения; скопируйте отчёт для отзыва.",
   "networkProbeAdviceInconclusive": "Не удалось определить — попробуйте другую сеть или повторите позже.",
+  "networkProbeApplyCompat": "Переключить на совместимые маршруты",
+  "networkProbeEnableDoh": "Включить DoH",
   "copy": "Копировать",
   "themeSettings": "Тема",
   "followSystemColors": "Системные цвета",

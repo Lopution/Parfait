@@ -549,6 +549,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Inconclusive — try another network or retry later.';
 
   @override
+  String get networkProbeApplyCompat => 'Switch to Compatibility-first';
+
+  @override
+  String get networkProbeEnableDoh => 'Turn on DoH';
+
+  @override
   String get copy => 'Copy';
 
   @override

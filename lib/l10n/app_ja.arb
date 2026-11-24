@@ -203,6 +203,8 @@
   "networkProbeAdviceIpBlackholed": "IP がブラックホール化——アプリでは回避できません。ネットワークを変えてください。",
   "networkProbeAdviceAppLayer": "伝送層は正常。問題はアプリ層です——レポートをコピーして報告してください。",
   "networkProbeAdviceInconclusive": "結論が出ません——別のネットワークか、後で再試行してください。",
+  "networkProbeApplyCompat": "互換経路優先に切り替え",
+  "networkProbeEnableDoh": "DoH を有効にする",
   "copy": "コピー",
   "themeSettings": "テーマ",
   "followSystemColors": "システムの色を使用",

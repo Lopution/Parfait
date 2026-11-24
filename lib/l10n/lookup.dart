@@ -469,6 +469,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'networkProbeAdviceIpBlackholed' => l10n.networkProbeAdviceIpBlackholed,
   'networkProbeAdviceNoSniAvailable' => l10n.networkProbeAdviceNoSniAvailable,
   'networkProbeAdviceSniBlocked' => l10n.networkProbeAdviceSniBlocked,
+  'networkProbeApplyCompat' => l10n.networkProbeApplyCompat,
   'networkProbeConclusionAllReachable' =>
     l10n.networkProbeConclusionAllReachable,
   'networkProbeConclusionAppLayer' => l10n.networkProbeConclusionAppLayer,
@@ -485,6 +486,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'networkProbeCopied' => l10n.networkProbeCopied,
   'networkProbeDetails' => l10n.networkProbeDetails,
   'networkProbeDnsDiff' => l10n.networkProbeDnsDiff,
+  'networkProbeEnableDoh' => l10n.networkProbeEnableDoh,
   'networkProbeHostFailed' => l10n.networkProbeHostFailed,
   'networkProbeNotRun' => l10n.networkProbeNotRun,
   'networkProbeOverview' => l10n.networkProbeOverview,

@@ -40,6 +40,7 @@ class LoginWebViewErrorCard extends StatelessWidget {
     required this.onReload,
     required this.onRestart,
     required this.onDismiss,
+    this.onOpenInBrowser,
     this.error,
   });
 
@@ -70,6 +71,10 @@ class LoginWebViewErrorCard extends StatelessWidget {
   /// Clears a recoverable error without reloading.
   final VoidCallback onDismiss;
 
+  /// Optional external browser fallback shown alongside reload on recoverable
+  /// WebView errors.
+  final VoidCallback? onOpenInBrowser;
+
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -81,41 +86,51 @@ class LoginWebViewErrorCard extends StatelessWidget {
             color: Theme.of(context).colorScheme.errorContainer,
             child: Padding(
               padding: const EdgeInsets.all(FuncSpacing.md),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(message),
-                        if (error != null) ...[
-                          FailureReport(action: message, error: error!),
-                          CopyDiagnosticsButton(error: error!),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (fatal)
-                    signup
-                        ? TextButton(
-                            onPressed: onReload,
-                            child: Text(context.l10n.loginReload),
-                          )
-                        : TextButton(
-                            onPressed: onRestart,
-                            child: Text(context.l10n.loginRestart),
-                          )
-                  else ...[
-                    TextButton(
-                      onPressed: onReload,
-                      child: Text(context.l10n.loginReload),
-                    ),
-                    TextButton(
-                      onPressed: onDismiss,
-                      child: Text(context.l10n.dismiss),
+                  Text(message),
+                  if (error != null) ...[
+                    FailureReport(action: message, error: error!),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: CopyDiagnosticsButton(error: error!),
                     ),
                   ],
+                  const SizedBox(height: FuncSpacing.xs),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: FuncSpacing.xs,
+                    runSpacing: FuncSpacing.xs,
+                    children: [
+                      if (fatal)
+                        signup
+                            ? TextButton(
+                                onPressed: onReload,
+                                child: Text(context.l10n.loginReload),
+                              )
+                            : TextButton(
+                                onPressed: onRestart,
+                                child: Text(context.l10n.loginRestart),
+                              )
+                      else ...[
+                        if (onOpenInBrowser != null)
+                          TextButton(
+                            onPressed: onOpenInBrowser,
+                            child: Text(context.l10n.openInBrowser),
+                          ),
+                        TextButton(
+                          onPressed: onReload,
+                          child: Text(context.l10n.loginReload),
+                        ),
+                        TextButton(
+                          onPressed: onDismiss,
+                          child: Text(context.l10n.dismiss),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),

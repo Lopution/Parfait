@@ -539,6 +539,12 @@ class AppLocalizationsJa extends AppLocalizations {
       '結論が出ません——別のネットワークか、後で再試行してください。';
 
   @override
+  String get networkProbeApplyCompat => '互換経路優先に切り替え';
+
+  @override
+  String get networkProbeEnableDoh => 'DoH を有効にする';
+
+  @override
   String get copy => 'コピー';
 
   @override

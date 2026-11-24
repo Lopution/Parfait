@@ -524,6 +524,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkProbeAdviceInconclusive => '无法得出结论——换个网络或稍后重试。';
 
   @override
+  String get networkProbeApplyCompat => '切换到兼容优先';
+
+  @override
+  String get networkProbeEnableDoh => '开启 DoH 解析';
+
+  @override
   String get copy => '复制';
 
   @override

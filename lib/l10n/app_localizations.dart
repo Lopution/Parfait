@@ -1074,6 +1074,18 @@ abstract class AppLocalizations {
   /// **'无法得出结论——换个网络或稍后重试。'**
   String get networkProbeAdviceInconclusive;
 
+  /// No description provided for @networkProbeApplyCompat.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换到兼容优先'**
+  String get networkProbeApplyCompat;
+
+  /// No description provided for @networkProbeEnableDoh.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启 DoH 解析'**
+  String get networkProbeEnableDoh;
+
   /// No description provided for @copy.
   ///
   /// In zh, this message translates to:

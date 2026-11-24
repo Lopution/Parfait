@@ -203,6 +203,8 @@
   "networkProbeAdviceIpBlackholed": "IP 被黑洞，客户端无法绕过——请更换网络。",
   "networkProbeAdviceAppLayer": "传输层正常，问题在应用层——可复制报告反馈。",
   "networkProbeAdviceInconclusive": "无法得出结论——换个网络或稍后重试。",
+  "networkProbeApplyCompat": "切换到兼容优先",
+  "networkProbeEnableDoh": "开启 DoH 解析",
   "copy": "复制",
   "themeSettings": "主题",
   "followSystemColors": "跟随系统取色",

@@ -624,6 +624,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
               signup: widget.create,
               onReload: _reload,
               onRestart: _restartLogin,
+              onOpenInBrowser: _openExternalBrowser,
               onDismiss: () => setState(() {
                 _error = null;
                 _errorDetails = null;

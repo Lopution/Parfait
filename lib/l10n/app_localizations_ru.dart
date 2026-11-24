@@ -549,6 +549,12 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось определить — попробуйте другую сеть или повторите позже.';
 
   @override
+  String get networkProbeApplyCompat => 'Переключить на совместимые маршруты';
+
+  @override
+  String get networkProbeEnableDoh => 'Включить DoH';
+
+  @override
   String get copy => 'Копировать';
 
   @override

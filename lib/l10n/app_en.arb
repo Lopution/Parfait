@@ -203,6 +203,8 @@
   "networkProbeAdviceIpBlackholed": "IPs are blackholed — the app cannot bypass this; switch networks.",
   "networkProbeAdviceAppLayer": "Transport is fine — the failure is at the app layer; copy the report for feedback.",
   "networkProbeAdviceInconclusive": "Inconclusive — try another network or retry later.",
+  "networkProbeApplyCompat": "Switch to Compatibility-first",
+  "networkProbeEnableDoh": "Turn on DoH",
   "copy": "Copy",
   "themeSettings": "Theme",
   "followSystemColors": "Use system colors",
