@@ -670,7 +670,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileEditUnavailable =>
-      'No in-app profile-edit route is available.';
+      'Profile editing is unavailable right now. Please sign in again and try later.';
+
+  @override
+  String get profileEditNoChanges => 'No profile changes to save';
+
+  @override
+  String get profileEditSaveFailed =>
+      'Couldn\'t save your profile. Please try again.';
 
   @override
   String get profileEditConfirmed => 'Profile confirmed and synchronized.';
@@ -692,7 +699,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileEditFieldUnsupported =>
-      'This field is not supported by the current route';
+      'This field cannot be edited right now';
 
   @override
   String get profileEditImageChoose => 'Choose a supported image';
@@ -2750,8 +2757,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelRestricted => 'This novel is restricted';
 
   @override
-  String get novelContentUnavailable =>
-      'The current API did not provide the novel body';
+  String get novelContentUnavailable => 'Novel text is currently unavailable';
 
   @override
   String get novelLoadFailed => 'Failed to load novel';

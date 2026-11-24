@@ -522,15 +522,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkProbeAdviceEchAvailable =>
-      'ECH доступен — режим «Авто» или «Совместимость» его использует.';
+      'ECH доступен — режим «Авто» или «Сначала совместимые маршруты» его использует.';
 
   @override
   String get networkProbeAdviceNoSniAvailable =>
-      'Пустой SNI доступен — режим «Совместимость» будет его использовать.';
+      'Пустой SNI доступен — режим «Сначала совместимые маршруты» будет его использовать.';
 
   @override
   String get networkProbeAdviceSniBlocked =>
-      'Реальный SNI заблокирован — попробуйте режим «Совместимость».';
+      'Реальный SNI заблокирован — попробуйте режим «Сначала совместимые маршруты».';
 
   @override
   String get networkProbeAdviceDnsPolluted =>
@@ -670,7 +670,14 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileEditUnavailable =>
-      'Нет доступного канала редактирования в приложении.';
+      'Сейчас нельзя изменить профиль. Войдите снова и повторите попытку.';
+
+  @override
+  String get profileEditNoChanges => 'Нет изменений для сохранения';
+
+  @override
+  String get profileEditSaveFailed =>
+      'Не удалось сохранить профиль. Попробуйте ещё раз.';
 
   @override
   String get profileEditConfirmed => 'Профиль подтверждён и синхронизирован.';
@@ -691,8 +698,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileEditBackground => 'Фоновое изображение';
 
   @override
-  String get profileEditFieldUnsupported =>
-      'Этот канал не поддерживает данное поле';
+  String get profileEditFieldUnsupported => 'Это поле сейчас нельзя изменить';
 
   @override
   String get profileEditImageChoose => 'Выберите поддерживаемое изображение';
@@ -2735,7 +2741,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelRestricted => 'Новелла ограничена';
 
   @override
-  String get novelContentUnavailable => 'Текущий API не вернул текст новеллы';
+  String get novelContentUnavailable => 'Текст новеллы сейчас недоступен';
 
   @override
   String get novelLoadFailed => 'Не удалось загрузить новеллу';

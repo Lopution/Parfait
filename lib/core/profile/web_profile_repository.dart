@@ -79,8 +79,6 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
       return ProfileCapabilities(
         editableFields: const {},
         channel: ProfileEditChannel.unavailable,
-        reason:
-            'In-app Pixiv session is unavailable; sign in again before saving.',
       );
     }
     return ProfileCapabilities(

@@ -399,26 +399,25 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
         capabilities.isAvailable &&
         state.status != ProfileEditStatus.submitting &&
         state.status != ProfileEditStatus.confirmed;
+    final l10n = context.l10n;
     return Form(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          FuncSpacing.lg,
-          FuncSpacing.lg,
-          FuncSpacing.lg,
-          FuncSpacing.lg,
-        ),
+        padding: const EdgeInsets.all(FuncSpacing.lg),
         children: [
           if (!capabilities.isAvailable)
-            _Notice(
-              icon: AppIcons.info,
-              text: capabilities.reason ?? context.l10n.profileEditUnavailable,
-            ),
+            _Notice(icon: AppIcons.info, text: l10n.profileEditUnavailable),
           // What a save brought back comes and goes in place (MOTION-14).
           Reveal(
             child: switch (state.failure) {
               final failure? => _Notice(
                 icon: UiIcons.errorOutline,
-                text: failure.message,
+                text: switch (failure.code) {
+                  ProfileEditFailureCode.unavailable =>
+                    l10n.profileEditUnavailable,
+                  ProfileEditFailureCode.noChanges => l10n.profileEditNoChanges,
+                  ProfileEditFailureCode.staleOwner => l10n.errorUnauthorized,
+                  _ => l10n.profileEditSaveFailed,
+                },
               ),
               null => null,
             },
@@ -427,7 +426,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             child: state.status == ProfileEditStatus.confirmed
                 ? _Notice(
                     icon: UiIcons.checkCircle,
-                    text: context.l10n.profileEditConfirmed,
+                    text: l10n.profileEditConfirmed,
                   )
                 : null,
           ),

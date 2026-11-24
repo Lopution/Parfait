@@ -1311,8 +1311,20 @@ abstract class AppLocalizations {
   /// No description provided for @profileEditUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'当前没有可用的应用内资料编辑通道。'**
+  /// **'暂无法编辑个人资料，请重新登录后再试。'**
   String get profileEditUnavailable;
+
+  /// No description provided for @profileEditNoChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'资料未作修改'**
+  String get profileEditNoChanges;
+
+  /// No description provided for @profileEditSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存个人资料失败，请稍后重试'**
+  String get profileEditSaveFailed;
 
   /// No description provided for @profileEditConfirmed.
   ///
@@ -1353,7 +1365,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileEditFieldUnsupported.
   ///
   /// In zh, this message translates to:
-  /// **'当前通道不支持此字段'**
+  /// **'当前暂不支持编辑此项'**
   String get profileEditFieldUnsupported;
 
   /// No description provided for @profileEditImageChoose.
@@ -5090,7 +5102,7 @@ abstract class AppLocalizations {
   /// No description provided for @novelContentUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'当前 API 未提供小说正文'**
+  /// **'暂时无法获取小说正文'**
   String get novelContentUnavailable;
 
   /// No description provided for @novelLoadFailed.

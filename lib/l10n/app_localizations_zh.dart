@@ -643,7 +643,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditLoadFailed => '个人资料加载失败';
 
   @override
-  String get profileEditUnavailable => '当前没有可用的应用内资料编辑通道。';
+  String get profileEditUnavailable => '暂无法编辑个人资料，请重新登录后再试。';
+
+  @override
+  String get profileEditNoChanges => '资料未作修改';
+
+  @override
+  String get profileEditSaveFailed => '保存个人资料失败，请稍后重试';
 
   @override
   String get profileEditConfirmed => '资料已确认并同步。';
@@ -664,7 +670,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditBackground => '背景图';
 
   @override
-  String get profileEditFieldUnsupported => '当前通道不支持此字段';
+  String get profileEditFieldUnsupported => '当前暂不支持编辑此项';
 
   @override
   String get profileEditImageChoose => '选择一张受支持的图片';
@@ -2647,7 +2653,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelRestricted => '该小说受限，无法阅读';
 
   @override
-  String get novelContentUnavailable => '当前 API 未提供小说正文';
+  String get novelContentUnavailable => '暂时无法获取小说正文';
 
   @override
   String get novelLoadFailed => '小说加载失败';

@@ -463,7 +463,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkProbeStepEch => 'ECH';
 
   @override
-  String get networkProbeStepNoSni => '空 SNI';
+  String get networkProbeStepNoSni => 'SNIなし';
 
   @override
   String get networkProbeStepOk => '成功';
@@ -487,7 +487,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkProbeConclusionEchAvailable => 'ECH を使用';
 
   @override
-  String get networkProbeConclusionNoSniAvailable => '空 SNI を使用';
+  String get networkProbeConclusionNoSniAvailable => 'SNIなしを使用';
 
   @override
   String get networkProbeConclusionIpBlackholed => 'IP ブラックホール';
@@ -512,15 +512,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get networkProbeAdviceEchAvailable =>
-      'ECH が利用可能——「自動」または「互換優先」モードで使われます。';
+      'ECH が利用可能——「自動」または「互換経路優先」モードで使われます。';
 
   @override
   String get networkProbeAdviceNoSniAvailable =>
-      '空 SNI が利用可能——「互換優先」モードで使われます。';
+      'SNIなしが利用可能——「互換経路優先」モードで使われます。';
 
   @override
   String get networkProbeAdviceSniBlocked =>
-      '実 SNI が遮断されています——「互換優先」モードを試してください。';
+      '実 SNI が遮断されています——「互換経路優先」モードを試してください。';
 
   @override
   String get networkProbeAdviceDnsPolluted =>
@@ -658,7 +658,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileEditLoadFailed => 'プロフィールを読み込めませんでした';
 
   @override
-  String get profileEditUnavailable => 'アプリ内プロフィール編集経路はありません。';
+  String get profileEditUnavailable => '現在プロフィールを編集できません。再ログインしてお試しください。';
+
+  @override
+  String get profileEditNoChanges => '変更はありません';
+
+  @override
+  String get profileEditSaveFailed => 'プロフィールの保存に失敗しました。もう一度お試しください。';
 
   @override
   String get profileEditConfirmed => 'プロフィールを確認して同期しました。';
@@ -679,7 +685,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileEditBackground => '背景画像';
 
   @override
-  String get profileEditFieldUnsupported => '現在の経路ではこの項目に対応していません';
+  String get profileEditFieldUnsupported => 'この項目は現在編集できません';
 
   @override
   String get profileEditImageChoose => '対応する画像を選択してください';
@@ -2673,7 +2679,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelRestricted => 'この小説は制限されています';
 
   @override
-  String get novelContentUnavailable => '現在の API は小説本文を返しませんでした';
+  String get novelContentUnavailable => '現在、小説の本文を表示できません';
 
   @override
   String get novelLoadFailed => '小説の読み込みに失敗しました';

@@ -115,7 +115,7 @@ void main() {
       );
       expect(capabilities.channel, ProfileEditChannel.unavailable);
       expect(capabilities.editableFields, isEmpty);
-      expect(capabilities.reason, contains('In-app'));
+      expect(capabilities.reason, isNull);
     });
 
     test('with a session -> web channel with the five fields', () async {
