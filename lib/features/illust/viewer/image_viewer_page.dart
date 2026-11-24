@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/accessibility/immersive_chrome_policy.dart';
 import '../../../app/clipboard.dart';
 import '../../../app/format/app_format.dart';
 import '../../../app/layout/app_breakpoints.dart';
@@ -181,6 +182,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   bool _chromeHotzoneHovered = false;
   bool _scrubberHovered = false;
   bool _infoPanelOpen = false;
+  bool _accessibleNav = false;
   Timer? _chromeHideTimer;
   DesktopCommandBarController? _commandBarController;
   ModalRoute<dynamic>? _observedRoute;
@@ -194,7 +196,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       : viewer.urls.length;
 
   bool get _chromeVisible =>
-      viewerSessionChromeVisible || _pointerChromeRevealed;
+      viewerSessionChromeVisible || _pointerChromeRevealed || _accessibleNav;
 
   @override
   void initState() {
@@ -237,12 +239,13 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       _observedAnimation = nextAnimation;
       _observedAnimation?.addStatusListener(_onRouteAnimationStatus);
     }
+    _accessibleNav = pinsImmersiveChromeForAccessibility(context);
+    if (_accessibleNav) _setSystemChrome(visible: true);
     _syncCommandBarHidden();
   }
 
-  void _onRouteAnimationStatus(AnimationStatus status) {
-    _syncCommandBarHidden();
-  }
+  void _onRouteAnimationStatus(AnimationStatus status) =>
+      _syncCommandBarHidden();
 
   void _syncCommandBarHidden() {
     final controller = _commandBarController;
@@ -433,13 +436,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   bool _activeZoomedSnapshot = false;
 
-  void _setSystemChrome({required bool visible}) {
-    unawaited(
-      setSystemUiMode(
-        visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
-      ),
-    );
-  }
+  void _setSystemChrome({required bool visible}) => unawaited(
+    setSystemUiMode(
+      visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+    ),
+  );
 
   void _setChromeVisible(bool visible) {
     _chromeHideTimer?.cancel();

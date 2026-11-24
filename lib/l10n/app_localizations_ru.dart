@@ -3535,4 +3535,13 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get localNovelsDropUnsupported =>
       'Поддерживается импорт только файлов .txt';
+
+  @override
+  String get ugoiraPlay => 'Воспроизвести анимацию';
+
+  @override
+  String get ugoiraPause => 'Приостановить анимацию';
+
+  @override
+  String get ugoiraPlaybackSpeed => 'Скорость воспроизведения';
 }

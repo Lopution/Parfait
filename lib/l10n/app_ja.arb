@@ -1504,5 +1504,8 @@
   "reverseImagePasteEmpty": "クリップボードに画像がありません",
   "reverseImageDropHint": "画像をドロップして検索",
   "localNovelsDropHint": "TXT ファイルをドロップしてインポート",
-  "localNovelsDropUnsupported": "インポートできるのは .txt ファイルのみです"
+  "localNovelsDropUnsupported": "インポートできるのは .txt ファイルのみです",
+  "ugoiraPlay": "うごイラを再生",
+  "ugoiraPause": "うごイラを一時停止",
+  "ugoiraPlaybackSpeed": "再生速度"
 }

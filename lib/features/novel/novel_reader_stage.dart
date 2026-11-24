@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
+import '../../app/accessibility/immersive_chrome_policy.dart';
 import '../../app/layout/app_breakpoints.dart';
 import '../../app/layout/input_modality.dart';
 import '../../app/layout/window_layout_spec.dart';
@@ -345,6 +346,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _chrome.duration = MotionTokens.resolve(context, MotionTokens.chrome);
+    if (pinsImmersiveChromeForAccessibility(context) && !_chromeVisible) {
+      _chromeVisible = true;
+      _chromeHidden = false;
+      _chrome.value = 1;
+      unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
+    }
     final size = MediaQuery.sizeOf(context);
     final live = MediaQuery.viewPaddingOf(context);
     final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
@@ -450,19 +457,20 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   }
 
   void _setChromeVisible(bool visible) {
-    setState(() => _chromeVisible = visible);
+    final effective = visible || pinsImmersiveChromeForAccessibility(context);
+    setState(() => _chromeVisible = effective);
     // System bars share the chrome's visibility: immersive while hidden,
     // edge-to-edge while the bars are up.
     unawaited(
       setSystemUiMode(
-        visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+        effective ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
       ),
     );
     if (!MotionTokens.enabled(context)) {
       // Reduced motion: land the end state — a zeroed controller still
       // drives the hittable/dismissed boundary correctly.
-      _chrome.value = visible ? 1 : 0;
-    } else if (visible) {
+      _chrome.value = effective ? 1 : 0;
+    } else if (effective) {
       _chrome.forward();
     } else {
       _chrome.reverse();
@@ -576,7 +584,9 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       // swipe-back active even while reader chrome is open (TRANS-02/NOVEL-05);
       // Android/desktop still dismiss chrome first on back/Esc.
       canPop:
-          !_chromeVisible || Theme.of(context).platform == TargetPlatform.iOS,
+          !_chromeVisible ||
+          Theme.of(context).platform == TargetPlatform.iOS ||
+          pinsImmersiveChromeForAccessibility(context),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           // Restore the bars as the pop starts — dispose only runs
@@ -697,6 +707,11 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
 
     final key = event.logicalKey;
     final shift = hw.isShiftPressed;
+
+    if (event is KeyDownEvent && !shift && key == LogicalKeyboardKey.keyF) {
+      _toggleChrome();
+      return KeyEventResult.handled;
+    }
 
     if (_settings.pageTurn == NovelPageTurn.scroll) {
       final viewport = _readerHandle.viewportHeight?.call() ?? 480;

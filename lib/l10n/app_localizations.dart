@@ -6502,6 +6502,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'仅支持导入 .txt 文件'**
   String get localNovelsDropUnsupported;
+
+  /// Semantics label for starting ugoira animation playback
+  ///
+  /// In zh, this message translates to:
+  /// **'播放动图'**
+  String get ugoiraPlay;
+
+  /// Semantics label for pausing ugoira animation playback
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停动图'**
+  String get ugoiraPause;
+
+  /// Tooltip and semantics label for ugoira playback speed selector
+  ///
+  /// In zh, this message translates to:
+  /// **'播放倍速'**
+  String get ugoiraPlaybackSpeed;
 }
 
 class _AppLocalizationsDelegate

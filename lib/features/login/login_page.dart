@@ -470,9 +470,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           onPressed: () => context.push<void>('/user-agreement'),
           style: TextButton.styleFrom(
             foregroundColor: Theme.of(context).colorScheme.primary,
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(0, 32),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.sm),
+            minimumSize: const Size(
+              kMinInteractiveDimension,
+              kMinInteractiveDimension,
+            ),
+            tapTargetSize: MaterialTapTargetSize.padded,
           ),
           child: Text(
             text('userAgreement'),
@@ -508,9 +511,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             color: Theme.of(context).colorScheme.primary,
           ),
           iconSize: 20,
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          constraints: const BoxConstraints(
+            minWidth: kMinInteractiveDimension,
+            minHeight: kMinInteractiveDimension,
+          ),
         ),
       ],
     );

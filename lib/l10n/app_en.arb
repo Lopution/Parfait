@@ -1511,5 +1511,8 @@
   "reverseImagePasteEmpty": "No image in clipboard",
   "reverseImageDropHint": "Drop an image to search",
   "localNovelsDropHint": "Drop TXT files to import",
-  "localNovelsDropUnsupported": "Only .txt files can be imported"
+  "localNovelsDropUnsupported": "Only .txt files can be imported",
+  "ugoiraPlay": "Play animation",
+  "ugoiraPause": "Pause animation",
+  "ugoiraPlaybackSpeed": "Playback speed"
 }

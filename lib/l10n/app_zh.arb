@@ -2205,5 +2205,17 @@
   "localNovelsDropUnsupported": "仅支持导入 .txt 文件",
   "@localNovelsDropUnsupported": {
     "description": "SnackBar shown when dropping non-TXT files onto the local novels page"
+  },
+  "ugoiraPlay": "播放动图",
+  "@ugoiraPlay": {
+    "description": "Semantics label for starting ugoira animation playback"
+  },
+  "ugoiraPause": "暂停动图",
+  "@ugoiraPause": {
+    "description": "Semantics label for pausing ugoira animation playback"
+  },
+  "ugoiraPlaybackSpeed": "播放倍速",
+  "@ugoiraPlaybackSpeed": {
+    "description": "Tooltip and semantics label for ugoira playback speed selector"
   }
 }

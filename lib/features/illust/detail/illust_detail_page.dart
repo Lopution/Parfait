@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/accessibility/immersive_chrome_policy.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/icons/app_icons.dart';
 import '../../../app/icons/ui_icons.dart';
@@ -147,7 +148,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       context,
       MotionTokens.chrome,
     );
-    _touchExploration = MediaQuery.accessibleNavigationOf(context);
+    _touchExploration = pinsImmersiveChromeForAccessibility(context);
     if (_touchExploration && !_downloadMode && !_composing) {
       _barVisibility.value = 1;
     }

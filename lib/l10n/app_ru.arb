@@ -1504,5 +1504,8 @@
   "reverseImagePasteEmpty": "В буфере обмена нет изображения",
   "reverseImageDropHint": "Перетащите изображение для поиска",
   "localNovelsDropHint": "Перетащите файлы TXT для импорта",
-  "localNovelsDropUnsupported": "Поддерживается импорт только файлов .txt"
+  "localNovelsDropUnsupported": "Поддерживается импорт только файлов .txt",
+  "ugoiraPlay": "Воспроизвести анимацию",
+  "ugoiraPause": "Приостановить анимацию",
+  "ugoiraPlaybackSpeed": "Скорость воспроизведения"
 }

@@ -3421,4 +3421,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localNovelsDropUnsupported => '仅支持导入 .txt 文件';
+
+  @override
+  String get ugoiraPlay => '播放动图';
+
+  @override
+  String get ugoiraPause => '暂停动图';
+
+  @override
+  String get ugoiraPlaybackSpeed => '播放倍速';
 }
