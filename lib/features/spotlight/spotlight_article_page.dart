@@ -128,10 +128,12 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(AppIcons.share),
-            tooltip: context.l10n.share,
-            onPressed: () => unawaited(_share(context)),
+          Builder(
+            builder: (buttonContext) => IconButton(
+              icon: const Icon(AppIcons.share),
+              tooltip: context.l10n.share,
+              onPressed: () => unawaited(_share(buttonContext)),
+            ),
           ),
           IconButton(
             icon: const Icon(AppIcons.externalLink),

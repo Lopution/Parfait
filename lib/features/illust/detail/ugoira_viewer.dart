@@ -729,7 +729,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           DisplayAction(
             icon: AppIcons.share,
             label: l10n.share,
-            onSelected: () => unawaited(_share()),
+            onSelected: () => unawaited(
+              _share(origin: shareOriginAt(context, details.globalPosition)),
+            ),
           ),
           DisplayAction(
             icon: AppIcons.link,
@@ -747,7 +749,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     );
   }
 
-  Future<void> _share() async {
+  Future<void> _share({Rect? origin}) async {
     final entity = ref.read(illustStoreProvider).get(widget.illustId);
     final outcome = await ref
         .read(shareServiceProvider)
@@ -759,7 +761,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                 '${context.l10n.illustDetailTitle} #${widget.illustId}',
             author: entity?.user.name ?? '',
           ),
-          sharePositionOrigin: shareOriginOf(context),
+          sharePositionOrigin: origin != null
+              ? clampShareOrigin(context, origin)
+              : shareOriginOf(context),
         );
     if (outcome == ShareOutcome.copiedToClipboard && mounted) {
       showAppSnackBar(context, context.l10n.linkCopied);

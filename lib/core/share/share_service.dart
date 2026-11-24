@@ -57,10 +57,17 @@ enum ShareOutcome {
 }
 
 /// Platform share boundary. The system sheet is tried first; when it throws
-/// (desktop builds without a sharesheet, plugin missing) the payload falls
-/// back to the clipboard so the action never dead-ends.
+/// (desktop builds without a sharesheet, plugin missing) [share] falls back to
+/// the clipboard so the action never dead-ends.
 abstract interface class ShareService {
   Future<ShareOutcome> share(SharePayload payload, {Rect? sharePositionOrigin});
+
+  Future<void> shareFiles(
+    List<share_plus.XFile> files, {
+    String? subject,
+    String? text,
+    Rect? sharePositionOrigin,
+  });
 }
 
 class SystemShareService implements ShareService {
@@ -84,17 +91,84 @@ class SystemShareService implements ShareService {
       return ShareOutcome.copiedToClipboard;
     }
   }
+
+  @override
+  Future<void> shareFiles(
+    List<share_plus.XFile> files, {
+    String? subject,
+    String? text,
+    Rect? sharePositionOrigin,
+  }) async {
+    await share_plus.SharePlus.instance.share(
+      share_plus.ShareParams(
+        files: files,
+        subject: subject,
+        text: text,
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
+  }
 }
 
 final shareServiceProvider = Provider<ShareService>(
   (ref) => const SystemShareService(),
 );
 
-/// Origin rect for the sharesheet popover on large screens (iPad requires
-/// it). Resolves the widget's global bounds; `null` when the context is not
-/// laid out yet, which share_plus treats as a centered anchor.
+Rect? _viewportRectOf(BuildContext context) {
+  final size = MediaQuery.maybeSizeOf(context);
+  if (size == null || size.isEmpty) return null;
+  return Offset.zero & size;
+}
+
+Rect _centeredFallback(Rect viewport) =>
+    Rect.fromCenter(center: viewport.center, width: 1, height: 1);
+
+/// Clamps [rect] into the active viewport so iPadOS `UIPopoverPresentationController`
+/// always receives a finite, non-empty, on-screen anchor (passing `null` or an
+/// out-of-bounds rect causes `share_plus` to throw on iPad).
+Rect? clampShareOrigin(BuildContext context, Rect? rect) {
+  final viewport = _viewportRectOf(context);
+  if (rect != null &&
+      rect.left.isFinite &&
+      rect.top.isFinite &&
+      rect.width.isFinite &&
+      rect.height.isFinite &&
+      !rect.isEmpty) {
+    if (viewport == null) return rect;
+    final clipped = rect.intersect(viewport);
+    if (!clipped.isEmpty) return clipped;
+  }
+  return viewport == null ? null : _centeredFallback(viewport);
+}
+
+/// Origin rect for the sharesheet popover on iPadOS. Resolves [context]'s
+/// global bounds clipped to the active viewport, falling back to a 1x1 center
+/// anchor when [context] is detached, unlaid-out, or scrolled off-screen.
 Rect? shareOriginOf(BuildContext context) {
   final box = context.findRenderObject();
-  if (box is! RenderBox || !box.hasSize) return null;
-  return box.localToGlobal(Offset.zero) & box.size;
+  if (box is RenderBox && box.attached && box.hasSize && !box.size.isEmpty) {
+    final origin = box.localToGlobal(Offset.zero);
+    if (origin.dx.isFinite && origin.dy.isFinite) {
+      return clampShareOrigin(context, origin & box.size);
+    }
+  }
+  return clampShareOrigin(context, null);
+}
+
+/// Origin rect anchored at a pointer/tap [globalPosition], clamped inside the
+/// active viewport for context-menu share actions on iPadOS.
+Rect? shareOriginAt(BuildContext context, Offset globalPosition) {
+  final viewport = _viewportRectOf(context);
+  if (viewport == null) {
+    if (!globalPosition.dx.isFinite || !globalPosition.dy.isFinite) return null;
+    return Rect.fromCenter(center: globalPosition, width: 1, height: 1);
+  }
+  if (!globalPosition.dx.isFinite || !globalPosition.dy.isFinite) {
+    return _centeredFallback(viewport);
+  }
+  final maxX = viewport.width > 1 ? viewport.width - 1 : 0.0;
+  final maxY = viewport.height > 1 ? viewport.height - 1 : 0.0;
+  final x = globalPosition.dx.clamp(0.0, maxX).toDouble();
+  final y = globalPosition.dy.clamp(0.0, maxY).toDouble();
+  return Rect.fromLTWH(x, y, 1, 1);
 }

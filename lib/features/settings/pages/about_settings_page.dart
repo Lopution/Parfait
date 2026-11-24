@@ -8,7 +8,6 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/motion/app_overlays.dart';
@@ -28,6 +27,7 @@ import '../../../core/logging/crash_log.dart';
 import '../../../core/platform/app_storage_paths.dart';
 import '../../../core/platform/platform_caps.dart';
 import '../../../core/settings/shared_preferences.dart';
+import '../../../core/share/share_service.dart';
 import '../../../core/updater/update_manifest.dart';
 import '../../../core/updater/update_providers.dart';
 import '../../../core/updater/update_service.dart';
@@ -171,12 +171,15 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                     ],
                   ),
                 ),
-                SettingsActionTile(
-                  icon: AppIcons.bugReport,
-                  setting: Setting.aboutExportLogs,
-                  onTap: () => _exportCrashLog(
-                    context,
-                    isDesktop: ref.read(platformCapsProvider).isDesktop,
+                Builder(
+                  builder: (tileContext) => SettingsActionTile(
+                    icon: AppIcons.bugReport,
+                    setting: Setting.aboutExportLogs,
+                    onTap: () => _exportCrashLog(
+                      tileContext,
+                      shareService: ref.read(shareServiceProvider),
+                      isDesktop: ref.read(platformCapsProvider).isDesktop,
+                    ),
                   ),
                 ),
                 // Read-back of the display mode the engine actually got —
@@ -228,8 +231,10 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
 
 Future<void> _exportCrashLog(
   BuildContext context, {
+  required ShareService shareService,
   required bool isDesktop,
 }) async {
+  final shareOrigin = shareOriginOf(context);
   final directory = await AppStoragePaths.active.resolveSupportDir();
   final file = CrashLog.fileFor(directory);
   final hasLog = await file.exists() && await file.length() > 0;
@@ -250,8 +255,10 @@ Future<void> _exportCrashLog(
     return;
   }
   try {
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], subject: 'parfait-crash.log'),
+    await shareService.shareFiles(
+      [XFile(file.path)],
+      subject: 'parfait-crash.log',
+      sharePositionOrigin: shareOrigin,
     );
   } on Object {
     if (context.mounted) showAppSnackBar(context, context.l10n.errorUnknown);

@@ -51,8 +51,15 @@ Future<void> downloadAllIllustPages(
 Future<void> shareIllust(
   BuildContext context,
   WidgetRef ref,
-  IllustEntity entity,
-) async {
+  IllustEntity entity, {
+  Rect? sharePositionOrigin,
+  Offset? globalPosition,
+}) async {
+  final origin = sharePositionOrigin != null
+      ? clampShareOrigin(context, sharePositionOrigin)
+      : globalPosition != null
+      ? shareOriginAt(context, globalPosition)
+      : shareOriginOf(context);
   final outcome = await ref
       .read(shareServiceProvider)
       .share(
@@ -61,7 +68,7 @@ Future<void> shareIllust(
           title: entity.title,
           author: entity.user.name,
         ),
-        sharePositionOrigin: shareOriginOf(context),
+        sharePositionOrigin: origin,
       );
   if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
     showAppSnackBar(context, context.l10n.linkCopied);

@@ -607,7 +607,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     showDownloadSubmittedSnackBar(context);
   }
 
-  Future<void> _share(IllustEntity entity) => shareIllust(context, ref, entity);
+  Future<void> _share(
+    IllustEntity entity, {
+    BuildContext? anchor,
+    Offset? at,
+  }) => shareIllust(anchor ?? context, ref, entity, globalPosition: at);
 
   Future<void> _downloadAll(IllustEntity entity) =>
       downloadAllIllustPages(context, ref, entity);
@@ -789,7 +793,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             DisplayAction(
               icon: AppIcons.share,
               label: l10n.share,
-              onSelected: () => unawaited(_share(entity)),
+              onSelected: () =>
+                  unawaited(_share(entity, at: details.globalPosition)),
             ),
             DisplayAction(
               icon: AppIcons.link,
@@ -1400,12 +1405,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                         _ => const Icon(AppIcons.download),
                       },
                     ),
-                    IconButton(
-                      tooltip: l10n.cardActionShare,
-                      onPressed: hasPages
-                          ? () => unawaited(_share(entity))
-                          : null,
-                      icon: const Icon(AppIcons.share),
+                    Builder(
+                      builder: (c) => IconButton(
+                        tooltip: l10n.cardActionShare,
+                        onPressed: hasPages
+                            ? () => unawaited(_share(entity, anchor: c))
+                            : null,
+                        icon: const Icon(AppIcons.share),
+                      ),
                     ),
                     IconButton(
                       tooltip: l10n.viewerInfo,
