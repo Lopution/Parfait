@@ -261,6 +261,7 @@ class NovelEntry extends ConsumerWidget {
               showSeries: showSeries,
               bookmarks: bookmarks,
             ),
+      metaMaxLines: 2,
       footnote: muted ? null : _footnote(entity),
       progress: progress,
       trailing: trailing,
