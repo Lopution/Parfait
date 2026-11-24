@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/motion_tokens.dart';
+import '../../app/navigation/func_page.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_dialog.dart';
 import '../../app/widgets/app_top_bar.dart';
@@ -429,4 +431,48 @@ String downloadDestinationLabel(
             : context.l10n.saveLocationSafFolder,
     },
   };
+}
+
+/// Builds a route inside wide `SettingsPage`'s nested detail [Navigator].
+/// Uses [FuncPage] on iOS so nested detail routes support interactive
+/// left-edge swipe-back (TRANS-02), and a fast fade elsewhere.
+Route<void> buildSettingsDetailRoute(
+  BuildContext context, {
+  required String location,
+  required Widget page,
+  bool instant = false,
+}) {
+  if (Theme.of(context).platform == TargetPlatform.iOS) {
+    return (instant
+            ? FuncPage<void>(
+                name: location,
+                transitionDuration: Duration.zero,
+                child: page,
+              )
+            : FuncPage<void>(name: location, child: page))
+        .createRoute(context);
+  }
+  final duration = instant
+      ? Duration.zero
+      : MotionTokens.resolve(context, MotionTokens.desktopPageTransition);
+  return PageRouteBuilder<void>(
+    settings: RouteSettings(name: location),
+    transitionDuration: duration,
+    reverseTransitionDuration: duration,
+    pageBuilder: (_, _, _) => page,
+    transitionsBuilder: (_, animation, _, child) {
+      final reversing = animation.status == AnimationStatus.reverse;
+      final curved = animation.drive(
+        CurveTween(
+          curve: reversing
+              ? MotionTokens.stateFadeCurve.flipped
+              : MotionTokens.stateFadeCurve,
+        ),
+      );
+      return IgnorePointer(
+        ignoring: reversing,
+        child: FadeTransition(opacity: curved, child: child),
+      );
+    },
+  );
 }

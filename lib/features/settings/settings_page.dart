@@ -8,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../app/layout/content_widths.dart';
 import '../../app/layout/deferred_cache_scroll_view.dart';
-import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/forward_history.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -369,29 +368,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       target: uri.queryParameters[focusQuery],
       child: _buildDetailPage(uri),
     );
-    return PageRouteBuilder<void>(
-      settings: RouteSettings(name: location),
-      transitionDuration: instant
-          ? Duration.zero
-          : MotionTokens.resolve(context, MotionTokens.desktopPageTransition),
-      reverseTransitionDuration: instant
-          ? Duration.zero
-          : MotionTokens.resolve(context, MotionTokens.desktopPageTransition),
-      pageBuilder: (_, _, _) => page,
-      transitionsBuilder: (_, animation, _, child) {
-        final isReversing = animation.status == AnimationStatus.reverse;
-        final curved = animation.drive(
-          CurveTween(
-            curve: isReversing
-                ? MotionTokens.stateFadeCurve.flipped
-                : MotionTokens.stateFadeCurve,
-          ),
-        );
-        return IgnorePointer(
-          ignoring: isReversing,
-          child: FadeTransition(opacity: curved, child: child),
-        );
-      },
+    return buildSettingsDetailRoute(
+      context,
+      location: location,
+      page: page,
+      instant: instant,
     );
   }
 

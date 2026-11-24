@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/widgets.dart';
 
 /// The animation of the route a page is in, provided by [FuncPage] so a
@@ -18,16 +19,16 @@ class RouteAnimationScope extends InheritedWidget {
   const RouteAnimationScope({
     super.key,
     required this.animation,
+    this.popGesture,
     required super.child,
   });
 
   final Animation<double> animation;
 
-  /// The animation of the route [context] is in. A route that is not a
-  /// [FuncPage] (a dialog, a test's `MaterialPageRoute`) provides no scope
-  /// of its own, so the nearest one would belong to a route further out;
-  /// those fall back to `ModalRoute.of` and its status dependency.
-  static Animation<double>? of(BuildContext context) {
+  /// Whether an interactive iOS edge swipe-back gesture is driving [animation].
+  final ValueListenable<bool>? popGesture;
+
+  static RouteAnimationScope? _sameNavigatorScope(BuildContext context) {
     final scope = context
         .getElementForInheritedWidgetOfExactType<RouteAnimationScope>();
     if (scope != null &&
@@ -36,12 +37,26 @@ class RouteAnimationScope extends InheritedWidget {
           context.findAncestorStateOfType<NavigatorState>(),
         )) {
       context.dependOnInheritedElement(scope);
-      return (scope.widget as RouteAnimationScope).animation;
+      return scope.widget as RouteAnimationScope;
     }
-    return ModalRoute.of(context)?.animation;
+    return null;
   }
+
+  /// The animation of the route [context] is in. A route that is not a
+  /// [FuncPage] (a dialog, a test's `MaterialPageRoute`) provides no scope
+  /// of its own, so the nearest one would belong to a route further out;
+  /// those fall back to `ModalRoute.of` and its status dependency.
+  static Animation<double>? of(BuildContext context) =>
+      _sameNavigatorScope(context)?.animation ??
+      ModalRoute.of(context)?.animation;
+
+  /// Interactive iOS pop-gesture state for the enclosing [FuncPage] route, or
+  /// `null` outside a [FuncPage].
+  static ValueListenable<bool>? popGestureOf(BuildContext context) =>
+      _sameNavigatorScope(context)?.popGesture;
 
   @override
   bool updateShouldNotify(RouteAnimationScope oldWidget) =>
-      !identical(animation, oldWidget.animation);
+      !identical(animation, oldWidget.animation) ||
+      !identical(popGesture, oldWidget.popGesture);
 }

@@ -20,8 +20,10 @@ import 'package:parfait/core/profile/profile_edit_controller.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/history/history_page.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_overlay_frame.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
+import 'package:parfait/features/settings/settings_helpers.dart';
 
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
@@ -1135,6 +1137,101 @@ void main() {
       await pull.up();
       await tester.pumpAndSettle();
       expect(find.text('page a'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
+    'iOS bounded DetailOverlayFrame keeps scrim stationary while sliding card on edge-swipe and Settings nested detail uses FuncPage',
+    (tester) async {
+      setViewSize(tester, const Size(1200, 800));
+      for (final shared in [true, false]) {
+        late PageRoute<void> pushed;
+        await tester.pumpWidget(
+          localizedApp(
+            home: Builder(
+              builder: (rootCtx) => TextButton(
+                onPressed: () {
+                  pushed =
+                      FuncPage<void>(
+                            sharedElement: shared,
+                            boundedOverlayOnWide: true,
+                            child: const DetailOverlayFrame(
+                              child: Scaffold(
+                                body: Center(child: Text('overlay body')),
+                              ),
+                            ),
+                          ).createRoute(rootCtx)
+                          as PageRoute<void>;
+                  Navigator.of(rootCtx).push(pushed);
+                },
+                child: const Text('open-overlay'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open-overlay'));
+        await tester.pumpAndSettle();
+
+        final scrimFinder = find.byKey(const ValueKey('detail-overlay-scrim'));
+        final cardFinder = find.byKey(const ValueKey('detail-overlay-card'));
+        final cardBefore = tester.getRect(cardFinder);
+        expect(tester.getRect(scrimFinder).left, 0.0);
+
+        final drag = await tester.startGesture(const Offset(12, 400));
+        await drag.moveBy(const Offset(30, 0));
+        await drag.moveBy(const Offset(360, 0));
+        await tester.pump();
+
+        expect(tester.getRect(scrimFinder).left, 0.0);
+        expect(
+          tester.getRect(cardFinder).left,
+          greaterThan(cardBefore.left + 200),
+        );
+        final scrimFade = tester.widget<FadeTransition>(
+          find
+              .ancestor(of: scrimFinder, matching: find.byType(FadeTransition))
+              .first,
+        );
+        expect(scrimFade.opacity.value, inExclusiveRange(0.0, 1.0));
+
+        await drag.moveBy(const Offset(360, 0));
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(pushed.isActive, isFalse);
+      }
+
+      // Wide Settings nested detail route uses FuncPage on iOS for swipe-back.
+      await tester.pumpWidget(
+        localizedApp(
+          home: Navigator(
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (ctx) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(ctx).push<void>(
+                    buildSettingsDetailRoute(
+                      ctx,
+                      location: '/settings/translate/credentials/baidu',
+                      page: const Scaffold(
+                        body: Center(child: Text('nested-detail')),
+                      ),
+                    ),
+                  ),
+                  child: const Text('nested-root'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('nested-root'));
+      await tester.pumpAndSettle();
+      expect(find.text('nested-detail'), findsOneWidget);
+
+      await tester.dragFrom(const Offset(12, 400), const Offset(700, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('nested-detail'), findsNothing);
+      expect(find.text('nested-root'), findsOneWidget);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
