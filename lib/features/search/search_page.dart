@@ -722,18 +722,12 @@ class _TrendingTagTile extends ConsumerWidget {
       ),
     );
     // Long-pressing opens the work behind the tag, as pixez and Shaft do.
-    // A tag without one offers no long press at all.
-    final openWork = representative == null
+    final rep = representative;
+    final openWork = rep == null
         ? null
         : () {
             AppHaptics.longPress();
-            unawaited(
-              openIllust(
-                context,
-                representative.id,
-                initialEntity: representative,
-              ),
-            );
+            unawaited(openIllust(context, rep.id, initialEntity: rep));
           };
     void searchTag() => openSearchResults(
       context,
@@ -772,6 +766,8 @@ class _TrendingTagTile extends ConsumerWidget {
             child: InkWell(
               borderRadius: FuncShape.card,
               enableFeedback: false,
+              splashFactory: NoSplash.splashFactory,
+              overlayColor: pressScaleInkOverlay,
               mouseCursor: SystemMouseCursors.click,
               onTap: searchTag,
               onLongPress: openWork,

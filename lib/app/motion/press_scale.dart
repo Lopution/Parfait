@@ -4,7 +4,16 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
+import '../theme/func_tokens.dart';
 import 'motion_tokens.dart';
+
+/// [InkWell.overlayColor] for widgets that pair [PressScale] with an [InkWell]
+/// for hover/focus states without double press ink (MOTION-06).
+final WidgetStateProperty<Color?> pressScaleInkOverlay =
+    WidgetStateProperty.resolveWith(
+      (states) =>
+          states.contains(WidgetState.pressed) ? FuncTokens.transparent : null,
+    );
 
 /// M3-style press feedback: the child scales to [MotionTokens.pressScale]
 /// while a pointer is down and springs back on release. Both directions

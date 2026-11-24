@@ -1,17 +1,25 @@
 import 'package:flutter/gestures.dart' show kPressTimeout;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/widgets/app_choice_chip.dart';
 import 'package:parfait/app/widgets/feed/spotlight_article_card.dart';
+import 'package:parfait/app/widgets/skeleton/list_skeletons.dart';
+import 'package:parfait/app/widgets/user_preview_row.dart';
+import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/spotlight/spotlight_feed_controller.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_store.dart';
+import 'package:parfait/core/user/user_entity.dart';
+import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
 
+import 'helpers/illust_fixtures.dart';
 import 'helpers/spotlight_world.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
@@ -213,6 +221,78 @@ void main() {
       await tester.tap(promptAction('重试'));
       await tester.pumpAndSettle();
       expect(fixture.requests.length, before + 2);
+    },
+  );
+
+  testWidgets(
+    'SpotlightListSkeleton renders bones, AppChoiceChip omits PressScale, and UserPreviewRow mounts Hero without press ink',
+    (tester) async {
+      final raw = illustJson(501);
+      final urls = Map<String, dynamic>.of(
+        raw['image_urls']! as Map<String, dynamic>,
+      );
+      urls['square_medium'] =
+          'https://i.pximg.net/c/360x360_70/img-master/img/2026/09/01/00/00/00/501_p0_square1200.jpg';
+      final illust = parseIllust({...raw, 'image_urls': urls});
+      final user = UserEntity(
+        id: illust.user.id,
+        name: illust.user.name,
+        account: illust.user.account,
+      );
+      final container = ProviderContainer.test();
+      container.read(illustStoreProvider).mergeAll([illust]);
+      container.read(userStoreProvider.notifier).mergeAll([user]);
+      container.read(userPreviewIdsProvider.notifier).record({
+        user.id: [illust.id],
+      });
+
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(
+                  height: 220,
+                  child: SpotlightListSkeleton(label: '加载中'),
+                ),
+                AppChoiceChip(
+                  label: const Text('Tag'),
+                  selected: false,
+                  onSelected: () {},
+                ),
+                UserPreviewRow(entity: user),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(SpotlightListSkeleton), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppChoiceChip),
+          matching: find.byType(PressScale),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(UserPreviewRow),
+          matching: find.byType(Hero),
+        ),
+        findsOneWidget,
+      );
+      final thumbInk = tester.widget<InkWell>(
+        find
+            .descendant(
+              of: find.byType(UserPreviewRow),
+              matching: find.byType(InkWell),
+            )
+            .last,
+      );
+      expect(thumbInk.splashFactory, NoSplash.splashFactory);
     },
   );
 }

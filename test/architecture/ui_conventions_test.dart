@@ -55,6 +55,7 @@ const _overlayAllowList = <String, Set<String>>{};
 
 const _heroFiles = <String>{
   'lib/app/widgets/feed/illust_card.dart',
+  'lib/app/widgets/user_preview_row.dart',
   'lib/features/illust/detail/widgets/page_image.dart',
   'lib/features/illust/detail/ugoira_viewer.dart',
   'lib/features/illust/viewer/image_viewer_page.dart',

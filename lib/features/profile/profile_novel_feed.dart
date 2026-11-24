@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/novel_entry.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_feed_controller.dart';
@@ -47,7 +48,7 @@ class ProfileNovelFeed extends ConsumerWidget {
           : userNovelFeedProvider(feedKey.userId),
     );
     return async.when(
-      loading: () => const FeedLoading(),
+      loading: () => NovelListSkeleton(label: context.l10n.novelLoading),
       error: (error, _) => FeedError(
         title: context.l10n.profileLoadFailed,
         error: error,
@@ -64,7 +65,7 @@ class ProfileNovelFeed extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const FeedLoading();
+          return NovelListSkeleton(label: context.l10n.novelLoading);
         }
         final loaded = ref
             .watch(

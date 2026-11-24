@@ -47,12 +47,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('series 55'), findsOneWidget);
+    // Card holds inner prev/next buttons, so MOTION-06 keeps surface ink only.
     expect(
       find.ancestor(
         of: find.text('series 55'),
         matching: find.byType(PressScale),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('第 3 话 / 共 12 话'), findsOneWidget);
     expect(find.byTooltip('上一话'), findsOneWidget);

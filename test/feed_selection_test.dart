@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/layout/input_modality.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
@@ -592,6 +593,44 @@ void main() {
         expect(inspector!.selectedId.value, isNull);
       } finally {
         debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'FeedBatchActionBar under reduced motion uses SpringSize without zero-duration errors',
+    (tester) async {
+      final controller = FeedSelectionController();
+      addTearDown(controller.dispose);
+      final entity = parseIllust(illustJson(99));
+      controller
+        ..syncEnabledFromLayout(true)
+        ..syncItems([entity]);
+
+      for (final inlineTop in [true, false]) {
+        await tester.pumpWidget(
+          MotionScope(
+            reduce: true,
+            child: localizedApp(
+              overrides: const [],
+              body: FeedBatchActionBar(
+                controller: controller,
+                inlineTop: inlineTop,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('feed-batch-action-bar')), findsNothing);
+
+        controller.toggle(entity.id);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('feed-batch-action-bar')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        controller.clearSelection();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('feed-batch-action-bar')), findsNothing);
       }
     },
   );

@@ -9,6 +9,7 @@ import '../../../../app/haptics/app_haptics.dart';
 import '../../../../app/layout/input_modality.dart';
 import '../../../../app/motion/hero_transition.dart';
 import '../../../../app/motion/motion_tokens.dart';
+import '../../../../app/motion/press_scale.dart';
 import '../../../../app/motion/state_icon_switcher.dart';
 import '../../../../app/navigation/home_shell_metrics.dart';
 import '../../../../app/navigation/route_animation.dart';
@@ -1031,23 +1032,25 @@ class _DownloadBadge extends StatelessWidget {
         size: 30,
       ),
     };
-    return GestureDetector(
-      onTap: state == IllustPageSaveState.downloading ? null : onTap,
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: label,
-        child: Container(
-          padding: const EdgeInsets.all(FuncSpacing.sm),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: FuncShape.dialog,
-          ),
-          // Keyed by the mark drawn: a state change that keeps the same
-          // mark does not replay the swap.
-          child: StateIconSwitcher(
-            value: child is Icon ? child.icon! : state,
-            child: child,
+    return PressScale(
+      scale: MotionTokens.pillPressScale,
+      enabled: state != IllustPageSaveState.downloading,
+      child: GestureDetector(
+        onTap: state == IllustPageSaveState.downloading ? null : onTap,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: label,
+          child: Container(
+            padding: const EdgeInsets.all(FuncSpacing.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: FuncShape.dialog,
+            ),
+            child: StateIconSwitcher(
+              value: child is Icon ? child.icon! : state,
+              child: child,
+            ),
           ),
         ),
       ),

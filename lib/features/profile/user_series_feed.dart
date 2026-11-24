@@ -137,6 +137,8 @@ class _UserSeriesCardView extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         margin: EdgeInsets.zero,
         child: InkWell(
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: pressScaleInkOverlay,
           onTap: () => openIllustSeries(context, series.id),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

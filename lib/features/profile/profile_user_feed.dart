@@ -6,6 +6,7 @@ import '../../app/navigation/route_facade.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../core/entity/stored_entities.dart';
 import '../../core/network/api_error.dart';
 import '../../core/profile/profile_feed_controller.dart';
@@ -36,7 +37,7 @@ class ProfileUserFeed extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(profileUserFeedProvider(feedKey));
     return async.when(
-      loading: () => const FeedLoading(),
+      loading: () => UserListSkeleton(label: context.l10n.profileLoading),
       error: (error, _) => FeedError(
         title: context.l10n.profileLoadFailed,
         error: error,
@@ -56,7 +57,7 @@ class ProfileUserFeed extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const FeedLoading();
+          return UserListSkeleton(label: context.l10n.profileLoading);
         }
         final users = ref
             .watch(

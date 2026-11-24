@@ -102,7 +102,7 @@ class MePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountStoreProvider);
     return accounts.when(
-      loading: () => const Scaffold(body: FeedLoading()),
+      loading: () => const Scaffold(body: ProfileSkeleton()),
       error: (error, _) => _ProfileStatusPage(
         icon: AppIcons.cloudOff,
         title: context.l10n.profileLoadFailed,
