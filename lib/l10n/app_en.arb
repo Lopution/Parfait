@@ -1104,6 +1104,7 @@
   "followPublicAction": "Follow",
   "followSwitchToPrivate": "Make private",
   "followSwitchToPublic": "Make public",
+  "followSwitchVisibility": "Switch public/private follow",
   "followFailed": "Follow action failed",
   "userPreviewFollow": "Follow",
   "novelLoading": "Loading novel",
@@ -1466,5 +1467,8 @@
   "nextArtworkTooltip": "Next artwork",
   "batchSelectWork": "Select work",
   "batchDeselectWork": "Deselect work",
-  "cardActionSelect": "Select"
+  "cardActionSelect": "Select",
+  "viewerZoomIn": "Zoom in (2.5×)",
+  "ugoiraPreparingExport": "Preparing ugoira…",
+  "tagMuteModeDone": "Done"
 }

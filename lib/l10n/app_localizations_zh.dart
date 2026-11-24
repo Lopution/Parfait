@@ -2611,6 +2611,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followSwitchToPublic => '改为公开关注';
 
   @override
+  String get followSwitchVisibility => '切换公开/私密关注';
+
+  @override
   String get followFailed => '关注操作失败';
 
   @override
@@ -3322,4 +3325,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cardActionSelect => '多选';
+
+  @override
+  String get viewerZoomIn => '放大 (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => '正在准备动图…';
+
+  @override
+  String get tagMuteModeDone => '完成';
 }

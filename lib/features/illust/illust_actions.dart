@@ -11,14 +11,20 @@ import '../../core/entity/illust_entity.dart';
 import '../../core/illust/illust_download_controller.dart';
 import '../../core/share/share_service.dart';
 import '../../l10n/context.dart';
+import 'detail/ugoira_export_action.dart';
 
 /// Submits every page of [entity] through [illustDownloadControllerProvider]
-/// (dedupe-safe) and surfaces either submission feedback or an error prompt.
+/// (dedupe-safe) — or launches app-level GIF export for ugoira works — and
+/// surfaces either submission feedback or an error prompt.
 Future<void> downloadAllIllustPages(
   BuildContext context,
   WidgetRef ref,
   IllustEntity entity,
 ) async {
+  if (entity.isUgoira) {
+    await startUgoiraGifExport(context, ref, entity.id);
+    return;
+  }
   final reportFailure = deferErrorSnackBar(
     context,
     action: context.l10n.downloadSubmissionFailed,

@@ -924,9 +924,24 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
           await tester.pumpAndSettle();
 
-          // Hiding chrome via F excludes hidden controls from keyboard focus.
+          // Hiding chrome via F excludes hidden controls from keyboard focus
+          // and hides desktop page arrows even while pointer hovers the stage.
           await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
           await tester.pumpAndSettle();
+          final nextArrow = find.byKey(const Key('viewer-next-page'));
+          expect(
+            tester
+                .widget<AnimatedOpacity>(
+                  find
+                      .descendant(
+                        of: nextArrow,
+                        matching: find.byType(AnimatedOpacity),
+                      )
+                      .first,
+                )
+                .opacity,
+            0.0,
+          );
           for (var i = 0; i < 8; i++) {
             await tester.sendKeyEvent(LogicalKeyboardKey.tab);
             await tester.pump();
@@ -935,6 +950,30 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(ImageViewerPage), findsOneWidget);
           await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+          await tester.pumpAndSettle();
+
+          // Right-click menu uses localized 2.5× zoom label (not '100%'), and
+          // dragging the scrubber keeps the bubble when returning to page 0.
+          await tester.tapAt(
+            tester.getCenter(find.byType(ImageViewerPage)),
+            kind: PointerDeviceKind.mouse,
+            buttons: kSecondaryMouseButton,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('放大 (2.5×)'), findsOneWidget);
+          expect(find.text('100%'), findsNothing);
+          await tester.tapAt(
+            const Offset(10, 10),
+            kind: PointerDeviceKind.mouse,
+          );
+          await tester.pumpAndSettle();
+          final slider = tester.widget<Slider>(find.byType(Slider));
+          slider.onChanged!(1);
+          await tester.pump();
+          slider.onChanged!(0);
+          await tester.pump();
+          expect(find.text('1 / 2'), findsWidgets);
+          slider.onChangeEnd!(0);
           await tester.pumpAndSettle();
 
           // Open docked 320dp info panel and pop-before-navigate via author link.

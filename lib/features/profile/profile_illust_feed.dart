@@ -15,6 +15,7 @@ import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/icons/ui_icons.dart';
 
 /// Grid padding shared by this feed and `ProfileSkeleton`'s grid block.
@@ -33,10 +34,20 @@ bool hasVisibleProfileIllusts(WidgetRef ref, ProfileFeedKey feedKey) {
 }
 
 class ProfileIllustFeed extends ConsumerWidget {
-  const ProfileIllustFeed({super.key, required this.feedKey, this.localFilter});
+  const ProfileIllustFeed({
+    super.key,
+    required this.feedKey,
+    this.localFilter,
+    this.isNested = true,
+  });
 
   final ProfileFeedKey feedKey;
   final String? localFilter;
+
+  /// True inside [UserPage]'s `NestedScrollView`; false on standalone pages
+  /// (bookmark tag feed, wide Me workspace panes) so pull-to-refresh omits
+  /// `nestedHeader` and pointer wheels get `SmoothWheelScroll`.
+  final bool isNested;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -86,9 +97,13 @@ class ProfileIllustFeed extends ConsumerWidget {
             'profile:${feedKey.userId}:${feedKey.kind.name}:'
             '${feedKey.workType.name}:${feedKey.restrict.name}:'
             '${feedKey.bookmarkTag ?? ''}';
-        return SelectableFeedHost(
-          child: PullToRefresh(
-            isNested: true,
+        Widget buildScroll(
+          ScrollController? scrollController,
+          ScrollPhysics? physics,
+        ) {
+          return PullToRefresh(
+            isNested: isNested,
+            scrollController: scrollController,
             onRefresh: () =>
                 ref.read(profileIllustFeedProvider(feedKey).notifier).refresh(),
             child: LoadMoreListener(
@@ -96,17 +111,14 @@ class ProfileIllustFeed extends ConsumerWidget {
               onLoadMore: () => ref
                   .read(profileIllustFeedProvider(feedKey).notifier)
                   .loadMore(),
-              // No SmoothWheelScroll here: this is the inner scrollable of a
-              // NestedScrollView — driving its position via animateTo bypasses
-              // the nested coordinator, so the profile header would never
-              // collapse on wheel. Native wheel keeps header folding intact.
               child: DeferredCacheScrollView(
                 key: PageStorageKey(feedKey),
+                controller: scrollController,
                 restorationId: 'profile-${feedKey.toString()}',
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics: physics,
                 scrollCacheExtent: kFeedCacheExtent,
                 slivers: [
-                  PullToRefresh.nestedHeader,
+                  if (isNested) PullToRefresh.nestedHeader,
                   if (visibleEntities.isEmpty)
                     SliverFillRemaining(
                       hasScrollBody: false,
@@ -157,7 +169,20 @@ class ProfileIllustFeed extends ConsumerWidget {
                 ],
               ),
             ),
-          ),
+          );
+        }
+
+        // Inside NestedScrollView, driving position via SmoothWheelScroll's
+        // animateTo bypasses the nested coordinator so the profile header would
+        // never collapse on wheel; standalone callers get SmoothWheelScroll.
+        return SelectableFeedHost(
+          child: isNested
+              ? buildScroll(null, const AlwaysScrollableScrollPhysics())
+              : SmoothWheelScroll(
+                  basePhysics: const AlwaysScrollableScrollPhysics(),
+                  builder: (context, scrollController, physics) =>
+                      buildScroll(scrollController, physics),
+                ),
         );
       },
     );

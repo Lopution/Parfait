@@ -248,8 +248,8 @@ Future<void> openSpotlightArticle(
 }
 
 /// Own-profile tabs another page can open the profile on (the "me"
-/// dashboard's bookmarks and following entries).
-enum MeTab { bookmarks, following }
+/// dashboard's bookmarks, following, and myPixiv entries).
+enum MeTab { bookmarks, following, myPixiv }
 
 Future<void> openMe(BuildContext context, {MeTab? tab}) async {
   // The profile is an app-level page: it opens on whatever stack is
@@ -347,25 +347,33 @@ Future<void> openDownloadTasks(BuildContext context) async {
 void showDownloadSubmittedSnackBar(
   BuildContext context, {
   bool alreadyQueued = false,
-}) {
+}) => deferDownloadSubmittedSnackBar(context)(alreadyQueued: alreadyQueued);
+
+/// Captures [PromptHost], router, and localized labels before an `await` so
+/// download-submission feedback still lands if the page pops meanwhile (FB-15).
+void Function({bool alreadyQueued}) deferDownloadSubmittedSnackBar(
+  BuildContext context,
+) {
+  final present = deferAppSnackBarPresenter(context);
   final router = GoRouter.maybeOf(context);
   final rail = hasShellRail(context);
   final l10n = context.l10n;
-  if (!alreadyQueued) AppHaptics.success();
-  showAppSnackBar(
-    context,
-    alreadyQueued ? l10n.downloadAlreadyQueued : l10n.downloadQueuedMessage,
-    action: router == null
-        ? null
-        : PromptAction(
-            label: l10n.downloadViewResult,
-            onPressed: () => unawaited(
-              router.push<void>(
-                appPageLocation(router, 'downloads', rail: rail),
+  return ({bool alreadyQueued = false}) {
+    if (!alreadyQueued) AppHaptics.success();
+    present(
+      alreadyQueued ? l10n.downloadAlreadyQueued : l10n.downloadQueuedMessage,
+      action: router == null
+          ? null
+          : PromptAction(
+              label: l10n.downloadViewResult,
+              onPressed: () => unawaited(
+                router.push<void>(
+                  appPageLocation(router, 'downloads', rail: rail),
+                ),
               ),
             ),
-          ),
-  );
+    );
+  };
 }
 
 /// Switches the home shell to [destination] from a page inside it: the

@@ -33,8 +33,33 @@ VoidCallback showAppSnackBar(
 /// taken now, so the returned callback still shows [message] once the
 /// context that asked is gone.
 VoidCallback deferAppSnackBar(BuildContext context, String message) {
+  final present = deferAppSnackBarPresenter(context);
+  return () => present(message);
+}
+
+/// Captures the active [PromptHost] before an `await` so callers that compute
+/// their final message or action asynchronously still deliver feedback if the
+/// originating page has already popped (FB-04, FB-15).
+void Function(
+  String message, {
+  Duration duration,
+  PromptAction? action,
+  bool replaceCurrent,
+})
+deferAppSnackBarPresenter(BuildContext context) {
   final host = PromptHost.of(context);
-  return () {
-    if (host.mounted) host.show(message);
+  return (
+    String message, {
+    Duration duration = defaultPromptDuration,
+    PromptAction? action,
+    bool replaceCurrent = true,
+  }) {
+    if (!host.mounted) return;
+    host.show(
+      message,
+      duration: duration,
+      action: action,
+      replaceCurrent: replaceCurrent,
+    );
   };
 }

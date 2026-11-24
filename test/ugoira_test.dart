@@ -7,17 +7,22 @@ import 'dart:ui' as ui;
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_recovery.dart';
 import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/ugoira/ugoira_cache.dart';
 import 'package:parfait/core/ugoira/ugoira_decoder.dart';
 import 'package:parfait/core/ugoira/ugoira_export.dart';
 import 'package:parfait/core/ugoira/ugoira_limits.dart';
 import 'package:parfait/core/ugoira/ugoira_metadata.dart';
+import 'package:parfait/core/ugoira/ugoira_providers.dart';
 import 'package:parfait/core/ugoira/ugoira_repository.dart';
 import 'package:parfait/core/ugoira/ugoira_scheduler.dart';
 import 'package:parfait/core/ugoira/ugoira_zip.dart';
+import 'helpers/api_responses.dart';
 import 'helpers/download_world.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/image_headers.dart';
 
 void main() {
@@ -483,6 +488,72 @@ void main() {
         await subscription.cancel();
         await job.dispose();
         await asset.dispose();
+      },
+    );
+
+    test(
+      'UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync('ugoira-ctrl-');
+        addTearDown(() => tempDir.deleteSync(recursive: true));
+        final zipBytes = _zip({'000000.png': _validOnePixelPng()});
+        final sinks = MemorySinkFactory();
+        final recovery = MemoryDownloadRecoveryStore();
+        final transport = FakeTransport()
+          ..responses.addAll([
+            ScriptedResponse(chunks: [zipBytes]),
+            ScriptedResponse(chunks: [zipBytes]),
+          ]);
+        var blockNext = true;
+        final encodingStarted = Completer<void>();
+        final container = await signedInApiContainer(
+          PixivApi({
+            '/v1/ugoira/metadata': answer(
+              _metadataJson([
+                {'file': '000000.png', 'delay': 80},
+              ]),
+            ),
+          }).client,
+          overrides: [
+            downloadSinkFactoryProvider.overrideWithValue(sinks),
+            ugoiraRecoveryStoreProvider.overrideWithValue(recovery),
+            ugoiraGifEncoderFactoryProvider.overrideWithValue(
+              (_) => FakeUgoiraGifEncoder(
+                gate: blockNext ? Completer<void>() : null,
+                started: blockNext ? encodingStarted : null,
+              ),
+            ),
+            ugoiraRepositoryProvider.overrideWith(
+              (ref) => UgoiraRepository(
+                client: ref.watch(pixivHttpClientProvider),
+                transport: transport,
+                temporaryDirectory: () async => tempDir,
+              ),
+            ),
+          ],
+        );
+
+        final ctrl = container.read(ugoiraExportControllerProvider.notifier);
+        final first = ctrl.export(42);
+        // Concurrent request joins the running export instead of duplicating.
+        expect(identical(ctrl.export(42), first), isTrue);
+        await encodingStarted.future;
+        expect(
+          container.read(ugoiraExportControllerProvider)[42]?.isActive,
+          isTrue,
+        );
+        expect(tempDir.listSync(), hasLength(1));
+
+        ctrl.cancel(42);
+        final canceled = await first;
+        expect(canceled.phase, UgoiraExportPhase.canceled);
+        expect(tempDir.listSync(), isEmpty);
+
+        blockNext = false;
+        final done = await ctrl.export(42);
+        expect(done.phase, UgoiraExportPhase.succeeded);
+        expect(sinks.sinks.last.finalized, isTrue);
+        expect(tempDir.listSync(), isEmpty);
       },
     );
   });

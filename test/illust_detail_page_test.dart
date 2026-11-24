@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -14,6 +15,7 @@ import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/widgets/ambient_wash.dart';
 import 'package:parfait/app/widgets/comment_composer.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/app/widgets/inline_translation.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/person_avatar.dart';
@@ -41,6 +43,7 @@ import 'helpers/card_world.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/fake_settings.dart';
+import 'helpers/recording_haptics.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/comment_world.dart';
@@ -515,12 +518,9 @@ void main() {
         expect(frame.top, closeTo(tester.getRect(hero).top, 0.5));
         expect(frame.height, closeTo(naturalHeight, 0.5));
 
-        // Selecting, the badge sits as far into the image's top as into its
-        // end: the toolbar does not reach the image.
+        // Single-page works have no pages to select: long-pressing stays inert.
         await longPressImage(tester);
-        final mark = tester.getRect(find.byIcon(UiIcons.circleUnchecked));
-        final image = tester.getRect(hero);
-        expect(mark.top - image.top, closeTo(image.right - mark.right, 0.5));
+        expect(find.byIcon(UiIcons.circleUnchecked), findsNothing);
       },
     );
 
@@ -1240,6 +1240,85 @@ void main() {
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
+      },
+    );
+
+    testWidgets(
+      'two-pane panorama preserves 280dp height, tag block mode shows Done & intercepts back, single tag mute confirms silently on right-click, and TranslationPanel avoids nested SelectableText',
+      (tester) async {
+        // 1. TranslationPanel inside SelectionArea renders plain Text (no nested SelectableText).
+        await tester.pumpWidget(
+          localizedApp(
+            body: const SelectionArea(
+              child: TranslationPanel(
+                translating: false,
+                translations: ['translated line'],
+                failure: null,
+              ),
+            ),
+          ),
+        );
+        expect(find.byType(SelectableText), findsNothing);
+        expect(find.text('translated line'), findsOneWidget);
+
+        // 2. Two-pane panorama keeps 280dp scrollable height without AspectRatio squash,
+        //    and tag right-click menu is silent, confirms single mute, and block mode
+        //    shows Done + intercepts Back before popping.
+        final panoJson = {
+          ...illustJson(42, pageCount: 1, width: 4000, height: 400),
+          'tags': [
+            {'name': 'sky'},
+          ],
+        };
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {42: panoJson},
+        );
+        container.read(illustStoreProvider).mergeAll([parseIllust(panoJson)]);
+        await pumpDetail(
+          tester,
+          container,
+          seedStore: false,
+          surface: const Size(1000, 700),
+          locale: const Locale('zh', 'CN'),
+        );
+        await tester.pumpAndSettle();
+        final pano = find.byKey(const ValueKey('panorama-frame'));
+        expect(pano, findsOneWidget);
+        expect(tester.getSize(pano).height, closeTo(280, 1.0));
+
+        // Right-clicking a tag emits no touch long-press haptic, and muting confirms.
+        final tagChip = find.byType(TagChip).first;
+        await tester.ensureVisible(tagChip);
+        await tester.pumpAndSettle();
+        final haptics = recordHaptics();
+        await tester.tap(
+          tagChip,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(haptics.roles, isEmpty);
+        await tester.tap(find.text('屏蔽该标签'));
+        await tester.pumpAndSettle();
+        expect(find.text('已屏蔽'), findsOneWidget);
+
+        // Batch mute mode shows header + Done and PopScope back exits it first.
+        await tester.tap(
+          tagChip,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('批量屏蔽标签'));
+        await tester.pumpAndSettle();
+        expect(find.text('完成'), findsOneWidget);
+        final pop = tester.widget<PopScope>(
+          find.byWidgetPredicate((w) => w is PopScope).first,
+        );
+        expect(pop.canPop, isFalse);
+        await tester.tap(find.text('完成'));
+        await tester.pumpAndSettle();
+        expect(find.text('完成'), findsNothing);
       },
     );
   });

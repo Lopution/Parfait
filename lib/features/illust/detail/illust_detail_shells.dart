@@ -54,7 +54,6 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
     required this.selectedPages,
     required this.onToggleSelect,
     required this.onLongPress,
-    required this.onExitDownloadMode,
     required this.heroScope,
     required this.initialPage,
     required this.onPageChanged,
@@ -73,7 +72,6 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
   final Set<int> selectedPages;
   final ValueChanged<int> onToggleSelect;
   final VoidCallback onLongPress;
-  final VoidCallback onExitDownloadMode;
   final String heroScope;
   final int initialPage;
   final ValueChanged<int> onPageChanged;
@@ -113,147 +111,139 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
         ),
       ),
     );
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (downloadMode) onExitDownloadMode();
-      },
-      child: AdaptiveTwoPane(
-        secondaryFraction: wideDesktopModal ? 0.30 : 0.38,
-        secondaryMaxWidth: wideDesktopModal ? 420 : 460,
-        primary: SelectionContainer.disabled(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (!downloadMode) ...[
-                AmbientWash(
-                  blur: 52,
-                  image: PixivImage.providerFor(
-                    context,
-                    heroImageUrl ?? entity.imageUrls.medium,
-                    decodeWidth: 96,
-                  ),
-                ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: 1.05,
-                      colors: [FuncTokens.transparent, Color(0x470C0914)],
-                    ),
-                  ),
-                ),
-              ] else
-                ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(
-                  FuncSpacing.lg + startSafe,
-                  FuncSpacing.lg + safePadding.top,
-                  FuncSpacing.lg + (isTabletop ? endSafe : 0),
-                  FuncSpacing.lg + (isTabletop ? 0 : safePadding.bottom),
-                ),
-                child: DetailImagePager(
-                  entity: entity,
-                  detailUrlFor: detailUrlFor,
-                  downloadMode: downloadMode,
-                  selectedPages: selectedPages,
-                  onToggleSelect: onToggleSelect,
-                  onLongPress: onLongPress,
-                  heroTag: illustHeroTag(heroScope, entity.id),
-                  heroScope: heroScope,
-                  initialPage: initialPage,
-                  onPageChanged: onPageChanged,
-                  heroImageUrl: heroImageUrl,
-                  heroImageDecodeWidth: heroImageDecodeWidth,
+    return AdaptiveTwoPane(
+      secondaryFraction: wideDesktopModal ? 0.30 : 0.38,
+      secondaryMaxWidth: wideDesktopModal ? 420 : 460,
+      primary: SelectionContainer.disabled(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (!downloadMode) ...[
+              AmbientWash(
+                blur: 52,
+                image: PixivImage.providerFor(
+                  context,
+                  heroImageUrl ?? entity.imageUrls.medium,
+                  decodeWidth: 96,
                 ),
               ),
-              if (!downloadMode)
-                PositionedDirectional(
-                  top: FuncSpacing.md + safePadding.top,
-                  start: FuncSpacing.md + startSafe,
-                  child: HeroChrome(
-                    child: ArtworkControls(
-                      glyph: FuncTokens.white,
-                      halo: const Color(0xCC0C0914),
-                      child: Builder(
-                        builder: (context) {
-                          final localizations = MaterialLocalizations.of(
-                            context,
-                          );
-                          return IconButton(
-                            key: const ValueKey('two-pane-primary-back'),
-                            tooltip: isModalOverlay
-                                ? localizations.closeButtonTooltip
-                                : localizations.backButtonTooltip,
-                            onPressed: () =>
-                                unawaited(Navigator.maybePop(context)),
-                            icon: isModalOverlay
-                                ? const Icon(UiIcons.close, size: 20)
-                                : IconTheme.merge(
-                                    data: const IconThemeData(size: 20),
-                                    child: const BackButtonIcon(),
-                                  ),
-                          );
-                        },
-                      ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 1.05,
+                    colors: [FuncTokens.transparent, Color(0x470C0914)],
+                  ),
+                ),
+              ),
+            ] else
+              ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+              ),
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(
+                FuncSpacing.lg + startSafe,
+                FuncSpacing.lg + safePadding.top,
+                FuncSpacing.lg + (isTabletop ? endSafe : 0),
+                FuncSpacing.lg + (isTabletop ? 0 : safePadding.bottom),
+              ),
+              child: DetailImagePager(
+                entity: entity,
+                detailUrlFor: detailUrlFor,
+                downloadMode: downloadMode,
+                selectedPages: selectedPages,
+                onToggleSelect: onToggleSelect,
+                onLongPress: onLongPress,
+                heroTag: illustHeroTag(heroScope, entity.id),
+                heroScope: heroScope,
+                initialPage: initialPage,
+                onPageChanged: onPageChanged,
+                heroImageUrl: heroImageUrl,
+                heroImageDecodeWidth: heroImageDecodeWidth,
+              ),
+            ),
+            if (!downloadMode)
+              PositionedDirectional(
+                top: FuncSpacing.md + safePadding.top,
+                start: FuncSpacing.md + startSafe,
+                child: HeroChrome(
+                  child: ArtworkControls(
+                    glyph: FuncTokens.white,
+                    halo: const Color(0xCC0C0914),
+                    child: Builder(
+                      builder: (context) {
+                        final localizations = MaterialLocalizations.of(context);
+                        return IconButton(
+                          key: const ValueKey('two-pane-primary-back'),
+                          tooltip: isModalOverlay
+                              ? localizations.closeButtonTooltip
+                              : localizations.backButtonTooltip,
+                          onPressed: () =>
+                              unawaited(Navigator.maybePop(context)),
+                          icon: isModalOverlay
+                              ? const Icon(UiIcons.close, size: 20)
+                              : IconTheme.merge(
+                                  data: const IconThemeData(size: 20),
+                                  child: const BackButtonIcon(),
+                                ),
+                        );
+                      },
                     ),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
-        secondary: DecoratedBox(
-          decoration: BoxDecoration(
-            color: tokens.surface,
-            border: isTabletop
-                ? Border(top: BorderSide(color: tokens.brandHairline))
-                : BorderDirectional(
-                    start: BorderSide(color: tokens.brandHairline),
+      ),
+      secondary: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.surface,
+          border: isTabletop
+              ? Border(top: BorderSide(color: tokens.brandHairline))
+              : BorderDirectional(
+                  start: BorderSide(color: tokens.brandHairline),
+                ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    top: isTabletop ? 0 : safePadding.top,
+                    start: isTabletop ? startSafe : 0,
+                    end: endSafe,
                   ),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: EdgeInsetsDirectional.only(
-                      top: isTabletop ? 0 : safePadding.top,
-                      start: isTabletop ? startSafe : 0,
-                      end: endSafe,
-                    ),
-                    child: SelectionContainer.disabled(child: inspectorHeader),
-                  ),
-                  Divider(height: 1, color: tokens.brandHairline),
-                  Expanded(
-                    child: MediaQuery.removePadding(
-                      context: context,
-                      removeTop: true,
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.only(
-                          start: isTabletop ? startSafe : 0,
-                          end: endSafe,
-                        ),
-                        child: Scrollbar(
-                          controller: metaScrollController,
-                          child: ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(
-                              context,
-                            ).copyWith(scrollbars: false),
-                            child: DetailSelectionScope(child: metaScroll),
-                          ),
+                  child: SelectionContainer.disabled(child: inspectorHeader),
+                ),
+                Divider(height: 1, color: tokens.brandHairline),
+                Expanded(
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeTop: true,
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(
+                        start: isTabletop ? startSafe : 0,
+                        end: endSafe,
+                      ),
+                      child: Scrollbar(
+                        controller: metaScrollController,
+                        child: ScrollConfiguration(
+                          behavior: ScrollConfiguration.of(
+                            context,
+                          ).copyWith(scrollbars: false),
+                          child: DetailSelectionScope(child: metaScroll),
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-              ?composerLayer,
-            ],
-          ),
+                ),
+              ],
+            ),
+            ?composerLayer,
+          ],
         ),
       ),
     );
@@ -270,7 +260,6 @@ class IllustDetailSingleColumnScroll extends StatelessWidget {
     required this.slivers,
     required this.onScrollNotification,
     required this.downloadMode,
-    required this.onExitDownloadMode,
     required this.forceSelectionArea,
     required this.topChrome,
     required this.topVisiblePage,
@@ -284,7 +273,6 @@ class IllustDetailSingleColumnScroll extends StatelessWidget {
   final List<Widget> slivers;
   final bool Function(ScrollNotification) onScrollNotification;
   final bool downloadMode;
-  final VoidCallback onExitDownloadMode;
   final bool forceSelectionArea;
   final double topChrome;
   final ValueListenable<int?> topVisiblePage;
@@ -294,51 +282,44 @@ class IllustDetailSingleColumnScroll extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (downloadMode) onExitDownloadMode();
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: onScrollNotification,
-            child: DetailSelectionScope(
-              forceSelectionArea: forceSelectionArea,
-              child: SmoothWheelScroll(
-                controller: scrollController,
-                builder: (context, controller, physics) =>
-                    DeferredCacheScrollView(
-                      controller: controller,
-                      physics: physics,
-                      slivers: slivers,
-                    ),
-              ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        NotificationListener<ScrollNotification>(
+          onNotification: onScrollNotification,
+          child: DetailSelectionScope(
+            forceSelectionArea: forceSelectionArea,
+            child: SmoothWheelScroll(
+              controller: scrollController,
+              builder: (context, controller, physics) =>
+                  DeferredCacheScrollView(
+                    controller: controller,
+                    physics: physics,
+                    slivers: slivers,
+                  ),
             ),
           ),
-          if (!entity.isUgoira && entity.pageCount > 1 && !downloadMode)
-            Positioned.fill(
-              top: topChrome,
-              child: HeroChrome(
-                child: ListenableBuilder(
-                  listenable: Listenable.merge([
-                    topVisiblePage,
-                    pagesToggleOnScreen,
-                  ]),
-                  builder: (context, _) => DetailPageCounter(
-                    page: topVisiblePage.value,
-                    count: entity.pageCount,
-                    onCollapse:
-                        canCollapseFromPill && !pagesToggleOnScreen.value
-                        ? onCollapsePages
-                        : null,
-                  ),
+        ),
+        if (!entity.isUgoira && entity.pageCount > 1 && !downloadMode)
+          Positioned.fill(
+            top: topChrome,
+            child: HeroChrome(
+              child: ListenableBuilder(
+                listenable: Listenable.merge([
+                  topVisiblePage,
+                  pagesToggleOnScreen,
+                ]),
+                builder: (context, _) => DetailPageCounter(
+                  page: topVisiblePage.value,
+                  count: entity.pageCount,
+                  onCollapse: canCollapseFromPill && !pagesToggleOnScreen.value
+                      ? onCollapsePages
+                      : null,
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

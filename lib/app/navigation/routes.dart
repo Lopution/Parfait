@@ -198,21 +198,22 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
               );
             },
           ),
-          GoRoute(
-            path: 'callback',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              LoginPage(
-                returnToHomeOnSuccess: true,
-                callback: state.extra is AccountCallbackRoute
-                    ? state.extra! as AccountCallbackRoute
-                    : null,
-              ),
-            ),
-          ),
         ],
+      ),
+      // Top-level sibling of /login so pushing or replacing an external OAuth
+      // callback never stacks a second parent /login page underneath it.
+      GoRoute(
+        path: '/login/callback',
+        pageBuilder: (context, state) => _page(
+          context,
+          state,
+          appRootRouteObserver,
+          LoginPage(
+            callback: state.extra is AccountCallbackRoute
+                ? state.extra! as AccountCallbackRoute
+                : null,
+          ),
+        ),
       ),
       _overlayRoute(
         '/reverse-image',
@@ -397,7 +398,24 @@ Future<void> routeExternalIntent(
         case UserRoute(:final userId):
           router.go('/recommended/user/$userId');
         case AccountCallbackRoute():
-          await router.push<void>('/login/callback', extra: route);
+          final top = router
+              .routerDelegate
+              .currentConfiguration
+              .lastOrNull
+              ?.matchedLocation;
+          if (top == '/login/web' && router.canPop()) {
+            router.pop();
+          }
+          final nextTop = router
+              .routerDelegate
+              .currentConfiguration
+              .lastOrNull
+              ?.matchedLocation;
+          if (nextTop == '/login' || nextTop == '/login/callback') {
+            await router.pushReplacement<void>('/login/callback', extra: route);
+          } else {
+            await router.push<void>('/login/callback', extra: route);
+          }
         case UnknownRoute():
         case ForeignUri():
           break;

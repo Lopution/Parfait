@@ -105,7 +105,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
                 onSend: (text) => _send(text: text, target: _replyTarget),
                 onStampSend: (stampId) =>
                     _send(stampId: stampId, target: _replyTarget),
-                onError: _showMutationError,
                 keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
               ),
             ),
@@ -120,18 +119,24 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     int? stampId,
     required CommentEntity? target,
   }) async {
-    await ref
-        .read(commentActionsProvider)
-        .send(
-          CommentAddRequest(
-            workId: widget.workId,
-            kind: widget.kind,
-            parentCommentId: target?.id,
-            rootCommentId: target?.rootCommentId,
-            text: text,
-            stampId: stampId,
-          ),
-        );
+    final reportError = deferCommentSendError(context);
+    try {
+      await ref
+          .read(commentActionsProvider)
+          .send(
+            CommentAddRequest(
+              workId: widget.workId,
+              kind: widget.kind,
+              parentCommentId: target?.id,
+              rootCommentId: target?.rootCommentId,
+              text: text,
+              stampId: stampId,
+            ),
+          );
+    } on Object catch (error) {
+      reportError(error);
+      rethrow;
+    }
     // A successful send drops the reply target — but only when the user has
     // not re-targeted while the request was in flight.
     if (mounted &&
@@ -148,10 +153,6 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   void _replyTo(CommentEntity comment) {
     setState(() => _replyTarget = comment);
     _composerKey.currentState?.focusForReply();
-  }
-
-  void _showMutationError(Object error) {
-    if (mounted) showCommentSendError(context, error);
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -281,11 +282,14 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                 replyTo: replyTarget == null
                     ? null
                     : commentAuthorDisplayName(context, replyTarget.user),
-                onCancelReply: () => setState(() => _replyTarget = root),
+                onCancelReply:
+                    _replyTarget == null ||
+                        _replyTarget?.id == widget.rootCommentId
+                    ? null
+                    : () => setState(() => _replyTarget = null),
                 sending: sending,
                 onSend: (text) => _send(text: text),
                 onStampSend: (stampId) => _send(stampId: stampId),
-                onError: _showMutationError,
                 keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
               ),
             ),
@@ -301,28 +305,30 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   }
 
   Future<void> _send({String? text, int? stampId}) async {
+    final reportError = deferCommentSendError(context);
     final target = _replyTarget;
-    await ref
-        .read(commentActionsProvider)
-        .send(
-          CommentAddRequest(
-            workId: widget.workId,
-            kind: widget.kind,
-            parentCommentId: target?.id ?? widget.rootCommentId,
-            rootCommentId: widget.rootCommentId,
-            text: text,
-            stampId: stampId,
-          ),
-        );
+    try {
+      await ref
+          .read(commentActionsProvider)
+          .send(
+            CommentAddRequest(
+              workId: widget.workId,
+              kind: widget.kind,
+              parentCommentId: target?.id ?? widget.rootCommentId,
+              rootCommentId: widget.rootCommentId,
+              text: text,
+              stampId: stampId,
+            ),
+          );
+    } on Object catch (error) {
+      reportError(error);
+      rethrow;
+    }
     if (mounted &&
         (identical(_replyTarget, target) || _replyTarget?.id == target?.id)) {
       setState(() => _replyTarget = null);
     }
     AppHaptics.success();
-  }
-
-  void _showMutationError(Object error) {
-    if (mounted) showCommentSendError(context, error);
   }
 
   void _deleteComment(CommentEntity comment) {

@@ -5015,6 +5015,12 @@ abstract class AppLocalizations {
   /// **'改为公开关注'**
   String get followSwitchToPublic;
 
+  /// Profile overflow menu, followed with unknown visibility: open the sheet to switch between public and private follow.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换公开/私密关注'**
+  String get followSwitchVisibility;
+
   /// No description provided for @followFailed.
   ///
   /// In zh, this message translates to:
@@ -6316,6 +6322,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'多选'**
   String get cardActionSelect;
+
+  /// Context menu action in the full-screen image viewer to zoom to 2.5x
+  ///
+  /// In zh, this message translates to:
+  /// **'放大 (2.5×)'**
+  String get viewerZoomIn;
+
+  /// Status tooltip while downloading the ugoira archive prior to GIF encoding
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备动图…'**
+  String get ugoiraPreparingExport;
+
+  /// Button label to exit batch tag-muting mode on the artwork detail page
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get tagMuteModeDone;
 }
 
 class _AppLocalizationsDelegate

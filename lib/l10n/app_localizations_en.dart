@@ -2714,6 +2714,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get followSwitchToPublic => 'Make public';
 
   @override
+  String get followSwitchVisibility => 'Switch public/private follow';
+
+  @override
   String get followFailed => 'Follow action failed';
 
   @override
@@ -3443,4 +3446,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cardActionSelect => 'Select';
+
+  @override
+  String get viewerZoomIn => 'Zoom in (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => 'Preparing ugoira…';
+
+  @override
+  String get tagMuteModeDone => 'Done';
 }

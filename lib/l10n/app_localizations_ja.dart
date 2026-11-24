@@ -2637,6 +2637,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get followSwitchToPublic => '公開に切り替え';
 
   @override
+  String get followSwitchVisibility => '公開・非公開フォロー切替';
+
+  @override
   String get followFailed => 'フォロー操作に失敗しました';
 
   @override
@@ -3350,4 +3353,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cardActionSelect => '複数選択';
+
+  @override
+  String get viewerZoomIn => '拡大 (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => 'うごイラを準備中…';
+
+  @override
+  String get tagMuteModeDone => '完了';
 }

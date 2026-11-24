@@ -807,7 +807,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           ],
           DisplayAction(
             icon: zoomed ? AppIcons.fitScreen : AppIcons.zoomIn,
-            label: zoomed ? l10n.viewerFitScreen : '100%',
+            label: zoomed ? l10n.viewerFitScreen : l10n.viewerZoomIn,
             onSelected: () {
               if (zoomed) {
                 _resetZoom();
@@ -982,9 +982,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                                       InputModality.pointer) ...[
                                 _ViewerPageNavButton(
                                   key: const Key('viewer-prev-page'),
-                                  visible:
-                                      (_stageHovered || _chromeVisible) &&
-                                      _activePage > 0,
+                                  visible: _chromeVisible && _activePage > 0,
                                   alignment: AlignmentDirectional.centerStart,
                                   icon: UiIcons.chevronLeft,
                                   tooltip: MaterialLocalizations.of(
@@ -995,7 +993,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                                 _ViewerPageNavButton(
                                   key: const Key('viewer-next-page'),
                                   visible:
-                                      (_stageHovered || _chromeVisible) &&
+                                      _chromeVisible &&
                                       _activePage + 1 < _pageCount,
                                   alignment: AlignmentDirectional.centerEnd,
                                   icon: UiIcons.chevronRight,
@@ -1361,6 +1359,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   count: _pageCount,
                   current: _activePage,
                   value: _scrubPage ?? _activePage,
+                  dragging: _scrubPage != null,
                   onChanged: _onScrubChanged,
                   onChangeEnd: _onScrubEnd,
                   onHoverPageChanged: _onScrubberHoverChanged,

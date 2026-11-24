@@ -33,7 +33,7 @@ Future<void> showTagActionsSheet(
   Offset? position,
   PointerDeviceKind? kind,
 }) {
-  AppHaptics.longPress();
+  if (position == null) AppHaptics.longPress();
   Future<void> sheet({bool translate = false}) => showAppAdaptivePopover<void>(
     context: context,
     anchorContext: context,
@@ -96,23 +96,31 @@ Future<void> showTagActionsSheet(
   );
 }
 
-/// Mutes or unmutes [tag]; a failure shows the error, a landed unmute
-/// offers Undo.
+/// Mutes or unmutes [tag]; a failure shows the error (off-page safe per
+/// FB-15), a single-tag mute confirms it landed, and an unmute offers Undo.
 Future<void> toggleTagMute(
   BuildContext context,
   MuteStore store,
   String tag, {
   required bool muted,
+  bool confirmMute = true,
 }) async {
+  final confirm = !muted && confirmMute ? muteConfirmation(context) : null;
+  final reportFailure = deferErrorSnackBar(
+    context,
+    action: context.l10n.muteFailed,
+  );
   try {
     await store.toggleTag(tag);
-  } on Object catch (error) {
-    if (context.mounted) {
-      showErrorSnackBar(context, action: context.l10n.muteFailed, error: error);
-    }
+  } on Object catch (error, stack) {
+    reportFailure(error, stack);
     return;
   }
-  if (muted && context.mounted) showUnmuteUndo(context, MuteKey.tag(tag));
+  if (!muted) {
+    confirm?.call();
+  } else if (context.mounted) {
+    showUnmuteUndo(context, MuteKey.tag(tag));
+  }
 }
 
 class _TagActions extends ConsumerStatefulWidget {
@@ -213,12 +221,14 @@ class _TagActionsState extends ConsumerState<_TagActions>
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              child: TranslationPanel(
-                translating: translating,
-                translations: translations,
-                // Shown on the row above.
-                failure: null,
-                copyable: true,
+              child: SelectionArea(
+                child: TranslationPanel(
+                  translating: translating,
+                  translations: translations,
+                  // Shown on the row above.
+                  failure: null,
+                  copyable: true,
+                ),
               ),
             ),
             if (onToggleMute != null)

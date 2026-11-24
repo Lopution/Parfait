@@ -186,12 +186,22 @@ class TranslationPanel extends StatelessWidget {
           const Divider(height: 12),
           for (final (index, text) in translations.indexed) ...[
             if (index > 0) const SizedBox(height: FuncSpacing.sm),
-            SelectableText(
-              text,
-              style: emphasizeFirst && index == 0
-                  ? theme.textTheme.titleSmall
-                  : null,
-            ),
+            // Reuse an enclosing SelectionArea when present so translations
+            // never nest SelectableText inside SelectionArea (LAYOUT-11).
+            if (SelectionContainer.maybeOf(context) != null)
+              Text(
+                text,
+                style: emphasizeFirst && index == 0
+                    ? theme.textTheme.titleSmall
+                    : null,
+              )
+            else
+              SelectableText(
+                text,
+                style: emphasizeFirst && index == 0
+                    ? theme.textTheme.titleSmall
+                    : null,
+              ),
           ],
         ],
       ),

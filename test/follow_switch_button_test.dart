@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kSecondaryMouseButton;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
@@ -283,4 +285,38 @@ void main() {
     expect(follows.requests.last, 'add:7:private');
     expect(find.textContaining('关注操作失败'), findsOneWidget);
   });
+
+  testWidgets(
+    'desktop right-click on followed button opens silent visibility menu',
+    (tester) async {
+      final haptics = recordHaptics();
+      final follows = FollowApi();
+      final container = await _world(follows: follows);
+      container
+          .read(followStoreProvider.notifier)
+          .observeRemote(7, followed: true);
+      await _pump(
+        tester,
+        container,
+        home: const Scaffold(
+          body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
+        ),
+      );
+      await tester.tap(
+        find.byType(FollowSwitchButton),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(haptics.roles, isEmpty);
+      expect(find.text('改为私密关注'), findsOneWidget);
+      expect(find.text('改为公开关注'), findsOneWidget);
+      expect(find.text('取消关注'), findsOneWidget);
+
+      await tester.tap(find.text('改为私密关注'));
+      await tester.pumpAndSettle();
+      expect(follows.requests, ['add:7:private']);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 }

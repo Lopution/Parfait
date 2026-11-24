@@ -1534,6 +1534,10 @@
   "@followSwitchToPublic": {
     "description": "Follow sheet, followed privately: switch the follow to public."
   },
+  "followSwitchVisibility": "切换公开/私密关注",
+  "@followSwitchVisibility": {
+    "description": "Profile overflow menu, followed with unknown visibility: open the sheet to switch between public and private follow."
+  },
   "followFailed": "关注操作失败",
   "userPreviewFollow": "关注",
   "novelLoading": "正在加载小说",
@@ -2102,5 +2106,17 @@
   "cardActionSelect": "多选",
   "@cardActionSelect": {
     "description": "Card long-press action on touch tablets to enter multi-select mode with this work"
+  },
+  "viewerZoomIn": "放大 (2.5×)",
+  "@viewerZoomIn": {
+    "description": "Context menu action in the full-screen image viewer to zoom to 2.5x"
+  },
+  "ugoiraPreparingExport": "正在准备动图…",
+  "@ugoiraPreparingExport": {
+    "description": "Status tooltip while downloading the ugoira archive prior to GIF encoding"
+  },
+  "tagMuteModeDone": "完成",
+  "@tagMuteModeDone": {
+    "description": "Button label to exit batch tag-muting mode on the artwork detail page"
   }
 }

@@ -205,4 +205,143 @@ void main() {
     expect(find.text('illust 777'), findsOneWidget);
     expect(preferences.intWrites, [777]);
   });
+
+  testWidgets(
+    'watchlist load-more retries via FeedTail, removal updates in place with error restore, and novel without latest opens series',
+    (tester) async {
+      final fixture = WatchlistFixture()
+        ..mangaSeries = [
+          {
+            'id': 9,
+            'title': 'Manga Nine',
+            'user': {'id': 5, 'name': 'author-a'},
+            'latest_content_id': 777,
+          },
+          {
+            'id': 10,
+            'title': 'Manga Ten',
+            'user': {'id': 6, 'name': 'author-b'},
+            'latest_content_id': 778,
+          },
+          for (var i = 1; i <= 6; i++)
+            {
+              'id': 100 + i,
+              'title': 'Manga Extra $i',
+              'user': {'id': 50 + i, 'name': 'author-$i'},
+              'latest_content_id': 800 + i,
+            },
+        ]
+        ..mangaNextUrl = 'https://app-api.pixiv.net/v1/watchlist/manga?offset=2'
+        ..mangaNextSeries = [
+          {
+            'id': 11,
+            'title': 'Manga Eleven',
+            'user': {'id': 7, 'name': 'author-c'},
+            'latest_content_id': 779,
+          },
+        ]
+        ..failNextPageOnce = true
+        ..mutationStatus = 400
+        ..novelSeries = [
+          {
+            'id': 33,
+            'title': 'No Latest Novel',
+            'user': {'id': 8, 'name': 'author-d'},
+            'latest_content_id': null,
+          },
+        ];
+      final (container, _) = await makeWatchlistWorld(fixture: fixture);
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const WatchlistPage(),
+          ),
+          GoRoute(
+            path: '/recommended/novel-series/:seriesId',
+            builder: (_, state) =>
+                Text('novel series ${state.pathParameters['seriesId']}'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: localizedRouterApp(
+            router,
+            locale: null,
+            builder: promptHostBuilder,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Trigger load-more failure, then retry via FeedTail's Retry button.
+      final listScrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Retry'),
+        300,
+        scrollable: listScrollable,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Retry'), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Manga Eleven'),
+        300,
+        scrollable: listScrollable,
+      );
+      expect(find.text('Manga Eleven'), findsOneWidget);
+
+      // Scroll back to the top for in-place removal checks on Manga Nine.
+      await tester.scrollUntilVisible(
+        find.text('Manga Nine'),
+        -300,
+        scrollable: listScrollable,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Manga Nine'), findsOneWidget);
+
+      // Failed removal restores entry and surfaces error without reloading page 1.
+      final getCountBefore = fixture.requests
+          .where((r) => r.method == 'GET')
+          .length;
+      await tester.tap(find.byIcon(UiIcons.more).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Unfollow series'));
+      await tester.pumpAndSettle();
+      expect(find.text('Manga Nine'), findsOneWidget);
+      expect(find.textContaining('Unfollow series'), findsOneWidget);
+      expect(
+        fixture.requests.where((r) => r.method == 'GET').length,
+        getCountBefore,
+      );
+
+      // Confirmed removal drops only that entry in place without re-fetching GET.
+      fixture.mutationStatus = 200;
+      await tester.tap(find.byIcon(UiIcons.more).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Unfollow series'));
+      await tester.pumpAndSettle();
+      expect(find.text('Manga Nine'), findsNothing);
+      expect(find.text('Manga Ten'), findsOneWidget);
+      expect(
+        fixture.requests.where((r) => r.method == 'GET').length,
+        getCountBefore,
+      );
+
+      // Novel watchlist entry without latestContentId falls back to novel series.
+      await tester.tap(find.text('Novel'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('No Latest Novel'));
+      await tester.pumpAndSettle();
+      expect(find.text('novel series 33'), findsOneWidget);
+    },
+  );
 }

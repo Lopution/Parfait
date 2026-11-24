@@ -1309,7 +1309,6 @@ void main() {
           selectedPages: const {},
           onToggleSelect: (_) {},
           onLongPress: () {},
-          onExitDownloadMode: () {},
           heroScope: heroScope,
           initialPage: 0,
           onPageChanged: (_) {},
