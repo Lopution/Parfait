@@ -602,4 +602,52 @@ void main() {
       expect(backCalls, 2);
     },
   );
+
+  testWidgets(
+    'KeyboardBack Ctrl/Cmd+B opens bookmarks when rail cannot toggle',
+    variant: const TargetPlatformVariant({
+      TargetPlatform.windows,
+      TargetPlatform.macOS,
+    }),
+    (tester) async {
+      final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+      final modifier = isMac
+          ? LogicalKeyboardKey.metaLeft
+          : LogicalKeyboardKey.controlLeft;
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const Scaffold(body: Text('recommended')),
+          ),
+          GoRoute(
+            path: '/settings/me',
+            builder: (_, state) =>
+                Scaffold(body: Text('me:${state.uri.queryParameters['tab']}')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          builder: (_, child) => KeyboardBack(router: router, child: child!),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _sendChord(
+        tester,
+        key: LogicalKeyboardKey.keyB,
+        modifier: modifier,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        router.routeInformationProvider.value.uri.toString(),
+        '/settings/me?tab=bookmarks',
+      );
+      expect(find.text('me:bookmarks'), findsOneWidget);
+    },
+  );
 }

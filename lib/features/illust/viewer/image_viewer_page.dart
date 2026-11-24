@@ -58,6 +58,8 @@ export '../../../app/navigation/viewer_session.dart'
 export '../../../app/window/desktop_command_bar_scope.dart'
     show DesktopCommandBarScope;
 
+import 'image_viewer_shortcuts.dart';
+
 part 'image_viewer_chrome.dart';
 
 /// Fullscreen horizontal viewer replicating beta56 ImageScalePage
@@ -1050,27 +1052,21 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     );
   }
 
-  /// Keyboard parity (desktop + hardware keyboards on mobile): every
-  /// toolbar/gesture action has a key. Esc/Backspace pops imperatively —
-  /// same contract as the back button and drag-dismiss (W1 split).
-  Map<ShortcutActivator, VoidCallback> _shortcuts() => {
-    const SingleActivator(LogicalKeyboardKey.arrowLeft): _pageBackward,
-    const SingleActivator(LogicalKeyboardKey.keyK): _pageBackward,
-    const SingleActivator(LogicalKeyboardKey.arrowRight): _pageForward,
-    const SingleActivator(LogicalKeyboardKey.keyJ): _pageForward,
-    const SingleActivator(LogicalKeyboardKey.equal): _zoomIn,
-    const SingleActivator(LogicalKeyboardKey.add): _zoomIn,
-    const SingleActivator(LogicalKeyboardKey.numpadAdd): _zoomIn,
-    const SingleActivator(LogicalKeyboardKey.minus): _zoomOut,
-    const SingleActivator(LogicalKeyboardKey.numpadSubtract): _zoomOut,
-    const SingleActivator(LogicalKeyboardKey.digit0): _resetZoom,
-    const SingleActivator(LogicalKeyboardKey.numpad0): _resetZoom,
-    const SingleActivator(LogicalKeyboardKey.keyF): _toggleChrome,
-    const SingleActivator(LogicalKeyboardKey.escape): _handleBackShortcut,
-    const SingleActivator(LogicalKeyboardKey.backspace): _handleBackShortcut,
-    const SingleActivator(LogicalKeyboardKey.keyS): _saveActivePageIfAny,
-    const SingleActivator(LogicalKeyboardKey.keyI): _showInfoIfAny,
-  };
+  Map<ShortcutActivator, VoidCallback> _shortcuts() =>
+      buildImageViewerShortcuts(
+        context,
+        entity: widget.entity,
+        activePage: () => _activePage,
+        onPageBackward: _pageBackward,
+        onPageForward: _pageForward,
+        onZoomIn: _zoomIn,
+        onZoomOut: _zoomOut,
+        onResetZoom: _resetZoom,
+        onToggleChrome: _toggleChrome,
+        onBack: _handleBackShortcut,
+        onSave: _saveActivePageIfAny,
+        onShowInfo: _showInfoIfAny,
+      );
 
   void _pageForward() {
     if (_activePage + 1 >= _pageCount) return;

@@ -17,7 +17,6 @@ import '../../../../app/pixiv_image.dart';
 import '../../../../app/widgets/app_spinner.dart';
 import '../../../../app/theme/func_tokens.dart';
 import '../../../../app/widgets/ambient_wash.dart';
-import '../../../../app/widgets/display_actions.dart';
 import '../../../../app/widgets/errors/error_details.dart';
 import '../../../../app/widgets/feed/illust_card_layout.dart';
 import '../../../../app/widgets/smooth_wheel_scroll.dart';
@@ -30,6 +29,7 @@ import '../../../../app/navigation/route_facade.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/icons/app_icons.dart';
 import '../../../../app/icons/ui_icons.dart';
+import 'detail_page_actions.dart';
 
 class DetailPageImage extends ConsumerStatefulWidget {
   const DetailPageImage({
@@ -262,186 +262,172 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
         isTopSquareThumbnail(widget.heroImageUrl!);
     final heroCurve = illustHeroCurve(context);
     final canSelectPages = entity.pageCount > 1;
-    final image = GestureDetector(
-      // Opaque: while the image flies, its Hero is an offstage placeholder
-      // that takes no hits, and a tap there must still open the viewer.
-      behavior: HitTestBehavior.opaque,
-      // Selection mode turns the whole page into a select toggle; outside
-      // the mode a tap opens the viewer as before.
-      onTap: isPagePlaceholder
-          ? null
-          : downloadMode
-          ? widget.onToggleSelect
-          : () => _openViewer(context, quality: viewQuality),
-      onLongPress: isPagePlaceholder || !canSelectPages
-          ? null
-          : widget.onLongPress,
-      // The selection mode already on screen keeps toggling, as a tap and
-      // a long press do; outside it PC offers page selection on multi-page
-      // works or direct save on single-page works (R11).
-      onSecondaryTapUp: isPagePlaceholder
-          ? null
-          : downloadMode
-          ? (details) => widget.onToggleSelect()
-          : (details) => unawaited(
-              showDisplayActions(
-                context,
-                position: details.globalPosition,
-                kind: details.kind,
-                onLongPress: canSelectPages
-                    ? widget.onLongPress
-                    : () => unawaited(_quickSavePage()),
-                actions: [
-                  if (canSelectPages)
-                    DisplayAction(
-                      icon: UiIcons.checklist,
-                      label: context.l10n.downloadSelectPages,
-                      onSelected: widget.onLongPress,
-                    )
-                  else
-                    DisplayAction(
-                      icon: AppIcons.download,
-                      label: context.l10n.viewerSavePage,
-                      onSelected: () => unawaited(_quickSavePage()),
-                    ),
-                ],
+    final image = MouseRegion(
+      cursor: isPagePlaceholder ? MouseCursor.defer : SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: isPagePlaceholder
+            ? null
+            : downloadMode
+            ? widget.onToggleSelect
+            : () => _openViewer(context, quality: viewQuality),
+        onLongPress: isPagePlaceholder || !canSelectPages
+            ? null
+            : widget.onLongPress,
+        onSecondaryTapUp: isPagePlaceholder
+            ? null
+            : downloadMode
+            ? (details) => widget.onToggleSelect()
+            : (details) => unawaited(
+                showDetailPageContextMenu(
+                  context,
+                  entity: entity,
+                  pageIndex: widget.index,
+                  position: details.globalPosition,
+                  kind: details.kind,
+                  canSelectPages: canSelectPages,
+                  onSelectPages: widget.onLongPress,
+                  onQuickSave: () => unawaited(_quickSavePage()),
+                ),
               ),
-            ),
-      // Loose stack: the loaded image sizes itself to its intrinsic aspect
-      // ratio at full width. The app API's meta_pages never carries
-      // per-page width/height, so a fixed AspectRatio always resolved to the
-      // work-level (= first page) ratio and letterboxed every non-matching
-      // page. Now the slot only holds an estimated box until the decode
-      // lands, then the real dimensions take over.
-      child: Stack(
-        children: [
-          // Keep download controls out of the Hero flight. The matching
-          // feed Hero contains only this image, so a page-count badge can
-          // never be scaled or retained by a detail pop transition.
-          // Both directions use the same progress-aware endpoint boundary
-          // (see illustHeroFlightShuttleBuilder), so occlusion follows the
-          // route chrome continuously instead of hard-cutting at landing.
-          if (isPagePlaceholder)
-            AspectRatio(
-              // No page payload yet — the work-level ratio is the only
-              // estimate available and keeps the list from collapsing.
-              aspectRatio: entity.pageAspectRatioAt(widget.index),
-              child: _DetailImageFallback(),
-            )
-          else
-            _PanoramaFrame(
-              aspectRatio: entity.pageAspectRatioAt(widget.index),
-              builder: (panoramaDecodeWidth) => Hero(
-                tag: widget.heroTag,
-                curve: heroCurve,
-                reverseCurve: heroCurve,
-                createRectTween: illustHeroRectTween,
-                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                child: IllustHeroFlightChild(
-                  // The detail endpoint stays sharp for the normal page and
-                  // for a viewer push. The shared shuttle swaps to the
-                  // already-decoded card preview only on a reverse flight.
-                  popChild: widget.heroImageUrl == null || heroTopSquare
-                      ? null
-                      : PixivImage.detail(
-                          widget.heroImageUrl!,
-                          fit: BoxFit.contain,
-                          transitionKey: widget.heroTag,
-                          tierKey: entity.imageTierKeyAt(widget.index),
-                          tier: entity.imageTierOf(widget.heroImageUrl!),
-                          tierUpgrade: false,
-                          decodeWidth: widget.heroImageDecodeWidth,
-                          filterColor: downloadMode
-                              ? FuncTokens.imageOverlay
-                              : null,
-                          filterBlendMode: downloadMode
-                              ? BlendMode.srcOver
-                              : null,
-                        ),
-                  child: heroTopSquare
-                      ? _topSquareImage(
-                          standInUrl: entity.previewUrl(
-                            ref.watch(previewQualityProvider),
+        // Loose stack: the loaded image sizes itself to its intrinsic aspect
+        // ratio at full width. The app API's meta_pages never carries
+        // per-page width/height, so a fixed AspectRatio always resolved to the
+        // work-level (= first page) ratio and letterboxed every non-matching
+        // page. Now the slot only holds an estimated box until the decode
+        // lands, then the real dimensions take over.
+        child: Stack(
+          children: [
+            // Keep download controls out of the Hero flight. The matching
+            // feed Hero contains only this image, so a page-count badge can
+            // never be scaled or retained by a detail pop transition.
+            // Both directions use the same progress-aware endpoint boundary
+            // (see illustHeroFlightShuttleBuilder), so occlusion follows the
+            // route chrome continuously instead of hard-cutting at landing.
+            if (isPagePlaceholder)
+              AspectRatio(
+                // No page payload yet — the work-level ratio is the only
+                // estimate available and keeps the list from collapsing.
+                aspectRatio: entity.pageAspectRatioAt(widget.index),
+                child: _DetailImageFallback(),
+              )
+            else
+              _PanoramaFrame(
+                aspectRatio: entity.pageAspectRatioAt(widget.index),
+                builder: (panoramaDecodeWidth) => Hero(
+                  tag: widget.heroTag,
+                  curve: heroCurve,
+                  reverseCurve: heroCurve,
+                  createRectTween: illustHeroRectTween,
+                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                  child: IllustHeroFlightChild(
+                    // The detail endpoint stays sharp for the normal page and
+                    // for a viewer push. The shared shuttle swaps to the
+                    // already-decoded card preview only on a reverse flight.
+                    popChild: widget.heroImageUrl == null || heroTopSquare
+                        ? null
+                        : PixivImage.detail(
+                            widget.heroImageUrl!,
+                            fit: BoxFit.contain,
+                            transitionKey: widget.heroTag,
+                            tierKey: entity.imageTierKeyAt(widget.index),
+                            tier: entity.imageTierOf(widget.heroImageUrl!),
+                            tierUpgrade: false,
+                            decodeWidth: widget.heroImageDecodeWidth,
+                            filterColor: downloadMode
+                                ? FuncTokens.imageOverlay
+                                : null,
+                            filterBlendMode: downloadMode
+                                ? BlendMode.srcOver
+                                : null,
                           ),
-                          detailUrl: onHeroPhase ? null : previewUrl,
-                          decodeWidth: panoramaDecodeWidth,
-                        )
-                      : PixivImage.detail(
-                          previewUrl,
-                          fit: BoxFit.contain,
-                          transitionKey:
-                              widget.index == 0 && widget.heroImageUrl == null
-                              ? (#detailNoHero, widget.heroTag)
-                              : widget.heroTag,
-                          tierKey: entity.imageTierKeyAt(widget.index),
-                          tier: entity.imageTierOf(previewUrl),
-                          tierUpgrade: !onHeroPhase,
-                          // The hero-phase URL is the feed card's image:
-                          // decode it at the feed's width so the landing
-                          // frame is the already-decoded cache entry. Once
-                          // detailUrl arrives, the normal page endpoint
-                          // uses screen width.
-                          decodeWidth: onHeroPhase
-                              ? widget.heroImageDecodeWidth
-                              : panoramaDecodeWidth,
-                          progress: onHeroPhase ? null : _progress,
-                          filterColor: downloadMode
-                              ? FuncTokens.imageOverlay
-                              : null,
-                          filterBlendMode: downloadMode
-                              ? BlendMode.srcOver
-                              : null,
-                          // Estimated box until the first frame: after
-                          // decode the image's own aspect ratio sizes the
-                          // slot instead. Same surfaceContainer tier as
-                          // PixivImage's default backdrop.
-                          placeholderWidget: AspectRatio(
-                            aspectRatio: entity.pageAspectRatioAt(widget.index),
-                            child: ColoredBox(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainer,
+                    child: heroTopSquare
+                        ? _topSquareImage(
+                            standInUrl: entity.previewUrl(
+                              ref.watch(previewQualityProvider),
+                            ),
+                            detailUrl: onHeroPhase ? null : previewUrl,
+                            decodeWidth: panoramaDecodeWidth,
+                          )
+                        : PixivImage.detail(
+                            previewUrl,
+                            fit: BoxFit.contain,
+                            transitionKey:
+                                widget.index == 0 && widget.heroImageUrl == null
+                                ? (#detailNoHero, widget.heroTag)
+                                : widget.heroTag,
+                            tierKey: entity.imageTierKeyAt(widget.index),
+                            tier: entity.imageTierOf(previewUrl),
+                            tierUpgrade: !onHeroPhase,
+                            // The hero-phase URL is the feed card's image:
+                            // decode it at the feed's width so the landing
+                            // frame is the already-decoded cache entry. Once
+                            // detailUrl arrives, the normal page endpoint
+                            // uses screen width.
+                            decodeWidth: onHeroPhase
+                                ? widget.heroImageDecodeWidth
+                                : panoramaDecodeWidth,
+                            progress: onHeroPhase ? null : _progress,
+                            filterColor: downloadMode
+                                ? FuncTokens.imageOverlay
+                                : null,
+                            filterBlendMode: downloadMode
+                                ? BlendMode.srcOver
+                                : null,
+                            // Estimated box until the first frame: after
+                            // decode the image's own aspect ratio sizes the
+                            // slot instead. Same surfaceContainer tier as
+                            // PixivImage's default backdrop.
+                            placeholderWidget: AspectRatio(
+                              aspectRatio: entity.pageAspectRatioAt(
+                                widget.index,
+                              ),
+                              child: ColoredBox(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainer,
+                              ),
                             ),
                           ),
-                        ),
+                  ),
                 ),
               ),
-            ),
-          // Outside the Hero, so the ring never flies with the image.
-          if (!isPagePlaceholder)
-            Positioned.fill(
-              child: ImageLoadProgressOverlay(progress: _progress),
-            ),
-          if (downloadMode && !isPagePlaceholder)
-            Positioned(
-              top: 20 + widget.overlayTopInset,
-              right: 20,
-              child: _DownloadBadge(
-                state: state,
-                selected: widget.selected,
-                label: context.l10n.viewerPageLabel(
-                  widget.index + 1,
-                  entity.pageCount,
+            // Outside the Hero, so the ring never flies with the image.
+            if (!isPagePlaceholder)
+              Positioned.fill(
+                child: ImageLoadProgressOverlay(progress: _progress),
+              ),
+            if (downloadMode && !isPagePlaceholder)
+              Positioned(
+                top: 20 + widget.overlayTopInset,
+                right: 20,
+                child: _DownloadBadge(
+                  state: state,
+                  selected: widget.selected,
+                  label: context.l10n.viewerPageLabel(
+                    widget.index + 1,
+                    entity.pageCount,
+                  ),
+                  onTap: widget.onToggleSelect,
                 ),
-                onTap: widget.onToggleSelect,
               ),
-            ),
-          if (!downloadMode &&
-              !isPagePlaceholder &&
-              _hovered &&
-              (InputModalityScope.maybeOf(context) ??
-                      defaultInputModalityFor(Theme.of(context).platform)) ==
-                  InputModality.pointer)
-            Positioned(
-              bottom: 16,
-              right: 16,
-              child: _HoverQuickActionsBadge(
-                state: state,
-                onSave: _quickSavePage,
-                onSelectPages: canSelectPages ? widget.onLongPress : null,
+            if (!downloadMode &&
+                !isPagePlaceholder &&
+                _hovered &&
+                (InputModalityScope.maybeOf(context) ??
+                        defaultInputModalityFor(Theme.of(context).platform)) ==
+                    InputModality.pointer)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: _HoverQuickActionsBadge(
+                  state: state,
+                  onSave: _quickSavePage,
+                  onSelectPages: canSelectPages ? widget.onLongPress : null,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
     final slotHeight = widget.imageSlotHeight;

@@ -1,14 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/bookmark/bookmark_models.dart';
 import '../../core/mute/mute_predicate.dart';
 import '../../core/mute/mute_store.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../l10n/context.dart';
+import '../clipboard.dart';
 import '../format/app_format.dart';
 import '../navigation/route_facade.dart';
 import '../pixiv_image.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'bookmark_switch_button.dart';
+import 'display_actions.dart';
 import 'entity_row.dart';
 import 'feed/feed_text_warmup.dart';
 import 'feed/muted_cover.dart';
@@ -271,6 +277,44 @@ class NovelEntry extends ConsumerWidget {
                 .reveal(entity.id)
           : onTap ?? () => openNovel(context, entity.id),
       onLongPress: onLongPress,
+      onSecondaryTapAt: muted || selected
+          ? null
+          : (position) => unawaited(
+              showDisplayActions(
+                context,
+                position: position,
+                onLongPress: onLongPress ?? () {},
+                actions: [
+                  DisplayAction(
+                    icon: AppIcons.externalLink,
+                    label: context.l10n.downloadOpenWork,
+                    onSelected: onTap ?? () => openNovel(context, entity.id),
+                  ),
+                  DisplayAction(
+                    icon: AppIcons.heart,
+                    label: context.l10n.bookmarkEditTitle,
+                    onSelected: () => unawaited(
+                      showBookmarkEditSheet(
+                        context,
+                        BookmarkKey(BookmarkEntityType.novel, entity.id),
+                        title: entity.title,
+                      ),
+                    ),
+                  ),
+                  DisplayAction(
+                    icon: AppIcons.link,
+                    label: context.l10n.copyLink,
+                    onSelected: () => unawaited(
+                      copyToClipboard(
+                        context,
+                        'https://www.pixiv.net/novel/show.php?id=${entity.id}',
+                        message: context.l10n.linkCopied,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
       selected: selected,
       semanticLabel: muted ? identity : semanticLabel ?? identity,
     );
