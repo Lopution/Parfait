@@ -232,30 +232,33 @@ class _RecommendedHomePageState extends ConsumerState<RecommendedHomePage>
       },
     );
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(
-        titleSpacing: 0,
-        actions: [
-          DesktopGalleryControls(visible: showGalleryControls),
-          const _OffBarSearchAction(),
-          const HeaderRefresh(),
-          const HeaderSearch(),
-        ],
-        title: AppTabBar(
-          controller: _tabController,
-          onTap: (index) {
-            if (!_tabController.indexIsChanging) {
-              reTapScrollToTop(context, _scrollControllerFor(_types[index]));
-            }
-          },
-          labels: labels,
+    return bindPrimaryScroll(
+      controller: _scrollControllerFor(_type),
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        appBar: AppTopBar(
+          titleSpacing: 0,
+          actions: [
+            DesktopGalleryControls(visible: showGalleryControls),
+            const _OffBarSearchAction(),
+            const HeaderRefresh(),
+            const HeaderSearch(),
+          ],
+          title: AppTabBar(
+            controller: _tabController,
+            onTap: (index) {
+              if (!_tabController.indexIsChanging) {
+                reTapScrollToTop(context, _scrollControllerFor(_types[index]));
+              }
+            },
+            labels: labels,
+          ),
         ),
-      ),
-      body: DesktopInspectableGallery(
-        active: showGalleryControls,
-        scopeKey: _types[_tabController.index],
-        child: tabBody,
+        body: DesktopInspectableGallery(
+          active: showGalleryControls,
+          scopeKey: _types[_tabController.index],
+          child: tabBody,
+        ),
       ),
     );
   }

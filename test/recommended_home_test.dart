@@ -467,4 +467,57 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'iOS status-bar tap scrolls the active tab to top and follows tab switches',
+    (tester) async {
+      final (container, _) = await _makeWorld(illustCount: 24);
+      setViewSize(tester, const Size(390, 844));
+      tester.view.padding = FakeViewPadding(
+        top: 44 * tester.view.devicePixelRatio,
+      );
+      addTearDown(tester.view.resetPadding);
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: const RecommendedHomePage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scaffoldFinder = find.descendant(
+        of: find.byType(RecommendedHomePage),
+        matching: find.byType(Scaffold),
+      );
+      final illustView = find.descendant(
+        of: find.byType(RecommendedHomePage),
+        matching: find.bySubtype<CustomScrollView>(),
+      );
+      final illustController = tester
+          .widget<CustomScrollView>(illustView)
+          .controller!;
+      expect(
+        PrimaryScrollController.maybeOf(tester.element(scaffoldFinder)),
+        same(illustController),
+      );
+
+      illustController.jumpTo(400);
+      await tester.pump();
+      expect(illustController.offset, 400);
+
+      tester.state<ScaffoldState>(scaffoldFinder).handleStatusBarTap();
+      await tester.pumpAndSettle();
+      expect(illustController.offset, 0);
+
+      // Switching tabs updates the primary scroll target to the newly active tab.
+      await tester.tap(find.text('漫画'));
+      await tester.pumpAndSettle();
+      expect(
+        PrimaryScrollController.maybeOf(tester.element(scaffoldFinder)),
+        isNot(same(illustController)),
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 }
