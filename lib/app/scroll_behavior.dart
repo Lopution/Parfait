@@ -33,6 +33,97 @@ Set<PointerDeviceKind> platformDragDevices() => switch (defaultTargetPlatform) {
   _ => _allDragDevices,
 };
 
+/// Lets a desktop mouse drag a [PageController] horizontally even when wrapped
+/// inside an [InteractiveViewer] whose internal [ScaleGestureRecognizer] would
+/// otherwise win the arena for mouse pointers (`kPrecisePointerPanSlop == 2px`)
+/// while unzoomed.
+///
+/// Mount this *inside* [InteractiveViewer] so its mouse-only
+/// [HorizontalDragGestureRecognizer] sits deeper in hit-test order and claims
+/// primary-button horizontal drags when [enabled] holds, forwarding them to
+/// [ScrollPosition.drag] without touching touch/trackpad pinch zoom or normal
+/// desktop text selection.
+class MousePageDragSurface extends StatefulWidget {
+  const MousePageDragSurface({
+    super.key,
+    required this.controller,
+    required this.enabled,
+    required this.child,
+  });
+
+  final PageController controller;
+  final bool enabled;
+  final Widget child;
+
+  @override
+  State<MousePageDragSurface> createState() => _MousePageDragSurfaceState();
+}
+
+class _MousePageDragSurfaceState extends State<MousePageDragSurface> {
+  Drag? _drag;
+
+  @override
+  void didUpdateWidget(covariant MousePageDragSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled && _drag != null) {
+      _drag?.cancel();
+      _drag = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _drag?.cancel();
+    _drag = null;
+    super.dispose();
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    if (!widget.enabled || !widget.controller.hasClients) return;
+    _drag?.cancel();
+    _drag = widget.controller.position.drag(details, () => _drag = null);
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    _drag?.update(details);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    _drag?.end(details);
+    _drag = null;
+  }
+
+  void _handleDragCancel() {
+    _drag?.cancel();
+    _drag = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawGestureDetector(
+      behavior: HitTestBehavior.translucent,
+      gestures: {
+        if (widget.enabled)
+          HorizontalDragGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<
+                HorizontalDragGestureRecognizer
+              >(
+                () => HorizontalDragGestureRecognizer(
+                  debugOwner: this,
+                  supportedDevices: const {PointerDeviceKind.mouse},
+                ),
+                (recognizer) => recognizer
+                  ..onStart = _handleDragStart
+                  ..onUpdate = _handleDragUpdate
+                  ..onEnd = _handleDragEnd
+                  ..onCancel = _handleDragCancel,
+              ),
+      },
+      child: widget.child,
+    );
+  }
+}
+
 /// App-wide scroll behavior configured per platform:
 ///
 /// * **Android:** `AndroidDragPhysics` over [FuncScrollPhysics] (bouncing
