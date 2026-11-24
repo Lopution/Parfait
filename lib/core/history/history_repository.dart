@@ -82,6 +82,7 @@ class HistoryRepository {
   Future<HistoryPageResult> page({
     required String accountId,
     HistoryContentType? contentType,
+    String? query,
     ({DateTime viewedAt, int rowId})? after,
     int limit = defaultPageSize,
   }) async {
@@ -95,6 +96,28 @@ class HistoryRepository {
     if (contentType != null) {
       where.write(' AND content_type = ?');
       whereArgs.add(contentType.storageValue);
+    }
+    final tokens = query == null
+        ? const <String>[]
+        : tokenizeHistoryQuery(query);
+    for (final token in tokens) {
+      final pattern = '%${_escapeLike(token)}%';
+      final numericId = _positiveDigits.hasMatch(token)
+          ? int.tryParse(token)
+          : null;
+      if (numericId != null && numericId > 0) {
+        where.write(
+          r" AND (title LIKE ? ESCAPE '\' OR author_name LIKE ? ESCAPE '\' "
+          r"OR tags_text LIKE ? ESCAPE '\' OR content_id = ? OR author_id = ?)",
+        );
+        whereArgs.addAll([pattern, pattern, pattern, numericId, numericId]);
+      } else {
+        where.write(
+          r" AND (title LIKE ? ESCAPE '\' OR author_name LIKE ? ESCAPE '\' "
+          r"OR tags_text LIKE ? ESCAPE '\')",
+        );
+        whereArgs.addAll([pattern, pattern, pattern]);
+      }
     }
     if (after != null) {
       final viewedAt = after.viewedAt.toUtc().microsecondsSinceEpoch;
@@ -449,6 +472,13 @@ class HistoryRepository {
     if (contentId <= 0) throw ArgumentError.value(contentId, 'contentId');
   }
 
+  static final _positiveDigits = RegExp(r'^\d+$');
+
+  static String _escapeLike(String token) => token
+      .replaceAll(r'\', r'\\')
+      .replaceAll('%', r'\%')
+      .replaceAll('_', r'\_');
+
   static const _historyColumns = [
     'id AS row_id',
     'account_id',
@@ -464,6 +494,7 @@ class HistoryRepository {
     'anchor_offset',
     'visible_duration_ms',
     'snapshot_version',
+    'tags_text',
   ];
 }
 

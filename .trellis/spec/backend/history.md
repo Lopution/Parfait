@@ -3,7 +3,7 @@ prefix: HIST
 applies_to:
   - lib/core/history/**
   - lib/features/history/**
-reviewed: 2026-10-30
+reviewed: 2026-11-23
 ---
 
 # Browsing history
@@ -31,12 +31,16 @@ reviewed: 2026-10-30
 
 ### HIST-02 Store a compact snapshot, never payloads
 - **Rule:** A record holds typed content kind and id, UTC time, account,
-  visible duration and `HistorySnapshot` fields only; novel progress is a
-  paragraph id plus offset. A corrupt row surfaces a format error instead
-  of a fabricated entity.
-- **Why:** Full API JSON and novel bodies bloated the database.
-- **Check:** `test/history_persistence_test.dart` "surfaces a corrupt row instead of fabricating history"
-- **Code:** `lib/core/history/history_snapshot.dart`
+  visible duration and `HistorySnapshot` fields only (display fields plus
+  flattened newline-delimited `tagsText` for local search, nullable for
+  legacy rows); novel progress is a paragraph id plus offset. Full API
+  JSON, captions and novel bodies never enter the database. A corrupt row
+  surfaces a format error instead of a fabricated entity.
+- **Why:** Full API JSON and novel bodies bloated the database, while
+  compact tag text keeps local search useful when artwork titles are
+  generic.
+- **Check:** `test/history_persistence_test.dart` "surfaces a corrupt row instead of fabricating history" "upgrades v2 rows to v3 with null tags_text and preserves data"
+- **Code:** `lib/core/history/history_snapshot.dart`, `lib/core/history/history_models.dart`
 
 ### HIST-03 Count visible foreground time only, without timers
 - **Rule:** `HistoryTracker` accumulates stopwatch segments while the route
@@ -99,18 +103,21 @@ reviewed: 2026-10-30
 
 ### HIST-08 The history feed pages after the last row read
 - **Rule:** The history feed's cursor is the last loaded row's
-  (`last_viewed_at`, id); `HistoryRepository.page(after:)` reads past it
-  in `last_viewed_at DESC, id DESC` order, never by offset, and tells
-  whether another page follows from the same read (one row more), not
-  from a second count. A failed
-  first read shows `FeedError` with retry, not the empty view. A reader
-  that needs every row (the backup export) reads them in one statement
-  (`HistoryRepository.all`), not page by page.
+  (`last_viewed_at`, id); `HistoryRepository.page(contentType:, query:, after:)`
+  applies content-type and tokenized SQLite filters (escaped `LIKE` over
+  `title`/`author_name`/`tags_text`, exact positive integer match on
+  `content_id`/`author_id`) and reads past the cursor in
+  `last_viewed_at DESC, id DESC` order, never by offset, telling whether
+  another page follows from the same read (one row more), not from a second
+  count. A failed first read shows `FeedError` with retry, not the empty
+  view. A reader that needs every row (the backup export) reads them in
+  one statement (`HistoryRepository.all`), not page by page.
 - **Why:** Offset paging skipped an unread row for each loaded row
-  deleted, and a read error said "no history" with no way to retry. An
-  export read in pages while views arrived wrote some rows twice and
-  dropped others: a view moves its row to the top, behind the reader,
-  whether pages go by offset or by cursor. A delete between a page's read
-  and its count ended the paging early.
-- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/history_persistence_test.dart` "a delete while a page is read leaves the rest reachable"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
-- **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`, `lib/core/backup/backup_service.dart`
+  deleted, in-memory filtering missed unloaded history rows, and a read
+  error said "no history" with no way to retry. An export read in pages
+  while views arrived wrote some rows twice and dropped others: a view
+  moves its row to the top, behind the reader, whether pages go by offset
+  or by cursor. A delete between a page's read and its count ended the
+  paging early.
+- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/history_persistence_test.dart` "a delete while a page is read leaves the rest reachable" "searches title, author, tags, IDs and pages filtered results"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
+- **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`, `lib/features/history/history_body.dart`, `lib/core/backup/backup_service.dart`

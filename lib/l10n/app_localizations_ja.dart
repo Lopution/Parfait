@@ -607,6 +607,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get historyDeleteHint => '削除した履歴は復元できません。';
 
   @override
+  String get historySearchHint => 'タイトル・作者・タグ・ID';
+
+  @override
+  String get historyFilterAll => 'すべて';
+
+  @override
+  String get historyFilterEmpty => '一致する履歴がありません';
+
+  @override
+  String get historyClearFilter => '絞り込みを解除';
+
+  @override
   String get downloaderSettings => 'ダウンロード状況';
 
   @override

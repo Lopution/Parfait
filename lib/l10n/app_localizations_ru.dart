@@ -618,6 +618,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get historyDeleteHint => 'Удалённую историю нельзя восстановить.';
 
   @override
+  String get historySearchHint => 'Название, автор, тег, ID';
+
+  @override
+  String get historyFilterAll => 'Все';
+
+  @override
+  String get historyFilterEmpty => 'Нет совпадений';
+
+  @override
+  String get historyClearFilter => 'Сбросить';
+
+  @override
   String get downloaderSettings => 'Загрузки';
 
   @override

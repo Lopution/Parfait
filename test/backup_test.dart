@@ -257,7 +257,11 @@ void main() {
           7: const MutedWork(illustId: 7, title: 'seven', thumbnailUrl: 's7'),
           ..._works([9]),
         },
-        history: [_record(5)],
+        history: [
+          _record(5).copyWith(
+            snapshot: _record(5).snapshot.copyWith(tagsText: 'ミカ\n未花'),
+          ),
+        ],
       );
 
       final parsed = BackupEnvelope.parse(envelope.encode());
@@ -277,6 +281,7 @@ void main() {
       expect(row.contentType, HistoryContentType.illust);
       expect(row.contentId, 5);
       expect(row.snapshot.title, 'work 5');
+      expect(row.snapshot.tagsText, 'ミカ\n未花');
     });
 
     test('reads work mutes from files made before titles were kept', () {
@@ -293,11 +298,13 @@ void main() {
       (json['mutes'] as Map<String, dynamic>)
         ..remove('works')
         ..['workIds'] = [7, 9];
+      json['history'] = [_record(3).toColumns()..remove('tags_text')];
 
       final parsed = BackupEnvelope.parse(utf8.encode(jsonEncode(json)));
 
       expect(parsed.muteWorks.keys, unorderedEquals([7, 9]));
       expect(parsed.muteWorks[7]!.title, isNull);
+      expect(parsed.history.single.snapshot.tagsText, isNull);
     });
 
     test('rejects garbage bytes', () {
@@ -378,6 +385,7 @@ void main() {
         for (final bad in [
           {'content_id': 0},
           {'snapshot_version': 0},
+          {'tags_text': 123},
         ])
           {
             'history': [_record(1).toColumns()..addAll(bad)],

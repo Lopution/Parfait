@@ -1206,6 +1206,30 @@ abstract class AppLocalizations {
   /// **'删除后将不可恢复'**
   String get historyDeleteHint;
 
+  /// Placeholder text for the history search field.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索标题、画师、标签或 ID'**
+  String get historySearchHint;
+
+  /// Content-type filter option showing both illustrations and novels in history.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get historyFilterAll;
+
+  /// Empty state title when history search or content-type filter matches nothing.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有匹配的历史记录'**
+  String get historyFilterEmpty;
+
+  /// Button that resets the history search query and content-type filter.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除筛选'**
+  String get historyClearFilter;
+
   /// No description provided for @downloaderSettings.
   ///
   /// In zh, this message translates to:
