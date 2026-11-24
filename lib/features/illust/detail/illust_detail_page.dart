@@ -37,6 +37,7 @@ import 'illust_detail_shells.dart';
 import 'related_illusts_section.dart';
 import 'widgets/detail_action_bar.dart';
 import 'widgets/detail_comment_layer.dart';
+import 'widgets/detail_keyboard_shortcuts.dart';
 import 'widgets/detail_overlay_frame.dart';
 import 'widgets/illust_detail_skeleton.dart';
 
@@ -758,7 +759,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       opacity: _layoutFadeOpacity,
       child: layoutBody,
     );
-    return IllustDetailHistoryScope(entity: entity, child: page);
+    return IllustDetailHistoryScope(
+      entity: entity,
+      child: DetailKeyboardShortcuts(entity: entity, child: page),
+    );
   }
 
   IllustEntity? _entityOf(AsyncValue<IllustDetailState> async) {

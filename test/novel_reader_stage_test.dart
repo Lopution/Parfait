@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart'
     show PointerDeviceKind, kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,7 @@ import 'package:parfait/features/novel/novel_reader_series_nav.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
+import 'helpers/fake_account.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/localized_app.dart';
@@ -279,6 +281,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(binding.saves, hasLength(2));
   });
+
+  testWidgets(
+    'Home/End jump pages, T opens TOC, and B toggles novel bookmark',
+    (tester) async {
+      final log = <String>[];
+      final container = await signedInApiContainer(
+        MockClient((request) async {
+          log.add(request.url.path);
+          return jsonResponse({});
+        }),
+      );
+      addTearDown(container.dispose);
+      final binding = _RecordingBinding();
+      await tester.pumpWidget(
+        _stageApp(binding, chapters: true, container: container),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // End jumps to the last page, Home returns to page 1.
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('1/'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('1/'), findsOneWidget);
+
+      // B toggles bookmark for online novels (id > 0).
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.pumpAndSettle();
+      expect(log, contains('/v2/novel/bookmark/add'));
+
+      // T opens the TOC / progress sheet.
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+      await tester.pumpAndSettle();
+      expect(find.text('第 2 章'), findsOneWidget);
+    },
+  );
 
   testWidgets('chrome and page turns keep the reader and its lines', (
     tester,
@@ -1058,6 +1099,7 @@ Widget _stageApp(
   NovelSpreadMode spreadMode = NovelSpreadMode.auto,
   InputModality? inputModality,
   NovelMarkerBinding? marker,
+  ProviderContainer? container,
 }) {
   installPreferencesForTest(
     memoryPreferences({
@@ -1081,12 +1123,15 @@ Widget _stageApp(
     ),
   );
   return localizedApp(
-    overrides: [
-      if (preferences != null)
-        sharedPreferencesProvider.overrideWithValue(preferences),
-      if (translation != null)
-        translationServiceProvider.overrideWithValue(translation),
-    ],
+    container: container,
+    overrides: container != null
+        ? null
+        : [
+            if (preferences != null)
+              sharedPreferencesProvider.overrideWithValue(preferences),
+            if (translation != null)
+              translationServiceProvider.overrideWithValue(translation),
+          ],
     builder: promptHostBuilder,
     theme: theme,
     body: inputModality == null

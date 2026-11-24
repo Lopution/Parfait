@@ -289,16 +289,19 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
       label: semanticLabel,
       onTap: _toggle,
       onLongPress: onLongPress,
-      child: GestureDetector(
-        excludeFromSemantics: true,
-        onLongPress: onLongPress,
-        onSecondaryTapUp: onLongPress == null
-            ? null
-            : (details) => secondaryTap(details.globalPosition, details.kind),
-        onTap: _toggle,
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.sm),
-          child: heart,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          excludeFromSemantics: true,
+          onLongPress: onLongPress,
+          onSecondaryTapUp: onLongPress == null
+              ? null
+              : (details) => secondaryTap(details.globalPosition, details.kind),
+          onTap: _toggle,
+          child: Padding(
+            padding: const EdgeInsets.all(FuncSpacing.sm),
+            child: heart,
+          ),
         ),
       ),
     );

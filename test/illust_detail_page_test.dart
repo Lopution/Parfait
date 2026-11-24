@@ -19,6 +19,7 @@ import 'package:parfait/app/widgets/inline_translation.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/person_avatar.dart';
+import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
@@ -1319,6 +1320,56 @@ void main() {
         await tester.tap(find.text('完成'));
         await tester.pumpAndSettle();
         expect(find.text('完成'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'DetailPageImage shows pointer click cursor, context menu, and desktop shortcuts',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final log = <String>[];
+          final (container, _, _) = await makeWorld(requestLog: log);
+          await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+          await tester.pumpAndSettle();
+
+          final pageImage = find.byType(DetailPageImage).first;
+          expect(
+            find.descendant(
+              of: pageImage,
+              matching: find.byWidgetPredicate(
+                (w) => w is MouseRegion && w.cursor == SystemMouseCursors.click,
+              ),
+            ),
+            findsOneWidget,
+          );
+
+          // Secondary click on DetailPageImage opens context menu.
+          await tester.tap(
+            pageImage,
+            kind: PointerDeviceKind.mouse,
+            buttons: kSecondaryMouseButton,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('选择要下载的页'), findsOneWidget);
+          expect(find.text('复制链接'), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+
+          // B toggles bookmark; Ctrl+S queues all pages.
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+          await tester.pumpAndSettle();
+          expect(log, contains('/v2/illust/bookmark/add'));
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+          await tester.pumpAndSettle();
+          expect(container.read(downloadManagerProvider).tasks, hasLength(2));
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
       },
     );
   });

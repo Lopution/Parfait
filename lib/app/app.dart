@@ -379,8 +379,8 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
       themeMode: themeMode,
       restorationScopeId: 'parfait',
       routerConfig: _router,
-      // Desktop affordance: mouse and trackpad drag like touch. Wheel
-      // smoothing stays per-scrollable — see SmoothWheelScroll.
+      // Platform-adapted scroll physics and drag devices (see FuncScrollBehavior
+      // and FEED-11). Wheel smoothing stays per-scrollable via SmoothWheelScroll.
       scrollBehavior: const FuncScrollBehavior(),
       // The light/dark and palette cross-fade. MaterialApp sits above
       // MotionScope, so the settings are passed in directly.

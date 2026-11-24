@@ -1017,5 +1017,41 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('1 / 1'), findsOneWidget);
     });
+
+    testWidgets('Ctrl+S saves active page and B toggles bookmark', (
+      tester,
+    ) async {
+      final log = <String>[];
+      final (container, _, _) = await makeWorld(requestLog: log);
+      final entity = parseIllust(
+        illustJson(42, pageCount: 2, withMetaPages: true),
+      );
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: ImageViewerPage(
+            urls: const [
+              'https://i.pximg.net/1/original.jpg',
+              'https://i.pximg.net/2/original.jpg',
+            ],
+            entity: entity,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(container.read(downloadManagerProvider).tasks, hasLength(1));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.pumpAndSettle();
+      expect(log, contains('/v2/illust/bookmark/add'));
+    });
   });
 }

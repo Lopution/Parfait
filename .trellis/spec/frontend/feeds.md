@@ -56,10 +56,10 @@ reviewed: 2026-11-23
 - **Code:** `lib/app/widgets/feed/feed_grid.dart`
 
 ### FEED-19 Grid columns follow the user's density
-- **Rule:** Every illustration grid uses `IllustFeedGrid` with `illustColumnsForContext(context, extent, density)` over `illustColumnsFor(extent, density)`: mobile/tablet min card extent 120/180/360dp and min columns 3/2/1 (compact/standard/comfortable); `FormFactor.pc` uses 176/204/268dp for compact/standard/comfortable (min columns 3/2/1; keeping 3 columns beside the 1280px inspector and ~5 columns full-width at 1440px).
-- **Why:** User decision: unified density preference with comfortable desktop proportions.
-- **Check:** `test/responsive_layout_test.dart` "illustColumnsFor derives columns from the extent and density" "IllustFeedGrid counts columns on the sliver extent, not the window" "PC standard grid keeps 3 columns at 1280px inspector width"
-- **Code:** `lib/app/widgets/feed/feed_grid.dart`, `lib/core/settings/app_settings.dart`
+- **Rule:** Every illustration grid uses `IllustFeedGrid` with `illustColumnsForContext(context, extent, density)` over `illustColumnsFor(extent, density)`: compact/medium touch viewports (`< AppBreakpoints.expanded`) use min card extent 120/180/360dp and min columns 3/2/1 (compact/standard/comfortable); `FormFactor.pc` and wide tablets (`crossAxisExtent >= AppBreakpoints.expanded`, 840dp) use 176/204/268dp for compact/standard/comfortable (min columns 3/2/1; keeping 3 columns beside the 1280px inspector, ~5 columns full-width at 1440px, and avoiding 10-column cramping on 1366dp tablets). Under `FoldPosture.book`, `IllustFeedGrid` splits items across left/right wings around `hingeBounds` via `WindowLayoutSpec.bookSplitFor` so cards never straddle the hinge.
+- **Why:** User decision: unified density preference with comfortable desktop/large-tablet proportions and hinge-safe foldable grids.
+- **Check:** `test/responsive_layout_test.dart` "illustColumnsFor derives columns from the extent and density" "IllustFeedGrid counts columns on the sliver extent, not the window" "PC standard grid keeps 3 columns at 1280px inspector width" "FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping"
+- **Code:** `lib/app/widgets/feed/feed_grid.dart`, `lib/app/layout/window_layout_spec.dart`, `lib/core/settings/app_settings.dart`
 
 ### FEED-05 No feed prefetch
 - **Rule:** Feeds never prefetch images; grid cache extent mounts cards ahead and each card fetches on mount.
@@ -164,9 +164,9 @@ reviewed: 2026-11-23
 - **Code:** `lib/app/widgets/skeleton/func_skeleton.dart`, `lib/app/widgets/skeleton/list_skeletons.dart`
 
 ### FEED-16 Skeleton geometry matches the real layout
-- **Rule:** `IllustGridSkeleton` matches `illustColumnsFor`, padding, and spacing (non-scrolling, clipped); `ProfileSkeleton` aligns avatar/name with the real header and keeps a real `BackButton` outside excluded semantics.
+- **Rule:** `IllustGridSkeleton` matches `illustColumnsForContext`, `FoldPosture.book` wing splits (`WindowLayoutSpec.bookSplitFor`), padding, and spacing (non-scrolling, clipped); `ProfileSkeleton` aligns avatar/name with the real header and keeps a real `BackButton` outside excluded semantics.
 - **Why:** Prevents layout jumps on load and lets users leave slow profiles.
-- **Check:** `test/user_profile_test.dart` "a pending profile shows the skeleton and the back button leaves"
+- **Check:** `test/user_profile_test.dart` "a pending profile shows the skeleton and the back button leaves"; `test/responsive_layout_test.dart` "FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping"
 - **Code:** `lib/app/widgets/skeleton/illust_grid_skeleton.dart`, `lib/features/profile/profile_skeleton.dart`
 
 ### FEED-23 A restored offset lands on content or on a skeleton that reaches it
