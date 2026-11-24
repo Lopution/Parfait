@@ -325,6 +325,7 @@ class AppSettings {
     this.windowY,
     this.windowMaximized = false,
     this.closeToTray = false,
+    this.loginProxyNoticeAcknowledged = false,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -498,6 +499,7 @@ class AppSettings {
   /// Whether closing the desktop window minimizes it to the system tray instead
   /// of exiting the application.
   final bool closeToTray;
+  final bool loginProxyNoticeAcknowledged;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -677,6 +679,10 @@ class AppSettings {
       windowY: _nullableDouble(json, 'windowY', base.windowY),
       windowMaximized: _bool(json['windowMaximized'], base.windowMaximized),
       closeToTray: _bool(json['closeToTray'], base.closeToTray),
+      loginProxyNoticeAcknowledged: _bool(
+        json['loginProxyNoticeAcknowledged'],
+        base.loginProxyNoticeAcknowledged,
+      ),
     );
   }
 
@@ -736,6 +742,7 @@ class AppSettings {
       'windowY': windowY,
       'windowMaximized': windowMaximized,
       'closeToTray': closeToTray,
+      'loginProxyNoticeAcknowledged': loginProxyNoticeAcknowledged,
     };
   }
 
@@ -891,6 +898,7 @@ class AppSettings {
     Object? windowY = _unset,
     bool? windowMaximized,
     bool? closeToTray,
+    bool? loginProxyNoticeAcknowledged,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -981,6 +989,8 @@ class AppSettings {
           : (windowY as num?)?.toDouble(),
       windowMaximized: windowMaximized ?? this.windowMaximized,
       closeToTray: closeToTray ?? this.closeToTray,
+      loginProxyNoticeAcknowledged:
+          loginProxyNoticeAcknowledged ?? this.loginProxyNoticeAcknowledged,
     );
   }
 

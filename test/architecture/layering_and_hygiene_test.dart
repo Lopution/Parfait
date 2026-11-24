@@ -113,7 +113,7 @@ const _grandfatheredFileLineCaps = <String, int>{
 /// pinned at their summed line count plus 20-line slack.
 const _grandfatheredLibraryLineCaps = <String, int>{
   'lib/app/motion/hero_transition.dart': 2198,
-  'lib/app/navigation/routes.dart': 1407,
+  'lib/app/navigation/routes.dart': 1372,
   'lib/core/download/download_manager.dart': 2042,
   'lib/core/network/compat/network_policy.dart': 2427,
   'lib/features/illust/viewer/image_viewer_page.dart': 2276,

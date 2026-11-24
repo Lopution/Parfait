@@ -79,7 +79,6 @@ void main() {
           false,
           true,
           true,
-          false,
           true,
         ),
         (
@@ -93,7 +92,6 @@ void main() {
           true,
           true,
           false,
-          false,
         ),
         (
           PlatformCaps(isWindows: true),
@@ -105,7 +103,6 @@ void main() {
           false,
           true,
           false,
-          true,
           false,
         ),
         (
@@ -115,7 +112,6 @@ void main() {
           true,
           false,
           false,
-          true,
           true,
           true,
           true,
@@ -131,7 +127,6 @@ void main() {
           false,
           false,
           false,
-          true,
           false,
         ),
       ];
@@ -149,8 +144,7 @@ void main() {
         expect(caps.supportsSecurityScopedBookmarks, c.$7);
         expect(caps.supportsInAppWebView, c.$8);
         expect(caps.supportsCustomSchemeCallback, c.$9);
-        expect(caps.supportsLoopbackCallback, c.$10);
-        expect(caps.supportsSelfUpdater, c.$11);
+        expect(caps.supportsSelfUpdater, c.$10);
         expect(caps.supportsInboundIntents, isTrue);
       }
     });

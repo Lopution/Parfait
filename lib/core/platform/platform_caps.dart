@@ -76,9 +76,6 @@ class PlatformCaps {
   /// Custom URL scheme (`pixiv://`) OAuth / deep-link callback support.
   bool get supportsCustomSchemeCallback => isAndroid || isIOS || isMacOS;
 
-  /// Loopback HTTP server (`127.0.0.1`) OAuth callback support.
-  bool get supportsLoopbackCallback => isDesktop;
-
   /// APK side-load self-update (github flavor). Other platforms are
   /// store/asset managed — the updater reports storeManaged instead.
   bool get supportsSelfUpdater => isAndroid;

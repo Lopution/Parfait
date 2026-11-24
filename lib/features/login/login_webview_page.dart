@@ -25,7 +25,6 @@ import '../../core/platform/platform_caps.dart';
 
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
-import 'login_session_restart.dart';
 import 'login_webview_error_card.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/icons/app_icons.dart';
@@ -86,6 +85,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// using the same login page.
   bool _fatal = false;
   bool _webView2Missing = false;
+  String? _sessionId;
 
   /// The page a load before any other loads: the signup page or the
   /// current session's authorize URL.
@@ -116,7 +116,9 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       // beginSession() while only reading the URL discards the verifier
       // that the next call would need, making the visible authorize URL and
       // exchange state diverge.
-      _startUrl = widget.oauthService.beginSession().authorizeUrl;
+      final session = widget.oauthService.beginSession();
+      _sessionId = session.sessionId;
+      _startUrl = session.authorizeUrl;
     }
     if (caps.isWindows) unawaited(_probeWebView2());
     if (!caps.supportsInAppWebView) {
@@ -136,8 +138,11 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     } on Object {
       version = null;
     }
-    if (!mounted || version != null) return;
-    setState(() => _webView2Missing = true);
+    if (!mounted) return;
+    final missing = version == null;
+    if (missing != _webView2Missing) {
+      setState(() => _webView2Missing = missing);
+    }
   }
 
   /// Loads [url], or reloads the current page when it is null.
@@ -164,8 +169,9 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // Cancellation and page disposal must never leave a live verifier behind.
-    widget.oauthService.discardSession();
+    // Cancellation and page disposal must never leave a live verifier behind,
+    // except when handing off to `/login/callback` (e.g. under reduced motion).
+    widget.oauthService.discardSession(sessionId: _sessionId, forDispose: true);
     _callbackController.dispose();
     _controller?.dispose();
     super.dispose();
@@ -313,7 +319,9 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// discards the dead verifier and the fresh authorize URL is loaded into
   /// the same WebView (or opened externally when no WebView exists).
   void _restartLogin() {
-    final authorizeUrl = restartLoginSession(widget.oauthService);
+    final session = widget.oauthService.beginSession();
+    _sessionId = session.sessionId;
+    final authorizeUrl = session.authorizeUrl;
     setState(() {
       _exchanging = false;
       _error = null;
@@ -440,30 +448,54 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   );
 
   Widget _webView2Prompt(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(AppIcons.globeOff, size: 56),
-        const SizedBox(height: FuncSpacing.md),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
-          child: Text(
-            context.l10n.loginWebView2Missing,
-            textAlign: TextAlign.center,
-          ),
-        ),
-        const SizedBox(height: FuncSpacing.md),
-        FilledButton.icon(
-          icon: const Icon(AppIcons.externalLink),
-          label: Text(context.l10n.loginInstallWebView2),
-          onPressed: () => unawaited(
-            launchUrl(
-              _webView2InstallUri,
-              mode: LaunchMode.externalApplication,
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(FuncSpacing.xl),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(AppIcons.globeOff, size: 56),
+            const SizedBox(height: FuncSpacing.md),
+            Text(
+              context.l10n.loginWebView2Missing,
+              textAlign: TextAlign.center,
             ),
-          ),
+            const SizedBox(height: FuncSpacing.lg),
+            FilledButton.icon(
+              icon: const Icon(AppIcons.externalLink),
+              label: Text(context.l10n.loginInstallWebView2),
+              onPressed: () => unawaited(
+                launchUrl(
+                  _webView2InstallUri,
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+            ),
+            const SizedBox(height: FuncSpacing.sm),
+            OutlinedButton.icon(
+              icon: const Icon(AppIcons.externalLink),
+              label: Text(context.l10n.openInBrowser),
+              onPressed: _openExternalBrowser,
+            ),
+            if (!widget.create) ...[
+              const SizedBox(height: FuncSpacing.sm),
+              OutlinedButton.icon(
+                icon: const Icon(AppIcons.paste),
+                label: Text(context.l10n.loginPasteCallback),
+                onPressed: () => unawaited(_showManualCallbackDialog(context)),
+              ),
+            ],
+            const SizedBox(height: FuncSpacing.sm),
+            TextButton.icon(
+              icon: const Icon(UiIcons.refresh),
+              label: Text(context.l10n.retry),
+              onPressed: () => unawaited(_probeWebView2()),
+            ),
+          ],
         ),
-      ],
+      ),
     ),
   );
 
@@ -494,7 +526,13 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
                 icon: const Icon(AppIcons.externalLink),
                 label: Text(l10n.openInBrowser),
               ),
-              if (!widget.create) ...[
+              if (widget.create) ...[
+                const SizedBox(height: FuncSpacing.md),
+                OutlinedButton(
+                  onPressed: () => context.pushReplacement('/login/web'),
+                  child: Text(l10n.login),
+                ),
+              ] else ...[
                 const SizedBox(height: FuncSpacing.xl),
                 TextField(
                   controller: _callbackController,

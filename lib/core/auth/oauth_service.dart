@@ -149,6 +149,7 @@ class OAuthService {
   final Duration _exchangeTimeout;
 
   PkceSession? _session;
+  bool _handoffPending = false;
   int _sessionCounter = 0;
 
   /// Exposes the injected transport for wiring/diagnostic tests without
@@ -213,7 +214,16 @@ class OAuthService {
       return PixivCallbackInvalid(uri, 'state mismatch');
     }
     session.callbackConsumed = true;
+    _handoffPending = false;
     return parsed;
+  }
+
+  /// Marks the live PKCE session as handed off to `/login/callback` so a
+  /// retiring `/login/web` page's `dispose()` does not wipe the verifier
+  /// before `LoginPage` validates and exchanges the code (e.g. under reduced
+  /// motion where pop transition duration is zero).
+  void markCallbackHandoff() {
+    _handoffPending = _session != null;
   }
 
   /// Atomically consumes the live session and exchanges the code for tokens.
@@ -228,6 +238,7 @@ class OAuthService {
     }
     final verifier = session.verifier;
     session.consumed = true;
+    _handoffPending = false;
     _session = null;
     try {
       final response = await _client
@@ -271,7 +282,18 @@ class OAuthService {
   }
 
   /// Clears any live session (user cancelled, page disposed, timeout).
-  void discardSession() {
+  ///
+  /// When [forDispose] is true and [markCallbackHandoff] was called for an
+  /// incoming external callback route, the session is preserved once for the
+  /// callback handoff. When [sessionId] is given, a newer session is left
+  /// untouched.
+  void discardSession({String? sessionId, bool forDispose = false}) {
+    if (forDispose && _handoffPending) {
+      _handoffPending = false;
+      return;
+    }
+    if (sessionId != null && _session?.id != sessionId) return;
+    _handoffPending = false;
     _session?.clearSecrets();
     _session = null;
   }
