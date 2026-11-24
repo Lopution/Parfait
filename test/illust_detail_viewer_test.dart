@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/navigation/viewer_session.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
+import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
@@ -1053,5 +1054,80 @@ void main() {
       await tester.pumpAndSettle();
       expect(log, contains('/v2/illust/bookmark/add'));
     });
+
+    testWidgets(
+      'desktop mouse drag pages unzoomed ImageViewerPage and pans while zoomed',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          await tester.pumpWidget(
+            withStalledImages(
+              localizedApp(
+                scrollBehavior: const FuncScrollBehavior(),
+                home: const ImageViewerPage(
+                  urls: [
+                    'https://i.pximg.net/1/original.jpg',
+                    'https://i.pximg.net/2/original.jpg',
+                  ],
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          expect(find.text('1 / 2'), findsOneWidget);
+
+          // Unzoomed mouse drag past midpoint turns forward to page 2, then back.
+          final startRight = Offset(
+            tester.getRect(find.byType(PageView)).right - 60,
+            tester.getCenter(find.byType(PageView)).dy,
+          );
+          final dragForward = await tester.startGesture(
+            startRight,
+            kind: PointerDeviceKind.mouse,
+          );
+          await dragForward.moveBy(const Offset(-50, 0));
+          await dragForward.moveBy(const Offset(-460, 0));
+          await dragForward.up();
+          await tester.pumpAndSettle();
+          expect(find.text('2 / 2'), findsOneWidget);
+
+          final startLeft = Offset(
+            tester.getRect(find.byType(PageView)).left + 60,
+            tester.getCenter(find.byType(PageView)).dy,
+          );
+          final dragBack = await tester.startGesture(
+            startLeft,
+            kind: PointerDeviceKind.mouse,
+          );
+          await dragBack.moveBy(const Offset(50, 0));
+          await dragBack.moveBy(const Offset(460, 0));
+          await dragBack.up();
+          await tester.pumpAndSettle();
+          expect(find.text('1 / 2'), findsOneWidget);
+
+          // Zoomed in: mouse drag pans the image instead of turning pages.
+          final controller0 = tester
+              .widget<InteractiveViewer>(
+                find.byKey(const ValueKey('viewer-page-0')),
+              )
+              .transformationController!;
+          controller0.value = Matrix4.diagonal3Values(2.5, 2.5, 1.0);
+          await tester.pump();
+
+          final pan = await tester.startGesture(
+            tester.getCenter(find.byType(PageView)),
+            kind: PointerDeviceKind.mouse,
+          );
+          await pan.moveBy(const Offset(-50, 0));
+          await pan.moveBy(const Offset(-120, 0));
+          await pan.up();
+          await tester.pumpAndSettle();
+          expect(find.text('1 / 2'), findsOneWidget);
+          expect(controller0.value.getTranslation().x, lessThan(0));
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
   });
 }
