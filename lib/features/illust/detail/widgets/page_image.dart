@@ -133,23 +133,21 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   bool get downloadMode => widget.downloadMode;
 
   Future<void> _quickSavePage() async {
-    final l10n = context.l10n;
+    final reportFailure = deferErrorSnackBar(
+      context,
+      action: context.l10n.downloadSubmissionFailed,
+    );
+    final reportSuccess = deferDownloadSubmittedSnackBar(context);
     try {
       await ref
           .read(illustDownloadControllerProvider)
           .download(entity, widget.index);
-    } catch (error) {
-      if (!mounted) return;
+    } catch (error, stack) {
       AppHaptics.error();
-      showErrorSnackBar(
-        context,
-        action: l10n.downloadSubmissionFailed,
-        error: error,
-      );
+      reportFailure(error, stack);
       return;
     }
-    if (!mounted) return;
-    showDownloadSubmittedSnackBar(context);
+    reportSuccess();
   }
 
   @override
@@ -262,6 +260,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
         widget.heroImageUrl != null &&
         isTopSquareThumbnail(widget.heroImageUrl!);
     final heroCurve = illustHeroCurve(context);
+    final canSelectPages = entity.pageCount > 1;
     final image = GestureDetector(
       // Opaque: while the image flies, its Hero is an offstage placeholder
       // that takes no hits, and a tap there must still open the viewer.
@@ -273,10 +272,12 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
           : downloadMode
           ? widget.onToggleSelect
           : () => _openViewer(context, quality: viewQuality),
-      onLongPress: isPagePlaceholder ? null : widget.onLongPress,
+      onLongPress: isPagePlaceholder || !canSelectPages
+          ? null
+          : widget.onLongPress,
       // The selection mode already on screen keeps toggling, as a tap and
-      // a long press do; outside it the PC offers the mode as one entry
-      // beside the pointer (R11).
+      // a long press do; outside it PC offers page selection on multi-page
+      // works or direct save on single-page works (R11).
       onSecondaryTapUp: isPagePlaceholder
           ? null
           : downloadMode
@@ -286,13 +287,22 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                 context,
                 position: details.globalPosition,
                 kind: details.kind,
-                onLongPress: widget.onLongPress,
+                onLongPress: canSelectPages
+                    ? widget.onLongPress
+                    : () => unawaited(_quickSavePage()),
                 actions: [
-                  DisplayAction(
-                    icon: UiIcons.checklist,
-                    label: context.l10n.downloadSelectPages,
-                    onSelected: widget.onLongPress,
-                  ),
+                  if (canSelectPages)
+                    DisplayAction(
+                      icon: UiIcons.checklist,
+                      label: context.l10n.downloadSelectPages,
+                      onSelected: widget.onLongPress,
+                    )
+                  else
+                    DisplayAction(
+                      icon: AppIcons.download,
+                      label: context.l10n.viewerSavePage,
+                      onSelected: () => unawaited(_quickSavePage()),
+                    ),
                 ],
               ),
             ),
@@ -427,7 +437,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               child: _HoverQuickActionsBadge(
                 state: state,
                 onSave: _quickSavePage,
-                onSelectPages: widget.onLongPress,
+                onSelectPages: canSelectPages ? widget.onLongPress : null,
               ),
             ),
         ],
@@ -782,12 +792,15 @@ class _PanoramaFrameState extends State<_PanoramaFrame> {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : contentSize.width;
-        final height = DetailPageImage.panoramaHeight(
+        final rawHeight = DetailPageImage.panoramaHeight(
           contentSize,
           width,
           widget.aspectRatio,
         );
-        if (height == null) return widget.builder(null);
+        if (rawHeight == null) return widget.builder(null);
+        final height = constraints.maxHeight.isFinite
+            ? math.min(rawHeight, constraints.maxHeight)
+            : rawHeight;
 
         final contentWidth = math.max(width, height * widget.aspectRatio);
         final controller = _controller ??= ScrollController(
@@ -922,12 +935,12 @@ class _HoverQuickActionsBadge extends StatelessWidget {
   const _HoverQuickActionsBadge({
     required this.state,
     required this.onSave,
-    required this.onSelectPages,
+    this.onSelectPages,
   });
 
   final IllustPageSaveState state;
   final VoidCallback onSave;
-  final VoidCallback onSelectPages;
+  final VoidCallback? onSelectPages;
 
   @override
   Widget build(BuildContext context) {
@@ -962,11 +975,12 @@ class _HoverQuickActionsBadge extends StatelessWidget {
               IllustPageSaveState.none => const Icon(AppIcons.download),
             },
           ),
-          IconButton(
-            tooltip: l10n.downloadSelectPages,
-            onPressed: onSelectPages,
-            icon: const Icon(UiIcons.checklist),
-          ),
+          if (onSelectPages case final selectPages?)
+            IconButton(
+              tooltip: l10n.downloadSelectPages,
+              onPressed: selectPages,
+              icon: const Icon(UiIcons.checklist),
+            ),
         ],
       ),
     );

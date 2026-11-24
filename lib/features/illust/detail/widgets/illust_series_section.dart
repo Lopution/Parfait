@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../detail_page_activity.dart';
 import '../../../../app/motion/press_scale.dart';
 import '../../../../app/navigation/route_facade.dart';
 import '../../../../app/pixiv_image.dart';
@@ -49,11 +50,13 @@ class IllustSeriesSection extends ConsumerWidget {
     }
     // Opening a series work on the detail page records it as the session's
     // most-recently-opened entry for the series page's 「继续第 n 话」.
-    // Post-frame because build must not write providers; the store dedupes
-    // identical entries so rebuilds stay cheap.
+    // Gated on DetailPageActivity so prebuilt pager neighbours never overwrite
+    // the active episode before the user actually navigates to them.
+    final active = DetailPageActivity.of(context);
     final accountId = ref.watch(historyAccountIdProvider);
-    if (accountId != null) {
+    if (active && accountId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted || !DetailPageActivity.of(context)) return;
         ref
             .read(seriesRecentOpenStoreProvider.notifier)
             .record(

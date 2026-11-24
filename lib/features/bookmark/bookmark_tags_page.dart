@@ -162,6 +162,7 @@ class _RestrictTagsState extends ConsumerState<_RestrictTags>
     final BookmarkTagQuery query = (widget.kind, restrict);
     final async = ref.watch(userBookmarkTagsProvider(query));
     return PullToRefresh(
+      scrollController: widget.scrollController,
       onRefresh: () =>
           ref.read(userBookmarkTagsProvider(query).notifier).refresh(),
       child: async.when(
@@ -201,7 +202,16 @@ class _TagList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     if (state.tags.isEmpty) {
-      return FeedEmpty(icon: AppIcons.tag, title: l10n.bookmarkTagsEmpty);
+      return CustomScrollView(
+        controller: scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: FeedEmpty(icon: AppIcons.tag, title: l10n.bookmarkTagsEmpty),
+          ),
+        ],
+      );
     }
     return LoadMoreListener(
       itemCount: state.tags.length,
@@ -209,6 +219,7 @@ class _TagList extends ConsumerWidget {
           ref.read(userBookmarkTagsProvider(query).notifier).loadMore(),
       child: SmoothWheelScroll(
         controller: scrollController,
+        basePhysics: const AlwaysScrollableScrollPhysics(),
         builder: (context, controller, physics) => ListView.builder(
           controller: controller,
           physics: physics,

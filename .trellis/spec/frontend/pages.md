@@ -48,9 +48,9 @@ reviewed: 2026-11-23
 - **Code:** `lib/features/profile/user_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/features/profile/profile_skeleton.dart`, `lib/features/profile/profile_illust_feed.dart`
 
 ### PAGE-22 Bookmarks list illustrations or novels by a kind menu
-- **Rule:** Profile bookmarks open with a kind menu (illusts/novels; followed by visibility and per-kind tags on own profile); novel bookmarks read `/v1/user/bookmarks/novel` unfiltered via `ProfileNovelFeed`, carry `kind=novel` in tag routes (defaulting to illusts), and preserve list tails when text filters match nothing.
-- **Why:** User request for full novel bookmark and tag parity.
-- **Check:** `test/profile_bookmarks_test.dart` "your bookmarks switch to novels with their own tags"; `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its"; `test/bookmark_tags_test.dart` "a bookmarks cursor pins the tag alongside restrict, for illusts and " "bookmark tag filter only changes loaded works locally" "a novel filter that matches nothing keeps the list tail"; `test/navigation_router_test.dart` "bookmark tag route restores and writes its kind and restrict "
+- **Rule:** Profile bookmarks open with a kind menu (illusts/novels; followed by visibility and per-kind tags on own profile); novel bookmarks read `/v1/user/bookmarks/novel` unfiltered via `ProfileNovelFeed`, carry `kind=novel` in tag routes (defaulting to illusts), preserve list tails when text filters match nothing, and `BookmarkTagsPage` wires its `scrollController` into `PullToRefresh` with `AlwaysScrollableScrollPhysics` so short and empty tag lists remain pull-refreshable.
+- **Why:** User request for full novel bookmark and tag parity, plus reliable pull-to-refresh on sparse or empty bookmark tag lists.
+- **Check:** `test/profile_bookmarks_test.dart` "your bookmarks switch to novels with their own tags"; `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its"; `test/bookmark_tags_test.dart` "a bookmarks cursor pins the tag alongside restrict, for illusts and " "bookmark tag filter only changes loaded works locally" "a novel filter that matches nothing keeps the list tail" "BookmarkTagsPage wires scrollController to PullToRefresh and keeps short & empty lists pull-refreshable"; `test/navigation_router_test.dart` "bookmark tag route restores and writes its kind and restrict "
 - **Code:** `lib/features/profile/profile_filter_bar.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_novel_feed.dart`, `lib/features/profile/bookmark_tag_feed_page.dart`, `lib/features/bookmark/bookmark_tags_page.dart`, `lib/core/novel/novel_feed_controller.dart`
 
 ### PAGE-02 Header controls stay mounted through the collapse
@@ -130,10 +130,10 @@ reviewed: 2026-11-23
 - **Code:** `lib/features/comments/comment_item.dart`
 
 ### PAGE-19 Composer panels rise and fall like the keyboard
-- **Rule:** Emoji/stamp panels share the composer's bottom slot with the keyboard, sizing to persisted `KeyboardHeights` (160dp–60% height; 280dp default capped at 50% on landscape phones) on the sheet spring so the input bar stays stationary during swaps (holding height up to 600 ms while keyboard rises; `StateFade` between emoji/stamp; reduced motion jumps). `onGone` composers sit only on the active surface (DETAIL-17).
-- **Why:** Eliminated composer jumps and misaligned panels above navigation bars.
-- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels" "panels stand exactly where the keyboard stood" "keyboard heights persist per screen shape" "a turned phone keeps the panel to half the window"
-- **Code:** `lib/app/widgets/comment_composer.dart`, `lib/core/settings/keyboard_heights.dart`
+- **Rule:** Emoji/stamp panels share the composer's bottom slot with the keyboard, sizing to persisted `KeyboardHeights` (160dp–60% height; 280dp default capped at 50% on landscape phones) on the sheet spring so the input bar stays stationary during swaps (holding height up to 600 ms while keyboard rises; `StateFade` between emoji/stamp; reduced motion jumps). `onGone` composers sit only on the active surface (DETAIL-17). `CommentRepliesPage` omits the cancel-reply `×` button when targeting the root comment (showing it only for child replies), and both comment pages use `deferCommentSendError` so failed sends report even after pop.
+- **Why:** Eliminated composer jumps, misaligned panels above navigation bars, no-op reply cancel icons, and lost send errors after popping.
+- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels" "panels stand exactly where the keyboard stood" "keyboard heights persist per screen shape" "a turned phone keeps the panel to half the window" "CommentRepliesPage hides cancel-reply on root target and surfaces send errors after pop"
+- **Code:** `lib/app/widgets/comment_composer.dart`, `lib/features/comments/comments_page.dart`, `lib/core/settings/keyboard_heights.dart`
 
 ## Library and management lists
 

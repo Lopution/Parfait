@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/clipboard.dart';
-import '../../../app/haptics/app_haptics.dart';
 import '../../../app/navigation/route_animation.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/motion/hero_transition.dart';
@@ -17,20 +16,14 @@ import '../../../app/widgets/app_spinner.dart';
 import '../../../app/widgets/display_actions.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
-import '../../../core/auth/account_store.dart';
-import '../../../core/download/download_providers.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
-import '../../../core/download/download_recovery.dart';
 import '../../../core/errors/error_category.dart';
-import '../../../core/logging/crash_log.dart';
-import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/ugoira/ugoira_cache.dart';
 import '../../../core/ugoira/ugoira_decoder.dart';
-import '../../../core/ugoira/ugoira_export.dart';
 import '../../../core/ugoira/ugoira_providers.dart';
 import '../../../core/ugoira/ugoira_repository.dart';
 import '../../../core/ugoira/ugoira_scheduler.dart';
@@ -40,6 +33,7 @@ import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/icons/app_icons.dart';
 import '../../../app/icons/ui_icons.dart';
+import 'ugoira_export_action.dart';
 
 /// Inline beta56-compatible Ugoira surface. The cover, play affordance and
 /// paused overlay stay in the detail page; ZIP/decode/export resources are
@@ -121,7 +115,6 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   /// produce a rapid pause/resume loop (and apparent frame corruption) while
   /// the ZIP was still being decoded.
   final Set<int> _failedFrames = <int>{};
-  UgoiraExportJob? _exportJob;
   _UgoiraFailure? _failure;
   var _loading = false;
   var _frameReady = false;
@@ -204,6 +197,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   @override
   Widget build(BuildContext context) {
+    final exportState = ref.watch(
+      ugoiraExportControllerProvider.select((m) => m[widget.illustId]),
+    );
     final scheduler = _scheduler;
     final cache = _cache;
     final currentImage = _currentImage(scheduler, cache);
@@ -300,20 +296,16 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                         ),
                       ),
                     ),
-                  // The GIF export entry is always visible — the ugoira
-                  // equivalent of the plain download action. One slot carries
-                  // three states: preparing (asset not loaded → disabled),
-                  // exporting (progress spinner), failed (error icon, tap to
-                  // retry).
-                  // Bottom corner, opposite the GIF badge: the top of the
-                  // artwork sits under the detail page's see-through bar.
+                  // Always-visible GIF export entry backed by the app-level
+                  // controller: works on demand before playback starts and
+                  // exposes live progress + cancel across detail re-entries.
                   Positioned(
                     right: 7,
                     bottom: 7,
                     child: _ExportButton(
-                      assetReady: _asset != null,
-                      snapshot: _exportJob?.snapshot,
+                      exportState: exportState,
                       onExport: _export,
+                      onCancel: _cancelExport,
                     ),
                   ),
                 ],
@@ -638,65 +630,14 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     }
   }
 
-  Future<void> _export() async {
-    if (_disposed ||
-        _exportJob?.snapshot.status == UgoiraExportStatus.running ||
-        _exportJob?.snapshot.status == UgoiraExportStatus.finalizing) {
-      return;
-    }
-    if (_asset == null) await _load(play: false);
-    final asset = _asset;
-    if (asset == null || _disposed) return;
-    final previousJob = _exportJob;
-    if (previousJob != null) await previousJob.dispose();
-    final submissionContext = _currentDownloadContext();
-    if (submissionContext == null) {
-      if (mounted) {
-        AppHaptics.error();
-        showAppSnackBar(context, context.l10n.ugoiraLoginRequired);
-      }
-      return;
-    }
-    final job = UgoiraExportJob(
-      asset: asset,
-      sinkFactory: ref.read(downloadSinkFactoryProvider),
-      recoveryStore: ref.read(ugoiraRecoveryStoreProvider),
-      submissionContext: submissionContext,
-      submissionContextProvider: _currentDownloadContext,
-    );
-    _exportJob = job;
-    final subscription = job.events.listen((_) {
-      if (mounted) setState(() {});
-    });
-    final result = await job.start();
-    await subscription.cancel();
-    if (!mounted) return;
-    // A failure says why, as a download row does; "unknown" is no reason.
-    final kind = result.failureKind;
-    final reason = kind == DownloadFailureKind.unknown
-        ? null
-        : downloadFailureReasonText(context.l10n, kind);
-    final message = switch (result.status) {
-      UgoiraExportStatus.succeeded => context.l10n.ugoiraSaved,
-      UgoiraExportStatus.canceled => context.l10n.ugoiraSaveCanceled,
-      _ when reason != null => context.l10n.errorWithReason(
-        context.l10n.ugoiraSaveFailed,
-        reason,
-      ),
-      _ => context.l10n.ugoiraSaveFailed,
-    };
-    // The raw failure stays in the crash log.
-    if (result.status == UgoiraExportStatus.failed) {
-      CrashLog.record(StateError('ugoira export failed: ${result.error}'));
-    }
-    // Save succeeded → success; failed → error (§5.6); a user cancel is
-    // a deliberate dismissal and gets no vibration.
-    if (result.status == UgoiraExportStatus.succeeded) {
-      AppHaptics.success();
-    } else if (result.status != UgoiraExportStatus.canceled) {
-      AppHaptics.error();
-    }
-    showAppSnackBar(context, message);
+  void _export() {
+    if (_disposed || !mounted) return;
+    unawaited(startUgoiraGifExport(context, ref, widget.illustId));
+  }
+
+  void _cancelExport() {
+    if (_disposed) return;
+    ref.read(ugoiraExportControllerProvider.notifier).cancel(widget.illustId);
   }
 
   UgoiraScheduler _buildScheduler(UgoiraAsset asset, {int startAt = 0}) {
@@ -761,11 +702,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final l10n = context.l10n;
     final scheduler = _scheduler;
     final playing = scheduler?.isPlaying ?? false;
-    final status = _exportJob?.snapshot.status;
     final exporting =
-        status == UgoiraExportStatus.running ||
-        status == UgoiraExportStatus.finalizing ||
-        status == UgoiraExportStatus.queued;
+        ref.read(ugoiraExportControllerProvider)[widget.illustId]?.isActive ==
+        true;
     unawaited(
       showDisplayActions(
         context,
@@ -783,10 +722,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
             onSelected: _togglePlayback,
           ),
           DisplayAction(
-            icon: AppIcons.download,
-            label: l10n.ugoiraSaveGif,
-            enabled: !exporting,
-            onSelected: () => unawaited(_export()),
+            icon: exporting ? UiIcons.close : AppIcons.download,
+            label: exporting ? l10n.cancel : l10n.ugoiraSaveGif,
+            onSelected: exporting ? _cancelExport : _export,
           ),
           DisplayAction(
             icon: AppIcons.share,
@@ -840,8 +778,6 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     _cache?.clear();
     final asset = _asset;
     if (asset != null) unawaited(asset.dispose());
-    final job = _exportJob;
-    if (job != null) unawaited(job.dispose());
     super.dispose();
   }
 
@@ -866,17 +802,6 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
         categorized: true,
       ),
     };
-  }
-
-  DownloadSubmissionContext? _currentDownloadContext() {
-    final accountState = ref.read(accountStoreProvider).asData?.value;
-    final account = accountState?.usableCurrent;
-    if (accountState == null || account == null) return null;
-    // C4: a token refresh must not change the stable owner identity.
-    return DownloadSubmissionContext(
-      accountId: account.id,
-      destination: ref.read(downloadDestinationProvider),
-    );
   }
 }
 
@@ -999,65 +924,78 @@ class _UgoiraSpeedButton extends StatelessWidget {
   }
 }
 
-/// Always-visible GIF export entry (R5). One slot presents three states:
-/// preparing (asset not loaded → disabled icon), exporting (progress
-/// spinner with percent tooltip), failed (error icon, tap retries).
+/// Always-visible GIF export entry (R5). Unlocks on-demand archive fetch
+/// without requiring playback first; while exporting, expands into a compact
+/// progress + cancel capsule that stays synchronized across detail re-entries.
 class _ExportButton extends StatelessWidget {
   const _ExportButton({
-    required this.assetReady,
-    required this.snapshot,
+    required this.exportState,
     required this.onExport,
+    required this.onCancel,
   });
 
-  /// Whether the ugoira ZIP/metadata has loaded. Until it has, the button
-  /// is a disabled spinner — there is nothing exportable yet.
-  final bool assetReady;
-  final UgoiraExportSnapshot? snapshot;
+  final UgoiraExportTaskState? exportState;
   final VoidCallback onExport;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final status = snapshot?.status;
-    final exporting =
-        status == UgoiraExportStatus.running ||
-        status == UgoiraExportStatus.finalizing ||
-        status == UgoiraExportStatus.queued;
-
-    final String tooltip;
-    final Widget icon;
-    final VoidCallback? onPressed;
-    if (!assetReady && snapshot == null) {
-      // Nothing has been loaded yet — the entry stays discoverable but
-      // inert until the first play loads the archive. A static disabled
-      // icon, not a spinner: a perpetual animation here would keep every
-      // ancestor scheduling frames (and would never let pumpAndSettle
-      // settle in tests).
-      tooltip = l10n.ugoiraSaveGif;
-      icon = const Icon(AppIcons.download);
-      onPressed = null;
-    } else if (exporting) {
-      final percent = ((snapshot?.progress ?? 0) * 100).round();
-      tooltip = l10n.ugoiraExporting(percent);
-      icon = const AppSpinner(size: 22, strokeWidth: 2);
-      onPressed = null;
-    } else if (status == UgoiraExportStatus.failed) {
-      tooltip = l10n.retry;
-      icon = Icon(
-        UiIcons.errorOutline,
-        color: Theme.of(context).colorScheme.error,
+    final phase = exportState?.phase;
+    if (exportState?.isActive == true) {
+      final progress = exportState!.progress;
+      final tooltip = phase == UgoiraExportPhase.preparing
+          ? l10n.ugoiraPreparingExport
+          : l10n.ugoiraExporting(((progress ?? 0) * 100).round());
+      return Material(
+        color: Theme.of(context).colorScheme.surface,
+        shape: const StadiumBorder(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Tooltip(
+              message: tooltip,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  start: FuncSpacing.md,
+                  end: FuncSpacing.xs,
+                ),
+                child: AppSpinner(
+                  size: 20,
+                  value: progress == null || progress == 0 ? null : progress,
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: l10n.cancel,
+              onPressed: onCancel,
+              icon: const Icon(UiIcons.close, size: 18),
+            ),
+          ],
+        ),
       );
-      onPressed = onExport;
-    } else {
-      tooltip = l10n.ugoiraSaveGif;
-      icon = const Icon(AppIcons.download);
-      onPressed = onExport;
     }
+
+    final (tooltip, icon) = switch (phase) {
+      UgoiraExportPhase.failed => (
+        l10n.retry,
+        Icon(UiIcons.errorOutline, color: Theme.of(context).colorScheme.error),
+      ),
+      UgoiraExportPhase.succeeded => (
+        l10n.ugoiraSaveGif,
+        Icon(
+          AppIcons.downloadDone,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+      _ => (l10n.ugoiraSaveGif, const Icon(AppIcons.download)),
+    };
 
     return Material(
       color: Theme.of(context).colorScheme.surface,
       shape: const CircleBorder(),
-      child: IconButton(tooltip: tooltip, onPressed: onPressed, icon: icon),
+      child: IconButton(tooltip: tooltip, onPressed: onExport, icon: icon),
     );
   }
 }

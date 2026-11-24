@@ -1459,5 +1459,8 @@
   "nextArtworkTooltip": "次の作品",
   "batchSelectWork": "この作品を選択",
   "batchDeselectWork": "この作品の選択を解除",
-  "cardActionSelect": "複数選択"
+  "cardActionSelect": "複数選択",
+  "viewerZoomIn": "拡大 (2.5×)",
+  "ugoiraPreparingExport": "うごイラを準備中…",
+  "tagMuteModeDone": "完了"
 }

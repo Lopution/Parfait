@@ -294,6 +294,7 @@ class _TagsSectionState extends ConsumerState<_TagsSection> {
             muteStore,
             tag.name,
             muted: mutedTags.contains(tag.name),
+            confirmMute: false,
           ),
         );
       } else {
@@ -303,7 +304,15 @@ class _TagsSectionState extends ConsumerState<_TagsSection> {
 
     final isPc = FormFactor.of(context) == FormFactor.pc;
     return _Section(
-      heading: context.l10n.detailSectionTags,
+      heading: blockMode
+          ? context.l10n.tagActionMuteMode
+          : context.l10n.detailSectionTags,
+      action: blockMode
+          ? TextButton(
+              onPressed: widget.onToggleBlockMode,
+              child: Text(context.l10n.tagMuteModeDone),
+            )
+          : null,
       child: isPc
           ? Wrap(
               children: [

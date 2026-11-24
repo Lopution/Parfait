@@ -3435,4 +3435,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get cardActionSelect => 'Выбрать';
+
+  @override
+  String get viewerZoomIn => 'Увеличить (2.5×)';
+
+  @override
+  String get ugoiraPreparingExport => 'Подготовка угоиры…';
+
+  @override
+  String get tagMuteModeDone => 'Готово';
 }

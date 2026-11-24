@@ -365,5 +365,77 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
     });
+
+    testWidgets(
+      'blank-area tap keeps page selection, single-page hides select-pages, and ugoira bottom button routes to GIF export',
+      (tester) async {
+        // 1. Multi-page selection mode: tapping blank space keeps selections.
+        final (multiContainer, _, _) = await makeWorld();
+        await pumpDetail(
+          tester,
+          multiContainer,
+          surface: const Size(1000, 800),
+        );
+        await longPressImage(tester);
+        await tester.tap(find.byIcon(UiIcons.circleUnchecked).first);
+        await tester.pump();
+        expect(selectionCount(tester), '1');
+        await tester.tapAt(const Offset(960, 760));
+        await tester.pump();
+        expect(selectionCount(tester), '1');
+
+        // 2. Single-page work hides "Select pages" in hover quick-actions & right-click.
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final (singleContainer, _, _) = await makeWorld(
+            detailOverrides: {42: illustJson(42, pageCount: 1)},
+          );
+          singleContainer.read(illustStoreProvider).mergeAll([
+            parseIllust(illustJson(42, pageCount: 1)),
+          ]);
+          await pumpDetail(
+            tester,
+            singleContainer,
+            seedStore: false,
+            surface: const Size(1000, 800),
+            locale: const Locale('zh', 'CN'),
+          );
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(tester.getCenter(find.byType(DetailPageImage)));
+          await tester.pump();
+          expect(find.byTooltip('保存当前页'), findsOneWidget);
+          expect(find.byTooltip('选择要下载的页'), findsNothing);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+
+        // 3. Ugoira bottom download button routes to GIF export (not DownloadManager JPG).
+        final (ugoiraContainer, _, _) = await makeWorld(
+          detailOverrides: {42: illustJson(42, type: 'ugoira')},
+        );
+        ugoiraContainer.read(illustStoreProvider).mergeAll([
+          parseIllust(illustJson(42, type: 'ugoira')),
+        ]);
+        await pumpDetail(
+          tester,
+          ugoiraContainer,
+          seedStore: false,
+          locale: const Locale('zh', 'CN'),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        final bottomSave = find.descendant(
+          of: find.byType(DetailActionBar),
+          matching: find.byTooltip('保存 GIF'),
+        );
+        expect(bottomSave, findsOneWidget);
+        await tester.tap(bottomSave);
+        await tester.pump();
+        expect(ugoiraContainer.read(downloadManagerProvider).tasks, isEmpty);
+      },
+    );
   });
 }

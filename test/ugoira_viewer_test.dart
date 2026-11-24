@@ -1,10 +1,16 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/image_network.dart';
+import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_recovery.dart';
+import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/logging/crash_log.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/ugoira/ugoira_providers.dart';
@@ -17,6 +23,7 @@ import 'helpers/connectivity_channels.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/waits.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 
@@ -204,4 +211,111 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
   });
+
+  testWidgets(
+    'UgoiraViewer exports GIF on demand without prior playback, survives leaving page, and shows progress/cancel on re-entry',
+    (tester) async {
+      answerConnectivityChannels();
+      final tempDir = Directory.systemTemp.createTempSync('ugoira-ui-');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+      final png = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      );
+      final zipBytes = ZipEncoder().encode(
+        Archive()..addFile(ArchiveFile('0.png', png.length, png)),
+      );
+      final transport = FakeTransport()
+        ..responses.addAll([
+          ScriptedResponse(chunks: [zipBytes]),
+          ScriptedResponse(chunks: [zipBytes]),
+        ]);
+      final sinks = MemorySinkFactory();
+      var gate = Completer<void>();
+      final container = await signedInApiContainer(
+        PixivApi({
+          '/v1/ugoira/metadata': answer({
+            'ugoira_metadata': {
+              'frames': [
+                {'file': '0.png', 'delay': 100},
+              ],
+              'zip_urls': {'medium': 'https://i.pximg.net/42/ugoira.zip'},
+            },
+          }),
+        }).client,
+        overrides: [
+          downloadSinkFactoryProvider.overrideWithValue(sinks),
+          ugoiraRecoveryStoreProvider.overrideWithValue(
+            MemoryDownloadRecoveryStore(),
+          ),
+          ugoiraGifEncoderFactoryProvider.overrideWithValue(
+            (_) => FakeUgoiraGifEncoder(gate: gate),
+          ),
+          ugoiraRepositoryProvider.overrideWith(
+            (ref) => UgoiraRepository(
+              client: ref.watch(pixivHttpClientProvider),
+              transport: transport,
+              temporaryDirectory: () async => tempDir,
+            ),
+          ),
+        ],
+      );
+      final showViewer = ValueNotifier<bool>(true);
+      addTearDown(showViewer.dispose);
+      await tester.pumpWidget(
+        withStalledImages(
+          localizedApp(
+            container: container,
+            builder: promptHostBuilder,
+            home: Scaffold(
+              body: ValueListenableBuilder<bool>(
+                valueListenable: showViewer,
+                builder: (_, visible, _) => visible
+                    ? const UgoiraViewer(
+                        illustId: 42,
+                        previewUrl: 'https://i.pximg.net/42/large.jpg',
+                        width: 800,
+                        height: 600,
+                      )
+                    : const Text('left-page'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      // Export button is immediately enabled before playback starts.
+      await tester.tap(find.byTooltip('保存 GIF'));
+      await tester.pump();
+      await pumpIoUntil(
+        tester,
+        () =>
+            container.read(ugoiraExportControllerProvider)[42]?.phase ==
+            UgoiraExportPhase.running,
+      );
+      // Leave the page while export runs; re-entering shows active Cancel.
+      showViewer.value = false;
+      await tester.pump();
+      showViewer.value = true;
+      await tester.pump();
+      expect(find.byTooltip('取消'), findsOneWidget);
+
+      // Leave again and let export finish; PromptHost still reports saved.
+      showViewer.value = false;
+      await tester.pump();
+      gate.complete();
+      await pumpIoUntil(tester, () => find.text('GIF 已保存').tryEvaluate());
+      expect(tempDir.listSync(), isEmpty);
+
+      // Start a second export and cancel from the viewer capsule.
+      gate = Completer<void>();
+      showViewer.value = true;
+      await tester.pump();
+      await tester.tap(find.byTooltip('保存 GIF'));
+      await tester.pump();
+      await pumpIoUntil(tester, () => find.byTooltip('取消').tryEvaluate());
+      await tester.tap(find.byTooltip('取消'));
+      await pumpIoUntil(tester, () => find.text('GIF 保存已取消').tryEvaluate());
+      expect(tempDir.listSync(), isEmpty);
+    },
+  );
 }

@@ -166,16 +166,18 @@ class _ProfileIntroductionState extends ConsumerState<_ProfileIntroduction>
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SelectableText(widget.text),
-              TranslationPanel(
-                translating: translating,
-                translations: translations,
-                failure: translationFailure,
-              ),
-            ],
+          child: SelectionArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(widget.text),
+                TranslationPanel(
+                  translating: translating,
+                  translations: translations,
+                  failure: translationFailure,
+                ),
+              ],
+            ),
           ),
         ),
       ],

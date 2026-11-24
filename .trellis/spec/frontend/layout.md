@@ -5,7 +5,7 @@ applies_to:
   - lib/app/format/**
   - lib/features/**
   - lib/l10n/**
-reviewed: 2026-11-17
+reviewed: 2026-11-23
 ---
 
 # Layout across locales, text sizes and keyboards
@@ -173,12 +173,21 @@ reviewed: 2026-11-17
 ### LAYOUT-11 Long documents use one SelectionArea
 - **Rule:** A long document page wraps its one list in a single
   `SelectionArea` and renders paragraphs as plain `Text`, never
-  `SelectableText` per paragraph.
+  `SelectableText` per paragraph; `TranslationPanel` checks
+  `SelectionContainer.maybeOf(context)` and emits plain `Text` inside an
+  outer `SelectionArea` (falling back to `SelectableText` only standalone).
+  `CaptionRichText` intentionally keeps inline `TextSpan` link recognizers
+  (rather than `WidgetSpan` buttons) so caption links wrap naturally across
+  lines and participate cleanly in `SelectionArea` selection without oversized
+  atomic boxes (accepting that inline caption links are activated by pointer
+  or touch rather than Tab focus).
 - **Why:** Selection cannot span `SelectableText` paragraphs. Each also
   owns a scrollable that inherited the bouncing physics, so every
-  paragraph dragged on its own; FEED-11 now stops that for all text.
-- **Check:** `test/onboarding_pages_test.dart` "a drag on a paragraph scrolls the whole page", `test/spotlight_article_test.dart` "a drag on a paragraph scrolls the whole article"
-- **Code:** `lib/features/spotlight/spotlight_article_page.dart`
+  paragraph dragged on its own; FEED-11 now stops that for all text, and
+  nesting `SelectableText` inside `SelectionArea` broke continuous drag
+  selection.
+- **Check:** `test/onboarding_pages_test.dart` "a drag on a paragraph scrolls the whole page", `test/spotlight_article_test.dart` "a drag on a paragraph scrolls the whole article", `test/illust_detail_page_test.dart` "two-pane panorama preserves 280dp height, tag block mode shows Done & intercepts back, single tag mute confirms silently on right-click, and TranslationPanel avoids nested SelectableText"
+- **Code:** `lib/features/spotlight/spotlight_article_page.dart`, `lib/app/widgets/inline_translation.dart`, `lib/app/widgets/caption_rich_text.dart`, `lib/features/profile/profile_about_tab.dart`, `lib/features/novel/novel_page.dart`, `lib/app/widgets/tag_actions_sheet.dart`
 
 ### LAYOUT-12 Images of unknown ratio take their shape without a crossfade
 - **Rule:** An image whose ratio is unknown until decode holds a square
