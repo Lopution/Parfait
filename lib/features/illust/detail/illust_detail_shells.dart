@@ -43,6 +43,19 @@ import 'widgets/illust_series_section.dart';
 import 'widgets/info_block.dart';
 import 'widgets/page_image.dart';
 
+/// Shared two-pane split sizing for [IllustDetailTwoPaneShell],
+/// [IllustDetailSkeleton], and the pager's wide stand-in slot so swipes,
+/// resizes, and first loads align on the exact same divider position.
+({double secondaryFraction, double secondaryMaxWidth}) detailTwoPaneMetrics(
+  BuildContext context,
+) {
+  final wideDesktopModal = MediaQuery.sizeOf(context).width >= 960;
+  return (
+    secondaryFraction: wideDesktopModal ? 0.30 : 0.38,
+    secondaryMaxWidth: wideDesktopModal ? 420 : 460,
+  );
+}
+
 /// Two-pane layout shell: ambient artwork stage on the primary pane and
 /// docked metadata/comments inspector beside it.
 class IllustDetailTwoPaneShell extends StatelessWidget {
@@ -86,7 +99,7 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = FuncSemanticTokens.of(context);
-    final wideDesktopModal = MediaQuery.sizeOf(context).width >= 960;
+    final metrics = detailTwoPaneMetrics(context);
     final isModalOverlay = DetailOverlayFrame.isActiveOf(context);
     final safePadding = isModalOverlay
         ? EdgeInsets.zero
@@ -112,8 +125,8 @@ class IllustDetailTwoPaneShell extends StatelessWidget {
       ),
     );
     return AdaptiveTwoPane(
-      secondaryFraction: wideDesktopModal ? 0.30 : 0.38,
-      secondaryMaxWidth: wideDesktopModal ? 420 : 460,
+      secondaryFraction: metrics.secondaryFraction,
+      secondaryMaxWidth: metrics.secondaryMaxWidth,
       primary: SelectionContainer.disabled(
         child: Stack(
           fit: StackFit.expand,

@@ -19,17 +19,14 @@ bool isRenderBoxVisibleOnScreen(BuildContext context) {
   final route = ModalRoute.of(context);
   if (route != null && !route.isCurrent) return false;
   final ro = context.findRenderObject();
-  if (ro is! RenderBox || !ro.hasSize || ro.size.isEmpty) return false;
+  if (ro is! RenderBox || !ro.attached || !ro.hasSize) return false;
+  if (ro.size.isEmpty) return false;
   var visible = MatrixUtils.transformRect(
     ro.getTransformTo(null),
     Offset.zero & ro.size,
   );
   if (visible.isEmpty) return false;
-  for (
-    RenderObject? ancestor = ro.parent;
-    ancestor != null;
-    ancestor = ancestor.parent
-  ) {
+  for (var ancestor = ro.parent; ancestor != null; ancestor = ancestor.parent) {
     if (ancestor is RenderOffstage && ancestor.offstage) return false;
     final Rect? localClip;
     if (ancestor is RenderClipRect &&

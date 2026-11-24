@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
@@ -141,13 +142,53 @@ class _DetailOverlayFrameState extends State<DetailOverlayFrame> {
         hasRouteBelow &&
         AppBreakpoints.useBoundedDetailOverlayOf(context, outerSize);
     if (_modalScrim != null && bounded != _registered) {
-      _syncModalScrim();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncModalScrim();
+      });
     }
     if (!bounded) return content;
 
     final tokens = FuncSemanticTokens.of(context);
     final outerChrome = HomeShellChrome.maybeOf(context);
     final outerMedia = MediaQuery.of(context);
+    // Compute the bounded card size directly from MediaQuery instead of a
+    // LayoutBuilder so crossing the 960x600 threshold never reparents
+    // `_childKey` across build and layout scopes or runs child
+    // `didChangeDependencies` during performLayout.
+    final cardWidth = math.min(
+      1680.0,
+      math.max(
+        0.0,
+        outerSize.width - outerMedia.padding.horizontal - FuncSpacing.lg * 2,
+      ),
+    );
+    final cardHeight = math.max(
+      0.0,
+      outerSize.height - outerMedia.padding.vertical - FuncSpacing.md * 2,
+    );
+    final cardSize = Size(cardWidth, cardHeight);
+    final framedChild = MediaQuery(
+      data: outerMedia
+          .copyWith(size: cardSize)
+          .removePadding(
+            removeTop: true,
+            removeBottom: true,
+            removeLeft: true,
+            removeRight: true,
+          ),
+      child: _DetailOverlayScope(
+        child: outerChrome == null
+            ? content
+            : HomeShellChrome(
+                bottomBarExtent: 0,
+                railExtent: 0,
+                bottomBarVisibleExtent: outerChrome.bottomBarVisibleExtent,
+                bottomBarVisibility: outerChrome.bottomBarVisibility,
+                onBranchRootScroll: outerChrome.onBranchRootScroll,
+                child: content,
+              ),
+      ),
+    );
 
     return Stack(
       fit: StackFit.expand,
@@ -182,49 +223,18 @@ class _DetailOverlayFrameState extends State<DetailOverlayFrame> {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1680),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cardSize = Size(
-                      constraints.maxWidth,
-                      constraints.maxHeight,
-                    );
-                    final framedChild = MediaQuery(
-                      data: outerMedia
-                          .copyWith(size: cardSize)
-                          .removePadding(
-                            removeTop: true,
-                            removeBottom: true,
-                            removeLeft: true,
-                            removeRight: true,
-                          ),
-                      child: _DetailOverlayScope(
-                        child: outerChrome == null
-                            ? content
-                            : HomeShellChrome(
-                                bottomBarExtent: 0,
-                                railExtent: 0,
-                                bottomBarVisibleExtent:
-                                    outerChrome.bottomBarVisibleExtent,
-                                bottomBarVisibility:
-                                    outerChrome.bottomBarVisibility,
-                                onBranchRootScroll:
-                                    outerChrome.onBranchRootScroll,
-                                child: content,
-                              ),
-                      ),
-                    );
-                    return DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: FuncShape.dialog,
-                        border: Border.all(color: tokens.brandHairline),
-                        boxShadow: tokens.layerLift,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: FuncShape.dialog,
-                        child: framedChild,
-                      ),
-                    );
-                  },
+                child: SizedBox.expand(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: FuncShape.dialog,
+                      border: Border.all(color: tokens.brandHairline),
+                      boxShadow: tokens.layerLift,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: FuncShape.dialog,
+                      child: framedChild,
+                    ),
+                  ),
                 ),
               ),
             ),

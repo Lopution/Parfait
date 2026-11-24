@@ -9,7 +9,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:parfait/app/layout/input_modality.dart';
+import 'package:parfait/app/layout/two_pane.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
@@ -21,6 +23,8 @@ import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_overlay_frame.dart';
+import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -30,6 +34,7 @@ import 'helpers/detail_world.dart';
 import 'helpers/image_network.dart';
 import 'helpers/history_world.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -887,6 +892,153 @@ void main() {
         await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
         await tester.pumpAndSettle();
         expect(pageOf(find.byType(PageView).first), 1.0);
+      },
+    );
+
+    testWidgets(
+      'bounded DetailOverlayFrame resizes across 960x600 preserving multi-page index, aligned skeleton metrics, and DetailImagePager updates',
+      (tester) async {
+        final multiJson = illustJson(42, pageCount: 3, withMetaPages: true);
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {42: multiJson},
+        );
+        final multi = parseIllust(multiJson);
+        container.read(illustStoreProvider).mergeAll([multi]);
+
+        // 1. IllustDetailSkeleton matches detailTwoPaneMetrics at >=960 and <960.
+        setViewSize(tester, const Size(1200, 800));
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            home: const Scaffold(body: IllustDetailSkeleton()),
+          ),
+        );
+        var pane = tester.widget<AdaptiveTwoPane>(find.byType(AdaptiveTwoPane));
+        expect(pane.secondaryFraction, 0.30);
+        expect(pane.secondaryMaxWidth, 420);
+
+        setViewSize(tester, const Size(800, 600));
+        await tester.pump();
+        pane = tester.widget<AdaptiveTwoPane>(find.byType(AdaptiveTwoPane));
+        expect(pane.secondaryFraction, 0.38);
+        expect(pane.secondaryMaxWidth, 460);
+
+        // 2. DetailImagePager updates its displayed page when initialPage changes.
+        final pagerPage = ValueNotifier<int>(0);
+        addTearDown(pagerPage.dispose);
+        setViewSize(tester, const Size(800, 600));
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            home: Scaffold(
+              body: ValueListenableBuilder<int>(
+                valueListenable: pagerPage,
+                builder: (_, page, _) => DetailImagePager(
+                  entity: multi,
+                  detailUrlFor: (_) => null,
+                  downloadMode: false,
+                  selectedPages: const {},
+                  onToggleSelect: (_) {},
+                  onLongPress: () {},
+                  heroTag: 'test-pager-sync',
+                  heroScope: 'test',
+                  initialPage: page,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('1 / 3'), findsOneWidget);
+        pagerPage.value = 2;
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // 3. Bounded DetailOverlayFrame beside a ShellRail resizes across 960x600
+        //    without layout/BuildScope assertions and keeps multi-page index.
+        final visibleExtent = ValueNotifier<double>(0);
+        final modalScrim = HomeShellModalScrim();
+        addTearDown(visibleExtent.dispose);
+        addTearDown(modalScrim.dispose);
+        setViewSize(tester, const Size(1280, 800));
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            builder: promptHostBuilder,
+            home: LayoutBuilder(
+              builder: (context, constraints) {
+                final rail = constraints.maxWidth >= 600 ? 204.0 : 0.0;
+                return HomeShellChrome(
+                  bottomBarExtent: 0,
+                  railExtent: rail,
+                  bottomBarVisibleExtent: visibleExtent,
+                  bottomBarVisibility: const AlwaysStoppedAnimation(1),
+                  onBranchRootScroll: (_) => false,
+                  modalScrim: modalScrim,
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(start: rail),
+                    child: Navigator(
+                      onGenerateRoute: (_) => MaterialPageRoute<void>(
+                        builder: (rootContext) => Scaffold(
+                          body: TextButton(
+                            onPressed: () =>
+                                Navigator.of(rootContext).push<void>(
+                                  PageRouteBuilder<void>(
+                                    opaque: false,
+                                    pageBuilder: (_, _, _) =>
+                                        const DetailOverlayFrame(
+                                          child: IllustDetailPage(illustId: 42),
+                                        ),
+                                  ),
+                                ),
+                            child: const Text('open-multi-overlay'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.text('open-multi-overlay'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('detail-overlay-scrim')),
+          findsOneWidget,
+        );
+        expect(find.text('1 / 3'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // Cross below 960x600 into single-column, then back to bounded overlay.
+        setViewSize(tester, const Size(500, 800));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('detail-overlay-scrim')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+
+        setViewSize(tester, const Size(1280, 800));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('detail-overlay-scrim')),
+          findsOneWidget,
+        );
+        expect(find.text('3 / 3'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
       },
     );
   });

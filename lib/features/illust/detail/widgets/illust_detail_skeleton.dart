@@ -6,6 +6,7 @@ import '../../../../app/layout/two_pane.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/skeleton/func_skeleton.dart';
 import '../../../../l10n/context.dart';
+import '../illust_detail_shells.dart' show detailTwoPaneMetrics;
 
 /// First-load placeholder for the detail page when the IllustStore holds no
 /// snapshot for the work — a cold open paints the layout's bones instead of
@@ -21,15 +22,18 @@ class IllustDetailSkeleton extends StatelessWidget {
       context,
       HomeShellChrome.contentSizeOf(context),
     );
+    final metrics = wide ? detailTwoPaneMetrics(context) : null;
     return FuncSkeleton(
       label: context.l10n.contentLoading,
       // The artwork's aspect ratio is unknown until the entity arrives —
       // a full-width square is the middle ground, matching how the pager's
       // first frame sizes unknown media.
       child: wide
-          ? const AdaptiveTwoPane(
-              primary: _ImageBone(),
-              secondary: SingleChildScrollView(child: _MetaBones()),
+          ? AdaptiveTwoPane(
+              secondaryFraction: metrics!.secondaryFraction,
+              secondaryMaxWidth: metrics.secondaryMaxWidth,
+              primary: const _ImageBone(),
+              secondary: const SingleChildScrollView(child: _MetaBones()),
             )
           : const SingleChildScrollView(
               physics: NeverScrollableScrollPhysics(),
