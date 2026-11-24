@@ -165,6 +165,21 @@ class FollowStore extends Notifier<Map<int, FollowEntry>>
     observeRemote(userId, followed: followed, restrict: restrict);
   }
 
+  /// Rolls back a queued offline intent whose background replay failed
+  /// permanently so the entry leaves `MutationStatus.queued` and accepts
+  /// subsequent taps and remote snapshots.
+  void failQueued(int userId, {required bool followed, required Object error}) {
+    final entry = state[userId];
+    final pending = entry?.pending;
+    if (entry == null ||
+        !entry.isQueued ||
+        pending == null ||
+        (pending.kind == FollowOperationKind.add) != followed) {
+      return;
+    }
+    fail(pending, error);
+  }
+
   /// Merges relationship state from a remote user payload without allowing a
   /// pending or older local confirmation to regress it.
   void observeRemote(

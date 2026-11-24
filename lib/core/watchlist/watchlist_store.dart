@@ -147,6 +147,25 @@ class WatchlistStore extends Notifier<Map<WatchlistKey, WatchlistEntry>>
     observeRemote(key, added: added);
   }
 
+  /// Rolls back a queued offline intent whose background replay failed
+  /// permanently so the entry leaves `MutationStatus.queued` and accepts
+  /// subsequent taps and remote snapshots.
+  void failQueued(
+    WatchlistKey key, {
+    required bool added,
+    required Object error,
+  }) {
+    final entry = state[key];
+    final pending = entry?.pending;
+    if (entry == null ||
+        !entry.isQueued ||
+        pending == null ||
+        (pending.kind == WatchlistOpKind.add) != added) {
+      return;
+    }
+    fail(pending, error);
+  }
+
   /// Merges a remote watch state (series-detail `watchlist_added`) without
   /// letting a pending or older local confirmation regress.
   void observeRemote(

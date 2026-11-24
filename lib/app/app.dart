@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/actionqueue/action_bootstrap.dart';
+import '../core/actionqueue/action_models.dart';
+import '../core/actionqueue/action_queue.dart';
 import '../core/auth/account_store.dart';
 import '../core/auth/account_transfer_service.dart';
 import '../core/navigation/home_destination.dart';
@@ -44,6 +46,7 @@ import 'window/desktop_command_bar.dart';
 import 'window/desktop_menu_bar.dart';
 import 'window/desktop_title_bar.dart';
 import 'touch_exploration_scope.dart';
+import 'widgets/errors/error_details.dart';
 import 'widgets/prompt_host.dart';
 import 'widgets/settings_load_error.dart';
 import 'window/desktop_window.dart';
@@ -88,6 +91,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
   late final GoRouter _router = createPixivRouter();
 
   final _promptHostKey = GlobalKey<PromptHostState>();
+  ActionQueue? _actionQueue;
   bool _warmedUp = false;
   ColorScheme? _cachedLightSystemColors;
   Locale? _cachedLightLocale;
@@ -147,6 +151,9 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // account listener, which drains each account's queued mutations as it
     // becomes current; the resumed hook below repeats it on foreground.
     ref.read(actionQueuePumpProvider);
+    final queue = ref.read(actionQueueProvider);
+    _actionQueue = queue;
+    queue.addPermanentFailureListener(_onQueuedActionFailed);
     unawaited(_retireLegacyTranslationSession());
     _sweepExpiredTransferClipboard();
     // R2: one delayed background update check per throttle window.
@@ -216,8 +223,29 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     }
   }
 
+  void _onQueuedActionFailed(StoredAction action, Object error) {
+    if (!mounted) return;
+    final currentId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
+    if (currentId == null || currentId != action.owner) return;
+    final host = _promptHostKey.currentState;
+    if (host == null || !host.mounted) return;
+    final l10n = host.context.l10n;
+    final label = switch (action.type) {
+      ActionTypes.bookmarkAdd ||
+      ActionTypes.bookmarkDelete => l10n.bookmarkOperationFailed,
+      ActionTypes.followAdd || ActionTypes.followDelete => l10n.followFailed,
+      ActionTypes.watchlistAdd ||
+      ActionTypes.watchlistDelete => l10n.watchlistFailed,
+      _ => null,
+    };
+    if (label == null) return;
+    // Background replay failure stays haptically silent (FB-10, FB-13).
+    showErrorSnackBar(host.context, action: label, error: error);
+  }
+
   @override
   void dispose() {
+    _actionQueue?.removePermanentFailureListener(_onQueuedActionFailed);
     WidgetsBinding.instance.removeObserver(this);
     _router.dispose();
     super.dispose();
