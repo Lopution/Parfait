@@ -1,5 +1,6 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <ole2.h>
 #include <windows.h>
 
 #include <string>
@@ -104,9 +105,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     CreateAndAttachConsole();
   }
 
-  // Initialize COM, so that it is available for use in the library and/or
-  // plugins.
-  ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  // Initialize OLE (which also initializes STA COM) so both COM plugins and
+  // RegisterDragDrop work on the UI thread.
+  const HRESULT ole_hr = ::OleInitialize(nullptr);
 
   flutter::DartProject project(L"data");
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
@@ -120,6 +121,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!window.Create(is_dev_profile ? L"Parfait Dev" : L"Parfait", origin, size)) {
     if (single_instance_mutex != nullptr) {
       ::CloseHandle(single_instance_mutex);
+    }
+    if (SUCCEEDED(ole_hr)) {
+      ::OleUninitialize();
     }
     return EXIT_FAILURE;
   }
@@ -135,8 +139,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::CloseHandle(single_instance_mutex);
   }
   // Ensure the window, Flutter engine, and COM-using plugins tear down before
-  // CoUninitialize() even if WM_QUIT arrived without WM_DESTROY.
+  // OleUninitialize() even if WM_QUIT arrived without WM_DESTROY.
   window.Destroy();
-  ::CoUninitialize();
+  if (SUCCEEDED(ole_hr)) {
+    ::OleUninitialize();
+  }
   return EXIT_SUCCESS;
 }

@@ -160,6 +160,10 @@ abstract class DesktopWindowHost {
 
   Future<void> performCommand(DesktopWindowCommand command);
 
+  /// Registers a callback invoked by the OS when the whole application is
+  /// about to terminate (for example macOS `Cmd+Q` / Dock Quit).
+  void setApplicationShouldTerminateHandler(Future<void> Function()? handler);
+
   Future<void> dispose();
 }
 
@@ -196,6 +200,12 @@ class MethodChannelDesktopWindowHost
   late DesktopWindowPlatformMetrics _lastMetrics;
   double _lastTitleBarHeight = 0;
   List<DesktopTitleBarRegion> _lastTitleBarRegions = const [];
+  Future<void> Function()? _applicationShouldTerminateHandler;
+
+  @override
+  void setApplicationShouldTerminateHandler(Future<void> Function()? handler) {
+    _applicationShouldTerminateHandler = handler;
+  }
 
   @override
   DesktopWindowPlatformMetrics get lastMetrics => _lastMetrics;
@@ -214,14 +224,28 @@ class MethodChannelDesktopWindowHost
         usesSystemTitleBar: true,
       );
 
-  Future<void> _handleIncomingCall(MethodCall call) async {
-    if (call.method != 'metricsChanged') return;
+  Future<Object?> _handleIncomingCall(MethodCall call) async {
+    if (call.method == 'applicationShouldTerminate') {
+      final handler = _applicationShouldTerminateHandler;
+      if (handler != null) {
+        try {
+          await handler();
+        } on Object catch (error) {
+          log(
+            'desktop_window applicationShouldTerminate handler failed: $error',
+          );
+        }
+      }
+      return true;
+    }
+    if (call.method != 'metricsChanged') return null;
     final args = call.arguments;
     if (args is Map<Object?, Object?>) {
       final parsed = DesktopWindowPlatformMetrics.fromMap(args);
       _lastMetrics = parsed;
       _controller.add(parsed);
     }
+    return null;
   }
 
   @override
@@ -313,6 +337,9 @@ class NoopDesktopWindowHost
 
   @override
   Future<void> performCommand(DesktopWindowCommand command) async {}
+
+  @override
+  void setApplicationShouldTerminateHandler(Future<void> Function()? handler) {}
 
   @override
   Future<void> dispose() async {}
