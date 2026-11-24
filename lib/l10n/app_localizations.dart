@@ -6358,6 +6358,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'完成'**
   String get tagMuteModeDone;
+
+  /// Desktop action on a completed download row to open the downloaded file with the system app
+  ///
+  /// In zh, this message translates to:
+  /// **'打开文件'**
+  String get downloadOpenFile;
+
+  /// Desktop action on a completed download row to reveal the downloaded file in the system file manager
+  ///
+  /// In zh, this message translates to:
+  /// **'在文件夹中显示'**
+  String get downloadShowInFolder;
+
+  /// SnackBar shown when trying to open or reveal a downloaded file that has been moved or deleted
+  ///
+  /// In zh, this message translates to:
+  /// **'文件已不存在'**
+  String get downloadFileMissing;
+
+  /// SnackBar shown when the OS fails to open or reveal a downloaded file
+  ///
+  /// In zh, this message translates to:
+  /// **'无法打开文件'**
+  String get downloadOpenFailed;
+
+  /// Desktop button on the reverse image search page to search with an image from the clipboard
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴图片'**
+  String get reverseImagePasteImage;
+
+  /// SnackBar shown when pressing Paste on the reverse image search page with no image in the clipboard
+  ///
+  /// In zh, this message translates to:
+  /// **'剪贴板中没有图片'**
+  String get reverseImagePasteEmpty;
+
+  /// Overlay hint shown when dragging an image file over the reverse image search page
+  ///
+  /// In zh, this message translates to:
+  /// **'松开以搜索这张图片'**
+  String get reverseImageDropHint;
+
+  /// Overlay hint shown when dragging TXT files over the local novels page
+  ///
+  /// In zh, this message translates to:
+  /// **'松开以导入 TXT 小说'**
+  String get localNovelsDropHint;
+
+  /// SnackBar shown when dropping non-TXT files onto the local novels page
+  ///
+  /// In zh, this message translates to:
+  /// **'仅支持导入 .txt 文件'**
+  String get localNovelsDropUnsupported;
 }
 
 class _AppLocalizationsDelegate

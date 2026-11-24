@@ -3460,4 +3460,32 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tagMuteModeDone => 'Готово';
+
+  @override
+  String get downloadOpenFile => 'Открыть файл';
+
+  @override
+  String get downloadShowInFolder => 'Показать в папке';
+
+  @override
+  String get downloadFileMissing => 'Скачанный файл больше не существует';
+
+  @override
+  String get downloadOpenFailed => 'Не удалось открыть файл';
+
+  @override
+  String get reverseImagePasteImage => 'Вставить изображение';
+
+  @override
+  String get reverseImagePasteEmpty => 'В буфере обмена нет изображения';
+
+  @override
+  String get reverseImageDropHint => 'Перетащите изображение для поиска';
+
+  @override
+  String get localNovelsDropHint => 'Перетащите файлы TXT для импорта';
+
+  @override
+  String get localNovelsDropUnsupported =>
+      'Поддерживается импорт только файлов .txt';
 }

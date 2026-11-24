@@ -3347,4 +3347,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tagMuteModeDone => '完成';
+
+  @override
+  String get downloadOpenFile => '打开文件';
+
+  @override
+  String get downloadShowInFolder => '在文件夹中显示';
+
+  @override
+  String get downloadFileMissing => '文件已不存在';
+
+  @override
+  String get downloadOpenFailed => '无法打开文件';
+
+  @override
+  String get reverseImagePasteImage => '粘贴图片';
+
+  @override
+  String get reverseImagePasteEmpty => '剪贴板中没有图片';
+
+  @override
+  String get reverseImageDropHint => '松开以搜索这张图片';
+
+  @override
+  String get localNovelsDropHint => '松开以导入 TXT 小说';
+
+  @override
+  String get localNovelsDropUnsupported => '仅支持导入 .txt 文件';
 }

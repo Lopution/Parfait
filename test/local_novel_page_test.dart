@@ -14,6 +14,8 @@ import 'package:parfait/app/widgets/app_dialog.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/localnovel/local_novel_repository.dart';
 import 'package:parfait/core/localnovel/local_novel_store.dart';
+import 'package:parfait/core/platform/desktop_file_drop.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
 import 'package:parfait/features/novel/local_novel_reader_page.dart';
 import 'package:parfait/features/localnovel/local_novels_page.dart';
@@ -512,6 +514,61 @@ void main() {
     expect(find.text('closing paragraph'), findsOneWidget);
     expect(find.text('opening paragraph'), findsNothing);
   });
+
+  testWidgets(
+    'desktop file drop shows highlight, rejects non-TXT, and imports TXT',
+    (tester) async {
+      await warmDatabase(tester);
+      final dropEvents = StreamController<DesktopFileDropEvent>.broadcast();
+      addTearDown(dropEvents.close);
+      final droppedTxt = File('${dir.path}/Dropped Story.txt')
+        ..writeAsStringSync('Chapter 1\nDropped body.');
+      final dropContainer = ProviderContainer.test(
+        overrides: [
+          localNovelDatabaseProvider.overrideWithValue(database),
+          localNovelDirectoryProvider.overrideWithValue(() async => dir),
+          platformCapsProvider.overrideWithValue(
+            const PlatformCaps(isLinux: true),
+          ),
+          desktopFileDropSourceProvider.overrideWithValue(
+            _LocalNovelDropSource(dropEvents.stream),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: dropContainer,
+          child: _app(const LocalNovelsPage()),
+        ),
+      );
+      await _pumpUntil(tester, find.text('No imported local novels yet'));
+
+      dropEvents.add(const DesktopFileDropEntered());
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('desktop-file-drop-overlay')),
+        findsOneWidget,
+      );
+
+      dropEvents.add(const DesktopFileDropped(['/tmp/picture.png']));
+      await tester.pump();
+      expect(find.text('Only .txt files can be imported'), findsOneWidget);
+
+      dropEvents.add(DesktopFileDropped([droppedTxt.path]));
+      await _pumpUntil(tester, find.text('Dropped Story'));
+      expect(find.text('Dropped Story'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
+}
+
+class _LocalNovelDropSource implements DesktopFileDropSource {
+  const _LocalNovelDropSource(this.events);
+
+  @override
+  final Stream<DesktopFileDropEvent> events;
 }
 
 /// Host page that pushes [LocalNovelReaderPage], so a system back has a

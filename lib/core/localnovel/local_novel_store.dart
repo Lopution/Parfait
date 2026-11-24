@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../errors/no_retry.dart';
 import '../platform/saf_tree.dart';
@@ -62,6 +63,28 @@ class LocalNovelStore extends AsyncNotifier<List<LocalNovel>> {
     final novel = await ref
         .read(localNovelRepositoryProvider)
         .importBytes(fileName: picked.$1, bytes: picked.$2, targetDir: dir);
+    state = AsyncData([novel, ...state.value ?? const []]);
+    return novel;
+  }
+
+  /// Imports a local TXT file directly from a desktop drag-and-drop [path],
+  /// enforcing the same byte, character, and paragraph limits as the picker.
+  Future<LocalNovel> importFilePath(String path) async {
+    final file = File(path);
+    final stat = await file.stat();
+    if (stat.type != FileSystemEntityType.file) {
+      throw FileSystemException('Not a regular file', path);
+    }
+    if (stat.size > LocalNovelRepository.maxImportBytes) {
+      throw const DocumentTooLargeException(
+        LocalNovelRepository.maxImportBytes,
+      );
+    }
+    final bytes = await file.readAsBytes();
+    final dir = await ref.read(localNovelDirectoryProvider)();
+    final novel = await ref
+        .read(localNovelRepositoryProvider)
+        .importBytes(fileName: p.basename(path), bytes: bytes, targetDir: dir);
     state = AsyncData([novel, ...state.value ?? const []]);
     return novel;
   }

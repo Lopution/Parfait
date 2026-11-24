@@ -166,7 +166,7 @@ class _DownloadRowLayout extends StatelessWidget {
         final rowContent = Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _DownloadThumbnail(url: thumbnailUrl, size: thumbnailSize),
+            DownloadRowThumbnail(url: thumbnailUrl, size: thumbnailSize),
             const SizedBox(width: FuncSpacing.md),
             Expanded(child: textColumn),
             if (wraps && titleAction != null) titleAction!,
@@ -203,74 +203,10 @@ class _DownloadRowLayout extends StatelessWidget {
   }
 }
 
-/// The square artwork thumbnail (R1/R6): decoded at its display size
-/// through the shared `PixivImage` cache; no URL keeps a neutral
-/// placeholder.
-class _DownloadThumbnail extends StatelessWidget {
-  const _DownloadThumbnail({required this.url, required this.size});
-
-  final String? url;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final url = this.url;
-    return ClipRRect(
-      borderRadius: FuncShape.control,
-      child: SizedBox.square(
-        dimension: size,
-        child: ColoredBox(
-          color: colorScheme.surfaceContainerHighest,
-          child: url == null
-              ? Icon(AppIcons.illust, color: colorScheme.onSurfaceVariant)
-              : PixivImage.feed(url, layoutWidth: size, fit: BoxFit.cover),
-        ),
-      ),
-    );
-  }
-}
-
-/// Icon + text status line; only the icon carries the status color (R3) —
-/// tinted text fell below the 4.5:1 contrast floor on the page surface.
-class _DownloadStatusLine extends StatelessWidget {
-  const _DownloadStatusLine({required this.state, required this.text});
-
-  final DownloadVisualState state;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(
-          downloadVisualIcon(state),
-          size: 16,
-          color: downloadVisualIconColor(
-            theme.colorScheme,
-            FuncSemanticTokens.of(context),
-            state,
-          ),
-        ),
-        const SizedBox(width: FuncSpacing.xs),
-        Flexible(
-          child: Text(
-            text,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)
-                .tabular,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// One flat or group-child task row (replaces the old card tile). With no
 /// card boundary left, the ink paints on a transparent `Material` so taps
 /// and long-presses still ripple on the row itself.
-class _DownloadTaskRow extends StatelessWidget {
+class _DownloadTaskRow extends ConsumerWidget {
   const _DownloadTaskRow({
     required this.task,
     required this.manager,
@@ -326,9 +262,14 @@ class _DownloadTaskRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final caps = ref.watch(platformCapsProvider);
+    final localFilePath =
+        caps.isDesktop && task.status == DownloadStatus.succeeded
+        ? resolveLocalFilePathFromUri(task.finalUri)
+        : null;
     final state = visualStateOfTask(task);
     final info = downloadTaskStatusDetail(state, task);
     final statusText = info == null
@@ -366,6 +307,12 @@ class _DownloadTaskRow extends StatelessWidget {
                     position: details.globalPosition,
                     onLongPress: onEnterManaging,
                     actions: [
+                      ...buildDesktopDownloadDisplayActions(
+                        context,
+                        ref,
+                        task: task,
+                        localFilePath: localFilePath,
+                      ),
                       DisplayAction(
                         icon: UiIcons.checklist,
                         label: l10n.manage,
@@ -383,7 +330,7 @@ class _DownloadTaskRow extends StatelessWidget {
             title: downloadTaskTitle(task),
             titleNote: downloadTaskPageLabel(l10n, task),
             subtitle: downloadTaskSubtitle(task),
-            status: _DownloadStatusLine(state: state, text: statusText),
+            status: DownloadRowStatusLine(state: state, text: statusText),
             progress: downloadVisualShowsProgress(state)
                 ? AppProgressBar(
                     value: downloadProgressValue(state, task.progress),
@@ -400,7 +347,9 @@ class _DownloadTaskRow extends StatelessWidget {
                     ),
                   )
                 : null,
-            actions: managing ? const [] : _taskActions(context),
+            actions: managing
+                ? const []
+                : _taskActions(context, ref, localFilePath: localFilePath),
           ),
         ),
       ),
@@ -411,7 +360,11 @@ class _DownloadTaskRow extends StatelessWidget {
   /// drops a terminal record, 继续 resumes a paused anchor (not the retry
   /// icon), 重试 re-attempts a real failure. The row itself opens the work,
   /// so a finished task has no 查看 of its own.
-  List<_DownloadAction> _taskActions(BuildContext context) {
+  List<_DownloadAction> _taskActions(
+    BuildContext context,
+    WidgetRef ref, {
+    required String? localFilePath,
+  }) {
     final l10n = context.l10n;
     final pausedRetryable =
         task.status == DownloadStatus.retryable &&
@@ -465,7 +418,42 @@ class _DownloadTaskRow extends StatelessWidget {
           onPressed: onRemove,
         ),
       ],
-      DownloadStatus.succeeded || DownloadStatus.orphaned => [
+      DownloadStatus.succeeded => [
+        if (localFilePath != null) ...[
+          _DownloadAction(
+            label: l10n.downloadOpenFile,
+            icon: AppIcons.externalLink,
+            onPressed: () => unawaited(
+              runDesktopDownloadFileAction(
+                context,
+                ref,
+                task: task,
+                path: localFilePath,
+                reveal: false,
+              ),
+            ),
+          ),
+          _DownloadAction(
+            label: l10n.downloadShowInFolder,
+            icon: AppIcons.folderOpen,
+            onPressed: () => unawaited(
+              runDesktopDownloadFileAction(
+                context,
+                ref,
+                task: task,
+                path: localFilePath,
+                reveal: true,
+              ),
+            ),
+          ),
+        ],
+        _DownloadAction(
+          label: l10n.downloadRemoveRecord,
+          icon: UiIcons.removeCircle,
+          onPressed: onRemove,
+        ),
+      ],
+      DownloadStatus.orphaned => [
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: UiIcons.removeCircle,
@@ -536,7 +524,7 @@ class _DownloadGroupHeader extends StatelessWidget {
             title: downloadGroupRowTitle(l10n, children, group.childCount),
             titleWraps: true,
             subtitle: downloadGroupSubtitle(children),
-            status: _DownloadStatusLine(
+            status: DownloadRowStatusLine(
               state: state,
               text: downloadGroupStatusLine(l10n, state, group),
             ),

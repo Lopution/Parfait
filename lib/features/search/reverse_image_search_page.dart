@@ -42,6 +42,7 @@ import '../../app/layout/content_widths.dart';
 import '../../app/window/desktop_command_bar_scope.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/icons/ui_icons.dart';
+import 'reverse_image_desktop_input_actions.dart';
 import 'reverse_image_html_results_view.dart';
 
 part 'reverse_image_search_widgets.dart';
@@ -127,6 +128,12 @@ class _ReverseImageSearchPageState
 
   Future<void> _search() => _controller.search();
 
+  Future<void> _pasteFromClipboard() =>
+      pasteReverseImageFromClipboard(context, ref, _controller);
+
+  Future<void> _handleDroppedFiles(List<String> paths) =>
+      prepareDroppedReverseImage(context, _controller, paths);
+
   /// Engine choice is durable: the flow switches immediately when an image
   /// is held, and the selection is persisted either way. A failed write is
   /// reported; this visit keeps the choice.
@@ -197,6 +204,7 @@ class _ReverseImageSearchPageState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reverseImageSearchControllerProvider(_session));
+    final caps = ref.watch(platformCapsProvider);
     final suppressBack =
         DesktopCommandBarScope.isActiveOf(context) &&
         !EmbeddedHeaderScope.isActiveOf(context);
@@ -212,19 +220,25 @@ class _ReverseImageSearchPageState
                 icon: const BackButtonIcon(),
               ),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (_showsTaskHeader(state))
-              _TaskHeader(
-                key: const ValueKey('reverseTaskHeader'),
-                state: state,
-                input: state.input,
-                engineSwitchable: _engineSwitchable(state),
-                onSelectEngine: _selectEngine,
-              ),
-            Expanded(child: _body(context, state)),
-          ],
+      body: wrapReverseImageDesktopInputs(
+        context,
+        isDesktop: caps.isDesktop,
+        onPaste: _pasteFromClipboard,
+        onFilesDropped: _handleDroppedFiles,
+        child: SafeArea(
+          child: Column(
+            children: [
+              if (_showsTaskHeader(state))
+                _TaskHeader(
+                  key: const ValueKey('reverseTaskHeader'),
+                  state: state,
+                  input: state.input,
+                  engineSwitchable: _engineSwitchable(state),
+                  onSelectEngine: _selectEngine,
+                ),
+              Expanded(child: _body(context, state)),
+            ],
+          ),
         ),
       ),
     );
@@ -293,10 +307,16 @@ class _ReverseImageSearchPageState
   }
 
   Widget _idle(BuildContext context, ReverseImageFlowState state) {
+    final caps = ref.watch(platformCapsProvider);
     final pickButton = FilledButton.icon(
       onPressed: _controller.pick,
       icon: const Icon(AppIcons.multiPage),
       label: Text(context.l10n.searchReversePick),
+    );
+    final pasteButton = OutlinedButton.icon(
+      onPressed: () => unawaited(_pasteFromClipboard()),
+      icon: const Icon(AppIcons.paste),
+      label: Text(context.l10n.reverseImagePasteImage),
     );
     return Align(
       alignment: const Alignment(0, -0.15),
@@ -311,7 +331,15 @@ class _ReverseImageSearchPageState
             const SizedBox(height: FuncSpacing.lg),
             _engineChips(context, state),
             const SizedBox(height: FuncSpacing.xl),
-            pickButton,
+            if (caps.isDesktop)
+              Wrap(
+                spacing: FuncSpacing.md,
+                runSpacing: FuncSpacing.sm,
+                alignment: WrapAlignment.center,
+                children: [pickButton, pasteButton],
+              )
+            else
+              pickButton,
           ],
         ),
       ),

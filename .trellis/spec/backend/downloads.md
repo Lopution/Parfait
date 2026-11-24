@@ -178,15 +178,22 @@ reviewed: 2026-11-22
 - **Check:** `test/windows_capability_test.dart` "IosPhotoLibraryMediaStoreSession stages chunks, commits via channel, and resumes detached .part"; `test/settings_test.dart` "DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label"; `test/backup_test.dart` "iOS share exporter writes temp JSON, handles cancel and keeps shared file" "DesktopDocumentPicker supplies non-empty Apple UTIs for iOS"; `test/reverse_image_search_test.dart` "DesktopReverseImageInputPlatform supplies Apple UTIs for iOS picker"
 - **Code:** `lib/core/platform/ios_photo_library.dart`, `lib/core/platform/desktop_file_sink.dart`, `lib/core/reverse_image/desktop_image_input.dart`, `lib/core/backup/backup_service.dart`, `ios/Runner/AppDelegate.swift`, `ios/Runner/Info.plist`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/settings_helpers.dart`
 
-### DL-14 macOS sandboxed tree destinations require security-scoped bookmarks
+### DL-14 macOS sandboxed tree destinations and desktop file actions respect security-scoped bookmarks
 - **Rule:** When `supportsSecurityScopedBookmarks` is enabled, picked custom
   directories persist a base64 security-scoped bookmark token (`saveBookmark`)
   as `treeUri`, wrap I/O with reference-counted `startAccess`/`stopAccess`,
   and embed the token in resume locators. Missing or stale/denied bookmarks
   throw an explicit error instead of silently falling back to raw paths.
   `safTreeDisplayName` / `isMacosSecurityBookmark` render a readable localized
-  label instead of exposing raw base64 in settings UI.
+  label instead of exposing raw base64 in settings UI. On desktop platforms,
+  completed download rows with a local `finalUri` expose "Open file" and
+  "Show in folder" actions through `DesktopFileActions`
+  (`parfait/desktop_file_actions`), forwarding the task or active destination's
+  macOS security-scoped bookmark when present and surfacing missing-file or
+  open-failure prompts via `deferAppSnackBar`.
 - **Why:** Under macOS App Sandbox, raw paths outside Downloads lose read/write
-  access after app restart or outside user-selected single-use sessions.
-- **Check:** `test/windows_capability_test.dart` "MacosBookmarkDirectoryPicker and sink factory require bookmarks and pair startAccess/stopAccess"; `test/settings_test.dart` "DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label"
-- **Code:** `lib/core/platform/desktop_file_sink.dart`, `macos/Runner/MainFlutterWindow.swift`, `lib/features/settings/saf_tree_name.dart`, `lib/features/settings/pages/download_destination_page.dart`
+  access after app restart or outside user-selected single-use sessions, and
+  desktop users expect one-click open/reveal on completed downloads with clear
+  feedback when a file has been moved or deleted.
+- **Check:** `test/windows_capability_test.dart` "MacosBookmarkDirectoryPicker and sink factory require bookmarks and pair startAccess/stopAccess"; `test/settings_test.dart` "DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label"; `test/download_tasks_page_test.dart` "desktop succeeded row opens file, reveals in folder with bookmark, and surfaces missing file"
+- **Code:** `lib/core/platform/desktop_file_sink.dart`, `lib/core/platform/desktop_file_actions.dart`, `lib/features/settings/pages/download_task_rows.dart`, `macos/Runner/MainFlutterWindow.swift`, `windows/runner/flutter_window.cpp`, `linux/runner/my_application.cc`, `lib/features/settings/saf_tree_name.dart`, `lib/features/settings/pages/download_destination_page.dart`
