@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
@@ -386,6 +387,25 @@ class FeedError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final category = error == null ? null : categorizeError(error!);
+    final router = GoRouter.maybeOf(context);
+    final secondary = router == null
+        ? null
+        : switch (category) {
+            ErrorCategory.network ||
+            ErrorCategory.timeout ||
+            ErrorCategory.localNetwork => (
+              route: '/settings/network',
+              label: context.l10n.networkSettings,
+              icon: AppIcons.network,
+            ),
+            ErrorCategory.unauthorized => (
+              route: '/settings/account',
+              label: context.l10n.accountSettings,
+              icon: AppIcons.accountManage,
+            ),
+            _ => null,
+          };
     final column = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -395,14 +415,33 @@ class FeedError extends StatelessWidget {
         if (error != null) ...[
           const SizedBox(height: FuncSpacing.sm),
           Text(
-            errorCategoryText(context, categorizeError(error!)),
+            errorCategoryText(context, category!),
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
           FailureReport(action: title, error: error!),
         ],
         const SizedBox(height: FuncSpacing.md),
-        StateActionButton(label: retryLabel, onPressed: onRetry),
+        Wrap(
+          spacing: FuncSpacing.sm,
+          runSpacing: FuncSpacing.sm,
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            StateActionButton(label: retryLabel, onPressed: onRetry),
+            if (secondary != null)
+              OutlinedButton.icon(
+                icon: Icon(secondary.icon, size: 18),
+                label: Text(secondary.label),
+                onPressed: () {
+                  if (ModalRoute.of(context) is PopupRoute) {
+                    Navigator.of(context).pop();
+                  }
+                  unawaited(router!.push<void>(secondary.route));
+                },
+              ),
+          ],
+        ),
       ],
     );
     // Always the result of a state change (loading → error): fade in.

@@ -203,6 +203,8 @@
   "networkProbeAdviceIpBlackholed": "IP 被黑洞，客户端无法绕过——请更换网络。",
   "networkProbeAdviceAppLayer": "传输层正常，问题在应用层——可复制报告反馈。",
   "networkProbeAdviceInconclusive": "无法得出结论——换个网络或稍后重试。",
+  "networkProbeApplyCompat": "切换到兼容优先",
+  "networkProbeEnableDoh": "开启 DoH 解析",
   "copy": "复制",
   "themeSettings": "主题",
   "followSystemColors": "跟随系统取色",
@@ -263,14 +265,16 @@
   "dismiss": "知道了",
   "profileEditTitle": "编辑个人资料",
   "profileEditLoadFailed": "个人资料加载失败",
-  "profileEditUnavailable": "当前没有可用的应用内资料编辑通道。",
+  "profileEditUnavailable": "暂无法编辑个人资料，请重新登录后再试。",
+  "profileEditNoChanges": "资料未作修改",
+  "profileEditSaveFailed": "保存个人资料失败，请稍后重试",
   "profileEditConfirmed": "资料已确认并同步。",
   "profileEditDisplayName": "昵称",
   "profileEditComment": "自我介绍",
   "profileEditWebpage": "网页",
   "profileEditAvatar": "头像",
   "profileEditBackground": "背景图",
-  "profileEditFieldUnsupported": "当前通道不支持此字段",
+  "profileEditFieldUnsupported": "当前暂不支持编辑此项",
   "profileEditImageChoose": "选择一张受支持的图片",
   "profileEditImageFailed": "图片处理失败",
   "profileEditChooseImage": "选择图片",
@@ -634,6 +638,20 @@
   "downloadClearCompleted": "清除已完成",
   "@downloadClearCompleted": {
     "description": "Download tasks app-bar action: removes the records of successfully finished tasks"
+  },
+  "downloadFilterAll": "全部",
+  "downloadFilterActive": "进行中",
+  "downloadFilterFailed": "失败",
+  "downloadFilterCompleted": "已完成",
+  "downloadRetryAllFailed": "重试全部失败任务",
+  "downloadFilterEmpty": "当前筛选下暂无任务",
+  "downloadFailedCount": "{count} 项失败",
+  "@downloadFailedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "downloadTasksRemoved": "已移除 {count} 条记录",
   "@downloadTasksRemoved": {
@@ -1559,7 +1577,7 @@
   "novelLoading": "正在加载小说",
   "novelNotFound": "小说不存在或已被删除",
   "novelRestricted": "该小说受限，无法阅读",
-  "novelContentUnavailable": "当前 API 未提供小说正文",
+  "novelContentUnavailable": "暂时无法获取小说正文",
   "novelLoadFailed": "小说加载失败",
   "novelLayoutFailed": "小说排版失败",
   "novelRetry": "重试",

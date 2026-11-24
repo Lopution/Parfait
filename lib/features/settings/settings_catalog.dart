@@ -224,6 +224,7 @@ enum Setting implements SettingsEntry {
   ),
   networkThirdParty(SettingsPageRef.network, 'networkThirdParty'),
   networkEffectiveRoutes(SettingsPageRef.network, 'networkEffectiveRoutes'),
+  dohEnabled(SettingsPageRef.networkAdvanced, 'networkDoh'),
   dohEndpoints(SettingsPageRef.networkAdvanced, 'networkDohEndpoints'),
   echFrontHost(SettingsPageRef.networkAdvanced, 'networkEchFrontHost'),
   networkAdvancedReset(SettingsPageRef.networkAdvanced, 'networkAdvancedReset'),

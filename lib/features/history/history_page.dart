@@ -13,6 +13,7 @@ import '../../app/icons/ui_icons.dart';
 import '../../app/layout/input_modality.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/removal.dart';
+import '../../app/navigation/route_facade.dart' show openLogin;
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -20,6 +21,7 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/desktop_gallery_controls.dart';
 import '../../app/widgets/feed/desktop_inspectable_gallery.dart';
+import '../../app/widgets/feed/feed_states.dart' show FeedEmpty;
 import '../../app/widgets/selection_app_bar.dart';
 import '../../app/widgets/settings/persist_settings.dart';
 import '../../core/history/history_feed_controller.dart';
@@ -428,7 +430,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               enabled: !_managing,
               active: accountId != null,
               child: activeQuery == null
-                  ? Center(child: Text(context.l10n.signedOut))
+                  ? FeedEmpty(
+                      icon: AppIcons.history,
+                      title: context.l10n.signedOut,
+                      actionLabel: context.l10n.login,
+                      onAction: () => unawaited(openLogin(context)),
+                    )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

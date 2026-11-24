@@ -24,10 +24,10 @@ reviewed: 2026-11-23
 ## Status views
 
 ### FEED-01 Status views come from feed_states.dart
-- **Rule:** Empty, error, and tail states use `FeedEmpty`, `FeedError`, and `FeedTail` (custom restricted/blocked states use `StateActionButton`) with required localized strings and no English fallbacks. Empty/error views place a 40dp `onSurfaceVariant` icon on a `surfaceContainerHigh` disc above a `titleSmall` title (no explanatory prose, PAGE-20), positioned at optical center (40% free space above, accounting for toolbar extensions at layout). Oversized empty views scroll only when taller than their viewport so pull-to-refresh keeps normal drags.
-- **Why:** Prevents untranslated fallbacks, drifting status layouts, off-center views under tabs, and overflow on landscape phones.
-- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without" "an empty state scrolls only when the window cannot hold it"
-- **Code:** `lib/app/widgets/feed/feed_states.dart`
+- **Rule:** Empty, error, and tail states use `FeedEmpty`, `FeedError`, and `FeedTail` (custom restricted/blocked states use `StateActionButton`) with required localized strings and no English fallbacks. Empty/error views place a 40dp `onSurfaceVariant` icon on a `surfaceContainerHigh` disc above a `titleSmall` title (no explanatory prose, PAGE-20), positioned at optical center (40% free space above, accounting for toolbar extensions at layout). `FeedError` offers category-scoped secondary recovery buttons (Network settings for network/DNS/TLS errors, Account settings for auth errors) guarded by `GoRouter.maybeOf` and popping `PopupRoute` ancestors first; signed-out `HistoryPage` uses `FeedEmpty` with a Login action. Oversized empty views scroll only when taller than their viewport so pull-to-refresh keeps normal drags.
+- **Why:** Prevents untranslated fallbacks, drifting status layouts, dead-end network/auth error walls, off-center views under tabs, and overflow on landscape phones.
+- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without" "an empty state scrolls only when the window cannot hold it" "FeedError exposes category-scoped settings action with GoRouter and LoginWebViewErrorCard offers browser fallback", `test/history_page_test.dart` "signed-out state uses FeedEmpty with Login action"
+- **Code:** `lib/app/widgets/feed/feed_states.dart`, `lib/features/history/history_page.dart`
 
 ### FEED-02 Refresh only where content can still arrive
 - **Rule:** Empty views offer `refresh` only on live feeds; genuinely empty views (no works, empty history, no search hits) offer no refresh/retry (at most an alternate action). When user settings explain emptiness (history off, active search filters), name it and offer a one-tap reversal.

@@ -17,8 +17,8 @@ import '../image/image_worker_providers.dart';
 import '../network/compat/network_providers.dart';
 import '../network/compat/policy_download_transport.dart';
 import 'download_manager.dart';
-import 'download_recovery.dart';
 import 'download_sink.dart';
+import 'download_task.dart';
 import 'download_transport.dart';
 import '../ugoira/ugoira_recovery.dart';
 import 'caption_exporter.dart';
@@ -138,4 +138,39 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
   }, fireImmediately: true);
   ref.onDispose(manager.dispose);
   return manager;
+});
+
+typedef DownloadStats = ({int active, int failed, int total});
+
+/// Live active, failed, and total download counts; emits only when any count
+/// changes so progress ticks never rebuild rail or dashboard rows.
+final downloadStatsProvider = StreamProvider.autoDispose<DownloadStats>((ref) {
+  final manager = ref.watch(downloadManagerProvider);
+  DownloadStats snapshot() {
+    final tasks = manager.tasks;
+    var active = 0;
+    var failed = 0;
+    for (final task in tasks) {
+      if (!isTerminal(task.status)) {
+        active++;
+      } else if (task.status == DownloadStatus.failed) {
+        failed++;
+      }
+    }
+    return (active: active, failed: failed, total: tasks.length);
+  }
+
+  final controller = StreamController<DownloadStats>();
+  var last = snapshot();
+  controller.add(last);
+  final sub = manager.changes.listen((_) {
+    final next = snapshot();
+    if (next == last) return;
+    controller.add(last = next);
+  });
+  ref.onDispose(() {
+    unawaited(sub.cancel());
+    unawaited(controller.close());
+  });
+  return controller.stream;
 });

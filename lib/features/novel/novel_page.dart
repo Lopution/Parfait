@@ -8,6 +8,7 @@ import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/route_facade.dart';
 import '../../app/navigation/route_search_facade.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
+import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/author_summary.dart';
 import '../../app/widgets/bookmark_switch_button.dart';
@@ -19,6 +20,8 @@ import '../../app/widgets/person_card.dart';
 import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/bookmark/bookmark_models.dart';
+import '../../core/bookmark/bookmark_store.dart';
 import '../../core/entity/illust_caption.dart';
 import '../../core/errors/no_retry.dart';
 import '../../core/history/history_models.dart';
@@ -141,6 +144,7 @@ class NovelPage extends ConsumerWidget {
           title: novel.title,
           isNovel: true,
         ),
+        _NovelBookmarkMenuButton(novel: novel),
       ],
       onImageTap: (context, image) => _openIllustration(context, ref, image),
       onLinkTap: (context, uri) => openPixivLink(context, ref, '$uri'),
@@ -666,6 +670,35 @@ class _NovelFacts extends StatelessWidget {
           if (date != null) ExcludeSemantics(child: Text(date, style: style)),
         ],
       ),
+    );
+  }
+}
+
+/// Visible menu action exposing bookmark tags & visibility editing on desktop
+/// and touch without requiring a long-press on the heart icon.
+class _NovelBookmarkMenuButton extends ConsumerWidget {
+  const _NovelBookmarkMenuButton({required this.novel});
+
+  final NovelEntity novel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final key = BookmarkKey(BookmarkEntityType.novel, novel.id);
+    final unsettled = ref.watch(
+      bookmarkStoreProvider.select((store) => store[key]?.isUnsettled ?? false),
+    );
+    return AppMenuButton<VoidCallback>(
+      entries: [
+        AppMenuEntry(
+          value: () => unawaited(
+            showBookmarkEditSheet(context, key, title: novel.title),
+          ),
+          icon: AppIcons.heart,
+          label: context.l10n.bookmarkEditTitle,
+          enabled: !unsettled,
+        ),
+      ],
+      onSelected: (_, action) => action(),
     );
   }
 }

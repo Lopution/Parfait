@@ -1099,6 +1099,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<Text>(_progressSuffix()).data, contains('· 2/'));
   });
+
+  testWidgets('top bar overflow exposes Edit bookmark without long press', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    await _openReader(tester, container);
+    await tester.tapAt(tester.getCenter(find.byType(NovelPage)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(UiIcons.more));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑收藏'), findsOneWidget);
+  });
 }
 
 /// Host page that pushes [NovelPage], so an explicit back has a route to

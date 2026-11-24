@@ -12,6 +12,7 @@ import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import '../window/desktop_command_bar_scope.dart';
 import '../window/desktop_title_bar.dart';
+import 'download_count_pill.dart';
 import 'fit_label.dart';
 import 'func_bottom_nav.dart';
 
@@ -261,6 +262,7 @@ class ShellRail extends StatelessWidget {
       required String label,
       required bool selected,
       required VoidCallback onTap,
+      bool downloadBadge = false,
     }) => _RailEntry(
       selected: selected,
       onTap: onTap,
@@ -279,10 +281,13 @@ class ShellRail extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  size: _iconSize,
-                  color: _iconColor(context, selected: selected),
+                DownloadCountBadgeIcon(
+                  enabled: downloadBadge,
+                  child: Icon(
+                    icon,
+                    size: _iconSize,
+                    color: _iconColor(context, selected: selected),
+                  ),
                 ),
                 const SizedBox(height: FuncSpacing.xs),
                 FitLabel(
@@ -296,6 +301,7 @@ class ShellRail extends StatelessWidget {
         ),
       ),
     );
+
     final size = MediaQuery.sizeOf(context);
     final toggleable =
         canToggle ?? form.canToggleRail(size.width, height: size.height);
@@ -356,6 +362,7 @@ class ShellRail extends StatelessWidget {
               label: l10n.railDownloads,
               selected: downloadsSelected,
               onTap: onDownloads!,
+              downloadBadge: true,
             ),
           ],
         ],
@@ -456,6 +463,7 @@ class ShellRail extends StatelessWidget {
       required bool selected,
       bool? selectedSemantics,
       LabelFit? rowFit,
+      Widget? trailing,
       required VoidCallback onTap,
     }) => _RailEntry(
       key: key,
@@ -489,6 +497,7 @@ class ShellRail extends StatelessWidget {
                   style: _panelLabelStyle(context, selected: selected),
                 ),
               ),
+              ?trailing,
             ],
           ),
         ),
@@ -567,6 +576,7 @@ class ShellRail extends StatelessWidget {
               label: l10n.railDownloads,
               selected: downloadsSelected,
               selectedSemantics: downloadsSelected,
+              trailing: const DownloadCountPill(),
               onTap: onDownloads!,
             ),
           ],
@@ -729,19 +739,20 @@ class _RenderRailWidthBox extends RenderAligningShiftedBox {
   double computeMaxIntrinsicHeight(double width) =>
       child?.getMaxIntrinsicHeight(_targetWidth) ?? 0;
 
+  BoxConstraints _childConstraints(BoxConstraints c) => BoxConstraints(
+    minWidth: _targetWidth,
+    maxWidth: _targetWidth,
+    minHeight: c.minHeight,
+    maxHeight: c.maxHeight,
+  );
+
   @override
   Size computeDryLayout(BoxConstraints constraints) {
     final currentChild = child;
     if (currentChild == null) return constraints.smallest;
-    final childSize = currentChild.getDryLayout(
-      BoxConstraints(
-        minWidth: _targetWidth,
-        maxWidth: _targetWidth,
-        minHeight: constraints.minHeight,
-        maxHeight: constraints.maxHeight,
-      ),
+    return constraints.constrain(
+      currentChild.getDryLayout(_childConstraints(constraints)),
     );
-    return constraints.constrain(childSize);
   }
 
   @override
@@ -751,15 +762,7 @@ class _RenderRailWidthBox extends RenderAligningShiftedBox {
       size = constraints.smallest;
       return;
     }
-    currentChild.layout(
-      BoxConstraints(
-        minWidth: _targetWidth,
-        maxWidth: _targetWidth,
-        minHeight: constraints.minHeight,
-        maxHeight: constraints.maxHeight,
-      ),
-      parentUsesSize: true,
-    );
+    currentChild.layout(_childConstraints(constraints), parentUsesSize: true);
     size = constraints.constrain(currentChild.size);
     alignChild();
   }

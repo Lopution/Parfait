@@ -358,17 +358,18 @@ void main() {
   ) async {
     setViewSize(tester, const Size(400, 1600));
     final gate = Completer<void>();
-    final manager = DownloadManager(
-      transport: FakeTransport()
-        ..responses.add(
-          ScriptedResponse(
-            contentLength: 1,
-            chunks: [
-              [1],
-            ],
-            completers: [gate],
-          ),
+    final transport = FakeTransport()
+      ..responses.add(
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [1],
+          ],
+          completers: [gate],
         ),
+      );
+    final manager = DownloadManager(
+      transport: transport,
       sinkFactory: MemorySinkFactory(),
     );
     await seedSettings(baseTestSettings());
@@ -405,6 +406,11 @@ void main() {
     gate.complete();
     await pumpUntil(tester, () => !downloadsBadge().isLabelVisible);
     expect(downloadsBadge().isLabelVisible, isFalse);
+
+    transport.responses.add(ScriptedResponse(error: Exception('disk full')));
+    manager.submit(downloadRequest(2));
+    await pumpUntil(tester, () => find.text('1 项失败').evaluate().isNotEmpty);
+    expect(find.text('1 项失败'), findsOneWidget);
     await manager.dispose();
   });
 

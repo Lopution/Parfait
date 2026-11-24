@@ -278,9 +278,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
       _setFailure(
         ProfileEditFailure(
           code: ProfileEditFailureCode.unavailable,
-          message:
-              draft.capabilities.reason ??
-              'profile editing is unavailable through the approved route',
+          message: draft.capabilities.reason ?? 'profile_edit_unavailable',
         ),
       );
       await _releaseImagesAndClear(draft);
@@ -302,7 +300,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
       _setFailure(
         const ProfileEditFailure(
           code: ProfileEditFailureCode.noChanges,
-          message: 'no profile changes to submit',
+          message: 'profile_edit_no_changes',
         ),
       );
       return;

@@ -7,8 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/layout/form_factor.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/app/widgets/shell_rail.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
@@ -1071,6 +1074,105 @@ void main() {
         expect(find.text('文件已不存在'), findsOneWidget);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+
+    testWidgets(
+      'status filter narrows list, shows empty state, retry-all requeues failed, and ShellRail shows count pill',
+      (tester) async {
+        final (container, manager, transport) = await makeDownloadWorld(
+          responses: [
+            ScriptedResponse(
+              contentLength: 1,
+              chunks: [
+                [1],
+              ],
+            ),
+            ScriptedResponse(error: Exception('timeout')),
+            ScriptedResponse(
+              contentLength: 1,
+              chunks: [
+                [2],
+              ],
+            ),
+          ],
+        );
+        manager.submit(downloadRequest(10));
+        manager.submit(downloadRequest(11));
+        await pumpUntil(
+          tester,
+          () =>
+              manager.tasks.length == 2 &&
+              manager.tasks.any((t) => t.status == DownloadStatus.succeeded) &&
+              manager.tasks.any((t) => t.status == DownloadStatus.failed),
+        );
+
+        await _pumpPage(tester, container);
+        expect(_taskRows(), findsNWidgets(2));
+        expect(find.text('重试全部失败任务'), findsOneWidget);
+
+        // Filter to Active -> empty filter state.
+        await tester.tap(find.text('全部'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('进行中').last);
+        await tester.pumpAndSettle();
+        expect(find.text('当前筛选下暂无任务'), findsOneWidget);
+
+        // Filter to Failed -> shows only failed task, retry-all succeeds.
+        await tester.tap(find.text('进行中'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('失败').last);
+        await tester.pumpAndSettle();
+        expect(_taskRows(), findsOneWidget);
+
+        await tester.tap(find.text('重试全部失败任务'));
+        await pumpUntil(
+          tester,
+          () =>
+              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('重试全部失败任务'), findsNothing);
+
+        // ShellRail shows live pill when failed/active count > 0.
+        transport.responses.add(ScriptedResponse(error: Exception('net')));
+        manager.submit(downloadRequest(12));
+        await pumpUntil(
+          tester,
+          () => manager.tasks.any((t) => t.status == DownloadStatus.failed),
+        );
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            home: Scaffold(
+              body: ShellRail(
+                destinations: const [
+                  FuncBottomNavDestination(icon: AppIcons.home, label: '首页'),
+                ],
+                selectedIndex: 0,
+                onSelected: (_) {},
+                form: FormFactor.pc,
+                expanded: true,
+                onToggle: () {},
+                onDownloads: () {},
+              ),
+            ),
+          ),
+        );
+        await pumpUntil(
+          tester,
+          () => find
+              .byKey(const Key('rail-downloads-count'))
+              .evaluate()
+              .isNotEmpty,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('rail-downloads-count')),
+            matching: find.text('1'),
+          ),
+          findsOneWidget,
+        );
+      },
     );
   });
 }
