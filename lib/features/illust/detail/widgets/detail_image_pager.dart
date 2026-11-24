@@ -284,15 +284,11 @@ class _DetailImagePagerState extends State<DetailImagePager>
                             onToggleSelect: () => widget.onToggleSelect(index),
                             onLongPress: widget.onLongPress,
                           );
-                    // Contain inside the fixed-height pane: AspectRatio picks
-                    // the largest centred box that preserves the page's own
-                    // ratio, so tall pages cannot overflow vertically.
-                    return Center(
-                      child: AspectRatio(
-                        aspectRatio: entity.pageAspectRatioAt(index),
-                        child: child,
-                      ),
-                    );
+                    // Contain inside the fixed-height pane via loose Center
+                    // constraints so panoramas keep their scrollable 280dp
+                    // viewport (DETAIL-03) and mixed-aspect multi-page works
+                    // size to each page's decoded dimensions (DETAIL-01).
+                    return Center(child: child);
                   },
                 ),
               ),

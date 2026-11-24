@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/motion/press_scale.dart';
+import 'package:parfait/core/series/series_recent_open_store.dart';
+import 'package:parfait/features/illust/detail/detail_page_activity.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
 
 import 'helpers/series_world.dart';
@@ -68,4 +70,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/recommended/series/55');
   });
+
+  testWidgets(
+    'inactive DetailPageActivity skips recording recent series open until active',
+    (tester) async {
+      final (container, _) = await makeSeriesWorld();
+      final active = ValueNotifier<bool>(false);
+      addTearDown(active.dispose);
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          home: ValueListenableBuilder<bool>(
+            valueListenable: active,
+            builder: (_, isActive, _) => DetailPageActivity(
+              active: isActive,
+              child: const Scaffold(
+                body: CustomScrollView(
+                  slivers: [IllustSeriesSection(illustId: 910)],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        container
+            .read(seriesRecentOpenStoreProvider.notifier)
+            .read(accountId: '100', seriesId: 55),
+        isNull,
+      );
+
+      active.value = true;
+      await tester.pumpAndSettle();
+      expect(
+        container
+            .read(seriesRecentOpenStoreProvider.notifier)
+            .read(accountId: '100', seriesId: 55)
+            ?.illustId,
+        910,
+      );
+    },
+  );
 }

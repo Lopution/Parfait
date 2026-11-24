@@ -1345,6 +1345,64 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
   });
+
+  testWidgets(
+    'CommentRepliesPage hides cancel-reply on root target and surfaces send errors after pop',
+    (tester) async {
+      final gate = Completer<void>();
+      final comments = CommentApi()
+        ..replies = [
+          sampleComment(20, userId: 22, parentCommentId: 10, rootCommentId: 10),
+        ]
+        ..addGate = gate
+        ..addFailure = failing(500);
+      final nav = GlobalKey<NavigatorState>();
+      final container = await signedInApiContainer(
+        PixivApi({...backgroundRoutes, ...comments.routes}).client,
+      );
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          navigatorKey: nav,
+          builder: promptHostBuilder,
+          home: const Scaffold(body: Text('home')),
+        ),
+      );
+      unawaited(
+        nav.currentState!.push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => CommentRepliesPage(
+              workId: 50,
+              rootCommentId: 10,
+              rootComment: sampleComment(10, userId: 10),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Default root target shows no cancel × button.
+      expect(find.byTooltip('取消回复'), findsNothing);
+      // Targeting a child reply reveals cancel ×; tapping resets to root and hides ×.
+      await tester.tap(_replyButton().last);
+      await tester.pump();
+      expect(find.byTooltip('取消回复'), findsOneWidget);
+      await tester.tap(find.byTooltip('取消回复'));
+      await tester.pump();
+      expect(find.byTooltip('取消回复'), findsNothing);
+
+      // Sending then popping mid-flight still surfaces the deferred error prompt.
+      await tester.enterText(find.byType(TextField), 'bye');
+      await tester.pump();
+      await tester.tap(find.byIcon(AppIcons.send));
+      await tester.pump();
+      nav.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(CommentRepliesPage), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('发送评论失败'), findsOneWidget);
+    },
+  );
 }
 
 /// The composer's keyboard memory, held in a map.
