@@ -1218,22 +1218,26 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               // size (original pixels / DPR) and BoxFit.contain had
               // nothing to fill. Expanding forces the image to fill
               // the viewport, giving the zoom a real target.
-              child: SizedBox.expand(
-                // transitionKey hooks the viewer into the detail page's
-                // quality history — the last decoded tier paints as the
-                // placeholder while the requested tier resolves, so a
-                // large->original hand-off never shows a grey box.
-                child: PixivImage(
-                  url: widget.urls[page],
-                  fit: BoxFit.contain,
-                  memCacheWidth: decodeWidth,
-                  transitionKey: transitionKey,
-                  tierKey: widget.tierKeyForPage?.call(page),
-                  tier: widget.tier,
-                  // The stage is already black — the default container
-                  // tier would flash a grey box under the artwork.
-                  placeholderColor: FuncTokens.transparent,
-                  progress: _progressFor(page),
+              child: MousePageDragSurface(
+                controller: _pageController,
+                enabled: _pageCount > 1 && !_isZoomed(page),
+                child: SizedBox.expand(
+                  // transitionKey hooks the viewer into the detail page's
+                  // quality history — the last decoded tier paints as the
+                  // placeholder while the requested tier resolves, so a
+                  // large->original hand-off never shows a grey box.
+                  child: PixivImage(
+                    url: widget.urls[page],
+                    fit: BoxFit.contain,
+                    memCacheWidth: decodeWidth,
+                    transitionKey: transitionKey,
+                    tierKey: widget.tierKeyForPage?.call(page),
+                    tier: widget.tier,
+                    // The stage is already black — the default container
+                    // tier would flash a grey box under the artwork.
+                    placeholderColor: FuncTokens.transparent,
+                    progress: _progressFor(page),
+                  ),
                 ),
               ),
             ),
