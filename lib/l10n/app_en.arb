@@ -550,6 +550,13 @@
   "downloadRemoveRecord": "Remove",
   "downloadOpenWork": "Open the work",
   "downloadClearCompleted": "Clear completed",
+  "downloadFilterAll": "All",
+  "downloadFilterActive": "In progress",
+  "downloadFilterFailed": "Failed",
+  "downloadFilterCompleted": "Completed",
+  "downloadRetryAllFailed": "Retry all failed",
+  "downloadFilterEmpty": "No tasks match this filter",
+  "downloadFailedCount": "{count} failed",
   "downloadTasksRemoved": "{count, plural, =1{Removed 1 task} other{Removed {count} tasks}}",
   "downloadBatchCancelConfirm": "Cancel the {count} selected download(s)? Unfinished progress will be discarded.",
   "@downloadBatchCancelConfirm": {

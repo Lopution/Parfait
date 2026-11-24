@@ -639,6 +639,20 @@
   "@downloadClearCompleted": {
     "description": "Download tasks app-bar action: removes the records of successfully finished tasks"
   },
+  "downloadFilterAll": "全部",
+  "downloadFilterActive": "进行中",
+  "downloadFilterFailed": "失败",
+  "downloadFilterCompleted": "已完成",
+  "downloadRetryAllFailed": "重试全部失败任务",
+  "downloadFilterEmpty": "当前筛选下暂无任务",
+  "downloadFailedCount": "{count} 项失败",
+  "@downloadFailedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "downloadTasksRemoved": "已移除 {count} 条记录",
   "@downloadTasksRemoved": {
     "description": "Undo prompt after download task records were removed",

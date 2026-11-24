@@ -2543,6 +2543,48 @@ abstract class AppLocalizations {
   /// **'清除已完成'**
   String get downloadClearCompleted;
 
+  /// No description provided for @downloadFilterAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get downloadFilterAll;
+
+  /// No description provided for @downloadFilterActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'进行中'**
+  String get downloadFilterActive;
+
+  /// No description provided for @downloadFilterFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get downloadFilterFailed;
+
+  /// No description provided for @downloadFilterCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get downloadFilterCompleted;
+
+  /// No description provided for @downloadRetryAllFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试全部失败任务'**
+  String get downloadRetryAllFailed;
+
+  /// No description provided for @downloadFilterEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前筛选下暂无任务'**
+  String get downloadFilterEmpty;
+
+  /// No description provided for @downloadFailedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 项失败'**
+  String downloadFailedCount(int count);
+
   /// Undo prompt after download task records were removed
   ///
   /// In zh, this message translates to:

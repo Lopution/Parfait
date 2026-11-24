@@ -1334,6 +1334,29 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadClearCompleted => 'Очистить завершённые';
 
   @override
+  String get downloadFilterAll => 'Все';
+
+  @override
+  String get downloadFilterActive => 'В процессе';
+
+  @override
+  String get downloadFilterFailed => 'Ошибка';
+
+  @override
+  String get downloadFilterCompleted => 'Завершено';
+
+  @override
+  String get downloadRetryAllFailed => 'Повторить все с ошибкой';
+
+  @override
+  String get downloadFilterEmpty => 'Нет задач по этому фильтру';
+
+  @override
+  String downloadFailedCount(int count) {
+    return 'Ошибок: $count';
+  }
+
+  @override
   String downloadTasksRemoved(int count) {
     return 'Удалено записей: $count';
   }

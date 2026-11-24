@@ -1336,6 +1336,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadClearCompleted => 'Clear completed';
 
   @override
+  String get downloadFilterAll => 'All';
+
+  @override
+  String get downloadFilterActive => 'In progress';
+
+  @override
+  String get downloadFilterFailed => 'Failed';
+
+  @override
+  String get downloadFilterCompleted => 'Completed';
+
+  @override
+  String get downloadRetryAllFailed => 'Retry all failed';
+
+  @override
+  String get downloadFilterEmpty => 'No tasks match this filter';
+
+  @override
+  String downloadFailedCount(int count) {
+    return '$count failed';
+  }
+
+  @override
   String downloadTasksRemoved(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

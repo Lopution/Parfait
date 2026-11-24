@@ -49,7 +49,9 @@ reviewed: 2026-11-22
   primary-blended track, `onPrimary` thumb, and lock overlay while keeping
   `onChanged: null` (THEME-07), and omit `bottomBarMeLocked` under
   `DesktopCommandBarScope`. Diagnostic result panels in `NetworkProbePage` use
-  `FAccordion` / `FAccordionItem`.
+  `FAccordion` / `FAccordionItem` with one-tap `compatPrefer` / `enableDoh`
+  apply actions on `NetworkProbeOverview`, and `NetworkAdvancedSettingsPage`
+  exposes `Setting.dohEnabled` as a `SettingsControl` toggle.
 - **Why:** `RadioListTile` is deprecated in the pinned Flutter, and
   `selected` is what screen readers announce; segmented buttons were
   removed (NAV-17), while locked-on bar destinations needed clear active
@@ -63,7 +65,9 @@ reviewed: 2026-11-22
   leading icon (`selected ? (selectedIcon ?? icon) : icon`, THEME-07, THEME-16)
   with no colored circular backdrop. Library rows carry optional live
   `trailingText` tabular counts ahead of the chevron instead of placeholder
-  double-line subtitles. Selected `SettingsTile`s step their overlay alpha
+  double-line subtitles; `MeDashboardPage` and `ShellRail` share
+  `downloadStatsProvider` to surface muted tonal active/failed download counts
+  (no warning red) and failed counts in `MeDashboardPage` `trailingText`. Selected `SettingsTile`s step their overlay alpha
   across default/focused (0.12), hovered (0.16) and pressed (0.20), and
   `AccountSettingsPage` keeps the selected account's ID subtitle on
   `onSurfaceVariant`.

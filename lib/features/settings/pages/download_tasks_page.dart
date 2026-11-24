@@ -35,6 +35,7 @@ import '../../../core/platform/platform_caps.dart';
 import '../../../l10n/context.dart';
 import 'download_desktop_file_actions.dart';
 import 'download_task_presentation.dart';
+import 'download_tasks_filter.dart';
 import '../../../app/icons/app_icons.dart';
 import '../../../app/icons/ui_icons.dart';
 
@@ -55,6 +56,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   /// consumes it, so it never leaves the widget tree (same contract as
   /// the history page).
   bool _managing = false;
+  DownloadTaskFilter _filter = DownloadTaskFilter.all;
   final Set<String> _selected = {};
   String? _lastToggledTaskId;
   ValueListenable<TickerModeData>? _tickerMode;
@@ -183,7 +185,10 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   void _selectAll() {
     AppHaptics.select();
     setState(() {
-      _selected.addAll(_manager.tasks.map((task) => task.id));
+      _selected.addAll([
+        for (final t in _manager.tasks)
+          if (matchesDownloadTaskFilter(t.status, _filter)) t.id,
+      ]);
     });
   }
 
@@ -334,9 +339,12 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     final grouped = {for (final group in groups) ...group.jobIds};
     final items = [
       for (final group in groups)
-        (group.submission.submittedAt, _groupEntries(group)),
+        if (_groupEntries(group) case final groupEntries
+            when groupEntries.isNotEmpty)
+          (group.submission.submittedAt, groupEntries),
       for (final task in tasks)
-        if (!grouped.contains(task.id))
+        if (!grouped.contains(task.id) &&
+            matchesDownloadTaskFilter(task.status, _filter))
           (task.submission?.submittedAt, [_TaskEntry(task)]),
     ].reversed.indexed.toList();
     // Ties (and undated tasks) keep the manager's order, reversed: the
@@ -353,7 +361,13 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   }
 
   List<_DownloadEntry> _groupEntries(DownloadGroupSnapshot group) {
-    final children = [for (final id in group.jobIds) ?_manager.taskById(id)];
+    final children = [
+      for (final id in group.jobIds)
+        if (_manager.taskById(id) case final task?
+            when matchesDownloadTaskFilter(task.status, _filter))
+          task,
+    ];
+    if (children.isEmpty) return const [];
     final expanded = _expandedGroups.contains(group.id);
     return [
       _GroupHeaderEntry(group, children, expanded: expanded),
@@ -365,6 +379,9 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   @override
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
+    final failedCount = tasks
+        .where((task) => task.status == DownloadStatus.failed)
+        .length;
     final entries = _entries(tasks);
     final orderedTaskIds = [
       for (final entry in entries)
@@ -431,19 +448,15 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                       onPressed: _enterManaging,
                       child: Text(context.l10n.manage),
                     ),
-                    AppMenuButton<VoidCallback>(
-                      entries: [
-                        AppMenuEntry(
-                          value: () =>
-                              unawaited(_removeTasks(_completedTaskIds)),
-                          icon: AppIcons.clearDone,
-                          label: context.l10n.downloadClearCompleted,
-                          enabled: tasks.any(
-                            (task) => task.status == DownloadStatus.succeeded,
-                          ),
-                        ),
-                      ],
-                      onSelected: (_, clear) => clear(),
+                    buildDownloadTasksOverflowMenu(
+                      context,
+                      hasFailed: failedCount > 0,
+                      hasCompleted: tasks.any(
+                        (task) => task.status == DownloadStatus.succeeded,
+                      ),
+                      onRetryAllFailed: () => retryAllFailedDownloads(_manager),
+                      onClearCompleted: () =>
+                          unawaited(_removeTasks(_completedTaskIds)),
                     ),
                   ],
                 ],
@@ -453,51 +466,55 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
           alignStart: EmbeddedHeaderScope.isActiveOf(context),
           child: tasks.isEmpty
               ? FeedEmpty(title: context.l10n.downloadTasksEmpty)
-              : RemovalScope(
-                  controller: _removals,
-                  child: CustomScrollView(
-                    restorationId: 'download-tasks',
-                    slivers: [
-                      SliverPadding(
-                        // A group header brings _groupGap above it; the
-                        // surfaces keep the page's 16dp margin (LAYOUT-14).
-                        padding: EdgeInsets.fromLTRB(
-                          FuncSpacing.lg,
-                          entries.first is _GroupedEntry
-                              ? FuncSpacing.sm + FuncSpacing.xs - _groupGap
-                              : FuncSpacing.sm,
-                          FuncSpacing.lg,
-                          entries.last is _GroupedEntry
-                              ? FuncSpacing.sm + FuncSpacing.xs
-                              : FuncSpacing.sm,
-                        ),
-                        // One surface per group, drawn around its rows as
-                        // they are laid out: the outline follows rows
-                        // growing in, folding away and leaving. A task on
-                        // its own is a plain row.
-                        sliver: SliverSurfaceList.builder(
-                          groups: [
-                            for (final entry in entries)
-                              if (entry case _GroupedEntry(:final groupId))
-                                groupId
-                              else
-                                null,
-                          ],
-                          color: Theme.of(context).colorScheme.surfaceContainer,
-                          borderRadius: FuncShape.card,
-                          leadingGap: _groupGap,
-                          findChildIndexCallback: (key) =>
-                              _indexOfKey(entries, key),
-                          itemBuilder: (context, index) => _row(
-                            entries[index],
-                            orderedTaskIds: orderedTaskIds,
-                            afterSurface:
-                                index > 0 &&
-                                entries[index - 1] is _GroupedEntry,
+              : DownloadTasksFilterFrame(
+                  filter: _filter,
+                  onFilterChanged: (value) => setState(() => _filter = value),
+                  failedCount: failedCount,
+                  onRetryAllFailed: () => retryAllFailedDownloads(_manager),
+                  isEmpty: entries.isEmpty,
+                  child: RemovalScope(
+                    controller: _removals,
+                    child: CustomScrollView(
+                      restorationId: 'download-tasks',
+                      slivers: [
+                        if (entries.isNotEmpty)
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(
+                              FuncSpacing.lg,
+                              entries.first is _GroupedEntry
+                                  ? FuncSpacing.sm + FuncSpacing.xs - _groupGap
+                                  : FuncSpacing.sm,
+                              FuncSpacing.lg,
+                              entries.last is _GroupedEntry
+                                  ? FuncSpacing.sm + FuncSpacing.xs
+                                  : FuncSpacing.sm,
+                            ),
+                            sliver: SliverSurfaceList.builder(
+                              groups: [
+                                for (final entry in entries)
+                                  if (entry case _GroupedEntry(:final groupId))
+                                    groupId
+                                  else
+                                    null,
+                              ],
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
+                              borderRadius: FuncShape.card,
+                              leadingGap: _groupGap,
+                              findChildIndexCallback: (key) =>
+                                  _indexOfKey(entries, key),
+                              itemBuilder: (context, index) => _row(
+                                entries[index],
+                                orderedTaskIds: orderedTaskIds,
+                                afterSurface:
+                                    index > 0 &&
+                                    entries[index - 1] is _GroupedEntry,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
         ),

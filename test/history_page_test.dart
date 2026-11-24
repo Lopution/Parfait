@@ -653,4 +653,17 @@ void main() {
     expect(find.byType(FeedTail), findsOneWidget);
     expect(find.widgetWithText(TextButton, '重试'), findsOneWidget);
   });
+
+  testWidgets('signed-out state uses FeedEmpty with Login action', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(390, 844));
+    final container = ProviderContainer.test();
+    await tester.pumpWidget(
+      localizedApp(container: container, home: const HistoryPage()),
+    );
+    await tester.pump();
+    expect(find.byType(FeedEmpty), findsOneWidget);
+    expect(find.text('登录'), findsOneWidget);
+  });
 }

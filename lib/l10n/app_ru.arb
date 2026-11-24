@@ -543,6 +543,13 @@
   "downloadRemoveRecord": "Убрать из списка",
   "downloadOpenWork": "Открыть работу",
   "downloadClearCompleted": "Очистить завершённые",
+  "downloadFilterAll": "Все",
+  "downloadFilterActive": "В процессе",
+  "downloadFilterFailed": "Ошибка",
+  "downloadFilterCompleted": "Завершено",
+  "downloadRetryAllFailed": "Повторить все с ошибкой",
+  "downloadFilterEmpty": "Нет задач по этому фильтру",
+  "downloadFailedCount": "Ошибок: {count}",
   "downloadTasksRemoved": "Удалено записей: {count}",
   "downloadBatchCancelConfirm": "Отменить выбранные загрузки ({count})? Незавершённый прогресс будет потерян.",
   "@downloadBatchCancelConfirm": {

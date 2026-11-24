@@ -1307,6 +1307,29 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadClearCompleted => '完了したタスクを消去';
 
   @override
+  String get downloadFilterAll => 'すべて';
+
+  @override
+  String get downloadFilterActive => '進行中';
+
+  @override
+  String get downloadFilterFailed => '失敗';
+
+  @override
+  String get downloadFilterCompleted => '完了';
+
+  @override
+  String get downloadRetryAllFailed => '失敗したタスクをすべて再試行';
+
+  @override
+  String get downloadFilterEmpty => 'この条件に一致するタスクはありません';
+
+  @override
+  String downloadFailedCount(int count) {
+    return '$count 件失敗';
+  }
+
+  @override
   String downloadTasksRemoved(int count) {
     return '$count件の記録を削除しました';
   }

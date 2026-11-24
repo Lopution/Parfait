@@ -1289,6 +1289,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadClearCompleted => '清除已完成';
 
   @override
+  String get downloadFilterAll => '全部';
+
+  @override
+  String get downloadFilterActive => '进行中';
+
+  @override
+  String get downloadFilterFailed => '失败';
+
+  @override
+  String get downloadFilterCompleted => '已完成';
+
+  @override
+  String get downloadRetryAllFailed => '重试全部失败任务';
+
+  @override
+  String get downloadFilterEmpty => '当前筛选下暂无任务';
+
+  @override
+  String downloadFailedCount(int count) {
+    return '$count 项失败';
+  }
+
+  @override
   String downloadTasksRemoved(int count) {
     return '已移除 $count 条记录';
   }
