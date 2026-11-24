@@ -30,7 +30,7 @@ class HistoryDatabase {
   static const databaseName = 'history.db';
   static const historyTable = 'history_records';
   static const outboxTable = 'pixiv_history_outbox';
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
 
   final SqliteDatabase _sqlite;
 
@@ -55,7 +55,8 @@ class HistoryDatabase {
         anchor_paragraph_id TEXT,
         anchor_offset INTEGER,
         visible_duration_ms INTEGER NOT NULL DEFAULT 0,
-        snapshot_version INTEGER NOT NULL DEFAULT 1
+        snapshot_version INTEGER NOT NULL DEFAULT 1,
+        tags_text TEXT
       )
     ''');
     await db.execute('''
@@ -101,6 +102,9 @@ class HistoryDatabase {
         'ALTER TABLE $historyTable '
         'ADD COLUMN snapshot_version INTEGER NOT NULL DEFAULT 1',
       );
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE $historyTable ADD COLUMN tags_text TEXT');
     }
   }
 }

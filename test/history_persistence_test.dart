@@ -7,6 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/core/history/history_snapshot.dart';
 import 'package:parfait/core/history/history_tracker.dart';
 import 'package:parfait/core/network/api_error.dart';
 
@@ -84,9 +85,182 @@ void main() {
         'PRAGMA table_info(${HistoryDatabase.historyTable})',
       );
       expect(columns.any((row) => row['name'] == 'snapshot_version'), isTrue);
+      expect(columns.any((row) => row['name'] == 'tags_text'), isTrue);
       final version = await opened.rawQuery('PRAGMA user_version');
-      expect((version.single['user_version'] as num).toInt(), 2);
+      expect((version.single['user_version'] as num).toInt(), 3);
     });
+
+    test(
+      'upgrades v2 rows to v3 with null tags_text and preserves data',
+      () async {
+        final databasePath = path.join(directory.path, 'history.db');
+        final legacy = await databaseFactoryFfi.openDatabase(
+          databasePath,
+          options: OpenDatabaseOptions(
+            version: 2,
+            onCreate: (db, _) async {
+              await db.execute('''
+              CREATE TABLE history_records (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                account_id TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                content_id INTEGER NOT NULL,
+                last_viewed_at INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                author_id INTEGER,
+                cover_url TEXT,
+                content_version TEXT,
+                anchor_paragraph_id TEXT,
+                anchor_offset INTEGER,
+                visible_duration_ms INTEGER NOT NULL DEFAULT 0,
+                snapshot_version INTEGER NOT NULL DEFAULT 1
+              )
+            ''');
+              await db.insert('history_records', {
+                'account_id': 'a',
+                'content_type': 'illust',
+                'content_id': 42,
+                'last_viewed_at': DateTime.utc(
+                  2026,
+                  8,
+                  27,
+                ).microsecondsSinceEpoch,
+                'title': 'legacy art',
+                'author_name': 'legacy artist',
+              });
+            },
+          ),
+        );
+        await legacy.close();
+
+        final row = await repository.find(
+          accountId: 'a',
+          contentType: HistoryContentType.illust,
+          contentId: 42,
+        );
+        expect(row, isNotNull);
+        expect(row!.snapshot.title, 'legacy art');
+        expect(row.snapshot.tagsText, isNull);
+      },
+    );
+
+    test(
+      'searches title, author, tags, IDs and pages filtered results',
+      () async {
+        expect(
+          formatHistoryTagsText([
+            (name: ' ブルーアーカイブ ', translatedName: '碧蓝档案'),
+            (name: 'mika', translatedName: 'MIKA'),
+            (name: ' ', translatedName: null),
+          ]),
+          'ブルーアーカイブ\n碧蓝档案\nmika',
+        );
+        expect(formatHistoryTagsText(const []), isNull);
+
+        final rows = [
+          HistoryRecord(
+            accountId: 'a',
+            contentType: HistoryContentType.illust,
+            contentId: 1001,
+            lastViewedAt: DateTime.utc(2026, 8, 27, 12, 1),
+            snapshot: const HistorySnapshot(
+              title: 'Sunset Sketch',
+              authorName: 'Alice',
+              authorId: 5001,
+              tagsText: 'ブルーアーカイブ\n碧蓝档案\n聖園ミカ\n圣园未花',
+            ),
+          ),
+          HistoryRecord(
+            accountId: 'a',
+            contentType: HistoryContentType.novel,
+            contentId: 2002,
+            lastViewedAt: DateTime.utc(2026, 8, 27, 12, 2),
+            snapshot: const HistorySnapshot(
+              title: '100% Pure_Rain\\Story',
+              authorName: 'Bob',
+              authorId: 5002,
+              tagsText: 'オリジナル\n原创',
+            ),
+          ),
+          HistoryRecord(
+            accountId: 'a',
+            contentType: HistoryContentType.illust,
+            contentId: 3003,
+            lastViewedAt: DateTime.utc(2026, 8, 27, 12, 3),
+            snapshot: const HistorySnapshot(
+              title: 'No Tags Legacy',
+              authorName: 'Alice',
+              authorId: 5001,
+            ),
+          ),
+        ];
+        for (final row in rows) {
+          await repository.upsert(row);
+        }
+
+        // Multi-token AND with full-width space across author + translated tag.
+        final byTagAndAuthor = await repository.page(
+          accountId: 'a',
+          query: 'alice\u3000未花',
+        );
+        expect(byTagAndAuthor.records.map((r) => r.contentId), [1001]);
+
+        // Exact positive ID matches content_id and author_id without partial hits.
+        expect(
+          (await repository.page(
+            accountId: 'a',
+            query: '2002',
+          )).records.map((r) => r.contentId),
+          [2002],
+        );
+        expect(
+          (await repository.page(
+            accountId: 'a',
+            query: '5001',
+          )).records.map((r) => r.contentId),
+          [3003, 1001],
+        );
+        expect(
+          (await repository.page(
+            accountId: 'a',
+            query: '100',
+          )).records.map((r) => r.contentId),
+          [2002], // matches "100%" in title, NOT content_id 1001
+        );
+
+        // LIKE wildcards %, _, \ are matched literally.
+        expect(
+          (await repository.page(
+            accountId: 'a',
+            query: r'100% Pure_Rain\',
+          )).records.map((r) => r.contentId),
+          [2002],
+        );
+
+        // Combined contentType + query + keyset pagination.
+        final first = await repository.page(
+          accountId: 'a',
+          contentType: HistoryContentType.illust,
+          query: 'alice',
+          limit: 1,
+        );
+        expect(first.records.map((r) => r.contentId), [3003]);
+        expect(first.hasMore, isTrue);
+        final second = await repository.page(
+          accountId: 'a',
+          contentType: HistoryContentType.illust,
+          query: 'alice',
+          after: (
+            viewedAt: first.records.single.lastViewedAt,
+            rowId: first.records.single.rowId!,
+          ),
+          limit: 1,
+        );
+        expect(second.records.map((r) => r.contentId), [1001]);
+        expect(second.hasMore, isFalse);
+      },
+    );
 
     test('upserts, orders and isolates records by account', () async {
       await repository.upsert(_record('a', HistoryContentType.illust, 1));

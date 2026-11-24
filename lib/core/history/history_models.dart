@@ -17,8 +17,9 @@ enum HistoryContentType {
 
 /// Compact metadata stored with a history row.
 ///
-/// This deliberately contains display fields only. Full Pixiv JSON, captions,
-/// tags and credentials never enter the history database.
+/// This deliberately contains display fields plus flattened tag search text
+/// only. Full Pixiv JSON, captions, novel bodies and credentials never enter
+/// the history database.
 class HistorySnapshot {
   const HistorySnapshot({
     required this.title,
@@ -28,6 +29,7 @@ class HistorySnapshot {
     this.contentVersion,
     this.anchorParagraphId,
     this.anchorOffset,
+    this.tagsText,
   });
 
   final String title;
@@ -38,6 +40,10 @@ class HistorySnapshot {
   final String? anchorParagraphId;
   final int? anchorOffset;
 
+  /// Newline-delimited original and translated tag names for local search.
+  /// Null on rows recorded before schema v3 or works without tags.
+  final String? tagsText;
+
   HistorySnapshot copyWith({
     String? title,
     String? authorName,
@@ -46,6 +52,7 @@ class HistorySnapshot {
     Object? contentVersion = _unset,
     Object? anchorParagraphId = _unset,
     Object? anchorOffset = _unset,
+    Object? tagsText = _unset,
   }) {
     return HistorySnapshot(
       title: title ?? this.title,
@@ -63,6 +70,9 @@ class HistorySnapshot {
       anchorOffset: identical(anchorOffset, _unset)
           ? this.anchorOffset
           : anchorOffset as int?,
+      tagsText: identical(tagsText, _unset)
+          ? this.tagsText
+          : tagsText as String?,
     );
   }
 
@@ -116,6 +126,7 @@ class HistoryRecord {
       'anchor_offset': snapshot.anchorOffset,
       'visible_duration_ms': visibleDuration.inMilliseconds,
       'snapshot_version': snapshotVersion,
+      'tags_text': snapshot.tagsText,
     };
   }
 
@@ -130,6 +141,10 @@ class HistoryRecord {
     final authorName = row['author_name'];
     if (accountId is! String || title is! String || authorName is! String) {
       throw const FormatException('history row has invalid display metadata');
+    }
+    final rawTagsText = row['tags_text'];
+    if (rawTagsText is! String?) {
+      throw const FormatException('history row has invalid tags text');
     }
     final rawDuration = row['visible_duration_ms'];
     final rawSnapshotVersion = row['snapshot_version'];
@@ -150,6 +165,7 @@ class HistoryRecord {
         contentVersion: row['content_version'] as String?,
         anchorParagraphId: row['anchor_paragraph_id'] as String?,
         anchorOffset: (row['anchor_offset'] as num?)?.toInt(),
+        tagsText: rawTagsText,
       ),
       visibleDuration: Duration(
         milliseconds: rawDuration is num ? rawDuration.toInt() : 0,
@@ -255,4 +271,64 @@ class HistoryAccountChangedException implements Exception {
 
   @override
   String toString() => 'HistoryAccountChangedException($accountId)';
+}
+
+/// Debounce window applied to interactive local history search input before
+/// re-querying SQLite.
+const historySearchDebounce = Duration(milliseconds: 180);
+
+/// Maximum number of distinct whitespace-separated tokens applied in one
+/// local SQLite history search, keeping SQL predicate depth bounded.
+const maxHistorySearchTokens = 12;
+
+final _historyQueryWhitespace = RegExp(r'[\s\u3000]+');
+
+/// Splits [raw] on half- and full-width whitespace, deduplicating tokens
+/// case-insensitively in order and capping at [maxHistorySearchTokens].
+List<String> tokenizeHistoryQuery(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return const [];
+  final tokens = <String>[];
+  final seen = <String>{};
+  for (final piece in trimmed.split(_historyQueryWhitespace)) {
+    if (piece.isEmpty) continue;
+    if (!seen.add(piece.toLowerCase())) continue;
+    tokens.add(piece);
+    if (tokens.length >= maxHistorySearchTokens) break;
+  }
+  return tokens;
+}
+
+/// Canonical query string used in [HistoryFeedQuery] keys so trailing or
+/// repeated whitespace never spawns redundant feed providers.
+String normalizeHistoryQuery(String raw) => tokenizeHistoryQuery(raw).join(' ');
+
+/// Immutable selector for a history feed page stream.
+class HistoryFeedQuery {
+  HistoryFeedQuery({
+    required this.accountId,
+    this.contentType,
+    String query = '',
+  }) : query = normalizeHistoryQuery(query);
+
+  final String accountId;
+  final HistoryContentType? contentType;
+  final String query;
+
+  bool get hasFilter => contentType != null || query.isNotEmpty;
+
+  @override
+  bool operator ==(Object other) =>
+      other is HistoryFeedQuery &&
+      other.accountId == accountId &&
+      other.contentType == contentType &&
+      other.query == query;
+
+  @override
+  int get hashCode => Object.hash(accountId, contentType, query);
+
+  @override
+  String toString() =>
+      'HistoryFeedQuery(accountId: $accountId, '
+      'contentType: $contentType, query: $query)';
 }

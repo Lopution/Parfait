@@ -151,10 +151,19 @@ HistoryRecord historyRecord(
   int id, {
   HistoryContentType? type,
   String accountId = '100',
+  String? title,
+  String? authorName,
+  int? authorId,
+  String? tagsText,
 }) => HistoryRecord(
   accountId: accountId,
   contentType: type ?? HistoryContentType.illust,
   contentId: id,
   lastViewedAt: DateTime.utc(2026, 9, 20, 10),
-  snapshot: HistorySnapshot(title: 'work $id', authorName: 'author $id'),
+  snapshot: HistorySnapshot(
+    title: title ?? 'work $id',
+    authorName: authorName ?? 'author $id',
+    authorId: authorId,
+    tagsText: tagsText,
+  ),
 );

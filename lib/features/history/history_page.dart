@@ -2,53 +2,33 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/gestures.dart' show kPrimaryButton;
-import 'package:flutter/rendering.dart'
-    show BoxHitTestEntry, BoxHitTestResult, HitTestEntry, RenderProxyBox;
 import 'package:flutter/services.dart'
     show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 
-import '../../app/format/app_format.dart';
-import '../../app/layout/deferred_cache_scroll_view.dart';
+import '../../app/haptics/app_haptics.dart';
+import '../../app/icons/app_icons.dart';
+import '../../app/icons/ui_icons.dart';
 import '../../app/layout/input_modality.dart';
+import '../../app/motion/app_overlays.dart';
+import '../../app/motion/removal.dart';
+import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_menu_button.dart';
+import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/desktop_gallery_controls.dart';
-import '../../app/widgets/feed/feed_grid.dart';
-import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/feed/illust_card.dart';
-
-import '../../app/pixiv_image.dart';
-import '../../app/motion/app_overlays.dart';
-import '../../app/motion/press_scale.dart';
-import '../../app/motion/removal.dart';
-import '../../app/navigation/home_shell_metrics.dart';
-import '../../app/pull_to_refresh.dart';
-import '../../app/navigation/route_facade.dart';
 import '../../app/widgets/feed/desktop_inspectable_gallery.dart';
-import '../../app/haptics/app_haptics.dart';
-import '../../app/widgets/app_menu_button.dart';
-import '../../app/widgets/entity_row.dart';
-import '../../app/widgets/selectable_tile.dart';
 import '../../app/widgets/selection_app_bar.dart';
-import '../../core/entity/illust_entity.dart';
-import '../../core/entity/illust_store.dart';
-import '../../core/history/history_models.dart';
-import '../../core/history/history_feed_controller.dart';
-import '../../core/history/history_repository.dart';
-import '../../core/novel/novel_entity.dart';
-import '../../core/novel/novel_store.dart';
-import '../../core/settings/settings_controller.dart';
-import '../../app/widgets/app_snack_bar.dart';
-import '../../l10n/context.dart';
-import '../../app/widgets/smooth_wheel_scroll.dart';
-import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/settings/persist_settings.dart';
-import '../../app/widgets/feed/load_more_listener.dart';
-import '../../app/icons/app_icons.dart';
-import '../../app/icons/ui_icons.dart';
+import '../../core/history/history_feed_controller.dart';
+import '../../core/history/history_models.dart';
+import '../../core/history/history_repository.dart';
+import '../../core/settings/settings_controller.dart';
+import '../../l10n/context.dart';
+import 'history_body.dart';
+import 'history_filter_bar.dart';
 
 /// The three rows of the history page's overflow menu.
 enum _HistoryMenuAction { recordLocal, recordPixiv, deleteAll }
@@ -71,12 +51,21 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   bool _catchingUp = false;
   bool _catchUpAgain = false;
 
-  /// Selection mode is page-local state: nothing outside
-  /// this page consumes it, so it never leaves the widget tree.
+  /// Selection, search and filter states are page-local: nothing outside
+  /// this page consumes them, so they never leave the widget tree.
   bool _managing = false;
   final Set<int> _selected = <int>{};
   int? _lastToggledKey;
   final _removals = RemovalController();
+
+  HistoryContentType? _contentType;
+  bool _searching = false;
+  String _appliedQuery = '';
+  bool _hadAnyContent = false;
+  String? _lastAccountId;
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -99,9 +88,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     unawaited(_changes?.cancel());
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     _removals.dispose();
     super.dispose();
   }
+
+  HistoryFeedQuery _feedQueryFor(String accountId) => HistoryFeedQuery(
+    accountId: accountId,
+    contentType: _contentType,
+    query: _appliedQuery,
+  );
+
+  bool get _hasActiveSearch => _searching || _appliedQuery.isNotEmpty;
 
   /// The page keeps its order while it shows, and under a page it opened:
   /// the image flying back lands on the card it left. Hidden on another
@@ -116,17 +116,17 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         !(_route?.isCurrent ?? false)) {
       return;
     }
-    unawaited(_catchUp(accountId));
+    unawaited(_catchUp(_feedQueryFor(accountId)));
   }
 
-  Future<void> _catchUp(String accountId) async {
+  Future<void> _catchUp(HistoryFeedQuery query) async {
     if (_catchingUp) {
       _catchUpAgain = true;
       return;
     }
     _catchingUp = true;
     try {
-      final provider = historyFeedControllerProvider(accountId);
+      final provider = historyFeedControllerProvider(query);
       do {
         _catchUpAgain = false;
         if (!ref.read(provider).hasValue) return;
@@ -150,16 +150,81 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         !kbd.isAltPressed) {
       final accountId = ref.read(historyAccountIdProvider);
       if (accountId != null) {
-        _selectAll(accountId);
+        _selectAll(_feedQueryFor(accountId));
         return true;
       }
     }
     return false;
   }
 
+  void _openNarrowSearch() {
+    setState(() => _searching = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
+  }
+
+  void _focusWideSearch() {
+    _searchFocusNode.requestFocus();
+  }
+
+  void _onQueryChanged(String value) {
+    _searchDebounce?.cancel();
+    final next = normalizeHistoryQuery(value);
+    if (next == _appliedQuery) return;
+    _searchDebounce = Timer(historySearchDebounce, () {
+      if (!mounted) return;
+      setState(() => _appliedQuery = next);
+    });
+  }
+
+  void _onQuerySubmitted(String value) {
+    _searchDebounce?.cancel();
+    final next = normalizeHistoryQuery(value);
+    if (next == _appliedQuery) return;
+    setState(() => _appliedQuery = next);
+  }
+
+  void _clearQuery() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    if (_appliedQuery.isNotEmpty) {
+      setState(() => _appliedQuery = '');
+    } else {
+      setState(() {});
+    }
+  }
+
+  void _exitSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    setState(() {
+      _searching = false;
+      _appliedQuery = '';
+    });
+  }
+
+  void _clearAllFilters() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    setState(() {
+      _contentType = null;
+      _searching = false;
+      _appliedQuery = '';
+    });
+  }
+
+  void _setContentType(HistoryContentType? value) {
+    if (value == _contentType) return;
+    setState(() => _contentType = value);
+  }
+
   void _enterManaging([int? recordKey]) {
     // Entering management mode is the explicit-vibration role (W4).
     AppHaptics.confirm();
+    _searchFocusNode.unfocus();
     setState(() {
       _managing = true;
       if (recordKey != null) {
@@ -205,15 +270,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
-  bool _hasRecords(String accountId) => ref.watch(
-    historyFeedControllerProvider(
-      accountId,
-    ).select((async) => async.value?.ids.isNotEmpty ?? false),
-  );
-
-  void _selectAll(String accountId) {
+  void _selectAll(HistoryFeedQuery query) {
     AppHaptics.select();
-    final ids = ref.read(historyFeedControllerProvider(accountId)).value?.ids;
+    final ids = ref.read(historyFeedControllerProvider(query)).value?.ids;
     if (ids == null || ids.isEmpty) return;
     setState(() => _selected.addAll(ids));
   }
@@ -221,109 +280,201 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final accountId = ref.watch(historyAccountIdProvider);
+    if (accountId != _lastAccountId) {
+      _lastAccountId = accountId;
+      _hadAnyContent = false;
+    }
     final repository = ref.watch(historyRepositoryProvider);
     final settings = ref.watch(settingsProvider).value;
+    final activeQuery = accountId == null ? null : _feedQueryFor(accountId);
+    final feedAsync = activeQuery == null
+        ? null
+        : ref.watch(historyFeedControllerProvider(activeQuery));
+    final feedValue = feedAsync?.value;
+    final hasVisibleRecords =
+        feedValue != null &&
+        !feedValue.showInitialError &&
+        feedValue.ids.isNotEmpty;
+    if (hasVisibleRecords) {
+      _hadAnyContent = true;
+    } else if (accountId == null) {
+      _hadAnyContent = false;
+    }
+    final canDeleteAll =
+        activeQuery != null &&
+        (hasVisibleRecords || (activeQuery.hasFilter && _hadAnyContent));
+    final isInitialEmptyUnfiltered =
+        activeQuery != null &&
+        !activeQuery.hasFilter &&
+        !_searching &&
+        feedValue != null &&
+        !feedValue.showInitialError &&
+        feedValue.ids.isEmpty;
+    final isInitialErrorUnfiltered =
+        activeQuery != null &&
+        !activeQuery.hasFilter &&
+        !_searching &&
+        ((feedAsync?.hasError ?? false) ||
+            (feedValue?.showInitialError ?? false));
+    final showFilterBar =
+        accountId != null &&
+        !_managing &&
+        !isInitialEmptyUnfiltered &&
+        !isInitialErrorUnfiltered &&
+        (hasVisibleRecords ||
+            _contentType != null ||
+            _hasActiveSearch ||
+            ((feedAsync?.isLoading ?? false) && _hadAnyContent));
+
     return PopScope(
-      // System back exits selection mode instead of popping the page.
-      canPop: !_managing,
+      // System back exits selection mode, then search mode, before popping.
+      canPop: !_managing && !_hasActiveSearch,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _exitManaging();
+        if (didPop) return;
+        if (_managing) {
+          _exitManaging();
+        } else if (_hasActiveSearch) {
+          _exitSearch();
+        }
       },
-      child: Scaffold(
-        appBar: _managing
-            ? selectionAppBar(
-                context,
-                count: _selected.length,
-                onClose: _exitManaging,
-                actions: [
-                  IconButton(
-                    tooltip: context.l10n.selectAll,
-                    onPressed: accountId == null
-                        ? null
-                        : () => _selectAll(accountId),
-                    icon: const Icon(UiIcons.selectAll),
-                  ),
-                  IconButton(
-                    tooltip: context.l10n.historyDelete,
-                    onPressed: _selected.isEmpty || accountId == null
-                        ? null
-                        : () => _deleteSelected(repository, accountId),
-                    icon: const Icon(AppIcons.trash),
-                  ),
-                ],
-              )
-            : AppTopBar(
-                title: Text(context.l10n.historySettings),
-                actions: [
-                  DesktopGalleryControls(
-                    visible: accountId != null && !_managing,
-                  ),
-                  // Spelled out like every list's manage entry: an icon
-                  // alone did not read as "manage".
-                  if (accountId != null)
-                    TextButton(
-                      // Nothing to manage in an empty history (L1).
-                      onPressed: _hasRecords(accountId) ? _enterManaging : null,
-                      child: Text(context.l10n.manage),
-                    ),
-                  // The overflow stays visible signed out: the record
-                  // switches are global settings; only delete-all needs
-                  // an account.
-                  AppMenuButton<_HistoryMenuAction>(
-                    onSelected: (menuContext, action) => _onMenuAction(
-                      menuContext,
-                      action,
-                      repository,
-                      accountId,
-                    ),
-                    entries: [
-                      AppMenuEntry(
-                        value: _HistoryMenuAction.recordLocal,
-                        label: context.l10n.historyRecordLocal,
-                        checked: settings?.enableHistory ?? false,
-                        enabled: settings != null,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= kHistoryWideFilterWidth;
+          final narrowSearching =
+              !isWide &&
+              (_hasActiveSearch || _searchController.text.isNotEmpty);
+          return Scaffold(
+            // Keep history grid geometry stable when the IME opens (LAYOUT-10).
+            resizeToAvoidBottomInset: false,
+            appBar: _managing
+                ? selectionAppBar(
+                    context,
+                    count: _selected.length,
+                    onClose: _exitManaging,
+                    actions: [
+                      IconButton(
+                        tooltip: context.l10n.selectAll,
+                        onPressed: activeQuery == null
+                            ? null
+                            : () => _selectAll(activeQuery),
+                        icon: const Icon(UiIcons.selectAll),
                       ),
-                      AppMenuEntry(
-                        value: _HistoryMenuAction.recordPixiv,
-                        label: context.l10n.historyRecordPixiv,
-                        checked: settings?.enablePixivHistory ?? false,
-                        enabled: settings != null,
+                      IconButton(
+                        tooltip: context.l10n.historyDelete,
+                        onPressed: _selected.isEmpty || activeQuery == null
+                            ? null
+                            : () => _deleteSelected(activeQuery),
+                        icon: const Icon(AppIcons.trash),
                       ),
-                      AppMenuEntry(
-                        value: _HistoryMenuAction.deleteAll,
-                        label: context.l10n.historyDeleteAll,
-                        enabled: accountId != null && _hasRecords(accountId),
+                    ],
+                  )
+                : narrowSearching && accountId != null
+                ? historySearchTopBar(
+                    context,
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    onChanged: _onQueryChanged,
+                    onSubmitted: _onQuerySubmitted,
+                    onClear: _clearQuery,
+                    onExit: _exitSearch,
+                  )
+                : AppTopBar(
+                    title: Text(context.l10n.historySettings),
+                    actions: [
+                      DesktopGalleryControls(
+                        visible: accountId != null && !_managing,
+                      ),
+                      // Spelled out like every list's manage entry: an icon
+                      // alone did not read as "manage".
+                      if (accountId != null)
+                        TextButton(
+                          // Nothing to manage in an empty list (L1).
+                          onPressed: hasVisibleRecords ? _enterManaging : null,
+                          child: Text(context.l10n.manage),
+                        ),
+                      // The overflow stays visible signed out: the record
+                      // switches are global settings; only delete-all needs
+                      // an account with records.
+                      AppMenuButton<_HistoryMenuAction>(
+                        onSelected: (menuContext, action) => _onMenuAction(
+                          menuContext,
+                          action,
+                          repository,
+                          accountId,
+                        ),
+                        entries: [
+                          AppMenuEntry(
+                            value: _HistoryMenuAction.recordLocal,
+                            label: context.l10n.historyRecordLocal,
+                            checked: settings?.enableHistory ?? false,
+                            enabled: settings != null,
+                          ),
+                          AppMenuEntry(
+                            value: _HistoryMenuAction.recordPixiv,
+                            label: context.l10n.historyRecordPixiv,
+                            checked: settings?.enablePixivHistory ?? false,
+                            enabled: settings != null,
+                          ),
+                          AppMenuEntry(
+                            value: _HistoryMenuAction.deleteAll,
+                            label: context.l10n.historyDeleteAll,
+                            enabled: canDeleteAll,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-        body: DesktopInspectableGallery(
-          enabled: !_managing,
-          active: accountId != null,
-          child: accountId == null
-              ? Center(child: Text(context.l10n.signedOut))
-              : RemovalScope(
-                  controller: _removals,
-                  child: _HistoryBody(
-                    key: ValueKey('$accountId-$_bodyGeneration'),
-                    generation: _bodyGeneration,
-                    accountId: accountId,
-                    managing: _managing,
-                    selectedKeys: _selected,
-                    onToggle: _handleItemToggle,
-                    onEnterManaging: _enterManaging,
-                  ),
-                ),
-        ),
+            body: DesktopInspectableGallery(
+              enabled: !_managing,
+              active: accountId != null,
+              child: activeQuery == null
+                  ? Center(child: Text(context.l10n.signedOut))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (showFilterBar)
+                          HistoryFilterBar(
+                            isWide: isWide,
+                            contentType: _contentType,
+                            onContentTypeChanged: _setContentType,
+                            searchController: _searchController,
+                            searchFocusNode: _searchFocusNode,
+                            narrowSearching: narrowSearching,
+                            onOpenNarrowSearch: _openNarrowSearch,
+                            onFocusWideSearch: _focusWideSearch,
+                            onQueryChanged: _onQueryChanged,
+                            onQuerySubmitted: _onQuerySubmitted,
+                            onClearQuery: _clearQuery,
+                          ),
+                        Expanded(
+                          child: RemovalScope(
+                            controller: _removals,
+                            child: HistoryBody(
+                              key: ValueKey(
+                                '${activeQuery.accountId}-'
+                                '${activeQuery.contentType?.storageValue ?? 'all'}-'
+                                '${activeQuery.query}-$_bodyGeneration',
+                              ),
+                              generation: _bodyGeneration,
+                              feedQuery: activeQuery,
+                              managing: _managing,
+                              selectedKeys: _selected,
+                              onToggle: _handleItemToggle,
+                              onEnterManaging: _enterManaging,
+                              onClearFilter: _clearAllFilters,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Future<void> _deleteSelected(
-    HistoryRepository repository,
-    String accountId,
-  ) async {
+  Future<void> _deleteSelected(HistoryFeedQuery activeQuery) async {
     // Opening the destructive confirm surface is the explicit-vibration
     // role; the row-level toggles stay on the light tick.
     AppHaptics.confirm();
@@ -334,7 +485,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     if (confirmed != true || !mounted) return;
     final keys = List<int>.of(_selected);
     final controller = ref.read(
-      historyFeedControllerProvider(accountId).notifier,
+      historyFeedControllerProvider(activeQuery).notifier,
     );
     // The tiles leave first; the delete then drops them from the feed.
     await _removals.playExit(keys);
@@ -400,6 +551,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     String accountId,
   ) async {
     final container = ProviderScope.containerOf(context, listen: false);
+    final activeQuery = _feedQueryFor(accountId);
     final confirmed = await _confirmDelete(
       context,
       title: context.l10n.historyDeleteAll,
@@ -407,12 +559,24 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     if (confirmed != true || !context.mounted) return;
     try {
       await repository.clear(accountId);
-      container.invalidate(historyFeedControllerProvider(accountId));
+      container.invalidate(historyFeedControllerProvider(activeQuery));
+      if (activeQuery.hasFilter) {
+        container.invalidate(
+          historyFeedControllerProvider(HistoryFeedQuery(accountId: accountId)),
+        );
+      }
       if (context.mounted) {
+        _searchDebounce?.cancel();
+        _searchController.clear();
+        _searchFocusNode.unfocus();
         setState(() {
           _managing = false;
           _selected.clear();
           _lastToggledKey = null;
+          _contentType = null;
+          _searching = false;
+          _appliedQuery = '';
+          _hadAnyContent = false;
           _bodyGeneration++;
         });
         showAppSnackBar(context, context.l10n.historyDeleteAll);
@@ -426,522 +590,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         );
       }
     }
-  }
-}
-
-class _HistoryBody extends ConsumerWidget {
-  const _HistoryBody({
-    super.key,
-    required this.generation,
-    required this.accountId,
-    required this.managing,
-    required this.selectedKeys,
-    required this.onToggle,
-    required this.onEnterManaging,
-  });
-
-  /// Selection state is owned by the page — the AppBar renders the count
-  /// and reads the feed's ids for select-all; the body only reports taps.
-  final String accountId;
-
-  /// The page's body generation; keys the scroll position.
-  final int generation;
-  final bool managing;
-  final Set<int> selectedKeys;
-  final void Function(int recordKey, List<int> orderedKeys) onToggle;
-  final ValueChanged<int> onEnterManaging;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final feed = ref.watch(historyFeedControllerProvider(accountId));
-    Widget failed(Object? error) => FeedError(
-      title: context.l10n.historyLoadFailed,
-      error: error,
-      retryLabel: context.l10n.retry,
-      onRetry: () => ref
-          .read(historyFeedControllerProvider(accountId).notifier)
-          .retryInitial(),
-    );
-    return feed.when(
-      loading: () => const FeedLoading(),
-      error: (error, _) => failed(error),
-      data: (state) {
-        // A failed first read arrives as data with an error phase.
-        if (state.showInitialError) return failed(state.initialError);
-        if (state.ids.isEmpty) {
-          // With local recording off nothing will show up here: say so and
-          // offer the switch instead.
-          final l10n = context.l10n;
-          final recording =
-              ref.watch(settingsProvider).value?.enableHistory ?? true;
-          return FeedEmpty(
-            icon: AppIcons.history,
-            title: l10n.historyEmpty,
-            detail: recording
-                ? null
-                : l10n.historyEmptyRecordingOff(l10n.historyRecordLocal),
-            actionLabel: recording ? null : l10n.historyTurnOnRecording,
-            actionIcon: AppIcons.history,
-            onAction: recording
-                ? null
-                : () => unawaited(
-                    persistSettings(
-                      context,
-                      () => ref
-                          .read(settingsProvider.notifier)
-                          .setHistoryEnabled(true),
-                    ),
-                  ),
-          );
-        }
-        final entries = [
-          for (final key in state.ids)
-            if (_controllerRecord(ref, key) != null)
-              (key: key, record: _controllerRecord(ref, key)!),
-        ];
-        final orderedKeys = [for (final entry in entries) entry.key];
-
-        return PullToRefresh(
-          onRefresh: () => ref
-              .read(historyFeedControllerProvider(accountId).notifier)
-              .refresh(),
-          child: LoadMoreListener(
-            itemCount: state.ids.length,
-            onLoadMore: () => ref
-                .read(historyFeedControllerProvider(accountId).notifier)
-                .loadMore(),
-            child: SmoothWheelScroll(
-              builder: (context, controller, physics) =>
-                  DeferredCacheScrollView(
-                    // A new generation starts at the top, not at the
-                    // offset kept for the list it replaced.
-                    key: PageStorageKey('history-$accountId-$generation'),
-                    controller: controller,
-                    physics: physics,
-                    scrollCacheExtent: kFeedCacheExtent,
-                    restorationId: 'history-$accountId',
-                    slivers: [
-                      IllustFeedGrid(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: FuncSpacing.lg - FuncSpacing.xxs,
-                          vertical: FuncSpacing.sm,
-                        ),
-                        mainAxisSpacing: IllustFeedGrid.defaultMainAxisSpacing,
-                        itemCount: entries.length,
-                        warmTexts: (context, index) {
-                          final record = entries[index].record;
-                          final entity =
-                              record.contentType == HistoryContentType.illust
-                              ? ref
-                                    .read(illustStoreProvider)
-                                    .get(record.contentId)
-                              : null;
-                          return entity == null
-                              ? const []
-                              : IllustCard.warmTexts(context, entity);
-                        },
-                        itemBuilder: (context, index) => Removable(
-                          id: entries[index].key,
-                          style: RemovalStyle.tile,
-                          child: _HistoryEntry(
-                            record: entries[index].record,
-                            recordKey: entries[index].key,
-                            managing: managing,
-                            selected: selectedKeys.contains(entries[index].key),
-                            onToggle: (key) => onToggle(key, orderedKeys),
-                            onEnterManaging: onEnterManaging,
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: FeedTail(
-                          feed: state,
-                          errorTitle: context.l10n.historyLoadFailed,
-                          retryLabel: context.l10n.retry,
-                          onRetry: () => ref
-                              .read(
-                                historyFeedControllerProvider(
-                                  accountId,
-                                ).notifier,
-                              )
-                              .retryLoadMore(),
-                        ),
-                      ),
-                    ],
-                  ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  HistoryRecord? _controllerRecord(WidgetRef ref, int key) => ref
-      .read(historyFeedControllerProvider(accountId).notifier)
-      .recordFor(key);
-}
-
-class _HistoryEntry extends ConsumerWidget {
-  const _HistoryEntry({
-    required this.record,
-    required this.recordKey,
-    required this.managing,
-    required this.selected,
-    required this.onToggle,
-    required this.onEnterManaging,
-  });
-
-  final HistoryRecord record;
-
-  /// The encoded feed key (content type in the high bits) — selection
-  /// tracks records by it, so an illust and a novel sharing a numeric id
-  /// never collide.
-  final int recordKey;
-  final bool managing;
-  final bool selected;
-  final ValueChanged<int> onToggle;
-  final ValueChanged<int> onEnterManaging;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Known-illust cells render the shared IllustCard; its own long-press
-    // would open the card action sheet, but in history the gesture is the
-    // selection-mode entry/toggle, so the page
-    // supplies the callback.
-    final longPress = managing
-        ? () => onToggle(recordKey)
-        : () => onEnterManaging(recordKey);
-    final child = switch (record.contentType) {
-      HistoryContentType.illust => _IllustHistoryEntry(
-        record: record,
-        entity: ref.watch(illustStoreProvider).get(record.contentId),
-        onLongPress: longPress,
-      ),
-      HistoryContentType.novel => _NovelHistoryEntry(
-        record: record,
-        entity: ref.watch(
-          novelStoreProvider.select((store) => store[record.contentId]),
-        ),
-      ),
-    };
-    return _CtrlClickInterceptor(
-      shouldIntercept: () {
-        if (managing) return false;
-        final modality =
-            InputModalityScope.maybeOf(context) ??
-            defaultInputModalityFor(Theme.of(context).platform);
-        if (modality != InputModality.pointer) return false;
-        final kbd = HardwareKeyboard.instance;
-        return kbd.isControlPressed || kbd.isMetaPressed;
-      },
-      onTap: () => onEnterManaging(recordKey),
-      child: SelectableTile(
-        managing: managing,
-        selected: selected,
-        onToggle: () => onToggle(recordKey),
-        onLongPress: longPress,
-        child: child,
-      ),
-    );
-  }
-}
-
-/// Intercepts Ctrl/Cmd+Click in pointer mode before the child work card can
-/// claim the tap and push a detail route, turning the click into selection
-/// mode entry instead.
-class _CtrlClickInterceptor extends SingleChildRenderObjectWidget {
-  const _CtrlClickInterceptor({
-    required this.shouldIntercept,
-    required this.onTap,
-    required super.child,
-  });
-
-  final bool Function() shouldIntercept;
-  final VoidCallback onTap;
-
-  @override
-  _RenderCtrlClickInterceptor createRenderObject(BuildContext context) =>
-      _RenderCtrlClickInterceptor(
-        shouldIntercept: shouldIntercept,
-        onTap: onTap,
-      );
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    _RenderCtrlClickInterceptor renderObject,
-  ) {
-    renderObject
-      ..shouldIntercept = shouldIntercept
-      ..onTap = onTap;
-  }
-}
-
-class _RenderCtrlClickInterceptor extends RenderProxyBox {
-  _RenderCtrlClickInterceptor({
-    required this.shouldIntercept,
-    required this.onTap,
-  });
-
-  bool Function() shouldIntercept;
-  VoidCallback onTap;
-  int? _activePointer;
-  Offset? _downPosition;
-
-  @override
-  bool hitTest(BoxHitTestResult result, {required Offset position}) {
-    if (!size.contains(position)) return false;
-    if (shouldIntercept()) {
-      result.add(BoxHitTestEntry(this, position));
-      return true;
-    }
-    return super.hitTest(result, position: position);
-  }
-
-  @override
-  void handleEvent(PointerEvent event, HitTestEntry entry) {
-    if (event is PointerDownEvent &&
-        (event.buttons & kPrimaryButton) != 0 &&
-        shouldIntercept()) {
-      _activePointer = event.pointer;
-      _downPosition = event.position;
-    } else if (event is PointerUpEvent && event.pointer == _activePointer) {
-      final down = _downPosition;
-      _activePointer = null;
-      _downPosition = null;
-      if (down != null && (event.position - down).distance <= 18.0) {
-        onTap();
-      }
-    } else if (event is PointerCancelEvent && event.pointer == _activePointer) {
-      _activePointer = null;
-      _downPosition = null;
-    }
-  }
-}
-
-/// The history page's own Hero scope (TRANS-07): a work seen lately is
-/// often on a feed still mounted in another branch.
-const _heroScope = 'history';
-
-class _IllustHistoryEntry extends StatelessWidget {
-  const _IllustHistoryEntry({
-    required this.record,
-    required this.entity,
-    required this.onLongPress,
-  });
-
-  final HistoryRecord record;
-  final IllustEntity? entity;
-  final VoidCallback onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    final entity = this.entity;
-    if (entity != null) {
-      // Shared object contract: the card consumes FeedItemExtent for its
-      // preview height and carries the visit date in the meta slot.
-      return IllustCard(
-        entity: entity,
-        heroScope: _heroScope,
-        meta: EntityMetaText(AppFormat.relative(context, record.lastViewedAt)),
-        onLongPress: onLongPress,
-      );
-    }
-    return _HistoryCardFrame(
-      lastViewedAt: record.lastViewedAt,
-      child: InkWell(
-        onTap: () =>
-            openIllust(context, record.contentId, heroScope: _heroScope),
-        child: _SnapshotEntry(record: record, icon: AppIcons.illust),
-      ),
-    );
-  }
-}
-
-class _NovelHistoryEntry extends StatelessWidget {
-  const _NovelHistoryEntry({required this.record, required this.entity});
-
-  final HistoryRecord record;
-  final NovelEntity? entity;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final title = entity?.title ?? record.snapshot.title;
-    final author = entity?.user.name ?? record.snapshot.authorName;
-    final coverUrl = entity?.coverImageUrl ?? record.snapshot.coverUrl;
-    void open() => openNovel(context, record.contentId);
-    return _HistoryCardFrame(
-      lastViewedAt: record.lastViewedAt,
-      // The square cell follows the object contract: PressScale feedback,
-      // an explicit Semantics label, rounded cover and a type badge so
-      // novels stay distinguishable in the mixed history grid.
-      child: PressScale(
-        child: Semantics(
-          container: true,
-          button: true,
-          image: true,
-          label: '$title, $author',
-          onTap: open,
-          child: GestureDetector(
-            excludeFromSemantics: true,
-            onTap: open,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 1,
-                      child: ClipRRect(
-                        borderRadius: FuncShape.card,
-                        child: coverUrl == null
-                            ? ColoredBox(
-                                color: colorScheme.surfaceContainer,
-                                child: const Icon(
-                                  AppIcons.localNovel,
-                                  size: 42,
-                                ),
-                              )
-                            : LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    PixivImage.feed(
-                                      coverUrl,
-                                      layoutWidth: constraints.maxWidth,
-                                    ),
-                              ),
-                      ),
-                    ),
-                    const Positioned(
-                      left: 7,
-                      top: 7,
-                      child: EntityBadge(icon: AppIcons.localNovel),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: _titlePadding,
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                Padding(
-                  padding: _linePadding,
-                  child: Text(
-                    author,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A history cell's title, under the cover.
-const _titlePadding = EdgeInsets.fromLTRB(
-  IllustCard.textIndent,
-  FuncSpacing.sm,
-  IllustCard.textIndent,
-  0,
-);
-
-/// A history cell's author and date lines.
-const _linePadding = EdgeInsets.symmetric(horizontal: IllustCard.textIndent);
-
-/// A cell drawn here (a novel, a work not in the store) laid out like the
-/// shared [IllustCard] beside it: flat, the text on the card's indent.
-class _HistoryCardFrame extends StatelessWidget {
-  const _HistoryCardFrame({required this.lastViewedAt, required this.child});
-
-  final DateTime lastViewedAt;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        child,
-        Padding(
-          padding: _linePadding,
-          child: EntityMetaText(AppFormat.relative(context, lastViewedAt)),
-        ),
-      ],
-    );
-  }
-}
-
-class _SnapshotEntry extends StatelessWidget {
-  const _SnapshotEntry({required this.record, required this.icon});
-
-  final HistoryRecord record;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SnapshotCover(record: record, icon: icon),
-        Padding(
-          padding: _titlePadding,
-          child: Text(
-            record.snapshot.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
-        Padding(
-          padding: _linePadding,
-          child: Text(
-            record.snapshot.authorName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SnapshotCover extends StatelessWidget {
-  const _SnapshotCover({required this.record, required this.icon});
-
-  final HistoryRecord record;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: ClipRRect(
-        borderRadius: FuncShape.card,
-        child: record.snapshot.coverUrl == null
-            ? ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainer,
-                child: Icon(icon, size: 42),
-              )
-            : LayoutBuilder(
-                builder: (context, constraints) => PixivImage.feed(
-                  record.snapshot.coverUrl!,
-                  layoutWidth: constraints.maxWidth.isFinite
-                      ? constraints.maxWidth
-                      : HomeShellChrome.contentSizeOf(context).width / 2,
-                ),
-              ),
-      ),
-    );
   }
 }
 

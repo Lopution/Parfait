@@ -236,6 +236,22 @@
   "historyDelete": "删除历史记录",
   "historyDeleteAll": "删除全部历史记录",
   "historyDeleteHint": "删除后将不可恢复",
+  "historySearchHint": "搜索标题、画师、标签或 ID",
+  "@historySearchHint": {
+    "description": "Placeholder text for the history search field."
+  },
+  "historyFilterAll": "全部",
+  "@historyFilterAll": {
+    "description": "Content-type filter option showing both illustrations and novels in history."
+  },
+  "historyFilterEmpty": "没有匹配的历史记录",
+  "@historyFilterEmpty": {
+    "description": "Empty state title when history search or content-type filter matches nothing."
+  },
+  "historyClearFilter": "清除筛选",
+  "@historyClearFilter": {
+    "description": "Button that resets the history search query and content-type filter."
+  },
   "downloaderSettings": "下载任务",
   "aboutSettings": "关于",
   "signedOut": "未登录",
