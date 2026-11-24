@@ -27,10 +27,10 @@ reviewed: 2026-11-21
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/forui_theme_bridge.dart`, `lib/l10n/app_localizations_delegates.dart`, `lib/app/app.dart`
 
 ### THEME-02 No bundled font
-- **Rule:** Text uses the platform font and engine fallback chain; `fontFamilyFallback` exists only in the layout test harness.
-- **Why:** Preserves the user's ROM font.
-- **Check:** `test/architecture/l10n_and_errors_test.dart` "no bundled Montserrat: text uses the platform font"
-- **Code:** `lib/app/theme/replica_theme.dart`
+- **Rule:** Never bundle CJK or Latin UI font assets. Android, iOS, and macOS leave `fontFamilyFallback` null to preserve the user's ROM / PingFang / SF Pro platform typography and engine fallback chain; Windows and Linux resolve a locale-aware system CJK fallback chain via `platformFontFamilyFallback` (overridable by the layout test harness). `replicaTheme` copies overridden text roles from `baseTextTheme` to retain platform family/metrics, and `foruiThemeFrom` never falls back to CSS `'system-ui'`.
+- **Why:** Preserves mobile ROM fonts and APK size caps while preventing Windows `SimSun` fallback and Linux JP/bitmap CJK mismatches.
+- **Check:** `test/architecture/l10n_and_errors_test.dart` "no bundled Montserrat: text uses the platform font"; `test/replica_theme_test.dart` "platformFontFamilyFallback resolves Windows and Linux locale chains without touching mobile or macOS"
+- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/forui_theme_bridge.dart`, `lib/app/app.dart`
 
 ### THEME-03 Component text styles derive from the resolved text theme
 - **Rule:** AppBar, SnackBar, chip, dialog, and rail text styles derive from `theme.textTheme` in `replicaTheme`'s trailing `copyWith`, never as raw `TextStyle` literals inside `ThemeData(...)`.

@@ -90,31 +90,41 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
   final _promptHostKey = GlobalKey<PromptHostState>();
   bool _warmedUp = false;
   ColorScheme? _cachedLightSystemColors;
+  Locale? _cachedLightLocale;
   ThemeData? _cachedLightTheme;
   ColorScheme? _cachedDarkSystemColors;
+  Locale? _cachedDarkLocale;
   ThemeData? _cachedDarkTheme;
 
-  ThemeData _lightThemeFor(ColorScheme? systemColors) {
+  ThemeData _lightThemeFor(ColorScheme? systemColors, Locale locale) {
     final cached = _cachedLightTheme;
-    if (cached != null && _cachedLightSystemColors == systemColors) {
+    if (cached != null &&
+        _cachedLightSystemColors == systemColors &&
+        _cachedLightLocale == locale) {
       return cached;
     }
     _cachedLightSystemColors = systemColors;
+    _cachedLightLocale = locale;
     return _cachedLightTheme = replicaTheme(
       Brightness.light,
       systemColors: systemColors,
+      locale: locale,
     );
   }
 
-  ThemeData _darkThemeFor(ColorScheme? systemColors) {
+  ThemeData _darkThemeFor(ColorScheme? systemColors, Locale locale) {
     final cached = _cachedDarkTheme;
-    if (cached != null && _cachedDarkSystemColors == systemColors) {
+    if (cached != null &&
+        _cachedDarkSystemColors == systemColors &&
+        _cachedDarkLocale == locale) {
       return cached;
     }
     _cachedDarkSystemColors = systemColors;
+    _cachedDarkLocale = locale;
     return _cachedDarkTheme = replicaTheme(
       Brightness.dark,
       systemColors: systemColors,
+      locale: locale,
     );
   }
 
@@ -336,8 +346,8 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
         Locale('ru', 'RU'),
       ],
       localizationsDelegates: appLocalizationsDelegates,
-      theme: _lightThemeFor(systemColors?.light),
-      darkTheme: _darkThemeFor(systemColors?.dark),
+      theme: _lightThemeFor(systemColors?.light, settings.locale),
+      darkTheme: _darkThemeFor(systemColors?.dark, settings.locale),
       themeMode: themeMode,
       restorationScopeId: 'parfait',
       routerConfig: _router,

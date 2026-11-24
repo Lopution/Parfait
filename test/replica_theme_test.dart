@@ -391,6 +391,8 @@ void main() {
           expect(fTheme.hapticFeedback, const FHapticFeedback.none());
 
           final expectedFamily = material.textTheme.bodyMedium?.fontFamily;
+          expect(fTheme.typography.body.fontFamily, isNot('system-ui'));
+          expect(fTheme.typography.display.fontFamily, isNot('system-ui'));
           for (final face in [
             fTheme.typography.display,
             fTheme.typography.body,
@@ -416,6 +418,103 @@ void main() {
             }
           }
         }
+      },
+    );
+
+    test(
+      'platformFontFamilyFallback resolves Windows and Linux locale chains without touching mobile or macOS',
+      () {
+        for (final platform in [
+          TargetPlatform.android,
+          TargetPlatform.iOS,
+          TargetPlatform.macOS,
+        ]) {
+          for (final locale in const [
+            Locale('zh', 'CN'),
+            Locale('ja', 'JP'),
+            Locale('en', 'US'),
+            null,
+          ]) {
+            expect(
+              platformFontFamilyFallback(platform, locale: locale),
+              isNull,
+            );
+          }
+        }
+
+        final winZh = platformFontFamilyFallback(
+          TargetPlatform.windows,
+          locale: const Locale('zh', 'CN'),
+        )!;
+        expect(winZh, isNot(contains('SimSun')));
+        expect(
+          winZh.indexOf('Microsoft YaHei UI'),
+          lessThan(winZh.indexOf('Yu Gothic UI')),
+        );
+
+        final winJa = platformFontFamilyFallback(
+          TargetPlatform.windows,
+          locale: const Locale('ja', 'JP'),
+        )!;
+        expect(
+          winJa.indexOf('Yu Gothic UI'),
+          lessThan(winJa.indexOf('Microsoft YaHei UI')),
+        );
+
+        final linuxZh = platformFontFamilyFallback(
+          TargetPlatform.linux,
+          locale: const Locale('zh', 'CN'),
+        )!;
+        expect(
+          linuxZh.indexOf('Noto Sans CJK SC'),
+          lessThan(linuxZh.indexOf('Noto Sans CJK JP')),
+        );
+
+        final linuxJa = platformFontFamilyFallback(
+          TargetPlatform.linux,
+          locale: const Locale('ja', 'JP'),
+        )!;
+        expect(
+          linuxJa.indexOf('Noto Sans CJK JP'),
+          lessThan(linuxJa.indexOf('Noto Sans CJK SC')),
+        );
+
+        final winTheme = replicaTheme(
+          Brightness.light,
+          platform: TargetPlatform.windows,
+          locale: const Locale('zh', 'CN'),
+        );
+        final tokens = winTheme.extension<FuncSemanticTokens>()!;
+        expect(winTheme.textTheme.bodyMedium?.fontFamily, 'Segoe UI');
+        expect(winTheme.textTheme.bodyMedium?.fontFamilyFallback, winZh);
+        expect(tokens.body.fontFamily, 'Segoe UI');
+        expect(tokens.body.fontFamilyFallback, winZh);
+        expect(tokens.title.fontFamily, 'Segoe UI');
+
+        final winForui = foruiThemeFrom(winTheme, touch: false);
+        expect(winForui.typography.body.fontFamily, 'Segoe UI');
+        expect(winForui.typography.body.fontFamilyFallback, winZh);
+        expect(winForui.typography.body.sm.fontFamilyFallback, winZh);
+
+        // Explicit fallback override (e.g. layout test harness) always wins.
+        const custom = ['TestFallback'];
+        final overridden = replicaTheme(
+          Brightness.light,
+          platform: TargetPlatform.linux,
+          locale: const Locale('zh', 'CN'),
+          fontFamilyFallback: custom,
+        );
+        expect(overridden.textTheme.bodyMedium?.fontFamilyFallback, custom);
+
+        // Even a ThemeData with a null bodyMedium fontFamily never emits CSS
+        // 'system-ui' through the Forui bridge.
+        final bareTheme = ThemeData(
+          platform: TargetPlatform.linux,
+          textTheme: const TextTheme(bodyMedium: TextStyle(fontSize: 14)),
+        );
+        final bareForui = foruiThemeFrom(bareTheme, touch: false);
+        expect(bareForui.typography.body.fontFamily, isNot('system-ui'));
+        expect(bareForui.typography.body.fontFamily, isNotEmpty);
       },
     );
 

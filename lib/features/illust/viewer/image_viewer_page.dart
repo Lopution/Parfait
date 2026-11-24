@@ -669,9 +669,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       setState(() => _infoPanelOpen = !_infoPanelOpen);
       return;
     }
-    final darkTheme = Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context)
-        : replicaTheme(Brightness.dark);
+    final darkTheme = darkReplicaThemeOf(context);
     unawaited(
       showAppAdaptiveSideSheet<void>(
         context: context,
@@ -845,7 +843,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   static Widget _onStage(BuildContext context, Widget child) =>
       Theme.of(context).brightness == Brightness.dark
       ? child
-      : Theme(data: replicaTheme(Brightness.dark), child: child);
+      : Theme(data: darkReplicaThemeOf(context), child: child);
 
   @override
   Widget build(BuildContext context) {
