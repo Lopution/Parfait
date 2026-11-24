@@ -17,14 +17,38 @@ import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
+import 'package:parfait/core/navigation/route_observer.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
+import 'package:parfait/features/novel/novel_layout.dart';
+import 'package:parfait/features/novel/novel_reader_stage.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/test_preferences.dart';
+
+List<String> _recordSystemUiModes() {
+  final modes = <String>[];
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+      modes.add(call.arguments as String);
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
+  return modes;
+}
 
 /// Mounts the root system-bar default exactly like app.dart's builder: the
 /// outermost widget inside the theme, reading the resolved brightness.
@@ -200,18 +224,7 @@ void main() {
   ) async {
     debugResetViewerSession();
     addTearDown(debugResetViewerSession);
-    final modes = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-        modes.add(call.arguments as String);
-      }
-      return null;
-    });
-    addTearDown(
-      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
-    );
+    final modes = _recordSystemUiModes();
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
@@ -247,18 +260,7 @@ void main() {
   });
 
   testWidgets('startup enters edgeToEdge once (D2)', (tester) async {
-    final modes = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-        modes.add(call.arguments as String);
-      }
-      return null;
-    });
-    addTearDown(
-      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
-    );
+    final modes = _recordSystemUiModes();
     await _pumpApp(
       tester,
       AppSettings.defaults().copyWith(guideCompleted: true),
@@ -270,6 +272,92 @@ void main() {
       reason: 'edge-to-edge is an app-start contract, not a per-page side',
     );
   });
+
+  testWidgets(
+    'novel reader restores edgeToEdge when covered and re-enters immersiveSticky on pop',
+    (tester) async {
+      debugResetViewerSession();
+      addTearDown(debugResetViewerSession);
+      installPreferencesForTest(memoryPreferences());
+      final modes = _recordSystemUiModes();
+
+      final observer = ExitAwareRouteObserver();
+      final nav = GlobalKey<NavigatorState>();
+      final novel = NovelEntity(
+        id: 77,
+        title: 'Immersive novel',
+        caption: '',
+        user: const UserEntity(id: 1, name: 'a', account: 'a'),
+        tags: const [],
+        textLength: 40,
+        contentVersion: 'v1',
+        paragraphs: NovelContentMapper.fromText('body line'),
+        contentAvailable: true,
+      );
+      await tester.pumpWidget(
+        withStalledImages(
+          ProviderScope(
+            child: RouteObserverScope(
+              observer: observer,
+              child: MaterialApp(
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                navigatorKey: nav,
+                navigatorObservers: [observer],
+                home: Scaffold(
+                  body: NovelReaderStage(
+                    spec: NovelReaderStageSpec(
+                      novel: novel,
+                      infoTooltip: 'info',
+                      infoSheet: (_) => const SizedBox.shrink(),
+                      progress: const _NoopReaderProgressBinding(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(modes.last, 'SystemUiMode.immersiveSticky');
+
+      nav.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => const Scaffold()),
+      );
+      await tester.pumpAndSettle();
+      expect(modes.last, 'SystemUiMode.edgeToEdge');
+
+      nav.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(modes.last, 'SystemUiMode.immersiveSticky');
+
+      nav.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const ImageViewerPage(
+            urls: ['https://i.pximg.net/1/original.jpg'],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(PageView));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      nav.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(modes.last, 'SystemUiMode.immersiveSticky');
+    },
+  );
+}
+
+class _NoopReaderProgressBinding implements ReaderProgressBinding {
+  const _NoopReaderProgressBinding();
+
+  @override
+  Future<NovelAnchor?> load() async => null;
+
+  @override
+  Future<void> save(NovelAnchor anchor) async {}
 }
 
 /// Pumps the whole app signed in with [settings] and lets startup settle,
