@@ -12,6 +12,12 @@ class AppDelegate: FlutterAppDelegate {
     return true
   }
 
+  override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    return MacosDesktopWindowBridge.shared.requestApplicationTermination {
+      sender.reply(toApplicationShouldTerminate: true)
+    }
+  }
+
   override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
     return true
   }

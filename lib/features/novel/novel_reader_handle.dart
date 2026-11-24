@@ -210,6 +210,27 @@ class NovelReaderHandle {
   int Function()? currentPage;
   int Function()? pageCount;
 
+  /// Furthest visible page index for display progress (0..pageCount - 1),
+  /// chapter highlight, and progress sheet slider: tracks the right leaf in
+  /// two-page spreads and reaches `pageCount - 1` when scroll mode reaches
+  /// `maxScrollExtent`, while [currentPage] keeps the restore anchor page.
+  int Function()? displayPage;
+
+  /// Anchor representing the reader's visible place for Pixiv bookmarking:
+  /// document end when scrolled to bottom, right visible leaf in spreads,
+  /// otherwise the top-of-viewport / current-page start anchor.
+  NovelAnchor? Function()? displayAnchor;
+
+  /// Top-of-viewport anchor in scroll mode (or current page start in page
+  /// mode), used by bilingual mode to skip scrolled-past paragraphs.
+  NovelAnchor? Function()? viewportAnchor;
+
+  /// Whether the reader is currently laid out as a two-page paginated spread.
+  bool Function()? isSpread;
+
+  /// Whether the reader is currently in vertical scroll mode.
+  bool Function()? isScrollMode;
+
   /// Turn to [page] (clamped), or in scroll mode scroll its first line to
   /// the top. `animate: false` lands on the target in the same frame — far
   /// jumps from the progress sheet skip the animation entirely.

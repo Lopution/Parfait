@@ -706,7 +706,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                           decoration: BoxDecoration(
                             color: darkTheme.colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: FuncShape.pill,
                           ),
                         ),
                       ),

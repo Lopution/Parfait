@@ -203,10 +203,14 @@ struct _MyApplication {
   gboolean initial_intent_consumed;
   gboolean intent_listening;
   GPtrArray* pending_live_uris;
+  gboolean file_drop_listening;
+  gboolean file_drop_active;
 
   FlMethodChannel* desktop_window_channel;
   FlMethodChannel* tray_channel;
   FlMethodChannel* image_clipboard_channel;
+  FlMethodChannel* desktop_file_actions_channel;
+  FlEventChannel* file_drop_event_channel;
   FlMethodChannel* intent_channel;
   FlEventChannel* intent_event_channel;
 
@@ -535,12 +539,247 @@ static bool CopyEncodedImageToGtkClipboard(const uint8_t* data, size_t len) {
   return true;
 }
 
+static constexpr gsize kMaxClipboardImageBytes = 32 * 1024 * 1024;
+
+static FlValue* ReadEncodedImageFromGtkClipboard() {
+  GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+  if (clipboard == nullptr) {
+    return nullptr;
+  }
+  g_autoptr(GdkPixbuf) pixbuf = gtk_clipboard_wait_for_image(clipboard);
+  if (pixbuf == nullptr) {
+    return nullptr;
+  }
+  gchar* buffer = nullptr;
+  gsize buffer_size = 0;
+  g_autoptr(GError) error = nullptr;
+  if (!gdk_pixbuf_save_to_buffer(pixbuf, &buffer, &buffer_size, "png", &error,
+                                 nullptr)) {
+    return nullptr;
+  }
+  FlValue* value = nullptr;
+  if (buffer != nullptr && buffer_size > 0 &&
+      buffer_size <= kMaxClipboardImageBytes) {
+    value = fl_value_new_uint8_list(reinterpret_cast<const uint8_t*>(buffer),
+                                    buffer_size);
+  }
+  g_free(buffer);
+  return value;
+}
+
+static const gchar* OpenLocalFileOnLinux(const gchar* path) {
+  if (path == nullptr || path[0] == '\0') {
+    return "failed";
+  }
+  if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+    return "notFound";
+  }
+  g_autoptr(GError) error = nullptr;
+  g_autofree gchar* uri = g_filename_to_uri(path, nullptr, &error);
+  if (uri == nullptr) {
+    return "failed";
+  }
+  if (g_app_info_launch_default_for_uri(uri, nullptr, &error)) {
+    return "opened";
+  }
+  return "failed";
+}
+
+static const gchar* ShowLocalFileInFolderOnLinux(const gchar* path) {
+  if (path == nullptr || path[0] == '\0') {
+    return "failed";
+  }
+  if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+    return "notFound";
+  }
+  g_autoptr(GError) uri_error = nullptr;
+  g_autofree gchar* file_uri = g_filename_to_uri(path, nullptr, &uri_error);
+  if (file_uri != nullptr) {
+    g_autoptr(GError) bus_error = nullptr;
+    g_autoptr(GDBusConnection) bus =
+        g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &bus_error);
+    if (bus != nullptr) {
+      const gchar* uris[2] = {file_uri, nullptr};
+      g_autoptr(GError) call_error = nullptr;
+      g_autoptr(GVariant) reply = g_dbus_connection_call_sync(
+          bus, "org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
+          "org.freedesktop.FileManager1", "ShowItems",
+          g_variant_new("(^ass)", uris, ""), nullptr, G_DBUS_CALL_FLAGS_NONE,
+          1500, nullptr, &call_error);
+      if (reply != nullptr) {
+        return "opened";
+      }
+    }
+  }
+  g_autofree gchar* dir = g_path_get_dirname(path);
+  if (dir == nullptr || dir[0] == '\0') {
+    return "failed";
+  }
+  g_autoptr(GError) dir_error = nullptr;
+  g_autofree gchar* dir_uri = g_filename_to_uri(dir, nullptr, &dir_error);
+  if (dir_uri == nullptr) {
+    return "failed";
+  }
+  if (g_app_info_launch_default_for_uri(dir_uri, nullptr, &dir_error)) {
+    return "opened";
+  }
+  return "failed";
+}
+
+static void desktop_file_actions_method_cb(FlMethodChannel* channel,
+                                           FlMethodCall* method_call,
+                                           gpointer user_data) {
+  (void)channel;
+  (void)user_data;
+  const gchar* method = fl_method_call_get_name(method_call);
+  const gchar* path = ReadMapString(fl_method_call_get_args(method_call), "path");
+  if (g_strcmp0(method, "openFile") == 0) {
+    g_autoptr(FlValue) result = fl_value_new_string(OpenLocalFileOnLinux(path));
+    RespondSuccess(method_call, result);
+    return;
+  }
+  if (g_strcmp0(method, "showInFolder") == 0) {
+    g_autoptr(FlValue) result =
+        fl_value_new_string(ShowLocalFileInFolderOnLinux(path));
+    RespondSuccess(method_call, result);
+    return;
+  }
+  g_autoptr(FlMethodResponse) response =
+      FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  g_autoptr(GError) error = nullptr;
+  if (!fl_method_call_respond(method_call, response, &error)) {
+    g_warning("Failed to respond not implemented: %s",
+              error != nullptr ? error->message : "unknown");
+  }
+}
+
+static void EmitFileDropEvent(MyApplication* self,
+                              const gchar* type,
+                              GPtrArray* paths) {
+  if (self->file_drop_event_channel == nullptr || !self->file_drop_listening ||
+      type == nullptr) {
+    return;
+  }
+  g_autoptr(FlValue) payload = fl_value_new_map();
+  fl_value_set_string_take(payload, "type", fl_value_new_string(type));
+  if (paths != nullptr && paths->len > 0) {
+    FlValue* list = fl_value_new_list();
+    for (guint i = 0; i < paths->len; ++i) {
+      const auto* p = static_cast<const gchar*>(g_ptr_array_index(paths, i));
+      if (p != nullptr && p[0] != '\0') {
+        fl_value_append_take(list, fl_value_new_string(p));
+      }
+    }
+    fl_value_set_string_take(payload, "paths", list);
+  }
+  g_autoptr(GError) error = nullptr;
+  if (!fl_event_channel_send(self->file_drop_event_channel, payload, nullptr,
+                             &error)) {
+    g_warning("Failed to emit file drop event: %s",
+              error != nullptr ? error->message : "unknown");
+  }
+}
+
+static FlMethodErrorResponse* file_drop_listen_cb(FlEventChannel* channel,
+                                                  FlValue* args,
+                                                  gpointer user_data) {
+  (void)channel;
+  (void)args;
+  auto* self = MY_APPLICATION(user_data);
+  self->file_drop_listening = TRUE;
+  return nullptr;
+}
+
+static FlMethodErrorResponse* file_drop_cancel_cb(FlEventChannel* channel,
+                                                  FlValue* args,
+                                                  gpointer user_data) {
+  (void)channel;
+  (void)args;
+  auto* self = MY_APPLICATION(user_data);
+  self->file_drop_listening = FALSE;
+  self->file_drop_active = FALSE;
+  return nullptr;
+}
+
+static gboolean on_drag_motion(GtkWidget* widget,
+                               GdkDragContext* context,
+                               gint x,
+                               gint y,
+                               guint time,
+                               gpointer user_data) {
+  (void)widget;
+  (void)x;
+  (void)y;
+  auto* self = MY_APPLICATION(user_data);
+  if (!self->file_drop_active) {
+    self->file_drop_active = TRUE;
+    EmitFileDropEvent(self, "entered", nullptr);
+  }
+  gdk_drag_status(context, GDK_ACTION_COPY, time);
+  return TRUE;
+}
+
+static void on_drag_leave(GtkWidget* widget,
+                          GdkDragContext* context,
+                          guint time,
+                          gpointer user_data) {
+  (void)widget;
+  (void)context;
+  (void)time;
+  auto* self = MY_APPLICATION(user_data);
+  if (self->file_drop_active) {
+    self->file_drop_active = FALSE;
+    EmitFileDropEvent(self, "exited", nullptr);
+  }
+}
+
+static void on_drag_data_received(GtkWidget* widget,
+                                  GdkDragContext* context,
+                                  gint x,
+                                  gint y,
+                                  GtkSelectionData* selection_data,
+                                  guint info,
+                                  guint time,
+                                  gpointer user_data) {
+  (void)widget;
+  (void)x;
+  (void)y;
+  (void)info;
+  auto* self = MY_APPLICATION(user_data);
+  self->file_drop_active = FALSE;
+  EmitFileDropEvent(self, "exited", nullptr);
+
+  gchar** uris = gtk_selection_data_get_uris(selection_data);
+  gboolean accepted = FALSE;
+  if (uris != nullptr) {
+    g_autoptr(GPtrArray) paths = g_ptr_array_new_with_free_func(g_free);
+    for (int i = 0; uris[i] != nullptr; ++i) {
+      g_autoptr(GError) error = nullptr;
+      gchar* filename = g_filename_from_uri(uris[i], nullptr, &error);
+      if (filename != nullptr) {
+        g_ptr_array_add(paths, filename);
+      }
+    }
+    g_strfreev(uris);
+    if (paths->len > 0) {
+      EmitFileDropEvent(self, "dropped", paths);
+      accepted = TRUE;
+    }
+  }
+  gtk_drag_finish(context, accepted, FALSE, time);
+}
+
 static void image_clipboard_method_cb(FlMethodChannel* channel,
                                       FlMethodCall* method_call,
                                       gpointer user_data) {
   (void)channel;
   (void)user_data;
   const gchar* method = fl_method_call_get_name(method_call);
+  if (g_strcmp0(method, "readImage") == 0) {
+    g_autoptr(FlValue) result = ReadEncodedImageFromGtkClipboard();
+    RespondSuccess(method_call, result);
+    return;
+  }
   if (g_strcmp0(method, "copyImage") == 0) {
     FlValue* args = fl_method_call_get_args(method_call);
     if (args == nullptr || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
@@ -820,6 +1059,28 @@ static void my_application_activate(GApplication* application) {
                                             image_clipboard_method_cb, self,
                                             nullptr);
 
+  self->desktop_file_actions_channel = fl_method_channel_new(
+      messenger, "parfait/desktop_file_actions", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      self->desktop_file_actions_channel, desktop_file_actions_method_cb, self,
+      nullptr);
+
+  self->file_drop_event_channel = fl_event_channel_new(
+      messenger, "parfait/file_drop/events", FL_METHOD_CODEC(codec));
+  fl_event_channel_set_stream_handlers(self->file_drop_event_channel,
+                                       file_drop_listen_cb, file_drop_cancel_cb,
+                                       self, nullptr);
+
+  GtkTargetEntry drop_targets[] = {
+      {const_cast<gchar*>("text/uri-list"), 0, 0},
+  };
+  gtk_drag_dest_set(GTK_WIDGET(view), GTK_DEST_DEFAULT_ALL, drop_targets, 1,
+                    GDK_ACTION_COPY);
+  g_signal_connect(view, "drag-motion", G_CALLBACK(on_drag_motion), self);
+  g_signal_connect(view, "drag-leave", G_CALLBACK(on_drag_leave), self);
+  g_signal_connect(view, "drag-data-received",
+                   G_CALLBACK(on_drag_data_received), self);
+
   self->intent_channel = fl_method_channel_new(
       messenger, "parfait/android_intents", FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(
@@ -896,6 +1157,16 @@ static void my_application_dispose(GObject* object) {
     fl_method_channel_set_method_call_handler(self->image_clipboard_channel,
                                               nullptr, nullptr, nullptr);
     g_clear_object(&self->image_clipboard_channel);
+  }
+  if (self->desktop_file_actions_channel != nullptr) {
+    fl_method_channel_set_method_call_handler(
+        self->desktop_file_actions_channel, nullptr, nullptr, nullptr);
+    g_clear_object(&self->desktop_file_actions_channel);
+  }
+  if (self->file_drop_event_channel != nullptr) {
+    fl_event_channel_set_stream_handlers(self->file_drop_event_channel, nullptr,
+                                         nullptr, nullptr, nullptr);
+    g_clear_object(&self->file_drop_event_channel);
   }
   if (self->intent_channel != nullptr) {
     fl_method_channel_set_method_call_handler(self->intent_channel, nullptr,

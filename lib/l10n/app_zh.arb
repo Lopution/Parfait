@@ -1692,6 +1692,23 @@
   },
   "localNovelsImportedLossy": "已导入，但编码无法完全识别，可能包含乱码",
   "localNovelsDelete": "删除",
+  "localNovelsDeleteFailed": "删除本地小说失败",
+  "localNovelsTooManyChars": "超过阅读器上限（{limit} 字）",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "超过阅读器上限（{limit} 段）",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "删除「{title}」？本地文件会一并删除。",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
@@ -2118,5 +2135,41 @@
   "tagMuteModeDone": "完成",
   "@tagMuteModeDone": {
     "description": "Button label to exit batch tag-muting mode on the artwork detail page"
+  },
+  "downloadOpenFile": "打开文件",
+  "@downloadOpenFile": {
+    "description": "Desktop action on a completed download row to open the downloaded file with the system app"
+  },
+  "downloadShowInFolder": "在文件夹中显示",
+  "@downloadShowInFolder": {
+    "description": "Desktop action on a completed download row to reveal the downloaded file in the system file manager"
+  },
+  "downloadFileMissing": "文件已不存在",
+  "@downloadFileMissing": {
+    "description": "SnackBar shown when trying to open or reveal a downloaded file that has been moved or deleted"
+  },
+  "downloadOpenFailed": "无法打开文件",
+  "@downloadOpenFailed": {
+    "description": "SnackBar shown when the OS fails to open or reveal a downloaded file"
+  },
+  "reverseImagePasteImage": "粘贴图片",
+  "@reverseImagePasteImage": {
+    "description": "Desktop button on the reverse image search page to search with an image from the clipboard"
+  },
+  "reverseImagePasteEmpty": "剪贴板中没有图片",
+  "@reverseImagePasteEmpty": {
+    "description": "SnackBar shown when pressing Paste on the reverse image search page with no image in the clipboard"
+  },
+  "reverseImageDropHint": "松开以搜索这张图片",
+  "@reverseImageDropHint": {
+    "description": "Overlay hint shown when dragging an image file over the reverse image search page"
+  },
+  "localNovelsDropHint": "松开以导入 TXT 小说",
+  "@localNovelsDropHint": {
+    "description": "Overlay hint shown when dragging TXT files over the local novels page"
+  },
+  "localNovelsDropUnsupported": "仅支持导入 .txt 文件",
+  "@localNovelsDropUnsupported": {
+    "description": "SnackBar shown when dropping non-TXT files onto the local novels page"
   }
 }

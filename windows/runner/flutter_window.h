@@ -6,6 +6,7 @@
 #include <flutter/event_channel.h>
 #include <flutter/flutter_view_controller.h>
 #include <flutter/method_channel.h>
+#include <oleidl.h>
 #include <shellapi.h>
 
 #include <memory>
@@ -68,6 +69,10 @@ class FlutterWindow : public Win32Window {
   void RestoreAndFocusWindow();
   void SendNavigationCommand(const char* command);
   void DeliverExternalUri(const std::string& uri);
+  void EmitFileDropEvent(const char* type,
+                         const std::vector<std::string>& paths = {});
+  void RegisterDropTargets();
+  void RevokeDropTargets();
 
   void EnsureTrayIcon();
   void RemoveTrayIcon();
@@ -94,6 +99,12 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       image_clipboard_channel_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      desktop_file_actions_channel_;
+  std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>>
+      file_drop_event_channel_;
+  std::unique_ptr<flutter::EventSink<flutter::EncodableValue>>
+      file_drop_event_sink_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       intent_channel_;
   std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>>
       intent_event_channel_;
@@ -101,6 +112,9 @@ class FlutterWindow : public Win32Window {
       intent_event_sink_;
 
   HWND child_view_hwnd_ = nullptr;
+  IDropTarget* drop_target_ = nullptr;
+  bool main_drop_registered_ = false;
+  bool child_drop_registered_ = false;
   std::vector<TitleBarRegion> title_bar_regions_;
   std::string hovered_button_;
   std::string pressed_button_;

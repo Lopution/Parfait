@@ -1220,6 +1220,23 @@
   },
   "localNovelsImportedLossy": "Imported, but the encoding was not fully recognized — the text may contain mojibake",
   "localNovelsDelete": "Delete",
+  "localNovelsDeleteFailed": "Failed to delete local novel",
+  "localNovelsTooManyChars": "Exceeds the {limit}-character reader limit",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "Exceeds the {limit}-paragraph reader limit",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "Delete \"{title}\"? The local file will be removed too.",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
@@ -1470,5 +1487,14 @@
   "cardActionSelect": "Select",
   "viewerZoomIn": "Zoom in (2.5×)",
   "ugoiraPreparingExport": "Preparing ugoira…",
-  "tagMuteModeDone": "Done"
+  "tagMuteModeDone": "Done",
+  "downloadOpenFile": "Open file",
+  "downloadShowInFolder": "Show in folder",
+  "downloadFileMissing": "Downloaded file no longer exists",
+  "downloadOpenFailed": "Could not open downloaded file",
+  "reverseImagePasteImage": "Paste image",
+  "reverseImagePasteEmpty": "No image in clipboard",
+  "reverseImageDropHint": "Drop an image to search",
+  "localNovelsDropHint": "Drop TXT files to import",
+  "localNovelsDropUnsupported": "Only .txt files can be imported"
 }

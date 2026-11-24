@@ -700,6 +700,9 @@ class NovelEntity {
       embeddedIllustThumbs['${image.illustId}'];
 
   bool get isRestricted => !visible || isXRestricted;
+  bool get isR18 => xRestrict == 1;
+  bool get isR18G => xRestrict == 2;
+  bool get isAi => novelAiType == 2;
 
   String get plainText =>
       markup?.plainText ??

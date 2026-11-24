@@ -278,7 +278,7 @@ class _RestrictedRow extends StatelessWidget {
       ),
       // The novel row's cover, without a cover to show.
       leading: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: FuncShape.cover,
         child: SizedBox(
           width: 68,
           height: 88,

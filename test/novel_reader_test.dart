@@ -1249,6 +1249,76 @@ void main() {
     expect(find.byType(RichText).hitTestable(), findsWidgets);
     expect(find.byType(RichText).evaluate().length, greaterThan(1));
   });
+
+  testWidgets(
+    'rapid edge taps accumulate target pages instead of dropping turns',
+    (tester) async {
+      final novel = _novel('').withWebContent(
+        'PAGE_1\n[newpage]\nPAGE_2\n[newpage]\nPAGE_3\n[newpage]\nPAGE_4',
+      );
+      final handle = NovelReaderHandle();
+      await tester.pumpWidget(
+        localizedApp(
+          body: NovelReader(
+            novel: novel,
+            settings: const NovelReaderSettings(
+              pageTurn: NovelPageTurn.pages,
+              spreadMode: NovelSpreadMode.off,
+            ),
+            handle: handle,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 3; i++) {
+        await tester.tapAt(const Offset(760, 300));
+        await tester.pump(const Duration(milliseconds: 40));
+      }
+      await tester.pumpAndSettle();
+      expect(handle.currentPage?.call(), 3);
+      expect(find.text('PAGE_4'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'displayPage and displayAnchor reach the end in scroll and spread modes while keeping restore anchors',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final scrollNovel = _novel('').withWebContent(
+        '${List.generate(35, (i) => 'scroll line $i body text').join('\n')}\n[newpage]\nFINAL_PIXIV_PAGE',
+      );
+      final scrollHandle = NovelReaderHandle();
+      NovelAnchor? lastSavedAnchor;
+      await tester.pumpWidget(
+        localizedApp(
+          body: NovelReader(
+            novel: scrollNovel,
+            handle: scrollHandle,
+            onAnchorChanged: (anchor, cause) {
+              if (cause == NovelAnchorCause.userTurn) lastSavedAnchor = anchor;
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final totalScrollPages = scrollHandle.pageCount!();
+      final list = tester.widget<ListView>(find.byType(ListView));
+      list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(scrollHandle.displayPage?.call(), totalScrollPages - 1);
+      expect(
+        scrollNovel.markup!.pixivPageOf(
+          scrollHandle.displayAnchor!.call()!.paragraphId,
+        ),
+        2,
+      );
+      expect(lastSavedAnchor, isNotNull);
+      expect(scrollHandle.currentPage!(), lessThan(totalScrollPages - 1));
+    },
+  );
 }
 
 /// Records each document-layout invocation so tests can assert a retry

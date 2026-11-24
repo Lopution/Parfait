@@ -99,8 +99,8 @@ const _grandfatheredFileLineCaps = <String, int>{
   'lib/features/illust/detail/widgets/page_image.dart': 1062,
   'lib/features/illust/viewer/image_viewer_page.dart': 1549,
   'lib/features/novel/novel_layout.dart': 1756,
-  'lib/features/novel/novel_reader.dart': 1243,
-  'lib/features/novel/novel_reader_stage.dart': 1197,
+  'lib/features/novel/novel_reader.dart': 1224,
+  'lib/features/novel/novel_reader_stage.dart': 1180,
   'lib/features/profile/profile_header_delegate.dart': 1188,
   'lib/features/profile/user_page.dart': 1087,
   'lib/features/search/search_filter_sheet.dart': 934,
@@ -118,10 +118,10 @@ const _grandfatheredLibraryLineCaps = <String, int>{
   'lib/core/download/download_manager.dart': 2042,
   'lib/core/network/compat/network_policy.dart': 2427,
   'lib/features/illust/viewer/image_viewer_page.dart': 2276,
-  'lib/features/novel/novel_reader.dart': 1885,
-  'lib/features/novel/novel_reader_stage.dart': 1851,
+  'lib/features/novel/novel_reader.dart': 1881,
+  'lib/features/novel/novel_reader_stage.dart': 1841,
   'lib/features/profile/user_page.dart': 1297,
-  'lib/features/settings/pages/download_tasks_page.dart': 1284,
+  'lib/features/settings/pages/download_tasks_page.dart': 1280,
 };
 
 final _partOfRegExp = RegExp(r'^\s*part\s+of\b', multiLine: true);

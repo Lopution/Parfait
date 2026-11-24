@@ -9,11 +9,13 @@ reviewed: 2026-11-22
 # Reverse image search
 
 ### REV-01 One controller owns the input from pick to cleanup
-- **Rule:** The in-app picker and Android `ACTION_SEND` share one
-  controller. Android `ACTION_SEND` passes only opaque `content://` metadata
-  (`DROID-07`); the in-app picker accepts `content://` URIs on Android and
-  validated local file paths (`file://` or scheme-less path) on iOS/desktop,
-  copies the bytes into one owned temporary file, and checks MIME against the
+- **Rule:** The in-app picker, Android `ACTION_SEND`, desktop clipboard paste
+  (`Ctrl/Cmd+V`), and desktop OS file drag-and-drop share one controller.
+  Android `ACTION_SEND` passes only opaque `content://` metadata (`DROID-07`);
+  the in-app picker and desktop drag/paste accept `content://` URIs on Android
+  and validated local file paths (`file://` or scheme-less path) on iOS/desktop
+  (cleaning transient clipboard staging files in `finally` after `prepare`),
+  copy the bytes into one owned temporary file, and check MIME against the
   file signature, dimensions and pixel budget before any full decode. The
   temporary file is cleaned on every terminal path. Errors carry no paths. A
   JPEG's size comes from walking its segments in the file (at most
@@ -22,8 +24,8 @@ reviewed: 2026-11-22
   temp files piled up. EXIF, XMP or ICC data pushed a photo's frame header
   past the 64 KiB header read, so it could be neither searched nor made
   an avatar.
-- **Check:** `test/reverse_image_search_test.dart` "reads the format and size; EXIF cannot push a JPEG frame out of " "rejects a pixel bomb before any full image decode" "rejects a MIME declaration that does not match the file bytes" "picker and SEND references share preparation and terminal cleanup"
-- **Code:** `lib/core/reverse_image`
+- **Check:** `test/reverse_image_search_test.dart` "reads the format and size; EXIF cannot push a JPEG frame out of " "rejects a pixel bomb before any full image decode" "rejects a MIME declaration that does not match the file bytes" "picker and SEND references share preparation and terminal cleanup"; `test/reverse_image_search_page_test.dart` "desktop Ctrl+V pastes clipboard image, reports empty clipboard, and handles file drop"
+- **Code:** `lib/core/reverse_image`, `lib/features/search/reverse_image_search_page.dart`
 
 ### REV-02 Large images are scaled, not refused
 - **Rule:** Within the hard limits (32 MiB, 12288 px, 64 Mpx), an image

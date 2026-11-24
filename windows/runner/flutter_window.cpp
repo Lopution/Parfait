@@ -3,11 +3,15 @@
 #include <commctrl.h>
 #include <flutter/event_stream_handler_functions.h>
 #include <flutter/standard_method_codec.h>
+#include <ole2.h>
+#include <shlobj.h>
 #include <windowsx.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <objbase.h>
 #include <optional>
@@ -62,6 +66,209 @@ std::wstring Utf16FromUtf8(const std::string& utf8) {
   }
   return out;
 }
+
+std::string Utf8FromUtf16(const std::wstring& wide) {
+  if (wide.empty()) {
+    return std::string();
+  }
+  const int required = ::WideCharToMultiByte(
+      CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()), nullptr, 0,
+      nullptr, nullptr);
+  if (required <= 0) {
+    return std::string();
+  }
+  std::string out(static_cast<size_t>(required), '\0');
+  const int written = ::WideCharToMultiByte(
+      CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()), out.data(),
+      required, nullptr, nullptr);
+  if (written <= 0) {
+    return std::string();
+  }
+  return out;
+}
+
+constexpr size_t kMaxClipboardImageBytes = 32 * 1024 * 1024;
+
+std::string OpenLocalFileOnWindows(HWND hwnd, const std::string& utf8_path) {
+  const std::wstring wide = Utf16FromUtf8(utf8_path);
+  if (wide.empty()) {
+    return "failed";
+  }
+  if (::GetFileAttributesW(wide.c_str()) == INVALID_FILE_ATTRIBUTES) {
+    return "notFound";
+  }
+  const HINSTANCE result =
+      ::ShellExecuteW(hwnd, L"open", wide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+  return reinterpret_cast<intptr_t>(result) > 32 ? "opened" : "failed";
+}
+
+std::string ShowLocalFileInFolderOnWindows(HWND hwnd,
+                                           const std::string& utf8_path) {
+  const std::wstring wide = Utf16FromUtf8(utf8_path);
+  if (wide.empty()) {
+    return "failed";
+  }
+  if (::GetFileAttributesW(wide.c_str()) == INVALID_FILE_ATTRIBUTES) {
+    return "notFound";
+  }
+  PIDLIST_ABSOLUTE pidl = ::ILCreateFromPathW(wide.c_str());
+  if (pidl != nullptr) {
+    const HRESULT hr = ::SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
+    ::ILFree(pidl);
+    if (SUCCEEDED(hr)) {
+      return "opened";
+    }
+  }
+  const size_t slash = wide.find_last_of(L"\\/");
+  if (slash != std::wstring::npos && slash > 0) {
+    const std::wstring parent = wide.substr(0, slash);
+    const HINSTANCE result = ::ShellExecuteW(hwnd, L"open", parent.c_str(),
+                                             nullptr, nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<intptr_t>(result) > 32) {
+      return "opened";
+    }
+  }
+  return "failed";
+}
+
+class ParfaitDropTarget final : public IDropTarget {
+ public:
+  using Callback =
+      std::function<void(const char*, const std::vector<std::string>&)>;
+
+  explicit ParfaitDropTarget(Callback callback)
+      : callback_(std::move(callback)) {}
+
+  void Detach() { callback_ = nullptr; }
+
+  STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
+    if (ppv == nullptr) {
+      return E_POINTER;
+    }
+    if (riid == IID_IUnknown || riid == IID_IDropTarget) {
+      *ppv = static_cast<IDropTarget*>(this);
+      AddRef();
+      return S_OK;
+    }
+    *ppv = nullptr;
+    return E_NOINTERFACE;
+  }
+
+  STDMETHODIMP_(ULONG) AddRef() override {
+    return static_cast<ULONG>(++ref_count_);
+  }
+
+  STDMETHODIMP_(ULONG) Release() override {
+    const ULONG next = static_cast<ULONG>(--ref_count_);
+    if (next == 0) {
+      delete this;
+    }
+    return next;
+  }
+
+  STDMETHODIMP DragEnter(IDataObject* data_obj,
+                         DWORD grfKeyState,
+                         POINTL pt,
+                         DWORD* pdwEffect) override {
+    (void)grfKeyState;
+    (void)pt;
+    has_files_ = HasDropFiles(data_obj);
+    if (pdwEffect != nullptr) {
+      *pdwEffect = has_files_ ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+    }
+    if (has_files_ && callback_) {
+      callback_("entered", {});
+    }
+    return S_OK;
+  }
+
+  STDMETHODIMP DragOver(DWORD grfKeyState,
+                        POINTL pt,
+                        DWORD* pdwEffect) override {
+    (void)grfKeyState;
+    (void)pt;
+    if (pdwEffect != nullptr) {
+      *pdwEffect = has_files_ ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+    }
+    return S_OK;
+  }
+
+  STDMETHODIMP DragLeave() override {
+    if (has_files_ && callback_) {
+      callback_("exited", {});
+    }
+    has_files_ = false;
+    return S_OK;
+  }
+
+  STDMETHODIMP Drop(IDataObject* data_obj,
+                    DWORD grfKeyState,
+                    POINTL pt,
+                    DWORD* pdwEffect) override {
+    (void)grfKeyState;
+    (void)pt;
+    const std::vector<std::string> paths = ExtractDropPaths(data_obj);
+    has_files_ = false;
+    if (pdwEffect != nullptr) {
+      *pdwEffect = paths.empty() ? DROPEFFECT_NONE : DROPEFFECT_COPY;
+    }
+    if (callback_) {
+      callback_("exited", {});
+      if (!paths.empty()) {
+        callback_("dropped", paths);
+      }
+    }
+    return S_OK;
+  }
+
+ private:
+  static bool HasDropFiles(IDataObject* data_obj) {
+    if (data_obj == nullptr) {
+      return false;
+    }
+    FORMATETC fmt{CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+    return data_obj->QueryGetData(&fmt) == S_OK;
+  }
+
+  static std::vector<std::string> ExtractDropPaths(IDataObject* data_obj) {
+    std::vector<std::string> paths;
+    if (data_obj == nullptr) {
+      return paths;
+    }
+    FORMATETC fmt{CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+    STGMEDIUM stg{};
+    if (FAILED(data_obj->GetData(&fmt, &stg))) {
+      return paths;
+    }
+    if (stg.tymed == TYMED_HGLOBAL && stg.hGlobal != nullptr) {
+      HDROP hdrop = static_cast<HDROP>(::GlobalLock(stg.hGlobal));
+      if (hdrop != nullptr) {
+        const UINT count = ::DragQueryFileW(hdrop, 0xFFFFFFFFu, nullptr, 0);
+        for (UINT i = 0; i < count; ++i) {
+          const UINT chars = ::DragQueryFileW(hdrop, i, nullptr, 0);
+          if (chars == 0) {
+            continue;
+          }
+          std::wstring buf(static_cast<size_t>(chars) + 1, L'\0');
+          if (::DragQueryFileW(hdrop, i, buf.data(), chars + 1) > 0) {
+            buf.resize(chars);
+            std::string utf8 = Utf8FromUtf16(buf);
+            if (!utf8.empty()) {
+              paths.push_back(std::move(utf8));
+            }
+          }
+        }
+        ::GlobalUnlock(stg.hGlobal);
+      }
+    }
+    ::ReleaseStgMedium(&stg);
+    return paths;
+  }
+
+  std::atomic<ULONG> ref_count_{1};
+  bool has_files_ = false;
+  Callback callback_;
+};
 
 bool ReadEncodableDouble(const flutter::EncodableValue& value, double* out) {
   if (const auto* d = std::get_if<double>(&value)) {
@@ -383,6 +590,195 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
   return ok;
 }
 
+std::optional<std::vector<uint8_t>> EncodeWicSourceToPng(
+    IWICImagingFactory* factory,
+    IWICBitmapSource* source) {
+  if (factory == nullptr || source == nullptr) {
+    return std::nullopt;
+  }
+  UINT width = 0;
+  UINT height = 0;
+  if (FAILED(source->GetSize(&width, &height)) || width == 0 || height == 0) {
+    return std::nullopt;
+  }
+  ComPtr<IWICFormatConverter> converter;
+  if (FAILED(factory->CreateFormatConverter(converter.put())) ||
+      FAILED(converter->Initialize(source, GUID_WICPixelFormat32bppBGRA,
+                                   WICBitmapDitherTypeNone, nullptr, 0.0,
+                                   WICBitmapPaletteTypeCustom))) {
+    return std::nullopt;
+  }
+  ComPtr<IStream> png_stream;
+  ComPtr<IWICBitmapEncoder> encoder;
+  ComPtr<IWICBitmapFrameEncode> enc_frame;
+  if (FAILED(::CreateStreamOnHGlobal(nullptr, TRUE, png_stream.put())) ||
+      FAILED(factory->CreateEncoder(GUID_ContainerFormatPng, nullptr,
+                                    encoder.put())) ||
+      FAILED(encoder->Initialize(png_stream.ptr, WICBitmapEncoderNoCache)) ||
+      FAILED(encoder->CreateNewFrame(enc_frame.put(), nullptr)) ||
+      FAILED(enc_frame->Initialize(nullptr)) ||
+      FAILED(enc_frame->SetSize(width, height))) {
+    return std::nullopt;
+  }
+  WICPixelFormatGUID png_format = GUID_WICPixelFormat32bppBGRA;
+  if (FAILED(enc_frame->SetPixelFormat(&png_format)) ||
+      FAILED(enc_frame->WriteSource(converter.ptr, nullptr)) ||
+      FAILED(enc_frame->Commit()) ||
+      FAILED(encoder->Commit())) {
+    return std::nullopt;
+  }
+  HGLOBAL png_src = nullptr;
+  STATSTG stat{};
+  if (FAILED(::GetHGlobalFromStream(png_stream.ptr, &png_src)) ||
+      png_src == nullptr ||
+      FAILED(png_stream->Stat(&stat, STATFLAG_NONAME)) ||
+      stat.cbSize.QuadPart <= 0 ||
+      static_cast<uint64_t>(stat.cbSize.QuadPart) > kMaxClipboardImageBytes ||
+      stat.cbSize.QuadPart > static_cast<ULONGLONG>(::GlobalSize(png_src))) {
+    return std::nullopt;
+  }
+  const size_t png_bytes = static_cast<size_t>(stat.cbSize.QuadPart);
+  void* locked = ::GlobalLock(png_src);
+  if (locked == nullptr) {
+    return std::nullopt;
+  }
+  std::vector<uint8_t> out(png_bytes);
+  std::memcpy(out.data(), locked, png_bytes);
+  ::GlobalUnlock(png_src);
+  return out;
+}
+
+std::optional<std::vector<uint8_t>> ReadEncodedImageFromClipboard(HWND hwnd) {
+  const UINT png_format = ::RegisterClipboardFormatW(L"PNG");
+  if (!::OpenClipboard(hwnd)) {
+    return std::nullopt;
+  }
+
+  std::optional<std::vector<uint8_t>> png_direct;
+  std::vector<uint8_t> dib_bytes;
+  HBITMAP hbitmap_copy = nullptr;
+
+  if (png_format != 0 && ::IsClipboardFormatAvailable(png_format)) {
+    if (HANDLE handle = ::GetClipboardData(png_format); handle != nullptr) {
+      const SIZE_T size = ::GlobalSize(handle);
+      if (size > 0 && size <= kMaxClipboardImageBytes) {
+        if (const void* locked = ::GlobalLock(handle); locked != nullptr) {
+          std::vector<uint8_t> raw(static_cast<size_t>(size));
+          std::memcpy(raw.data(), locked, static_cast<size_t>(size));
+          ::GlobalUnlock(handle);
+          png_direct = std::move(raw);
+        }
+      }
+    }
+  } else if (::IsClipboardFormatAvailable(CF_DIBV5) ||
+             ::IsClipboardFormatAvailable(CF_DIB)) {
+    const UINT fmt =
+        ::IsClipboardFormatAvailable(CF_DIBV5) ? CF_DIBV5 : CF_DIB;
+    if (HANDLE handle = ::GetClipboardData(fmt); handle != nullptr) {
+      const SIZE_T size = ::GlobalSize(handle);
+      if (size >= sizeof(BITMAPINFOHEADER) &&
+          size <= kMaxClipboardImageBytes) {
+        if (const void* locked = ::GlobalLock(handle); locked != nullptr) {
+          dib_bytes.resize(static_cast<size_t>(size));
+          std::memcpy(dib_bytes.data(), locked, static_cast<size_t>(size));
+          ::GlobalUnlock(handle);
+        }
+      }
+    }
+  } else if (::IsClipboardFormatAvailable(CF_BITMAP)) {
+    if (HANDLE handle = ::GetClipboardData(CF_BITMAP); handle != nullptr) {
+      hbitmap_copy = static_cast<HBITMAP>(
+          ::CopyImage(handle, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
+    }
+  }
+
+  ::CloseClipboard();
+
+  if (png_direct.has_value()) {
+    return png_direct;
+  }
+  if (dib_bytes.empty() && hbitmap_copy == nullptr) {
+    return std::nullopt;
+  }
+
+  const HRESULT co_hr = ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  if (FAILED(co_hr) && co_hr != RPC_E_CHANGED_MODE) {
+    if (hbitmap_copy != nullptr) {
+      ::DeleteObject(hbitmap_copy);
+    }
+    return std::nullopt;
+  }
+  ComInitScope com_scope{SUCCEEDED(co_hr)};
+
+  ComPtr<IWICImagingFactory> factory;
+  if (FAILED(::CoCreateInstance(CLSID_WICImagingFactory, nullptr,
+                                CLSCTX_INPROC_SERVER,
+                                IID_PPV_ARGS(factory.put())))) {
+    if (hbitmap_copy != nullptr) {
+      ::DeleteObject(hbitmap_copy);
+    }
+    return std::nullopt;
+  }
+
+  if (!dib_bytes.empty()) {
+    BITMAPINFOHEADER bih{};
+    std::memcpy(&bih, dib_bytes.data(), sizeof(bih));
+    if (bih.biSize < sizeof(BITMAPINFOHEADER) ||
+        bih.biSize > dib_bytes.size()) {
+      return std::nullopt;
+    }
+    DWORD color_entries = bih.biClrUsed;
+    if (color_entries == 0 && bih.biBitCount <= 8) {
+      color_entries = 1u << bih.biBitCount;
+    }
+    DWORD extra_masks = 0;
+    if (bih.biSize == sizeof(BITMAPINFOHEADER) &&
+        bih.biCompression == BI_BITFIELDS) {
+      extra_masks = 12;
+    }
+    const uint64_t offset64 = sizeof(BITMAPFILEHEADER) +
+                              static_cast<uint64_t>(bih.biSize) +
+                              static_cast<uint64_t>(color_entries) * 4ULL +
+                              static_cast<uint64_t>(extra_masks);
+    const uint64_t total64 = sizeof(BITMAPFILEHEADER) + dib_bytes.size();
+    if (offset64 > total64 || total64 > kMaxClipboardImageBytes + sizeof(BITMAPFILEHEADER)) {
+      return std::nullopt;
+    }
+    BITMAPFILEHEADER bfh{};
+    bfh.bfType = 0x4D42;  // 'BM'
+    bfh.bfSize = static_cast<DWORD>(total64);
+    bfh.bfOffBits = static_cast<DWORD>(offset64);
+    std::vector<uint8_t> bmp(static_cast<size_t>(total64));
+    std::memcpy(bmp.data(), &bfh, sizeof(bfh));
+    std::memcpy(bmp.data() + sizeof(bfh), dib_bytes.data(), dib_bytes.size());
+
+    ComPtr<IWICStream> wic_stream;
+    ComPtr<IWICBitmapDecoder> decoder;
+    ComPtr<IWICBitmapFrameDecode> frame;
+    if (SUCCEEDED(factory->CreateStream(wic_stream.put())) &&
+        SUCCEEDED(wic_stream->InitializeFromMemory(
+            bmp.data(), static_cast<DWORD>(bmp.size()))) &&
+        SUCCEEDED(factory->CreateDecoderFromStream(
+            wic_stream.ptr, nullptr, WICDecodeMetadataCacheOnDemand,
+            decoder.put())) &&
+        SUCCEEDED(decoder->GetFrame(0, frame.put()))) {
+      return EncodeWicSourceToPng(factory.ptr, frame.ptr);
+    }
+    return std::nullopt;
+  }
+
+  std::optional<std::vector<uint8_t>> result;
+  if (hbitmap_copy != nullptr) {
+    ComPtr<IWICBitmap> wic_bitmap;
+    if (SUCCEEDED(factory->CreateBitmapFromHBITMAP(
+            hbitmap_copy, nullptr, WICBitmapIgnoreAlpha, wic_bitmap.put()))) {
+      result = EncodeWicSourceToPng(factory.ptr, wic_bitmap.ptr);
+    }
+    ::DeleteObject(hbitmap_copy);
+  }
+  return result;
+}
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project,
                              std::string initial_intent_uri,
                              bool is_dev_profile)
@@ -431,6 +827,7 @@ bool FlutterWindow::OnCreate() {
   }
 
   RegisterNativeChannels();
+  RegisterDropTargets();
 
   if (hwnd != nullptr) {
     ::SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
@@ -451,6 +848,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  RevokeDropTargets();
   RemoveTrayIcon();
 
   if (desktop_window_channel_) {
@@ -473,6 +871,15 @@ void FlutterWindow::OnDestroy() {
     image_clipboard_channel_->SetMethodCallHandler(nullptr);
     image_clipboard_channel_.reset();
   }
+  if (desktop_file_actions_channel_) {
+    desktop_file_actions_channel_->SetMethodCallHandler(nullptr);
+    desktop_file_actions_channel_.reset();
+  }
+  if (file_drop_event_channel_) {
+    file_drop_event_channel_->SetStreamHandler(nullptr);
+    file_drop_event_channel_.reset();
+  }
+  file_drop_event_sink_.reset();
   if (intent_channel_) {
     intent_channel_->SetMethodCallHandler(nullptr);
     intent_channel_.reset();
@@ -749,6 +1156,15 @@ void FlutterWindow::RegisterNativeChannels() {
       [this](const flutter::MethodCall<flutter::EncodableValue>& call,
              std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
                  result) {
+        if (call.method_name() == "readImage") {
+          auto encoded = ReadEncodedImageFromClipboard(GetHandle());
+          if (encoded.has_value()) {
+            result->Success(flutter::EncodableValue(std::move(*encoded)));
+          } else {
+            result->Success();
+          }
+          return;
+        }
         if (call.method_name() != "copyImage") {
           result->NotImplemented();
           return;
@@ -772,6 +1188,114 @@ void FlutterWindow::RegisterNativeChannels() {
         result->Success(flutter::EncodableValue(
             CopyEncodedImageToClipboard(GetHandle(), *bytes)));
       });
+
+  desktop_file_actions_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          messenger, "parfait/desktop_file_actions", codec);
+  desktop_file_actions_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+                 result) {
+        const auto* args =
+            std::get_if<flutter::EncodableMap>(call.arguments());
+        const std::string path =
+            args == nullptr ? std::string() : ReadEncodableString(*args, "path");
+        if (path.empty()) {
+          result->Success(flutter::EncodableValue(std::string("failed")));
+          return;
+        }
+        if (call.method_name() == "openFile") {
+          result->Success(flutter::EncodableValue(
+              OpenLocalFileOnWindows(GetHandle(), path)));
+          return;
+        }
+        if (call.method_name() == "showInFolder") {
+          result->Success(flutter::EncodableValue(
+              ShowLocalFileInFolderOnWindows(GetHandle(), path)));
+          return;
+        }
+        result->NotImplemented();
+      });
+
+  file_drop_event_channel_ =
+      std::make_unique<flutter::EventChannel<flutter::EncodableValue>>(
+          messenger, "parfait/file_drop/events", codec);
+  file_drop_event_channel_->SetStreamHandler(
+      std::make_unique<flutter::StreamHandlerFunctions<flutter::EncodableValue>>(
+          [this](const flutter::EncodableValue* arguments,
+                 std::unique_ptr<flutter::EventSink<flutter::EncodableValue>>&&
+                     events)
+              -> std::unique_ptr<
+                  flutter::StreamHandlerError<flutter::EncodableValue>> {
+            (void)arguments;
+            file_drop_event_sink_ = std::move(events);
+            return nullptr;
+          },
+          [this](const flutter::EncodableValue* arguments)
+              -> std::unique_ptr<
+                  flutter::StreamHandlerError<flutter::EncodableValue>> {
+            (void)arguments;
+            file_drop_event_sink_.reset();
+            return nullptr;
+          }));
+}
+
+void FlutterWindow::EmitFileDropEvent(const char* type,
+                                      const std::vector<std::string>& paths) {
+  if (!file_drop_event_sink_ || type == nullptr) {
+    return;
+  }
+  flutter::EncodableMap payload{
+      {flutter::EncodableValue("type"),
+       flutter::EncodableValue(std::string(type))},
+  };
+  if (!paths.empty()) {
+    flutter::EncodableList list;
+    list.reserve(paths.size());
+    for (const auto& path : paths) {
+      list.emplace_back(path);
+    }
+    payload.emplace(flutter::EncodableValue("paths"),
+                    flutter::EncodableValue(std::move(list)));
+  }
+  file_drop_event_sink_->Success(flutter::EncodableValue(std::move(payload)));
+}
+
+void FlutterWindow::RegisterDropTargets() {
+  if (drop_target_ != nullptr) {
+    return;
+  }
+  auto* target = new ParfaitDropTarget(
+      [this](const char* type, const std::vector<std::string>& paths) {
+        EmitFileDropEvent(type, paths);
+      });
+  drop_target_ = target;
+  if (child_view_hwnd_ != nullptr &&
+      SUCCEEDED(::RegisterDragDrop(child_view_hwnd_, drop_target_))) {
+    child_drop_registered_ = true;
+  }
+  if (HWND hwnd = GetHandle();
+      hwnd != nullptr && SUCCEEDED(::RegisterDragDrop(hwnd, drop_target_))) {
+    main_drop_registered_ = true;
+  }
+}
+
+void FlutterWindow::RevokeDropTargets() {
+  if (child_drop_registered_ && child_view_hwnd_ != nullptr) {
+    ::RevokeDragDrop(child_view_hwnd_);
+    child_drop_registered_ = false;
+  }
+  if (main_drop_registered_) {
+    if (HWND hwnd = GetHandle(); hwnd != nullptr) {
+      ::RevokeDragDrop(hwnd);
+    }
+    main_drop_registered_ = false;
+  }
+  if (drop_target_ != nullptr) {
+    static_cast<ParfaitDropTarget*>(drop_target_)->Detach();
+    drop_target_->Release();
+    drop_target_ = nullptr;
+  }
 }
 
 flutter::EncodableMap FlutterWindow::BuildWindowMetricsMap() const {

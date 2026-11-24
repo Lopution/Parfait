@@ -1213,6 +1213,23 @@
   },
   "localNovelsImportedLossy": "Импортировано, но кодировка распознана не полностью — текст может содержать искажённые символы",
   "localNovelsDelete": "Удалить",
+  "localNovelsDeleteFailed": "Не удалось удалить локальную новеллу",
+  "localNovelsTooManyChars": "Превышен лимит читалки ({limit} символов)",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "Превышен лимит читалки ({limit} абзацев)",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "Удалить «{title}»? Локальный файл тоже будет удалён.",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
@@ -1463,5 +1480,14 @@
   "cardActionSelect": "Выбрать",
   "viewerZoomIn": "Увеличить (2.5×)",
   "ugoiraPreparingExport": "Подготовка угоиры…",
-  "tagMuteModeDone": "Готово"
+  "tagMuteModeDone": "Готово",
+  "downloadOpenFile": "Открыть файл",
+  "downloadShowInFolder": "Показать в папке",
+  "downloadFileMissing": "Скачанный файл больше не существует",
+  "downloadOpenFailed": "Не удалось открыть файл",
+  "reverseImagePasteImage": "Вставить изображение",
+  "reverseImagePasteEmpty": "В буфере обмена нет изображения",
+  "reverseImageDropHint": "Перетащите изображение для поиска",
+  "localNovelsDropHint": "Перетащите файлы TXT для импорта",
+  "localNovelsDropUnsupported": "Поддерживается импорт только файлов .txt"
 }

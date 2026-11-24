@@ -29,6 +29,7 @@ class EntityRow extends StatelessWidget {
     this.titleLeading,
     this.subtitle,
     this.meta,
+    this.metaMaxLines = 1,
     this.footnote,
     this.badge,
     this.progress,
@@ -72,6 +73,11 @@ class EntityRow extends StatelessWidget {
   /// the shared caption token via [EntityMetaText]; reuse that widget when
   /// the same line must appear outside a row (history grid cells).
   final String? meta;
+
+  /// Maximum line count for [meta]; defaults to 1, while richer multi-part
+  /// metadata rows (such as [NovelEntry] with series, words, and bookmarks)
+  /// allow wrapping on compact/large-text viewports instead of truncating.
+  final int metaMaxLines;
 
   /// Last line, in the meta look — a novel's tags.
   final String? footnote;
@@ -211,7 +217,11 @@ class EntityRow extends StatelessWidget {
           );
     final metaText = meta == null
         ? null
-        : EntityMetaText(meta!, color: selected ? selectedSecondary : null);
+        : EntityMetaText(
+            meta!,
+            color: selected ? selectedSecondary : null,
+            maxLines: metaMaxLines,
+          );
     final footnoteText = footnote == null
         ? null
         : EntityMetaText(footnote!, color: selected ? selectedSecondary : null);
@@ -367,7 +377,7 @@ class EntityRow extends StatelessWidget {
 /// the same kind of line (the history date under a card) reuse it directly
 /// so the meta look exists in exactly one place.
 class EntityMetaText extends StatelessWidget {
-  const EntityMetaText(this.text, {super.key, this.color});
+  const EntityMetaText(this.text, {super.key, this.color, this.maxLines = 1});
 
   final String text;
 
@@ -375,13 +385,15 @@ class EntityMetaText extends StatelessWidget {
   /// on-container color; null keeps the shared caption token.
   final Color? color;
 
+  final int maxLines;
+
   @override
   Widget build(BuildContext context) {
     final caption = FuncSemanticTokens.of(context).caption;
     return Text(
       text,
       locale: contentLocale(context, text),
-      maxLines: 1,
+      maxLines: maxLines,
       overflow: TextOverflow.ellipsis,
       style: color == null ? caption : caption.copyWith(color: color),
     );

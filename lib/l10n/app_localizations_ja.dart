@@ -2926,6 +2926,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get localNovelsDelete => '削除';
 
   @override
+  String get localNovelsDeleteFailed => 'ローカル小説の削除に失敗しました';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'リーダーの上限（$limit 文字）を超えています';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'リーダーの上限（$limit 段落）を超えています';
+  }
+
+  @override
   String localNovelsDeleteConfirm(String title) {
     return '「$title」を削除しますか？ローカルファイルも削除されます。';
   }
@@ -3362,4 +3375,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tagMuteModeDone => '完了';
+
+  @override
+  String get downloadOpenFile => 'ファイルを開く';
+
+  @override
+  String get downloadShowInFolder => 'フォルダに表示';
+
+  @override
+  String get downloadFileMissing => 'ファイルが見つかりません';
+
+  @override
+  String get downloadOpenFailed => 'ファイルを開けませんでした';
+
+  @override
+  String get reverseImagePasteImage => '画像を貼り付け';
+
+  @override
+  String get reverseImagePasteEmpty => 'クリップボードに画像がありません';
+
+  @override
+  String get reverseImageDropHint => '画像をドロップして検索';
+
+  @override
+  String get localNovelsDropHint => 'TXT ファイルをドロップしてインポート';
+
+  @override
+  String get localNovelsDropUnsupported => 'インポートできるのは .txt ファイルのみです';
 }

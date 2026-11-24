@@ -2989,6 +2989,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get localNovelsDelete => 'Удалить';
 
   @override
+  String get localNovelsDeleteFailed => 'Не удалось удалить локальную новеллу';
+
+  @override
+  String localNovelsTooManyChars(int limit) {
+    return 'Превышен лимит читалки ($limit символов)';
+  }
+
+  @override
+  String localNovelsTooManyParagraphs(int limit) {
+    return 'Превышен лимит читалки ($limit абзацев)';
+  }
+
+  @override
   String localNovelsDeleteConfirm(String title) {
     return 'Удалить «$title»? Локальный файл тоже будет удалён.';
   }
@@ -3447,4 +3460,32 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tagMuteModeDone => 'Готово';
+
+  @override
+  String get downloadOpenFile => 'Открыть файл';
+
+  @override
+  String get downloadShowInFolder => 'Показать в папке';
+
+  @override
+  String get downloadFileMissing => 'Скачанный файл больше не существует';
+
+  @override
+  String get downloadOpenFailed => 'Не удалось открыть файл';
+
+  @override
+  String get reverseImagePasteImage => 'Вставить изображение';
+
+  @override
+  String get reverseImagePasteEmpty => 'В буфере обмена нет изображения';
+
+  @override
+  String get reverseImageDropHint => 'Перетащите изображение для поиска';
+
+  @override
+  String get localNovelsDropHint => 'Перетащите файлы TXT для импорта';
+
+  @override
+  String get localNovelsDropUnsupported =>
+      'Поддерживается импорт только файлов .txt';
 }

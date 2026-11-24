@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:parfait/core/platform/app_storage_paths.dart';
+import 'package:parfait/core/platform/desktop_file_drop.dart';
+import 'package:parfait/core/platform/image_clipboard.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
@@ -594,6 +598,90 @@ void main() {
       await tester.pump();
     },
   );
+
+  testWidgets(
+    'desktop Ctrl+V pastes clipboard image, reports empty clipboard, and handles file drop',
+    (tester) async {
+      final previousPaths = AppStoragePaths.active;
+      AppStoragePaths.setActive(
+        AppStoragePaths.dev(directory, profileName: 'rev-test'),
+      );
+      addTearDown(() => AppStoragePaths.setActive(previousPaths));
+
+      Uint8List? clipboardImage;
+      final dropEvents = StreamController<DesktopFileDropEvent>.broadcast();
+      addTearDown(dropEvents.close);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isWindows: true),
+            ),
+            desktopImageClipboardReaderProvider.overrideWithValue(
+              () async => clipboardImage,
+            ),
+            desktopFileDropSourceProvider.overrideWithValue(
+              _StreamDropSource(dropEvents.stream),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            builder: promptHostBuilder,
+            home: ReverseImageSearchPage(
+              platform: platform,
+              providers: {
+                ReverseImageEngine.sauceNao: UnavailableReverseImageProvider(
+                  reason: 'unused',
+                ),
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Empty clipboard via Ctrl+V shows prompt.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(find.text('剪贴板中没有图片'), findsOneWidget);
+
+      // Paste valid PNG bytes via button -> ready state.
+      clipboardImage = image.readAsBytesSync();
+      await tester.tap(find.text('粘贴图片'));
+      await pumpUntilVisible(tester, find.text('开始反向搜图'));
+
+      // Drag enter shows highlight overlay; drop prepares the dropped image.
+      dropEvents.add(const DesktopFileDropEntered());
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('desktop-file-drop-overlay')),
+        findsOneWidget,
+      );
+      dropEvents.add(DesktopFileDropped([image.path]));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('desktop-file-drop-overlay')),
+        findsNothing,
+      );
+      await pumpUntilVisible(tester, find.text('开始反向搜图'));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+}
+
+class _StreamDropSource implements DesktopFileDropSource {
+  const _StreamDropSource(this.events);
+
+  @override
+  final Stream<DesktopFileDropEvent> events;
 }
 
 class _RecordingExternalLauncher implements ReverseImageExternalLauncher {

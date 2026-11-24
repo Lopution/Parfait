@@ -1213,6 +1213,23 @@
   },
   "localNovelsImportedLossy": "インポートしましたが、エンコーディングを完全に認識できず文字化けしている可能性があります",
   "localNovelsDelete": "削除",
+  "localNovelsDeleteFailed": "ローカル小説の削除に失敗しました",
+  "localNovelsTooManyChars": "リーダーの上限（{limit} 文字）を超えています",
+  "@localNovelsTooManyChars": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "localNovelsTooManyParagraphs": "リーダーの上限（{limit} 段落）を超えています",
+  "@localNovelsTooManyParagraphs": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
   "localNovelsDeleteConfirm": "「{title}」を削除しますか？ローカルファイルも削除されます。",
   "@localNovelsDeleteConfirm": {
     "placeholders": {
@@ -1463,5 +1480,14 @@
   "cardActionSelect": "複数選択",
   "viewerZoomIn": "拡大 (2.5×)",
   "ugoiraPreparingExport": "うごイラを準備中…",
-  "tagMuteModeDone": "完了"
+  "tagMuteModeDone": "完了",
+  "downloadOpenFile": "ファイルを開く",
+  "downloadShowInFolder": "フォルダに表示",
+  "downloadFileMissing": "ファイルが見つかりません",
+  "downloadOpenFailed": "ファイルを開けませんでした",
+  "reverseImagePasteImage": "画像を貼り付け",
+  "reverseImagePasteEmpty": "クリップボードに画像がありません",
+  "reverseImageDropHint": "画像をドロップして検索",
+  "localNovelsDropHint": "TXT ファイルをドロップしてインポート",
+  "localNovelsDropUnsupported": "インポートできるのは .txt ファイルのみです"
 }

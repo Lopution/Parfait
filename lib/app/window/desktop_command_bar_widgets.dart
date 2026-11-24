@@ -16,6 +16,7 @@ import '../person_avatar.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../widgets/replica_switch_tile.dart';
 import '../widgets/settings/persist_settings.dart';
+import 'desktop_drag_region.dart';
 import 'desktop_title_bar.dart';
 
 /// Draggable title-bar spacer between command-bar clusters.
@@ -32,9 +33,9 @@ class DesktopCommandDragSpacer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
-      child: GestureDetector(
+      child: DesktopDragRegion(
         behavior: HitTestBehavior.opaque,
-        onPanStart: actions == null ? null : (_) => actions!.onStartDragging(),
+        onStartDragging: actions?.onStartDragging,
         onDoubleTap: actions?.onTitleBarDoubleClick,
         child: SizedBox(height: height),
       ),
