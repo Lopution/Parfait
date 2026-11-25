@@ -786,7 +786,10 @@ class _FakeArmer implements ReverseImageUploadArmer {
   int disarmCount = 0;
 
   @override
-  Future<String?> armUpload(String path) async {
+  Future<String?> armUpload(
+    String path, {
+    Set<String> allowedHosts = const {},
+  }) async {
     armedPaths.add(path);
     return result;
   }

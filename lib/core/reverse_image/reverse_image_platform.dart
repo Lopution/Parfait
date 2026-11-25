@@ -50,7 +50,7 @@ abstract interface class ReverseImageUploadArmer {
   /// Returns the content URI handed to the browser, or `null` when the
   /// platform has no chooser interception (desktop: the native picker runs
   /// and the user re-picks the file — the upload page still works).
-  Future<String?> armUpload(String path);
+  Future<String?> armUpload(String path, {Set<String> allowedHosts = const {}});
 
   /// Clears a previously armed file (one-shot semantics on the platform
   /// side already consume it; disarm covers pages left before a chooser).
@@ -65,11 +65,18 @@ class MethodChannelReverseImageUploadArmer implements ReverseImageUploadArmer {
   final MethodChannel _channel;
 
   @override
-  Future<String?> armUpload(String path) async {
+  Future<String?> armUpload(
+    String path, {
+    Set<String> allowedHosts = const {},
+  }) async {
     try {
+      final hosts = allowedHosts
+          .map((host) => host.trim().toLowerCase())
+          .where((host) => host.isNotEmpty)
+          .toList(growable: false);
       final message = await _channel.invokeMethod<Object?>(
         _ReverseImageInputMethods.armReverseUpload,
-        {'path': path},
+        {'path': path, 'allowedHosts': hosts},
       );
       if (message is! String || message.isEmpty) {
         throw const ReverseImagePlatformException(
@@ -119,7 +126,10 @@ class NoopReverseImageUploadArmer implements ReverseImageUploadArmer {
   const NoopReverseImageUploadArmer();
 
   @override
-  Future<String?> armUpload(String path) async => null;
+  Future<String?> armUpload(
+    String path, {
+    Set<String> allowedHosts = const {},
+  }) async => null;
 
   @override
   Future<void> disarmUpload() async {}

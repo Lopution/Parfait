@@ -13,8 +13,10 @@ import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/profile/web_profile_session.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
+import 'package:parfait/app/widgets/web_navigation_guard.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/login/login_webview_error_card.dart';
 import 'package:parfait/features/login/login_webview_page.dart';
@@ -23,6 +25,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 
@@ -127,6 +130,7 @@ void main() {
     OAuthService? service,
     bool create = false,
     PlatformCaps? caps,
+    FakeWebProfileSession? webSession,
   }) async {
     final oauth = service ?? OAuthService(exchangeTimeout: Duration.zero);
     await tester.pumpWidget(
@@ -135,6 +139,9 @@ void main() {
         overrides: [
           ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(oauth),
+          webProfileSessionProvider.overrideWithValue(
+            webSession ?? FakeWebProfileSession(),
+          ),
           platformCapsProvider.overrideWithValue(
             caps ?? const PlatformCaps(isMacOS: true),
           ),
@@ -559,4 +566,31 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  test('WebNavigationGuard disables file and content access by default', () {
+    final guard = WebNavigationGuard(
+      const PlatformCaps(isAndroid: true),
+      (_) => false,
+    );
+    expect(guard.settings.allowFileAccess, isFalse);
+    expect(guard.settings.allowContentAccess, isFalse);
+
+    final uploadGuard = WebNavigationGuard(
+      const PlatformCaps(isAndroid: true),
+      (_) => false,
+      allowContentAccess: true,
+    );
+    expect(uploadGuard.settings.allowFileAccess, isFalse);
+    expect(uploadGuard.settings.allowContentAccess, isTrue);
+  });
+
+  testWidgets('clears Pixiv auth cookies before initial login load', (
+    tester,
+  ) async {
+    final session = FakeWebProfileSession('PHPSESSID=1_stale');
+    final webView = await pumpLoginPage(tester, webSession: session);
+    expect(session.clearAuthCount, 1);
+    expect(session.cookie, isNull);
+    expect(webView.controller.loadedUrls, hasLength(1));
+  });
 }

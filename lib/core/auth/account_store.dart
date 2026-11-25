@@ -16,6 +16,7 @@ import 'oauth_service.dart';
 import '../history/history_repository.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_providers.dart';
+import '../profile/web_profile_session.dart';
 
 /// Lifecycle status of the account domain.
 enum AccountStatus { ready, failure }
@@ -247,7 +248,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
     }
     await repository.save(current.accounts, accountId);
     state = AsyncData(current.copyWith(currentId: accountId));
-    if (current.currentId != accountId) _resetNetworkSession();
+    if (current.currentId != accountId) {
+      _resetNetworkSession();
+      await _clearWebViewSession();
+    }
   });
 
   /// Marks an account as needing a fresh login.
@@ -263,7 +267,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
         .toList();
     await repository.save(accounts, current.currentId);
     state = AsyncData(current.copyWith(accounts: accounts));
-    if (current.currentId == accountId) _resetNetworkSession();
+    if (current.currentId == accountId) {
+      _resetNetworkSession();
+      await _clearWebViewSession();
+    }
   });
 
   /// Removes an account entirely (beta56 logout removes the account).
@@ -286,7 +293,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
         currentId: nextCurrentId,
       ),
     );
-    if (current.currentId == accountId) _resetNetworkSession();
+    if (current.currentId == accountId || accounts.isEmpty) {
+      _resetNetworkSession();
+      await _clearWebViewSession();
+    }
     // The metadata no longer references the secret. C21: what the account
     // left to send (its history outbox, its queued offline actions) and its
     // cached feeds go, so a re-added account never replays or restores them
@@ -310,6 +320,14 @@ class AccountStore extends AsyncNotifier<AccountState> {
     }
     if (failure != null) Error.throwWithStackTrace(failure, failureStack!);
   });
+
+  Future<void> _clearWebViewSession() async {
+    try {
+      await ref.read(webProfileSessionProvider).clearSession();
+    } on Object {
+      // Non-fatal: missing WebView runtime must not block account transitions.
+    }
+  }
 
   Future<List<Account>> _resolveAuthStates(
     CredentialStore credentials,

@@ -123,8 +123,12 @@ class NamingRule {
       seriesTotal: seriesTotal,
     );
     rendered = _clean(rendered);
+    if (rendered.isEmpty) {
+      rendered = '${illustId}_p$pageIndex.$ext';
+    } else if (!rendered.toLowerCase().endsWith('.$ext')) {
+      rendered = '$rendered.$ext';
+    }
     rendered = _trim(rendered, ext);
-    if (rendered.isEmpty) rendered = '${illustId}_p$pageIndex.$ext';
     return rendered;
   }
 

@@ -16,8 +16,11 @@ import '../../core/platform/platform_caps.dart';
 /// → post-redirect → login chain died mid-redirect as CONNECTION_ABORTED.
 /// There the navigation is stopped as it starts ([onLoadStart]).
 class WebNavigationGuard {
-  WebNavigationGuard(PlatformCaps caps, this.stops)
-    : beforeLoad = !caps.isWindows;
+  WebNavigationGuard(
+    PlatformCaps caps,
+    this.stops, {
+    this.allowContentAccess = false,
+  }) : beforeLoad = !caps.isWindows;
 
   /// Whether the main frame's navigation to a URL must not go on; it may
   /// act on the URL (open a page, exchange a code).
@@ -26,9 +29,15 @@ class WebNavigationGuard {
   /// Whether navigations are asked about before they happen.
   final bool beforeLoad;
 
+  /// Whether Android WebView `content://` access is enabled (only for armed
+  /// reverse-image FileProvider uploads).
+  final bool allowContentAccess;
+
   InAppWebViewSettings get settings => InAppWebViewSettings(
     javaScriptEnabled: true,
     useShouldOverrideUrlLoading: beforeLoad,
+    allowFileAccess: false,
+    allowContentAccess: allowContentAccess,
   );
 
   Future<NavigationActionPolicy?> Function(

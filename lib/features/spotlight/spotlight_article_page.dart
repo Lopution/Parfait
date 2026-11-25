@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:octo_image/octo_image.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/layout/app_breakpoints.dart';
 import '../../app/layout/content_widths.dart';
@@ -17,10 +16,12 @@ import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/author_row.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/network/http_client_providers.dart';
 import '../../core/network/api_error.dart';
+import '../../core/platform/android_intent_channel.dart';
 import '../../core/share/share_service.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
 import '../../core/spotlight/spotlight_models.dart';
@@ -89,7 +90,7 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
 
   /// Shares the resolved article link. Platforms without a sharesheet fall
   /// back to the clipboard inside the service — surface that copy outcome.
-  Future<void> _share(BuildContext context) async {
+  Future<void> _share(BuildContext context, String url) async {
     final title =
         ref.read(spotlightArticleStoreProvider)[widget.articleId]?.title ??
         ref
@@ -102,7 +103,7 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
     final outcome = await ref
         .read(shareServiceProvider)
         .share(
-          SharePayload(title: title, author: 'pixivision', url: _url),
+          SharePayload(title: title, author: 'pixivision', url: url),
           sharePositionOrigin: shareOriginOf(context),
         );
     if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
@@ -119,6 +120,7 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
       spotlightArticleBodyProvider((id: widget.articleId, url: _url)),
     );
     final resolvedTitle = entry?.title ?? async.value?.title;
+    final validArticleUri = _tryValidArticleUri(_url);
     return Scaffold(
       appBar: AppTopBar(
         contentWidth: ContentWidths.article,
@@ -132,15 +134,21 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
             builder: (buttonContext) => IconButton(
               icon: const Icon(AppIcons.share),
               tooltip: context.l10n.share,
-              onPressed: () => unawaited(_share(buttonContext)),
+              onPressed: validArticleUri == null
+                  ? null
+                  : () => unawaited(
+                      _share(buttonContext, validArticleUri.toString()),
+                    ),
             ),
           ),
           IconButton(
             icon: const Icon(AppIcons.externalLink),
             tooltip: context.l10n.openInBrowser,
-            onPressed: () => unawaited(
-              launchUrl(Uri.parse(_url), mode: LaunchMode.externalApplication),
-            ),
+            onPressed: validArticleUri == null
+                ? null
+                : () => unawaited(
+                    _openExternalUrl(context, ref, validArticleUri.toString()),
+                  ),
           ),
         ],
       ),
@@ -149,9 +157,10 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
           maxWidth: ContentWidths.article,
           child: FeedLoading(),
         ),
-        error: (error, _) => error is ApiChallengeRequired
+        error: (error, _) =>
+            error is ApiChallengeRequired && validArticleUri != null
             ? SpotlightChallengeView(
-                uri: PixivSpotlightRepository.articleUri(_url),
+                uri: validArticleUri,
                 contentBuilder: (body) =>
                     _articleBody(context, body, _resolveCoverUrl(entry)),
               )
@@ -230,6 +239,8 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
                       block: block,
                       coverUrl: coverUrl,
                       coverMaxHeight: coverMaxHeight,
+                      onOpenLink: (href) =>
+                          _openSpotlightLink(context, ref, href),
                     ),
                 ],
               ),
@@ -244,11 +255,13 @@ class _SpotlightArticlePageState extends ConsumerState<SpotlightArticlePage> {
 class _SpotlightBlockView extends StatefulWidget {
   const _SpotlightBlockView({
     required this.block,
+    required this.onOpenLink,
     this.coverUrl,
     this.coverMaxHeight,
   });
 
   final SpotlightBlock block;
+  final void Function(String href) onOpenLink;
 
   /// The list entry's pximg cover; a deep-linked article has none and keeps
   /// the page's own.
@@ -337,7 +350,7 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
         continue;
       }
       final recognizer = TapGestureRecognizer()
-        ..onTap = () => _openSpotlightLink(context, href);
+        ..onTap = () => widget.onOpenLink(href);
       next.add(recognizer);
       spans.add(
         TextSpan(
@@ -569,11 +582,43 @@ final _artworksPattern = RegExp(r'/artworks/(\d+)');
 final _usersPattern = RegExp(r'/users/(\d+)');
 const _pixivHosts = {'pixiv.net', 'www.pixiv.net', 'www.pixivision.net'};
 
-/// Link dispatch for article paragraphs: Pixiv artwork and user links open
-/// the native detail pages; everything else goes to the external browser.
-void _openSpotlightLink(BuildContext context, String href) {
-  final resolved = Uri.parse('https://www.pixivision.net/').resolve(href);
-  if (_pixivHosts.contains(resolved.host)) {
+Uri? _tryValidArticleUri(String raw) {
+  try {
+    return PixivSpotlightRepository.articleUri(raw);
+  } on ApiParseError {
+    return null;
+  }
+}
+
+Future<void> _openExternalUrl(
+  BuildContext context,
+  WidgetRef ref,
+  String url,
+) async {
+  try {
+    await ref.read(outboundUrlOpenerProvider).openExternal(url);
+  } on Object catch (error) {
+    if (!context.mounted) return;
+    showErrorSnackBar(
+      context,
+      action: context.l10n.illustDetailOpenLinkFailed,
+      error: error,
+    );
+  }
+}
+
+/// Link dispatch for article paragraphs: only http(s) links are accepted;
+/// Pixiv artwork and user links open the native detail pages, and other
+/// http(s) links go through [outboundUrlOpenerProvider].
+void _openSpotlightLink(BuildContext context, WidgetRef ref, String href) {
+  final parsed = Uri.tryParse(href.trim());
+  if (parsed == null) return;
+  final resolved = Uri.parse('https://www.pixivision.net/').resolveUri(parsed);
+  if ((!resolved.isScheme('http') && !resolved.isScheme('https')) ||
+      resolved.host.isEmpty) {
+    return;
+  }
+  if (_pixivHosts.contains(resolved.host.toLowerCase())) {
     final artwork = _artworksPattern.firstMatch(resolved.path);
     if (artwork != null) {
       unawaited(openIllust(context, int.parse(artwork.group(1)!)));
@@ -585,5 +630,5 @@ void _openSpotlightLink(BuildContext context, String href) {
       return;
     }
   }
-  unawaited(launchUrl(resolved, mode: LaunchMode.externalApplication));
+  unawaited(_openExternalUrl(context, ref, resolved.toString()));
 }

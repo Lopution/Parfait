@@ -11,6 +11,7 @@ import '../reverse_image/reverse_image_engine.dart';
 import '../search/search_models.dart';
 import 'app_settings.dart';
 import 'arrangement.dart';
+import 'network_endpoint_validation.dart';
 import 'settings_repository.dart';
 
 /// Error raised after a settings mutation failed to persist.
@@ -123,21 +124,31 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setDohEnabled(bool enabled) =>
       _update((settings) => settings.copyWith(enableDoh: enabled));
 
-  Future<void> setEchFrontHost(String value) => _update(
-    (settings) => settings.copyWith(
-      echFrontHost: value.trim().isEmpty
-          ? AppSettings.defaultEchFrontHost
-          : value.trim(),
-    ),
-  );
+  Future<void> setEchFrontHost(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return _update(
+        (settings) =>
+            settings.copyWith(echFrontHost: AppSettings.defaultEchFrontHost),
+      );
+    }
+    final normalized = normalizeEchFrontHost(trimmed);
+    if (normalized == null) return Future<void>.value();
+    return _update((settings) => settings.copyWith(echFrontHost: normalized));
+  }
 
-  Future<void> setDohEndpointOverride(String? value) => _update(
-    (settings) => settings.copyWith(
-      dohEndpointOverride: value == null || value.trim().isEmpty
-          ? null
-          : value.trim(),
-    ),
-  );
+  Future<void> setDohEndpointOverride(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return _update(
+        (settings) => settings.copyWith(dohEndpointOverride: null),
+      );
+    }
+    final normalized = normalizeDohEndpointOverride(value);
+    if (normalized == null) return Future<void>.value();
+    return _update(
+      (settings) => settings.copyWith(dohEndpointOverride: normalized),
+    );
+  }
 
   Future<void> setHistoryEnabled(bool enabled) =>
       _update((settings) => settings.copyWith(enableHistory: enabled));
@@ -497,12 +508,8 @@ final dohEndpointsProvider = Provider<List<String>>((ref) {
   final override = ref.watch(
     settingsProvider.select((async) => async.value?.dohEndpointOverride),
   );
-  if (override == null) return AppSettings.defaultDohEndpoints;
-  return override
-      .split(',')
-      .map((entry) => entry.trim())
-      .where((entry) => entry.isNotEmpty)
-      .toList(growable: false);
+  final parsed = parseDohEndpointList(override);
+  return parsed.isEmpty ? AppSettings.defaultDohEndpoints : parsed;
 });
 
 /// Persisted reverse-image engine choice (page seeds its session from it).

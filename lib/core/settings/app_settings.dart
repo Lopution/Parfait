@@ -13,6 +13,7 @@ import '../reverse_image/reverse_image_engine.dart';
 import '../search/search_models.dart';
 import 'arrangement.dart';
 import 'image_mirror.dart';
+import 'network_endpoint_validation.dart';
 
 export 'image_mirror.dart' show ImageSourceMode, ImageMirror;
 
@@ -551,16 +552,11 @@ class AppSettings {
               ? ImageMirror.normalizeCustomSource(source)
               : null),
       enableDoh: _bool(json['enableDoh'], base.enableDoh),
-      dohEndpointOverride: _nullableString(
+      dohEndpointOverride: readDohEndpointOverride(
         json,
-        'dohEndpointOverride',
         base.dohEndpointOverride,
       ),
-      echFrontHost:
-          json['echFrontHost'] is String &&
-              (json['echFrontHost'] as String).isNotEmpty
-          ? json['echFrontHost'] as String
-          : base.echFrontHost,
+      echFrontHost: readEchFrontHost(json, base.echFrontHost),
       previewQuality: json['previewQualityCode'] is int
           ? PreviewQuality.fromCode(json['previewQualityCode'])
           : legacyPreview is bool

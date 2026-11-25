@@ -1,17 +1,25 @@
 import 'package:flutter/services.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../platform/dev_webview_environment.dart';
+import '../platform/platform_caps.dart';
 
 /// Platform bridge for the shared WebView session cookie (web profile).
 abstract class WebProfileSession {
   Future<String?> readSessionCookie();
   Future<bool> clearSession();
+  Future<bool> clearPixivAuthSession();
 }
 
 class MethodChannelWebProfileSession implements WebProfileSession {
   const MethodChannelWebProfileSession([
     this._channel = const MethodChannel(_WebProfileMethods.channel),
+    this._caps = const PlatformCaps(),
   ]);
 
   final MethodChannel _channel;
+  final PlatformCaps _caps;
 
   @override
   Future<String?> readSessionCookie() async {
@@ -30,20 +38,87 @@ class MethodChannelWebProfileSession implements WebProfileSession {
 
   @override
   Future<bool> clearSession() async {
+    var cleared = false;
+    if (_caps.isAndroid) {
+      try {
+        cleared =
+            await _channel.invokeMethod<bool>(
+              _WebProfileMethods.clearSession,
+            ) ??
+            false;
+      } on MissingPluginException {
+        // Non-Android platforms clear through flutter_inappwebview below.
+      } on PlatformException {
+        // Report false so logout/switch can continue.
+      }
+    }
+    if (!_canTouchWebViewStorage()) return cleared;
+    final env = DevWebViewEnvironmentHolder.resolveForWebView(
+      isWindowsOverride: _caps.isWindows,
+    );
     try {
-      return await _channel.invokeMethod<bool>(
-            _WebProfileMethods.clearSession,
-          ) ??
-          false;
-    } on MissingPluginException {
-      return false;
-    } on PlatformException {
-      // Same family as [readSessionCookie]: every native code is "cleared
-      // failed" → report false so logout can continue.
+      await CookieManager.instance(webViewEnvironment: env).deleteAllCookies();
+      cleared = true;
+    } on Object {
+      // Non-fatal: missing WebView runtime must not block account transitions.
+    }
+    if (env == null) {
+      try {
+        await WebStorageManager.instance().deleteAllData();
+      } on Object {
+        // Best-effort storage wipe.
+      }
+    }
+    return cleared;
+  }
+
+  @override
+  Future<bool> clearPixivAuthSession() async {
+    if (!_canTouchWebViewStorage()) return false;
+    final env = DevWebViewEnvironmentHolder.resolveForWebView(
+      isWindowsOverride: _caps.isWindows,
+    );
+    final manager = CookieManager.instance(webViewEnvironment: env);
+    var cleared = false;
+    for (final rawUrl in const [
+      'https://accounts.pixiv.net',
+      'https://www.pixiv.net',
+    ]) {
+      try {
+        await manager.deleteCookies(url: WebUri(rawUrl));
+        cleared = true;
+      } on Object {
+        // Best-effort per host.
+      }
+    }
+    try {
+      await manager.deleteCookies(
+        url: WebUri('https://www.pixiv.net'),
+        domain: '.pixiv.net',
+      );
+      cleared = true;
+    } on Object {
+      // Best-effort domain cookie cleanup.
+    }
+    return cleared;
+  }
+
+  bool _canTouchWebViewStorage() {
+    if (!_caps.supportsInAppWebView) return false;
+    if (_caps.isWindows &&
+        DevWebViewEnvironmentHolder.isUnavailableInDevWindows()) {
       return false;
     }
+    return true;
   }
 }
+
+final webProfileSessionProvider = Provider<WebProfileSession>((ref) {
+  return MethodChannelWebProfileSession(
+    const MethodChannel(_WebProfileMethods.channel),
+    ref.watch(platformCapsProvider),
+  );
+});
 
 abstract final class _WebProfileMethods {
   static const channel = 'parfait/webprofile';

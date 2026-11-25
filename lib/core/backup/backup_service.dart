@@ -283,9 +283,14 @@ class BackupService {
       }
     }
 
-    await _writeSettings(
-      AppSettings.fromJson(envelope.settings, fallback: await _readSettings()),
-    );
+    if (strategy == BackupImportStrategy.overwrite) {
+      await _writeSettings(
+        AppSettings.fromJson(
+          sanitizeImportedSettings(envelope.settings),
+          fallback: await _readSettings(),
+        ),
+      );
+    }
 
     final historyRows = switch (strategy) {
       BackupImportStrategy.merge => await _mergeHistory(accountId, envelope),
@@ -301,6 +306,30 @@ class BackupService {
       workMutesChanged: workMutesChanged,
       historyRows: historyRows,
     );
+  }
+
+  /// Strips device-bound folder grants and untrusted network/prompt overrides
+  /// before applying settings from an external backup file.
+  static Map<String, dynamic> sanitizeImportedSettings(
+    Map<String, dynamic> raw,
+  ) {
+    final sanitized = Map<String, dynamic>.of(raw)
+      ..remove('safTreeUri')
+      ..remove('dohEndpointOverride')
+      ..remove('echFrontHost')
+      ..remove('customImageSource')
+      ..remove('loginProxyNoticeAcknowledged');
+    if (sanitized['destinationKind'] == 'safFolder') {
+      sanitized.remove('destinationKind');
+    }
+    for (final key in const ['imageSource', 'imageSourceMode']) {
+      if (!sanitized.containsKey(key)) continue;
+      final value = sanitized[key];
+      if (value is! String || ImageSourceMode.fromHost(value) == null) {
+        sanitized.remove(key);
+      }
+    }
+    return sanitized;
   }
 
   /// Upsert per identity, keeping the newer `last_viewed_at` when a row

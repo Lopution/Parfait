@@ -91,7 +91,9 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       unawaited(
         _seedPageDimensions(
           id,
-          ref.read(illustDetailRepositoryProvider).fetchPageDimensions(id),
+          ref
+              .read(illustDetailRepositoryProvider)
+              .fetchPageDimensions(id, expectedUserId: _currentUserId()),
           claim,
         ),
       );
@@ -132,9 +134,12 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       // When the snapshot already proves the work is multi-page (the
       // feed→detail path), the pages call races the app detail instead of
       // queueing behind it.
+      final expectedUserId = _currentUserId();
       final wantsDims =
           (snapshot?.pageCount ?? 0) > 1 && !snapshot!.hasPageDimensions;
-      final dimsFuture = wantsDims ? repository.fetchPageDimensions(id) : null;
+      final dimsFuture = wantsDims
+          ? repository.fetchPageDimensions(id, expectedUserId: expectedUserId)
+          : null;
       final fresh = await repository.fetch(id);
       // After a switch [store] is the previous account's; the result stays
       // out of the stores.
@@ -158,7 +163,11 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
         unawaited(
           _seedPageDimensions(
             id,
-            dimsFuture ?? repository.fetchPageDimensions(id),
+            dimsFuture ??
+                repository.fetchPageDimensions(
+                  id,
+                  expectedUserId: expectedUserId,
+                ),
             claim,
           ),
         );
@@ -191,6 +200,9 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   /// Enriches the merged entity with true per-page dimensions once the web
   /// call lands and re-emits Ready so placeholders re-layout — the detail
   /// surface is never held for the extra round trip.
+  int? _currentUserId() =>
+      ref.read(accountStoreProvider).value?.usableCurrent?.userId;
+
   Future<void> _seedPageDimensions(
     int id,
     Future<List<({int width, int height})>?> dimsFuture,
@@ -214,7 +226,7 @@ final illustDetailWebClientProvider = Provider<http.Client?>((ref) => null);
 final illustDetailRepositoryProvider = Provider<IllustDetailRepository>(
   (ref) => IllustDetailRepository(
     ref.watch(pixivHttpClientProvider),
-    session: const MethodChannelWebProfileSession(),
+    session: ref.watch(webProfileSessionProvider),
     policy: ref.watch(networkAccessPolicyProvider),
     webClient: ref.watch(illustDetailWebClientProvider),
   ),

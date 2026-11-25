@@ -56,16 +56,22 @@ class IllustDetailRepository {
   /// to `null`, never an error — the caller keeps the first-page-ratio
   /// estimate exactly like before.
   Future<List<({int width, int height})>?> fetchPageDimensions(
-    int illustId,
-  ) async {
+    int illustId, {
+    int? expectedUserId,
+  }) async {
     try {
-      // A session-channel failure must not skip the request: SFW pages
-      // respond without a cookie too.
+      // A session-channel failure or foreign account cookie must not leak
+      // across accounts or skip the request: SFW pages work without a cookie.
       String? cookie;
-      try {
-        cookie = await _session.readSessionCookie();
-      } on Object {
-        cookie = null;
+      if (expectedUserId != null && expectedUserId > 0) {
+        try {
+          final raw = await _session.readSessionCookie();
+          if (webSessionUserId(raw) == expectedUserId) {
+            cookie = raw;
+          }
+        } on Object {
+          cookie = null;
+        }
       }
       final uri = Uri.https(
         PixivClientIdentity.webHost,

@@ -1,9 +1,12 @@
 package io.github.lopution.parfait
 
+import android.net.Uri
+import com.pichillilorenzo.flutter_inappwebview_android.webview.in_app_webview.InAppWebViewChromeClient
 import io.flutter.plugin.common.MethodCall
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,6 +17,7 @@ class ReverseImageInputChannelTest {
     @After
     fun resetPicker() {
         ReverseImageInputChannel.abandonPendingPicker()
+        InAppWebViewChromeClient.disarmFileChooser()
     }
 
     @Test
@@ -129,28 +133,42 @@ class ReverseImageInputChannelTest {
 
     @Test
     fun `armReverseUpload returns the armed uri`() {
-        val result = dispatch("armReverseUpload", mapOf("path" to "/tmp/in"))
+        val result = dispatch(
+            "armReverseUpload",
+            mapOf("path" to "/tmp/in", "allowedHosts" to listOf("ascii2d.net", "www.ascii2d.net")),
+        )
         assertEquals("content://armed/in", result.successValue)
         assertNull(result.errorCode)
     }
 
     @Test
-    fun `armReverseUpload blank path is invalid_path`() {
-        val result = dispatch("armReverseUpload", mapOf("path" to " "))
-        assertEquals("invalid_path", result.errorCode)
+    fun `armReverseUpload blank path is invalid_path and missing hosts is invalid_hosts`() {
+        val blankPath = dispatch(
+            "armReverseUpload",
+            mapOf("path" to " ", "allowedHosts" to listOf("ascii2d.net")),
+        )
+        assertEquals("invalid_path", blankPath.errorCode)
+
+        val missingHosts = dispatch("armReverseUpload", mapOf("path" to "/tmp/in"))
+        assertEquals("invalid_hosts", missingHosts.errorCode)
     }
 
     @Test
     fun `armReverseUpload armer failure surfaces arm_failed`() {
         val result = RecordingMethodResult()
         ReverseImageInputChannel.handle(
-            MethodCall("armReverseUpload", mapOf("path" to "/tmp/x")),
+            MethodCall(
+                "armReverseUpload",
+                mapOf("path" to "/tmp/x", "allowedHosts" to listOf("ascii2d.net")),
+            ),
             result,
             FakeIo(),
             ReverseImagePickerLauncher { },
             ReverseImageExternalOpener { true },
             object : ReverseImageUploadArmer {
-                override fun arm(path: String): String = error("outside owner")
+                override fun arm(path: String, allowedHosts: Set<String>): String =
+                    error("outside owner")
+
                 override fun disarm() {}
             },
             ImmediateMainThreadPoster,
@@ -169,7 +187,7 @@ class ReverseImageInputChannelTest {
             ReverseImagePickerLauncher { },
             ReverseImageExternalOpener { true },
             object : ReverseImageUploadArmer {
-                override fun arm(path: String): String = "content://x"
+                override fun arm(path: String, allowedHosts: Set<String>): String = "content://x"
                 override fun disarm() {
                     disarmed += 1
                 }
@@ -179,6 +197,21 @@ class ReverseImageInputChannelTest {
         assertEquals(1, disarmed)
         assertTrue(result.hasSuccess())
         assertNull(result.errorCode)
+    }
+
+    @Test
+    fun `armed file chooser consumes once only on allowed https host`() {
+        val fakeUri = Uri.EMPTY
+        InAppWebViewChromeClient.armFileChooser(arrayOf(fakeUri), listOf("ascii2d.net"))
+        assertNull(InAppWebViewChromeClient.consumeArmedFileChooserUris("https://ads.example.invalid/chooser"))
+        assertNull(InAppWebViewChromeClient.consumeArmedFileChooserUris("https://www.pixivision.net/a/10943"))
+        assertNull(InAppWebViewChromeClient.consumeArmedFileChooserUris("http://ascii2d.net/"))
+        assertNull(InAppWebViewChromeClient.consumeArmedFileChooserUris(null))
+        val consumed = InAppWebViewChromeClient.consumeArmedFileChooserUris("https://ASCII2D.NET/search")
+        assertNotNull(consumed)
+        assertEquals(1, consumed!!.size)
+        // One-shot: second call on the same host returns null.
+        assertNull(InAppWebViewChromeClient.consumeArmedFileChooserUris("https://ascii2d.net/"))
     }
 
     @Test
@@ -262,7 +295,7 @@ class ReverseImageInputChannelTest {
     }
 
     private class FakeArmer : ReverseImageUploadArmer {
-        override fun arm(path: String): String = "content://armed/in"
+        override fun arm(path: String, allowedHosts: Set<String>): String = "content://armed/in"
 
         override fun disarm() {}
     }

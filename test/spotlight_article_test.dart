@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image/image.dart' as img;
 import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/spotlight/article_parser.dart';
 import 'package:parfait/core/spotlight/spotlight_article_controller.dart';
@@ -28,6 +29,7 @@ import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'helpers/connectivity_channels.dart';
 import 'helpers/image_network.dart';
 import 'helpers/json_response.dart';
+import 'helpers/recording_outbound_url_opener.dart';
 import 'helpers/recording_share_service.dart';
 import 'helpers/spotlight_world.dart';
 import 'helpers/prompt_host.dart';
@@ -81,6 +83,7 @@ Future<GoRouter> pumpArticle(
   WidgetTester tester, {
   Size size = const Size(390, 844),
   String html = _articleHtml,
+  String? articleUrl,
   Map<String, http.Response> images = const {},
   List<Override> extraOverrides = const [],
   List<SpotlightArticle> entries = const [],
@@ -92,7 +95,8 @@ Future<GoRouter> pumpArticle(
     routes: [
       GoRoute(
         path: '/recommended',
-        builder: (_, _) => const SpotlightArticlePage(articleId: 101),
+        builder: (_, _) =>
+            SpotlightArticlePage(articleId: 101, articleUrl: articleUrl),
       ),
       GoRoute(
         path: '/recommended/illust/:illustId',
@@ -694,6 +698,74 @@ void main() {
       // The clipboard fallback is surfaced, never silent.
       expect(find.text('链接已复制'), findsOneWidget);
     });
+
+    testWidgets(
+      'openInBrowser routes valid articleUrl via OutboundUrlOpener and disables invalid ones',
+      (tester) async {
+        final opener = RecordingOutboundUrlOpener();
+        await pumpArticle(
+          tester,
+          extraOverrides: [outboundUrlOpenerProvider.overrideWithValue(opener)],
+        );
+        await tester.tap(find.byTooltip('在浏览器打开'));
+        await tester.pumpAndSettle();
+        expect(opener.urls, ['https://www.pixivision.net/a/101']);
+
+        opener.urls.clear();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await pumpArticle(
+          tester,
+          articleUrl: 'file:///etc/passwd',
+          extraOverrides: [outboundUrlOpenerProvider.overrideWithValue(opener)],
+        );
+        final openButton = tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip('在浏览器打开'),
+            matching: find.byType(IconButton),
+          ),
+        );
+        final shareButton = tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip('分享'),
+            matching: find.byType(IconButton),
+          ),
+        );
+        expect(openButton.onPressed, isNull);
+        expect(shareButton.onPressed, isNull);
+        expect(opener.urls, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'paragraph links reject non-http(s) and malformed hrefs before routing',
+      (tester) async {
+        const unsafeHtml = '''
+<html><body><article><header><h1>links</h1></header><div class="am__body">
+<p><a href="file:///etc/passwd">L1</a> <a href="smb://evil/s">L2</a>
+<a href="pixiv://account/login?code=x">L3</a>
+<a href="file://www.pixiv.net/artworks/1">L4</a>
+<a href="http://[::1">L5</a>
+<a href="https://example.com/ok">L6</a></p>
+</div></article></body></html>
+''';
+        final opener = RecordingOutboundUrlOpener();
+        await pumpArticle(
+          tester,
+          html: unsafeHtml,
+          extraOverrides: [outboundUrlOpenerProvider.overrideWithValue(opener)],
+        );
+        for (final label in const ['L1', 'L2', 'L3', 'L4', 'L5']) {
+          await tester.tapOnText(find.textRange.ofSubstring(label));
+          await tester.pump();
+        }
+        expect(opener.urls, isEmpty);
+        expect(find.text('illust 1'), findsNothing);
+
+        await tester.tapOnText(find.textRange.ofSubstring('L6'));
+        await tester.pumpAndSettle();
+        expect(opener.urls, ['https://example.com/ok']);
+      },
+    );
 
     testWidgets(
       'SpotlightChallengeView skips WebView on unsupported platforms',

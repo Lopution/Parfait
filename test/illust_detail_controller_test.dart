@@ -9,11 +9,13 @@ import 'package:parfait/core/illust/illust_detail_controller.dart';
 import 'package:parfait/core/illust/related_illust_repository.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/profile/web_profile_session.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/waits.dart';
 
 /// Drives PixivHttpClient with a scripted API transport. [webHandler]
@@ -360,4 +362,38 @@ void main() {
       expect(() => repo.fetchPage(42), throwsA(isA<ApiParseError>()));
     });
   });
+
+  test(
+    'fetchPageDimensions sends PHPSESSID only when it matches the active userId',
+    () async {
+      final seenCookies = <String?>[];
+      final session = FakeWebProfileSession('PHPSESSID=999_foreign');
+      final container = await signedInApiContainer(
+        MockClient((_) async => okJson({})),
+        overrides: [
+          webProfileSessionProvider.overrideWithValue(session),
+          illustDetailWebClientProvider.overrideWithValue(
+            MockClient((request) async {
+              seenCookies.add(request.headers['cookie']);
+              return okJson({
+                'error': false,
+                'body': [
+                  {'width': 800, 'height': 600},
+                ],
+              });
+            }),
+          ),
+        ],
+      );
+      final repo = container.read(illustDetailRepositoryProvider);
+
+      // Foreign user cookie and missing expectedUserId both omit the header.
+      await repo.fetchPageDimensions(50, expectedUserId: 100);
+      await repo.fetchPageDimensions(50);
+      session.cookie = 'PHPSESSID=100_matching';
+      await repo.fetchPageDimensions(50, expectedUserId: 100);
+
+      expect(seenCookies, [null, null, 'PHPSESSID=100_matching']);
+    },
+  );
 }

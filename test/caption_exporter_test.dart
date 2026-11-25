@@ -243,6 +243,19 @@ void main() {
         ),
         '5_Road_3of12_p0.png',
       );
+      const nonMediaSuffix = NamingRule(
+        preset: NamingPreset.custom,
+        template: '{title}.canary',
+      );
+      expect(
+        nonMediaSuffix.resolve(
+          illustId: 5,
+          pageIndex: 0,
+          extension: 'jpg',
+          title: 'art',
+        ),
+        'art.canary.jpg',
+      );
     });
 
     test('DownloadRequest.displayName consumes the metadata fields', () {

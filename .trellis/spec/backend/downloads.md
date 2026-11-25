@@ -3,7 +3,7 @@ prefix: DL
 applies_to:
   - lib/core/download/**
   - lib/features/settings/pages/download_*.dart
-reviewed: 2026-11-22
+reviewed: 2026-11-25
 ---
 
 # Downloads and recovery
@@ -85,13 +85,18 @@ reviewed: 2026-11-22
 
 ### DL-05 The file name is frozen at submission
 - **Rule:** The snapshot freezes the resolved display name, re-validated on
-  decode; a retry writes the stored name instead of recomputing it. Display
-  fields (`thumbnailUrl`, `totalPages`) are presentation only: never in
-  `dedupeKey` or owner checks, and records without them still recover.
+  decode; a retry writes the stored name instead of recomputing it.
+  `NamingRule.resolve` always guarantees the resolved filename ends with
+  `.$ext` before trimming, so custom naming templates cannot drop or spoof
+  the media extension. Display fields (`thumbnailUrl`, `totalPages`) are
+  presentation only: never in `dedupeKey` or owner checks, and records
+  without them still recover.
 - **Why:** A restored request lacks template inputs (`{author_id}`, `{w}`,
-  `{h}`), so a recomputed name came out with empty segments.
-- **Check:** `test/download_recovery_test.dart` "retrying a recovered task writes the stored name" "a stored name with traversal segments is rejected" "records without display fields still recover"
-- **Code:** `lib/core/download/download_recovery.dart`
+  `{h}`), so a recomputed name came out with empty segments; a custom
+  template omitting `{ext}` could write media bytes under an arbitrary
+  extension such as `.apk` or `.exe`.
+- **Check:** `test/download_recovery_test.dart` "retrying a recovered task writes the stored name" "a stored name with traversal segments is rejected" "records without display fields still recover", `test/caption_exporter_test.dart` "DownloadRequest.displayName consumes the metadata fields"
+- **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/naming_rule.dart`
 
 ## Output and transport
 
