@@ -51,8 +51,7 @@ Future<void> copyIllustOriginalImageToClipboard(
     final fetched = await container
         .read(imageWorkerProvider)
         .fetch(url, priority: ImageFetchPriority.foreground);
-    final bytes = await fetched.file.readAsBytes();
-    final copied = await ImageClipboard.copyImageBytes(bytes);
+    final copied = await ImageClipboard.copyImageFile(fetched.file.path);
     if (!copied) {
       AppHaptics.error();
       showFailed();

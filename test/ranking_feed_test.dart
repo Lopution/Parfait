@@ -14,6 +14,7 @@ import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/navigation/frozen_while_hidden.dart';
 import 'package:parfait/app/widgets/app_date_picker.dart';
 import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
@@ -681,5 +682,161 @@ void main() {
       await tester.pumpAndSettle();
       expect(fixture.requests.length, greaterThan(before + 1));
     });
+
+    testWidgets(
+      'FrozenWhileHidden skips hidden width relayouts and TabSlideStack pins multi-tab hops',
+      (tester) async {
+        var layoutCount = 0;
+        var lastWidth = 0.0;
+        var hidden = false;
+        var width = 400.0;
+        late StateSetter rebuildHost;
+        final trackedChild = LayoutBuilder(
+          builder: (context, constraints) {
+            layoutCount++;
+            lastWidth = constraints.maxWidth;
+            return const SizedBox.expand();
+          },
+        );
+
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                rebuildHost = setState;
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    height: 200,
+                    child: FrozenWhileHidden.when(
+                      hidden: hidden,
+                      child: trackedChild,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        expect(layoutCount, 1);
+        expect(lastWidth, 400.0);
+
+        rebuildHost(() {
+          hidden = true;
+          width = 640.0;
+        });
+        await tester.pump();
+        expect(
+          layoutCount,
+          1,
+          reason: 'hidden width change skips child layout',
+        );
+        expect(lastWidth, 400.0);
+
+        rebuildHost(() => hidden = false);
+        await tester.pump();
+        expect(layoutCount, 2, reason: 'reveal applies current width once');
+        expect(lastWidth, 640.0);
+
+        final tc = TabController(length: 6, vsync: tester);
+        addTearDown(tc.dispose);
+        final activeSeen = <int>{};
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: TabSlideStack(
+              controller: tc,
+              children: [
+                for (var i = 0; i < 6; i++)
+                  Builder(
+                    key: ValueKey(i),
+                    builder: (context) {
+                      if (TickerMode.valuesOf(context).enabled) {
+                        activeSeen.add(i);
+                      }
+                      return SizedBox.expand(child: Text('tab $i'));
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+        activeSeen.clear();
+        tc.animateTo(5);
+        await tester.pump(const Duration(milliseconds: 120));
+        expect(
+          tester
+              .widget<Offstage>(find.byKey(const ValueKey<Key>(ValueKey(0))))
+              .offstage,
+          isFalse,
+        );
+        expect(
+          tester
+              .widget<Offstage>(find.byKey(const ValueKey<Key>(ValueKey(5))))
+              .offstage,
+          isFalse,
+        );
+        for (var i = 1; i <= 4; i++) {
+          expect(
+            tester
+                .widget<Offstage>(find.byKey(ValueKey<Key>(ValueKey(i))))
+                .offstage,
+            isTrue,
+          );
+        }
+        await tester.pumpAndSettle();
+        expect(
+          activeSeen,
+          equals({5}),
+          reason: 'intermediate tabs 1..4 stay offstage and ticker-muted',
+        );
+      },
+    );
+
+    testWidgets(
+      'RankingTabs caps mounted modes to 5 LRU and restores evicted scroll offset',
+      (tester) async {
+        final (container, _) = await _makeWorld();
+        await _pumpRanking(tester, container);
+        final tc = tabs(tester);
+        expect(tc.length, greaterThanOrEqualTo(7));
+
+        final scrollViews = find.bySubtype<CustomScrollView>();
+        final controller0 = tester
+            .widget<CustomScrollView>(scrollViews.first)
+            .controller!;
+        if (controller0.position.maxScrollExtent > 0) {
+          controller0.jumpTo(
+            controller0.position.maxScrollExtent.clamp(0.0, 200.0),
+          );
+          await tester.pumpAndSettle();
+        }
+        final scrolledBefore = controller0.offset;
+
+        // Visit 7 distinct categories so mode 0 is evicted past the 5-mode cap.
+        for (var i = 1; i <= 6; i++) {
+          tc.animateTo(i);
+          await tester.pumpAndSettle();
+        }
+        expect(
+          find
+              .bySubtype<CustomScrollView>(skipOffstage: false)
+              .evaluate()
+              .length,
+          lessThanOrEqualTo(5),
+        );
+
+        // Return to mode 0 and verify its scroll offset restores.
+        tc.animateTo(0);
+        await tester.pumpAndSettle();
+        final restored = tester
+            .widget<CustomScrollView>(find.bySubtype<CustomScrollView>().first)
+            .controller!
+            .offset;
+        expect(restored, closeTo(scrolledBefore, 1.0));
+      },
+    );
   });
 }

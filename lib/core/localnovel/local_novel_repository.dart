@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
 import '../log.dart';
+import '../network/data_worker.dart';
 import '../platform/app_storage_paths.dart';
 import '../platform/saf_tree.dart';
 import 'local_novel_database.dart';
@@ -78,11 +79,24 @@ class LocalNovelTooLargeException implements Exception {
 /// CRUD + import boundary for the local TXT library. The file is written
 /// before its index row; a row that fails to store takes the file with it,
 /// so the library directory holds no file the list cannot show.
+(String, LocalNovelEncoding, int) _decodeAndCountLocalNovel(Uint8List bytes) {
+  final (text, encoding) = decodeLocalNovelText(bytes);
+  var count = 1;
+  for (var i = 0; i < text.length; i++) {
+    if (text.codeUnitAt(i) == 0x0A) count += 1;
+  }
+  return (text, encoding, count);
+}
+
 class LocalNovelRepository {
-  LocalNovelRepository({required LocalNovelDatabase database})
-    : _database = database;
+  LocalNovelRepository({
+    required LocalNovelDatabase database,
+    DataWorker worker = const InlineDataWorker(),
+  }) : _database = database,
+       _worker = worker;
 
   final LocalNovelDatabase _database;
+  final DataWorker _worker;
 
   /// Largest raw TXT file accepted by the document picker.
   static const maxImportBytes = 64 * 1024 * 1024;
@@ -129,7 +143,11 @@ class LocalNovelRepository {
     if (bytes.length > maxImportBytes) {
       throw const DocumentTooLargeException(maxImportBytes);
     }
-    final (text, encoding) = decodeLocalNovelText(bytes);
+    final (text, encoding, paragraphs) = await _worker.run(
+      _decodeAndCountLocalNovel,
+      bytes,
+      label: 'local_novel.decode',
+    );
     if (text.length > maxImportChars) {
       throw LocalNovelTooLargeException(
         kind: LocalNovelLimitKind.chars,
@@ -137,7 +155,6 @@ class LocalNovelRepository {
         limit: maxImportChars,
       );
     }
-    final paragraphs = _countParagraphs(text);
     if (paragraphs > maxImportParagraphs) {
       throw LocalNovelTooLargeException(
         kind: LocalNovelLimitKind.paragraphs,
@@ -231,14 +248,6 @@ class LocalNovelRepository {
     return dot > 0 ? base.substring(0, dot) : base;
   }
 
-  static int _countParagraphs(String text) {
-    var count = 1;
-    for (var i = 0; i < text.length; i++) {
-      if (text.codeUnitAt(i) == 0x0A) count += 1;
-    }
-    return count;
-  }
-
   LocalNovel _fromRow(Map<String, Object?> row) {
     return LocalNovel(
       id: row['id']! as int,
@@ -267,5 +276,8 @@ final localNovelDatabaseProvider = Provider<LocalNovelDatabase>((ref) {
 });
 
 final localNovelRepositoryProvider = Provider<LocalNovelRepository>((ref) {
-  return LocalNovelRepository(database: ref.watch(localNovelDatabaseProvider));
+  return LocalNovelRepository(
+    database: ref.watch(localNovelDatabaseProvider),
+    worker: ref.watch(dataWorkerProvider),
+  );
 });

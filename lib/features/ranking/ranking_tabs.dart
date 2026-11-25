@@ -89,10 +89,13 @@ class _RankingTabsState<M extends RankingCategory>
   late List<M> _modes;
   late M _selected;
 
+  static const int _maxLoadedModes = 5;
+
   /// A hidden category the route opened: shown first for this visit and
   /// not saved, until the user shows or hides it.
   M? _routeExtra;
   final _scrollControllers = <M, ScrollController>{};
+  final _savedScrollOffsets = <M, double>{};
   final _loadedModes = <M>{};
 
   /// One body instance per mode, reused across page builds: an identical
@@ -252,12 +255,14 @@ class _RankingTabsState<M extends RankingCategory>
       if (!modes.contains(mode)) {
         _bodies.remove(mode);
         _loadedModes.remove(mode);
+        _savedScrollOffsets.remove(mode);
       }
     }
     _modes = modes;
     _selected = selected;
-    _loadedModes.add(selected);
+    _touchLoaded(selected);
     _tabController = _controllerOn(selected);
+    _evictExcessModes();
     // The outgoing tab bar and lists still hold these until the next frame
     // unmounts them.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -297,6 +302,7 @@ class _RankingTabsState<M extends RankingCategory>
   void _resetForDate(DateTime? date) {
     final stale = _scrollControllers.values.toList();
     _scrollControllers.clear();
+    _savedScrollOffsets.clear();
     _bodies.clear();
     _loadedModes
       ..clear()
@@ -319,12 +325,61 @@ class _RankingTabsState<M extends RankingCategory>
 
   void _handleTabChanged() {
     final mode = _modes[_tabController.index];
-    if (mode == _selected) return;
+    if (mode == _selected) {
+      if (!_tabController.indexIsChanging &&
+          _loadedModes.length > _maxLoadedModes) {
+        setState(_evictExcessModes);
+      }
+      return;
+    }
     setState(() {
       _selected = mode;
-      _loadedModes.add(mode);
+      _touchLoaded(mode);
+      _evictExcessModes();
     });
     _afterSelect();
+  }
+
+  void _touchLoaded(M mode) {
+    _loadedModes
+      ..remove(mode)
+      ..add(mode);
+  }
+
+  void _evictExcessModes() {
+    if (_loadedModes.length <= _maxLoadedModes) return;
+    final idx = _modes.indexOf(_selected);
+    final protected = <M>{
+      _selected,
+      if (idx > 0) _modes[idx - 1],
+      if (idx >= 0 && idx + 1 < _modes.length) _modes[idx + 1],
+      if (_tabController.indexIsChanging &&
+          _tabController.previousIndex >= 0 &&
+          _tabController.previousIndex < _modes.length)
+        _modes[_tabController.previousIndex],
+    };
+    final staleScrolls = <ScrollController>[];
+    final candidates = _loadedModes.toList(growable: false);
+    for (final mode in candidates) {
+      if (_loadedModes.length <= _maxLoadedModes) break;
+      if (protected.contains(mode)) continue;
+      _loadedModes.remove(mode);
+      _bodies.remove(mode);
+      final controller = _scrollControllers.remove(mode);
+      if (controller != null) {
+        if (controller.hasClients) {
+          _savedScrollOffsets[mode] = controller.offset;
+        }
+        staleScrolls.add(controller);
+      }
+    }
+    if (staleScrolls.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final controller in staleScrolls) {
+          controller.dispose();
+        }
+      });
+    }
   }
 
   void _afterSelect() {
@@ -380,12 +435,14 @@ class _RankingTabsState<M extends RankingCategory>
     return _scrollControllers.putIfAbsent(
       mode,
       () => ScrollController(
+        initialScrollOffset: _savedScrollOffsets[mode] ?? 0,
         onAttach: (_) {
           // A first-visited tab's list mounts after the tab-change
           // announce has already fired — re-announce so the app bar's
           // scrolled-under state still lands on the tab on screen.
-          if (mode == _selected) {
-            announceTabScroll(_notificationContext, _scrollControllers[mode]!);
+          final current = _scrollControllers[mode];
+          if (mode == _selected && current != null) {
+            announceTabScroll(_notificationContext, current);
           }
         },
       ),
@@ -395,7 +452,10 @@ class _RankingTabsState<M extends RankingCategory>
   bool _prepareTab(int index) {
     final mode = _modes[index];
     if (_loadedModes.contains(mode)) return false;
-    setState(() => _loadedModes.add(mode));
+    setState(() {
+      _touchLoaded(mode);
+      _evictExcessModes();
+    });
     return true;
   }
 

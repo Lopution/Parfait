@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import '../entity/json_read.dart';
 
 import '../network/api_date.dart';
 import '../network/api_error.dart';
+import '../network/data_worker.dart';
 import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
@@ -236,10 +238,26 @@ abstract interface class _NovelRepository {
   Future<void> deleteMarker(int novelId);
 }
 
+({NovelWebPayload payload, NovelMarkupDocument? markup, String? contentVersion})
+_parseNovelWebPayloadBytes(Uint8List bodyBytes) {
+  final payload = extractNovelWebPayload(utf8.decode(bodyBytes));
+  final text = payload.text;
+  if (text == null) {
+    return (payload: payload, markup: null, contentVersion: null);
+  }
+  return (
+    payload: payload,
+    markup: NovelContentMapper.parse(text, images: true),
+    contentVersion: NovelEntity.computeWebContentVersion(text),
+  );
+}
+
 class _PixivNovelRepository implements _NovelRepository {
-  _PixivNovelRepository(this._client);
+  _PixivNovelRepository(this._client, [DataWorker? worker])
+    : _worker = worker ?? _client.dataWorker;
 
   final PixivHttpClient _client;
+  final DataWorker _worker;
 
   static const _detailPath = '/v2/novel/detail';
   static const _webviewPath = '/webview/v2/novel';
@@ -268,7 +286,8 @@ class _PixivNovelRepository implements _NovelRepository {
     try {
       var novel = NovelEntity.fromDetailJson(json);
       if (!novel.visible || novel.isXRestricted) return novel;
-      final payload = await _fetchWebPayload(novelId, cancelToken);
+      final parsed = await _fetchWebPayload(novelId, cancelToken);
+      final payload = parsed.payload;
       novel = novel.withWebContent(
         payload.text,
         embeddedImages: payload.images,
@@ -276,6 +295,8 @@ class _PixivNovelRepository implements _NovelRepository {
         seriesPrevId: payload.seriesPrevId,
         seriesNextId: payload.seriesNextId,
         markerPage: payload.markerPage,
+        parsedMarkup: parsed.markup,
+        parsedContentVersion: parsed.contentVersion,
       );
       if (!novel.contentAvailable) {
         throw _NovelContentUnavailableException(novel.id);
@@ -336,11 +357,16 @@ class _PixivNovelRepository implements _NovelRepository {
   }
 
   /// Fetches the HTML bootstrap page that carries the novel body. The
-  /// response is not JSON; [extractNovelWebPayload] decodes it.
-  Future<NovelWebPayload> _fetchWebPayload(
-    int novelId,
-    CancelToken? cancelToken,
-  ) async {
+  /// response is not JSON; [_parseNovelWebPayloadBytes] decodes, parses
+  /// markup, and hashes content off the UI isolate via [DataWorker].
+  Future<
+    ({
+      NovelWebPayload payload,
+      NovelMarkupDocument? markup,
+      String? contentVersion,
+    })
+  >
+  _fetchWebPayload(int novelId, CancelToken? cancelToken) async {
     final response = await _client.get(
       PixivClientIdentity.appApiBase.replace(
         path: _webviewPath,
@@ -348,7 +374,11 @@ class _PixivNovelRepository implements _NovelRepository {
       ),
       cancelToken: cancelToken,
     );
-    return extractNovelWebPayload(utf8.decode(response.bodyBytes));
+    return _worker.run(
+      _parseNovelWebPayloadBytes,
+      response.bodyBytes,
+      label: 'novel.parse_web',
+    );
   }
 
   @override

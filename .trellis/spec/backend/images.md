@@ -213,36 +213,43 @@ reviewed: 2026-11-25
 ### IMG-10 An animated work owns its resources and frees them
 - **Rule:** Each ugoira load owns one temporary archive, one index, one
   bounded frame cache and one scheduler. The cache disposes every
-  `ui.Image` it evicts or replaces; the viewer stops the scheduler before
+  `ui.Image` it evicts or replaces; playback uses `loopAware: true` eviction
+  (retaining early loop frames rather than thrashing 0% on loop 2) with
+  display-width `targetWidth` decode (`jpegEdgeSafeDecodeWidth`, IMG-13) and
+  1-frame lookahead prefetch; the viewer stops the scheduler before
   teardown. Playback (`UgoiraViewer`) and app-level GIF export
   (`UgoiraExportController`) each load and dispose their own independent
   `UgoiraAsset` and temporary archive — an export never borrows the viewer's
   playback asset.
-- **Why:** Undisposed frames and temp files leaked across viewers, and
-  borrowing the viewer's asset deleted the ZIP mid-export when leaving the
-  detail page.
-- **Check:** `test/ugoira_test.dart` "evicts the least recently used frame and disposes it" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state"
+- **Why:** Undisposed frames and temp files leaked across viewers, plain LRU
+  thrashed 0% on looping playback when frames exceeded the cache cap, full-res
+  decode wasted GPU memory, and borrowing the viewer's asset deleted the ZIP
+  mid-export when leaving the detail page.
+- **Check:** `test/ugoira_test.dart` "evicts the least recently used frame and disposes it" "loopAware cache retains prefix frames, worker reads ZIP, and octree encodes encoded frames" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state"
 - **Code:** `lib/core/ugoira`
 
 ### IMG-15 A ugoira entry never inflates past its declared size
 - **Rule:** `SafeZipIndex` checks every entry against the metadata, its
-  local header and the compression-ratio limit, and inflates in chunks
-  into a sink that fails as soon as the output passes the declared size;
-  the size and CRC checks follow.
-- **Why:** The whole entry used to be inflated before the size check, so a
-  forged entry declaring a few megabytes could expand to gigabytes.
+  local header and the compression-ratio limit, and inflates in 64 KiB chunks
+  inside a cancellable worker isolate (`UgoiraZipWorker` for file-backed
+  archives) into a sink that fails as soon as the output passes the declared
+  size; the size and CRC checks follow before returning `TransferableTypedData`.
+- **Why:** Inflating whole entries on the UI isolate both stalled playback
+  frames and let forged entries expand unboundedly before size checks ran.
 - **Check:** `test/ugoira_test.dart` "a forged entry fails once it inflates past its declared size" "rejects metadata count mismatch and forged local sizes"
-- **Code:** `lib/core/ugoira/ugoira_zip.dart`
+- **Code:** `lib/core/ugoira/ugoira_zip.dart`, `lib/core/ugoira/ugoira_zip_worker.dart`
 
 ### IMG-11 GIF export is a cancellable app-level worker job with one terminal state
 - **Rule:** GIF export runs through app-level `UgoiraExportController`
   (`ugoiraExportControllerProvider`, invoked on demand from `UgoiraViewer`,
   `DetailActionBar`, or inspector download actions without requiring prior
-  playback and never falling back to a static first-frame JPEG). It
-  quantizes in a worker isolate, checks cancellation between frames and
-  before finalize, owns one pending MediaStore item and its own temporary
-  archive, continues after leaving the detail page (delivering terminal
-  feedback through `PromptHost` and showing live progress + cancel on
+  playback and never falling back to a static first-frame JPEG). It decodes
+  encoded frame bytes and quantizes with `QuantizerType.octree` inside the
+  worker isolate (zero UI-isolate `ui.Image` decode or `toByteData` readback),
+  writes output chunks via `Uint8List.sublistView`, checks cancellation between
+  frames and before finalize, owns one pending MediaStore item and its own
+  temporary archive, continues after leaving the detail page (delivering
+  terminal feedback through `PromptHost` and showing live progress + cancel on
   same-process re-entry), and emits exactly one terminal snapshot. It never
   holds the full decoded frame list on the UI isolate. Its recovery record
   uses its own key and owner prefix and never enters the download retry

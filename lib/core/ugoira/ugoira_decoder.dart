@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import '../image/jpeg_edge_safe_resize_image.dart';
 import 'ugoira_limits.dart';
 import 'ugoira_zip.dart';
 
@@ -23,17 +24,46 @@ class UgoiraFrameDecoder {
 
   final UgoiraLimits limits;
 
-  Future<ui.Image> decode(List<int> bytes) async {
+  Future<ui.Image> decode(List<int> bytes, {int? targetWidth}) async {
     final header = UgoiraFrameHeader.parse(bytes);
     header.validate(limits);
-    final codec = await _createCodec(bytes);
+    final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+    final resolvedTargetWidth = _resolveTargetWidth(data, header, targetWidth);
+    ui.ImmutableBuffer? buffer;
+    ui.ImageDescriptor? descriptor;
+    ui.Codec? codec;
     try {
+      if (resolvedTargetWidth != null) {
+        buffer = await ui.ImmutableBuffer.fromUint8List(data);
+        descriptor = await ui.ImageDescriptor.encoded(buffer);
+        if (descriptor.width != header.width ||
+            descriptor.height != header.height) {
+          throw const UgoiraDecodeException(
+            'decoded frame dimensions differ from header',
+          );
+        }
+        codec = await descriptor.instantiateCodec(
+          targetWidth: resolvedTargetWidth,
+        );
+      } else {
+        codec = await ui.instantiateImageCodec(data);
+      }
       final frame = await codec.getNextFrame();
       final image = frame.image;
-      if (image.width != header.width || image.height != header.height) {
+      if (resolvedTargetWidth == null) {
+        if (image.width != header.width || image.height != header.height) {
+          image.dispose();
+          throw const UgoiraDecodeException(
+            'decoded frame dimensions differ from header',
+          );
+        }
+      } else if (image.width <= 0 ||
+          image.height <= 0 ||
+          image.width > header.width ||
+          image.height > header.height) {
         image.dispose();
         throw const UgoiraDecodeException(
-          'decoded frame dimensions differ from header',
+          'scaled frame dimensions exceed header',
         );
       }
       return image;
@@ -42,15 +72,26 @@ class UgoiraFrameDecoder {
     } catch (error) {
       throw UgoiraDecodeException('frame decode failed: $error');
     } finally {
-      codec.dispose();
+      codec?.dispose();
+      descriptor?.dispose();
+      buffer?.dispose();
     }
   }
 
-  Future<ui.Codec> _createCodec(List<int> bytes) async {
-    try {
-      return await ui.instantiateImageCodec(Uint8List.fromList(bytes));
-    } catch (error) {
-      throw UgoiraDecodeException('frame codec rejected input: $error');
+  static int? _resolveTargetWidth(
+    Uint8List data,
+    UgoiraFrameHeader header,
+    int? targetWidth,
+  ) {
+    if (targetWidth == null ||
+        targetWidth <= 0 ||
+        targetWidth >= header.width) {
+      return null;
     }
+    final isJpeg = data.length >= 2 && data[0] == 0xFF && data[1] == 0xD8;
+    final safe = isJpeg
+        ? jpegEdgeSafeDecodeWidth(targetWidth, header.width)
+        : targetWidth;
+    return safe < header.width ? safe : null;
   }
 }

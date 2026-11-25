@@ -45,7 +45,9 @@ sealed class NovelMarkupToken {
     required this.rawText,
     this.sourceOffset = 0,
     Map<String, String> attributes = const {},
-  }) : attributes = Map.unmodifiable(attributes);
+  }) : attributes = attributes.isEmpty
+           ? const {}
+           : Map.unmodifiable(attributes);
 
   final String rawName;
   final String rawText;
@@ -796,6 +798,10 @@ class NovelEntity {
   /// `/v2/novel/detail` never carries `novel_text`; the webview page's
   /// embedded pixiv object is the only source. A null [text] keeps the
   /// entity metadata-only while still recording navigation/image fields.
+  /// Deterministic version hash for webview novel text.
+  static String computeWebContentVersion(String text) =>
+      sha256.convert(utf8.encode(jsonEncode(text))).toString();
+
   NovelEntity withWebContent(
     String? text, {
     Map<String, NovelUploadedImage> embeddedImages = const {},
@@ -803,6 +809,8 @@ class NovelEntity {
     int? seriesPrevId,
     int? seriesNextId,
     int? markerPage,
+    NovelMarkupDocument? parsedMarkup,
+    String? parsedContentVersion,
   }) {
     if (text == null) {
       return copyWith(
@@ -817,9 +825,9 @@ class NovelEntity {
         markerPage: markerPage,
       );
     }
-    final markup = NovelContentMapper.parse(text, images: true);
+    final markup = parsedMarkup ?? NovelContentMapper.parse(text, images: true);
     final paragraphs = markup.paragraphs;
-    final version = sha256.convert(utf8.encode(jsonEncode(text))).toString();
+    final version = parsedContentVersion ?? computeWebContentVersion(text);
     return copyWith(
       // Keep the API `text_length` when present — it is pixiv's official
       // count (and what list rows already show). The parsed-paragraph sum

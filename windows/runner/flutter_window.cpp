@@ -13,8 +13,10 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <objbase.h>
 #include <optional>
+#include <thread>
 #include <utility>
 #include <wincodec.h>
 
@@ -26,6 +28,7 @@ namespace {
 constexpr UINT_PTR kChildViewSubclassId = 1;
 constexpr UINT kTrayCallbackMessage = WM_APP + 2;
 constexpr UINT kDestroyWindowMessage = WM_APP + 3;
+constexpr UINT kClipboardWorkDoneMessage = WM_APP + 4;
 constexpr UINT kTrayIconId = 1;
 constexpr UINT kTrayCmdShowWindow = 1001;
 constexpr UINT kTrayCmdDownloads = 1002;
@@ -423,16 +426,124 @@ HGLOBAL AllocClipboardHGlobal(const void* data, size_t size) {
   return handle;
 }
 
-bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
-  if (bytes.empty() ||
-      bytes.size() > static_cast<size_t>((std::numeric_limits<DWORD>::max)())) {
+bool HasPngSignature(const std::vector<uint8_t>& bytes) {
+  static constexpr uint8_t kSig[8] = {0x89, 0x50, 0x4E, 0x47,
+                                      0x0D, 0x0A, 0x1A, 0x0A};
+  return bytes.size() >= sizeof(kSig) &&
+         std::memcmp(bytes.data(), kSig, sizeof(kSig)) == 0;
+}
+
+std::optional<std::vector<uint8_t>> ReadFileBytesBounded(
+    const std::wstring& path,
+    size_t max_bytes) {
+  if (path.empty()) {
+    return std::nullopt;
+  }
+  HANDLE file = ::CreateFileW(
+      path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN,
+      nullptr);
+  if (file == INVALID_HANDLE_VALUE) {
+    return std::nullopt;
+  }
+  LARGE_INTEGER size{};
+  if (!::GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
+      static_cast<uint64_t>(size.QuadPart) > max_bytes) {
+    ::CloseHandle(file);
+    return std::nullopt;
+  }
+  const size_t total = static_cast<size_t>(size.QuadPart);
+  std::vector<uint8_t> out(total);
+  size_t offset = 0;
+  while (offset < total) {
+    const DWORD chunk = static_cast<DWORD>(
+        (std::min)(total - offset, static_cast<size_t>(1 << 20)));
+    DWORD read = 0;
+    if (!::ReadFile(file, out.data() + offset, chunk, &read, nullptr) ||
+        read == 0) {
+      ::CloseHandle(file);
+      return std::nullopt;
+    }
+    offset += read;
+  }
+  ::CloseHandle(file);
+  return out;
+}
+
+bool WriteFileBytes(const std::wstring& path,
+                    const uint8_t* data,
+                    size_t size) {
+  if (path.empty() || data == nullptr || size == 0 ||
+      size > kMaxClipboardImageBytes) {
     return false;
   }
-
-  const HRESULT co_hr =
-      ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-  if (FAILED(co_hr) && co_hr != RPC_E_CHANGED_MODE) {
+  HANDLE file = ::CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr,
+                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (file == INVALID_HANDLE_VALUE) {
     return false;
+  }
+  size_t offset = 0;
+  bool ok = true;
+  while (offset < size) {
+    const DWORD chunk = static_cast<DWORD>(
+        (std::min)(size - offset, static_cast<size_t>(1 << 20)));
+    DWORD written = 0;
+    if (!::WriteFile(file, data + offset, chunk, &written, nullptr) ||
+        written == 0) {
+      ok = false;
+      break;
+    }
+    offset += written;
+  }
+  ::CloseHandle(file);
+  if (!ok) {
+    ::DeleteFileW(path.c_str());
+  }
+  return ok;
+}
+
+struct ClipboardWorkDone {
+  enum class Kind { kCopy, kPaste };
+
+  Kind kind = Kind::kCopy;
+  uint64_t seq = 0;
+  bool ok = false;
+  HGLOBAL dib_handle = nullptr;
+  HGLOBAL png_handle = nullptr;
+  std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result;
+
+  ~ClipboardWorkDone() {
+    if (dib_handle != nullptr) {
+      ::GlobalFree(dib_handle);
+    }
+    if (png_handle != nullptr) {
+      ::GlobalFree(png_handle);
+    }
+  }
+};
+
+struct ClipboardCopyPrepared {
+  bool ok = false;
+  HGLOBAL dib_handle = nullptr;
+  HGLOBAL png_handle = nullptr;
+};
+
+ClipboardCopyPrepared PrepareClipboardCopyFromFile(const std::string& utf8_path) {
+  ClipboardCopyPrepared out;
+  auto maybe_bytes =
+      ReadFileBytesBounded(Utf16FromUtf8(utf8_path), kMaxClipboardImageBytes);
+  if (!maybe_bytes.has_value()) {
+    return out;
+  }
+  const auto& bytes = *maybe_bytes;
+  if (bytes.empty() ||
+      bytes.size() > static_cast<size_t>((std::numeric_limits<DWORD>::max)())) {
+    return out;
+  }
+
+  const HRESULT co_hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  if (FAILED(co_hr) && co_hr != RPC_E_CHANGED_MODE) {
+    return out;
   }
   ComInitScope com_scope{SUCCEEDED(co_hr)};
 
@@ -440,7 +551,7 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
   if (FAILED(::CoCreateInstance(CLSID_WICImagingFactory, nullptr,
                                 CLSCTX_INPROC_SERVER,
                                 IID_PPV_ARGS(factory.put())))) {
-    return false;
+    return out;
   }
 
   ComPtr<IWICStream> wic_stream;
@@ -448,19 +559,19 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
       FAILED(wic_stream->InitializeFromMemory(
           const_cast<BYTE*>(bytes.data()),
           static_cast<DWORD>(bytes.size())))) {
-    return false;
+    return out;
   }
 
   ComPtr<IWICBitmapDecoder> decoder;
   if (FAILED(factory->CreateDecoderFromStream(
           wic_stream.ptr, nullptr, WICDecodeMetadataCacheOnDemand,
           decoder.put()))) {
-    return false;
+    return out;
   }
 
   ComPtr<IWICBitmapFrameDecode> frame;
   if (FAILED(decoder->GetFrame(0, frame.put()))) {
-    return false;
+    return out;
   }
 
   ComPtr<IWICFormatConverter> converter;
@@ -468,7 +579,7 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
       FAILED(converter->Initialize(frame.ptr, GUID_WICPixelFormat32bppBGRA,
                                    WICBitmapDitherTypeNone, nullptr, 0.0,
                                    WICBitmapPaletteTypeCustom))) {
-    return false;
+    return out;
   }
 
   UINT width = 0;
@@ -477,7 +588,7 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
       height == 0 ||
       width > static_cast<UINT>((std::numeric_limits<LONG>::max)()) ||
       height > static_cast<UINT>((std::numeric_limits<LONG>::max)())) {
-    return false;
+    return out;
   }
 
   const uint64_t stride64 = static_cast<uint64_t>(width) * 4ULL;
@@ -486,7 +597,7 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
   if (stride64 > (std::numeric_limits<UINT>::max)() ||
       pixel_bytes64 > (std::numeric_limits<UINT>::max)() ||
       dib_total64 > (std::numeric_limits<size_t>::max)()) {
-    return false;
+    return out;
   }
 
   const UINT stride = static_cast<UINT>(stride64);
@@ -494,18 +605,18 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
   std::vector<uint8_t> pixels(static_cast<size_t>(pixel_bytes));
   if (FAILED(converter->CopyPixels(nullptr, stride, pixel_bytes,
                                    pixels.data()))) {
-    return false;
+    return out;
   }
 
   HGLOBAL dib_handle =
       ::GlobalAlloc(GMEM_MOVEABLE, static_cast<SIZE_T>(dib_total64));
   if (dib_handle == nullptr) {
-    return false;
+    return out;
   }
   void* dib_mem = ::GlobalLock(dib_handle);
   if (dib_mem == nullptr) {
     ::GlobalFree(dib_handle);
-    return false;
+    return out;
   }
 
   BITMAPINFOHEADER bih{};
@@ -520,74 +631,54 @@ bool CopyEncodedImageToClipboard(HWND hwnd, const std::vector<uint8_t>& bytes) {
 
   uint8_t* dib_pixels = static_cast<uint8_t*>(dib_mem) + sizeof(bih);
   for (UINT y = 0; y < height; ++y) {
-    const uint8_t* src_row = pixels.data() + static_cast<size_t>(height - 1 - y) * stride;
+    const uint8_t* src_row =
+        pixels.data() + static_cast<size_t>(height - 1 - y) * stride;
     uint8_t* dst_row = dib_pixels + static_cast<size_t>(y) * stride;
     std::memcpy(dst_row, src_row, stride);
   }
   ::GlobalUnlock(dib_handle);
 
   HGLOBAL png_handle = nullptr;
-  ComPtr<IStream> png_stream;
-  ComPtr<IWICBitmapEncoder> encoder;
-  ComPtr<IWICBitmapFrameEncode> enc_frame;
-  if (SUCCEEDED(::CreateStreamOnHGlobal(nullptr, TRUE, png_stream.put())) &&
-      SUCCEEDED(factory->CreateEncoder(GUID_ContainerFormatPng, nullptr,
-                                       encoder.put())) &&
-      SUCCEEDED(encoder->Initialize(png_stream.ptr, WICBitmapEncoderNoCache)) &&
-      SUCCEEDED(encoder->CreateNewFrame(enc_frame.put(), nullptr)) &&
-      SUCCEEDED(enc_frame->Initialize(nullptr)) &&
-      SUCCEEDED(enc_frame->SetSize(width, height))) {
-    WICPixelFormatGUID png_format = GUID_WICPixelFormat32bppBGRA;
-    if (SUCCEEDED(enc_frame->SetPixelFormat(&png_format)) &&
-        SUCCEEDED(enc_frame->WriteSource(converter.ptr, nullptr)) &&
-        SUCCEEDED(enc_frame->Commit()) &&
-        SUCCEEDED(encoder->Commit())) {
-      HGLOBAL png_src = nullptr;
-      STATSTG stat{};
-      if (SUCCEEDED(::GetHGlobalFromStream(png_stream.ptr, &png_src)) &&
-          png_src != nullptr &&
-          SUCCEEDED(png_stream->Stat(&stat, STATFLAG_NONAME)) &&
-          stat.cbSize.QuadPart > 0 &&
-          stat.cbSize.QuadPart <= ::GlobalSize(png_src)) {
-        const size_t png_bytes = static_cast<size_t>(stat.cbSize.QuadPart);
-        if (void* locked = ::GlobalLock(png_src); locked != nullptr) {
-          png_handle = AllocClipboardHGlobal(locked, png_bytes);
-          ::GlobalUnlock(png_src);
+  if (HasPngSignature(bytes)) {
+    png_handle = AllocClipboardHGlobal(bytes.data(), bytes.size());
+  } else {
+    ComPtr<IStream> png_stream;
+    ComPtr<IWICBitmapEncoder> encoder;
+    ComPtr<IWICBitmapFrameEncode> enc_frame;
+    if (SUCCEEDED(::CreateStreamOnHGlobal(nullptr, TRUE, png_stream.put())) &&
+        SUCCEEDED(factory->CreateEncoder(GUID_ContainerFormatPng, nullptr,
+                                         encoder.put())) &&
+        SUCCEEDED(encoder->Initialize(png_stream.ptr,
+                                      WICBitmapEncoderNoCache)) &&
+        SUCCEEDED(encoder->CreateNewFrame(enc_frame.put(), nullptr)) &&
+        SUCCEEDED(enc_frame->Initialize(nullptr)) &&
+        SUCCEEDED(enc_frame->SetSize(width, height))) {
+      WICPixelFormatGUID png_format = GUID_WICPixelFormat32bppBGRA;
+      if (SUCCEEDED(enc_frame->SetPixelFormat(&png_format)) &&
+          SUCCEEDED(enc_frame->WriteSource(converter.ptr, nullptr)) &&
+          SUCCEEDED(enc_frame->Commit()) &&
+          SUCCEEDED(encoder->Commit())) {
+        HGLOBAL png_src = nullptr;
+        STATSTG stat{};
+        if (SUCCEEDED(::GetHGlobalFromStream(png_stream.ptr, &png_src)) &&
+            png_src != nullptr &&
+            SUCCEEDED(png_stream->Stat(&stat, STATFLAG_NONAME)) &&
+            stat.cbSize.QuadPart > 0 &&
+            stat.cbSize.QuadPart <= ::GlobalSize(png_src)) {
+          const size_t png_bytes = static_cast<size_t>(stat.cbSize.QuadPart);
+          if (void* locked = ::GlobalLock(png_src); locked != nullptr) {
+            png_handle = AllocClipboardHGlobal(locked, png_bytes);
+            ::GlobalUnlock(png_src);
+          }
         }
       }
     }
   }
 
-  const UINT png_format = ::RegisterClipboardFormatW(L"PNG");
-  if (!::OpenClipboard(hwnd)) {
-    ::GlobalFree(dib_handle);
-    if (png_handle != nullptr) {
-      ::GlobalFree(png_handle);
-    }
-    return false;
-  }
-
-  ::EmptyClipboard();
-  bool ok = false;
-  if (::SetClipboardData(CF_DIB, dib_handle) != nullptr) {
-    dib_handle = nullptr;
-    ok = true;
-  }
-  if (png_format != 0 && png_handle != nullptr) {
-    if (::SetClipboardData(png_format, png_handle) != nullptr) {
-      png_handle = nullptr;
-      ok = true;
-    }
-  }
-  ::CloseClipboard();
-
-  if (dib_handle != nullptr) {
-    ::GlobalFree(dib_handle);
-  }
-  if (png_handle != nullptr) {
-    ::GlobalFree(png_handle);
-  }
-  return ok;
+  out.ok = true;
+  out.dib_handle = dib_handle;
+  out.png_handle = png_handle;
+  return out;
 }
 
 std::optional<std::vector<uint8_t>> EncodeWicSourceToPng(
@@ -648,25 +739,31 @@ std::optional<std::vector<uint8_t>> EncodeWicSourceToPng(
   return out;
 }
 
-std::optional<std::vector<uint8_t>> ReadEncodedImageFromClipboard(HWND hwnd) {
-  const UINT png_format = ::RegisterClipboardFormatW(L"PNG");
-  if (!::OpenClipboard(hwnd)) {
-    return std::nullopt;
-  }
-
-  std::optional<std::vector<uint8_t>> png_direct;
+struct ClipboardImageSnapshot {
+  std::vector<uint8_t> png_direct;
   std::vector<uint8_t> dib_bytes;
   HBITMAP hbitmap_copy = nullptr;
+
+  bool has_data() const {
+    return !png_direct.empty() || !dib_bytes.empty() || hbitmap_copy != nullptr;
+  }
+};
+
+ClipboardImageSnapshot SnapshotClipboardImageOnUiThread(HWND hwnd) {
+  ClipboardImageSnapshot snap;
+  const UINT png_format = ::RegisterClipboardFormatW(L"PNG");
+  if (!::OpenClipboard(hwnd)) {
+    return snap;
+  }
 
   if (png_format != 0 && ::IsClipboardFormatAvailable(png_format)) {
     if (HANDLE handle = ::GetClipboardData(png_format); handle != nullptr) {
       const SIZE_T size = ::GlobalSize(handle);
       if (size > 0 && size <= kMaxClipboardImageBytes) {
         if (const void* locked = ::GlobalLock(handle); locked != nullptr) {
-          std::vector<uint8_t> raw(static_cast<size_t>(size));
-          std::memcpy(raw.data(), locked, static_cast<size_t>(size));
+          snap.png_direct.resize(static_cast<size_t>(size));
+          std::memcpy(snap.png_direct.data(), locked, static_cast<size_t>(size));
           ::GlobalUnlock(handle);
-          png_direct = std::move(raw);
         }
       }
     }
@@ -679,34 +776,46 @@ std::optional<std::vector<uint8_t>> ReadEncodedImageFromClipboard(HWND hwnd) {
       if (size >= sizeof(BITMAPINFOHEADER) &&
           size <= kMaxClipboardImageBytes) {
         if (const void* locked = ::GlobalLock(handle); locked != nullptr) {
-          dib_bytes.resize(static_cast<size_t>(size));
-          std::memcpy(dib_bytes.data(), locked, static_cast<size_t>(size));
+          snap.dib_bytes.resize(static_cast<size_t>(size));
+          std::memcpy(snap.dib_bytes.data(), locked, static_cast<size_t>(size));
           ::GlobalUnlock(handle);
         }
       }
     }
   } else if (::IsClipboardFormatAvailable(CF_BITMAP)) {
     if (HANDLE handle = ::GetClipboardData(CF_BITMAP); handle != nullptr) {
-      hbitmap_copy = static_cast<HBITMAP>(
+      snap.hbitmap_copy = static_cast<HBITMAP>(
           ::CopyImage(handle, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
     }
   }
 
   ::CloseClipboard();
+  return snap;
+}
 
-  if (png_direct.has_value()) {
-    return png_direct;
-  }
-  if (dib_bytes.empty() && hbitmap_copy == nullptr) {
-    return std::nullopt;
-  }
-
-  const HRESULT co_hr = ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-  if (FAILED(co_hr) && co_hr != RPC_E_CHANGED_MODE) {
-    if (hbitmap_copy != nullptr) {
-      ::DeleteObject(hbitmap_copy);
+bool WriteClipboardSnapshotToFile(ClipboardImageSnapshot snap,
+                                  const std::string& utf8_target_path) {
+  const std::wstring target_path = Utf16FromUtf8(utf8_target_path);
+  auto cleanup_bitmap = [&]() {
+    if (snap.hbitmap_copy != nullptr) {
+      ::DeleteObject(snap.hbitmap_copy);
+      snap.hbitmap_copy = nullptr;
     }
-    return std::nullopt;
+  };
+
+  if (!snap.png_direct.empty()) {
+    cleanup_bitmap();
+    return WriteFileBytes(target_path, snap.png_direct.data(),
+                          snap.png_direct.size());
+  }
+  if (snap.dib_bytes.empty() && snap.hbitmap_copy == nullptr) {
+    return false;
+  }
+
+  const HRESULT co_hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  if (FAILED(co_hr) && co_hr != RPC_E_CHANGED_MODE) {
+    cleanup_bitmap();
+    return false;
   }
   ComInitScope com_scope{SUCCEEDED(co_hr)};
 
@@ -714,69 +823,69 @@ std::optional<std::vector<uint8_t>> ReadEncodedImageFromClipboard(HWND hwnd) {
   if (FAILED(::CoCreateInstance(CLSID_WICImagingFactory, nullptr,
                                 CLSCTX_INPROC_SERVER,
                                 IID_PPV_ARGS(factory.put())))) {
-    if (hbitmap_copy != nullptr) {
-      ::DeleteObject(hbitmap_copy);
-    }
-    return std::nullopt;
+    cleanup_bitmap();
+    return false;
   }
 
-  if (!dib_bytes.empty()) {
+  std::optional<std::vector<uint8_t>> encoded;
+  if (!snap.dib_bytes.empty()) {
     BITMAPINFOHEADER bih{};
-    std::memcpy(&bih, dib_bytes.data(), sizeof(bih));
-    if (bih.biSize < sizeof(BITMAPINFOHEADER) ||
-        bih.biSize > dib_bytes.size()) {
-      return std::nullopt;
-    }
-    DWORD color_entries = bih.biClrUsed;
-    if (color_entries == 0 && bih.biBitCount <= 8) {
-      color_entries = 1u << bih.biBitCount;
-    }
-    DWORD extra_masks = 0;
-    if (bih.biSize == sizeof(BITMAPINFOHEADER) &&
-        bih.biCompression == BI_BITFIELDS) {
-      extra_masks = 12;
-    }
-    const uint64_t offset64 = sizeof(BITMAPFILEHEADER) +
-                              static_cast<uint64_t>(bih.biSize) +
-                              static_cast<uint64_t>(color_entries) * 4ULL +
-                              static_cast<uint64_t>(extra_masks);
-    const uint64_t total64 = sizeof(BITMAPFILEHEADER) + dib_bytes.size();
-    if (offset64 > total64 || total64 > kMaxClipboardImageBytes + sizeof(BITMAPFILEHEADER)) {
-      return std::nullopt;
-    }
-    BITMAPFILEHEADER bfh{};
-    bfh.bfType = 0x4D42;  // 'BM'
-    bfh.bfSize = static_cast<DWORD>(total64);
-    bfh.bfOffBits = static_cast<DWORD>(offset64);
-    std::vector<uint8_t> bmp(static_cast<size_t>(total64));
-    std::memcpy(bmp.data(), &bfh, sizeof(bfh));
-    std::memcpy(bmp.data() + sizeof(bfh), dib_bytes.data(), dib_bytes.size());
+    std::memcpy(&bih, snap.dib_bytes.data(), sizeof(bih));
+    if (bih.biSize >= sizeof(BITMAPINFOHEADER) &&
+        bih.biSize <= snap.dib_bytes.size()) {
+      DWORD color_entries = bih.biClrUsed;
+      if (color_entries == 0 && bih.biBitCount <= 8) {
+        color_entries = 1u << bih.biBitCount;
+      }
+      DWORD extra_masks = 0;
+      if (bih.biSize == sizeof(BITMAPINFOHEADER) &&
+          bih.biCompression == BI_BITFIELDS) {
+        extra_masks = 12;
+      }
+      const uint64_t offset64 = sizeof(BITMAPFILEHEADER) +
+                                static_cast<uint64_t>(bih.biSize) +
+                                static_cast<uint64_t>(color_entries) * 4ULL +
+                                static_cast<uint64_t>(extra_masks);
+      const uint64_t total64 = sizeof(BITMAPFILEHEADER) + snap.dib_bytes.size();
+      if (offset64 <= total64 &&
+          total64 <= kMaxClipboardImageBytes + sizeof(BITMAPFILEHEADER)) {
+        BITMAPFILEHEADER bfh{};
+        bfh.bfType = 0x4D42;  // 'BM'
+        bfh.bfSize = static_cast<DWORD>(total64);
+        bfh.bfOffBits = static_cast<DWORD>(offset64);
+        std::vector<uint8_t> bmp(static_cast<size_t>(total64));
+        std::memcpy(bmp.data(), &bfh, sizeof(bfh));
+        std::memcpy(bmp.data() + sizeof(bfh), snap.dib_bytes.data(),
+                    snap.dib_bytes.size());
 
-    ComPtr<IWICStream> wic_stream;
-    ComPtr<IWICBitmapDecoder> decoder;
-    ComPtr<IWICBitmapFrameDecode> frame;
-    if (SUCCEEDED(factory->CreateStream(wic_stream.put())) &&
-        SUCCEEDED(wic_stream->InitializeFromMemory(
-            bmp.data(), static_cast<DWORD>(bmp.size()))) &&
-        SUCCEEDED(factory->CreateDecoderFromStream(
-            wic_stream.ptr, nullptr, WICDecodeMetadataCacheOnDemand,
-            decoder.put())) &&
-        SUCCEEDED(decoder->GetFrame(0, frame.put()))) {
-      return EncodeWicSourceToPng(factory.ptr, frame.ptr);
+        ComPtr<IWICStream> wic_stream;
+        ComPtr<IWICBitmapDecoder> decoder;
+        ComPtr<IWICBitmapFrameDecode> frame;
+        if (SUCCEEDED(factory->CreateStream(wic_stream.put())) &&
+            SUCCEEDED(wic_stream->InitializeFromMemory(
+                bmp.data(), static_cast<DWORD>(bmp.size()))) &&
+            SUCCEEDED(factory->CreateDecoderFromStream(
+                wic_stream.ptr, nullptr, WICDecodeMetadataCacheOnDemand,
+                decoder.put())) &&
+            SUCCEEDED(decoder->GetFrame(0, frame.put()))) {
+          encoded = EncodeWicSourceToPng(factory.ptr, frame.ptr);
+        }
+      }
     }
-    return std::nullopt;
-  }
-
-  std::optional<std::vector<uint8_t>> result;
-  if (hbitmap_copy != nullptr) {
+  } else if (snap.hbitmap_copy != nullptr) {
     ComPtr<IWICBitmap> wic_bitmap;
     if (SUCCEEDED(factory->CreateBitmapFromHBITMAP(
-            hbitmap_copy, nullptr, WICBitmapIgnoreAlpha, wic_bitmap.put()))) {
-      result = EncodeWicSourceToPng(factory.ptr, wic_bitmap.ptr);
+            snap.hbitmap_copy, nullptr, WICBitmapIgnoreAlpha,
+            wic_bitmap.put()))) {
+      encoded = EncodeWicSourceToPng(factory.ptr, wic_bitmap.ptr);
     }
-    ::DeleteObject(hbitmap_copy);
   }
-  return result;
+  cleanup_bitmap();
+
+  if (!encoded.has_value() || encoded->empty()) {
+    return false;
+  }
+  return WriteFileBytes(target_path, encoded->data(), encoded->size());
 }
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project,
@@ -848,6 +957,9 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  if (alive_token_) {
+    alive_token_->store(false, std::memory_order_release);
+  }
   RevokeDropTargets();
   RemoveTrayIcon();
 
@@ -1156,37 +1268,78 @@ void FlutterWindow::RegisterNativeChannels() {
       [this](const flutter::MethodCall<flutter::EncodableValue>& call,
              std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
                  result) {
-        if (call.method_name() == "readImage") {
-          auto encoded = ReadEncodedImageFromClipboard(GetHandle());
-          if (encoded.has_value()) {
-            result->Success(flutter::EncodableValue(std::move(*encoded)));
-          } else {
-            result->Success();
+        const auto* args =
+            std::get_if<flutter::EncodableMap>(call.arguments());
+        if (call.method_name() == "readImageToTempFile") {
+          if (args == nullptr) {
+            result->Error("INVALID_ARGS", "Expected argument map");
+            return;
           }
+          const auto it = args->find(flutter::EncodableValue("targetPath"));
+          const auto* target_path =
+              it != args->end() ? std::get_if<std::string>(&it->second)
+                                : nullptr;
+          if (target_path == nullptr || target_path->empty()) {
+            result->Error("INVALID_ARGS", "Missing targetPath");
+            return;
+          }
+          HWND hwnd = GetHandle();
+          ClipboardImageSnapshot snap = SnapshotClipboardImageOnUiThread(hwnd);
+          if (!snap.has_data()) {
+            result->Success(flutter::EncodableValue(false));
+            return;
+          }
+          auto alive = alive_token_;
+          std::string target = *target_path;
+          auto* done = new ClipboardWorkDone();
+          done->kind = ClipboardWorkDone::Kind::kPaste;
+          done->result = std::move(result);
+          std::thread([hwnd, alive, snap = std::move(snap),
+                       target = std::move(target), done]() mutable {
+            done->ok = WriteClipboardSnapshotToFile(std::move(snap), target);
+            if (!alive->load(std::memory_order_acquire) ||
+                !::PostMessageW(hwnd, kClipboardWorkDoneMessage, 0,
+                                reinterpret_cast<LPARAM>(done))) {
+              delete done;
+            }
+          }).detach();
           return;
         }
-        if (call.method_name() != "copyImage") {
+        if (call.method_name() != "copyImageFile") {
           result->NotImplemented();
           return;
         }
-        const auto* args =
-            std::get_if<flutter::EncodableMap>(call.arguments());
         if (args == nullptr) {
           result->Error("INVALID_ARGS", "Expected argument map");
           return;
         }
-        const auto it = args->find(flutter::EncodableValue("bytes"));
-        if (it == args->end()) {
-          result->Error("INVALID_ARGS", "Missing bytes");
+        const auto it = args->find(flutter::EncodableValue("path"));
+        const auto* path =
+            it != args->end() ? std::get_if<std::string>(&it->second) : nullptr;
+        if (path == nullptr || path->empty()) {
+          result->Error("INVALID_ARGS", "Missing path");
           return;
         }
-        const auto* bytes = std::get_if<std::vector<uint8_t>>(&it->second);
-        if (bytes == nullptr) {
-          result->Error("INVALID_ARGS", "Expected Uint8List bytes");
-          return;
-        }
-        result->Success(flutter::EncodableValue(
-            CopyEncodedImageToClipboard(GetHandle(), *bytes)));
+        HWND hwnd = GetHandle();
+        auto alive = alive_token_;
+        const uint64_t seq = ++clipboard_copy_seq_;
+        std::string source_path = *path;
+        auto* done = new ClipboardWorkDone();
+        done->kind = ClipboardWorkDone::Kind::kCopy;
+        done->seq = seq;
+        done->result = std::move(result);
+        std::thread([hwnd, alive, source_path = std::move(source_path),
+                     done]() mutable {
+          auto prepared = PrepareClipboardCopyFromFile(source_path);
+          done->ok = prepared.ok;
+          done->dib_handle = prepared.dib_handle;
+          done->png_handle = prepared.png_handle;
+          if (!alive->load(std::memory_order_acquire) ||
+              !::PostMessageW(hwnd, kClipboardWorkDoneMessage, 0,
+                              reinterpret_cast<LPARAM>(done))) {
+            delete done;
+          }
+        }).detach();
       });
 
   desktop_file_actions_channel_ =
@@ -1836,6 +1989,42 @@ LRESULT FlutterWindow::MessageHandler(HWND hwnd,
           break;
       }
       return 0;
+
+    case kClipboardWorkDoneMessage: {
+      std::unique_ptr<ClipboardWorkDone> work(
+          reinterpret_cast<ClipboardWorkDone*>(lparam));
+      if (!work || !alive_token_ ||
+          !alive_token_->load(std::memory_order_acquire)) {
+        return 0;
+      }
+      if (work->kind == ClipboardWorkDone::Kind::kPaste) {
+        if (work->result) {
+          work->result->Success(flutter::EncodableValue(work->ok));
+        }
+        return 0;
+      }
+      bool copied = false;
+      if (work->ok && work->seq == clipboard_copy_seq_ &&
+          ::OpenClipboard(hwnd)) {
+        const UINT png_format = ::RegisterClipboardFormatW(L"PNG");
+        ::EmptyClipboard();
+        if (work->dib_handle != nullptr &&
+            ::SetClipboardData(CF_DIB, work->dib_handle) != nullptr) {
+          work->dib_handle = nullptr;
+          copied = true;
+        }
+        if (png_format != 0 && work->png_handle != nullptr &&
+            ::SetClipboardData(png_format, work->png_handle) != nullptr) {
+          work->png_handle = nullptr;
+          copied = true;
+        }
+        ::CloseClipboard();
+      }
+      if (work->result) {
+        work->result->Success(flutter::EncodableValue(copied));
+      }
+      return 0;
+    }
 
     case kDestroyWindowMessage:
       RemoveTrayIcon();
