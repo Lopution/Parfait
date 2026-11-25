@@ -261,7 +261,7 @@ class _TagsSectionState extends ConsumerState<_TagsSection> {
     final blockMode = widget.blockMode;
     // Tag chips now block through the MuteStore: tag mutes sync with the
     // official /v1/mute list instead of the legacy local-only pref.
-    final mutedTags = ref.watch(muteStoreProvider.select((s) => s.tags));
+    final mutedTags = ref.watch(effectiveMutesProvider.select((s) => s.tags));
     final muteStore = ref.read(muteStoreProvider.notifier);
     // The same entries as the long-press panel, beside the chip/pointer on a
     // PC (R11).

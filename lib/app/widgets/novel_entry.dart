@@ -225,7 +225,7 @@ class NovelEntry extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final hit = ref.watch(
-      muteStoreProvider.select((mutes) => novelMuteHitFor(entity, mutes)),
+      effectiveMutesProvider.select((mutes) => novelMuteHitFor(entity, mutes)),
     );
     final revealed = ref.watch(
       revealedMutedNovelIdsProvider.select((ids) => ids.contains(entity.id)),

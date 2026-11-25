@@ -228,7 +228,7 @@ class _IllustCardBody extends ConsumerWidget {
     // detail. Hide mode never reaches here — the feed filter already
     // removed the id. Reveal is session-local and never edits the store.
     final mutedHit = ref.watch(
-      muteStoreProvider.select((s) => muteHitFor(entity, s)),
+      effectiveMutesProvider.select((s) => muteHitFor(entity, s)),
     );
     final revealed = ref.watch(
       revealedMuteIdsProvider.select((ids) => ids.contains(entity.id)),

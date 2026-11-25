@@ -107,9 +107,83 @@ class MutedWork {
   };
 }
 
+/// Minimal read-only mute view consumed by [muteHitFor] and [novelMuteHitFor].
+abstract interface class EffectiveMutes {
+  Set<String> get tags;
+  Map<int, MutedUser> get users;
+  bool isTagMuted(String tag);
+  bool isUserMuted(int userId);
+  bool isWorkMuted(int illustId);
+}
+
+/// Value-equatable projection of [MuteState] carrying only fields that affect
+/// feed filtering and card mute display (omitting `pending`,
+/// `legacyTagsPending`, and `serverSynced`).
+class MuteFilterSnapshot implements EffectiveMutes {
+  const MuteFilterSnapshot({
+    this.tags = const {},
+    this.users = const {},
+    this.workIds = const {},
+  });
+
+  @override
+  final Set<String> tags;
+
+  @override
+  final Map<int, MutedUser> users;
+
+  final Set<int> workIds;
+
+  int get totalCount => tags.length + users.length + workIds.length;
+
+  @override
+  bool isTagMuted(String tag) => tags.contains(tag);
+
+  @override
+  bool isUserMuted(int userId) => users.containsKey(userId);
+
+  @override
+  bool isWorkMuted(int illustId) => workIds.contains(illustId);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! MuteFilterSnapshot) return false;
+    if (tags.length != other.tags.length ||
+        workIds.length != other.workIds.length ||
+        users.length != other.users.length) {
+      return false;
+    }
+    if (!identical(tags, other.tags) && !tags.containsAll(other.tags)) {
+      return false;
+    }
+    if (!identical(workIds, other.workIds) &&
+        !workIds.containsAll(other.workIds)) {
+      return false;
+    }
+    if (!identical(users, other.users)) {
+      for (final MapEntry(:key, :value) in users.entries) {
+        final otherUser = other.users[key];
+        if (otherUser == null || otherUser.name != value.name) return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAllUnordered(tags),
+    Object.hashAllUnordered(workIds),
+    Object.hashAllUnordered([
+      for (final MapEntry(:key, :value) in users.entries)
+        Object.hash(key, value.name),
+    ]),
+  );
+}
+
 /// Effective mute snapshot for one account. `pending` tracks keys with an
 /// in-flight edit so the UI can dim them and re-entry is suppressed.
-class MuteState {
+class MuteState implements EffectiveMutes {
   const MuteState({
     this.tags = const {},
     this.users = const {},
@@ -119,7 +193,9 @@ class MuteState {
     this.serverSynced = false,
   });
 
+  @override
   final Set<String> tags;
+  @override
   final Map<int, MutedUser> users;
   final Map<int, MutedWork> works;
   final Set<MuteKey> pending;
@@ -131,9 +207,18 @@ class MuteState {
   /// Whether `/v1/mute/list` has been applied for the current account.
   final bool serverSynced;
 
+  @override
   bool isTagMuted(String tag) => tags.contains(tag);
+  @override
   bool isUserMuted(int userId) => users.containsKey(userId);
+  @override
   bool isWorkMuted(int illustId) => works.containsKey(illustId);
+
+  MuteFilterSnapshot get effective => MuteFilterSnapshot(
+    tags: tags,
+    users: users,
+    workIds: works.isEmpty ? const {} : works.keys.toSet(),
+  );
 
   MuteState copyWith({
     Set<String>? tags,

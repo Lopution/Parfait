@@ -161,7 +161,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     final blockAI = settings.enableLocalBlockAI;
     // Mute hits are only filtered here when the user chose "hide". In blur
     // mode the card renders the muted variant instead and the id stays.
-    final mutes = settings.hideMuted ? ref.read(muteStoreProvider) : null;
+    final mutes = settings.hideMuted ? ref.read(effectiveMutesProvider) : null;
     final bool Function(int id) hidden;
     if (novelIds) {
       final store = ref.read(novelStoreProvider);
@@ -359,7 +359,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     // Hide-mode feeds re-filter when the mute set changes; blur-mode feeds
     // keep the ids and the card watches the store itself.
     if (localFilterEnabled && hideMuted) {
-      ref.watch(muteStoreProvider);
+      ref.watch(effectiveMutesProvider);
     }
     // Do not await AccountStore here. Public feeds may be rendered before
     // account hydration completes, while authenticated repositories already
