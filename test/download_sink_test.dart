@@ -1,8 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/download/download_recovery.dart';
 import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/core/download/resume_anchor.dart';
 import 'package:parfait/core/platform/android_platform_interfaces.dart';
+import 'package:parfait/core/platform/desktop_file_sink.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
 
 void main() {
@@ -15,10 +20,89 @@ void main() {
       await expectLater(sink.finalize(), throwsA(isA<StateError>()));
       await sink.abort();
 
-      expect(document.closeCalls, 2);
+      expect(document.closeCalls, 1);
       expect(document.deleteCalls, 1);
     },
   );
+
+  test(
+    'Desktop staged sinks deduplicate concurrent/sequential collisions and abort without committing',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('desktop-sink-safety');
+      addTearDown(() async {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      });
+      final factory = DesktopSafDocumentSinkFactory();
+
+      // P1-6: SafDownloadSink.abort() must never invoke close() (commit) on a
+      // desktop staged sink — aborted bytes must vanish completely.
+      final abortedDoc = await factory.create(
+        treeUri: dir.path,
+        displayName: 'aborted.jpg',
+        mimeType: 'image/jpeg',
+        staged: true,
+      );
+      final abortedSink = SafDownloadSink(
+        abortedDoc,
+        owner: null,
+        staged: true,
+      );
+      await abortedSink.write(const [1, 2, 3, 4]);
+      await abortedSink.abort();
+      expect(dir.listSync(), isEmpty);
+
+      // P0-1: two concurrent downloads with the same filename get distinct
+      // `.part` files and distinct committed files; a sequential third never
+      // overwrites the first.
+      final first = await factory.create(
+        treeUri: dir.path,
+        displayName: 'untitled.jpg',
+        mimeType: 'image/jpeg',
+        staged: true,
+      );
+      final second = await factory.create(
+        treeUri: dir.path,
+        displayName: 'untitled.jpg',
+        mimeType: 'image/jpeg',
+        staged: true,
+      );
+      await first.write(const [10, 11]);
+      await second.write(const [20, 21, 22]);
+      final uri1 = await (first as StagedSafDocument).commitStaged();
+      final uri2 = await (second as StagedSafDocument).commitStaged();
+      expect(uri1, isNot(uri2));
+      expect(await File.fromUri(Uri.parse(uri1)).readAsBytes(), [10, 11]);
+      expect(await File.fromUri(Uri.parse(uri2)).readAsBytes(), [20, 21, 22]);
+
+      final third = await factory.create(
+        treeUri: dir.path,
+        displayName: 'untitled.jpg',
+        mimeType: 'image/jpeg',
+        staged: true,
+      );
+      await third.write(const [30]);
+      final uri3 = await (third as StagedSafDocument).commitStaged();
+      expect({uri1, uri2, uri3}, hasLength(3));
+      expect(await File.fromUri(Uri.parse(uri1)).readAsBytes(), [10, 11]);
+      expect(await File.fromUri(Uri.parse(uri3)).readAsBytes(), [30]);
+    },
+  );
+
+  test('HttpDownloadTransport rejects non-443 HTTPS download ports', () async {
+    final transport = HttpDownloadTransport(
+      allowedHosts: const {'i.pximg.net'},
+      requireHttps: true,
+    );
+    addTearDown(transport.dispose);
+    await expectLater(
+      transport.open(
+        Uri.parse('https://i.pximg.net:8443/img.jpg'),
+        headers: const <String, String>{},
+        cancelToken: DownloadCancelToken(),
+      ),
+      throwsA(isA<DownloadTransportException>()),
+    );
+  });
 
   test('SAF abort after finalize does not delete a visible document', () async {
     final document = _FakeSafDocument();

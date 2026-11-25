@@ -534,13 +534,9 @@ class SafDownloadSink implements DownloadSink, ResumableDownloadSink {
     if (_closed) return;
     _closed = true;
     _writer.discard();
-    // Best effort: remove the document so cancellation/failure cannot leave a
-    // partial file in the user's selected tree.
-    try {
-      await _doc.close();
-    } on Object {
-      // Cleanup must never mask the original failure.
-    }
+    // Best effort: delete closes the underlying stream and removes the staged
+    // output. Never call `_doc.close()` first — on desktop staged sinks,
+    // `close()` commits `.part` to the final name.
     try {
       await _doc.delete();
     } on Object {

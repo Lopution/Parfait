@@ -13,6 +13,28 @@ import org.junit.Test
 class MediaStoreChannelTest {
 
     @Test
+    fun `resolveRelativePath remaps dev root and nested subfolders`() {
+        assertEquals("Pictures/Parfait", MediaStoreChannel.resolveRelativePath(null, isDevApp = false))
+        assertEquals("Pictures/ParfaitDev", MediaStoreChannel.resolveRelativePath(null, isDevApp = true))
+        assertEquals(
+            "Pictures/ParfaitDev",
+            MediaStoreChannel.resolveRelativePath("Pictures/Parfait", isDevApp = true),
+        )
+        assertEquals(
+            "Pictures/ParfaitDev/Artist/Series",
+            MediaStoreChannel.resolveRelativePath("Pictures/Parfait/Artist/Series", isDevApp = true),
+        )
+        assertEquals(
+            "Pictures/Parfait/Artist/Series",
+            MediaStoreChannel.resolveRelativePath("Pictures/Parfait/Artist/Series", isDevApp = false),
+        )
+        assertEquals(
+            "Pictures/CustomAlbum/Artist",
+            MediaStoreChannel.resolveRelativePath("Pictures/CustomAlbum/Artist", isDevApp = true),
+        )
+    }
+
+    @Test
     fun `begin missing displayName is invalid_argument`() {
         val result = dispatch("begin", mapOf("mimeType" to "image/png"))
         assertEquals("mediastore_invalid_argument", result.errorCode)

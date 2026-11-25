@@ -174,7 +174,10 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     }
     final controller = _controller;
     if (!mounted || controller == null) return;
-    if (url == null) return controller.reload();
+    if (url == null) {
+      _armStallTimer();
+      return controller.reload();
+    }
     if (!_authCookiesCleared) {
       _authCookiesCleared = true;
       try {

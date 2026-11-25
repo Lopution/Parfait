@@ -76,8 +76,16 @@ class IllustDownloadCoordinator {
       padPageNumbers: effectivePadding,
       series: series,
     );
+    final priorIds = {for (final task in _manager.tasks) task.id};
     final snapshot = _manager.submit(request);
-    await _exportCaption(work, request, snapshot);
+    try {
+      await _exportCaption(work, request, snapshot);
+    } on Object {
+      if (!priorIds.contains(snapshot.id)) {
+        await _manager.cancel(snapshot.id);
+      }
+      rethrow;
+    }
     return snapshot;
   }
 
@@ -119,10 +127,18 @@ class IllustDownloadCoordinator {
           series: series,
         ),
     ];
+    final priorIds = {for (final task in _manager.tasks) task.id};
     final submission = _manager.submitGroup(requests);
     final first = submission.tasks.first;
     if (submission.group != null) {
-      await _exportCaption(work, requests.first, first);
+      try {
+        await _exportCaption(work, requests.first, first);
+      } on Object {
+        for (final task in submission.tasks) {
+          if (!priorIds.contains(task.id)) await _manager.cancel(task.id);
+        }
+        rethrow;
+      }
     }
     return submission;
   }
@@ -149,8 +165,16 @@ class IllustDownloadCoordinator {
       padPageNumbers: effectivePadding,
       series: series,
     );
+    final priorIds = {for (final task in _manager.tasks) task.id};
     final snapshot = _manager.submit(request);
-    await _exportCaption(work, request, snapshot);
+    try {
+      await _exportCaption(work, request, snapshot);
+    } on Object {
+      if (!priorIds.contains(snapshot.id)) {
+        await _manager.cancel(snapshot.id);
+      }
+      rethrow;
+    }
     return snapshot;
   }
 
@@ -214,6 +238,7 @@ class IllustDownloadCoordinator {
     if (requests.isEmpty) {
       throw const FormatException('author works have no downloadable pages');
     }
+    final priorIds = {for (final task in _manager.tasks) task.id};
     final submission = _manager.submitGroup(requests);
     // Caption sidecars ride the same submission; per-work dedupe keeps this
     // idempotent when the same author is re-enqueued later.
@@ -223,13 +248,20 @@ class IllustDownloadCoordinator {
     };
     final seen = <int>{};
     if (submission.group == null) return submission;
-    for (var i = 0; i < requests.length; i++) {
-      final request = requests[i];
-      if (!seen.add(request.illustId)) continue;
-      final work = workById[request.illustId];
-      final snapshot = submission.tasks[i];
-      if (work == null) continue;
-      await _exportCaption(work, request, snapshot);
+    try {
+      for (var i = 0; i < requests.length; i++) {
+        final request = requests[i];
+        if (!seen.add(request.illustId)) continue;
+        final work = workById[request.illustId];
+        final snapshot = submission.tasks[i];
+        if (work == null) continue;
+        await _exportCaption(work, request, snapshot);
+      }
+    } on Object {
+      for (final task in submission.tasks) {
+        if (!priorIds.contains(task.id)) await _manager.cancel(task.id);
+      }
+      rethrow;
     }
     return submission;
   }

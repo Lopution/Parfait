@@ -544,9 +544,22 @@ object SafTreeChannel {
 
     /**
      * D8 staged commit: close the stream and rename `<name>.part` to the
-     * final display name. Documents without the `.part` suffix are
-     * already final — close and report their URI unchanged.
+     * final display name. Fails loudly when the display name cannot be read so
+     * a `.part` URI is never reported as a completed file.
      */
+    internal fun resolveFinalizedDocument(
+        uri: String,
+        displayName: String?,
+        rename: (finalName: String) -> String?,
+    ): String {
+        if (displayName.isNullOrBlank()) {
+            throw IllegalStateException("SAF finalize display name unavailable")
+        }
+        if (!displayName.endsWith(STAGED_SUFFIX)) return uri
+        return rename(displayName.removeSuffix(STAGED_SUFFIX))
+            ?: throw IllegalStateException("SAF rename failed")
+    }
+
     private fun finalizeDocument(context: android.content.Context, uri: String): String {
         streams.remove(uri)?.close()
         val parsed = Uri.parse(uri)
@@ -558,14 +571,14 @@ object SafTreeChannel {
             null,
         )?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
-        } ?: return uri
-        if (!name.endsWith(STAGED_SUFFIX)) return uri
-        val renamed = DocumentsContract.renameDocument(
-            context.contentResolver,
-            parsed,
-            name.removeSuffix(STAGED_SUFFIX),
-        ) ?: throw IllegalStateException("SAF rename failed")
-        return renamed.toString()
+        }
+        return resolveFinalizedDocument(uri, name) { finalName ->
+            DocumentsContract.renameDocument(
+                context.contentResolver,
+                parsed,
+                finalName,
+            )?.toString()
+        }
     }
 
     private fun clearPendingIfSame(expected: MethodChannel.Result) {

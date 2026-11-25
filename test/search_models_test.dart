@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:parfait/core/search/search_bookmark_synthesis.dart';
 import 'package:parfait/core/search/search_models.dart';
 
 void main() {
@@ -376,4 +377,51 @@ void main() {
       NovelSearchFilters.defaults,
     );
   });
+
+  test(
+    'free-account exact tag synthesis requires local exact tag compensation',
+    () {
+      const exactWithMin = IllustSearchFilters(
+        target: SearchTarget.exactMatchForTags,
+        bookmarkMin: 500,
+      );
+      expect(
+        needsLocalExactTagFilter(
+          'cat',
+          filters: exactWithMin,
+          isPremium: false,
+        ),
+        isTrue,
+      );
+      expect(
+        needsLocalExactTagFilter('cat', filters: exactWithMin, isPremium: true),
+        isFalse,
+      );
+      expect(
+        matchesExactTagsLocally('cat', const [
+          (name: 'catgirl', translatedName: null),
+        ]),
+        isFalse,
+      );
+      expect(
+        matchesExactTagsLocally('cat', const [
+          (name: '猫', translatedName: 'Cat'),
+        ]),
+        isTrue,
+      );
+      expect(
+        matchesExactTagsLocally('cat -dog', const [
+          (name: 'cat', translatedName: null),
+          (name: 'dog', translatedName: null),
+        ]),
+        isFalse,
+      );
+      expect(
+        matchesExactTagsLocally('(cat OR fox)', const [
+          (name: 'fox', translatedName: null),
+        ]),
+        isTrue,
+      );
+    },
+  );
 }

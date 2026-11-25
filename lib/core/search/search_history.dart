@@ -82,13 +82,14 @@ class SearchHistoryNotifier extends Notifier<List<String>> {
     _write(nextEntries, writePinned: true);
   }
 
-  /// Removes [keyword] and returns where it was, for [restore]; null when
-  /// it was not there.
-  Future<int?> remove(String keyword) async {
+  /// Removes [keyword] and returns its previous position (and pin slot, if
+  /// pinned) for [restore]; null when it was not there.
+  Future<({int index, int? pinIndex})?> remove(String keyword) async {
     await _ready;
     final index = state.indexOf(keyword);
     if (index < 0) return null;
-    final wasPinned = _pinned.contains(keyword);
+    final pinIndex = _pinned.indexOf(keyword);
+    final wasPinned = pinIndex >= 0;
     if (wasPinned) {
       _pinned = [
         for (final item in _pinned)
@@ -96,15 +97,23 @@ class SearchHistoryNotifier extends Notifier<List<String>> {
       ];
     }
     _write([...state]..removeAt(index), writePinned: wasPinned);
-    return index;
+    return (index: index, pinIndex: wasPinned ? pinIndex : null);
   }
 
-  /// Puts back a [keyword] [remove] took out at [index], unless it was
-  /// searched again since.
-  Future<void> restore(String keyword, int index) async {
+  /// Puts back a [keyword] [remove] took out at [index] (and re-pins it at
+  /// [pinIndex] when it was pinned), unless it was searched again since.
+  Future<void> restore(String keyword, int index, {int? pinIndex}) async {
     await _ready;
     if (state.contains(keyword)) return;
-    _write([...state]..insert(index.clamp(0, state.length), keyword));
+    final restorePin = pinIndex != null && !_pinned.contains(keyword);
+    if (restorePin) {
+      _pinned = [..._pinned]
+        ..insert(pinIndex.clamp(0, _pinned.length), keyword);
+    }
+    _write(
+      [...state]..insert(index.clamp(0, state.length), keyword),
+      writePinned: restorePin,
+    );
   }
 
   /// Clears unpinned search history while keeping pinned queries intact.

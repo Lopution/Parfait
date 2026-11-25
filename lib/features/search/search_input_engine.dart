@@ -744,16 +744,16 @@ class _SearchStart extends ConsumerWidget {
     WidgetRef ref,
     String keyword,
   ) async {
-    final index = await ref
+    final removed = await ref
         .read(searchHistoryProvider.notifier)
         .remove(keyword);
-    if (index == null || !context.mounted) return;
+    if (removed == null || !context.mounted) return;
     showUndoSnackBar(
       context,
       context.l10n.searchHistoryRemoved,
       onUndo: (container) => container
           .read(searchHistoryProvider.notifier)
-          .restore(keyword, index),
+          .restore(keyword, removed.index, pinIndex: removed.pinIndex),
     );
   }
 

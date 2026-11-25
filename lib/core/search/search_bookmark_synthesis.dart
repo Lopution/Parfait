@@ -85,3 +85,94 @@ Map<String, String> applyFreeAccountBookmarkSynthesis(
   }
   return rewritten;
 }
+
+/// Whether [applyFreeAccountBookmarkSynthesis] coerced an exact-tag query to
+/// `partial_match_for_tags`, requiring local exact-tag matching on returned
+/// entities so partial-tag false positives (e.g. `catgirl` for `cat`) are
+/// filtered out.
+bool needsLocalExactTagFilter(
+  String keyword, {
+  required SearchFilters filters,
+  required bool isPremium,
+}) {
+  if (isPremium) return false;
+  if (filters.normalizedTarget != SearchTarget.exactMatchForTags) return false;
+  final min = filters.bookmarkMin;
+  if (min == null || min < kBookmarkUsersIriTiers.first) return false;
+  final trimmed = keyword.trim();
+  return trimmed.isNotEmpty && !queryAlreadyHasUsersIri(trimmed);
+}
+
+final _whitespaceSplit = RegExp(r'[\s\u3000]+');
+
+/// Client-side exact tag match compensation for free-account synthesized
+/// queries. Matches each positive term (or `OR` group) case-insensitively
+/// against any tag's raw `name` or `translatedName`, and rejects excluded
+/// `-term` tokens.
+bool matchesExactTagsLocally(
+  String rawKeyword,
+  Iterable<({String name, String? translatedName})> tags,
+) {
+  final tokens = rawKeyword
+      .trim()
+      .split(_whitespaceSplit)
+      .where((t) => t.isNotEmpty)
+      .toList();
+  if (tokens.isEmpty) return true;
+
+  final tagSet = <String>{};
+  for (final tag in tags) {
+    final name = tag.name.trim().toLowerCase();
+    if (name.isNotEmpty) tagSet.add(name);
+    final translated = tag.translatedName?.trim().toLowerCase();
+    if (translated != null && translated.isNotEmpty) tagSet.add(translated);
+  }
+
+  String stripParens(String token) {
+    var s = token;
+    while (s.startsWith('(') && s.length > 1) {
+      s = s.substring(1);
+    }
+    while (s.endsWith(')') && s.length > 1) {
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
+  }
+
+  // Group space-separated tokens into AND clauses where adjacent `A OR B`
+  // terms form one OR group.
+  final positiveGroups = <List<String>>[];
+  final excluded = <String>[];
+  var i = 0;
+  while (i < tokens.length) {
+    final token = tokens[i];
+    if (token.toUpperCase() == 'OR') {
+      i++;
+      continue;
+    }
+    if (token.startsWith('-') && token.length > 1) {
+      final term = stripParens(token.substring(1)).toLowerCase();
+      if (term.isNotEmpty) excluded.add(term);
+      i++;
+      continue;
+    }
+    final group = <String>[];
+    final first = stripParens(token).toLowerCase();
+    if (first.isNotEmpty) group.add(first);
+    while (i + 2 < tokens.length && tokens[i + 1].toUpperCase() == 'OR') {
+      final next = stripParens(tokens[i + 2]).toLowerCase();
+      if (next.isNotEmpty) group.add(next);
+      i += 2;
+    }
+    if (group.isNotEmpty) positiveGroups.add(group);
+    i++;
+  }
+
+  for (final term in excluded) {
+    if (tagSet.contains(term)) return false;
+  }
+  for (final group in positiveGroups) {
+    if (!group.any(tagSet.contains)) return false;
+  }
+  return true;
+}
