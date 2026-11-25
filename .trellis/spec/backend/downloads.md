@@ -31,11 +31,16 @@ reviewed: 2026-11-25
   destination match exactly is restored, as `retryable`; the user retries
   from the download tasks page. Anything else becomes a visible `orphaned`
   record. A crash seen in `finalizing` is `orphaned`, never retried.
-  Records are deduplicated by `dedupeKey`, newest first.
+  Records are deduplicated by `dedupeKey`, newest first. Recovery writes
+  coalesce per microtask via `DownloadPersistenceCoalescer`
+  (`upsertAll`/`removeAll`), cache serialized record JSON per id in
+  `PreferencesDownloadRecoveryStore`, batch multi-page `submitGroup`
+  transitions, and schedule queued jobs in O(1) FIFO order.
 - **Why:** Auto-resent downloads surprised users after a crash; a
-  finalizing output may already be visible.
-- **Check:** `test/download_recovery_test.dart` "finalizing recovery becomes orphaned instead of retrying post-process" "recovery keeps the newest record for one identity"
-- **Code:** `lib/core/download/download_recovery.dart`
+  finalizing output may already be visible; per-job full-list JSON
+  re-encoding caused quadratic I/O stalls on multi-page downloads.
+- **Check:** `test/download_recovery_test.dart` "finalizing recovery becomes orphaned instead of retrying post-process" "recovery keeps the newest record for one identity" "submitGroup coalesces initial recovery persistence and change notifications"
+- **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_manager.dart`
 
 ### DL-03 Pending rows are cleaned only by their exact owner
 - **Rule:** Pending MediaStore rows and SAF documents are cleaned only

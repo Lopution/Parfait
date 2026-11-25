@@ -13,7 +13,7 @@ applies_to:
   - lib/core/paging/**
   - lib/core/series/**
   - lib/core/novel/**
-reviewed: 2026-10-30
+reviewed: 2026-11-25
 ---
 
 # Stores, mutations and the account boundary
@@ -44,11 +44,18 @@ reviewed: 2026-10-30
 - **Rule:** Illusts, users, comments, bookmark and follow state live in
   their account-scoped store; feeds hold ordered ids only. Pages never
   keep a local copy of an entity or a bookmark/follow flag. After a merge,
-  read the entity back with `store.get(id)`.
+  read the entity back with `store.get(id)`. `BookmarkStore` and
+  `FollowStore` stay sparse (omitting unseen default-`false` remote entries)
+  and entity stores (`IllustStore`, `NovelStore`, `UserStore`) skip
+  redundant copies when a merge produces no field change. Feed/card
+  filtering consumers watch `effectiveMutesProvider` (`MuteFilterSnapshot`,
+  value-equatable) rather than full `muteStoreProvider`, isolating feed
+  rebuilds from mute-management metadata (`pending`, `loading`, `error`).
 - **Why:** Cards, the detail page and the viewer showed different data for
-  the same work.
-- **Check:** `test/illust_store_test.dart` "merges entities keyed by ID without duplicates"
-- **Code:** `lib/core/entity/illust_store.dart`, `lib/core/user/user_store.dart`
+  the same work; dense `false` maps and full-store mute subscriptions
+  caused unnecessary O(N) rebuilds on every page load or mute toggle.
+- **Check:** `test/illust_store_test.dart` "merges entities keyed by ID without duplicates", `test/bookmark_store_test.dart` "a page of snapshots lands as one write, a repeat as none", `test/mute_store_test.dart` "effectiveMutesProvider ignores empty hydrate and pending sync flags"
+- **Code:** `lib/core/entity/illust_store.dart`, `lib/core/user/user_store.dart`, `lib/core/bookmark/bookmark_store.dart`, `lib/core/user/follow_store.dart`, `lib/core/mute/mute_store.dart`
 
 ### STORE-03 Every IllustEntity field has a merge decision per source
 - **Rule:** `IllustStore.mergeAll` is the only write path for API payloads,

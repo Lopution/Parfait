@@ -8,7 +8,7 @@ applies_to:
   - lib/core/paging/feed_database.dart
   - lib/core/watchlater/watch_later_database.dart
   - lib/core/localnovel/local_novel_database.dart
-reviewed: 2026-11-14
+reviewed: 2026-11-25
 ---
 
 # Shared SQLite connections and downgrade policy
@@ -35,16 +35,19 @@ reviewed: 2026-11-14
 - **Code:** `lib/core/sqlite/sqlite_database.dart`
 
 ### SQLITE-02 A database a newer build left is never opened as older
-- **Rule:** Every database owner sets `onDowngrade` explicitly. `feeds.db`, a
-  cache, holds only feed snapshots and is dropped and created afresh
-  (`onDatabaseDowngradeDelete`). `actions.db`, `history.db`, `watchlater.db`
-  `local_novels.db` (schema v2 with explicit `ALTER TABLE` migration adding
-  nullable `encoding TEXT`, persisting detected `LocalNovelEncoding` on import
-  and reloading it via `list`/`get`) refuse to open (`SqliteDatabase.refuseDowngrade`) with
-  a `StateError` naming the database and both versions; their feature shows
-  its load error. `SqliteActionStore` idempotently migrates any legacy
-  `action_queue` rows from `feeds.db` into `actions.db` on first open and
-  drops the legacy table. `close()` after a failed open completes quietly.
+- **Rule:** Every database owner sets `onDowngrade` explicitly. `feeds.db`
+  (schema v4 with covering LRU index `feed_snapshots_lru`), a cache, holds
+  only feed snapshots and is dropped and created afresh
+  (`onDatabaseDowngradeDelete`). `actions.db`, `history.db` (schema v4 with
+  composite indexes `history_records_type_order` and `history_records_author`),
+  `watchlater.db` and `local_novels.db` (schema v2 with explicit `ALTER TABLE`
+  migration adding nullable `encoding TEXT`, persisting detected
+  `LocalNovelEncoding` on import and reloading it via `list`/`get`) refuse
+  to open (`SqliteDatabase.refuseDowngrade`) with a `StateError` naming the
+  database and both versions; their feature shows its load error.
+  `SqliteActionStore` idempotently migrates any legacy `action_queue` rows
+  from `feeds.db` into `actions.db` on first open and drops the legacy
+  table. `close()` after a failed open completes quietly.
 - **Why:** Without `onDowngrade` sqflite lowers the version and keeps the newer
   tables, so the newer build, back again, re-ran a migration it had run and
   the database stopped opening; keeping queued offline actions inside a
