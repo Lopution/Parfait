@@ -117,6 +117,7 @@ void main() {
     String? next;
     final container = await _apiContainer(
       (request) async => _json({'illusts': <Object?>[], 'next_url': next}),
+      accountIsPremium: true,
     );
     final repository = container.read(searchRepositoryProvider);
 
@@ -183,6 +184,63 @@ void main() {
       isFalse,
     );
   });
+
+  test(
+    'free-account tag search synthesizes users入り OR groups and pins rewritten word on cursors',
+    () async {
+      final seen = <Uri>[];
+      final container = await _apiContainer((request) async {
+        seen.add(request.url);
+        return _json({'illusts': <Object?>[], 'next_url': null});
+      });
+      final repository = container.read(searchRepositoryProvider);
+
+      const query = IllustSearchQuery(
+        keyword: 'cat',
+        filters: IllustSearchFilters(
+          target: SearchTarget.exactMatchForTags,
+          bookmarkMin: 5000,
+        ),
+      );
+      await repository.searchIllust(query);
+      final params = seen.single.queryParameters;
+      expect(
+        params['word'],
+        'cat (5000users入り OR 10000users入り OR 30000users入り OR 50000users入り OR 100000users入り)',
+      );
+      expect(params['search_target'], 'partial_match_for_tags');
+      expect(params.containsKey('bookmark_num_min'), isFalse);
+
+      final validCursor = Uri.https('app-api.pixiv.net', '/v1/search/illust', {
+        ...params,
+        'offset': '30',
+      }).toString();
+      expect(repository.validateCursor(query, cursor: validCursor), isTrue);
+      expect(
+        repository.validateCursor(
+          query,
+          cursor:
+              'https://app-api.pixiv.net/v1/search/illust?word=cat&'
+              'search_target=partial_match_for_tags&sort=date_desc&filter=for_android&offset=30',
+        ),
+        isFalse,
+      );
+
+      // Non-tag target skips synthesis and preserves original word.
+      seen.clear();
+      await repository.searchIllust(
+        const IllustSearchQuery(
+          keyword: 'cat',
+          filters: IllustSearchFilters(
+            target: SearchTarget.titleAndCaption,
+            bookmarkMin: 5000,
+          ),
+        ),
+      );
+      expect(seen.single.queryParameters['word'], 'cat');
+      expect(seen.single.queryParameters['search_target'], 'title_and_caption');
+    },
+  );
 
   test(
     'repository maps the three search endpoints and parses their pages',

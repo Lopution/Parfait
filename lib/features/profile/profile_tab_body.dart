@@ -70,6 +70,8 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.isSeries,
     required this.feedKey,
     this.header,
+    this.localFilter,
+    this.onClearLocalFilter,
     required this.statistics,
   });
 
@@ -84,6 +86,8 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   /// Fixed above the feed: the own profile's list filters, or a work
   /// list's total.
   final Widget? header;
+  final String? localFilter;
+  final VoidCallback? onClearLocalFilter;
   final List<ProfileStatisticData> statistics;
 
   @override
@@ -164,14 +168,22 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
       // TabController.indexIsChanging is false during a drag gesture. Keep
       // the page mounted for both tap and swipe transitions so the destination
       // never becomes a zero-size blank child mid-flight.
-      return ProfileNovelFeed(feedKey: feedKey);
+      return ProfileNovelFeed(
+        feedKey: feedKey,
+        localFilter: widget.localFilter,
+        onClearLocalFilter: widget.onClearLocalFilter,
+      );
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||
         feedKey.kind == ProfileFeedKind.myPixiv) {
       return ProfileUserFeed(feedKey: feedKey);
     }
-    return ProfileIllustFeed(feedKey: feedKey);
+    return ProfileIllustFeed(
+      feedKey: feedKey,
+      localFilter: widget.localFilter,
+      onClearLocalFilter: widget.onClearLocalFilter,
+    );
   }
 }
 

@@ -1552,5 +1552,14 @@
   "shortcutArtworkSwitchPage": "Предыдущая / следующая страница",
   "shortcutArtworkZoom": "Масштаб / по размеру",
   "shortcutNovelToc": "Оглавление и прогресс",
-  "shortcutNovelNavigate": "Листание / прокрутка"
+  "shortcutNovelNavigate": "Листание / прокрутка",
+  "searchBookmarkLocalFilterHint": "Для поиска не по тегам число закладок фильтруется локально по загруженным результатам",
+  "searchExcludeTag": "Исключить тег",
+  "searchInsertOr": "Вставить OR",
+  "searchHistoryPin": "Закрепить",
+  "searchHistoryUnpin": "Открепить",
+  "profileWorkTagPickerTitle": "Фильтр работ по тегу",
+  "profileWorkTagSearchHint": "Поиск тегов или ключевого слова",
+  "profileWorkTagClear": "Сбросить фильтр",
+  "profileWorkTagLoadMore": "Загрузить ещё"
 }

@@ -6748,6 +6748,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'翻页 / 滚动'**
   String get shortcutNovelNavigate;
+
+  /// No description provided for @searchBookmarkLocalFilterHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题或正文搜索仅在已加载结果中本地筛选收藏数'**
+  String get searchBookmarkLocalFilterHint;
+
+  /// No description provided for @searchExcludeTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'排除标签'**
+  String get searchExcludeTag;
+
+  /// No description provided for @searchInsertOr.
+  ///
+  /// In zh, this message translates to:
+  /// **'插入 OR'**
+  String get searchInsertOr;
+
+  /// No description provided for @searchHistoryPin.
+  ///
+  /// In zh, this message translates to:
+  /// **'置顶'**
+  String get searchHistoryPin;
+
+  /// No description provided for @searchHistoryUnpin.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消置顶'**
+  String get searchHistoryUnpin;
+
+  /// No description provided for @profileWorkTagPickerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'按标签筛选作品'**
+  String get profileWorkTagPickerTitle;
+
+  /// No description provided for @profileWorkTagSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索标签或输入关键词'**
+  String get profileWorkTagSearchHint;
+
+  /// No description provided for @profileWorkTagClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除筛选'**
+  String get profileWorkTagClear;
+
+  /// No description provided for @profileWorkTagLoadMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多'**
+  String get profileWorkTagLoadMore;
 }
 
 class _AppLocalizationsDelegate

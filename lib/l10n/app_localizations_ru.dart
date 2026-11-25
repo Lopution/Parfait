@@ -3663,4 +3663,32 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get shortcutNovelNavigate => 'Листание / прокрутка';
+
+  @override
+  String get searchBookmarkLocalFilterHint =>
+      'Для поиска не по тегам число закладок фильтруется локально по загруженным результатам';
+
+  @override
+  String get searchExcludeTag => 'Исключить тег';
+
+  @override
+  String get searchInsertOr => 'Вставить OR';
+
+  @override
+  String get searchHistoryPin => 'Закрепить';
+
+  @override
+  String get searchHistoryUnpin => 'Открепить';
+
+  @override
+  String get profileWorkTagPickerTitle => 'Фильтр работ по тегу';
+
+  @override
+  String get profileWorkTagSearchHint => 'Поиск тегов или ключевого слова';
+
+  @override
+  String get profileWorkTagClear => 'Сбросить фильтр';
+
+  @override
+  String get profileWorkTagLoadMore => 'Загрузить ещё';
 }

@@ -2262,5 +2262,14 @@
   "shortcutArtworkSwitchPage": "上一页 / 下一页",
   "shortcutArtworkZoom": "放大 / 缩小 / 适应窗口",
   "shortcutNovelToc": "目录与进度",
-  "shortcutNovelNavigate": "翻页 / 滚动"
+  "shortcutNovelNavigate": "翻页 / 滚动",
+  "searchBookmarkLocalFilterHint": "标题或正文搜索仅在已加载结果中本地筛选收藏数",
+  "searchExcludeTag": "排除标签",
+  "searchInsertOr": "插入 OR",
+  "searchHistoryPin": "置顶",
+  "searchHistoryUnpin": "取消置顶",
+  "profileWorkTagPickerTitle": "按标签筛选作品",
+  "profileWorkTagSearchHint": "搜索标签或输入关键词",
+  "profileWorkTagClear": "清除筛选",
+  "profileWorkTagLoadMore": "加载更多"
 }

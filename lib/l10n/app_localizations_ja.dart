@@ -3577,4 +3577,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get shortcutNovelNavigate => 'ページ送り / スクロール';
+
+  @override
+  String get searchBookmarkLocalFilterHint =>
+      'タグ以外の検索対象では読み込み済み結果からブックマーク数をローカル絞り込みします';
+
+  @override
+  String get searchExcludeTag => 'タグを除外';
+
+  @override
+  String get searchInsertOr => 'OR を挿入';
+
+  @override
+  String get searchHistoryPin => 'ピン留め';
+
+  @override
+  String get searchHistoryUnpin => 'ピン留め解除';
+
+  @override
+  String get profileWorkTagPickerTitle => 'タグで作品を絞り込み';
+
+  @override
+  String get profileWorkTagSearchHint => 'タグまたはキーワードを検索';
+
+  @override
+  String get profileWorkTagClear => '絞り込みを解除';
+
+  @override
+  String get profileWorkTagLoadMore => 'さらに読み込む';
 }

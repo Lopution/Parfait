@@ -1552,5 +1552,14 @@
   "shortcutArtworkSwitchPage": "前・次のページ",
   "shortcutArtworkZoom": "拡大・縮小・フィット",
   "shortcutNovelToc": "目次と進捗",
-  "shortcutNovelNavigate": "ページ送り / スクロール"
+  "shortcutNovelNavigate": "ページ送り / スクロール",
+  "searchBookmarkLocalFilterHint": "タグ以外の検索対象では読み込み済み結果からブックマーク数をローカル絞り込みします",
+  "searchExcludeTag": "タグを除外",
+  "searchInsertOr": "OR を挿入",
+  "searchHistoryPin": "ピン留め",
+  "searchHistoryUnpin": "ピン留め解除",
+  "profileWorkTagPickerTitle": "タグで作品を絞り込み",
+  "profileWorkTagSearchHint": "タグまたはキーワードを検索",
+  "profileWorkTagClear": "絞り込みを解除",
+  "profileWorkTagLoadMore": "さらに読み込む"
 }
