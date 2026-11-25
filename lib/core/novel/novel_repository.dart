@@ -253,10 +253,8 @@ _parseNovelWebPayloadBytes(Uint8List bodyBytes) {
 }
 
 class _PixivNovelRepository implements _NovelRepository {
-  _PixivNovelRepository(
-    this._client, [
-    this._worker = const InlineDataWorker(),
-  ]);
+  _PixivNovelRepository(this._client, [DataWorker? worker])
+    : _worker = worker ?? _client.dataWorker;
 
   final PixivHttpClient _client;
   final DataWorker _worker;
@@ -775,8 +773,5 @@ class _PixivNovelRepository implements _NovelRepository {
 }
 
 final novelRepositoryProvider = Provider<_NovelRepository>((ref) {
-  return _PixivNovelRepository(
-    ref.watch(pixivHttpClientProvider),
-    ref.watch(dataWorkerProvider),
-  );
+  return _PixivNovelRepository(ref.watch(pixivHttpClientProvider));
 });
