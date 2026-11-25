@@ -1624,5 +1624,11 @@
       "skipped": {"type": "int"}
     }
   },
-  "novelSeriesNoViewableChapters": "No viewable chapters in this series"
+  "novelSeriesNoViewableChapters": "No viewable chapters in this series",
+  "openInNewTab": "Open in new tab",
+  "workspaceRootTab": "Workspace",
+  "windowCloseTab": "Close Tab",
+  "closeTabTooltip": "Close tab",
+  "shortcutCloseTab": "Close overlay or active tab",
+  "shortcutNextTab": "Switch workspace tab"
 }

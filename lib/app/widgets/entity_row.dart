@@ -8,6 +8,7 @@ import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import 'app_progress_bar.dart';
 import 'feed/feed_text_warmup.dart';
+import 'middle_click_region.dart';
 import '../icons/ui_icons.dart';
 
 /// Slot-based entity row — the shared object-presentation contract
@@ -37,6 +38,7 @@ class EntityRow extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onSecondaryTapAt,
+    this.onMiddleClick,
     this.selected = false,
     this.semanticLabel,
     this.padding = const EdgeInsets.all(FuncSpacing.md),
@@ -100,6 +102,7 @@ class EntityRow extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final ValueChanged<Offset>? onSecondaryTapAt;
+  final VoidCallback? onMiddleClick;
 
   /// Management-mode selected state: paints the whole row with the
   /// selection surface and appends a check mark.
@@ -348,6 +351,9 @@ class EntityRow extends StatelessWidget {
         ),
         child: rowBody,
       );
+    }
+    if (onMiddleClick != null) {
+      rowBody = MiddleClickRegion(onMiddleClick: onMiddleClick, child: rowBody);
     }
 
     return Semantics(

@@ -18,9 +18,11 @@ import '../motion/press_scale.dart';
 import '../navigation/route_facade.dart';
 import '../pixiv_image.dart';
 import '../theme/func_semantic_tokens.dart';
+import '../window/desktop_workspace_tabs.dart';
 import 'author_summary.dart';
 import 'feed/illust_card_layout.dart';
 import 'follow_switch_button.dart';
+import 'middle_click_region.dart';
 
 /// A user and their recent works: who they are, a follow switch, and up to
 /// three of their works (recommended users, artist search results). The
@@ -78,37 +80,46 @@ class UserPreviewRow extends ConsumerWidget {
           Semantics(
             container: true,
             button: true,
-            child: InkWell(
-              onTap: () => openUser(context, entity.id),
-              child: Padding(
-                padding: const EdgeInsets.all(FuncSpacing.md),
-                child: LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    children: [
-                      Expanded(
-                        child: AuthorSummary(
-                          name: entity.name,
-                          account: handleOf(entity),
-                          imageUrl: entity.profileImageUrl,
-                          avatarRadius: 24,
+            child: MiddleClickRegion(
+              onMiddleClick: () =>
+                  DesktopWorkspaceTabsScope.maybeOf(
+                    context,
+                    listen: false,
+                  )?.openTargetInBackground(
+                    UserTabTarget(userId: entity.id, name: entity.name),
+                  ),
+              child: InkWell(
+                onTap: () => openUser(context, entity.id),
+                child: Padding(
+                  padding: const EdgeInsets.all(FuncSpacing.md),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      children: [
+                        Expanded(
+                          child: AuthorSummary(
+                            name: entity.name,
+                            account: handleOf(entity),
+                            imageUrl: entity.profileImageUrl,
+                            avatarRadius: 24,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: FuncSpacing.sm),
-                      // Capped at half the row so a long localized label
-                      // leaves the name a lane; the button scales its label
-                      // down past that bound.
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth * 0.5,
+                        const SizedBox(width: FuncSpacing.sm),
+                        // Capped at half the row so a long localized label
+                        // leaves the name a lane; the button scales its label
+                        // down past that bound.
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * 0.5,
+                          ),
+                          child: FollowSwitchButton(
+                            userId: entity.id,
+                            userName: entity.name,
+                            userAccount: entity.account,
+                            compact: true,
+                          ),
                         ),
-                        child: FollowSwitchButton(
-                          userId: entity.id,
-                          userName: entity.name,
-                          userAccount: entity.account,
-                          compact: true,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -206,25 +217,33 @@ class _UserPreviewThumbnail extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   image,
-                  Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      borderRadius: FuncShape.control,
-                      splashFactory: NoSplash.splashFactory,
-                      overlayColor: pressScaleInkOverlay,
-                      onTap: () {
-                        if (hasHero) noteHeroCardOpened(context, heroTag);
-                        unawaited(
-                          openIllust(
-                            context,
-                            entity.id,
-                            initialEntity: entity,
-                            heroScope: heroScope,
-                            heroImageUrl: hasHero ? url : null,
-                            heroImageDecodeWidth: hasHero ? decodeWidth : null,
-                          ),
-                        );
-                      },
+                  MiddleClickRegion(
+                    onMiddleClick: () => DesktopWorkspaceTabsScope.maybeOf(
+                      context,
+                      listen: false,
+                    )?.openTargetInBackground(IllustTabTarget(entity)),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        borderRadius: FuncShape.control,
+                        splashFactory: NoSplash.splashFactory,
+                        overlayColor: pressScaleInkOverlay,
+                        onTap: () {
+                          if (hasHero) noteHeroCardOpened(context, heroTag);
+                          unawaited(
+                            openIllust(
+                              context,
+                              entity.id,
+                              initialEntity: entity,
+                              heroScope: heroScope,
+                              heroImageUrl: hasHero ? url : null,
+                              heroImageDecodeWidth: hasHero
+                                  ? decodeWidth
+                                  : null,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],

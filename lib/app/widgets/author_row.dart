@@ -3,7 +3,9 @@ import 'package:material_ui/material_ui.dart';
 import '../../l10n/context.dart';
 import '../navigation/route_facade.dart';
 import '../theme/func_semantic_tokens.dart';
+import '../window/desktop_workspace_tabs.dart';
 import 'author_summary.dart';
+import 'middle_click_region.dart';
 import '../icons/ui_icons.dart';
 
 /// An inline byline: the avatar and name, then a chevron that says the row
@@ -39,27 +41,33 @@ class AuthorRow extends StatelessWidget {
       hint: context.l10n.openAuthorProfile,
       onTap: open,
       excludeSemantics: true,
-      child: InkWell(
-        onTap: open,
-        borderRadius: FuncShape.control,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: minHeight),
-          child: Row(
-            children: [
-              Flexible(
-                child: AuthorSummary(
-                  name: name,
-                  imageUrl: avatarUrl,
-                  avatarRadius: 16,
-                  compact: true,
+      child: MiddleClickRegion(
+        onMiddleClick: () => DesktopWorkspaceTabsScope.maybeOf(
+          context,
+          listen: false,
+        )?.openTargetInBackground(UserTabTarget(userId: userId, name: name)),
+        child: InkWell(
+          onTap: open,
+          borderRadius: FuncShape.control,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: minHeight),
+            child: Row(
+              children: [
+                Flexible(
+                  child: AuthorSummary(
+                    name: name,
+                    imageUrl: avatarUrl,
+                    avatarRadius: 16,
+                    compact: true,
+                  ),
                 ),
-              ),
-              Icon(
-                UiIcons.chevronRight,
-                size: _chevronSize,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ],
+                Icon(
+                  UiIcons.chevronRight,
+                  size: _chevronSize,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -3698,4 +3698,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelSeriesNoViewableChapters => 'このシリーズには保存可能な話がありません';
+
+  @override
+  String get openInNewTab => '新しいタブで開く';
+
+  @override
+  String get workspaceRootTab => 'ワークスペース';
+
+  @override
+  String get windowCloseTab => 'タブを閉じる';
+
+  @override
+  String get closeTabTooltip => 'タブを閉じる';
+
+  @override
+  String get shortcutCloseTab => 'オーバーレイまたはタブを閉じる';
+
+  @override
+  String get shortcutNextTab => 'ワークスペースのタブを切替';
 }

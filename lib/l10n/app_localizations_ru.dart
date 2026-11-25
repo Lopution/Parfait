@@ -3786,4 +3786,22 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get novelSeriesNoViewableChapters =>
       'В серии нет доступных глав для сохранения';
+
+  @override
+  String get openInNewTab => 'Открыть в новой вкладке';
+
+  @override
+  String get workspaceRootTab => 'Рабочая область';
+
+  @override
+  String get windowCloseTab => 'Закрыть вкладку';
+
+  @override
+  String get closeTabTooltip => 'Закрыть вкладку';
+
+  @override
+  String get shortcutCloseTab => 'Закрыть окно или вкладку';
+
+  @override
+  String get shortcutNextTab => 'Переключить вкладку';
 }

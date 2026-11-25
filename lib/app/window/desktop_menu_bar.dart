@@ -17,7 +17,9 @@ import '../navigation/keyboard_shortcuts_sheet.dart';
 import '../navigation/route_facade.dart';
 import '../navigation/route_search_facade.dart';
 import '../pull_to_refresh.dart';
+import 'desktop_close_dispatcher.dart';
 import 'desktop_title_bar.dart';
+import 'desktop_workspace_tabs.dart';
 
 const _digitKeys = [
   LogicalKeyboardKey.digit1,
@@ -196,24 +198,28 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
         PlatformMenuItemGroup(
           members: [
             PlatformMenuItem(
-              label: l10n.windowClose,
+              label:
+                  (DesktopWorkspaceTabsController.active?.isOnSecondaryTab ??
+                      false)
+                  ? l10n.windowCloseTab
+                  : l10n.windowClose,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyW,
                 meta: true,
               ),
               onSelected:
                   onCloseWindow == null &&
-                      !hasModalOrRootOverlay(router, checkFocusRoute: false)
-                  ? null
-                  : () {
-                      if (hasModalOrRootOverlay(
+                      !canDismissDesktopOverlayOrTab(
                         router,
                         checkFocusRoute: false,
-                      )) {
-                        unawaited(router.routerDelegate.popRoute());
-                        return;
-                      }
-                      onCloseWindow?.call();
+                      )
+                  ? null
+                  : () {
+                      dispatchLayeredDesktopClose(
+                        router: router,
+                        isMacOS: true,
+                        onCloseWindow: onCloseWindow,
+                      );
                     },
             ),
           ],
@@ -418,6 +424,8 @@ class _DesktopMenuBarState extends State<DesktopMenuBar> {
     final includeSystemQuit =
         defaultTargetPlatform == TargetPlatform.macOS &&
         PlatformProvidedMenuItem.hasMenu(PlatformProvidedMenuItemType.quit);
+    // Subscribe to workspace tab switches so File > Close Tab vs Close updates.
+    DesktopWorkspaceTabsScope.maybeOf(context);
 
     return ValueListenableBuilder<ForwardHistoryState>(
       valueListenable: history.stateListenable,

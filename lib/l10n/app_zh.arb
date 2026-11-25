@@ -2327,5 +2327,11 @@
       "skipped": {"type": "int"}
     }
   },
-  "novelSeriesNoViewableChapters": "该系列暂无可保存的章节"
+  "novelSeriesNoViewableChapters": "该系列暂无可保存的章节",
+  "openInNewTab": "在新标签页打开",
+  "workspaceRootTab": "主工作区",
+  "windowCloseTab": "关闭标签页",
+  "closeTabTooltip": "关闭标签页",
+  "shortcutCloseTab": "关闭弹窗或当前标签页",
+  "shortcutNextTab": "切换工作区标签页"
 }

@@ -1617,5 +1617,11 @@
       "skipped": {"type": "int"}
     }
   },
-  "novelSeriesNoViewableChapters": "このシリーズには保存可能な話がありません"
+  "novelSeriesNoViewableChapters": "このシリーズには保存可能な話がありません",
+  "openInNewTab": "新しいタブで開く",
+  "workspaceRootTab": "ワークスペース",
+  "windowCloseTab": "タブを閉じる",
+  "closeTabTooltip": "タブを閉じる",
+  "shortcutCloseTab": "オーバーレイまたはタブを閉じる",
+  "shortcutNextTab": "ワークスペースのタブを切替"
 }

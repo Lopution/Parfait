@@ -26,6 +26,8 @@ import '../../widgets/bookmark_switch_button.dart';
 import '../card_actions/card_action_sheet.dart';
 import '../display_actions.dart';
 import '../entity_row.dart';
+import '../middle_click_region.dart';
+import '../../window/desktop_workspace_tabs.dart';
 import 'desktop_inspector_scope.dart';
 import 'feed_grid.dart' show FeedItemExtent;
 import 'illust_pager_source.dart';
@@ -457,6 +459,17 @@ class _IllustCardBody extends ConsumerWidget {
         ),
       ),
     );
+    final tabs =
+        muted || (FeedSelectionScope.maybeOf(context)?.hasSelection ?? false)
+        ? null
+        : DesktopWorkspaceTabsScope.maybeOf(context, listen: false);
+    if (tabs != null) {
+      card = MiddleClickRegion(
+        onMiddleClick: () =>
+            tabs.openTargetInBackground(IllustTabTarget(entity)),
+        child: card,
+      );
+    }
     card = PressScale(child: card);
 
     return _CardFocus(onActivate: primaryTap, onMenu: longPress, child: card);

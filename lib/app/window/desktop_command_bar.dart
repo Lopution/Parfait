@@ -26,6 +26,7 @@ import 'desktop_command_bar_scope.dart';
 import 'desktop_command_bar_widgets.dart';
 import 'desktop_title_bar.dart';
 import 'desktop_title_bar_region_publisher.dart';
+import 'desktop_workspace_tabs.dart';
 
 export 'desktop_command_bar_scope.dart';
 
@@ -443,46 +444,76 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
                                 ),
                                 const SizedBox(width: FuncSpacing.sm),
                               ],
-                              desktopCommandIconButton(
-                                context,
-                                key: const Key('desktop-command-back'),
-                                constraints: iconConstraints,
-                                padding: iconPadding,
-                                iconSize: 17,
-                                tooltip: l10n.navBack,
-                                onPressed:
-                                    !hasBlockingModal && historyState.canGoBack
-                                    ? () => unawaited(history.goBack())
-                                    : null,
-                                icon: const Icon(UiIcons.arrowBack),
-                              ),
-                              desktopCommandIconButton(
-                                context,
-                                key: const Key('desktop-command-forward'),
-                                constraints: iconConstraints,
-                                padding: iconPadding,
-                                iconSize: 17,
-                                tooltip: l10n.navForward,
-                                onPressed:
-                                    !hasBlockingModal &&
-                                        historyState.canGoForward
-                                    ? () => unawaited(history.goForward())
-                                    : null,
-                                icon: const Icon(UiIcons.arrowForward),
-                              ),
-                              desktopCommandIconButton(
-                                context,
-                                key: const Key('desktop-command-refresh'),
-                                constraints: iconConstraints,
-                                padding: iconPadding,
-                                iconSize: 17,
-                                tooltip: l10n.refresh,
-                                onPressed: hasBlockingModal
-                                    ? null
-                                    : () => PullToRefresh.triggerActive(
-                                        _navContext(),
+                              Builder(
+                                builder: (barContext) {
+                                  final tabs =
+                                      DesktopWorkspaceTabsScope.maybeOf(
+                                        barContext,
+                                      );
+                                  final onSecondary =
+                                      tabs?.isOnSecondaryTab ?? false;
+                                  final canBack = onSecondary
+                                      ? tabs!.canActiveSecondaryPop
+                                      : historyState.canGoBack;
+                                  final canForward =
+                                      !onSecondary && historyState.canGoForward;
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      desktopCommandIconButton(
+                                        barContext,
+                                        key: const Key('desktop-command-back'),
+                                        constraints: iconConstraints,
+                                        padding: iconPadding,
+                                        iconSize: 17,
+                                        tooltip: l10n.navBack,
+                                        onPressed: !hasBlockingModal && canBack
+                                            ? () => unawaited(
+                                                onSecondary
+                                                    ? tabs!.popActiveSecondary()
+                                                    : history.goBack(),
+                                              )
+                                            : null,
+                                        icon: const Icon(UiIcons.arrowBack),
                                       ),
-                                icon: const Icon(UiIcons.refresh),
+                                      desktopCommandIconButton(
+                                        barContext,
+                                        key: const Key(
+                                          'desktop-command-forward',
+                                        ),
+                                        constraints: iconConstraints,
+                                        padding: iconPadding,
+                                        iconSize: 17,
+                                        tooltip: l10n.navForward,
+                                        onPressed:
+                                            !hasBlockingModal && canForward
+                                            ? () =>
+                                                  unawaited(history.goForward())
+                                            : null,
+                                        icon: const Icon(UiIcons.arrowForward),
+                                      ),
+                                      desktopCommandIconButton(
+                                        barContext,
+                                        key: const Key(
+                                          'desktop-command-refresh',
+                                        ),
+                                        constraints: iconConstraints,
+                                        padding: iconPadding,
+                                        iconSize: 17,
+                                        tooltip: l10n.refresh,
+                                        onPressed: hasBlockingModal
+                                            ? null
+                                            : () => PullToRefresh.triggerActive(
+                                                onSecondary
+                                                    ? (tabs!.activeSecondaryContext ??
+                                                          _navContext())
+                                                    : _navContext(),
+                                              ),
+                                        icon: const Icon(UiIcons.refresh),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ],
                           ),

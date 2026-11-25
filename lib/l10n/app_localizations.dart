@@ -6964,6 +6964,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'该系列暂无可保存的章节'**
   String get novelSeriesNoViewableChapters;
+
+  /// No description provided for @openInNewTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'在新标签页打开'**
+  String get openInNewTab;
+
+  /// No description provided for @workspaceRootTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'主工作区'**
+  String get workspaceRootTab;
+
+  /// No description provided for @windowCloseTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭标签页'**
+  String get windowCloseTab;
+
+  /// No description provided for @closeTabTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭标签页'**
+  String get closeTabTooltip;
+
+  /// No description provided for @shortcutCloseTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭弹窗或当前标签页'**
+  String get shortcutCloseTab;
+
+  /// No description provided for @shortcutNextTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换工作区标签页'**
+  String get shortcutNextTab;
 }
 
 class _AppLocalizationsDelegate

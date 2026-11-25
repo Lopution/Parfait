@@ -1617,5 +1617,11 @@
       "skipped": {"type": "int"}
     }
   },
-  "novelSeriesNoViewableChapters": "В серии нет доступных глав для сохранения"
+  "novelSeriesNoViewableChapters": "В серии нет доступных глав для сохранения",
+  "openInNewTab": "Открыть в новой вкладке",
+  "workspaceRootTab": "Рабочая область",
+  "windowCloseTab": "Закрыть вкладку",
+  "closeTabTooltip": "Закрыть вкладку",
+  "shortcutCloseTab": "Закрыть окно или вкладку",
+  "shortcutNextTab": "Переключить вкладку"
 }

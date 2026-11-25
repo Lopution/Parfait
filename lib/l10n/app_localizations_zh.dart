@@ -3666,4 +3666,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelSeriesNoViewableChapters => '该系列暂无可保存的章节';
+
+  @override
+  String get openInNewTab => '在新标签页打开';
+
+  @override
+  String get workspaceRootTab => '主工作区';
+
+  @override
+  String get windowCloseTab => '关闭标签页';
+
+  @override
+  String get closeTabTooltip => '关闭标签页';
+
+  @override
+  String get shortcutCloseTab => '关闭弹窗或当前标签页';
+
+  @override
+  String get shortcutNextTab => '切换工作区标签页';
 }
