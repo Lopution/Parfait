@@ -708,7 +708,7 @@ void main() {
       (jsonDecode(jsonEncode(record.toJson())) as Map).cast<String, dynamic>(),
     );
 
-    expect(restored.snapshot.displayName, '42_100x200_123_p0');
+    expect(restored.snapshot.displayName, '42_100x200_123_p0.jpg');
   });
 
   test('a stored name with traversal segments is rejected', () {
@@ -764,15 +764,15 @@ void main() {
     );
 
     await manager.recover();
-    expect(manager.taskById('job-retry')!.displayName, '42_100x200_123_p0');
+    expect(manager.taskById('job-retry')!.displayName, '42_100x200_123_p0.jpg');
 
     final retried = manager.retry('job-retry')!;
     await turnUntil(
       () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
     );
 
-    expect(retried.displayName, '42_100x200_123_p0');
-    expect(sinkFactory.names, ['42_100x200_123_p0']);
+    expect(retried.displayName, '42_100x200_123_p0.jpg');
+    expect(sinkFactory.names, ['42_100x200_123_p0.jpg']);
   });
 
   test(
