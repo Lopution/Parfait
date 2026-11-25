@@ -423,7 +423,11 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     String? armedUri;
     if (outcome is ReverseImageSearchWebUpload && error == null) {
       try {
-        armedUri = await session.uploadArmer.armUpload(input.info.path);
+        final allowedHosts = ReverseImageEngineSpecs.all[engine]!.webViewHosts;
+        armedUri = await session.uploadArmer.armUpload(
+          input.info.path,
+          allowedHosts: allowedHosts,
+        );
       } on Object catch (caught) {
         error = caught;
         outcome = null;

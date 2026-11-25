@@ -15,6 +15,7 @@ import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
+import 'package:parfait/app/widgets/web_navigation_guard.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/login/login_webview_error_card.dart';
 import 'package:parfait/features/login/login_webview_page.dart';
@@ -559,4 +560,21 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  test('WebNavigationGuard disables file and content access by default', () {
+    final guard = WebNavigationGuard(
+      const PlatformCaps(isAndroid: true),
+      (_) => false,
+    );
+    expect(guard.settings.allowFileAccess, isFalse);
+    expect(guard.settings.allowContentAccess, isFalse);
+
+    final uploadGuard = WebNavigationGuard(
+      const PlatformCaps(isAndroid: true),
+      (_) => false,
+      allowContentAccess: true,
+    );
+    expect(uploadGuard.settings.allowFileAccess, isFalse);
+    expect(uploadGuard.settings.allowContentAccess, isTrue);
+  });
 }

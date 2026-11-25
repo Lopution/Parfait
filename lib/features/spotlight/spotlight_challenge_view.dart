@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
+import '../../app/widgets/web_navigation_guard.dart';
+import '../../core/platform/android_intent_channel.dart';
 import '../../core/platform/dev_webview_environment.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/settings/settings_controller.dart';
@@ -72,9 +73,30 @@ class _SpotlightChallengeViewState
   /// Set once the headless WebView moved into the on-screen widget, which
   /// then owns (and disposes) it.
   var _handedOver = false;
+  late WebNavigationGuard _guard;
 
-  late final _settings = InAppWebViewSettings(
+  static bool _stopsMainFrame(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) return true;
+    return uri.scheme.toLowerCase() != 'https' ||
+        uri.host.toLowerCase() != 'www.pixivision.net';
+  }
+
+  static bool _isVerifiedArticleUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.isEmpty) return false;
+    try {
+      PixivSpotlightRepository.articleUri(rawUrl);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  InAppWebViewSettings _buildSettings() => InAppWebViewSettings(
     javaScriptEnabled: true,
+    useShouldOverrideUrlLoading: _guard.beforeLoad,
+    allowFileAccess: false,
+    allowContentAccess: false,
     userAgent: PixivSpotlightRepository.articleUserAgent,
     // The desktop document, zoomed out to fit the phone while the user
     // completes a challenge.
@@ -88,6 +110,10 @@ class _SpotlightChallengeViewState
   @override
   void initState() {
     super.initState();
+    _guard = WebNavigationGuard(
+      ref.read(platformCapsProvider),
+      _stopsMainFrame,
+    );
     _begin();
   }
 
@@ -121,7 +147,12 @@ class _SpotlightChallengeViewState
         url: WebUri.uri(widget.uri),
         headers: {'Accept-Language': languageTag ?? 'zh-CN'},
       ),
-      initialSettings: _settings,
+      initialSettings: _buildSettings(),
+      shouldOverrideUrlLoading: _guard.shouldOverrideUrlLoading,
+      onLoadStart: _guard.onLoadStart,
+      onUpdateVisitedHistory: (controller, url, _) {
+        if (!_guard.beforeLoad) _guard.stopAsStarted(controller, url);
+      },
       onWebViewCreated: (controller) => _controller = controller,
       onLoadStop: (controller, _) => unawaited(_inspect()),
       onReceivedError: _onReceivedError,
@@ -149,6 +180,8 @@ class _SpotlightChallengeViewState
     if (_phase == _ChallengePhase.failed) return;
     _probing = true;
     try {
+      final currentUrl = await controller.getUrl();
+      if (!_isVerifiedArticleUrl(currentUrl?.toString())) return;
       final ready = await controller.evaluateJavascript(
         source: _articleReadyProbe,
       );
@@ -206,8 +239,9 @@ class _SpotlightChallengeViewState
     if (headless != null && !_handedOver) unawaited(headless.dispose());
   }
 
-  void _openInBrowser() =>
-      unawaited(launchUrl(widget.uri, mode: LaunchMode.externalApplication));
+  void _openInBrowser() => unawaited(
+    ref.read(outboundUrlOpenerProvider).openExternal(widget.uri.toString()),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +317,12 @@ class _SpotlightChallengeViewState
             key: ValueKey(_attempt),
             webViewEnvironment: DevWebViewEnvironmentHolder.resolveForWebView(),
             headlessWebView: _headless,
-            initialSettings: _settings,
+            initialSettings: _buildSettings(),
+            shouldOverrideUrlLoading: _guard.shouldOverrideUrlLoading,
+            onLoadStart: _guard.onLoadStart,
+            onUpdateVisitedHistory: (controller, url, _) {
+              if (!_guard.beforeLoad) _guard.stopAsStarted(controller, url);
+            },
             onWebViewCreated: (controller) {
               _handedOver = true;
               _controller = controller;
