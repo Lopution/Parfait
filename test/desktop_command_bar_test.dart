@@ -536,6 +536,7 @@ void main() {
         l10n.menuNavigate,
         l10n.menuView,
         l10n.menuWindow,
+        l10n.menuHelp,
       ]);
       expect(topLabels, isNot(contains('Edit')));
 

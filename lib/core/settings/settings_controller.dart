@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'shared_preferences.dart';
 
+import '../bookmark/bookmark_models.dart';
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
 import '../errors/no_retry.dart';
@@ -251,6 +252,13 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setCloseToTray(bool enabled) =>
       _update((settings) => settings.copyWith(closeToTray: enabled));
 
+  Future<void> setDefaultBookmarkRestrict(BookmarkRestrict restrict) => _update(
+    (settings) => settings.copyWith(defaultBookmarkRestrict: restrict),
+  );
+
+  Future<void> setBookmarkAttachWorkTags(bool enabled) =>
+      _update((settings) => settings.copyWith(bookmarkAttachWorkTags: enabled));
+
   /// The desktop window's place, saved when it moves, resizes or maximizes
   /// ends (debounced by the window binding). Desktop only; a no-op call
   /// elsewhere still writes the same values harmlessly.
@@ -435,6 +443,25 @@ final downloadDestinationProvider = Provider<DownloadDestination>((ref) {
 final downloadCaptionProvider = Provider<bool>((ref) {
   return ref.watch(
     settingsProvider.select((async) => async.value?.downloadCaption ?? false),
+  );
+});
+
+/// Default visibility for quick-bookmark and new bookmark sheets.
+final defaultBookmarkRestrictProvider = Provider<BookmarkRestrict>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) =>
+          async.value?.defaultBookmarkRestrict ?? BookmarkRestrict.public,
+    ),
+  );
+});
+
+/// Whether quick-bookmark and new bookmark sheets pre-attach cached work tags.
+final bookmarkAttachWorkTagsProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.bookmarkAttachWorkTags ?? false,
+    ),
   );
 });
 

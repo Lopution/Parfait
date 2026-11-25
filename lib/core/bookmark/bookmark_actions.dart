@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../actionqueue/action_bootstrap.dart';
 import '../actionqueue/action_models.dart';
+import '../entity/illust_store.dart';
 import '../mutation/mutation_boundary.dart';
 import '../mutation/mutation_models.dart';
 import '../network/api_error.dart';
+import '../novel/novel_store.dart';
+import '../settings/settings_controller.dart';
 import 'bookmark_models.dart';
 import 'bookmark_repository.dart';
 import 'bookmark_store.dart';
@@ -74,11 +77,31 @@ class _BookmarkActions {
     if (_removed.length > _maxRemembered) _removed.remove(_removed.keys.first);
   }
 
+  List<String> _defaultWorkTags(BookmarkKey key) {
+    final Iterable<String> raw = switch (key.type) {
+      BookmarkEntityType.illust =>
+        _ref.read(illustStoreProvider).get(key.id)?.tags.map((t) => t.name) ??
+            const [],
+      BookmarkEntityType.novel =>
+        _ref.read(novelStoreProvider)[key.id]?.tags.map((t) => t.name) ??
+            const [],
+    };
+    final tags = <String>[];
+    final seen = <String>{};
+    for (final item in raw) {
+      final name = item.trim();
+      if (name.isEmpty || !seen.add(name)) continue;
+      tags.add(name);
+      if (tags.length >= kMaxBookmarkTags) break;
+    }
+    return tags;
+  }
+
   /// Requests [wish], then follows the user's later taps ([settleToggle]).
   /// An add puts back [restore] — or what the delete before it removed, so
-  /// tapping back mid-delete keeps a private bookmark private — and adds
-  /// public otherwise. Returns what the last request removed when it was a
-  /// confirmed delete.
+  /// tapping back mid-delete keeps a private bookmark private — and uses the
+  /// configured bookmark defaults otherwise. Returns what the last request
+  /// removed when it was a confirmed delete.
   Future<RemovedBookmark?> _settle(
     BookmarkStore store,
     BookmarkKey key, {
@@ -90,11 +113,14 @@ class _BookmarkActions {
       if (!target) return _delete(store, key, (value) => removed = value);
       final restored = removed;
       removed = null;
-      final op = store.beginAdd(
-        key,
-        restored?.restrict ?? BookmarkRestrict.public,
-        tags: restored?.tags ?? const [],
-      );
+      final BookmarkRestrict restrict =
+          restored?.restrict ?? _ref.read(defaultBookmarkRestrictProvider);
+      final tags =
+          restored?.tags ??
+          (_ref.read(bookmarkAttachWorkTagsProvider)
+              ? _defaultWorkTags(key)
+              : const <String>[]);
+      final op = store.beginAdd(key, restrict, tags: tags);
       return op != null && await _run(store, op);
     }
 

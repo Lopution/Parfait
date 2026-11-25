@@ -12,6 +12,7 @@ import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/novel_store.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/user/user_entity.dart';
 
 import 'helpers/api_responses.dart';
@@ -485,6 +486,44 @@ void main() {
 
         await actions.toggle(key);
         expect(repository.adds.single.$2, 'public');
+      },
+    );
+
+    test(
+      'fresh toggle applies defaultBookmarkRestrict and bookmarkAttachWorkTags without overriding undo restore',
+      () async {
+        final repository = BookmarkApi();
+        final container = await bookmarkWorld(repository);
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        await container
+            .read(settingsProvider.notifier)
+            .setDefaultBookmarkRestrict(BookmarkRestrict.private);
+        await container
+            .read(settingsProvider.notifier)
+            .setBookmarkAttachWorkTags(true);
+        final entity = parseIllust({
+          ...illustJson(1),
+          'tags': [
+            for (var i = 1; i <= 12; i++) {'name': 'tag$i'},
+          ],
+        });
+        container.read(illustStoreProvider).mergeAll([entity]);
+        final actions = container.read(bookmarkActionsProvider);
+
+        await actions.toggle(key);
+        expect(repository.adds.single.$2, 'private');
+        expect(repository.adds.single.$3, [
+          for (var i = 1; i <= 10; i++) 'tag$i',
+        ]);
+
+        // Unbookmark then re-add restores removed state rather than duplicating defaults.
+        await actions.toggle(key);
+        await actions.toggle(key);
+        expect(repository.adds.last.$2, 'private');
+        expect(repository.adds.last.$3, [
+          for (var i = 1; i <= 10; i++) 'tag$i',
+        ]);
       },
     );
   });

@@ -3486,4 +3486,95 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get offlineQueueRetrying => 'オフライン操作を再試行しています…';
+
+  @override
+  String get bookmarkDefaultRestrict => 'デフォルトのブックマーク公開設定';
+
+  @override
+  String get bookmarkAttachWorkTags => '作品タグを自動追加';
+
+  @override
+  String get bookmarkAttachWorkTagsHint =>
+      'ワンタップ追加や新規ブックマーク時に、作品タグを最大 10 件まで自動で付けます。';
+
+  @override
+  String get bookmarkWorkTags => '作品のタグ';
+
+  @override
+  String get bookmarkTagLimitReached => 'タグは最大 10 件まで追加できます';
+
+  @override
+  String get bookmarkTagUncategorized => '未分類';
+
+  @override
+  String get bookmarkRemove => 'ブックマークを解除';
+
+  @override
+  String get menuHelp => 'ヘルプ';
+
+  @override
+  String get keyboardShortcutsTitle => 'キーボードショートカット';
+
+  @override
+  String get shortcutsGroupNavigation => 'ナビゲーション';
+
+  @override
+  String get shortcutsGroupArtwork => '作品詳細・ビューアー';
+
+  @override
+  String get shortcutsGroupNovel => '小説リーダー';
+
+  @override
+  String get shortcutNavBackForward => '戻る / 進む';
+
+  @override
+  String get shortcutNavTabs => 'ホームタブを切替';
+
+  @override
+  String get shortcutNavSearch => '検索';
+
+  @override
+  String get shortcutNavRefresh => '更新';
+
+  @override
+  String get shortcutNavSettings => '設定';
+
+  @override
+  String get shortcutNavRailOrBookmarks => 'サイドバー切替 / ブックマーク';
+
+  @override
+  String get shortcutNavSelectAll => '一覧をすべて選択';
+
+  @override
+  String get shortcutNavShortcuts => 'ショートカット一覧';
+
+  @override
+  String get shortcutArtworkBookmark => 'ブックマーク / タグ編集';
+
+  @override
+  String get shortcutArtworkSave => '画像を保存';
+
+  @override
+  String get shortcutArtworkCopy => '原寸画像をコピー';
+
+  @override
+  String get shortcutArtworkChrome => 'ツールバーの表示切替';
+
+  @override
+  String get shortcutArtworkInfo => '作品情報';
+
+  @override
+  String get shortcutArtworkSwitchWork => '前・次の作品';
+
+  @override
+  String get shortcutArtworkSwitchPage => '前・次のページ';
+
+  @override
+  String get shortcutArtworkZoom => '拡大・縮小・フィット';
+
+  @override
+  String get shortcutNovelToc => '目次と進捗';
+
+  @override
+  String get shortcutNovelNavigate => 'ページ送り / スクロール';
 }

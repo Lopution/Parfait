@@ -210,11 +210,32 @@ class _TagList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    if (state.tags.isEmpty) {
+    final tags = [
+      for (final tag in state.tags)
+        if (tag.name != kUncategorizedBookmarkTag) tag,
+    ];
+    final uncategorizedCount = state.tags
+        .where((tag) => tag.name == kUncategorizedBookmarkTag)
+        .firstOrNull
+        ?.count;
+    final uncategorizedTile = ListTile(
+      key: const ValueKey('bookmark-tag-uncategorized'),
+      leading: const Icon(AppIcons.tag),
+      title: Text(l10n.bookmarkTagUncategorized),
+      trailing: uncategorizedCount == null ? null : Text('$uncategorizedCount'),
+      onTap: () => openBookmarkTagFeed(
+        context,
+        tag: kUncategorizedBookmarkTag,
+        kind: query.$1,
+        restrict: restrict,
+      ),
+    );
+    if (tags.isEmpty) {
       return CustomScrollView(
         controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          SliverToBoxAdapter(child: uncategorizedTile),
           SliverFillRemaining(
             hasScrollBody: false,
             child: FeedEmpty(icon: AppIcons.tag, title: l10n.bookmarkTagsEmpty),
@@ -223,7 +244,7 @@ class _TagList extends ConsumerWidget {
       );
     }
     return LoadMoreListener(
-      itemCount: state.tags.length,
+      itemCount: tags.length + 1,
       onLoadMore: () =>
           ref.read(userBookmarkTagsProvider(query).notifier).loadMore(),
       child: SmoothWheelScroll(
@@ -232,9 +253,11 @@ class _TagList extends ConsumerWidget {
         builder: (context, controller, physics) => ListView.builder(
           controller: controller,
           physics: physics,
-          itemCount: state.tags.length + 1,
+          itemCount: tags.length + 2,
           itemBuilder: (context, index) {
-            if (index >= state.tags.length) {
+            if (index == 0) return uncategorizedTile;
+            final tagIndex = index - 1;
+            if (tagIndex >= tags.length) {
               if (state.loadingMore) {
                 return const Padding(
                   padding: EdgeInsets.all(FuncSpacing.lg),
@@ -265,7 +288,7 @@ class _TagList extends ConsumerWidget {
               }
               return const SizedBox.shrink();
             }
-            final tag = state.tags[index];
+            final tag = tags[tagIndex];
             return ListTile(
               leading: const Icon(AppIcons.tag),
               title: Text(tag.name),

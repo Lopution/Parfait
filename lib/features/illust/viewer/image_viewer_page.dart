@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/accessibility/immersive_chrome_policy.dart';
-import '../../../app/clipboard.dart';
 import '../../../app/format/app_format.dart';
 import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/layout/input_modality.dart';
@@ -27,6 +26,7 @@ import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/scroll_behavior.dart';
 import '../../../app/widgets/app_slider.dart';
+import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../app/widgets/display_actions.dart';
 import '../../../core/entity/illust_caption.dart';
 import '../../../core/entity/illust_entity.dart';
@@ -36,7 +36,7 @@ import '../../../core/illust/illust_download_controller.dart';
 import '../illust_actions.dart';
 import '../../../core/image/image_demand.dart';
 import '../../../core/image/image_worker_providers.dart';
-import '../../../core/platform/image_clipboard.dart';
+import 'image_viewer_actions.dart';
 import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../app/theme/replica_theme.dart';
@@ -755,7 +755,6 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   void _openContextMenu(TapUpDetails details, IllustPageSaveState? saveState) {
     final entity = widget.entity;
-    final l10n = context.l10n;
     final zoomed = _activeZoomed;
     unawaited(
       showDisplayActions(
@@ -763,74 +762,36 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         position: details.globalPosition,
         kind: details.kind,
         onLongPress: entity != null ? () => _showInfo(entity) : _toggleChrome,
-        actions: [
-          if (entity != null)
-            DisplayAction(
-              icon: AppIcons.download,
-              label: l10n.viewerSavePage,
-              enabled:
-                  saveState != IllustPageSaveState.downloading &&
-                  saveState != IllustPageSaveState.exist,
-              onSelected: () => unawaited(_saveActivePage(entity)),
-            ),
-          if (entity != null && _pageCount > 1)
-            DisplayAction(
-              icon: AppIcons.downloading,
-              label: l10n.downloadAll,
-              onSelected: () => unawaited(_downloadAll(entity)),
-            ),
-          if (entity != null) ...[
-            if (isDesktopImageClipboardSupported)
-              DisplayAction(
-                icon: AppIcons.copy,
-                label: l10n.copyOriginalImage,
-                onSelected: () => unawaited(
-                  copyIllustOriginalImageToClipboard(
-                    context,
-                    ProviderScope.containerOf(context),
-                    entity,
-                    pageIndex: _activePage,
-                  ),
-                ),
-              ),
-            DisplayAction(
-              icon: AppIcons.share,
-              label: l10n.share,
-              onSelected: () =>
-                  unawaited(_share(entity, at: details.globalPosition)),
-            ),
-            DisplayAction(
-              icon: AppIcons.link,
-              label: l10n.copyLink,
-              onSelected: () => unawaited(
-                copyToClipboard(
-                  context,
-                  'https://www.pixiv.net/artworks/${entity.id}',
-                  message: l10n.linkCopied,
-                ),
-              ),
-            ),
-          ],
-          DisplayAction(
-            icon: zoomed ? AppIcons.fitScreen : AppIcons.zoomIn,
-            label: zoomed ? l10n.viewerFitScreen : l10n.viewerZoomIn,
-            onSelected: () {
-              if (zoomed) {
-                _resetZoom();
-              } else {
-                _animateZoom(
-                  _transformationFor(_activePage),
-                  _focalZoom(details.localPosition, 2.5),
-                );
-              }
-            },
-          ),
-          DisplayAction(
-            icon: UiIcons.arrowBack,
-            label: MaterialLocalizations.of(context).backButtonTooltip,
-            onSelected: _imperativePop,
-          ),
-        ],
+        actions: buildImageViewerContextActions(
+          context,
+          entity: entity,
+          activePage: _activePage,
+          pageCount: _pageCount,
+          saveState: saveState,
+          zoomed: zoomed,
+          onSavePage: () {
+            if (entity != null) unawaited(_saveActivePage(entity));
+          },
+          onDownloadAll: () {
+            if (entity != null) unawaited(_downloadAll(entity));
+          },
+          onShare: () {
+            if (entity != null) {
+              unawaited(_share(entity, at: details.globalPosition));
+            }
+          },
+          onToggleZoom: () {
+            if (zoomed) {
+              _resetZoom();
+            } else {
+              _animateZoom(
+                _transformationFor(_activePage),
+                _focalZoom(details.localPosition, 2.5),
+              );
+            }
+          },
+          onBack: _imperativePop,
+        ),
       ),
     );
   }
@@ -1383,6 +1344,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                     icon: const Icon(AppIcons.fitScreen),
                   ),
                   if (entity != null) ...[
+                    BookmarkSwitchButton(
+                      key: const Key('viewer-bookmark-button'),
+                      illustId: entity.id,
+                      title: entity.title,
+                      isButton: true,
+                    ),
                     IconButton(
                       tooltip: l10n.viewerSavePage,
                       onPressed: !hasPages

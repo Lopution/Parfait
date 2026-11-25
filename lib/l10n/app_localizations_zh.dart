@@ -3457,4 +3457,94 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get offlineQueueRetrying => '正在重试离线操作…';
+
+  @override
+  String get bookmarkDefaultRestrict => '默认收藏可见性';
+
+  @override
+  String get bookmarkAttachWorkTags => '快速收藏自动附带作品标签';
+
+  @override
+  String get bookmarkAttachWorkTagsHint => '单击收藏或新建收藏时，自动附带最多 10 个作品标签。';
+
+  @override
+  String get bookmarkWorkTags => '作品标签';
+
+  @override
+  String get bookmarkTagLimitReached => '最多可添加 10 个标签';
+
+  @override
+  String get bookmarkTagUncategorized => '未分类';
+
+  @override
+  String get bookmarkRemove => '取消收藏';
+
+  @override
+  String get menuHelp => '帮助';
+
+  @override
+  String get keyboardShortcutsTitle => '快捷键';
+
+  @override
+  String get shortcutsGroupNavigation => '导航';
+
+  @override
+  String get shortcutsGroupArtwork => '详情与看图';
+
+  @override
+  String get shortcutsGroupNovel => '小说阅读';
+
+  @override
+  String get shortcutNavBackForward => '返回 / 前进';
+
+  @override
+  String get shortcutNavTabs => '切换首页标签';
+
+  @override
+  String get shortcutNavSearch => '搜索';
+
+  @override
+  String get shortcutNavRefresh => '刷新';
+
+  @override
+  String get shortcutNavSettings => '设置';
+
+  @override
+  String get shortcutNavRailOrBookmarks => '切换侧边栏 / 收藏';
+
+  @override
+  String get shortcutNavSelectAll => '全选列表';
+
+  @override
+  String get shortcutNavShortcuts => '显示快捷键';
+
+  @override
+  String get shortcutArtworkBookmark => '收藏 / 编辑标签';
+
+  @override
+  String get shortcutArtworkSave => '保存图片';
+
+  @override
+  String get shortcutArtworkCopy => '复制原图';
+
+  @override
+  String get shortcutArtworkChrome => '显示 / 隐藏工具栏';
+
+  @override
+  String get shortcutArtworkInfo => '作品信息';
+
+  @override
+  String get shortcutArtworkSwitchWork => '上一张 / 下一张作品';
+
+  @override
+  String get shortcutArtworkSwitchPage => '上一页 / 下一页';
+
+  @override
+  String get shortcutArtworkZoom => '放大 / 缩小 / 适应窗口';
+
+  @override
+  String get shortcutNovelToc => '目录与进度';
+
+  @override
+  String get shortcutNovelNavigate => '翻页 / 滚动';
 }
