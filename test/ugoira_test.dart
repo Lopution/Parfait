@@ -556,6 +556,70 @@ void main() {
         expect(tempDir.listSync(), isEmpty);
       },
     );
+
+    test(
+      'loopAware cache retains prefix frames, worker reads ZIP, and octree encodes encoded frames',
+      () async {
+        final disposed = <String>[];
+        final cache = UgoiraFrameCache<_FakeFrame>(
+          maxBytes: 40,
+          sizeOf: (f) => f.bytes,
+          dispose: (f) => disposed.add(f.id),
+          loopAware: true,
+        );
+        for (var i = 0; i < 6; i++) {
+          cache.put(i, _FakeFrame('f$i', 10));
+        }
+        // Prefix frames 0..2 survive cyclic overflow instead of 0% hit rate.
+        expect(cache.get(0)?.id, 'f0');
+        expect(cache.get(1)?.id, 'f1');
+        expect(cache.get(2)?.id, 'f2');
+        expect(disposed, isNotEmpty);
+        cache.clear();
+
+        final dir = Directory.systemTemp.createTempSync('parfait_ugoira_iso_');
+        addTearDown(() => dir.deleteSync(recursive: true));
+        final png = img.encodePng(img.Image(width: 16, height: 16));
+        final zipFile = File('${dir.path}/sample.zip')
+          ..writeAsBytesSync(_zip({'000000.png': png, '000001.png': png}));
+        final metadata = UgoiraMetadata.fromJson(
+          _metadataJson([
+            {'file': '000000.png', 'delay': 80},
+            {'file': '000001.png', 'delay': 80},
+          ]),
+        );
+        final index = await SafeZipIndex.open(
+          zipFile,
+          metadata: metadata,
+          limits: const UgoiraLimitsForTest(),
+        );
+        addTearDown(index.dispose);
+
+        final frame0 = await index.readFrameBytes(0);
+        expect(frame0, orderedEquals(png));
+        final scaled = await const UgoiraFrameDecoder().decode(
+          frame0,
+          targetWidth: 8,
+        );
+        expect(scaled.width, 8);
+        scaled.dispose();
+
+        final encoder = ImagePackageUgoiraGifEncoder(
+          limits: const UgoiraLimitsForTest(),
+        );
+        try {
+          await encoder.addEncodedFrame(
+            Uint8List.fromList(frame0),
+            delay: const Duration(milliseconds: 80),
+          );
+          final gif = await encoder.finish();
+          expect(gif.sublist(0, 6), 'GIF89a'.codeUnits);
+          expect(img.GifDecoder().decode(Uint8List.fromList(gif)), isNotNull);
+        } finally {
+          await encoder.dispose();
+        }
+      },
+    );
   });
 }
 
