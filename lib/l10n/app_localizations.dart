@@ -6520,6 +6520,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'播放倍速'**
   String get ugoiraPlaybackSpeed;
+
+  /// No description provided for @loginWebViewStalled.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录页面加载超时，可改用浏览器打开或粘贴回调/令牌'**
+  String get loginWebViewStalled;
+
+  /// No description provided for @accountTransferExportToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制 refresh_token'**
+  String get accountTransferExportToken;
+
+  /// No description provided for @accountTransferTokenCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。'**
+  String get accountTransferTokenCopied;
+
+  /// No description provided for @offlineQueueTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'待同步离线操作'**
+  String get offlineQueueTitle;
+
+  /// No description provided for @offlineQueuePendingCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 项等待同步'**
+  String offlineQueuePendingCount(int count);
+
+  /// No description provided for @offlineQueueClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空队列'**
+  String get offlineQueueClear;
+
+  /// No description provided for @offlineQueueCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清空待同步操作'**
+  String get offlineQueueCleared;
+
+  /// No description provided for @offlineQueueRetrying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在重试离线操作…'**
+  String get offlineQueueRetrying;
 }
 
 class _AppLocalizationsDelegate

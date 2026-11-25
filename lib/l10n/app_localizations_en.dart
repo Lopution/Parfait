@@ -3551,4 +3551,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => 'Playback speed';
+
+  @override
+  String get loginWebViewStalled =>
+      'Sign-in page timed out. Open in a browser or paste a callback link or token.';
+
+  @override
+  String get accountTransferExportToken => 'Copy refresh_token';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token copied. Paste it soon; it is cleared when you return to Parfait after 5 minutes.';
+
+  @override
+  String get offlineQueueTitle => 'Pending offline actions';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return '$count pending';
+  }
+
+  @override
+  String get offlineQueueClear => 'Clear queue';
+
+  @override
+  String get offlineQueueCleared => 'Pending actions cleared';
+
+  @override
+  String get offlineQueueRetrying => 'Retrying offline actions…';
 }

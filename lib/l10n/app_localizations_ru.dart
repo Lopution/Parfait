@@ -3544,4 +3544,32 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => 'Скорость воспроизведения';
+
+  @override
+  String get loginWebViewStalled =>
+      'Превышено время ожидания загрузки входа. Откройте в браузере или вставьте ссылку обратного вызова или токен.';
+
+  @override
+  String get accountTransferExportToken => 'Копировать refresh_token';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token скопирован. Вставьте его скорее; он очистится при возвращении в Parfait через 5 минут.';
+
+  @override
+  String get offlineQueueTitle => 'Отложенные офлайн-действия';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return 'Ожидает синхронизации: $count';
+  }
+
+  @override
+  String get offlineQueueClear => 'Очистить очередь';
+
+  @override
+  String get offlineQueueCleared => 'Отложенные действия очищены';
+
+  @override
+  String get offlineQueueRetrying => 'Повторная отправка офлайн-действий…';
 }

@@ -74,15 +74,31 @@ class _Clipboard implements TransferClipboard {
 }
 
 class _Verifier implements TransferCredentialVerifier {
-  _Verifier(this.result);
+  _Verifier(this.result, {this.tokenResult});
 
   final Future<VerifiedTransferAccount> Function(TransferAccountPayload) result;
+  final Future<VerifiedTransferAccount> Function(String refreshToken)?
+  tokenResult;
   int calls = 0;
 
   @override
   Future<VerifiedTransferAccount> verify(TransferAccountPayload payload) {
     calls++;
     return result(payload);
+  }
+
+  @override
+  Future<VerifiedTransferAccount> verifyRefreshToken(String refreshToken) {
+    calls++;
+    final fn = tokenResult;
+    if (fn != null) return fn(refreshToken);
+    return result(
+      TransferAccountPayload(
+        accountId: '0',
+        userId: 0,
+        credential: Credential(accessToken: '', refreshToken: refreshToken),
+      ),
+    );
   }
 }
 
@@ -437,4 +453,63 @@ void main() {
       },
     );
   }
+
+  test(
+    'clipboard and text import accept bare refresh_token and peer JSON while ignoring unrelated text',
+    () async {
+      const rawToken = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
+      final (container, accounts, credentials, _) = _container();
+      await container.read(accountStoreProvider.future);
+      final verified = VerifiedTransferAccount(
+        account: const Account(id: '42', userId: 42, name: 'alice'),
+        credential: const Credential(
+          accessToken: 'fresh-access',
+          refreshToken: rawToken,
+        ),
+      );
+      final verifier = _Verifier(
+        (_) async => verified,
+        tokenResult: (token) async {
+          expect(token, rawToken);
+          return verified;
+        },
+      );
+      final clipboard = _Clipboard()..text = rawToken;
+      final service = _service(
+        accountStore: accounts,
+        credentials: credentials,
+        verifier: verifier,
+        clipboard: clipboard,
+      );
+
+      final bareResult = await service.importFromClipboard();
+      expect(bareResult.account.userId, 42);
+      expect(bareResult.clipboardCleared, isTrue);
+      expect(clipboard.text, isNull);
+
+      // Peer JSON export carrying refresh_token succeeds too.
+      clipboard.text = '{"response":{"refresh_token":"$rawToken"}}';
+      final jsonResult = await service.importFromClipboard();
+      expect(jsonResult.account.userId, 42);
+      expect(jsonResult.clipboardCleared, isTrue);
+
+      // Unrelated text fails with corrupt and leaves clipboard untouched.
+      clipboard.text = 'hello world not a token';
+      await expectLater(
+        service.importFromClipboard(),
+        throwsA(
+          isA<AccountTransferException>().having(
+            (e) => e.code,
+            'code',
+            AccountTransferErrorCode.corrupt,
+          ),
+        ),
+      );
+      expect(clipboard.text, 'hello world not a token');
+
+      // Plain refresh_token export writes the raw token with auto-clear.
+      await service.exportRefreshTokenToClipboard();
+      expect(clipboard.text, rawToken);
+    },
+  );
 }

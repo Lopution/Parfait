@@ -155,12 +155,17 @@ reviewed: 2026-11-25
   permanently (`maxAttempts` exhausted or unknown handler), `ActionQueue`
   notifies permanent-failure listeners so `action_bootstrap` rolls back the
   still-queued store entry (`failQueued`), keeping taps and remote snapshots
-  unblocked while reporting the error silently (`FB-10`).
+  unblocked while reporting the error silently (`FB-10`). `ActionQueue`
+  exposes `pendingCount`, `changes`, and `clearPending` (which drops
+  non-running rows while protecting `running` rows), backing a conditional
+  pending-actions row (`actionQueuePendingCountProvider`) on
+  `MeDashboardPage` with retry and clear actions when pending count `> 0`.
 - **Why:** A row dropped after `nextReady` read it replayed anyway; silent
   permanent failures left entries stuck in `queued`, ignoring remote
-  snapshots and deadlocking taps on `deletePending`.
-- **Check:** `test/action_queue_test.dart` "a dropped pending row never replays, even if already read", `test/watchlist_test.dart` "a tap on a queued watch takes the intent back" "permanent replay failure rolls back queued watchlist entry", `test/action_replay_test.dart` "permanent replay failure rolls back queued bookmark and follow so taps and snapshots recover"
-- **Code:** `lib/core/actionqueue`
+  snapshots and deadlocking taps on `deletePending`; users had no way to
+  inspect, retry, or clear queued offline mutations.
+- **Check:** `test/action_queue_test.dart` "a dropped pending row never replays, even if already read" "pendingCount, changes stream, and clearPending protect running rows", `test/watchlist_test.dart` "a tap on a queued watch takes the intent back" "permanent replay failure rolls back queued watchlist entry", `test/action_replay_test.dart` "permanent replay failure rolls back queued bookmark and follow so taps and snapshots recover"
+- **Code:** `lib/core/actionqueue`, `lib/features/settings/me_dashboard_page.dart`
 
 ### STORE-13 The queue recovers interrupted replays and wakes itself
 - **Rule:** A queue's first drain (one queue per process) returns rows a

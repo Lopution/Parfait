@@ -1507,5 +1507,20 @@
   "localNovelsDropUnsupported": "Поддерживается импорт только файлов .txt",
   "ugoiraPlay": "Воспроизвести анимацию",
   "ugoiraPause": "Приостановить анимацию",
-  "ugoiraPlaybackSpeed": "Скорость воспроизведения"
+  "ugoiraPlaybackSpeed": "Скорость воспроизведения",
+  "loginWebViewStalled": "Превышено время ожидания загрузки входа. Откройте в браузере или вставьте ссылку обратного вызова или токен.",
+  "accountTransferExportToken": "Копировать refresh_token",
+  "accountTransferTokenCopied": "refresh_token скопирован. Вставьте его скорее; он очистится при возвращении в Parfait через 5 минут.",
+  "offlineQueueTitle": "Отложенные офлайн-действия",
+  "offlineQueuePendingCount": "Ожидает синхронизации: {count}",
+  "@offlineQueuePendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineQueueClear": "Очистить очередь",
+  "offlineQueueCleared": "Отложенные действия очищены",
+  "offlineQueueRetrying": "Повторная отправка офлайн-действий…"
 }
