@@ -119,6 +119,7 @@ class IllustEntity {
     this.commentAccessControl,
     this.tools = const [],
     this.seriesId,
+    this.seriesTitle,
     this.seriesKnown = false,
   });
 
@@ -176,6 +177,9 @@ class IllustEntity {
   /// `series.id`: the illust series the work belongs to. Null when it is in
   /// none — or when the payload did not say, see [seriesKnown].
   final int? seriesId;
+
+  /// `series.title`: title of the illust series when carried by the payload.
+  final String? seriesTitle;
 
   /// Whether the payload carried `series` (null for a work in no series).
   /// List and detail payloads always do; an entity restored from an older
@@ -401,6 +405,7 @@ class IllustEntity {
     Object? commentAccessControl = _sentinel,
     List<String>? tools,
     Object? seriesId = _sentinel,
+    Object? seriesTitle = _sentinel,
     bool? seriesKnown,
   }) {
     return IllustEntity(
@@ -444,6 +449,9 @@ class IllustEntity {
       seriesId: identical(seriesId, _sentinel)
           ? this.seriesId
           : seriesId as int?,
+      seriesTitle: identical(seriesTitle, _sentinel)
+          ? this.seriesTitle
+          : seriesTitle as String?,
       seriesKnown: seriesKnown ?? this.seriesKnown,
     );
   }
@@ -483,7 +491,10 @@ class IllustEntity {
     'total_comments': totalComments,
     'comment_access_control': commentAccessControl,
     'tools': tools,
-    if (seriesKnown) 'series': seriesId == null ? null : {'id': seriesId},
+    if (seriesKnown)
+      'series': seriesId == null
+          ? null
+          : {'id': seriesId, if (seriesTitle != null) 'title': seriesTitle},
   };
 
   /// Parses one illust object. Unknown/optional fields degrade gracefully;
@@ -540,6 +551,9 @@ class IllustEntity {
     final seriesId =
         seriesJson is Map<String, dynamic> && seriesJson['id'] is int
         ? seriesJson['id'] as int
+        : null;
+    final seriesTitle = seriesJson is Map<String, dynamic>
+        ? readOptionalString(seriesJson['title'])
         : null;
     final seriesKnown =
         json.containsKey('series') && (seriesJson == null || seriesId != null);
@@ -600,6 +614,7 @@ class IllustEntity {
             if (tool is String && tool.isNotEmpty) tool,
       ],
       seriesId: seriesId,
+      seriesTitle: seriesTitle,
       seriesKnown: seriesKnown,
     );
   }

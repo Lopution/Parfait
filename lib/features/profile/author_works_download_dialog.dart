@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/widgets/app_dialog.dart';
 import '../../app/widgets/app_spinner.dart';
 import '../../app/widgets/errors/error_details.dart';
+import '../../app/widgets/settings/settings_control.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/errors/error_category.dart';
 import '../../core/download/illust_download_coordinator.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../core/settings/settings_enums.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
@@ -42,6 +44,7 @@ class _AuthorWorksDownloadDialogState
   AuthorWorksResult? _result;
   Object? _error;
   bool _submitting = false;
+  bool _artistSubfolder = false;
 
   @override
   void initState() {
@@ -118,6 +121,9 @@ class _AuthorWorksDownloadDialogState
           .downloadAuthorWorks(
             works: works,
             namingRule: ref.read(namingRuleProvider),
+            subfolderMode: _artistSubfolder
+                ? DownloadSubfolderMode.byArtist
+                : null,
           );
       if (!mounted) return;
       // A dialog already on its way out stays mounted through its exit
@@ -166,6 +172,10 @@ class _AuthorWorksDownloadDialogState
                 .read(illustDownloadCoordinatorProvider)
                 .authorWorksRequests(result.works)
                 .length;
+            final showArtistSubfolder =
+                ref.watch(downloadSubfolderModeProvider) ==
+                    DownloadSubfolderMode.none &&
+                Theme.of(context).platform != TargetPlatform.iOS;
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,6 +189,16 @@ class _AuthorWorksDownloadDialogState
                     l10n.downloadAuthorTruncated(
                       AuthorWorksEnumerator.maxWorks,
                     ),
+                  ),
+                ],
+                if (showArtistSubfolder) ...[
+                  const SizedBox(height: FuncSpacing.sm),
+                  SettingsControl(
+                    title: Text(l10n.downloadAuthorSubfolderToggle),
+                    value: _artistSubfolder,
+                    onChanged: _submitting
+                        ? null
+                        : (value) => setState(() => _artistSubfolder = value),
                   ),
                 ],
               ],

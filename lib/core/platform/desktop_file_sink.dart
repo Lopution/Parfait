@@ -298,6 +298,23 @@ class _StagedFileSink
   }
 }
 
+/// Joins sanitized relative [subdirectories] onto [baseDirectory].
+String _resolveDesktopDirectory(
+  String baseDirectory,
+  List<String> subdirectories,
+) {
+  if (subdirectories.isEmpty) return baseDirectory;
+  final sep = Platform.pathSeparator;
+  final trimmed = baseDirectory.endsWith(sep)
+      ? baseDirectory.substring(0, baseDirectory.length - sep.length)
+      : baseDirectory;
+  final segments = [
+    for (final raw in subdirectories)
+      sanitizeDesktopFileName(raw, fallback: 'folder'),
+  ];
+  return '$trimmed$sep${segments.join(sep)}';
+}
+
 /// `SafDocumentSinkFactory` for desktop: `treeUri` is a filesystem directory
 /// path chosen through [DesktopDirectoryPicker].
 class DesktopSafDocumentSinkFactory
@@ -313,8 +330,12 @@ class DesktopSafDocumentSinkFactory
     required String mimeType,
     DownloadOutputOwner? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   }) {
-    return _StagedFileSink.create(directory: treeUri, displayName: displayName);
+    return _StagedFileSink.create(
+      directory: _resolveDesktopDirectory(treeUri, subdirectories),
+      displayName: displayName,
+    );
   }
 
   /// [uri] is the opaque locator emitted by [ResumableSafDocument.resumeLocator]
@@ -332,7 +353,8 @@ class DesktopSafDocumentSinkFactory
 
 /// `MediaStoreSession` for desktop: writes into the user's Downloads folder
 /// (fallback: application support). `relativePath` keeps its Android meaning
-/// of "album subdirectory" — `Pictures/<album>` maps to `<base>/<album>`.
+/// of "album subdirectory" — `Pictures/<album>[/<subfolders>]` maps to
+/// `<base>/<album>[/<subfolders>]`.
 class DesktopFileMediaStoreSession
     implements
         MediaStoreSession,
@@ -355,14 +377,20 @@ class DesktopFileMediaStoreSession
     if (relativePath == null || relativePath.trim().isEmpty) {
       return _defaultAlbum;
     }
-    // Drop the platform root segment (`Pictures`) and keep the album name.
+    // Drop the platform root segment (`Pictures`) and keep album + subfolders.
     final segments = relativePath
         .split(RegExp(r'[/\\]'))
         .where((s) => s.trim().isNotEmpty)
         .toList();
     if (segments.isEmpty) return _defaultAlbum;
-    final raw = segments.length == 1 ? segments.first : segments.last;
-    return sanitizeDesktopFileName(raw, fallback: _defaultAlbum);
+    final body =
+        segments.length > 1 && segments.first.toLowerCase() == 'pictures'
+        ? segments.sublist(1)
+        : segments;
+    return [
+      for (final seg in body)
+        sanitizeDesktopFileName(seg, fallback: _defaultAlbum),
+    ].join(Platform.pathSeparator);
   }
 
   Future<MediaStoreHandle> _open({
@@ -501,11 +529,12 @@ class MacosBookmarkSafDocumentSinkFactory
     required String mimeType,
     DownloadOutputOwner? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   }) async {
     final directory = await _startAccess(treeUri);
     try {
       final sink = await _StagedFileSink.create(
-        directory: directory,
+        directory: _resolveDesktopDirectory(directory, subdirectories),
         displayName: displayName,
       );
       return _BookmarkedSafSink(

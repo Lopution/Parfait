@@ -89,19 +89,24 @@ reviewed: 2026-11-25
 - **Code:** `lib/core/download/download_manager.dart`
 
 ### DL-05 The file name is frozen at submission
-- **Rule:** The snapshot freezes the resolved display name, re-validated on
-  decode; a retry writes the stored name instead of recomputing it.
-  `NamingRule.resolve` always guarantees the resolved filename ends with
-  `.$ext` before trimming, so custom naming templates cannot drop or spoof
-  the media extension. Display fields (`thumbnailUrl`, `totalPages`) are
-  presentation only: never in `dedupeKey` or owner checks, and records
-  without them still recover.
+- **Rule:** The snapshot freezes both the resolved display name and any
+  relative subdirectory segments (`subdirectories`), re-validated on
+  decode (rejecting traversal, separators, control chars, or Windows
+  reserved names); a retry writes the stored name and subdirectories
+  instead of recomputing them. `NamingRule.resolve` always guarantees
+  the resolved filename ends with `.$ext` before trimming, so custom
+  naming templates cannot drop or spoof the media extension, and
+  optional zero-padding (`padPageNumbers`) pads `{page}`/`{page1}` to
+  `totalPages` width and `{series_order}` to `seriesTotal` width.
+  Display fields (`thumbnailUrl`, `totalPages`) are presentation only:
+  never in `dedupeKey` or owner checks, and records without them still
+  recover.
 - **Why:** A restored request lacks template inputs (`{author_id}`, `{w}`,
-  `{h}`), so a recomputed name came out with empty segments; a custom
-  template omitting `{ext}` could write media bytes under an arbitrary
-  extension such as `.apk` or `.exe`.
-- **Check:** `test/download_recovery_test.dart` "retrying a recovered task writes the stored name" "a stored name with traversal segments is rejected" "records without display fields still recover", `test/caption_exporter_test.dart` "DownloadRequest.displayName consumes the metadata fields"
-- **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/naming_rule.dart`
+  `{h}`, series order), so a recomputed name or folder chain came out
+  with empty segments; a custom template omitting `{ext}` could write
+  media bytes under an arbitrary extension such as `.apk` or `.exe`.
+- **Check:** `test/download_recovery_test.dart` "retrying a recovered task writes the stored name" "a stored name with traversal segments is rejected" "records without display fields still recover" "recovery round-trips frozen subdirectories and rejects traversal segments", `test/caption_exporter_test.dart` "DownloadRequest.displayName consumes the metadata fields" "padPageNumbers pads page, page1, and series_order to total width" "IllustDownloadCoordinator resolves series metadata, subfolders, and caption routing"
+- **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_subfolders.dart`, `lib/core/download/naming_rule.dart`, `lib/core/download/illust_download_coordinator.dart`
 
 ## Output and transport
 

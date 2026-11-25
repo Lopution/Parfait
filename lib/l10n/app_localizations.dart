@@ -6802,6 +6802,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'加载更多'**
   String get profileWorkTagLoadMore;
+
+  /// No description provided for @downloadSubfolderMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'子文件夹归类'**
+  String get downloadSubfolderMode;
+
+  /// No description provided for @downloadSubfolderNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不创建子文件夹'**
+  String get downloadSubfolderNone;
+
+  /// No description provided for @downloadSubfolderByArtist.
+  ///
+  /// In zh, this message translates to:
+  /// **'按作者归类'**
+  String get downloadSubfolderByArtist;
+
+  /// No description provided for @downloadSubfolderByArtistAndSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'按作者与系列归类'**
+  String get downloadSubfolderByArtistAndSeries;
+
+  /// No description provided for @downloadMultiPageSubfolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'多图作品单独建文件夹'**
+  String get downloadMultiPageSubfolder;
+
+  /// No description provided for @downloadMultiPageSubfolderHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'页数超过 1 页的作品放入以作品 ID 命名的子文件夹'**
+  String get downloadMultiPageSubfolderHint;
+
+  /// No description provided for @downloadPadPageNumbers.
+  ///
+  /// In zh, this message translates to:
+  /// **'页码补零对齐'**
+  String get downloadPadPageNumbers;
+
+  /// No description provided for @downloadPadPageNumbersHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列'**
+  String get downloadPadPageNumbersHint;
+
+  /// No description provided for @downloadAuthorSubfolderToggle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放入作者子文件夹'**
+  String get downloadAuthorSubfolderToggle;
 }
 
 class _AppLocalizationsDelegate

@@ -249,6 +249,53 @@ void main() {
   );
 
   test(
+    'recovery round-trips frozen subdirectories and rejects traversal segments',
+    () {
+      final original = DownloadRecoveryRecord(
+        jobId: 'job-subdirs',
+        dedupeKey: 'key-subdirs',
+        snapshot: DownloadSubmissionSnapshot(
+          snapshotId: 'snap-subdirs',
+          jobId: 'job-subdirs',
+          groupId: null,
+          request: DownloadRequest(
+            illustId: 42,
+            pageIndex: 0,
+            url: Uri.parse('https://i.pximg.net/42_p0.jpg'),
+            target: DownloadTarget.illustPage,
+            subdirectories: const ['ArtistA', 'SeriesB', '42'],
+          ),
+          accountId: 'account-a',
+          submittedAt: DateTime.utc(2026, 11, 25),
+        ),
+        owner: const DownloadOutputOwner(
+          ownerId: 'owner-subdirs',
+          jobId: 'job-subdirs',
+          accountId: 'account-a',
+        ),
+        status: DownloadStatus.retryable,
+      );
+      final encoded = original.toJson();
+      final decoded = DownloadRecoveryRecord.fromJson(encoded);
+      expect(decoded.snapshot.subdirectories, ['ArtistA', 'SeriesB', '42']);
+      expect(decoded.snapshot.request.subdirectories, [
+        'ArtistA',
+        'SeriesB',
+        '42',
+      ]);
+
+      final tampered = Map<String, dynamic>.from(encoded);
+      tampered['snapshot'] = Map<String, dynamic>.from(
+        encoded['snapshot']! as Map,
+      )..['subdirectories'] = ['ArtistA', '../escape'];
+      expect(
+        () => DownloadRecoveryRecord.fromJson(tampered),
+        throwsA(isA<DownloadRecoveryDataException>()),
+      );
+    },
+  );
+
+  test(
     'recovery store evicts terminal records before active records',
     () async {
       final preferences = SharedPreferencesAsync();

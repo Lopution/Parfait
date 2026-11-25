@@ -352,4 +352,55 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+
+  testWidgets(
+    'DownloadSettingsPage persists subfolder mode, multi-page subfolder, and page-number padding',
+    (tester) async {
+      await seedSettings(
+        baseTestSettings().copyWith(
+          namingRule: const NamingRule(
+            preset: NamingPreset.custom,
+            template: '{id}_p{page1}.{ext}',
+          ),
+        ),
+      );
+      setViewSize(tester, const Size(800, 1200));
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: const [],
+          builder: promptHostBuilder,
+          home: const DownloadSettingsPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('子文件夹归类'), findsOneWidget);
+      expect(find.text('多图作品单独建文件夹'), findsOneWidget);
+      expect(find.text('页码补零对齐'), findsOneWidget);
+      expect(find.textContaining('123456_p1.jpg'), findsOneWidget);
+
+      await tester.tap(find.text('页码补零对齐'));
+      await tester.pumpAndSettle();
+      expect((await storedSettings().load()).downloadPadPageNumbers, isTrue);
+      expect(find.textContaining('123456_p01.jpg'), findsOneWidget);
+
+      await tester.tap(find.text('多图作品单独建文件夹'));
+      await tester.pumpAndSettle();
+      expect(
+        (await storedSettings().load()).downloadMultiPageSubfolder,
+        isTrue,
+      );
+
+      await tester.tap(find.text('子文件夹归类'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('按作者与系列归类').last);
+      await tester.pumpAndSettle();
+      expect(
+        (await storedSettings().load()).downloadSubfolderMode,
+        DownloadSubfolderMode.byArtistAndSeries,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 }

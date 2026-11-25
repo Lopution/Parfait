@@ -2271,5 +2271,14 @@
   "profileWorkTagPickerTitle": "按标签筛选作品",
   "profileWorkTagSearchHint": "搜索标签或输入关键词",
   "profileWorkTagClear": "清除筛选",
-  "profileWorkTagLoadMore": "加载更多"
+  "profileWorkTagLoadMore": "加载更多",
+  "downloadSubfolderMode": "子文件夹归类",
+  "downloadSubfolderNone": "不创建子文件夹",
+  "downloadSubfolderByArtist": "按作者归类",
+  "downloadSubfolderByArtistAndSeries": "按作者与系列归类",
+  "downloadMultiPageSubfolder": "多图作品单独建文件夹",
+  "downloadMultiPageSubfolderHint": "页数超过 1 页的作品放入以作品 ID 命名的子文件夹",
+  "downloadPadPageNumbers": "页码补零对齐",
+  "downloadPadPageNumbersHint": "按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列",
+  "downloadAuthorSubfolderToggle": "放入作者子文件夹"
 }

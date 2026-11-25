@@ -20,20 +20,6 @@ import 'settings_enums.dart';
 export 'image_mirror.dart' show ImageSourceMode, ImageMirror;
 export 'settings_enums.dart';
 
-/// A non-secret pointer to a credential stored by [CredentialStore].
-///
-/// This object is intentionally not serializable as part of [AppSettings].
-/// It identifies a secure-storage record without carrying the record's
-/// token, cookie, or API key.
-class SecretSettingRef {
-  const SecretSettingRef(this.credentialKey);
-
-  final String credentialKey;
-
-  @override
-  String toString() => 'SecretSettingRef(credentialKey: $credentialKey)';
-}
-
 class AppSettings {
   const AppSettings({
     required this.guideCompleted,
@@ -67,6 +53,9 @@ class AppSettings {
     this.maxDownloadCount = defaultMaxDownloadCount,
     this.downloadDestination = DownloadDestination.builtin,
     this.downloadCaption = false,
+    this.downloadSubfolderMode = DownloadSubfolderMode.none,
+    this.downloadMultiPageSubfolder = false,
+    this.downloadPadPageNumbers = false,
     this.namingRule = NamingRule.defaultRule,
     this.reverseImageEngine = ReverseImageEngine.sauceNao,
     this.searchIllustFilters = IllustSearchFilters.defaults,
@@ -196,6 +185,9 @@ class AppSettings {
   /// Caption sidecar export (`<stem>.txt` next to the image) — off by
   /// default; opt-in in download settings.
   final bool downloadCaption;
+  final DownloadSubfolderMode downloadSubfolderMode;
+  final bool downloadMultiPageSubfolder;
+  final bool downloadPadPageNumbers;
 
   /// File naming (D6): preset or bounded custom template.
   final NamingRule namingRule;
@@ -451,6 +443,17 @@ class AppSettings {
         json['bookmarkAttachWorkTags'],
         base.bookmarkAttachWorkTags,
       ),
+      downloadSubfolderMode:
+          DownloadSubfolderMode.tryFromName(json['downloadSubfolderMode']) ??
+          base.downloadSubfolderMode,
+      downloadMultiPageSubfolder: _bool(
+        json['downloadMultiPageSubfolder'],
+        base.downloadMultiPageSubfolder,
+      ),
+      downloadPadPageNumbers: _bool(
+        json['downloadPadPageNumbers'],
+        base.downloadPadPageNumbers,
+      ),
     );
   }
 
@@ -489,6 +492,9 @@ class AppSettings {
       'maxDownloadCount': maxDownloadCount,
       ...downloadDestination.toJson(),
       'downloadCaption': downloadCaption,
+      'downloadSubfolderMode': downloadSubfolderMode.name,
+      'downloadMultiPageSubfolder': downloadMultiPageSubfolder,
+      'downloadPadPageNumbers': downloadPadPageNumbers,
       'namingPreset': namingRule.preset.code,
       if (namingRule.preset == NamingPreset.custom)
         'namingTemplate': namingRule.template,
@@ -649,6 +655,9 @@ class AppSettings {
     int? maxDownloadCount,
     Object? downloadDestination = _unset,
     bool? downloadCaption,
+    DownloadSubfolderMode? downloadSubfolderMode,
+    bool? downloadMultiPageSubfolder,
+    bool? downloadPadPageNumbers,
     Object? namingRule = _unset,
     ReverseImageEngine? reverseImageEngine,
     IllustSearchFilters? searchIllustFilters,
@@ -723,6 +732,12 @@ class AppSettings {
           ? this.downloadDestination
           : downloadDestination as DownloadDestination,
       downloadCaption: downloadCaption ?? this.downloadCaption,
+      downloadSubfolderMode:
+          downloadSubfolderMode ?? this.downloadSubfolderMode,
+      downloadMultiPageSubfolder:
+          downloadMultiPageSubfolder ?? this.downloadMultiPageSubfolder,
+      downloadPadPageNumbers:
+          downloadPadPageNumbers ?? this.downloadPadPageNumbers,
       namingRule: identical(namingRule, _unset)
           ? this.namingRule
           : namingRule as NamingRule,

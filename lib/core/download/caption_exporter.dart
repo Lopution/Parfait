@@ -38,9 +38,13 @@ class CaptionExporter {
   static String _dedupeKey(
     DownloadSubmissionSnapshot submission,
     int illustId,
-  ) =>
-      'caption_exported:${submission.accountId}:$illustId:'
-      '${submission.destination.identity}';
+  ) {
+    final sub = submission.subdirectories.isEmpty
+        ? ''
+        : ':${submission.subdirectories.join('/')}';
+    return 'caption_exported:${submission.accountId}:$illustId:'
+        '${submission.destination.identity}$sub';
+  }
 
   /// Exports [illust]'s caption as `<pageZeroStem>.txt` into the same
   /// destination the submission used. No-op when already exported for this
@@ -64,6 +68,7 @@ class CaptionExporter {
       displayName: '$stem.txt',
       mimeType: 'text/plain',
       destination: submission.destination,
+      subdirectories: submission.subdirectories,
       owner: DownloadOutputOwner(
         ownerId: 'caption-${illust.id}',
         jobId: submission.jobId,

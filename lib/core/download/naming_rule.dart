@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 /// File naming presets (D6). `custom` uses [NamingRule.template].
 enum NamingPreset {
   id('id'),
@@ -95,6 +97,7 @@ class NamingRule {
     String? seriesTitle,
     int? seriesOrder,
     int? seriesTotal,
+    bool padPageNumbers = false,
   }) {
     final ext = _safeExtension(extension);
     final effectiveTemplate = switch (preset) {
@@ -121,6 +124,7 @@ class NamingRule {
       seriesTitle: seriesTitle,
       seriesOrder: seriesOrder,
       seriesTotal: seriesTotal,
+      padPageNumbers: padPageNumbers,
     );
     rendered = _clean(rendered);
     if (rendered.isEmpty) {
@@ -148,6 +152,7 @@ class NamingRule {
     String? seriesTitle,
     int? seriesOrder,
     int? seriesTotal,
+    bool padPageNumbers = false,
   }) => resolve(
     illustId: illustId,
     pageIndex: pageIndex,
@@ -162,6 +167,7 @@ class NamingRule {
     seriesTitle: seriesTitle,
     seriesOrder: seriesOrder,
     seriesTotal: seriesTotal,
+    padPageNumbers: padPageNumbers,
   );
 
   static String _expand(
@@ -179,19 +185,35 @@ class NamingRule {
     String? seriesTitle,
     int? seriesOrder,
     int? seriesTotal,
+    required bool padPageNumbers,
   }) {
+    String pad(int value, int maxRef) {
+      if (!padPageNumbers) return '$value';
+      final width = math.max(2, maxRef.clamp(0, 999999).toString().length);
+      return value.toString().padLeft(width, '0');
+    }
+
+    final maxPage0 = math.max(pageIndex, (totalPages ?? 1) - 1);
+    final maxPage1 = math.max(pageIndex + 1, totalPages ?? 1);
+
     String resolveName(String key) => switch (key) {
       'artist' => artist ?? '',
       'title' => title ?? '',
       'id' => '$illustId',
-      'page' => '$pageIndex',
+      'page' => pad(pageIndex, maxPage0),
       'ext' => extension,
       'date' => _formatDate(date),
       'author_id' => authorId?.toString() ?? '',
       'pages' => totalPages?.toString() ?? '',
-      'page1' => '${pageIndex + 1}',
+      'page1' => pad(pageIndex + 1, maxPage1),
       'series' => seriesTitle ?? '',
-      'series_order' => seriesOrder?.toString() ?? '',
+      'series_order' =>
+        seriesOrder == null
+            ? ''
+            : pad(
+                seriesOrder,
+                math.max(seriesOrder, seriesTotal ?? seriesOrder),
+              ),
       'chapters' => seriesTotal?.toString() ?? '',
       'w' => width?.toString() ?? '',
       'h' => height?.toString() ?? '',

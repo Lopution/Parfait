@@ -3698,4 +3698,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileWorkTagLoadMore => 'Load more';
+
+  @override
+  String get downloadSubfolderMode => 'Subfolder grouping';
+
+  @override
+  String get downloadSubfolderNone => 'None (flat)';
+
+  @override
+  String get downloadSubfolderByArtist => 'By artist';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => 'By artist & series';
+
+  @override
+  String get downloadMultiPageSubfolder => 'Subfolder for multi-page works';
+
+  @override
+  String get downloadMultiPageSubfolderHint =>
+      'Place multi-page artworks into a subfolder named by artwork ID';
+
+  @override
+  String get downloadPadPageNumbers => 'Zero-pad page numbers';
+
+  @override
+  String get downloadPadPageNumbersHint =>
+      'Pad page and series indices to total digits (e.g. _p00, _p01) for lexical sorting';
+
+  @override
+  String get downloadAuthorSubfolderToggle => 'Save into artist subfolder';
 }
