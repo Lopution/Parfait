@@ -13,6 +13,7 @@ import '../download/download_subfolders.dart';
 import '../download/novel_txt_formatter.dart';
 import '../localnovel/local_novel_repository.dart';
 import '../localnovel/local_novel_store.dart';
+import '../network/api_error.dart';
 import '../network/pixiv_http_client.dart';
 import '../platform/app_storage_paths.dart';
 import '../platform/desktop_file_sink.dart' show sanitizeDesktopFileName;
@@ -412,6 +413,9 @@ class NovelDownloadCoordinator {
     final chapters = <NovelEntity>[];
     var skipped = 0;
     for (final entry in entries) {
+      if (cancelToken?.isCancelled ?? false) {
+        throw const ApiCancelled();
+      }
       if (!entry.viewable) {
         skipped++;
         continue;
@@ -423,8 +427,15 @@ class NovelDownloadCoordinator {
         } else {
           chapters.add(full);
         }
-      } on Object {
-        skipped++;
+      } on ApiHttpError catch (error) {
+        // Only genuinely unavailable chapters (forbidden/deleted) count as
+        // skipped; cancellation, network, auth, rate-limit, and parse failures
+        // propagate so the user never receives a silently truncated export.
+        if (error.statusCode == 403 || error.statusCode == 404) {
+          skipped++;
+        } else {
+          rethrow;
+        }
       }
     }
     return (

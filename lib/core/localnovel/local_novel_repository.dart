@@ -2,6 +2,7 @@
 /// support directory and indexed in `local_novels.db`.
 library;
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -212,8 +213,60 @@ class LocalNovelRepository {
 
   /// Caches a Pixiv novel or merged series into the offline library, updating
   /// any existing entry with the same [pixivNovelId] or merged [pixivSeriesId]
+  /// Serializes concurrent Pixiv upserts sharing the same origin key so two
+  /// simultaneous saves cannot race past the existence check and create
+  /// duplicate rows/files.
+  final Map<String, Future<void>> _pixivSaveLocks = {};
+
+  /// Saves or updates an online Pixiv novel (or combined series) into the
+  /// offline local library as UTF-8 TXT without duplicating existing entries,
   /// while enforcing the same decoded char/paragraph limits as [importBytes].
   Future<LocalNovel> savePixivNovel({
+    required String title,
+    required String? author,
+    required String text,
+    required Directory targetDir,
+    int? pixivNovelId,
+    int? pixivSeriesId,
+    String? pixivSeriesTitle,
+  }) async {
+    final lockKey = pixivNovelId != null
+        ? 'novel:$pixivNovelId'
+        : (pixivSeriesId != null ? 'series:$pixivSeriesId' : null);
+    if (lockKey == null) {
+      return _savePixivNovelUnlocked(
+        title: title,
+        author: author,
+        text: text,
+        targetDir: targetDir,
+        pixivNovelId: pixivNovelId,
+        pixivSeriesId: pixivSeriesId,
+        pixivSeriesTitle: pixivSeriesTitle,
+      );
+    }
+    final previous = _pixivSaveLocks[lockKey];
+    final gate = Completer<void>();
+    _pixivSaveLocks[lockKey] = gate.future;
+    try {
+      if (previous != null) await previous;
+      return await _savePixivNovelUnlocked(
+        title: title,
+        author: author,
+        text: text,
+        targetDir: targetDir,
+        pixivNovelId: pixivNovelId,
+        pixivSeriesId: pixivSeriesId,
+        pixivSeriesTitle: pixivSeriesTitle,
+      );
+    } finally {
+      if (identical(_pixivSaveLocks[lockKey], gate.future)) {
+        unawaited(_pixivSaveLocks.remove(lockKey));
+      }
+      gate.complete();
+    }
+  }
+
+  Future<LocalNovel> _savePixivNovelUnlocked({
     required String title,
     required String? author,
     required String text,

@@ -73,9 +73,12 @@ class SearchHistoryChip extends StatelessWidget {
   final VoidCallback onTogglePin;
   final VoidCallback onDeleted;
 
+  static final _whitespace = RegExp(r'[\s\u3000]');
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final canExclude = !_whitespace.hasMatch(keyword.trim());
     return Semantics(
       onLongPressHint: l10n.searchSuggestionFill,
       child: GestureDetector(
@@ -92,11 +95,12 @@ class SearchHistoryChip extends StatelessWidget {
                 label: l10n.searchSuggestionFill,
                 onSelected: onLongPress,
               ),
-              DisplayAction(
-                icon: UiIcons.removeCircle,
-                label: l10n.searchExcludeTag,
-                onSelected: onExclude,
-              ),
+              if (canExclude)
+                DisplayAction(
+                  icon: UiIcons.removeCircle,
+                  label: l10n.searchExcludeTag,
+                  onSelected: onExclude,
+                ),
               DisplayAction(
                 icon: pinned ? UiIcons.pinOff : UiIcons.pin,
                 label: pinned ? l10n.searchHistoryUnpin : l10n.searchHistoryPin,

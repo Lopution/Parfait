@@ -9,6 +9,7 @@ import '../novel/novel_store.dart';
 import '../novel/novel_snapshot_codec.dart';
 import '../paging/paged_feed_controller.dart';
 import '../user/user_store.dart';
+import 'search_bookmark_synthesis.dart';
 import 'search_models.dart';
 import 'search_repository.dart';
 
@@ -50,15 +51,33 @@ class _SearchFeedController extends PagedFeedController {
     Map<int, NovelEntity>? incomingNovels,
   }) {
     final query = this.query;
+    final isPremium =
+        ref.read(accountStoreProvider).value?.current?.isPremium ?? false;
     return switch (query) {
-      IllustSearchQuery(:final filters) => _filterIllustIds(
+      IllustSearchQuery(:final keyword, :final filters) => _filterIllustIds(
         super.filterPageIds(ids, incomingIllusts: incomingIllusts),
         filters,
+        exactKeyword:
+            needsLocalExactTagFilter(
+              keyword,
+              filters: filters,
+              isPremium: isPremium,
+            )
+            ? keyword
+            : null,
         incomingIllusts: incomingIllusts,
       ),
-      NovelSearchQuery(:final filters) => _filterNovelIds(
+      NovelSearchQuery(:final keyword, :final filters) => _filterNovelIds(
         super.filterPageIds(ids, incomingNovels: incomingNovels),
         filters,
+        exactKeyword:
+            needsLocalExactTagFilter(
+              keyword,
+              filters: filters,
+              isPremium: isPremium,
+            )
+            ? keyword
+            : null,
         incomingNovels: incomingNovels,
       ),
       _ => ids,
@@ -68,12 +87,15 @@ class _SearchFeedController extends PagedFeedController {
   List<int> _filterIllustIds(
     List<int> ids,
     IllustSearchFilters filters, {
+    String? exactKeyword,
     Map<int, IllustEntity>? incomingIllusts,
   }) {
     final aiOnly = filters.aiFilter == SearchAiFilter.only;
     final min = filters.bookmarkMin;
     final max = filters.bookmarkMax;
-    if (!aiOnly && min == null && max == null) return ids;
+    if (!aiOnly && min == null && max == null && exactKeyword == null) {
+      return ids;
+    }
     final store = ref.read(illustStoreProvider);
     return [
       for (final id in ids)
@@ -82,6 +104,7 @@ class _SearchFeedController extends PagedFeedController {
           aiOnly: aiOnly,
           min: min,
           max: max,
+          exactKeyword: exactKeyword,
         ))
           id,
     ];
@@ -92,6 +115,7 @@ class _SearchFeedController extends PagedFeedController {
     required bool aiOnly,
     required int? min,
     required int? max,
+    String? exactKeyword,
   }) {
     // Entities not yet in the store are kept — same no-evidence rule as
     // the shared predicate.
@@ -99,18 +123,30 @@ class _SearchFeedController extends PagedFeedController {
     if (aiOnly && !entity.isAi) return false;
     if (min != null && entity.totalBookmarks < min) return false;
     if (max != null && entity.totalBookmarks > max) return false;
+    if (exactKeyword != null &&
+        !matchesExactTagsLocally(
+          exactKeyword,
+          entity.tags.map(
+            (t) => (name: t.name, translatedName: t.translatedName),
+          ),
+        )) {
+      return false;
+    }
     return true;
   }
 
   List<int> _filterNovelIds(
     List<int> ids,
     NovelSearchFilters filters, {
+    String? exactKeyword,
     Map<int, NovelEntity>? incomingNovels,
   }) {
     final aiOnly = filters.aiFilter == SearchAiFilter.only;
     final min = filters.bookmarkMin;
     final max = filters.bookmarkMax;
-    if (!aiOnly && min == null && max == null) return ids;
+    if (!aiOnly && min == null && max == null && exactKeyword == null) {
+      return ids;
+    }
     final store = ref.read(novelStoreProvider.notifier);
     return [
       for (final id in ids)
@@ -119,6 +155,7 @@ class _SearchFeedController extends PagedFeedController {
           aiOnly: aiOnly,
           min: min,
           max: max,
+          exactKeyword: exactKeyword,
         ))
           id,
     ];
@@ -129,12 +166,22 @@ class _SearchFeedController extends PagedFeedController {
     required bool aiOnly,
     required int? min,
     required int? max,
+    String? exactKeyword,
   }) {
     if (entity == null) return true;
     // Pixiv's novel_ai_type shares the illust_ai_type contract: 2 = AI work.
     if (aiOnly && entity.novelAiType != 2) return false;
     if (min != null && entity.totalBookmarks < min) return false;
     if (max != null && entity.totalBookmarks > max) return false;
+    if (exactKeyword != null &&
+        !matchesExactTagsLocally(
+          exactKeyword,
+          entity.tags.map(
+            (t) => (name: t.name, translatedName: t.translatedName),
+          ),
+        )) {
+      return false;
+    }
     return true;
   }
 

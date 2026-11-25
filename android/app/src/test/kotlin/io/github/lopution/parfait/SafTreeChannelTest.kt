@@ -178,6 +178,31 @@ class SafTreeChannelTest {
     }
 
     @Test
+    fun `resolveFinalizedDocument fails loudly when display name is null or blank`() {
+        val missing = runCatching {
+            SafTreeChannel.resolveFinalizedDocument("content://doc/1", null) { "content://doc/renamed" }
+        }.exceptionOrNull()
+        assertEquals("saf_finalize_failed", SafTreeChannel.safErrorCode("finalize", missing!!))
+
+        val blank = runCatching {
+            SafTreeChannel.resolveFinalizedDocument("content://doc/1", "  ") { "content://doc/renamed" }
+        }.exceptionOrNull()
+        assertEquals("saf_finalize_failed", SafTreeChannel.safErrorCode("finalize", blank!!))
+
+        assertEquals(
+            "content://doc/plain",
+            SafTreeChannel.resolveFinalizedDocument("content://doc/plain", "a.txt") { null },
+        )
+        assertEquals(
+            "content://doc/renamed",
+            SafTreeChannel.resolveFinalizedDocument("content://doc/1", "a.jpg.part") { finalName ->
+                assertEquals("a.jpg", finalName)
+                "content://doc/renamed"
+            },
+        )
+    }
+
+    @Test
     fun `unknown method is notImplemented`() {
         val result = dispatch("noSuchMethod", emptyMap())
         assertTrue(result.notImplemented)

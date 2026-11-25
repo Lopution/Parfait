@@ -575,9 +575,17 @@ void main() {
         expect(cached.pixivSeriesId, 12);
         expect(cached.author, '星野');
         expect(await cached.file.readAsString(), contains('[chapter:序章]'));
-        // Re-saving updates in place without duplicating the row.
-        final updated = await coordinator.saveNovelOffline(novel);
-        expect(updated.id, cached.id);
+        // Concurrent re-saves serialize cleanly without duplicating rows/files.
+        final [concurrentA, concurrentB] = await Future.wait([
+          coordinator.saveNovelOffline(novel),
+          coordinator.saveNovelOffline(novel),
+        ]);
+        expect(concurrentA.id, cached.id);
+        expect(concurrentB.id, cached.id);
+        expect(
+          await desktopContainer.read(localNovelRepositoryProvider).list(),
+          hasLength(1),
+        );
 
         final done = manager.events.first;
         final outcome = await coordinator.exportNovelTxt(

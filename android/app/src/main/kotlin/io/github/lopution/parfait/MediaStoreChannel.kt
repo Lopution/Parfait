@@ -182,6 +182,27 @@ object MediaStoreChannel {
             resumePendingRow(context, id, ownerId)
     }
 
+    /**
+     * D5: validates and resolves a `Pictures/<name>[/<sub...>]` relative path,
+     * remapping the built-in `Pictures/Parfait` prefix (including nested
+     * subfolders) to `Pictures/ParfaitDev` on `.dev` builds.
+     */
+    internal fun resolveRelativePath(relativePath: String?, isDevApp: Boolean): String {
+        val defaultRelativePath = if (isDevApp) DEV_RELATIVE_PATH else RELATIVE_PATH
+        if (relativePath.isNullOrBlank()) return defaultRelativePath
+        require(relativePath.startsWith("Pictures/"))
+        require(!relativePath.contains(".."))
+        require(relativePath.length <= 128)
+        require(!relativePath.split("/").any { it.isEmpty() || it == "." })
+        if (!isDevApp) return relativePath
+        return when {
+            relativePath == RELATIVE_PATH -> DEV_RELATIVE_PATH
+            relativePath.startsWith("$RELATIVE_PATH/") ->
+                DEV_RELATIVE_PATH + relativePath.removePrefix(RELATIVE_PATH)
+            else -> relativePath
+        }
+    }
+
     private fun beginPending(
         context: Context,
         displayName: String,
@@ -195,23 +216,8 @@ object MediaStoreChannel {
         if (ownerId != null) {
             require(ownerId.matches(Regex("[A-Za-z0-9_.-]{1,128}")))
         }
-        // D5: custom album destination. Only a normalized `Pictures/<name>`
-        // relative path is accepted; traversal and separators are rejected.
         val isDevApp = context.packageName.endsWith(".dev")
-        val defaultRelativePath = if (isDevApp) DEV_RELATIVE_PATH else RELATIVE_PATH
-        val effectiveRelativePath = if (relativePath.isNullOrBlank()) {
-            defaultRelativePath
-        } else {
-            require(relativePath.startsWith("Pictures/"))
-            require(!relativePath.contains(".."))
-            require(relativePath.length <= 128)
-            require(!relativePath.split("/").any { it.isEmpty() || it == "." })
-            if (isDevApp && relativePath == RELATIVE_PATH) {
-                DEV_RELATIVE_PATH
-            } else {
-                relativePath
-            }
-        }
+        val effectiveRelativePath = resolveRelativePath(relativePath, isDevApp = isDevApp)
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
