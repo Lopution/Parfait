@@ -195,3 +195,76 @@ class TransferEnvelope {
     'clipboard data is not a transfer envelope',
   );
 }
+
+/// Recognized account-transfer input parsed from clipboard or manual paste.
+sealed class ParsedTransferInput {
+  const ParsedTransferInput();
+}
+
+final class TransferEnvelopeInput extends ParsedTransferInput {
+  const TransferEnvelopeInput(this.envelope);
+  final TransferEnvelope envelope;
+}
+
+final class TransferRefreshTokenInput extends ParsedTransferInput {
+  const TransferRefreshTokenInput(this.refreshToken);
+  final String refreshToken;
+}
+
+final RegExp _bareRefreshTokenPattern = RegExp(r'^[A-Za-z0-9_-]{40,64}$');
+
+/// Whether [raw] matches a bare Pixiv OAuth `refresh_token` shape (40–64
+/// URL-safe base64 characters without URL delimiters or whitespace).
+bool isBarePixivRefreshToken(String raw) =>
+    _bareRefreshTokenPattern.hasMatch(raw.trim());
+
+String? _extractJsonRefreshToken(Object? node, {int depth = 0}) {
+  if (depth > 3 || node is! Map) return null;
+  for (final key in const ['refresh_token', 'refreshToken']) {
+    final value = node[key];
+    if (value is String && isBarePixivRefreshToken(value)) {
+      return value.trim();
+    }
+  }
+  for (final nestedKey in const ['response', 'credential', 'payload', 'data']) {
+    final nested = _extractJsonRefreshToken(node[nestedKey], depth: depth + 1);
+    if (nested != null) return nested;
+  }
+  return null;
+}
+
+/// Parses Parfait v2 [TransferEnvelope] strings, peer JSON credential exports
+/// (`refresh_token` / `refreshToken`), or bare Pixiv `refresh_token` strings.
+ParsedTransferInput parseTransferInput(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty || trimmed.length > TransferEnvelope.maxEncodedLength) {
+    throw TransferEnvelope._corrupt();
+  }
+  try {
+    return TransferEnvelopeInput(TransferEnvelope.parse(trimmed));
+  } on AccountTransferException {
+    // Fall through to peer JSON and bare refresh_token formats.
+  }
+  if (trimmed.startsWith('{')) {
+    try {
+      final decoded = jsonDecode(trimmed);
+      final token = _extractJsonRefreshToken(decoded);
+      if (token != null) return TransferRefreshTokenInput(token);
+    } on FormatException {
+      // Malformed JSON falls through to corrupt error.
+    }
+  }
+  if (isBarePixivRefreshToken(trimmed)) {
+    return TransferRefreshTokenInput(trimmed);
+  }
+  throw TransferEnvelope._corrupt();
+}
+
+/// Non-throwing variant of [parseTransferInput] for paste-dialog routing.
+ParsedTransferInput? tryParseTransferInput(String raw) {
+  try {
+    return parseTransferInput(raw);
+  } on AccountTransferException {
+    return null;
+  }
+}

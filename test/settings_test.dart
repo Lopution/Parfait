@@ -96,9 +96,11 @@ class _TransferClipboard implements TransferClipboard {
 
 class _UnusedTransferVerifier implements TransferCredentialVerifier {
   @override
-  Future<VerifiedTransferAccount> verify(TransferAccountPayload payload) {
-    throw StateError('not used by export test');
-  }
+  Future<VerifiedTransferAccount> verify(TransferAccountPayload payload) =>
+      throw StateError('not used by export test');
+  @override
+  Future<VerifiedTransferAccount> verifyRefreshToken(String refreshToken) =>
+      throw StateError('not used by export test');
 }
 
 /// The network settings page over the base settings and [overrides], on a

@@ -2217,5 +2217,20 @@
   "ugoiraPlaybackSpeed": "播放倍速",
   "@ugoiraPlaybackSpeed": {
     "description": "Tooltip and semantics label for ugoira playback speed selector"
-  }
+  },
+  "loginWebViewStalled": "登录页面加载超时，可改用浏览器打开或粘贴回调/令牌",
+  "accountTransferExportToken": "复制 refresh_token",
+  "accountTransferTokenCopied": "refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。",
+  "offlineQueueTitle": "待同步离线操作",
+  "offlineQueuePendingCount": "{count} 项等待同步",
+  "@offlineQueuePendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineQueueClear": "清空队列",
+  "offlineQueueCleared": "已清空待同步操作",
+  "offlineQueueRetrying": "正在重试离线操作…"
 }

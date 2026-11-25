@@ -3430,4 +3430,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => '播放倍速';
+
+  @override
+  String get loginWebViewStalled => '登录页面加载超时，可改用浏览器打开或粘贴回调/令牌';
+
+  @override
+  String get accountTransferExportToken => '复制 refresh_token';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。';
+
+  @override
+  String get offlineQueueTitle => '待同步离线操作';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return '$count 项等待同步';
+  }
+
+  @override
+  String get offlineQueueClear => '清空队列';
+
+  @override
+  String get offlineQueueCleared => '已清空待同步操作';
+
+  @override
+  String get offlineQueueRetrying => '正在重试离线操作…';
 }

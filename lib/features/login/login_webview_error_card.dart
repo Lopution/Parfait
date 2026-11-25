@@ -41,6 +41,7 @@ class LoginWebViewErrorCard extends StatelessWidget {
     required this.onRestart,
     required this.onDismiss,
     this.onOpenInBrowser,
+    this.onPasteCallback,
     this.error,
   });
 
@@ -74,6 +75,10 @@ class LoginWebViewErrorCard extends StatelessWidget {
   /// Optional external browser fallback shown alongside reload on recoverable
   /// WebView errors.
   final VoidCallback? onOpenInBrowser;
+
+  /// Optional manual callback / token paste fallback shown on recoverable
+  /// login WebView errors.
+  final VoidCallback? onPasteCallback;
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +124,11 @@ class LoginWebViewErrorCard extends StatelessWidget {
                           TextButton(
                             onPressed: onOpenInBrowser,
                             child: Text(context.l10n.openInBrowser),
+                          ),
+                        if (onPasteCallback != null)
+                          TextButton(
+                            onPressed: onPasteCallback,
+                            child: Text(context.l10n.loginPasteCallback),
                           ),
                         TextButton(
                           onPressed: onReload,

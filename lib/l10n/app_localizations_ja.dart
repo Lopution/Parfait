@@ -3458,4 +3458,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => '再生速度';
+
+  @override
+  String get loginWebViewStalled =>
+      'ログインページの読み込みがタイムアウトしました。ブラウザで開くか、コールバックまたはトークンを貼り付けてください。';
+
+  @override
+  String get accountTransferExportToken => 'refresh_token をコピー';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token をコピーしました。早めに貼り付けてください。5分後に Parfait に戻ると自動的に消去されます。';
+
+  @override
+  String get offlineQueueTitle => '未同期のオフライン操作';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return '$count 件が同期待ち';
+  }
+
+  @override
+  String get offlineQueueClear => 'キューを空にする';
+
+  @override
+  String get offlineQueueCleared => '未同期の操作を消去しました';
+
+  @override
+  String get offlineQueueRetrying => 'オフライン操作を再試行しています…';
 }

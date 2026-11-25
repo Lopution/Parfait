@@ -30,6 +30,7 @@ class VerifiedTransferAccount {
 /// Verifies an imported credential before it reaches either account store.
 abstract interface class TransferCredentialVerifier {
   Future<VerifiedTransferAccount> verify(TransferAccountPayload payload);
+  Future<VerifiedTransferAccount> verifyRefreshToken(String refreshToken);
 }
 
 /// Pixiv App API verifier for an imported credential.
@@ -126,6 +127,78 @@ class PixivTransferCredentialVerifier implements TransferCredentialVerifier {
     try {
       final user = await _fetch(payload.userId, refreshed.credential);
       return _authoritative(user, payload, refreshed.credential);
+    } on ApiUnauthorized catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.credentialInvalid,
+        'Pixiv credential is invalid',
+        cause: error,
+      );
+    } on ApiNetworkError catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.verificationUnavailable,
+        'Pixiv credential verification is unavailable',
+        cause: error,
+      );
+    } on ApiTimeout catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.verificationUnavailable,
+        'Pixiv credential verification timed out',
+        cause: error,
+      );
+    } on ApiParseError catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.verificationUnavailable,
+        'Pixiv credential response is malformed',
+        cause: error,
+      );
+    } on ApiHttpError catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.verificationUnavailable,
+        'Pixiv credential verification failed',
+        cause: error,
+      );
+    }
+  }
+
+  @override
+  Future<VerifiedTransferAccount> verifyRefreshToken(
+    String refreshToken,
+  ) async {
+    late final OAuthResult refreshed;
+    try {
+      refreshed = await _oauthService.refreshSession(refreshToken);
+    } on OAuthException catch (error) {
+      if (error.rejectsCredential) {
+        throw AccountTransferException(
+          AccountTransferErrorCode.credentialInvalid,
+          'Pixiv credential is invalid',
+          cause: error,
+        );
+      }
+      throw AccountTransferException(
+        AccountTransferErrorCode.verificationUnavailable,
+        'Pixiv credential refresh is unavailable',
+        cause: error,
+      );
+    } on Object catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.verificationUnavailable,
+        'Pixiv credential refresh is unavailable',
+        cause: error,
+      );
+    }
+    try {
+      final user = await _fetch(refreshed.profile.userId, refreshed.credential);
+      return VerifiedTransferAccount(
+        account: Account(
+          id: '${user.id}',
+          userId: user.id,
+          name: user.name,
+          profileImageUrl: user.profileImageUrl,
+          isPremium: user.isPremium ?? false,
+        ),
+        credential: refreshed.credential,
+      );
     } on ApiUnauthorized catch (error) {
       throw AccountTransferException(
         AccountTransferErrorCode.credentialInvalid,
@@ -263,6 +336,48 @@ class AccountTransferService {
     );
   }
 
+  /// Exports the current usable account's plain `refresh_token` to the system
+  /// clipboard for migration to peer Pixiv clients, with the same auto-clear
+  /// lifetime as [exportCurrentToClipboard].
+  Future<void> exportRefreshTokenToClipboard() async {
+    final state = await _accountStore.resolveState();
+    final account = state.usableCurrent;
+    if (account == null) {
+      throw const AccountTransferException(
+        AccountTransferErrorCode.noUsableAccount,
+        'there is no usable account to export',
+      );
+    }
+    late final Credential credential;
+    try {
+      credential =
+          await _credentialStore.read(account.id) ??
+          (throw const AccountTransferException(
+            AccountTransferErrorCode.credentialUnavailable,
+            'the account credential is unavailable',
+          ));
+    } on AccountTransferException {
+      rethrow;
+    } on Object catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.credentialUnavailable,
+        'the account credential is unavailable',
+        cause: error,
+      );
+    }
+    await _clipboard.write(
+      credential.refreshToken,
+      clearAfter: transferClipboardLifetime,
+    );
+  }
+
+  /// Imports an explicitly pasted Parfait envelope, peer JSON export, or bare
+  /// Pixiv `refresh_token` without touching the system clipboard.
+  Future<TransferImportResult> importText(String raw) async {
+    final parsed = parseTransferInput(raw);
+    return _importParsed(parsed);
+  }
+
   /// Reads the clipboard only from this explicit user action.
   Future<TransferImportResult> importFromClipboard() async {
     final content = await _clipboard.read();
@@ -272,26 +387,26 @@ class AccountTransferService {
         'clipboard does not contain account-transfer data',
       );
     }
-    TransferEnvelope? envelope;
+    late final ParsedTransferInput parsed;
     try {
-      envelope = TransferEnvelope.parse(content.text);
+      parsed = parseTransferInput(content.text);
     } catch (error, stackTrace) {
-      // A malformed value has not been identified as our envelope, so it is
-      // never cleared. Preserve the typed parser error and stack for callers.
+      // A malformed value has not been identified as our envelope or a token,
+      // so it is never cleared. Preserve the typed parser error and stack.
       Error.throwWithStackTrace(error, stackTrace);
     }
 
     try {
-      final imported = await _importEnvelope(envelope);
+      final imported = await _importParsed(parsed);
       final cleared = await _clipboard.clearIfCurrent(content.fingerprint);
       return TransferImportResult(
         account: imported.account,
         clipboardCleared: cleared,
       );
     } catch (error, stackTrace) {
-      // Once parsing succeeded, the clipboard value is recognized as an
-      // envelope even when the credential turns out to be invalid. Clear it
-      // only if the fingerprint still matches, keeping the primary failure.
+      // Once parsing succeeded, the clipboard value is recognized as a
+      // credential payload even when verification fails. Clear it only if the
+      // fingerprint still matches, keeping the primary failure.
       try {
         await _clipboard.clearIfCurrent(content.fingerprint);
       } catch (cleanupError) {
@@ -308,12 +423,16 @@ class AccountTransferService {
     }
   }
 
-  Future<TransferImportResult> _importEnvelope(
-    TransferEnvelope envelope,
-  ) async {
+  Future<TransferImportResult> _importParsed(ParsedTransferInput parsed) async {
     late final VerifiedTransferAccount verified;
     try {
-      verified = await _verifier.verify(envelope.payload);
+      verified = switch (parsed) {
+        TransferEnvelopeInput(:final envelope) => await _verifier.verify(
+          envelope.payload,
+        ),
+        TransferRefreshTokenInput(:final refreshToken) =>
+          await _verifier.verifyRefreshToken(refreshToken),
+      };
     } on AccountTransferException {
       rethrow;
     } on Object catch (error) {

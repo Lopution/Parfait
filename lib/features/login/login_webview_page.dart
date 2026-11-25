@@ -16,6 +16,8 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/web_navigation_guard.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/auth/account_transfer.dart';
+import '../../core/auth/account_transfer_service.dart';
 import '../../core/auth/oauth_service.dart';
 import '../../core/logging/crash_log.dart';
 import '../../core/network/local_network_address.dart';
@@ -53,7 +55,12 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
     this.create = false,
     this.title = 'Pixiv',
     this.launchExternal,
+    this.stallTimeout = initialLoadStallTimeout,
   });
+
+  /// Main-frame load timeout before surfacing the recoverable fallback card
+  /// so a stalled WebView or reCAPTCHA hang never leaves users stranded.
+  static const initialLoadStallTimeout = Duration(seconds: 12);
 
   final OAuthService oauthService;
 
@@ -63,6 +70,9 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
 
   /// Optional external browser launcher hook, primarily for tests.
   final Future<bool> Function(Uri url)? launchExternal;
+
+  /// Initial main-frame stall threshold (injectable for tests).
+  final Duration stallTimeout;
 
   @override
   ConsumerState<LoginWebViewPage> createState() => _LoginWebViewPageState();
@@ -96,6 +106,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// to reload and loads [_startUrl] instead.
   bool _loaded = false;
   bool _authCookiesCleared = false;
+  Timer? _stallTimer;
 
   static final Uri _webView2InstallUri = Uri.parse(
     'https://developer.microsoft.com/microsoft-edge/webview2/',
@@ -174,11 +185,27 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       if (!mounted || _controller == null) return;
     }
     _loaded = true;
+    _armStallTimer();
     await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(url)));
+  }
+
+  void _armStallTimer() {
+    _stallTimer?.cancel();
+    if (widget.stallTimeout <= Duration.zero) return;
+    _stallTimer = Timer(widget.stallTimeout, () {
+      if (!mounted || _fatal || _exchanging || _error != null) return;
+      _reportRecoverable(context.l10n.loginWebViewStalled);
+    });
+  }
+
+  void _cancelStallTimer() {
+    _stallTimer?.cancel();
+    _stallTimer = null;
   }
 
   @override
   void dispose() {
+    _cancelStallTimer();
     WidgetsBinding.instance.removeObserver(this);
     // Cancellation and page disposal must never leave a live verifier behind,
     // except when handing off to `/login/callback` (e.g. under reduced motion).
@@ -204,10 +231,12 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   bool _decideNavigation(String rawUrl) {
     return switch (decideLoginNavigation(widget.oauthService, rawUrl)) {
       LoginNavExchange(:final code) => () {
+        _cancelStallTimer();
         unawaited(_exchange(code));
         return true;
       }(),
       LoginNavAbort(:final reason) => () {
+        _cancelStallTimer();
         // The callback was consumed with unusable parameters; the verifier
         // cannot be reused for another attempt.
         _abortLogin(context.l10n.loginCallbackInvalid, error: reason);
@@ -225,6 +254,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     // WebView surfaces subresource failures through this callback as well.
     // Only a main-frame failure is worth reporting, and it stays retryable.
     if (request.isForMainFrame == false) return;
+    _cancelStallTimer();
     // '<type> <host>' says which host produced the failure without echoing
     // the full URL into the card's details.
     _reportRecoverable(
@@ -242,6 +272,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     // A failed tracker, stylesheet or captcha asset must not discard an
     // otherwise usable PKCE session.
     if (request.isForMainFrame == false) return;
+    _cancelStallTimer();
     // A main-document 4xx is routinely a form-validation or risk-control
     // response that the user can retry in place.
     _reportRecoverable(
@@ -372,12 +403,61 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   }
 
   void _submitManualCallback(String raw) {
-    final normalized = normalizeManualPixivCallbackUri(raw);
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      if (mounted) showAppSnackBar(context, context.l10n.loginCallbackInvalid);
+      return;
+    }
+    final isUrl =
+        trimmed.startsWith('pixiv://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('http://');
+    if (!isUrl && tryParseTransferInput(trimmed) != null) {
+      // Bare refresh_token, peer JSON export, or Parfait envelope: exchange
+      // via refreshSession without touching or aborting the active PKCE session.
+      unawaited(_importManualToken(trimmed));
+      return;
+    }
+    final normalized = normalizeManualPixivCallbackUri(trimmed);
     if (normalized == null) {
       if (mounted) showAppSnackBar(context, context.l10n.loginCallbackInvalid);
       return;
     }
     _decideNavigation(normalized.toString());
+  }
+
+  Future<void> _importManualToken(String raw) async {
+    if (_exchanging) return;
+    _cancelStallTimer();
+    setState(() {
+      _exchanging = true;
+      _error = null;
+      _errorDetails = null;
+    });
+    try {
+      await ref.read(accountTransferServiceProvider).importText(raw);
+      if (!mounted) return;
+      context.pop(true);
+    } on AccountTransferException catch (error) {
+      if (!mounted) return;
+      setState(() => _exchanging = false);
+      final l10n = context.l10n;
+      final message = switch (error.code) {
+        AccountTransferErrorCode.credentialInvalid =>
+          l10n.accountTransferCredentialInvalid,
+        AccountTransferErrorCode.verificationUnavailable =>
+          l10n.accountTransferVerificationUnavailable,
+        AccountTransferErrorCode.storageFailure =>
+          l10n.accountTransferStorageFailure,
+        _ => l10n.accountTransferCorrupt,
+      };
+      showAppSnackBar(context, message);
+    } on Object catch (error, stackTrace) {
+      CrashLog.record(error, stackTrace);
+      if (!mounted) return;
+      setState(() => _exchanging = false);
+      showAppSnackBar(context, context.l10n.loginFailed);
+    }
   }
 
   Future<void> _showManualCallbackDialog(BuildContext context) async {
@@ -426,10 +506,12 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     },
     shouldOverrideUrlLoading: _guard.shouldOverrideUrlLoading,
     onLoadStart: _guard.onLoadStart,
+    onLoadStop: (controller, url) => _cancelStallTimer(),
     onUpdateVisitedHistory: _guard.beforeLoad
         ? null
         : (controller, url, isReload) => _guard.stopAsStarted(controller, url),
     onProgressChanged: (controller, progress) {
+      if (progress >= 100) _cancelStallTimer();
       if (mounted) setState(() => _progress = progress / 100.0);
     },
     onReceivedError: _onReceivedError,
@@ -637,6 +719,9 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
               onReload: _reload,
               onRestart: _restartLogin,
               onOpenInBrowser: _openExternalBrowser,
+              onPasteCallback: widget.create
+                  ? null
+                  : () => unawaited(_showManualCallbackDialog(context)),
               onDismiss: () => setState(() {
                 _error = null;
                 _errorDetails = null;

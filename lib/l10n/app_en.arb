@@ -1514,5 +1514,20 @@
   "localNovelsDropUnsupported": "Only .txt files can be imported",
   "ugoiraPlay": "Play animation",
   "ugoiraPause": "Pause animation",
-  "ugoiraPlaybackSpeed": "Playback speed"
+  "ugoiraPlaybackSpeed": "Playback speed",
+  "loginWebViewStalled": "Sign-in page timed out. Open in a browser or paste a callback link or token.",
+  "accountTransferExportToken": "Copy refresh_token",
+  "accountTransferTokenCopied": "refresh_token copied. Paste it soon; it is cleared when you return to Parfait after 5 minutes.",
+  "offlineQueueTitle": "Pending offline actions",
+  "offlineQueuePendingCount": "{count} pending",
+  "@offlineQueuePendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineQueueClear": "Clear queue",
+  "offlineQueueCleared": "Pending actions cleared",
+  "offlineQueueRetrying": "Retrying offline actions…"
 }

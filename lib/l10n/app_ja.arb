@@ -1507,5 +1507,20 @@
   "localNovelsDropUnsupported": "インポートできるのは .txt ファイルのみです",
   "ugoiraPlay": "うごイラを再生",
   "ugoiraPause": "うごイラを一時停止",
-  "ugoiraPlaybackSpeed": "再生速度"
+  "ugoiraPlaybackSpeed": "再生速度",
+  "loginWebViewStalled": "ログインページの読み込みがタイムアウトしました。ブラウザで開くか、コールバックまたはトークンを貼り付けてください。",
+  "accountTransferExportToken": "refresh_token をコピー",
+  "accountTransferTokenCopied": "refresh_token をコピーしました。早めに貼り付けてください。5分後に Parfait に戻ると自動的に消去されます。",
+  "offlineQueueTitle": "未同期のオフライン操作",
+  "offlineQueuePendingCount": "{count} 件が同期待ち",
+  "@offlineQueuePendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineQueueClear": "キューを空にする",
+  "offlineQueueCleared": "未同期の操作を消去しました",
+  "offlineQueueRetrying": "オフライン操作を再試行しています…"
 }

@@ -88,11 +88,19 @@ reviewed: 2026-11-25
   `payload{accountId, userId, credential{accessToken, refreshToken[,
   cookie]}}` and `checksum`; anything else is a design decision. A new
   secret family adds tests that settings JSON, the envelope and `toString`
-  exclude it and that clearing it reports "not configured".
+  exclude it and that clearing it reports "not configured". Clipboard and
+  manual import (`parseTransferInput`, `AccountTransferService`) also accept
+  bare 40–64 char Pixiv `refresh_token` strings and peer JSON exports
+  carrying `refresh_token`/`refreshToken` (exchanging over `OAuthService.refreshSession`
+  and verifying against `/v1/user/detail` while leaving unrelated clipboard text
+  untouched on `corrupt`), and `AccountSettingsPage` offers plain
+  `refresh_token` export behind the same plaintext warning and auto-clear
+  timer.
 - **Why:** The envelope sits on the clipboard; extra fields would leak
-  other secrets.
-- **Check:** `test/account_transfer_service_test.dart` "exported envelope carries only the account credential, never translation secrets"
-- **Code:** `lib/core/auth/account_transfer.dart`, `lib/core/auth/account_transfer_service.dart`
+  other secrets, while accepting standard `refresh_token` formats enables
+  proxy-free migration across Pixiv clients.
+- **Check:** `test/account_transfer_service_test.dart` "exported envelope carries only the account credential, never translation secrets" "clipboard and text import accept bare refresh_token and peer JSON while ignoring unrelated text"
+- **Code:** `lib/core/auth/account_transfer.dart`, `lib/core/auth/account_transfer_service.dart`, `lib/features/settings/pages/account_settings_page.dart`
 
 ## Editable state
 

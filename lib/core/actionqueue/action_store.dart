@@ -57,6 +57,13 @@ abstract interface class ActionStore {
   /// All rows of one owner, oldest first (tests/diagnostics).
   Future<List<StoredAction>> listFor(String owner);
 
+  /// Count of pending rows currently queued for [owner].
+  Future<int> countPending(String owner);
+
+  /// Deletes every non-running row for [owner], preserving any row currently
+  /// in flight (`running`). Returns the number of rows deleted.
+  Future<int> clearNonRunning(String owner);
+
   /// Drops every row of an account (logout/teardown boundary).
   Future<void> clearAccount(String owner);
 }
@@ -297,6 +304,27 @@ final class SqliteActionStore implements ActionStore {
   }
 
   @override
+  Future<int> countPending(String owner) async {
+    final db = await _readyDatabase();
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM ${ActionDatabase.actionTable} '
+      'WHERE owner = ? AND status = ?',
+      [owner, ActionStatus.pending.dbValue],
+    );
+    return (rows.single['c'] as int?) ?? 0;
+  }
+
+  @override
+  Future<int> clearNonRunning(String owner) async {
+    final db = await _readyDatabase();
+    return db.delete(
+      ActionDatabase.actionTable,
+      where: 'owner = ? AND status != ?',
+      whereArgs: [owner, ActionStatus.running.dbValue],
+    );
+  }
+
+  @override
   Future<void> clearAccount(String owner) async {
     final db = await _readyDatabase();
     await db.delete(
@@ -468,6 +496,24 @@ final class InMemoryActionStore implements ActionStore {
     for (final row in _rows)
       if (row.owner == owner) row,
   ];
+
+  @override
+  Future<int> countPending(String owner) async {
+    var count = 0;
+    for (final row in _rows) {
+      if (row.owner == owner && row.status == ActionStatus.pending) count++;
+    }
+    return count;
+  }
+
+  @override
+  Future<int> clearNonRunning(String owner) async {
+    final before = _rows.length;
+    _rows.removeWhere(
+      (row) => row.owner == owner && row.status != ActionStatus.running,
+    );
+    return before - _rows.length;
+  }
 
   @override
   Future<void> clearAccount(String owner) async {

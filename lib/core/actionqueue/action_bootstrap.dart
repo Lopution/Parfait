@@ -52,6 +52,23 @@ final actionQueueProvider = Provider<ActionQueue>((ref) {
   return queue;
 });
 
+/// Live pending action count for the active usable account (0 when signed out
+/// or when no offline actions are queued).
+final actionQueuePendingCountProvider = StreamProvider<int>((ref) async* {
+  final accountId = ref.watch(
+    accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
+  );
+  if (accountId == null) {
+    yield 0;
+    return;
+  }
+  final queue = ref.watch(actionQueueProvider);
+  yield await queue.pendingCount(accountId);
+  await for (final _ in queue.changes) {
+    yield await queue.pendingCount(accountId);
+  }
+});
+
 /// Drains the current account's queue whenever an account becomes current
 /// (startup included) and again on a network restore, without waiting out
 /// the cooldown. The account being left is parked so its wake never

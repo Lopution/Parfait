@@ -6,13 +6,18 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../app/format/app_format.dart';
 import '../../app/icons/app_icons.dart';
+import '../../app/icons/ui_icons.dart';
 import '../../app/layout/content_widths.dart';
+import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/me_workspace_facade.dart';
 import '../../app/navigation/route_facade.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_dialog.dart';
+import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/danger_filled_button.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/master_detail_workspace.dart';
@@ -21,6 +26,7 @@ import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../app/window/desktop_command_bar_scope.dart'
     show DesktopCommandBarScope;
+import '../../core/actionqueue/action_bootstrap.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/localnovel/local_novel_store.dart';
@@ -431,6 +437,9 @@ class _MeNavGroups extends ConsumerWidget {
     final downloadStats =
         ref.watch(downloadStatsProvider).value ??
         (active: 0, failed: 0, total: 0);
+    final pendingActions = signedIn
+        ? (ref.watch(actionQueuePendingCountProvider).value ?? 0)
+        : 0;
     final watchLaterCount = ref.watch(watchLaterStoreProvider).value?.length;
     final localNovelsCount = ref.watch(localNovelStoreProvider).value?.length;
     final watchlistEntries = ref.watch(watchlistStoreProvider);
@@ -569,6 +578,24 @@ class _MeNavGroups extends ConsumerWidget {
                 ),
                 onPush: () => unawaited(openDownloadTasks(context)),
               ),
+            if (pendingActions > 0)
+              SettingsTile.topLevel(
+                key: const Key('me-offline-queue-tile'),
+                icon: UiIcons.refresh,
+                title: l10n.offlineQueueTitle,
+                subtitle: Text(l10n.offlineQueuePendingCount(pendingActions)),
+                trailingBadge: Badge(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.tertiaryContainer,
+                  textColor: Theme.of(context).colorScheme.onTertiaryContainer,
+                  label: Text(AppFormat.count(context, pendingActions)),
+                ),
+                showChevron: false,
+                onTap: () => unawaited(
+                  _showOfflineQueueActions(context, ref, pendingActions),
+                ),
+              ),
           ],
         ),
         if (includeSettingsEntries)
@@ -606,5 +633,45 @@ class _MeVersionSummary extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final version = ref.watch(packageInfoProvider).asData?.value.version;
     return Text(version ?? '—');
+  }
+}
+
+Future<void> _showOfflineQueueActions(
+  BuildContext context,
+  WidgetRef ref,
+  int pendingCount,
+) async {
+  final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
+  if (accountId == null) return;
+  final l10n = context.l10n;
+  final choice = await showAppDialog<String>(
+    context: context,
+    builder: (dialogContext) => AppAlertDialog(
+      title: Text(l10n.offlineQueueTitle),
+      content: Text(l10n.offlineQueuePendingCount(pendingCount)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: Text(l10n.cancel),
+        ),
+        DangerFilledButton(
+          onPressed: () => Navigator.pop(dialogContext, 'clear'),
+          child: Text(l10n.offlineQueueClear),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, 'retry'),
+          child: Text(l10n.retry),
+        ),
+      ],
+    ),
+  );
+  if (choice == null || !context.mounted) return;
+  final queue = ref.read(actionQueueProvider);
+  if (choice == 'retry') {
+    showAppSnackBar(context, l10n.offlineQueueRetrying);
+    unawaited(queue.retryNow(accountId));
+  } else if (choice == 'clear') {
+    await queue.clearPending(accountId);
+    if (context.mounted) showAppSnackBar(context, l10n.offlineQueueCleared);
   }
 }

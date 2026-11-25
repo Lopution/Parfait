@@ -593,4 +593,18 @@ void main() {
     expect(session.cookie, isNull);
     expect(webView.controller.loadedUrls, hasLength(1));
   });
+
+  testWidgets(
+    'stalled WebView surfaces recoverable error card with browser and paste fallbacks',
+    (tester) async {
+      await pumpLoginPage(tester);
+      await tester.pump(
+        LoginWebViewPage.initialLoadStallTimeout +
+            const Duration(milliseconds: 50),
+      );
+      expect(find.byType(LoginWebViewErrorCard), findsOneWidget);
+      expect(find.text('在浏览器打开'), findsOneWidget);
+      expect(find.text('粘贴回调链接或授权码'), findsOneWidget);
+    },
+  );
 }

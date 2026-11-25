@@ -550,5 +550,41 @@ void main() {
         ]);
       },
     );
+
+    test(
+      'pendingCount, changes stream, and clearPending protect running rows',
+      () async {
+        final store = InMemoryActionStore();
+        final queue = ActionQueue(store: store);
+        addTearDown(queue.dispose);
+        final events = <void>[];
+        final sub = queue.changes.listen(events.add);
+        addTearDown(sub.cancel);
+
+        final firstId = await queue.enqueue(
+          owner: 'a',
+          type: 't',
+          dedupeKey: 'k1',
+          payload: const {},
+        );
+        await queue.enqueue(
+          owner: 'a',
+          type: 't',
+          dedupeKey: 'k2',
+          payload: const {},
+        );
+        expect(await queue.pendingCount('a'), 2);
+        expect(events.length, greaterThanOrEqualTo(2));
+
+        expect(await store.markRunning(firstId), isTrue);
+        expect(await queue.pendingCount('a'), 1);
+
+        final cleared = await queue.clearPending('a');
+        expect(cleared, 1);
+        expect(await queue.pendingCount('a'), 0);
+        // Running row stays intact until its in-flight replay finishes.
+        expect((await store.listFor('a')).single.id, firstId);
+      },
+    );
   });
 }
