@@ -45,6 +45,7 @@ class _AuthorWorksDownloadDialogState
   Object? _error;
   bool _submitting = false;
   bool _artistSubfolder = false;
+  bool _includeUgoira = false;
 
   @override
   void initState() {
@@ -68,7 +69,7 @@ class _AuthorWorksDownloadDialogState
         },
       );
       if (!mounted) return;
-      if (result.works.isEmpty) {
+      if (result.isEmpty) {
         setState(() => _phase = _Phase.failed);
       } else {
         setState(() {
@@ -111,7 +112,10 @@ class _AuthorWorksDownloadDialogState
   Future<void> _confirm() async {
     // A second tap can land before the rebuild that disables the button.
     if (_submitting) return;
-    final works = _result!.works;
+    final result = _result!;
+    final works = result.works;
+    final ugoiraWorks = _includeUgoira ? result.ugoiraWorks : const <Never>[];
+    if (works.isEmpty && ugoiraWorks.isEmpty) return;
     setState(() => _submitting = true);
     // Submission failure (ownership, validation, channel) must stay visible —
     // it surfaces as the dialog's failure state instead of a silent pop.
@@ -120,6 +124,7 @@ class _AuthorWorksDownloadDialogState
           .read(illustDownloadCoordinatorProvider)
           .downloadAuthorWorks(
             works: works,
+            ugoiraWorks: ugoiraWorks,
             namingRule: ref.read(namingRuleProvider),
             subfolderMode: _artistSubfolder
                 ? DownloadSubfolderMode.byArtist
@@ -172,6 +177,7 @@ class _AuthorWorksDownloadDialogState
                 .read(illustDownloadCoordinatorProvider)
                 .authorWorksRequests(result.works)
                 .length;
+            final ugoiraCount = result.ugoiraWorks.length;
             final showArtistSubfolder =
                 ref.watch(downloadSubfolderModeProvider) ==
                     DownloadSubfolderMode.none &&
@@ -180,15 +186,36 @@ class _AuthorWorksDownloadDialogState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l10n.downloadAuthorConfirmBody(result.works.length, pages),
-                ),
+                if (result.works.isEmpty && ugoiraCount > 0)
+                  Text(l10n.downloadAuthorUgoiraOnlyHint(ugoiraCount))
+                else if (ugoiraCount > 0 && _includeUgoira)
+                  Text(
+                    l10n.downloadAuthorConfirmBodyWithUgoira(
+                      result.works.length,
+                      pages,
+                      ugoiraCount,
+                    ),
+                  )
+                else
+                  Text(
+                    l10n.downloadAuthorConfirmBody(result.works.length, pages),
+                  ),
                 if (result.truncated) ...[
                   const SizedBox(height: FuncSpacing.sm),
                   Text(
                     l10n.downloadAuthorTruncated(
                       AuthorWorksEnumerator.maxWorks,
                     ),
+                  ),
+                ],
+                if (ugoiraCount > 0) ...[
+                  const SizedBox(height: FuncSpacing.sm),
+                  SettingsControl(
+                    title: Text(l10n.downloadAuthorIncludeUgoira(ugoiraCount)),
+                    value: _includeUgoira,
+                    onChanged: _submitting
+                        ? null
+                        : (value) => setState(() => _includeUgoira = value),
                   ),
                 ],
                 if (showArtistSubfolder) ...[
@@ -213,7 +240,10 @@ class _AuthorWorksDownloadDialogState
             child: Text(l10n.cancel),
           ),
           FilledButton(
-            onPressed: _submitting ? null : _confirm,
+            onPressed:
+                _submitting || (_result!.works.isEmpty && !_includeUgoira)
+                ? null
+                : _confirm,
             child: Text(l10n.confirm),
           ),
         ],

@@ -3633,4 +3633,69 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get downloadAuthorSubfolderToggle => '作者のサブフォルダに保存';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return '静止画 $works 件（計 $pages ページ）とうごイラ $ugoira 件をダウンロードキューに追加します。';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return 'うごイラを含める（$count 件・GIF 書き出し）';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return 'うごイラ作品が $count 件見つかりました。下のスイッチをオンにすると GIF として書き出せます。';
+  }
+
+  @override
+  String get novelSaveOffline => 'オフライン書庫に保存';
+
+  @override
+  String get novelSavedOffline => 'オフライン書庫に保存しました';
+
+  @override
+  String get novelSaveOfflineFailed => 'オフライン保存に失敗しました';
+
+  @override
+  String get novelExportTxt => 'TXT を書き出す';
+
+  @override
+  String get novelExportTxtQueued => 'TXT 書き出しをキューに追加しました';
+
+  @override
+  String get novelExportTxtShared => 'TXT ファイルを共有しました';
+
+  @override
+  String get novelExportTxtFailed => 'TXT の書き出しに失敗しました';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Android で TXT を書き出すには、保存先としてカスタムフォルダを選択してください';
+
+  @override
+  String get novelSeriesSaveOffline => 'シリーズをオフライン保存';
+
+  @override
+  String get novelSeriesExportTxt => 'シリーズを TXT 書き出し';
+
+  @override
+  String get novelSeriesExportMerged => '1 つの TXT に結合';
+
+  @override
+  String get novelSeriesExportSplit => '話ごとに TXT 書き出し';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return '$saved 話を保存しました（閲覧不可 $skipped 話をスキップ）';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return '$queued 話をキューに追加しました（閲覧不可 $skipped 話をスキップ）';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters => 'このシリーズには保存可能な話がありません';
 }

@@ -239,23 +239,22 @@ reviewed: 2026-11-25
 - **Check:** `test/ugoira_test.dart` "a forged entry fails once it inflates past its declared size" "rejects metadata count mismatch and forged local sizes"
 - **Code:** `lib/core/ugoira/ugoira_zip.dart`, `lib/core/ugoira/ugoira_zip_worker.dart`
 
-### IMG-11 GIF export is a cancellable app-level worker job with one terminal state
-- **Rule:** GIF export runs through app-level `UgoiraExportController`
-  (`ugoiraExportControllerProvider`, invoked on demand from `UgoiraViewer`,
-  `DetailActionBar`, or inspector download actions without requiring prior
-  playback and never falling back to a static first-frame JPEG). It decodes
-  encoded frame bytes and quantizes with `QuantizerType.octree` inside the
-  worker isolate (zero UI-isolate `ui.Image` decode or `toByteData` readback),
-  writes output chunks via `Uint8List.sublistView`, checks cancellation between
-  frames and before finalize, owns one pending MediaStore item and its own
-  temporary archive, continues after leaving the detail page (delivering
-  terminal feedback through `PromptHost` and showing live progress + cancel on
-  same-process re-entry), and emits exactly one terminal snapshot. It never
-  holds the full decoded frame list on the UI isolate. Its recovery record
-  uses its own key and owner prefix and never enters the download retry
-  queue; after a process restart an unfinished export becomes `orphaned`.
-- **Why:** Quantization on the UI isolate froze the app, page-scoped jobs
-  died on back navigation, bottom-bar downloads saved static JPEGs, and a
-  synthetic GIF URL in the download queue retried forever.
-- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state", `test/ugoira_viewer_test.dart` "UgoiraViewer exports GIF on demand without prior playback, survives leaving page, and shows progress/cancel on re-entry", `test/illust_detail_download_test.dart` "blank-area tap keeps page selection, single-page hides select-pages, and ugoira bottom button routes to GIF export", `test/download_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned"
-- **Code:** `lib/core/ugoira/ugoira_export.dart`, `lib/core/ugoira/ugoira_export_controller.dart`, `lib/core/ugoira/ugoira_recovery.dart`, `lib/features/illust/detail/ugoira_export_action.dart`, `lib/features/illust/detail/ugoira_viewer.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`
+### IMG-11 GIF export is a cancellable DownloadManager worker job with one terminal state
+- **Rule:** GIF export runs as `DownloadTarget.ugoiraGif` inside
+  `DownloadManager` via `UgoiraGifDownloadExecutor` (bridged by
+  `UgoiraExportController` and `IllustDownloadCoordinator.downloadUgoiraGif`,
+  invoked across card actions, multi-select, detail bar, `UgoiraViewer`, and
+  opt-in bulk author downloads without ever falling back to a static cover
+  JPEG). It populates full `NamingRule` metadata and `CaptionExporter`
+  sidecars, caps active GIF worker isolates to one, decodes/quantizes with
+  `QuantizerType.octree` inside the worker isolate (zero UI-isolate `ui.Image`
+  decode), writes chunks via `Uint8List.sublistView`, checks cancellation and
+  ownership throughout, owns its temporary archive and cleans it on every
+  terminal path, and surfaces live progress, cancel, explicit retry, and
+  desktop reveal in `DownloadTasksPage`. Interrupted `ugoiraGif` records
+  never use HTTP `Range` resume and become `orphaned` on restart (`DL-02`/`DL-05`).
+- **Why:** Quantization on the UI isolate froze the app, parallel GIF encodes
+  risked OOM, card/multi-select paths saved static JPEGs, and standalone
+  exports bypassed templates, captions, and task history.
+- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state", `test/ugoira_viewer_test.dart` "UgoiraViewer exports GIF on demand without prior playback, survives leaving page, and shows progress/cancel on re-entry", `test/illust_detail_download_test.dart` "blank-area tap keeps page selection, single-page hides select-pages, and ugoira bottom button routes to GIF export", `test/download_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned", `test/author_works_download_test.dart` "author bulk dialog separates ugoira works and supports opt-in GIF export"
+- **Code:** `lib/core/ugoira/ugoira_export.dart`, `lib/core/ugoira/ugoira_gif_download_executor.dart`, `lib/core/ugoira/ugoira_export_controller.dart`, `lib/core/download/illust_download_coordinator.dart`, `lib/core/illust/illust_download_controller.dart`, `lib/features/illust/detail/ugoira_export_action.dart`, `lib/features/illust/detail/ugoira_viewer.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`

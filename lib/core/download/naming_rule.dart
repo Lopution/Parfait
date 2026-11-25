@@ -98,16 +98,25 @@ class NamingRule {
     int? seriesOrder,
     int? seriesTotal,
     bool padPageNumbers = false,
+    bool omitPageSuffix = false,
   }) {
     final ext = _safeExtension(extension);
     final effectiveTemplate = switch (preset) {
-      NamingPreset.id => '{id}_p{page}.{ext}',
-      NamingPreset.artistTitleId => '{artist}_{title}_{id}_p{page}.{ext}',
-      NamingPreset.titleId => '{title}_{id}_p{page}.{ext}',
+      NamingPreset.id => omitPageSuffix ? '{id}.{ext}' : '{id}_p{page}.{ext}',
+      NamingPreset.artistTitleId =>
+        omitPageSuffix
+            ? '{artist}_{title}_{id}.{ext}'
+            : '{artist}_{title}_{id}_p{page}.{ext}',
+      NamingPreset.titleId =>
+        omitPageSuffix ? '{title}_{id}.{ext}' : '{title}_{id}_p{page}.{ext}',
       NamingPreset.custom =>
         (template != null && isValidTemplate(template))
-            ? template!
-            : '{id}_p{page}.{ext}',
+            ? (omitPageSuffix
+                  ? template!
+                        .replaceAll(RegExp(r'[_-]?p\{page1?\}'), '')
+                        .replaceAll(RegExp(r'[_-]?\{page1?\}'), '')
+                  : template!)
+            : (omitPageSuffix ? '{id}.{ext}' : '{id}_p{page}.{ext}'),
     };
     var rendered = _expand(
       effectiveTemplate,

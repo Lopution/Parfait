@@ -89,6 +89,37 @@ class LocalNovelStore extends AsyncNotifier<List<LocalNovel>> {
     return novel;
   }
 
+  Future<LocalNovel> savePixivNovel({
+    required String title,
+    required String? author,
+    required String text,
+    int? pixivNovelId,
+    int? pixivSeriesId,
+    String? pixivSeriesTitle,
+  }) async {
+    final dir = await ref.read(localNovelDirectoryProvider)();
+    final saved = await ref
+        .read(localNovelRepositoryProvider)
+        .savePixivNovel(
+          title: title,
+          author: author,
+          text: text,
+          targetDir: dir,
+          pixivNovelId: pixivNovelId,
+          pixivSeriesId: pixivSeriesId,
+          pixivSeriesTitle: pixivSeriesTitle,
+        );
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData([
+        saved,
+        for (final item in current)
+          if (item.id != saved.id) item,
+      ]);
+    }
+    return saved;
+  }
+
   Future<void> delete(LocalNovel novel) async {
     _pendingOffsets.remove(novel.id);
     await ref.read(localNovelRepositoryProvider).delete(novel);

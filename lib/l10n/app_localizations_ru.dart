@@ -3720,4 +3720,70 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadAuthorSubfolderToggle => 'Сохранить в подпапку автора';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return 'Будут добавлены в очередь $works работ ($pages стр.) и $ugoira угойра.';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return 'Включить угойра ($count, экспорт в GIF)';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return 'Найдено только $count угойра. Включите переключатель ниже для экспорта в GIF.';
+  }
+
+  @override
+  String get novelSaveOffline => 'Сохранить офлайн';
+
+  @override
+  String get novelSavedOffline => 'Сохранено в офлайн-библиотеку';
+
+  @override
+  String get novelSaveOfflineFailed => 'Не удалось сохранить офлайн';
+
+  @override
+  String get novelExportTxt => 'Экспорт в TXT';
+
+  @override
+  String get novelExportTxtQueued => 'Экспорт TXT добавлен в очередь';
+
+  @override
+  String get novelExportTxtShared => 'Файл TXT отправлен';
+
+  @override
+  String get novelExportTxtFailed => 'Не удалось экспортировать TXT';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Для экспорта TXT на Android выберите пользовательскую папку сохранения';
+
+  @override
+  String get novelSeriesSaveOffline => 'Сохранить серию офлайн';
+
+  @override
+  String get novelSeriesExportTxt => 'Экспорт серии в TXT';
+
+  @override
+  String get novelSeriesExportMerged => 'Объединить в один TXT';
+
+  @override
+  String get novelSeriesExportSplit => 'Отдельный TXT на главу';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return 'Сохранено глав: $saved (пропущено недоступных: $skipped)';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return 'В очереди глав: $queued (пропущено недоступных: $skipped)';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters =>
+      'В серии нет доступных глав для сохранения';
 }

@@ -141,21 +141,21 @@ void main() {
       expect(sinks.sinks, hasLength(3));
     });
 
-    test('skips ugoira and unowned submissions', () async {
+    test('exports ugoira captions and skips unowned submissions', () async {
       final sinks = MemorySinkFactory();
       final exporter = _exporter(sinks);
 
       await exporter.export(
         illust: parseIllust(illustJson(9, type: 'ugoira')),
         submission: _submission(),
-        pageZeroName: '9_p0.jpg',
+        pageZeroName: '9.gif',
       );
       await exporter.export(
         illust: parseIllust(illustJson(10)),
         submission: _submission(accountId: null),
         pageZeroName: '10_p0.jpg',
       );
-      expect(sinks.sinks, isEmpty);
+      expect(sinks.rawNames, ['9.txt']);
     });
 
     test('on Android only a folder takes the caption', () async {

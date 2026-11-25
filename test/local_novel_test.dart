@@ -6,14 +6,28 @@ import 'package:charset/charset.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/download/novel_txt_formatter.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/localnovel/local_novel_decoder.dart';
 import 'package:parfait/core/localnovel/local_novel_repository.dart';
 import 'package:parfait/core/localnovel/local_novel_store.dart';
 import 'package:parfait/core/localnovel/read_offset_anchor.dart';
+import 'package:parfait/core/novel/novel_download_coordinator.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'helpers/download_world.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -466,6 +480,134 @@ void main() {
             );
           }
         }
+      },
+    );
+  });
+
+  group('Pixiv offline novel and TXT export', () {
+    test(
+      'NovelDownloadCoordinator saves offline with chapters and exports TXT per platform',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('pixiv-novel-save');
+        addTearDown(() async {
+          if (await dir.exists()) await dir.delete(recursive: true);
+        });
+        final database = LocalNovelDatabase(
+          factory: databaseFactoryFfi,
+          databasePath: '${dir.path}/local_novels.db',
+        );
+        addTearDown(database.close);
+
+        final sinks = MemorySinkFactory();
+        final payloads = NovelTxtPayloadStore();
+        final executor = NovelTxtDownloadExecutor(payloads: payloads);
+        final manager = DownloadManager(
+          transport: FakeTransport(),
+          sinkFactory: sinks,
+          customExecutor:
+              ({
+                required request,
+                required snapshot,
+                required sink,
+                required cancelToken,
+                required checkOwner,
+                required onProgress,
+              }) => executor.execute(
+                request: request,
+                snapshot: snapshot,
+                sink: sink,
+                cancelToken: cancelToken,
+                checkOwner: checkOwner,
+                onProgress: onProgress,
+              ),
+          submissionContext: () => const DownloadSubmissionContext(
+            accountId: 'acc',
+            destination: DownloadDestination.builtin,
+          ),
+        );
+        addTearDown(manager.dispose);
+
+        final rawBody = '[chapter:序章]\n第一段\n[newpage]\n[chapter:终章]\n第二段';
+        final markup = NovelContentMapper.parse(rawBody, images: false);
+        final novel = NovelEntity(
+          id: 505,
+          title: '星海游记',
+          caption: '简介<br/>第二行',
+          user: const UserEntity(id: 88, name: '星野', account: 'hoshino'),
+          tags: const [NovelTag(name: 'SF')],
+          seriesId: 12,
+          seriesTitle: '银河三部曲',
+          textLength: rawBody.length,
+          contentVersion: 'v1',
+          contentAvailable: true,
+          paragraphs: markup.paragraphs,
+          markup: markup,
+        );
+
+        final desktopContainer = ProviderContainer.test(
+          overrides: [
+            localNovelDatabaseProvider.overrideWithValue(database),
+            localNovelDirectoryProvider.overrideWithValue(() async => dir),
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isWindows: true),
+            ),
+            downloadDestinationProvider.overrideWithValue(
+              DownloadDestination.builtin,
+            ),
+            namingRuleProvider.overrideWithValue(
+              const NamingRule(
+                preset: NamingPreset.custom,
+                template:
+                    '{series}_{series_order}of{chapters}_{artist}_{title}_{id}_p{page}.{ext}',
+              ),
+            ),
+            downloadPadPageNumbersProvider.overrideWithValue(true),
+            novelTxtPayloadStoreProvider.overrideWithValue(payloads),
+            downloadManagerProvider.overrideWithValue(manager),
+          ],
+        );
+
+        final coordinator = desktopContainer.read(
+          novelDownloadCoordinatorProvider,
+        );
+        final cached = await coordinator.saveNovelOffline(novel);
+        expect(cached.pixivNovelId, 505);
+        expect(cached.pixivSeriesId, 12);
+        expect(cached.author, '星野');
+        expect(await cached.file.readAsString(), contains('[chapter:序章]'));
+        // Re-saving updates in place without duplicating the row.
+        final updated = await coordinator.saveNovelOffline(novel);
+        expect(updated.id, cached.id);
+
+        final done = manager.events.first;
+        final outcome = await coordinator.exportNovelTxt(
+          novel,
+          seriesOrder: 2,
+          seriesTotal: 10,
+        );
+        expect(outcome, NovelTxtExportOutcome.queued);
+        final event = await done;
+        expect(event.kind, DownloadEventKind.succeeded);
+        expect(event.snapshot.displayName, '银河三部曲_02of10_星野_星海游记_505.txt');
+        expect(utf8.decode(sinks.sinks.single.bytes), contains('[chapter:终章]'));
+
+        // Android MediaStore album refuses TXT export with actionable notice.
+        final androidContainer = ProviderContainer.test(
+          overrides: [
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isAndroid: true),
+            ),
+            downloadDestinationProvider.overrideWithValue(
+              DownloadDestination.builtin,
+            ),
+          ],
+        );
+        expect(
+          await androidContainer
+              .read(novelDownloadCoordinatorProvider)
+              .exportNovelTxt(novel),
+          NovelTxtExportOutcome.androidFolderRequired,
+        );
       },
     );
   });

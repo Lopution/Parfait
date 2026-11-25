@@ -20,8 +20,13 @@ import 'download_manager.dart';
 import 'download_sink.dart';
 import 'download_task.dart';
 import 'download_transport.dart';
+import '../novel/novel_repository.dart';
+import '../ugoira/ugoira_gif_download_executor.dart';
+import '../ugoira/ugoira_providers.dart';
 import '../ugoira/ugoira_recovery.dart';
 import 'caption_exporter.dart';
+import 'download_request.dart';
+import 'novel_txt_formatter.dart';
 
 /// One app-scoped strict Pixiv media transport shared by downloads, Ugoira
 /// metadata consumers and future compatibility routing.
@@ -87,9 +92,49 @@ final ugoiraRecoveryStoreProvider = Provider<DownloadRecoveryStore>((ref) {
 
 /// App-scoped manager: shared pooled transport + MediaStore pending sinks.
 final downloadManagerProvider = Provider<DownloadManager>((ref) {
+  final ugoiraExecutor = UgoiraGifDownloadExecutor(
+    readRepository: () => ref.read(ugoiraRepositoryProvider),
+    readEncoderFactory: () => ref.read(ugoiraGifEncoderFactoryProvider),
+  );
+  final novelTxtExecutor = NovelTxtDownloadExecutor(
+    payloads: ref.read(novelTxtPayloadStoreProvider),
+    fetchNovelDetail: (novelId) =>
+        ref.read(novelRepositoryProvider).fetchDetail(novelId),
+  );
   final manager = DownloadManager(
     transport: ref.watch(pixivMediaTransportProvider),
     sinkFactory: ref.watch(downloadSinkFactoryProvider),
+    customExecutor:
+        ({
+          required request,
+          required snapshot,
+          required sink,
+          required cancelToken,
+          required checkOwner,
+          required onProgress,
+        }) {
+          return switch (request.target) {
+            DownloadTarget.ugoiraGif => ugoiraExecutor.execute(
+              request: request,
+              snapshot: snapshot,
+              sink: sink,
+              cancelToken: cancelToken,
+              checkOwner: checkOwner,
+              onProgress: onProgress,
+            ),
+            DownloadTarget.novelTxt => novelTxtExecutor.execute(
+              request: request,
+              snapshot: snapshot,
+              sink: sink,
+              cancelToken: cancelToken,
+              checkOwner: checkOwner,
+              onProgress: onProgress,
+            ),
+            _ => throw StateError(
+              'unsupported custom download target: ${request.target.name}',
+            ),
+          };
+        },
     // A file already sitting in the image worker's disk cache (the viewer
     // showed the original) is a completed download waiting to be
     // materialized — serve it from disk instead of re-fetching the same

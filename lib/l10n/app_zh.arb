@@ -2280,5 +2280,52 @@
   "downloadMultiPageSubfolderHint": "页数超过 1 页的作品放入以作品 ID 命名的子文件夹",
   "downloadPadPageNumbers": "页码补零对齐",
   "downloadPadPageNumbersHint": "按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列",
-  "downloadAuthorSubfolderToggle": "放入作者子文件夹"
+  "downloadAuthorSubfolderToggle": "放入作者子文件夹",
+  "downloadAuthorConfirmBodyWithUgoira": "将把 {works} 份静态作品（共 {pages} 页）与 {ugoira} 份动图加入下载队列。",
+  "@downloadAuthorConfirmBodyWithUgoira": {
+    "placeholders": {
+      "works": {"type": "int"},
+      "pages": {"type": "int"},
+      "ugoira": {"type": "int"}
+    }
+  },
+  "downloadAuthorIncludeUgoira": "包含动图作品（{count} 份，导出为 GIF）",
+  "@downloadAuthorIncludeUgoira": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "downloadAuthorUgoiraOnlyHint": "该作者仅发现 {count} 份动图作品。开启下方开关即可导出为 GIF。",
+  "@downloadAuthorUgoiraOnlyHint": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "novelSaveOffline": "保存到离线书架",
+  "novelSavedOffline": "已保存到离线书架",
+  "novelSaveOfflineFailed": "离线保存失败",
+  "novelExportTxt": "导出 TXT",
+  "novelExportTxtQueued": "已加入 TXT 下载队列",
+  "novelExportTxtShared": "已分享 TXT 文件",
+  "novelExportTxtFailed": "导出 TXT 失败",
+  "novelExportAndroidFolderRequired": "Android 上导出 TXT 需要先选择自定义文件夹作为保存位置",
+  "novelSeriesSaveOffline": "离线缓存全系列",
+  "novelSeriesExportTxt": "导出系列 TXT",
+  "novelSeriesExportMerged": "合并为单个 TXT",
+  "novelSeriesExportSplit": "按章节分文件导出",
+  "novelSeriesSavedWithSkipped": "已保存 {saved} 章，跳过 {skipped} 章不可阅读内容",
+  "@novelSeriesSavedWithSkipped": {
+    "placeholders": {
+      "saved": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesExportQueuedWithSkipped": "已加入 {queued} 个章节导出，跳过 {skipped} 章不可阅读内容",
+  "@novelSeriesExportQueuedWithSkipped": {
+    "placeholders": {
+      "queued": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesNoViewableChapters": "该系列暂无可保存的章节"
 }

@@ -21,6 +21,7 @@ import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/novel_download_actions.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
@@ -188,7 +189,7 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
   }
 }
 
-enum _LocalNovelAction { delete }
+enum _LocalNovelAction { exportTxt, delete }
 
 class _LocalNovelTile extends ConsumerWidget {
   const _LocalNovelTile({required this.novel});
@@ -241,12 +242,20 @@ class _LocalNovelTile extends ConsumerWidget {
       trailing: AppMenuButton<_LocalNovelAction>(
         entries: [
           AppMenuEntry(
+            value: _LocalNovelAction.exportTxt,
+            icon: AppIcons.download,
+            label: context.l10n.novelExportTxt,
+          ),
+          AppMenuEntry(
             value: _LocalNovelAction.delete,
             icon: AppIcons.trash,
             label: context.l10n.localNovelsDelete,
           ),
         ],
         onSelected: (_, action) => switch (action) {
+          _LocalNovelAction.exportTxt => unawaited(
+            exportLocalNovelTxtAction(context, ref, novel),
+          ),
           // Deleting removes the imported file — irreversible, so it keeps
           // its confirmation (D5).
           _LocalNovelAction.delete => unawaited(_confirmDelete(context)),

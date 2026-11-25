@@ -16,6 +16,7 @@ import '../../app/widgets/caption_rich_text.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/inline_translation.dart';
 import '../../app/widgets/meta_fact.dart';
+import '../../app/widgets/novel_download_actions.dart';
 import '../../app/widgets/person_card.dart';
 import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
@@ -696,6 +697,18 @@ class _NovelBookmarkMenuButton extends ConsumerWidget {
           icon: AppIcons.heart,
           label: context.l10n.bookmarkEditTitle,
           enabled: !unsettled,
+        ),
+        AppMenuEntry(
+          value: () =>
+              unawaited(savePixivNovelOfflineAction(context, ref, novel)),
+          icon: AppIcons.localNovel,
+          label: context.l10n.novelSaveOffline,
+        ),
+        AppMenuEntry(
+          value: () =>
+              unawaited(exportPixivNovelTxtAction(context, ref, novel)),
+          icon: AppIcons.download,
+          label: context.l10n.novelExportTxt,
         ),
       ],
       onSelected: (_, action) => action(),

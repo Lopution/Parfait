@@ -434,7 +434,11 @@ void main() {
         expect(bottomSave, findsOneWidget);
         await tester.tap(bottomSave);
         await tester.pump();
-        expect(ugoiraContainer.read(downloadManagerProvider).tasks, isEmpty);
+        final tasks = ugoiraContainer.read(downloadManagerProvider).tasks;
+        expect(tasks, hasLength(1));
+        expect(tasks.single.target, 'ugoiraGif');
+        expect(tasks.single.displayName, '42.gif');
+        await tester.pumpWidget(const SizedBox());
       },
     );
   });

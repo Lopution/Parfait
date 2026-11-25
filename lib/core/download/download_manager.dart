@@ -11,17 +11,25 @@ import '../network/pixiv_headers.dart';
 import 'dart:io';
 import 'dart:math' show Random;
 
-import 'package:flutter/services.dart' show PlatformException;
-
 import '../network/compat/network_contracts.dart';
 import '../network/compat/continued_fetch.dart';
 import '../platform/android_platform_interfaces.dart';
+import 'download_custom_executor.dart';
 import 'download_destination.dart';
 import 'download_request.dart';
 import 'download_sink.dart';
 import 'download_task.dart';
 import 'download_transport.dart';
 import 'pixiv_download_transport.dart';
+export 'download_custom_executor.dart'
+    show
+        DownloadStorageException,
+        DownloadPermissionException,
+        DownloadDecodeException,
+        DownloadResourceLimitException,
+        DownloadTargetExecutor,
+        DownloadTargetProgressCallback,
+        classifyDownloadFailure;
 part 'download_manager_adapters.dart';
 
 /// Per-task progress snapshot emission interval (R5 throttle).
@@ -48,6 +56,7 @@ class DownloadManager {
     this.enforceDefaultDestination = true,
     this.cacheLookup,
     this.continueStalls = false,
+    this.customExecutor,
     DateTime Function()? now,
   }) : _transport = transport,
        _sinkFactory = sinkFactory,
@@ -69,6 +78,7 @@ class DownloadManager {
   /// on a new connection ([ContinuedFetch]). Off, a download is one plain
   /// request and a stall waits for the transport's idle timeout.
   final bool continueStalls;
+  final DownloadTargetExecutor? customExecutor;
   final Duration progressThrottle;
   final DownloadSubmissionContextProvider? _submissionContext;
   final DownloadRecoveryStore _recoveryStore;
@@ -751,7 +761,8 @@ class DownloadManager {
       }
 
       final finalizationInterrupted =
-          record.status == DownloadStatus.finalizing;
+          record.status == DownloadStatus.finalizing ||
+          (pending && isCustomDownloadTarget(request.target));
       final status = finalizationInterrupted
           ? DownloadStatus.orphaned
           : pending
@@ -942,7 +953,8 @@ class DownloadManager {
       final drops = _drops;
       if (drops != null) await drops;
       _checkOwner(job);
-      final anchor = job.resumeAnchor;
+      final isCustom = isCustomDownloadTarget(job.request.target);
+      final anchor = isCustom ? null : job.resumeAnchor;
       if (anchor != null) {
         sink = await _resumeSink(job, anchor);
         if (sink != null) {
@@ -959,6 +971,16 @@ class DownloadManager {
         _persist(job);
       }
       _checkOwner(job);
+      if (isCustom) {
+        final executor = customExecutor;
+        if (executor == null) {
+          throw StateError(
+            'no custom executor configured for ${job.request.target.name}',
+          );
+        }
+        await _runCustomAndFinalize(job, sink, executor);
+        return;
+      }
       var openedResponse = await _open(job, resumeOffset);
       response = openedResponse;
       if (job.cancelToken.isCancelled) {
@@ -1015,6 +1037,46 @@ class DownloadManager {
       if (!responseClosed) await closeResponse();
       _schedule();
     }
+  }
+
+  Future<void> _runCustomAndFinalize(
+    _Job job,
+    DownloadSink sink,
+    DownloadTargetExecutor executor,
+  ) async {
+    await executor(
+      request: job.request,
+      snapshot: job.submission,
+      sink: sink,
+      cancelToken: job.cancelToken,
+      checkOwner: () => _checkOwner(job),
+      onProgress: ({int? receivedBytes, int? totalBytes}) {
+        _notifyProgress(
+          job,
+          job.snapshot.copyWith(
+            receivedBytes: receivedBytes ?? job.snapshot.receivedBytes,
+            totalBytes: totalBytes ?? job.snapshot.totalBytes,
+          ),
+        );
+      },
+    );
+    if (job.cancelToken.isCancelled) throw const DownloadCancelledException();
+    _checkOwner(job);
+    _transition(job, DownloadStatus.finalizing);
+    final uri = Uri.parse(await sink.finalize());
+    job.pendingOutputId = null;
+    job.resumeAnchor = null;
+    _transition(
+      job,
+      DownloadStatus.succeeded,
+      job.snapshot.copyWith(
+        finalUri: uri,
+        error: null,
+        failureKind: null,
+        retryAfter: null,
+      ),
+    );
+    _complete(job, DownloadEvent.succeeded(job.snapshot));
   }
 
   Future<void> _streamAndFinalize(
@@ -1717,101 +1779,4 @@ class DownloadManager {
       await (transport as DisposableDownloadTransport).dispose();
     }
   }
-}
-
-class _Job {
-  _Job({
-    required this.id,
-    required this.key,
-    required this.request,
-    required this.displayName,
-    required this.submission,
-    required this.owner,
-    DownloadTaskSnapshot? snapshot,
-  }) : snapshot =
-           snapshot ??
-           DownloadTaskSnapshot(
-             id: id,
-             illustId: request.illustId,
-             pageIndex: request.pageIndex,
-             url: request.url,
-             target: request.target.name,
-             displayName: displayName,
-             status: DownloadStatus.queued,
-             submission: submission,
-             outputOwner: owner,
-           );
-
-  final String id;
-  final String key;
-  final DownloadRequest request;
-  final String displayName;
-  final DownloadSubmissionSnapshot submission;
-  final DownloadOutputOwner owner;
-
-  DownloadCancelToken cancelToken = DownloadCancelToken();
-  DownloadTaskSnapshot snapshot;
-  var terminalEmitted = false;
-  var cleanupStarted = false;
-  int? pendingOutputId;
-  var ownerInvalidated = false;
-
-  /// Durable token for preserved partial output (D8); mirrored into every
-  /// snapshot via [_update] so the UI sees the same value the record has.
-  ResumeAnchor? resumeAnchor;
-
-  /// A pause was requested; the next cancellation unwind preserves bytes
-  /// and lands in `retryable` instead of `canceled`.
-  var pauseRequested = false;
-
-  void applySnapshot(DownloadTaskSnapshot value) {
-    snapshot = value;
-  }
-}
-
-/// What [DownloadManager.dismissAll] removed, kept so
-/// [DownloadManager.restore] can put it back. Opaque outside the manager.
-final class DownloadRemoval {
-  const DownloadRemoval._(this._jobs);
-
-  final List<_RemovedJob> _jobs;
-
-  /// Ids of the tasks that were removed.
-  List<String> get taskIds => [for (final removed in _jobs) removed.job.id];
-
-  int get count => _jobs.length;
-  bool get isEmpty => _jobs.isEmpty;
-}
-
-/// A removed task and where it sat: its index in the task list and, for a
-/// group child, its group (enough to bring the group back), the group's
-/// index among groups and the task's position in it.
-final class _RemovedJob {
-  const _RemovedJob({
-    required this.job,
-    required this.index,
-    required this.group,
-  });
-
-  final _Job job;
-  final int index;
-  final ({
-    String id,
-    DownloadSubmissionSnapshot submission,
-    int index,
-    int position,
-  })?
-  group;
-}
-
-class _DownloadGroup {
-  _DownloadGroup({
-    required this.id,
-    required this.jobIds,
-    required this.submission,
-  });
-
-  final String id;
-  final List<String> jobIds;
-  final DownloadSubmissionSnapshot submission;
 }

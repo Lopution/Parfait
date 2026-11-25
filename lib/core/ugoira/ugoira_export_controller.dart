@@ -4,16 +4,15 @@ import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
-import '../download/download_manager.dart' show classifyDownloadFailure;
+import '../download/download_manager.dart';
 import '../download/download_providers.dart';
-import '../download/download_recovery.dart';
-import '../network/api_error.dart';
-import '../network/pixiv_http_client.dart';
+import '../download/download_request.dart';
+import '../download/download_task.dart';
+import '../download/illust_download_coordinator.dart';
+import '../entity/illust_store.dart';
 import '../settings/settings_controller.dart';
 import 'ugoira_export.dart';
 import 'ugoira_limits.dart';
-import 'ugoira_providers.dart';
-import 'ugoira_repository.dart';
 
 /// Lifecycle phase of an app-level Ugoira GIF export.
 enum UgoiraExportPhase {
@@ -48,63 +47,61 @@ class UgoiraExportTaskState {
   double? get progress => snapshot?.progress;
 }
 
-class _ActiveUgoiraExport {
-  _ActiveUgoiraExport({required this.loadCancelToken});
-
-  final CancelToken loadCancelToken;
-  UgoiraExportJob? job;
-  Future<UgoiraExportTaskState>? future;
-  bool canceled = false;
-
-  void cancel() {
-    canceled = true;
-    loadCancelToken.cancel();
-    job?.cancel();
-  }
-}
-
 /// Optional encoder factory override for deterministic tests; production uses
 /// [ImagePackageUgoiraGifEncoder].
 final ugoiraGifEncoderFactoryProvider =
     Provider<UgoiraGifEncoder Function(UgoiraLimits limits)?>((_) => null);
 
-/// App-level owner for Ugoira GIF exports.
+/// Live facade over [DownloadManager] for `DownloadTarget.ugoiraGif` jobs.
 ///
-/// Each export independently loads and owns its own [UgoiraAsset] and
-/// temporary ZIP archive (never borrowing [UgoiraViewer]'s playback asset per
-/// `IMG-10`), survives navigating away from the detail page, reports live
-/// progress/cancellation on same-process re-entry, and disposes its job and
-/// temporary archive on every terminal path.
+/// Unifies viewer, detail action bar, card actions, multi-select, and bulk
+/// author exports under one [DownloadManager] task queue so progress,
+/// cancellation, retry, naming templates, captions, and `DownloadTasksPage`
+/// rows share a single source of truth.
 class UgoiraExportController extends Notifier<Map<int, UgoiraExportTaskState>> {
-  final Map<int, _ActiveUgoiraExport> _active = {};
+  final Map<int, Future<UgoiraExportTaskState>> _inFlight = {};
+  final Map<int, Completer<UgoiraExportTaskState>> _completers = {};
+  StreamSubscription<void>? _changesSub;
+  StreamSubscription<DownloadEvent>? _eventsSub;
 
   @override
   Map<int, UgoiraExportTaskState> build() {
-    ref.onDispose(_disposeAll);
-    return const {};
+    final manager = ref.watch(downloadManagerProvider);
+    unawaited(_changesSub?.cancel());
+    unawaited(_eventsSub?.cancel());
+    _changesSub = manager.changes.listen((_) => _syncFromManager(manager));
+    _eventsSub = manager.events.listen(_handleEvent);
+    ref.onDispose(() {
+      unawaited(_changesSub?.cancel());
+      unawaited(_eventsSub?.cancel());
+      _changesSub = null;
+      _eventsSub = null;
+      for (final completer in _completers.values) {
+        if (!completer.isCompleted) {
+          completer.complete(
+            const UgoiraExportTaskState(phase: UgoiraExportPhase.canceled),
+          );
+        }
+      }
+      _completers.clear();
+      _inFlight.clear();
+    });
+    return _snapshotMap(manager);
   }
 
   /// Whether a signed-in account context is currently available for export.
-  bool get isSignedIn => _currentDownloadContext() != null;
-
-  DownloadSubmissionContext? _currentDownloadContext() {
+  bool get isSignedIn {
     final accountState = ref.read(accountStoreProvider).asData?.value;
-    final account = accountState?.usableCurrent;
-    if (accountState == null || account == null) return null;
-    // C4: a token refresh must not change the stable owner identity.
-    return DownloadSubmissionContext(
-      accountId: account.id,
-      destination: ref.read(downloadDestinationProvider),
-    );
+    return accountState?.usableCurrent != null;
   }
 
-  /// Starts (or joins an already running) GIF export for [illustId].
+  /// Starts (or joins an already running) GIF export for [illustId] inside
+  /// [DownloadManager].
   Future<UgoiraExportTaskState> export(int illustId) {
-    final existing = _active[illustId];
-    if (existing?.future case final future?) return future;
+    final existing = _inFlight[illustId];
+    if (existing != null) return existing;
 
-    final submissionContext = _currentDownloadContext();
-    if (submissionContext == null) {
+    if (!isSignedIn) {
       return Future.value(
         const UgoiraExportTaskState(
           phase: UgoiraExportPhase.failed,
@@ -113,112 +110,152 @@ class UgoiraExportController extends Notifier<Map<int, UgoiraExportTaskState>> {
       );
     }
 
-    final handle = _ActiveUgoiraExport(loadCancelToken: CancelToken());
-    _active[illustId] = handle;
-    _setEntry(
-      illustId,
-      const UgoiraExportTaskState(phase: UgoiraExportPhase.preparing),
-    );
-    final future = _run(illustId, handle, submissionContext);
-    handle.future = future;
+    final completer = Completer<UgoiraExportTaskState>();
+    _completers[illustId] = completer;
+    final future = _trackInFlight(illustId, completer);
+    _inFlight[illustId] = future;
+    unawaited(_submit(illustId, completer));
     return future;
   }
 
-  /// Cancels an active archive download or GIF quantization for [illustId].
-  void cancel(int illustId) {
-    _active[illustId]?.cancel();
-  }
-
-  void _setEntry(int illustId, UgoiraExportTaskState entry) {
-    if (!ref.mounted) return;
-    state = {...state, illustId: entry};
-  }
-
-  Future<UgoiraExportTaskState> _run(
+  Future<UgoiraExportTaskState> _trackInFlight(
     int illustId,
-    _ActiveUgoiraExport handle,
-    DownloadSubmissionContext submissionContext,
+    Completer<UgoiraExportTaskState> completer,
   ) async {
-    UgoiraAsset? asset;
-    UgoiraExportJob? job;
-    StreamSubscription<UgoiraExportSnapshot>? subscription;
-    var finalState = const UgoiraExportTaskState(
-      phase: UgoiraExportPhase.canceled,
-    );
     try {
-      final repository = ref.read(ugoiraRepositoryProvider);
-      asset = await repository.load(
-        illustId,
-        cancelToken: handle.loadCancelToken,
-      );
-      if (handle.canceled || !ref.mounted) {
-        return finalState;
+      return await completer.future;
+    } finally {
+      if (identical(_completers[illustId], completer)) {
+        _completers.remove(illustId);
+        unawaited(_inFlight.remove(illustId));
       }
-      final sinkFactory = ref.read(downloadSinkFactoryProvider);
-      final recoveryStore = ref.read(ugoiraRecoveryStoreProvider);
-      final encoderFactory = ref.read(ugoiraGifEncoderFactoryProvider);
-      job = UgoiraExportJob(
-        asset: asset,
-        sinkFactory: sinkFactory,
-        encoderFactory: encoderFactory,
-        recoveryStore: recoveryStore,
-        submissionContext: submissionContext,
-        submissionContextProvider: _currentDownloadContext,
-      );
-      handle.job = job;
-      if (handle.canceled) {
-        job.cancel();
+    }
+  }
+
+  /// Cancels an active ugoira GIF task for [illustId] in [DownloadManager].
+  void cancel(int illustId) {
+    final manager = ref.read(downloadManagerProvider);
+    for (final task in manager.tasks) {
+      if (task.illustId == illustId &&
+          task.target == DownloadTarget.ugoiraGif.name &&
+          !isTerminal(task.status)) {
+        unawaited(manager.cancel(task.id));
+        return;
       }
-      subscription = job.events.listen((snapshot) {
-        _setEntry(illustId, _fromSnapshot(snapshot));
-      });
-      final result = await job.start();
-      finalState = _fromSnapshot(result);
-    } on ApiCancelled {
-      finalState = const UgoiraExportTaskState(
-        phase: UgoiraExportPhase.canceled,
-      );
+    }
+  }
+
+  Future<void> _submit(
+    int illustId,
+    Completer<UgoiraExportTaskState> completer,
+  ) async {
+    try {
+      final manager = ref.read(downloadManagerProvider);
+      final work = ref.read(illustStoreProvider).get(illustId);
+      final DownloadTaskSnapshot snapshot;
+      if (work != null) {
+        snapshot = await ref
+            .read(illustDownloadCoordinatorProvider)
+            .downloadUgoiraGif(
+              work: work,
+              namingRule: ref.read(namingRuleProvider),
+            );
+      } else {
+        snapshot = manager.submit(
+          DownloadRequest(
+            illustId: illustId,
+            pageIndex: 0,
+            url: Uri.parse('https://i.pximg.net/ugoira/$illustId.gif'),
+            target: DownloadTarget.ugoiraGif,
+            namingRule: ref.read(namingRuleProvider),
+            padPageNumbers: ref.read(downloadPadPageNumbersProvider),
+          ),
+        );
+      }
+      _syncFromManager(manager);
+      if (isTerminal(snapshot.status) && !completer.isCompleted) {
+        completer.complete(_stateFromTask(snapshot));
+      }
     } catch (error) {
-      finalState = UgoiraExportTaskState(
+      final failed = UgoiraExportTaskState(
         phase: UgoiraExportPhase.failed,
         failureKind: classifyDownloadFailure(error),
         error: error.toString(),
       );
-    } finally {
-      await subscription?.cancel();
-      if (job != null) await job.dispose();
-      if (asset != null) await asset.dispose();
-      if (identical(_active[illustId], handle)) {
-        _active.remove(illustId);
+      if (ref.mounted) {
+        state = {...state, illustId: failed};
       }
-      _setEntry(illustId, finalState);
+      if (!completer.isCompleted) completer.complete(failed);
     }
-    return finalState;
   }
 
-  static UgoiraExportTaskState _fromSnapshot(UgoiraExportSnapshot snapshot) {
-    final phase = switch (snapshot.status) {
-      UgoiraExportStatus.queued ||
-      UgoiraExportStatus.running => UgoiraExportPhase.running,
-      UgoiraExportStatus.finalizing => UgoiraExportPhase.finalizing,
-      UgoiraExportStatus.succeeded => UgoiraExportPhase.succeeded,
-      UgoiraExportStatus.canceled => UgoiraExportPhase.canceled,
-      UgoiraExportStatus.failed => UgoiraExportPhase.failed,
+  void _syncFromManager(DownloadManager manager) {
+    if (!ref.mounted) return;
+    state = _snapshotMap(manager);
+  }
+
+  void _handleEvent(DownloadEvent event) {
+    final task = event.snapshot;
+    if (task.target != DownloadTarget.ugoiraGif.name) return;
+    final mapped = _stateFromTask(task);
+    if (ref.mounted) {
+      state = {...state, task.illustId: mapped};
+    }
+    final completer = _completers[task.illustId];
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(mapped);
+    }
+  }
+
+  static Map<int, UgoiraExportTaskState> _snapshotMap(DownloadManager manager) {
+    final next = <int, UgoiraExportTaskState>{};
+    for (final task in manager.tasks) {
+      if (task.target == DownloadTarget.ugoiraGif.name) {
+        next[task.illustId] = _stateFromTask(task);
+      }
+    }
+    return next;
+  }
+
+  static UgoiraExportTaskState _stateFromTask(DownloadTaskSnapshot task) {
+    final total = task.totalBytes ?? 0;
+    final processed = task.receivedBytes;
+    final phase = switch (task.status) {
+      DownloadStatus.queued => UgoiraExportPhase.preparing,
+      DownloadStatus.running =>
+        total == 0 ? UgoiraExportPhase.preparing : UgoiraExportPhase.running,
+      DownloadStatus.finalizing => UgoiraExportPhase.finalizing,
+      DownloadStatus.succeeded => UgoiraExportPhase.succeeded,
+      DownloadStatus.canceling ||
+      DownloadStatus.canceled => UgoiraExportPhase.canceled,
+      DownloadStatus.failed ||
+      DownloadStatus.retryable ||
+      DownloadStatus.orphaned => UgoiraExportPhase.failed,
+    };
+    final exportStatus = switch (task.status) {
+      DownloadStatus.queued => UgoiraExportStatus.queued,
+      DownloadStatus.running => UgoiraExportStatus.running,
+      DownloadStatus.finalizing => UgoiraExportStatus.finalizing,
+      DownloadStatus.succeeded => UgoiraExportStatus.succeeded,
+      DownloadStatus.canceling ||
+      DownloadStatus.canceled => UgoiraExportStatus.canceled,
+      DownloadStatus.failed ||
+      DownloadStatus.retryable ||
+      DownloadStatus.orphaned => UgoiraExportStatus.failed,
     };
     return UgoiraExportTaskState(
       phase: phase,
-      snapshot: snapshot,
-      failureKind: snapshot.failureKind,
-      error: snapshot.error,
+      snapshot: UgoiraExportSnapshot(
+        status: exportStatus,
+        processedFrames: processed,
+        totalFrames: total,
+        uri: task.finalUri,
+        error: task.error,
+        failureKind: task.failureKind,
+      ),
+      failureKind: task.failureKind,
+      error: task.error,
     );
-  }
-
-  void _disposeAll() {
-    final handles = _active.values.toList();
-    _active.clear();
-    for (final handle in handles) {
-      handle.cancel();
-    }
   }
 }
 

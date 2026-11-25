@@ -18,6 +18,7 @@ import 'display_actions.dart';
 import 'entity_row.dart';
 import 'feed/feed_text_warmup.dart';
 import 'feed/muted_cover.dart';
+import 'novel_download_actions.dart';
 import '../icons/app_icons.dart';
 
 /// The single novel list-entry contract — replaces the parallel
@@ -299,6 +300,20 @@ class NovelEntry extends ConsumerWidget {
                         BookmarkKey(BookmarkEntityType.novel, entity.id),
                         title: entity.title,
                       ),
+                    ),
+                  ),
+                  DisplayAction(
+                    icon: AppIcons.localNovel,
+                    label: context.l10n.novelSaveOffline,
+                    onSelected: () => unawaited(
+                      savePixivNovelOfflineAction(context, ref, entity),
+                    ),
+                  ),
+                  DisplayAction(
+                    icon: AppIcons.download,
+                    label: context.l10n.novelExportTxt,
+                    onSelected: () => unawaited(
+                      exportPixivNovelTxtAction(context, ref, entity),
                     ),
                   ),
                   DisplayAction(
