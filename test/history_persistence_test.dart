@@ -87,7 +87,10 @@ void main() {
       expect(columns.any((row) => row['name'] == 'snapshot_version'), isTrue);
       expect(columns.any((row) => row['name'] == 'tags_text'), isTrue);
       final version = await opened.rawQuery('PRAGMA user_version');
-      expect((version.single['user_version'] as num).toInt(), 3);
+      expect(
+        (version.single['user_version'] as num).toInt(),
+        HistoryDatabase.schemaVersion,
+      );
     });
 
     test(
@@ -363,7 +366,7 @@ void main() {
       );
 
       expect(pagePlan.join('\n'), contains('history_records_order'));
-      expect(countPlan.join('\n'), contains('history_records_order'));
+      expect(countPlan.join('\n'), contains('COVERING INDEX history_records_'));
       expect(findPlan.join('\n'), contains('history_records_identity'));
       expect(outboxPlan.join('\n'), contains('pixiv_history_outbox_ready'));
       for (final detail in [
@@ -574,6 +577,82 @@ void main() {
       expect(await repository.pendingOutbox(accountId: 'a'), isEmpty);
       expect(await repository.pendingOutbox(accountId: 'b'), hasLength(1));
     });
+
+    test(
+      'mergeAll, deleteAll, v4 indexes, and search coalescing keep history fast and atomic',
+      () async {
+        final db = await database.database;
+        final typePlan = await db.rawQuery(
+          'EXPLAIN QUERY PLAN SELECT id FROM history_records '
+          "WHERE account_id = 'a' AND content_type = 'novel' "
+          'ORDER BY last_viewed_at DESC, id DESC LIMIT 30',
+        );
+        expect(
+          typePlan.map((r) => '${r['detail']}').join(' '),
+          contains('history_records_type_order'),
+        );
+        final authorPlan = await db.rawQuery(
+          'EXPLAIN QUERY PLAN SELECT id FROM history_records '
+          "WHERE account_id = 'a' AND author_id = 42 "
+          'ORDER BY last_viewed_at DESC, id DESC LIMIT 30',
+        );
+        expect(
+          authorPlan.map((r) => '${r['detail']}').join(' '),
+          contains('history_records_author'),
+        );
+
+        var changeEvents = 0;
+        final sub = repository.changes.listen((_) => changeEvents++);
+        addTearDown(sub.cancel);
+
+        final t1 = DateTime.utc(2026, 9, 1);
+        final t2 = DateTime.utc(2026, 9, 2);
+        final t3 = DateTime.utc(2026, 9, 3);
+        await repository.upsert(
+          _record('a', HistoryContentType.illust, 1, viewedAt: t2),
+        );
+        await Future<void>.delayed(Duration.zero);
+        changeEvents = 0;
+
+        // Deduplicates duplicate identities, skips older row 1, writes 2 & 3 once.
+        final written = await repository.mergeAll('a', [
+          _record('a', HistoryContentType.illust, 1, viewedAt: t1),
+          _record('a', HistoryContentType.illust, 2, viewedAt: t1),
+          _record('a', HistoryContentType.illust, 2, viewedAt: t3),
+          _record('a', HistoryContentType.novel, 3, viewedAt: t2),
+        ]);
+        await Future<void>.delayed(Duration.zero);
+        expect(written, 2);
+        expect(changeEvents, 1);
+        expect(
+          (await repository.find(
+            accountId: 'a',
+            contentType: HistoryContentType.illust,
+            contentId: 2,
+          ))!.lastViewedAt,
+          t3,
+        );
+
+        // Overlapping searches coalesce superseded unstarted queries.
+        final f1 = repository.page(accountId: 'a', query: 'title');
+        final f2 = repository.page(accountId: 'a', query: 'nonexistent-mid');
+        final f3 = repository.page(accountId: 'a', query: '3');
+        final results = await Future.wait([f1, f2, f3]);
+        expect(results[1].records.map((r) => r.contentId), [3]);
+        expect(results[2].records.map((r) => r.contentId), [3]);
+
+        // deleteAll removes multiple rows in one transaction with one change event.
+        changeEvents = 0;
+        final deleted = await repository.deleteAll('a', const [
+          (contentType: HistoryContentType.illust, contentId: 1),
+          (contentType: HistoryContentType.illust, contentId: 2),
+        ]);
+        await Future<void>.delayed(Duration.zero);
+        expect(deleted, 2);
+        expect(changeEvents, 1);
+        expect(await repository.count(accountId: 'a'), 1);
+      },
+    );
   });
 
   test(

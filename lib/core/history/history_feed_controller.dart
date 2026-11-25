@@ -80,17 +80,25 @@ class _HistoryFeedController extends PagedFeedController {
   }
 
   /// Deletes one record and drops it from the visible feed.
-  Future<void> removeRecord(HistoryRecord record) async {
-    await repository.delete(
-      accountId: query.accountId,
-      contentType: record.contentType,
-      contentId: record.contentId,
-    );
-    _records.remove(keyOf(record));
+  Future<void> removeRecord(HistoryRecord record) => removeRecords([record]);
+
+  /// Deletes [records] in one transaction and updates the visible feed once.
+  Future<void> removeRecords(List<HistoryRecord> records) async {
+    if (records.isEmpty) return;
+    await repository.deleteAll(query.accountId, [
+      for (final record in records)
+        (contentType: record.contentType, contentId: record.contentId),
+    ]);
+    final removedKeys = <int>{};
+    for (final record in records) {
+      final key = keyOf(record);
+      removedKeys.add(key);
+      _records.remove(key);
+    }
     final current = state.requireValue;
     state = AsyncData(
       current.copyWith(
-        ids: current.ids.where((key) => key != keyOf(record)).toList(),
+        ids: current.ids.where((key) => !removedKeys.contains(key)).toList(),
       ),
     );
   }

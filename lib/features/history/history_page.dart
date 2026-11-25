@@ -497,10 +497,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     // The tiles leave first; the delete then drops them from the feed.
     await _removals.playExit(keys);
     try {
-      for (final key in keys) {
-        final record = controller.recordFor(key);
-        if (record != null) await controller.removeRecord(record);
-      }
+      final records = [for (final key in keys) ?controller.recordFor(key)];
+      await controller.removeRecords(records);
       if (mounted) {
         setState(() {
           _managing = false;

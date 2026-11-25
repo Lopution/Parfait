@@ -132,6 +132,51 @@ class MuteStore extends Notifier<MuteState> {
   Future<void> unmuteWork(int illustId) =>
       _writeWork(illustId, (works) => {...works}..remove(illustId));
 
+  /// Applies imported work mutes in one map pass and one preference write.
+  /// Backfilling metadata onto existing entries persists without being
+  /// counted as a mute change.
+  Future<int> applyBackupWorks(
+    Map<int, MutedWork> imported, {
+    required bool overwrite,
+  }) async {
+    await _hydrated;
+    final accountId = _requireAccountId();
+    final next = Map<int, MutedWork>.of(state.works);
+    var changed = 0;
+    var mutated = false;
+    for (final work in imported.values) {
+      final current = next[work.illustId];
+      if (current == null) {
+        next[work.illustId] = work;
+        changed++;
+        mutated = true;
+        continue;
+      }
+      final filled = current.filledFrom(work);
+      if (filled != current) {
+        next[work.illustId] = filled;
+        mutated = true;
+      }
+    }
+    if (overwrite) {
+      final toRemove = [
+        for (final id in next.keys)
+          if (!imported.containsKey(id)) id,
+      ];
+      for (final id in toRemove) {
+        next.remove(id);
+        changed++;
+        mutated = true;
+      }
+    }
+    if (!mutated) return 0;
+    await _persistWorks(accountId, next);
+    if (_stillCurrent(accountId)) {
+      state = state.copyWith(works: next);
+    }
+    return changed;
+  }
+
   /// Optimistic; persisted per account. The account id is captured up front
   /// so an account switch mid-write cannot persist the old account's list
   /// under the new account's key.
