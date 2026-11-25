@@ -31,7 +31,7 @@ class FeedDatabase {
 
   static const databaseName = 'feeds.db';
   static const snapshotTable = 'feed_snapshots';
-  static const schemaVersion = 3;
+  static const schemaVersion = 4;
 
   final SqliteDatabase _sqlite;
 
@@ -53,6 +53,7 @@ class FeedDatabase {
         PRIMARY KEY (account_id, feed_key)
       )
     ''');
+    await _createLruIndex(db);
   }
 
   static Future<void> _upgrade(
@@ -62,8 +63,17 @@ class FeedDatabase {
   ) async {
     if (oldVersion < 1) {
       await _createSchema(db);
+      return;
+    }
+    if (oldVersion < 4) {
+      await _createLruIndex(db);
     }
     // Keep any legacy v2 action_queue rows intact here; SqliteActionStore
     // migrates them into actions.db and drops the legacy table on first access.
   }
+
+  static Future<void> _createLruIndex(DatabaseExecutor db) => db.execute('''
+    CREATE INDEX IF NOT EXISTS ${snapshotTable}_lru
+    ON $snapshotTable (account_id, saved_at DESC, feed_key)
+  ''');
 }

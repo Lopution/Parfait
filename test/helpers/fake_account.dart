@@ -11,6 +11,7 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 
@@ -158,6 +159,7 @@ Future<ProviderContainer> signedInApiContainer(
         ),
       ),
       pixivHttpClientProvider.overrideWith((ref) => client),
+      dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
       ...overrides,
     ],
   );

@@ -40,6 +40,24 @@ class FeedSnapshot {
   final int snapshotVersion;
 }
 
+/// Undecoded `feed_snapshots` row returned by [FeedSnapshotStore.readRaw] so
+/// callers can offload JSON decoding and entity construction to `DataWorker`.
+class RawFeedSnapshot {
+  const RawFeedSnapshot({
+    required this.idsJson,
+    required this.entitiesJson,
+    required this.savedAt,
+    this.cursor,
+    this.snapshotVersion = 1,
+  });
+
+  final String idsJson;
+  final String entitiesJson;
+  final String? cursor;
+  final DateTime savedAt;
+  final int snapshotVersion;
+}
+
 /// CRUD, expiry and per-account LRU eviction for feed snapshots.
 ///
 /// Storage policy: at most [maxEntriesPerAccount] feeds per account (newest
@@ -66,9 +84,10 @@ class FeedSnapshotStore {
   int get discardedCount => _discardedCount;
   int _discardedCount = 0;
 
-  /// Reads the snapshot for one feed. Expired or undecodable rows are
-  /// deleted and reported through [discardedCount]; a miss returns null.
-  Future<FeedSnapshot?> read(
+  /// Reads the raw JSON columns for one feed without decoding on the calling
+  /// isolate. Expired rows are deleted immediately and counted in
+  /// [discardedCount]; a miss returns null.
+  Future<RawFeedSnapshot?> readRaw(
     String accountId,
     String feedKey, {
     Duration maxAge = maxAge,
@@ -90,30 +109,65 @@ class FeedSnapshotStore {
     if (rows.isEmpty) return null;
     final row = rows.single;
     final savedAt = DateTime.fromMillisecondsSinceEpoch(row['saved_at'] as int);
-    final expired = _now().difference(savedAt) > maxAge;
-    final snapshot = expired ? null : _decode(row, savedAt);
-    if (snapshot == null) {
+    if (_now().difference(savedAt) > maxAge) {
       _discardedCount++;
       await _delete(db, accountId, feedKey);
+      return null;
+    }
+    final idsJson = row['ids'];
+    final entitiesJson = row['entities'];
+    final version = row['snapshot_version'];
+    if (idsJson is! String || entitiesJson is! String || version is! int) {
+      _discardedCount++;
+      await _delete(db, accountId, feedKey);
+      return null;
+    }
+    return RawFeedSnapshot(
+      idsJson: idsJson,
+      entitiesJson: entitiesJson,
+      cursor: row['cursor'] as String?,
+      savedAt: savedAt,
+      snapshotVersion: version,
+    );
+  }
+
+  /// Deletes a corrupt snapshot row discovered during worker-side decoding
+  /// and increments [discardedCount].
+  Future<void> discardCorrupt(String accountId, String feedKey) async {
+    _discardedCount++;
+    final db = await _database.database;
+    await _delete(db, accountId, feedKey);
+  }
+
+  /// Reads the snapshot for one feed. Expired or undecodable rows are
+  /// deleted and reported through [discardedCount]; a miss returns null.
+  Future<FeedSnapshot?> read(
+    String accountId,
+    String feedKey, {
+    Duration maxAge = maxAge,
+  }) async {
+    final raw = await readRaw(accountId, feedKey, maxAge: maxAge);
+    if (raw == null) return null;
+    final snapshot = _decodeRaw(raw);
+    if (snapshot == null) {
+      await discardCorrupt(accountId, feedKey);
       return null;
     }
     return snapshot;
   }
 
-  FeedSnapshot? _decode(Map<String, Object?> row, DateTime savedAt) {
+  FeedSnapshot? _decodeRaw(RawFeedSnapshot raw) {
     try {
       final ids = [
-        for (final id in jsonDecode(row['ids']! as String) as List<dynamic>)
-          id as int,
+        for (final id in jsonDecode(raw.idsJson) as List<dynamic>) id as int,
       ];
-      final entities =
-          jsonDecode(row['entities']! as String) as Map<String, Object?>;
+      final entities = jsonDecode(raw.entitiesJson) as Map<String, Object?>;
       return FeedSnapshot(
         ids: ids,
         entities: entities,
-        cursor: row['cursor'] as String?,
-        savedAt: savedAt,
-        snapshotVersion: row['snapshot_version']! as int,
+        cursor: raw.cursor,
+        savedAt: raw.savedAt,
+        snapshotVersion: raw.snapshotVersion,
       );
     } on Object {
       return null;

@@ -814,35 +814,46 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     FeedSnapshotCodec codec,
     AccountClaim claim,
   ) async {
-    final FeedSnapshot? snapshot;
+    final store = ref.read(feedSnapshotStoreProvider);
+    final RawFeedSnapshot? raw;
     try {
-      snapshot = await ref
-          .read(feedSnapshotStoreProvider)
-          .read(claim.accountId!, feedKey);
+      raw = await store.readRaw(claim.accountId!, feedKey);
     } on Object {
-      // A broken snapshot store must never break the feed itself.
       return null;
     }
-    if (snapshot == null || !claim.holds || _disposed || _cancelRequested) {
+    if (raw == null || !claim.holds || _disposed || _cancelRequested) {
       return null;
     }
-    // A row written by a different payload format is a miss; the next
-    // successful fetch rewrites it under the current version.
-    if (snapshot.snapshotVersion != codec.snapshotVersion) return null;
-    final payload = snapshot.entities[codec.entityType];
-    if (payload is! Map<String, Object?>) return null;
-    final restored = codec.restoreEntities(claim.ref, snapshot.ids, payload);
-    if (restored.isEmpty && snapshot.ids.isNotEmpty) return null;
-    // Written under the filters of its day: a block switched on since
-    // (which rebuilds the feed into this restore) applies here too.
-    final ids = localFilterEnabled ? filterPageIds(restored) : restored;
-    _nextCursor = snapshot.cursor;
-    _recordCursor(snapshot.cursor);
+    if (raw.snapshotVersion != codec.snapshotVersion) return null;
+    final DecodedFeedSnapshot decoded;
+    try {
+      decoded = await ref.read(dataWorkerProvider).run(decodeFeedSnapshot, (
+        codec: codec,
+        idsJson: raw.idsJson,
+        entitiesJson: raw.entitiesJson,
+      ), label: 'snapshot decode');
+    } on Object {
+      return null;
+    }
+    if (!claim.holds || _disposed || _cancelRequested) return null;
+    if (decoded.corrupt) {
+      unawaited(
+        store.discardCorrupt(claim.accountId!, feedKey).onError((_, _) {}),
+      );
+      return null;
+    }
+    if (decoded.ids.isEmpty && decoded.rawIdCount > 0) return null;
+    if (decoded.entities.isNotEmpty) {
+      codec.mergeEntities(claim.ref, decoded.entities);
+    }
+    final ids = localFilterEnabled ? filterPageIds(decoded.ids) : decoded.ids;
+    _nextCursor = raw.cursor;
+    _recordCursor(raw.cursor);
     _page = 1;
     return PagedFeedState(
       ids: ids,
       initialPhase: FeedPhase.idle,
-      exhausted: snapshot.cursor == null,
+      exhausted: raw.cursor == null,
     );
   }
 

@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:parfait/core/illust/illust_snapshot_codec.dart';
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/paging/feed_database.dart';
+import 'package:parfait/core/paging/feed_snapshot_codec.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 
 void main() {
@@ -156,5 +159,42 @@ void main() {
       expect(await store.read('a', 'feed'), isNull);
       expect((await store.read('b', 'feed'))!.ids, [2]);
     });
+
+    test(
+      'v4 LRU index covers eviction and DataWorker decodes readRaw',
+      () async {
+        final db = await database.database;
+        final plan = await db.rawQuery(
+          'EXPLAIN QUERY PLAN SELECT feed_key FROM feed_snapshots '
+          "WHERE account_id = 'a' ORDER BY saved_at DESC LIMIT -1 OFFSET 64",
+        );
+        expect(
+          plan.map((r) => '${r['detail']}').join(' '),
+          contains('feed_snapshots_lru'),
+        );
+
+        await db.insert(FeedDatabase.snapshotTable, {
+          'account_id': 'a',
+          'feed_key': 'corrupt',
+          'ids': '{not-json',
+          'entities': '{}',
+          'saved_at': now.millisecondsSinceEpoch,
+          'snapshot_version': 1,
+        });
+        final rawCorrupt = await store.readRaw('a', 'corrupt');
+        expect(rawCorrupt, isNotNull);
+        final worker = IsolateDataWorker();
+        addTearDown(worker.close);
+        final decodedCorrupt = await worker.run(decodeFeedSnapshot, (
+          codec: const IllustSnapshotCodec(),
+          idsJson: rawCorrupt!.idsJson,
+          entitiesJson: rawCorrupt.entitiesJson,
+        ), label: 'decode corrupt');
+        expect(decodedCorrupt.corrupt, isTrue);
+        await store.discardCorrupt('a', 'corrupt');
+        expect(store.discardedCount, 1);
+        expect(await store.readRaw('a', 'corrupt'), isNull);
+      },
+    );
   });
 }
