@@ -190,6 +190,11 @@ class HttpDownloadTransport
     if (requireHttps && url.scheme != 'https') {
       throw const DownloadTransportException('download URL must be https');
     }
+    if (requireHttps && url.hasPort && url.port != 443) {
+      throw DownloadTransportException(
+        'download URL port not allowed: ${url.port}',
+      );
+    }
     if (!isAllowedHost(url.host)) {
       throw DownloadTransportException(
         'download host not allowed: ${url.host}',

@@ -8,8 +8,16 @@ import 'package:flutter/painting.dart';
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
+import 'novel_layout_window.dart';
 import 'novel_ruby.dart';
 
+export 'novel_layout_window.dart'
+    show
+        NovelLayoutBudget,
+        NovelLayoutBudgetExceeded,
+        NovelLayoutProgress,
+        NovelLayoutProgressCallback,
+        NovelTitleBlock;
 export 'novel_ruby.dart' show NovelLineRuby;
 
 /// Text settings that participate in the layout cache key.
@@ -133,72 +141,6 @@ class NovelLayoutStyle {
   };
 }
 
-/// Hard limits for one layout transaction. They make work proportional to a
-/// caller-provided finite budget instead of allowing a malformed/huge novel
-/// to create unbounded line and page state.
-@immutable
-class NovelLayoutBudget {
-  const NovelLayoutBudget({
-    this.maxParagraphs = 100000,
-    this.maxTextUnits = 4 * 1024 * 1024,
-    this.maxLines = 200000,
-    this.maxPages = 100000,
-    this.chunkParagraphs = 8,
-  }) : assert(maxParagraphs > 0),
-       assert(maxTextUnits > 0),
-       assert(maxLines > 0),
-       assert(maxPages > 0),
-       assert(chunkParagraphs > 0);
-
-  final int maxParagraphs;
-  final int maxTextUnits;
-  final int maxLines;
-  final int maxPages;
-  final int chunkParagraphs;
-}
-
-@immutable
-class NovelLayoutProgress {
-  const NovelLayoutProgress({
-    required this.processedParagraphs,
-    required this.totalParagraphs,
-    required this.measuredLines,
-    required this.pages,
-    required this.isComplete,
-  });
-
-  final int processedParagraphs;
-  final int totalParagraphs;
-  final int measuredLines;
-  final int pages;
-  final bool isComplete;
-
-  double get fraction {
-    if (totalParagraphs <= 0) return isComplete ? 1 : 0;
-    return (processedParagraphs / totalParagraphs).clamp(0.0, 1.0);
-  }
-
-  double get progress => fraction;
-}
-
-class NovelLayoutBudgetExceeded implements Exception {
-  const NovelLayoutBudgetExceeded({
-    required this.budgetName,
-    required this.actual,
-    required this.limit,
-  });
-
-  final String budgetName;
-  final int actual;
-  final int limit;
-
-  @override
-  String toString() =>
-      'NovelLayoutBudgetExceeded($budgetName: $actual > $limit)';
-}
-
-typedef NovelLayoutProgressCallback = void Function(NovelLayoutProgress);
-
 /// Position independent of a particular viewport's page count.
 class NovelAnchor {
   const NovelAnchor({required this.paragraphId, required this.offset});
@@ -298,26 +240,6 @@ enum NovelLineKind {
   /// An illustration, alone on its page ([NovelPageLine.image]). It carries
   /// its block's paragraph id with both offsets 0 and no text.
   image,
-}
-
-/// A pixiv novel's title and byline, laid out at the top of its first page.
-@immutable
-class NovelTitleBlock {
-  const NovelTitleBlock({required this.title, required this.byline});
-
-  final String title;
-
-  /// The author, and the series when there is one.
-  final String byline;
-
-  @override
-  bool operator ==(Object other) =>
-      other is NovelTitleBlock &&
-      other.title == title &&
-      other.byline == byline;
-
-  @override
-  int get hashCode => Object.hash(title, byline);
 }
 
 /// Where an author's link goes: a Pixiv page of the novel (`[jump:N]`),
@@ -426,11 +348,13 @@ class NovelLayout {
     required this.pages,
     required this.totalCharacters,
     required List<String> paragraphOrder,
+    this.isPreliminary = false,
   }) : _paragraphOrder = paragraphOrder;
 
   final NovelLayoutKey key;
   final List<NovelLayoutPage> pages;
   final int totalCharacters;
+  final bool isPreliminary;
   final List<String> _paragraphOrder;
 
   late final Map<String, int> _paragraphIndex = {
@@ -729,6 +653,9 @@ class NovelLayoutEngine {
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
+    NovelAnchor? priorityAnchor,
+    void Function(NovelLayout preliminary)? onPreliminary,
+    bool preliminaryPrefixOnly = false,
   }) async {
     final key = _key(
       contentVersion: _versionWith(contentVersion, translations, titleBlock),
@@ -757,6 +684,9 @@ class NovelLayoutEngine {
       cancelToken: cancelToken,
       budget: budget,
       onProgress: onProgress,
+      priorityAnchor: priorityAnchor,
+      onPreliminary: onPreliminary,
+      preliminaryPrefixOnly: preliminaryPrefixOnly,
     );
     cache.put(key, result);
     return result;
@@ -804,6 +734,9 @@ class NovelLayoutEngine {
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
     NovelJumpLabel? jumpLabel,
+    NovelAnchor? priorityAnchor,
+    void Function(NovelLayout preliminary)? onPreliminary,
+    bool preliminaryPrefixOnly = false,
   }) {
     return layoutCancellable(
       paragraphs: _paragraphsForDocument(document, jumpLabel),
@@ -819,6 +752,9 @@ class NovelLayoutEngine {
       cancelToken: cancelToken,
       budget: budget,
       onProgress: onProgress,
+      priorityAnchor: priorityAnchor,
+      onPreliminary: onPreliminary,
+      preliminaryPrefixOnly: preliminaryPrefixOnly,
     );
   }
 
@@ -1082,6 +1018,9 @@ class NovelLayoutEngine {
     required CancelToken? cancelToken,
     required NovelLayoutBudget budget,
     required NovelLayoutProgressCallback? onProgress,
+    NovelAnchor? priorityAnchor,
+    void Function(NovelLayout preliminary)? onPreliminary,
+    bool preliminaryPrefixOnly = false,
   }) async {
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
     _checkBudget(paragraphs, budget);
@@ -1097,6 +1036,49 @@ class NovelLayoutEngine {
         textDirection: textDirection,
         textScaler: key.textScaler,
       );
+      if (onPreliminary != null &&
+          paragraphs.length > novelProgressiveMinParagraphs) {
+        final window = resolveNovelPriorityWindow(
+          paragraphs: paragraphs,
+          priorityParagraphId: priorityAnchor?.paragraphId,
+        );
+        if (!preliminaryPrefixOnly || window.start == 0) {
+          final prelimLines = <_MeasuredLine>[];
+          if (titleBlock != null && window.start == 0) {
+            prelimLines.addAll(
+              _cached(
+                measure,
+                titleBlock,
+                () => _measureTitleBlock(titleBlock, paragraphs.first, measure),
+              ),
+            );
+          }
+          for (var i = window.start; i < window.end; i++) {
+            if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
+            final paragraph = paragraphs[i];
+            prelimLines.addAll(_measureCached(measure, paragraph, i));
+            final translation = translations[paragraph.id];
+            if (translation != null && translation.isNotEmpty) {
+              prelimLines.addAll(
+                _measureTranslationCached(measure, paragraph, i, translation),
+              );
+            }
+          }
+          onPreliminary(
+            _paginate(
+              lines: prelimLines,
+              paragraphs: paragraphs,
+              key: key,
+              style: style,
+              budget: budget,
+              cancelled: () => cancelToken?.isCancelled ?? false,
+              isPreliminary: true,
+            ),
+          );
+          await Future<void>.delayed(Duration.zero);
+          if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
+        }
+      }
       if (titleBlock != null) {
         lines.addAll(
           _cached(
@@ -1471,6 +1453,7 @@ class NovelLayoutEngine {
     required NovelLayoutStyle style,
     required NovelLayoutBudget budget,
     required bool Function() cancelled,
+    bool isPreliminary = false,
   }) {
     final availableHeight = (key.viewport.height - style.verticalPadding * 2)
         .clamp(1.0, double.infinity);
@@ -1601,6 +1584,7 @@ class NovelLayoutEngine {
       pages: List.unmodifiable(pages),
       totalCharacters: totalCharacters,
       paragraphOrder: [for (final paragraph in paragraphs) paragraph.id],
+      isPreliminary: isPreliminary,
     );
   }
 

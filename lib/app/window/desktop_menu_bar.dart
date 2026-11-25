@@ -13,10 +13,13 @@ import '../../l10n/context.dart';
 import '../layout/input_modality.dart';
 import '../navigation/forward_history.dart';
 import '../navigation/keyboard_back.dart';
+import '../navigation/keyboard_shortcuts_sheet.dart';
 import '../navigation/route_facade.dart';
 import '../navigation/route_search_facade.dart';
 import '../pull_to_refresh.dart';
+import 'desktop_close_dispatcher.dart';
 import 'desktop_title_bar.dart';
+import 'desktop_workspace_tabs.dart';
 
 const _digitKeys = [
   LogicalKeyboardKey.digit1,
@@ -76,19 +79,35 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
   bool includeSystemQuit = false,
 }) {
   final history = ForwardHistoryStack.ofRouter(router);
+  final tabs = DesktopWorkspaceTabsController.active;
+  final onSecondaryTab = tabs != null && tabs.isOnSecondaryTab;
   final preHome = _isPreHomeRouter(router);
   final blocked =
-      preHome || hasModalOrRootOverlay(router, checkFocusRoute: false);
+      preHome ||
+      (onSecondaryTab && tabs.hasSecondaryModalOverlay) ||
+      hasModalOrRootOverlay(router, checkFocusRoute: false);
   VoidCallback? guard(VoidCallback action) => blocked
       ? null
       : () {
+          final liveTabs = DesktopWorkspaceTabsController.active;
           if (_isPreHomeRouter(router) ||
+              (liveTabs != null &&
+                  liveTabs.isOnSecondaryTab &&
+                  liveTabs.hasSecondaryModalOverlay) ||
               hasModalOrRootOverlay(router) ||
               isTextEditingFocused()) {
             return;
           }
           action();
         };
+  BuildContext? activeOverlayContext() {
+    final liveTabs = DesktopWorkspaceTabsController.active;
+    if (liveTabs != null && liveTabs.isOnSecondaryTab) {
+      return liveTabs.activeSecondaryContext ?? _navContextOf(router);
+    }
+    return _navContextOf(router);
+  }
+
   bool hasSystemItem(PlatformProvidedMenuItemType type) =>
       includeSystemQuit && PlatformProvidedMenuItem.hasMenu(type);
 
@@ -113,6 +132,7 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 meta: true,
               ),
               onSelected: guard(() {
+                DesktopWorkspaceTabsController.active?.selectTab(0);
                 if (liveRouterUri(router).path != '/settings/all') {
                   router.go('/settings/all');
                 }
@@ -166,6 +186,7 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
           label: l10n.searchTitle,
           shortcut: const SingleActivator(LogicalKeyboardKey.keyK, meta: true),
           onSelected: guard(() {
+            DesktopWorkspaceTabsController.active?.selectTab(0);
             if (SearchShortcutAnchor.triggerActive()) return;
             final nav = _navContextOf(router);
             if (nav != null) unawaited(openSearchInput(nav));
@@ -174,6 +195,7 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
         PlatformMenuItem(
           label: l10n.searchReverseImage,
           onSelected: guard(() {
+            DesktopWorkspaceTabsController.active?.selectTab(0);
             final nav = _navContextOf(router);
             if (nav != null) unawaited(openReverseImageSearch(nav));
           }),
@@ -187,7 +209,7 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 meta: true,
               ),
               onSelected: guard(
-                () => PullToRefresh.triggerActive(_navContextOf(router)),
+                () => PullToRefresh.triggerActive(activeOverlayContext()),
               ),
             ),
           ],
@@ -195,12 +217,29 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
         PlatformMenuItemGroup(
           members: [
             PlatformMenuItem(
-              label: l10n.windowClose,
+              label:
+                  (DesktopWorkspaceTabsController.active?.isOnSecondaryTab ??
+                      false)
+                  ? l10n.windowCloseTab
+                  : l10n.windowClose,
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyW,
                 meta: true,
               ),
-              onSelected: onCloseWindow,
+              onSelected:
+                  onCloseWindow == null &&
+                      !canDismissDesktopOverlayOrTab(
+                        router,
+                        checkFocusRoute: false,
+                      )
+                  ? null
+                  : () {
+                      dispatchLayeredDesktopClose(
+                        router: router,
+                        isMacOS: true,
+                        onCloseWindow: onCloseWindow,
+                      );
+                    },
             ),
           ],
         ),
@@ -217,9 +256,17 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 LogicalKeyboardKey.bracketLeft,
                 meta: true,
               ),
-              onSelected: history.canGoBack
+              onSelected:
+                  (onSecondaryTab
+                      ? tabs.canActiveSecondaryPop
+                      : history.canGoBack)
                   ? () {
                       if (isTextEditingFocused()) return;
+                      final liveTabs = DesktopWorkspaceTabsController.active;
+                      if (liveTabs != null && liveTabs.isOnSecondaryTab) {
+                        unawaited(liveTabs.popActiveSecondary());
+                        return;
+                      }
                       unawaited(history.goBack());
                     }
                   : null,
@@ -230,7 +277,7 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 LogicalKeyboardKey.bracketRight,
                 meta: true,
               ),
-              onSelected: history.canGoForward
+              onSelected: !onSecondaryTab && history.canGoForward
                   ? () {
                       if (isTextEditingFocused()) return;
                       unawaited(history.goForward());
@@ -249,9 +296,10 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
               PlatformMenuItem(
                 label: _destinationLabel(l10n, destinations[i]),
                 shortcut: SingleActivator(_digitKeys[i], meta: true),
-                onSelected: guard(
-                  () => history.selectHomeDestination(destinations[i]),
-                ),
+                onSelected: guard(() {
+                  DesktopWorkspaceTabsController.active?.selectTab(0);
+                  history.selectHomeDestination(destinations[i]);
+                }),
               ),
           ],
         ),
@@ -259,11 +307,17 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
           members: [
             PlatformMenuItem(
               label: l10n.railBookmarks,
-              onSelected: guard(() => router.go('/settings/me?tab=bookmarks')),
+              onSelected: guard(() {
+                DesktopWorkspaceTabsController.active?.selectTab(0);
+                router.go('/settings/me?tab=bookmarks');
+              }),
             ),
             PlatformMenuItem(
               label: l10n.railDownloads,
-              onSelected: guard(() => router.go('/settings/downloads')),
+              onSelected: guard(() {
+                DesktopWorkspaceTabsController.active?.selectTab(0);
+                router.go('/settings/downloads');
+              }),
             ),
           ],
         ),
@@ -306,6 +360,19 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
               ),
             ],
           ),
+      ],
+    ),
+    PlatformMenu(
+      label: l10n.menuHelp,
+      menus: [
+        PlatformMenuItem(
+          label: l10n.keyboardShortcutsTitle,
+          shortcut: const SingleActivator(LogicalKeyboardKey.slash, meta: true),
+          onSelected: guard(() {
+            final nav = activeOverlayContext();
+            if (nav != null) unawaited(showKeyboardShortcutsSheet(nav));
+          }),
+        ),
       ],
     ),
   ];
@@ -391,6 +458,8 @@ class _DesktopMenuBarState extends State<DesktopMenuBar> {
     final includeSystemQuit =
         defaultTargetPlatform == TargetPlatform.macOS &&
         PlatformProvidedMenuItem.hasMenu(PlatformProvidedMenuItemType.quit);
+    // Subscribe to workspace tab switches so File > Close Tab vs Close updates.
+    DesktopWorkspaceTabsScope.maybeOf(context);
 
     return ValueListenableBuilder<ForwardHistoryState>(
       valueListenable: history.stateListenable,

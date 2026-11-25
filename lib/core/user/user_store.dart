@@ -43,21 +43,24 @@ class UserStore extends Notifier<Map<int, UserEntity>> {
       for (final entity in entities)
         (userId: entity.id, followed: entity.isFollowed, restrict: null),
     ], snapshotRevision: followSnapshotRevision);
-    final next = Map<int, UserEntity>.of(state);
+    Map<int, UserEntity>? next;
     for (final entity in entities) {
       final authority = follows.entryOf(entity.id)?.followed;
-      final existing = next[entity.id];
+      final existing = (next ?? state)[entity.id];
       final merged = existing == null ? entity : existing.merge(entity);
-      next[entity.id] = authority == null
+      final resolved = authority == null || merged.isFollowed == authority
           ? merged
           : merged.copyWith(isFollowed: authority);
+      if (existing == null || !identical(existing, resolved)) {
+        (next ??= Map<int, UserEntity>.of(state))[entity.id] = resolved;
+      }
     }
-    state = next;
+    if (next != null) state = next;
   }
 
   void updateFollow(int userId, bool followed) {
     final entity = state[userId];
-    if (entity == null) return;
+    if (entity == null || entity.isFollowed == followed) return;
     state = {...state, userId: entity.copyWith(isFollowed: followed)};
   }
 

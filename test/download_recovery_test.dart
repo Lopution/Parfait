@@ -249,6 +249,53 @@ void main() {
   );
 
   test(
+    'recovery round-trips frozen subdirectories and rejects traversal segments',
+    () {
+      final original = DownloadRecoveryRecord(
+        jobId: 'job-subdirs',
+        dedupeKey: 'key-subdirs',
+        snapshot: DownloadSubmissionSnapshot(
+          snapshotId: 'snap-subdirs',
+          jobId: 'job-subdirs',
+          groupId: null,
+          request: DownloadRequest(
+            illustId: 42,
+            pageIndex: 0,
+            url: Uri.parse('https://i.pximg.net/42_p0.jpg'),
+            target: DownloadTarget.illustPage,
+            subdirectories: const ['ArtistA', 'SeriesB', '42'],
+          ),
+          accountId: 'account-a',
+          submittedAt: DateTime.utc(2026, 11, 25),
+        ),
+        owner: const DownloadOutputOwner(
+          ownerId: 'owner-subdirs',
+          jobId: 'job-subdirs',
+          accountId: 'account-a',
+        ),
+        status: DownloadStatus.retryable,
+      );
+      final encoded = original.toJson();
+      final decoded = DownloadRecoveryRecord.fromJson(encoded);
+      expect(decoded.snapshot.subdirectories, ['ArtistA', 'SeriesB', '42']);
+      expect(decoded.snapshot.request.subdirectories, [
+        'ArtistA',
+        'SeriesB',
+        '42',
+      ]);
+
+      final tampered = Map<String, dynamic>.from(encoded);
+      tampered['snapshot'] = Map<String, dynamic>.from(
+        encoded['snapshot']! as Map,
+      )..['subdirectories'] = ['ArtistA', '../escape'];
+      expect(
+        () => DownloadRecoveryRecord.fromJson(tampered),
+        throwsA(isA<DownloadRecoveryDataException>()),
+      );
+    },
+  );
+
+  test(
     'recovery store evicts terminal records before active records',
     () async {
       final preferences = SharedPreferencesAsync();
@@ -696,6 +743,54 @@ void main() {
     expect(store.records.map((record) => record.jobId), ['job-new']);
   });
 
+  test(
+    'submitGroup coalesces initial recovery persistence and change notifications',
+    () async {
+      final store = _CountingRecoveryStore();
+      final gate = Completer<void>();
+      final manager = DownloadManager(
+        transport: _StreamTransport(
+          _StreamResponse(
+            stream: Stream<List<int>>.multi((controller) async {
+              await gate.future;
+              controller.add(const [1]);
+              await controller.close();
+            }),
+            contentLength: 1,
+          ),
+        ),
+        sinkFactory: MemorySinkFactory(),
+        submissionContext: _context,
+        recoveryStore: store,
+      );
+      addTearDown(manager.dispose);
+
+      var changeCount = 0;
+      final sub = manager.changes.listen((_) => changeCount++);
+      addTearDown(sub.cancel);
+
+      final requests = [for (var i = 0; i < 20; i++) _request(pageIndex: i)];
+      final submission = manager.submitGroup(requests);
+      await manager.flushPersistence();
+
+      expect(submission.tasks, hasLength(20));
+      expect(store.upsertCount, 1);
+      expect(store.records, hasLength(20));
+      // 1 group notification + 3 running transitions for maxConcurrent=3.
+      expect(changeCount, lessThanOrEqualTo(4));
+
+      gate.complete();
+      await turnUntil(
+        () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+      );
+      await manager.flushPersistence();
+      expect(
+        store.records.every((r) => r.status == DownloadStatus.succeeded),
+        isTrue,
+      );
+    },
+  );
+
   test('a custom-template file name survives recovery unchanged', () {
     // The frozen serialized name must be used.
     final record = _record(
@@ -708,7 +803,7 @@ void main() {
       (jsonDecode(jsonEncode(record.toJson())) as Map).cast<String, dynamic>(),
     );
 
-    expect(restored.snapshot.displayName, '42_100x200_123_p0');
+    expect(restored.snapshot.displayName, '42_100x200_123_p0.jpg');
   });
 
   test('a stored name with traversal segments is rejected', () {
@@ -764,15 +859,15 @@ void main() {
     );
 
     await manager.recover();
-    expect(manager.taskById('job-retry')!.displayName, '42_100x200_123_p0');
+    expect(manager.taskById('job-retry')!.displayName, '42_100x200_123_p0.jpg');
 
     final retried = manager.retry('job-retry')!;
     await turnUntil(
       () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
     );
 
-    expect(retried.displayName, '42_100x200_123_p0');
-    expect(sinkFactory.names, ['42_100x200_123_p0']);
+    expect(retried.displayName, '42_100x200_123_p0.jpg');
+    expect(sinkFactory.names, ['42_100x200_123_p0.jpg']);
   });
 
   test(
@@ -922,6 +1017,12 @@ class _CountingRecoveryStore extends MemoryDownloadRecoveryStore {
   Future<void> upsert(DownloadRecoveryRecord record) async {
     upsertCount++;
     await super.upsert(record);
+  }
+
+  @override
+  Future<void> upsertAll(List<DownloadRecoveryRecord> records) async {
+    upsertCount++;
+    await super.upsertAll(records);
   }
 }
 

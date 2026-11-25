@@ -12,7 +12,10 @@ import '../layout/input_modality.dart';
 import '../layout/window_layout_spec.dart';
 import '../pull_to_refresh.dart';
 import '../widgets/feed/feed_selection.dart';
+import '../window/desktop_close_dispatcher.dart';
+import '../window/desktop_workspace_tabs.dart';
 import 'forward_history.dart';
+import 'keyboard_shortcuts_sheet.dart';
 
 const _navigationCommandsChannel = MethodChannel('parfait/navigation_commands');
 
@@ -222,19 +225,45 @@ class _KeyboardBackState extends State<KeyboardBack>
     return false;
   }
 
+  Future<bool> _dispatchBackNavigation() {
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      if (tabs.hasSecondaryModalOverlay || tabs.canActiveSecondaryPop) {
+        return tabs.popActiveSecondary();
+      }
+      if (hasModalOrRootOverlay(widget.router)) {
+        return widget.router.routerDelegate.popRoute();
+      }
+      return Future<bool>.value(false);
+    }
+    return widget.router.routerDelegate.popRoute();
+  }
+
+  Future<bool> _dispatchForwardNavigation() {
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      return Future<bool>.value(false);
+    }
+    return _history.goForward();
+  }
+
   Future<Object?> _handleNavigationCommand(MethodCall call) async {
     switch (call.method) {
       case 'back':
         if (_shouldSuppressCrossSource('back', fromChannel: true)) {
           return true;
         }
-        return await widget.router.routerDelegate.popRoute();
+        return await _dispatchBackNavigation();
       case 'forward':
         if (_shouldSuppressCrossSource('forward', fromChannel: true)) {
-          return _history.canGoForward;
+          final tabs = DesktopWorkspaceTabsController.active;
+          return (tabs == null || !tabs.isOnSecondaryTab) &&
+              _history.canGoForward;
         }
-        final handled = await _history.goForward();
-        _lastChannelPushGen = _history.pushGeneration;
+        final handled = await _dispatchForwardNavigation();
+        if (handled) {
+          _lastChannelPushGen = _history.pushGeneration;
+        }
         return handled;
       default:
         return false;
@@ -285,14 +314,15 @@ class _KeyboardBackState extends State<KeyboardBack>
     if ((event.buttons & kBackMouseButton) != 0) {
       _heldBackPointers.add(event.pointer);
       if (_shouldSuppressCrossSource('back', fromChannel: false)) return;
-      unawaited(widget.router.routerDelegate.popRoute());
+      unawaited(_dispatchBackNavigation());
       return;
     }
     if ((event.buttons & kForwardMouseButton) != 0) {
       _heldForwardPointers.add(event.pointer);
       if (_shouldSuppressCrossSource('forward', fromChannel: false)) return;
-      if (_history.canGoForward) {
-        unawaited(_history.goForward());
+      final tabs = DesktopWorkspaceTabsController.active;
+      if ((tabs == null || !tabs.isOnSecondaryTab) && _history.canGoForward) {
+        unawaited(_dispatchForwardNavigation());
         _lastPointerPushGen = _history.pushGeneration;
       }
     }
@@ -341,6 +371,10 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _OpenSettingsIntent(),
         const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
             const _ToggleRailIntent(),
+        const SingleActivator(LogicalKeyboardKey.slash, meta: true):
+            const _ShowShortcutsIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+            const _CloseActiveIntent(),
         for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], meta: true): _GoHomeDestinationIntent(
             destinations[i],
@@ -362,11 +396,23 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _OpenSettingsIntent(),
         const SingleActivator(LogicalKeyboardKey.keyB, control: true):
             const _ToggleRailIntent(),
+        const SingleActivator(LogicalKeyboardKey.slash, control: true):
+            const _ShowShortcutsIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+            const _CloseActiveIntent(),
         for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], control: true):
               _GoHomeDestinationIntent(destinations[i]),
       },
+      const SingleActivator(LogicalKeyboardKey.tab, control: true):
+          const _CycleWorkspaceTabIntent(delta: 1),
+      const SingleActivator(LogicalKeyboardKey.tab, control: true, shift: true):
+          const _CycleWorkspaceTabIntent(delta: -1),
       const SingleActivator(LogicalKeyboardKey.slash): const _SearchIntent(),
+      const SingleActivator(LogicalKeyboardKey.slash, shift: true):
+          const _ShowShortcutsIntent(),
+      const SingleActivator(LogicalKeyboardKey.question):
+          const _ShowShortcutsIntent(),
       const SingleActivator(LogicalKeyboardKey.f5): const _RefreshIntent(),
     };
 
@@ -399,6 +445,12 @@ class _KeyboardBackState extends State<KeyboardBack>
                 widget.onToggleRail,
               ),
               _GoHomeDestinationIntent: _GoHomeDestinationAction(widget.router),
+              _ShowShortcutsIntent: _ShowShortcutsAction(widget.router),
+              _CloseActiveIntent: _CloseActiveAction(
+                widget.router,
+                isMacOS: platform == TargetPlatform.macOS,
+              ),
+              _CycleWorkspaceTabIntent: _CycleWorkspaceTabAction(),
             },
             child: widget.child,
           ),
@@ -464,6 +516,16 @@ class _BackAction extends Action<_BackIntent> {
         FeedSelectionAnchor.clearActiveSelection()) {
       return null;
     }
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      if (tabs.hasSecondaryModalOverlay || tabs.canActiveSecondaryPop) {
+        return tabs.popActiveSecondary();
+      }
+      if (hasModalOrRootOverlay(router)) {
+        return router.routerDelegate.popRoute();
+      }
+      return null;
+    }
     // False at the start page's root: nothing left to go back to.
     return router.routerDelegate.popRoute();
   }
@@ -475,9 +537,12 @@ class _ForwardAction extends Action<_ForwardIntent> {
   final GoRouter router;
 
   @override
-  bool isEnabled(_ForwardIntent intent) =>
-      !isTextEditingFocused() &&
-      ForwardHistoryStack.ofRouter(router).canGoForward;
+  bool isEnabled(_ForwardIntent intent) {
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) return false;
+    return !isTextEditingFocused() &&
+        ForwardHistoryStack.ofRouter(router).canGoForward;
+  }
 
   @override
   Object? invoke(_ForwardIntent intent) =>
@@ -498,7 +563,9 @@ bool hasModalOrRootOverlay(GoRouter router, {bool checkFocusRoute = true}) {
     if (focusContext != null && focusContext.mounted) {
       final focusRoute = ModalRoute.of(focusContext);
       if (focusRoute is PopupRoute ||
-          (focusRoute != null && focusRoute.settings is! Page)) {
+          (focusRoute != null &&
+              !focusRoute.isFirst &&
+              focusRoute.settings is! Page)) {
         return true;
       }
     }
@@ -554,6 +621,7 @@ class _SearchAction extends Action<_SearchIntent> {
   @override
   Object? invoke(_SearchIntent intent) {
     if (!_canOpenSearchShortcut(router)) return null;
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     if (_SearchShortcutAnchorState.triggerActive()) return null;
     final path = liveRouterUri(router).path;
     final root = _stackRootOfPath(path);
@@ -574,7 +642,11 @@ class _RefreshAction extends Action<_RefreshIntent> {
 
   @override
   Object? invoke(_RefreshIntent intent) {
+    final tabs = DesktopWorkspaceTabsController.active;
     final focusContext =
+        (tabs != null && tabs.isOnSecondaryTab
+            ? tabs.activeSecondaryContext
+            : null) ??
         primaryFocus?.context ??
         router.routerDelegate.navigatorKey.currentContext;
     PullToRefresh.triggerActive(focusContext);
@@ -597,6 +669,7 @@ class _OpenSettingsAction extends Action<_OpenSettingsIntent> {
 
   @override
   Object? invoke(_OpenSettingsIntent intent) {
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     if (liveRouterUri(router).path != '/settings/all') {
       router.go('/settings/all');
     }
@@ -620,6 +693,7 @@ class _ToggleRailAction extends Action<_ToggleRailIntent> {
       onToggleRail!.call();
       return null;
     }
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     // On FormFactor.pc the rail is fixed expanded (onToggleRail == null), so
     // Ctrl/Cmd+B opens Bookmarks instead of being a dead binding.
     if (liveRouterUri(router).toString() != '/settings/me?tab=bookmarks') {
@@ -640,9 +714,78 @@ class _GoHomeDestinationAction extends Action<_GoHomeDestinationIntent> {
 
   @override
   Object? invoke(_GoHomeDestinationIntent intent) {
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     ForwardHistoryStack.ofRouter(
       router,
     ).selectHomeDestination(intent.destination);
+    return null;
+  }
+}
+
+class _ShowShortcutsIntent extends Intent {
+  const _ShowShortcutsIntent();
+}
+
+class _ShowShortcutsAction extends Action<_ShowShortcutsIntent> {
+  _ShowShortcutsAction(this.router);
+
+  final GoRouter router;
+
+  @override
+  bool isEnabled(_ShowShortcutsIntent intent) =>
+      !isTextEditingFocused() && !hasModalOrRootOverlay(router);
+
+  @override
+  Object? invoke(_ShowShortcutsIntent intent) {
+    final tabs = DesktopWorkspaceTabsController.active;
+    final nav =
+        (tabs != null && tabs.isOnSecondaryTab
+            ? tabs.activeSecondaryContext
+            : null) ??
+        router.routerDelegate.navigatorKey.currentContext;
+    if (nav != null) {
+      unawaited(showKeyboardShortcutsSheet(nav));
+    }
+    return null;
+  }
+}
+
+class _CloseActiveIntent extends Intent {
+  const _CloseActiveIntent();
+}
+
+class _CloseActiveAction extends Action<_CloseActiveIntent> {
+  _CloseActiveAction(this.router, {required this.isMacOS});
+
+  final GoRouter router;
+  final bool isMacOS;
+
+  @override
+  bool isEnabled(_CloseActiveIntent intent) =>
+      !isTextEditingFocused() && canDismissDesktopOverlayOrTab(router);
+
+  @override
+  Object? invoke(_CloseActiveIntent intent) {
+    dispatchLayeredDesktopClose(router: router, isMacOS: isMacOS);
+    return null;
+  }
+}
+
+class _CycleWorkspaceTabIntent extends Intent {
+  const _CycleWorkspaceTabIntent({required this.delta});
+
+  final int delta;
+}
+
+class _CycleWorkspaceTabAction extends Action<_CycleWorkspaceTabIntent> {
+  @override
+  bool isEnabled(_CycleWorkspaceTabIntent intent) =>
+      !isTextEditingFocused() &&
+      (DesktopWorkspaceTabsController.active?.hasSecondaryTabs ?? false);
+
+  @override
+  Object? invoke(_CycleWorkspaceTabIntent intent) {
+    DesktopWorkspaceTabsController.active?.cycleTab(delta: intent.delta);
     return null;
   }
 }

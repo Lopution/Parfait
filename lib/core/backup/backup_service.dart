@@ -248,7 +248,6 @@ class BackupService {
 
     var tagsAdded = 0;
     var usersAdded = 0;
-    var workMutesChanged = 0;
 
     for (final tag in envelope.muteTags) {
       if (_readMuteState().isTagMuted(tag)) continue;
@@ -261,31 +260,19 @@ class BackupService {
       usersAdded++;
     }
 
-    final currentWorks = _readMuteState().works;
-    for (final work in envelope.muteWorks.values) {
-      final current = currentWorks[work.illustId];
-      if (current == null) {
-        await _muteStore.muteWork(work);
-        workMutesChanged++;
-        continue;
-      }
-      // Under either strategy an entry kept from before titles were stored
-      // takes them from the file; one that has them keeps its own. Not a
-      // mute change, so not counted.
-      final filled = current.filledFrom(work);
-      if (filled != current) await _muteStore.muteWork(filled);
-    }
-    if (strategy == BackupImportStrategy.overwrite) {
-      for (final workId in currentWorks.keys) {
-        if (envelope.muteWorks.containsKey(workId)) continue;
-        await _muteStore.unmuteWork(workId);
-        workMutesChanged++;
-      }
-    }
-
-    await _writeSettings(
-      AppSettings.fromJson(envelope.settings, fallback: await _readSettings()),
+    final workMutesChanged = await _muteStore.applyBackupWorks(
+      envelope.muteWorks,
+      overwrite: strategy == BackupImportStrategy.overwrite,
     );
+
+    if (strategy == BackupImportStrategy.overwrite) {
+      await _writeSettings(
+        AppSettings.fromJson(
+          sanitizeImportedSettings(envelope.settings),
+          fallback: await _readSettings(),
+        ),
+      );
+    }
 
     final historyRows = switch (strategy) {
       BackupImportStrategy.merge => await _mergeHistory(accountId, envelope),
@@ -303,25 +290,36 @@ class BackupService {
     );
   }
 
-  /// Upsert per identity, keeping the newer `last_viewed_at` when a row
-  /// already exists locally.
-  Future<int> _mergeHistory(String accountId, BackupEnvelope envelope) async {
-    var written = 0;
-    for (final record in envelope.history) {
-      final existing = await _history.find(
-        accountId: accountId,
-        contentType: record.contentType,
-        contentId: record.contentId,
-      );
-      if (existing != null &&
-          !record.lastViewedAt.isAfter(existing.lastViewedAt)) {
-        continue;
-      }
-      await _history.upsert(_forAccount(record, accountId));
-      written++;
+  /// Strips device-bound folder grants and untrusted network/prompt overrides
+  /// before applying settings from an external backup file.
+  static Map<String, dynamic> sanitizeImportedSettings(
+    Map<String, dynamic> raw,
+  ) {
+    final sanitized = Map<String, dynamic>.of(raw)
+      ..remove('safTreeUri')
+      ..remove('dohEndpointOverride')
+      ..remove('echFrontHost')
+      ..remove('customImageSource')
+      ..remove('loginProxyNoticeAcknowledged');
+    if (sanitized['destinationKind'] == 'safFolder') {
+      sanitized.remove('destinationKind');
     }
-    return written;
+    for (final key in const ['imageSource', 'imageSourceMode']) {
+      if (!sanitized.containsKey(key)) continue;
+      final value = sanitized[key];
+      if (value is! String || ImageSourceMode.fromHost(value) == null) {
+        sanitized.remove(key);
+      }
+    }
+    return sanitized;
   }
+
+  /// Upsert per identity in one SQLite transaction, keeping the newer
+  /// `last_viewed_at` when a row already exists locally.
+  Future<int> _mergeHistory(String accountId, BackupEnvelope envelope) =>
+      _history.mergeAll(accountId, [
+        for (final record in envelope.history) _forAccount(record, accountId),
+      ]);
 
   Future<int> _replaceHistory(String accountId, BackupEnvelope envelope) async {
     await _history.replaceAll(accountId, [

@@ -11,6 +11,7 @@ import '../../../l10n/context.dart';
 import '../../motion/app_overlays.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
+import '../../window/desktop_workspace_tabs.dart';
 import '../display_actions.dart';
 import '../feed/feed_selection.dart';
 import '../feed/muted_cover.dart';
@@ -34,12 +35,20 @@ Future<void> showCardActionsMenu(
   final state = CardActionState.ofContainer(providers);
   final navigator = Navigator.of(context).context;
   final l10n = context.l10n;
+  final tabs = DesktopWorkspaceTabsScope.maybeOf(context, listen: false);
   return showDisplayActions(
     context,
     position: position,
     kind: kind,
     onLongPress: () => unawaited(showCardActionSheet(context, entity)),
     actions: [
+      if (tabs != null)
+        DisplayAction(
+          icon: AppIcons.externalLink,
+          label: l10n.openInNewTab,
+          onSelected: () =>
+              tabs.openTargetInBackground(IllustTabTarget(entity)),
+        ),
       for (final action in providers.read(illustCardActionsProvider))
         DisplayAction(
           icon: action.iconFor(state, entity),
@@ -167,7 +176,9 @@ class _SheetHeader extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final tokens = FuncSemanticTokens.of(context);
     final muted =
-        ref.watch(muteStoreProvider.select((s) => muteHitFor(entity, s))) !=
+        ref.watch(
+              effectiveMutesProvider.select((s) => muteHitFor(entity, s)),
+            ) !=
             null &&
         !ref.watch(
           revealedMuteIdsProvider.select((ids) => ids.contains(entity.id)),

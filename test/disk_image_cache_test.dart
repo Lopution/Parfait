@@ -275,4 +275,23 @@ void main() {
       );
     });
   });
+
+  test('buffered multi-chunk write (>256 KiB) commits exact bytes', () async {
+    final dir = Directory.systemTemp.createTempSync('parfait_buf_cache_');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final cache = DiskImageCache.open(dir);
+    // 300 KiB across 30 x 10 KiB chunks spans both a full flush and tail flush.
+    final chunks = List<List<int>>.generate(
+      30,
+      (i) => List<int>.filled(10 * 1024, i & 0xff),
+    );
+    final expected = [for (final c in chunks) ...c];
+    final file = await cache.store(
+      'https://i.pximg.net/img-original/img/buffered.png',
+      Stream<List<int>>.fromIterable(chunks),
+      expectedLength: expected.length,
+    );
+    expect(await file.length(), expected.length);
+    expect(await file.readAsBytes(), expected);
+  });
 }

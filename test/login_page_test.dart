@@ -47,7 +47,13 @@ class _ControlledTransferService implements AccountTransferService {
   }
 
   @override
+  Future<TransferImportResult> importText(String raw) => importFromClipboard();
+
+  @override
   Future<void> exportCurrentToClipboard() async {}
+
+  @override
+  Future<void> exportRefreshTokenToClipboard() async {}
 }
 
 /// Settings storage stub: serves a fixed snapshot and records writes.

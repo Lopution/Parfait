@@ -7,6 +7,7 @@ import 'package:archive/archive.dart' show getCrc32;
 import '../logging/crash_log.dart';
 import 'ugoira_limits.dart';
 import 'ugoira_metadata.dart';
+import 'ugoira_zip_worker.dart';
 
 /// Strict ZIP/index failure. It is intentionally separate from image decode
 /// failures so the UI can report archive corruption and unsupported frames
@@ -196,14 +197,18 @@ class UgoiraFrameHeader {
 /// A safe, random-access index over a disk-backed Ugoira ZIP.
 class SafeZipIndex {
   SafeZipIndex._({
-    required _ArchiveReader reader,
+    _ArchiveReader? reader,
     required this.metadata,
     required this.limits,
     required List<UgoiraZipEntry> entries,
+    String? workerPath,
   }) : _reader = reader,
+       _workerPath = workerPath,
        entries = List.unmodifiable(entries);
 
-  final _ArchiveReader _reader;
+  final _ArchiveReader? _reader;
+  final String? _workerPath;
+  UgoiraZipWorker? _worker;
   final UgoiraMetadata metadata;
   final UgoiraLimits limits;
   final List<UgoiraZipEntry> entries;
@@ -293,8 +298,10 @@ class SafeZipIndex {
         );
       }
       _validateEntryLayout(entries, eocd.centralOffset);
+      await reader.close();
       return SafeZipIndex._(
-        reader: reader,
+        reader: null,
+        workerPath: file.path,
         metadata: metadata,
         limits: limits,
         entries: _orderEntries(entries, metadata),
@@ -323,11 +330,16 @@ class SafeZipIndex {
   Future<void> dispose() async {
     if (_closed) return;
     _closed = true;
-    await _reader.close();
+    await _worker?.dispose();
+    _worker = null;
+    await _reader?.close();
   }
 
   Future<List<int>> _readEntry(UgoiraZipEntry entry) async {
-    final compressed = await _reader.read(
+    if (_workerPath != null) {
+      return (_worker ??= UgoiraZipWorker(_workerPath)).readEntry(entry);
+    }
+    final compressed = await _reader!.read(
       entry.dataOffset,
       entry.compressedSize,
     );
@@ -335,7 +347,7 @@ class SafeZipIndex {
     try {
       decoded = switch (entry.compressionMethod) {
         0 => compressed,
-        8 => _inflate(compressed, entry.uncompressedSize),
+        8 => inflateCapped(compressed, entry.uncompressedSize),
         _ => throw const UgoiraArchiveException('compression method rejected'),
       };
     } catch (error) {
@@ -354,7 +366,7 @@ class SafeZipIndex {
   /// Raw deflate in chunks into a sink that fails as soon as the output
   /// passes [declaredSize]: a forged entry stops there instead of
   /// inflating to gigabytes before the size check.
-  static List<int> _inflate(Uint8List compressed, int declaredSize) {
+  static Uint8List inflateCapped(Uint8List compressed, int declaredSize) {
     final output = _CappedBytes(declaredSize);
     final input = ZLibDecoder(raw: true).startChunkedConversion(output);
     for (var start = 0; start < compressed.length; start += _inflateChunk) {
@@ -771,7 +783,7 @@ class _FileArchiveReader implements _ArchiveReader {
       if (bytes.length != length) {
         throw const UgoiraArchiveException('archive read was truncated');
       }
-      return Uint8List.fromList(bytes);
+      return bytes;
     } on UgoiraArchiveException {
       rethrow;
     } on FileSystemException catch (error) {

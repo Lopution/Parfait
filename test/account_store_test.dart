@@ -13,12 +13,14 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
+import 'package:parfait/core/profile/web_profile_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/history_world.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
 
 class InMemoryCredentialStore implements CredentialStore {
@@ -476,4 +478,41 @@ void main() {
       ),
     );
   });
+
+  test(
+    'switchAccount, markReauthRequired, and removeAccount clear WebView session; saveRefreshed keeps it',
+    () async {
+      final session = FakeWebProfileSession('PHPSESSID=100_abc');
+      final credentials = InMemoryCredentialStore();
+      final container = ProviderContainer.test(
+        overrides: [
+          credentialStoreProvider.overrideWithValue(credentials),
+          webProfileSessionProvider.overrideWithValue(session),
+        ],
+      );
+      final store = container.read(accountStoreProvider.notifier);
+      await container.read(accountStoreProvider.future);
+      await store.upsertAccount(account('100'), credential('100'));
+      await store.upsertAccount(account('200'), credential('200'));
+      expect(session.clearCount, 0);
+
+      // Background token refresh must not clear WebView cookies.
+      await store.saveRefreshed(account('200'), credential('200-new'));
+      expect(session.clearCount, 0);
+      expect(session.cookie, 'PHPSESSID=100_abc');
+
+      await store.switchAccount('100');
+      expect(session.clearCount, 1);
+      expect(session.cookie, isNull);
+
+      session.cookie = 'PHPSESSID=100_def';
+      await store.markReauthRequired('100');
+      expect(session.clearCount, 2);
+
+      session.cookie = 'PHPSESSID=100_ghi';
+      await store.removeAccount('100');
+      expect(session.clearCount, 3);
+      expect(session.cookie, isNull);
+    },
+  );
 }

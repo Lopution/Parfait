@@ -7,12 +7,13 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/clipboard.dart';
 import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../core/bookmark/bookmark_models.dart';
+import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/platform/image_clipboard.dart';
 
 /// Builds the keyboard shortcut map for `ImageViewerPage`, including navigation,
 /// zoom, chrome toggle, info, save (`S` / `Ctrl+S`), copy original image
-/// (`Ctrl+C`), and bookmark toggle (`B`).
+/// (`Ctrl+C`), bookmark toggle (`B`), and bookmark edit sheet (`Shift+B`).
 Map<ShortcutActivator, VoidCallback> buildImageViewerShortcuts(
   BuildContext context, {
   required IllustEntity? entity,
@@ -49,6 +50,19 @@ Map<ShortcutActivator, VoidCallback> buildImageViewerShortcuts(
     );
   }
 
+  void editBookmark() {
+    if (entity == null) return;
+    final key = BookmarkKey(BookmarkEntityType.illust, entity.id);
+    final unsettled =
+        ProviderScope.containerOf(
+          context,
+          listen: false,
+        ).read(bookmarkStoreProvider)[key]?.isUnsettled ??
+        false;
+    if (unsettled) return;
+    unawaited(showBookmarkEditSheet(context, key, title: entity.title));
+  }
+
   return {
     const SingleActivator(LogicalKeyboardKey.arrowLeft): onPageBackward,
     const SingleActivator(LogicalKeyboardKey.keyK): onPageBackward,
@@ -70,6 +84,7 @@ Map<ShortcutActivator, VoidCallback> buildImageViewerShortcuts(
     const SingleActivator(LogicalKeyboardKey.keyC, control: true): copyImage,
     const SingleActivator(LogicalKeyboardKey.keyC, meta: true): copyImage,
     const SingleActivator(LogicalKeyboardKey.keyB): bookmark,
+    const SingleActivator(LogicalKeyboardKey.keyB, shift: true): editBookmark,
     const SingleActivator(LogicalKeyboardKey.keyI): onShowInfo,
   };
 }

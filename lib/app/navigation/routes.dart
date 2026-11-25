@@ -63,6 +63,7 @@ import '../../features/watchlater/watchlater_page.dart';
 import '../../features/watchlist/watchlist_page.dart';
 import '../../l10n/context.dart';
 import '../image_tier_cache.dart';
+import '../window/desktop_workspace_tabs.dart';
 import '../motion/hero_transition.dart';
 import '../motion/motion_tokens.dart';
 import '../startup_gate.dart';
@@ -372,3 +373,16 @@ void _markPages(GoRouter router) {
     if (top != null) TraceMarks.page(top.matchedLocation);
   });
 }
+
+/// Builds the root page of a detached secondary desktop workspace tab.
+WidgetBuilder buildDesktopWorkspaceTabPage(DesktopTabTarget target) =>
+    switch (target) {
+      IllustTabTarget(:final entity) => (_) => IllustDetailPage(
+        illustId: entity.id,
+        initialEntity: entity,
+        heroScope: 'ws-tab-${entity.id}',
+      ),
+      NovelTabTarget(:final entity) => (_) => NovelPage(novelId: entity.id),
+      UserTabTarget(:final userId) => (_) => UserPage(userId: userId),
+      SearchTabTarget(:final query) => (_) => SearchResultPage(query: query),
+    };

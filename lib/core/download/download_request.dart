@@ -4,9 +4,10 @@ import '../network/compat/network_contracts.dart';
 import 'naming_rule.dart';
 
 /// What a download produces. `illustPage` names files by page index inside
-/// the detail flow; `ugoiraZip` is reserved for the later ugoira export task.
-/// `updaterApk` is an app-private signed-release download.
-enum DownloadTarget { illustPage, ugoiraZip, ugoiraGif, updaterApk }
+/// the detail flow; `ugoiraGif` synthesizes animated GIFs inside
+/// `DownloadManager`; `novelTxt` exports UTF-8 `.txt` novels; `updaterApk` is
+/// an app-private signed-release download.
+enum DownloadTarget { illustPage, ugoiraZip, ugoiraGif, novelTxt, updaterApk }
 
 /// Typed download request submitted by feature code (detail page, ugoira
 /// export). Carries everything normalization needs; consumers never touch
@@ -30,6 +31,8 @@ class DownloadRequest {
     this.seriesOrder,
     this.seriesTotal,
     this.thumbnailUrl,
+    this.subdirectories = const [],
+    this.padPageNumbers = false,
   }) : assert(illustId > 0),
        assert(pageIndex >= 0);
 
@@ -61,6 +64,14 @@ class DownloadRequest {
   /// `dedupeKey`, `displayName`, or the naming rule; persisted in the
   /// recovery record so a restored task still shows its artwork.
   final String? thumbnailUrl;
+
+  /// Sanitized relative subdirectory segments under the destination root.
+  /// Frozen at submission time so restarts and caption sidecars land together.
+  final List<String> subdirectories;
+
+  /// Whether `{page}`, `{page1}`, and `{series_order}` are zero-padded to the
+  /// total digit width for lexical ordering.
+  final bool padPageNumbers;
 
   /// Dedupe identity: illust + page + normalized URL + target (R4).
   String get dedupeKey =>
@@ -94,6 +105,10 @@ class DownloadRequest {
       seriesTitle: seriesTitle,
       seriesOrder: seriesOrder,
       seriesTotal: seriesTotal,
+      padPageNumbers: padPageNumbers,
+      omitPageSuffix:
+          target == DownloadTarget.novelTxt ||
+          target == DownloadTarget.ugoiraGif,
     );
   }
 
@@ -119,6 +134,8 @@ class DownloadRequest {
           seriesOrder: seriesOrder,
           seriesTotal: seriesTotal,
           thumbnailUrl: thumbnailUrl,
+          subdirectories: subdirectories,
+          padPageNumbers: padPageNumbers,
         );
 
   String get mimeType => _mimeTypeForExtension(extension);
@@ -132,6 +149,7 @@ const Set<String> _kDownloadExtensions = {
   'gif',
   'webp',
   'zip',
+  'txt',
   'apk',
 };
 
@@ -148,6 +166,8 @@ String _mimeTypeForExtension(String extension) {
       return 'image/webp';
     case 'zip':
       return 'application/zip';
+    case 'txt':
+      return 'text/plain';
     case 'apk':
       return 'application/vnd.android.package-archive';
     default:

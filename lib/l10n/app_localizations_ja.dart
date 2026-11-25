@@ -3458,4 +3458,262 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => '再生速度';
+
+  @override
+  String get loginWebViewStalled =>
+      'ログインページの読み込みがタイムアウトしました。ブラウザで開くか、コールバックまたはトークンを貼り付けてください。';
+
+  @override
+  String get accountTransferExportToken => 'refresh_token をコピー';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token をコピーしました。早めに貼り付けてください。5分後に Parfait に戻ると自動的に消去されます。';
+
+  @override
+  String get offlineQueueTitle => '未同期のオフライン操作';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return '$count 件が同期待ち';
+  }
+
+  @override
+  String get offlineQueueClear => 'キューを空にする';
+
+  @override
+  String get offlineQueueCleared => '未同期の操作を消去しました';
+
+  @override
+  String get offlineQueueRetrying => 'オフライン操作を再試行しています…';
+
+  @override
+  String get bookmarkDefaultRestrict => 'デフォルトのブックマーク公開設定';
+
+  @override
+  String get bookmarkAttachWorkTags => '作品タグを自動追加';
+
+  @override
+  String get bookmarkAttachWorkTagsHint =>
+      'ワンタップ追加や新規ブックマーク時に、作品タグを最大 10 件まで自動で付けます。';
+
+  @override
+  String get bookmarkWorkTags => '作品のタグ';
+
+  @override
+  String get bookmarkTagLimitReached => 'タグは最大 10 件まで追加できます';
+
+  @override
+  String get bookmarkTagUncategorized => '未分類';
+
+  @override
+  String get bookmarkRemove => 'ブックマークを解除';
+
+  @override
+  String get menuHelp => 'ヘルプ';
+
+  @override
+  String get keyboardShortcutsTitle => 'キーボードショートカット';
+
+  @override
+  String get shortcutsGroupNavigation => 'ナビゲーション';
+
+  @override
+  String get shortcutsGroupArtwork => '作品詳細・ビューアー';
+
+  @override
+  String get shortcutsGroupNovel => '小説リーダー';
+
+  @override
+  String get shortcutNavBackForward => '戻る / 進む';
+
+  @override
+  String get shortcutNavTabs => 'ホームタブを切替';
+
+  @override
+  String get shortcutNavSearch => '検索';
+
+  @override
+  String get shortcutNavRefresh => '更新';
+
+  @override
+  String get shortcutNavSettings => '設定';
+
+  @override
+  String get shortcutNavRailOrBookmarks => 'サイドバー切替 / ブックマーク';
+
+  @override
+  String get shortcutNavSelectAll => '一覧をすべて選択';
+
+  @override
+  String get shortcutNavShortcuts => 'ショートカット一覧';
+
+  @override
+  String get shortcutArtworkBookmark => 'ブックマーク / タグ編集';
+
+  @override
+  String get shortcutArtworkSave => '画像を保存';
+
+  @override
+  String get shortcutArtworkCopy => '原寸画像をコピー';
+
+  @override
+  String get shortcutArtworkChrome => 'ツールバーの表示切替';
+
+  @override
+  String get shortcutArtworkInfo => '作品情報';
+
+  @override
+  String get shortcutArtworkSwitchWork => '前・次の作品';
+
+  @override
+  String get shortcutArtworkSwitchPage => '前・次のページ';
+
+  @override
+  String get shortcutArtworkZoom => '拡大・縮小・フィット';
+
+  @override
+  String get shortcutNovelToc => '目次と進捗';
+
+  @override
+  String get shortcutNovelNavigate => 'ページ送り / スクロール';
+
+  @override
+  String get searchBookmarkLocalFilterHint =>
+      'タグ以外の検索対象では読み込み済み結果からブックマーク数をローカル絞り込みします';
+
+  @override
+  String get searchExcludeTag => 'タグを除外';
+
+  @override
+  String get searchInsertOr => 'OR を挿入';
+
+  @override
+  String get searchHistoryPin => 'ピン留め';
+
+  @override
+  String get searchHistoryUnpin => 'ピン留め解除';
+
+  @override
+  String get profileWorkTagPickerTitle => 'タグで作品を絞り込み';
+
+  @override
+  String get profileWorkTagSearchHint => 'タグまたはキーワードを検索';
+
+  @override
+  String get profileWorkTagClear => '絞り込みを解除';
+
+  @override
+  String get profileWorkTagLoadMore => 'さらに読み込む';
+
+  @override
+  String get downloadSubfolderMode => 'サブフォルダ分類';
+
+  @override
+  String get downloadSubfolderNone => '作成しない';
+
+  @override
+  String get downloadSubfolderByArtist => '作者別';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => '作者・シリーズ別';
+
+  @override
+  String get downloadMultiPageSubfolder => '複数ページ作品を個別フォルダへ';
+
+  @override
+  String get downloadMultiPageSubfolderHint => '2ページ以上の作品を作品ID名のサブフォルダに保存します';
+
+  @override
+  String get downloadPadPageNumbers => 'ページ番号をゼロ埋め';
+
+  @override
+  String get downloadPadPageNumbersHint =>
+      '総ページ数の桁数に合わせてゼロ埋め（例: _p00、_p01）し、辞書順を揃えます';
+
+  @override
+  String get downloadAuthorSubfolderToggle => '作者のサブフォルダに保存';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return '静止画 $works 件（計 $pages ページ）とうごイラ $ugoira 件をダウンロードキューに追加します。';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return 'うごイラを含める（$count 件・GIF 書き出し）';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return 'うごイラ作品が $count 件見つかりました。下のスイッチをオンにすると GIF として書き出せます。';
+  }
+
+  @override
+  String get novelSaveOffline => 'オフライン書庫に保存';
+
+  @override
+  String get novelSavedOffline => 'オフライン書庫に保存しました';
+
+  @override
+  String get novelSaveOfflineFailed => 'オフライン保存に失敗しました';
+
+  @override
+  String get novelExportTxt => 'TXT を書き出す';
+
+  @override
+  String get novelExportTxtQueued => 'TXT 書き出しをキューに追加しました';
+
+  @override
+  String get novelExportTxtShared => 'TXT ファイルを共有しました';
+
+  @override
+  String get novelExportTxtFailed => 'TXT の書き出しに失敗しました';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Android で TXT を書き出すには、保存先としてカスタムフォルダを選択してください';
+
+  @override
+  String get novelSeriesSaveOffline => 'シリーズをオフライン保存';
+
+  @override
+  String get novelSeriesExportTxt => 'シリーズを TXT 書き出し';
+
+  @override
+  String get novelSeriesExportMerged => '1 つの TXT に結合';
+
+  @override
+  String get novelSeriesExportSplit => '話ごとに TXT 書き出し';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return '$saved 話を保存しました（閲覧不可 $skipped 話をスキップ）';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return '$queued 話をキューに追加しました（閲覧不可 $skipped 話をスキップ）';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters => 'このシリーズには保存可能な話がありません';
+
+  @override
+  String get openInNewTab => '新しいタブで開く';
+
+  @override
+  String get workspaceRootTab => 'ワークスペース';
+
+  @override
+  String get windowCloseTab => 'タブを閉じる';
+
+  @override
+  String get closeTabTooltip => 'タブを閉じる';
+
+  @override
+  String get shortcutCloseTab => 'オーバーレイまたはタブを閉じる';
+
+  @override
+  String get shortcutNextTab => 'ワークスペースのタブを切替';
 }

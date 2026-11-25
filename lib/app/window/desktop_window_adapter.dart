@@ -6,6 +6,24 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/platform/desktop_window_channel.dart';
 
+/// Whether the desktop window API applies on this platform. Phones and the
+/// web keep their single window.
+bool get desktopWindowSupported =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS);
+
+/// Callback persisting desktop window geometry.
+typedef SaveWindowGeometryCallback =
+    Future<void> Function({
+      double? width,
+      double? height,
+      double? x,
+      double? y,
+      required bool maximized,
+    });
+
 /// Boundary over OS windowing and screen geometry plugins so tests can
 /// simulate Wayland errors, close races, and multi-monitor disconnects.
 abstract class DesktopWindowAdapter {
@@ -89,6 +107,18 @@ class WindowManagerAdapter implements DesktopWindowAdapter {
         return;
       } on MissingPluginException {
         // Headless tests or runners without the native destroy hook.
+      }
+    }
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      // macOS keeps Dock residency (`applicationShouldTerminateAfterLastWindowClosed`
+      // returns false), so an explicit quit calls NSApp.terminate(nil).
+      try {
+        await const MethodChannel(
+          kDesktopWindowChannelName,
+        ).invokeMethod<void>('terminate');
+        return;
+      } on MissingPluginException {
+        // Headless tests or runners without the native terminate hook.
       }
     }
     await windowManager.destroy();

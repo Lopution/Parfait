@@ -3544,4 +3544,264 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => 'Скорость воспроизведения';
+
+  @override
+  String get loginWebViewStalled =>
+      'Превышено время ожидания загрузки входа. Откройте в браузере или вставьте ссылку обратного вызова или токен.';
+
+  @override
+  String get accountTransferExportToken => 'Копировать refresh_token';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token скопирован. Вставьте его скорее; он очистится при возвращении в Parfait через 5 минут.';
+
+  @override
+  String get offlineQueueTitle => 'Отложенные офлайн-действия';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return 'Ожидает синхронизации: $count';
+  }
+
+  @override
+  String get offlineQueueClear => 'Очистить очередь';
+
+  @override
+  String get offlineQueueCleared => 'Отложенные действия очищены';
+
+  @override
+  String get offlineQueueRetrying => 'Повторная отправка офлайн-действий…';
+
+  @override
+  String get bookmarkDefaultRestrict => 'Видимость закладок по умолчанию';
+
+  @override
+  String get bookmarkAttachWorkTags => 'Автодобавление тегов работы';
+
+  @override
+  String get bookmarkAttachWorkTagsHint =>
+      'Автоматически добавлять до 10 тегов работы при быстром или новом сохранении в закладки.';
+
+  @override
+  String get bookmarkWorkTags => 'Теги работы';
+
+  @override
+  String get bookmarkTagLimitReached => 'Максимум 10 тегов для закладки';
+
+  @override
+  String get bookmarkTagUncategorized => 'Без категории';
+
+  @override
+  String get bookmarkRemove => 'Удалить из закладок';
+
+  @override
+  String get menuHelp => 'Справка';
+
+  @override
+  String get keyboardShortcutsTitle => 'Горячие клавиши';
+
+  @override
+  String get shortcutsGroupNavigation => 'Навигация';
+
+  @override
+  String get shortcutsGroupArtwork => 'Просмотр работ';
+
+  @override
+  String get shortcutsGroupNovel => 'Чтение новелл';
+
+  @override
+  String get shortcutNavBackForward => 'Назад / Вперёд';
+
+  @override
+  String get shortcutNavTabs => 'Переключить вкладки';
+
+  @override
+  String get shortcutNavSearch => 'Поиск';
+
+  @override
+  String get shortcutNavRefresh => 'Обновить';
+
+  @override
+  String get shortcutNavSettings => 'Настройки';
+
+  @override
+  String get shortcutNavRailOrBookmarks => 'Панель / Закладки';
+
+  @override
+  String get shortcutNavSelectAll => 'Выбрать всё в ленте';
+
+  @override
+  String get shortcutNavShortcuts => 'Список горячих клавиш';
+
+  @override
+  String get shortcutArtworkBookmark => 'В закладки / Теги';
+
+  @override
+  String get shortcutArtworkSave => 'Сохранить изображение';
+
+  @override
+  String get shortcutArtworkCopy => 'Копировать оригинал';
+
+  @override
+  String get shortcutArtworkChrome => 'Показать / скрыть панель';
+
+  @override
+  String get shortcutArtworkInfo => 'Информация о работе';
+
+  @override
+  String get shortcutArtworkSwitchWork => 'Предыдущая / следующая работа';
+
+  @override
+  String get shortcutArtworkSwitchPage => 'Предыдущая / следующая страница';
+
+  @override
+  String get shortcutArtworkZoom => 'Масштаб / по размеру';
+
+  @override
+  String get shortcutNovelToc => 'Оглавление и прогресс';
+
+  @override
+  String get shortcutNovelNavigate => 'Листание / прокрутка';
+
+  @override
+  String get searchBookmarkLocalFilterHint =>
+      'Для поиска не по тегам число закладок фильтруется локально по загруженным результатам';
+
+  @override
+  String get searchExcludeTag => 'Исключить тег';
+
+  @override
+  String get searchInsertOr => 'Вставить OR';
+
+  @override
+  String get searchHistoryPin => 'Закрепить';
+
+  @override
+  String get searchHistoryUnpin => 'Открепить';
+
+  @override
+  String get profileWorkTagPickerTitle => 'Фильтр работ по тегу';
+
+  @override
+  String get profileWorkTagSearchHint => 'Поиск тегов или ключевого слова';
+
+  @override
+  String get profileWorkTagClear => 'Сбросить фильтр';
+
+  @override
+  String get profileWorkTagLoadMore => 'Загрузить ещё';
+
+  @override
+  String get downloadSubfolderMode => 'Группировка по подпапкам';
+
+  @override
+  String get downloadSubfolderNone => 'Без подпапок';
+
+  @override
+  String get downloadSubfolderByArtist => 'По автору';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => 'По автору и серии';
+
+  @override
+  String get downloadMultiPageSubfolder => 'Подпапка для многостраничных работ';
+
+  @override
+  String get downloadMultiPageSubfolderHint =>
+      'Сохранять работы с несколькими страницами в подпапку с ID работы';
+
+  @override
+  String get downloadPadPageNumbers => 'Ведущие нули в номерах страниц';
+
+  @override
+  String get downloadPadPageNumbersHint =>
+      'Дополнять номера страниц нулями по числу цифр (например, _p00, _p01) для правильной сортировки';
+
+  @override
+  String get downloadAuthorSubfolderToggle => 'Сохранить в подпапку автора';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return 'Будут добавлены в очередь $works работ ($pages стр.) и $ugoira угойра.';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return 'Включить угойра ($count, экспорт в GIF)';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return 'Найдено только $count угойра. Включите переключатель ниже для экспорта в GIF.';
+  }
+
+  @override
+  String get novelSaveOffline => 'Сохранить офлайн';
+
+  @override
+  String get novelSavedOffline => 'Сохранено в офлайн-библиотеку';
+
+  @override
+  String get novelSaveOfflineFailed => 'Не удалось сохранить офлайн';
+
+  @override
+  String get novelExportTxt => 'Экспорт в TXT';
+
+  @override
+  String get novelExportTxtQueued => 'Экспорт TXT добавлен в очередь';
+
+  @override
+  String get novelExportTxtShared => 'Файл TXT отправлен';
+
+  @override
+  String get novelExportTxtFailed => 'Не удалось экспортировать TXT';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Для экспорта TXT на Android выберите пользовательскую папку сохранения';
+
+  @override
+  String get novelSeriesSaveOffline => 'Сохранить серию офлайн';
+
+  @override
+  String get novelSeriesExportTxt => 'Экспорт серии в TXT';
+
+  @override
+  String get novelSeriesExportMerged => 'Объединить в один TXT';
+
+  @override
+  String get novelSeriesExportSplit => 'Отдельный TXT на главу';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return 'Сохранено глав: $saved (пропущено недоступных: $skipped)';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return 'В очереди глав: $queued (пропущено недоступных: $skipped)';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters =>
+      'В серии нет доступных глав для сохранения';
+
+  @override
+  String get openInNewTab => 'Открыть в новой вкладке';
+
+  @override
+  String get workspaceRootTab => 'Рабочая область';
+
+  @override
+  String get windowCloseTab => 'Закрыть вкладку';
+
+  @override
+  String get closeTabTooltip => 'Закрыть вкладку';
+
+  @override
+  String get shortcutCloseTab => 'Закрыть окно или вкладку';
+
+  @override
+  String get shortcutNextTab => 'Переключить вкладку';
 }

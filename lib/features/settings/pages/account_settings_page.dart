@@ -265,36 +265,48 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   /// the warning before any byte is copied.
   Future<void> _confirmCopyAccount() async {
     final l10n = context.l10n;
-    final confirmed = await showAppDialog<bool>(
+    final choice = await showAppDialog<String>(
       context: context,
       builder: (context) => AppAlertDialog(
         title: Text(l10n.accountTransferExportTitle),
         content: Text(l10n.accountTransferWarning),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: Text(l10n.cancel),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'token'),
+            child: Text(l10n.accountTransferExportToken),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, 'envelope'),
             child: Text(l10n.confirm),
           ),
         ],
       ),
     );
-    if (confirmed == true && mounted) {
-      _copyAccount();
+    if (choice != null && mounted) {
+      _copyAccount(asRefreshToken: choice == 'token');
     }
   }
 
-  void _copyAccount() {
+  void _copyAccount({bool asRefreshToken = false}) {
     unawaited(() async {
       try {
-        await ref
-            .read(accountTransferServiceProvider)
-            .exportCurrentToClipboard();
+        final service = ref.read(accountTransferServiceProvider);
+        if (asRefreshToken) {
+          await service.exportRefreshTokenToClipboard();
+        } else {
+          await service.exportCurrentToClipboard();
+        }
         if (!mounted) return;
-        showAppSnackBar(context, context.l10n.accountTransferCopied);
+        showAppSnackBar(
+          context,
+          asRefreshToken
+              ? context.l10n.accountTransferTokenCopied
+              : context.l10n.accountTransferCopied,
+        );
         // Android <13 cannot mark the clipboard entry as sensitive; the
         // credential sits in the system clipboard in plaintext. Never do
         // this silently (R4: 安全降级，不能静默少做一件事).

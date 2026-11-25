@@ -122,12 +122,17 @@ reviewed: 2026-11-14
   query that is not UTF-8 is `UnknownRoute`. Links in captions resolve
   through the same `IntentRouter.route`: a user or work opens in the app
   (a pixiv.net link by its kind and id, whatever follows them), another
-  app link goes nowhere, any other link opens outside.
+  app link goes nowhere, any other link opens outside. Spotlight article
+  top-bar actions validate `articleUrl` via `PixivSpotlightRepository.articleUri`
+  (disabling `openInBrowser`/`share` when invalid), and Spotlight paragraph
+  links require `http`/`https` with a non-empty host before in-app routing
+  or opening through `outboundUrlOpenerProvider`.
 - **Why:** Malformed links crashed routing; file URIs could reach private
   files. Captions parsed links themselves and sent `pixiv://` links to
-  Android, which failed.
-- **Check:** `test/android_platform_boundary_test.dart` "rejects SEND without the exact stream extra and read grant" "rejects foreign, file and oversized shared payloads", `test/intent_router_test.dart` "malformed pixiv links are UnknownRoute, never crash", `test/illust_detail_page_test.dart` "U6: caption renders as rich clickable text"
-- **Code:** `lib/core/platform/intent_router.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/AndroidIntentChannel.kt`
+  Android, which failed; unvalidated Spotlight links bypassed
+  `OutboundUrlOpener` and could invoke arbitrary schemes.
+- **Check:** `test/android_platform_boundary_test.dart` "rejects SEND without the exact stream extra and read grant" "rejects foreign, file and oversized shared payloads", `test/intent_router_test.dart` "malformed pixiv links are UnknownRoute, never crash", `test/illust_detail_page_test.dart` "U6: caption renders as rich clickable text", `test/spotlight_article_test.dart` "openInBrowser routes valid articleUrl via OutboundUrlOpener and disables invalid ones" "paragraph links reject non-http(s) and malformed hrefs before routing"
+- **Code:** `lib/core/platform/intent_router.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/AndroidIntentChannel.kt`, `lib/features/spotlight/spotlight_article_page.dart`
 
 ### DROID-08 The login WebView does not police navigation
 - **Rule:** Whatever Pixiv's login page loads, third-party identity
@@ -142,14 +147,22 @@ reviewed: 2026-11-14
 
 ### DROID-10 One WebView plugin; Windows stops navigations as they start
 - **Rule:** Embedded pages use `flutter_inappwebview` on every platform.
-  `WebNavigationGuard` asks before a main-frame navigation
-  (`shouldOverrideUrlLoading`) except on Windows, where it stops the
-  navigation as it starts (`onLoadStart`); the login page also runs the
-  decision on `onUpdateVisitedHistory` there. The reverse-image upload
-  page stops navigations as they start on every platform.
+  `WebNavigationGuard` disables `allowFileAccess` always and
+  `allowContentAccess` by default (opt-in only for armed upload WebViews),
+  and asks before a main-frame navigation (`shouldOverrideUrlLoading`)
+  except on Windows, where it stops the navigation as it starts
+  (`onLoadStart`) and runs `onUpdateVisitedHistory` as well.
+  `SpotlightChallengeView` restricts main-frame navigation to
+  `https://www.pixivision.net` and verifies `controller.getUrl()` via
+  `PixivSpotlightRepository.articleUri` before extracting HTML. The
+  reverse-image upload page stops navigations as they start on every
+  platform, and Android's armed file-chooser URI is bound to allowed HTTPS
+  hosts and single-use consumed in `InAppWebViewChromeClient`.
 - **Why:** A second plugin (`webview_flutter`) shipped about 130 KB of Dart
   for the same job. WebView2 implements the hook with CDP
   `Fetch.requestPaused`, which aborted Pixiv's authorize → login redirect
   chain mid-way; server-side redirects there can skip `onLoadStart`.
-- **Check:** `test/login_navigation_test.dart` "an invalid OAuth callback ends the attempt" "Windows stops the callback as it starts or lands in history"
-- **Code:** `lib/app/widgets/web_navigation_guard.dart`, `lib/features/login/login_webview_page.dart`, `lib/features/search/reverse_image_search_page.dart`, `lib/features/search/reverse_image_search_widgets.dart`
+  Unguarded WebViews or host-unscoped file choosers could navigate off-origin
+  or expose an armed upload URI to another site.
+- **Check:** `test/login_navigation_test.dart` "an invalid OAuth callback ends the attempt" "Windows stops the callback as it starts or lands in history" "WebNavigationGuard disables file and content access by default", `android/app/src/test/kotlin/io/github/lopution/parfait/ReverseImageInputChannelTest.kt` "armed file chooser consumes once only on allowed https host"
+- **Code:** `lib/app/widgets/web_navigation_guard.dart`, `lib/features/login/login_webview_page.dart`, `lib/features/spotlight/spotlight_challenge_view.dart`, `lib/features/search/reverse_image_search_page.dart`, `lib/features/search/reverse_image_search_widgets.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/ReverseImageInputChannel.kt`

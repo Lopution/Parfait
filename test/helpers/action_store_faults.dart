@@ -51,5 +51,9 @@ final class FaultyActionStore implements ActionStore {
   @override
   Future<List<StoredAction>> listFor(String owner) => _inner.listFor(owner);
   @override
+  Future<int> countPending(String owner) => _inner.countPending(owner);
+  @override
+  Future<int> clearNonRunning(String owner) => _inner.clearNonRunning(owner);
+  @override
   Future<void> clearAccount(String owner) => _inner.clearAccount(owner);
 }

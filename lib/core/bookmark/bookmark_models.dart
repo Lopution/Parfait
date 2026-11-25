@@ -14,6 +14,23 @@ enum BookmarkRestrict { public, private }
 String bookmarkRestrictWire(BookmarkRestrict restrict) =>
     restrict == BookmarkRestrict.private ? 'private' : 'public';
 
+/// Decodes a persisted [BookmarkRestrict] wire string, keeping [fallback] on
+/// missing or unknown values.
+BookmarkRestrict bookmarkRestrictFromJson(
+  Object? value,
+  BookmarkRestrict fallback,
+) => switch (value) {
+  'private' => BookmarkRestrict.private,
+  'public' => BookmarkRestrict.public,
+  _ => fallback,
+};
+
+/// Pixiv wire sentinel for bookmarks that have no user bookmark tags.
+const String kUncategorizedBookmarkTag = '未分類';
+
+/// Pixiv server-enforced maximum number of bookmark tags per work.
+const int kMaxBookmarkTags = 10;
+
 /// Canonical identity of a bookmarkable work.
 @immutable
 class BookmarkKey {

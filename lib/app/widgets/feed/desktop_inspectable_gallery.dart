@@ -9,6 +9,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../motion/hero_transition.dart';
 import '../../motion/motion_tokens.dart';
 import '../../navigation/route_facade.dart';
+import '../../window/desktop_close_dispatcher.dart';
 import 'desktop_inspector_scope.dart';
 
 /// Reusable desktop master-detail host: wraps any illust gallery [child] with
@@ -70,12 +71,14 @@ class _DesktopInspectableGalleryState
 
   @override
   void dispose() {
+    DesktopInspectorDismissRegistry.unregister(_dismissFromShortcut);
     _panelController.dispose();
     _selectedId.dispose();
     super.dispose();
   }
 
   void _snapCloseSync() {
+    DesktopInspectorDismissRegistry.unregister(_dismissFromShortcut);
     _selected = null;
     _rendered = null;
     _selectedId.value = null;
@@ -92,8 +95,25 @@ class _DesktopInspectableGalleryState
     });
   }
 
+  bool _isInspectorVisibleForShortcut() {
+    if (!mounted || _selected == null) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final route = ModalRoute.of(context);
+    return route == null || route.isCurrent;
+  }
+
+  bool _dismissFromShortcut() {
+    if (!_isInspectorVisibleForShortcut()) return false;
+    _close();
+    return true;
+  }
+
   void _open(DesktopInspectorTarget target) {
     if (!mounted) return;
+    DesktopInspectorDismissRegistry.register(
+      _dismissFromShortcut,
+      isActive: _isInspectorVisibleForShortcut,
+    );
     setState(() {
       _selected = target;
       _rendered = target;
@@ -111,6 +131,7 @@ class _DesktopInspectableGalleryState
   }
 
   void _close() {
+    DesktopInspectorDismissRegistry.unregister(_dismissFromShortcut);
     if (_selected == null) return;
     setState(() {
       _selected = null;

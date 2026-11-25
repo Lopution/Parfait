@@ -1507,5 +1507,121 @@
   "localNovelsDropUnsupported": "インポートできるのは .txt ファイルのみです",
   "ugoiraPlay": "うごイラを再生",
   "ugoiraPause": "うごイラを一時停止",
-  "ugoiraPlaybackSpeed": "再生速度"
+  "ugoiraPlaybackSpeed": "再生速度",
+  "loginWebViewStalled": "ログインページの読み込みがタイムアウトしました。ブラウザで開くか、コールバックまたはトークンを貼り付けてください。",
+  "accountTransferExportToken": "refresh_token をコピー",
+  "accountTransferTokenCopied": "refresh_token をコピーしました。早めに貼り付けてください。5分後に Parfait に戻ると自動的に消去されます。",
+  "offlineQueueTitle": "未同期のオフライン操作",
+  "offlineQueuePendingCount": "{count} 件が同期待ち",
+  "@offlineQueuePendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineQueueClear": "キューを空にする",
+  "offlineQueueCleared": "未同期の操作を消去しました",
+  "offlineQueueRetrying": "オフライン操作を再試行しています…",
+  "bookmarkDefaultRestrict": "デフォルトのブックマーク公開設定",
+  "bookmarkAttachWorkTags": "作品タグを自動追加",
+  "bookmarkAttachWorkTagsHint": "ワンタップ追加や新規ブックマーク時に、作品タグを最大 10 件まで自動で付けます。",
+  "bookmarkWorkTags": "作品のタグ",
+  "bookmarkTagLimitReached": "タグは最大 10 件まで追加できます",
+  "bookmarkTagUncategorized": "未分類",
+  "bookmarkRemove": "ブックマークを解除",
+  "menuHelp": "ヘルプ",
+  "keyboardShortcutsTitle": "キーボードショートカット",
+  "shortcutsGroupNavigation": "ナビゲーション",
+  "shortcutsGroupArtwork": "作品詳細・ビューアー",
+  "shortcutsGroupNovel": "小説リーダー",
+  "shortcutNavBackForward": "戻る / 進む",
+  "shortcutNavTabs": "ホームタブを切替",
+  "shortcutNavSearch": "検索",
+  "shortcutNavRefresh": "更新",
+  "shortcutNavSettings": "設定",
+  "shortcutNavRailOrBookmarks": "サイドバー切替 / ブックマーク",
+  "shortcutNavSelectAll": "一覧をすべて選択",
+  "shortcutNavShortcuts": "ショートカット一覧",
+  "shortcutArtworkBookmark": "ブックマーク / タグ編集",
+  "shortcutArtworkSave": "画像を保存",
+  "shortcutArtworkCopy": "原寸画像をコピー",
+  "shortcutArtworkChrome": "ツールバーの表示切替",
+  "shortcutArtworkInfo": "作品情報",
+  "shortcutArtworkSwitchWork": "前・次の作品",
+  "shortcutArtworkSwitchPage": "前・次のページ",
+  "shortcutArtworkZoom": "拡大・縮小・フィット",
+  "shortcutNovelToc": "目次と進捗",
+  "shortcutNovelNavigate": "ページ送り / スクロール",
+  "searchBookmarkLocalFilterHint": "タグ以外の検索対象では読み込み済み結果からブックマーク数をローカル絞り込みします",
+  "searchExcludeTag": "タグを除外",
+  "searchInsertOr": "OR を挿入",
+  "searchHistoryPin": "ピン留め",
+  "searchHistoryUnpin": "ピン留め解除",
+  "profileWorkTagPickerTitle": "タグで作品を絞り込み",
+  "profileWorkTagSearchHint": "タグまたはキーワードを検索",
+  "profileWorkTagClear": "絞り込みを解除",
+  "profileWorkTagLoadMore": "さらに読み込む",
+  "downloadSubfolderMode": "サブフォルダ分類",
+  "downloadSubfolderNone": "作成しない",
+  "downloadSubfolderByArtist": "作者別",
+  "downloadSubfolderByArtistAndSeries": "作者・シリーズ別",
+  "downloadMultiPageSubfolder": "複数ページ作品を個別フォルダへ",
+  "downloadMultiPageSubfolderHint": "2ページ以上の作品を作品ID名のサブフォルダに保存します",
+  "downloadPadPageNumbers": "ページ番号をゼロ埋め",
+  "downloadPadPageNumbersHint": "総ページ数の桁数に合わせてゼロ埋め（例: _p00、_p01）し、辞書順を揃えます",
+  "downloadAuthorSubfolderToggle": "作者のサブフォルダに保存",
+  "downloadAuthorConfirmBodyWithUgoira": "静止画 {works} 件（計 {pages} ページ）とうごイラ {ugoira} 件をダウンロードキューに追加します。",
+  "@downloadAuthorConfirmBodyWithUgoira": {
+    "placeholders": {
+      "works": {"type": "int"},
+      "pages": {"type": "int"},
+      "ugoira": {"type": "int"}
+    }
+  },
+  "downloadAuthorIncludeUgoira": "うごイラを含める（{count} 件・GIF 書き出し）",
+  "@downloadAuthorIncludeUgoira": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "downloadAuthorUgoiraOnlyHint": "うごイラ作品が {count} 件見つかりました。下のスイッチをオンにすると GIF として書き出せます。",
+  "@downloadAuthorUgoiraOnlyHint": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "novelSaveOffline": "オフライン書庫に保存",
+  "novelSavedOffline": "オフライン書庫に保存しました",
+  "novelSaveOfflineFailed": "オフライン保存に失敗しました",
+  "novelExportTxt": "TXT を書き出す",
+  "novelExportTxtQueued": "TXT 書き出しをキューに追加しました",
+  "novelExportTxtShared": "TXT ファイルを共有しました",
+  "novelExportTxtFailed": "TXT の書き出しに失敗しました",
+  "novelExportAndroidFolderRequired": "Android で TXT を書き出すには、保存先としてカスタムフォルダを選択してください",
+  "novelSeriesSaveOffline": "シリーズをオフライン保存",
+  "novelSeriesExportTxt": "シリーズを TXT 書き出し",
+  "novelSeriesExportMerged": "1 つの TXT に結合",
+  "novelSeriesExportSplit": "話ごとに TXT 書き出し",
+  "novelSeriesSavedWithSkipped": "{saved} 話を保存しました（閲覧不可 {skipped} 話をスキップ）",
+  "@novelSeriesSavedWithSkipped": {
+    "placeholders": {
+      "saved": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesExportQueuedWithSkipped": "{queued} 話をキューに追加しました（閲覧不可 {skipped} 話をスキップ）",
+  "@novelSeriesExportQueuedWithSkipped": {
+    "placeholders": {
+      "queued": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesNoViewableChapters": "このシリーズには保存可能な話がありません",
+  "openInNewTab": "新しいタブで開く",
+  "workspaceRootTab": "ワークスペース",
+  "windowCloseTab": "タブを閉じる",
+  "closeTabTooltip": "タブを閉じる",
+  "shortcutCloseTab": "オーバーレイまたはタブを閉じる",
+  "shortcutNextTab": "ワークスペースのタブを切替"
 }

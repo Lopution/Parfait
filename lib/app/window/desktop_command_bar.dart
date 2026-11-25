@@ -26,6 +26,7 @@ import 'desktop_command_bar_scope.dart';
 import 'desktop_command_bar_widgets.dart';
 import 'desktop_title_bar.dart';
 import 'desktop_title_bar_region_publisher.dart';
+import 'desktop_workspace_tabs.dart';
 
 export 'desktop_command_bar_scope.dart';
 
@@ -187,8 +188,22 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     );
   }
 
+  ({BuildContext context, bool useRootNavigator})? _popoverHost() {
+    final tabs = DesktopWorkspaceTabsScope.maybeOf(context, listen: false);
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      final secondary = tabs.activeSecondaryContext;
+      if (secondary != null && secondary.mounted) {
+        return (context: secondary, useRootNavigator: false);
+      }
+    }
+    final navContext = _navContext();
+    if (navContext == null) return null;
+    return (context: navContext, useRootNavigator: true);
+  }
+
   Future<void> _openSearch(Uri currentUri) async {
     if (_searchOpening) return;
+    DesktopWorkspaceTabsScope.maybeOf(context, listen: false)?.selectTab(0);
     final navContext = _navContext();
     if (navContext == null) return;
     _searchOpening = true;
@@ -227,15 +242,15 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     required double maxHeight,
     required WidgetBuilder builder,
   }) async {
-    final navContext = _navContext();
-    if (navContext == null) return;
+    final host = _popoverHost();
+    if (host == null) return;
     await showAppAdaptivePopover<void>(
-      context: navContext,
+      context: host.context,
       anchorContext: anchorKey.currentContext,
       minWidth: minWidth,
       maxWidth: maxWidth,
       maxHeight: maxHeight,
-      useRootNavigator: true,
+      useRootNavigator: host.useRootNavigator,
       builder: (popoverContext) {
         final route = ModalRoute.of(popoverContext);
         return TapRegion(
@@ -256,10 +271,13 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
   }
 
   Future<void> _openFilterPopover() async {
-    final navContext = _navContext();
-    if (navContext == null) return;
+    final host = _popoverHost();
+    if (host == null) return;
     if (_filterMenuOpen) {
-      await Navigator.of(navContext, rootNavigator: true).maybePop();
+      await Navigator.of(
+        host.context,
+        rootNavigator: host.useRootNavigator,
+      ).maybePop();
       return;
     }
     _filterMenuOpen = true;
@@ -279,10 +297,13 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
   }
 
   Future<void> _openAccountPopover() async {
-    final navContext = _navContext();
-    if (navContext == null) return;
+    final host = _popoverHost();
+    if (host == null) return;
     if (_accountMenuOpen) {
-      await Navigator.of(navContext, rootNavigator: true).maybePop();
+      await Navigator.of(
+        host.context,
+        rootNavigator: host.useRootNavigator,
+      ).maybePop();
       return;
     }
     _accountMenuOpen = true;
@@ -360,6 +381,11 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     const iconConstraints = BoxConstraints(minWidth: 30, minHeight: 30);
     const iconPadding = EdgeInsets.all(FuncSpacing.xs);
 
+    Widget guardModal(bool blocked, Widget child) => AbsorbPointer(
+      absorbing: blocked,
+      child: ExcludeSemantics(excluding: blocked, child: child),
+    );
+
     return Material(
       key: const Key('desktop-command-bar'),
       color: colors.surfaceContainerLow,
@@ -369,293 +395,377 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
         ),
         child: SizedBox(
           height: barHeight,
-          child: Stack(
-            fit: StackFit.expand,
-            clipBehavior: Clip.none,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+          child: ValueListenableBuilder<ForwardHistoryState>(
+            valueListenable: history.stateListenable,
+            builder: (context, historyState, _) {
+              final hasBlockingModal = historyState.hasBlockingModal;
+              return Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
                 children: [
-                  if (leadingInset > 0)
-                    SizedBox(
-                      width: leadingInset,
-                      height: barHeight,
-                      child: showSimulatedTrafficLights
-                          ? SimulatedMacTrafficLights(height: barHeight)
-                          : null,
-                    ),
-                  SizedBox(width: leadingGap),
-                  if (!isPreHome) ...[
-                    if (showBrandPill) ...[
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: tokens.brandTintWeak,
-                          borderRadius: FuncShape.pill,
-                          border: Border.all(color: tokens.brandHairline),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (leadingInset > 0)
+                        SizedBox(
+                          width: leadingInset,
+                          height: barHeight,
+                          child: showSimulatedTrafficLights
+                              ? SimulatedMacTrafficLights(height: barHeight)
+                              : null,
                         ),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: showBrandWordmark
-                                ? FuncSpacing.sm + FuncSpacing.xxs
-                                : FuncSpacing.sm,
-                            vertical: FuncSpacing.xs,
-                          ),
-                          child: Row(
+                      SizedBox(width: leadingGap),
+                      if (!isPreHome)
+                        guardModal(
+                          hasBlockingModal,
+                          Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Image.asset(
-                                'assets/branding/parfait_icon.png',
-                                width: 15,
-                                height: 15,
-                                excludeFromSemantics: true,
-                              ),
-                              if (showBrandWordmark) ...[
-                                const SizedBox(width: FuncSpacing.xs),
-                                Text(
-                                  'Parfait',
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: colors.primary,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: FuncSpacing.sm),
-                    ],
-                    ValueListenableBuilder<ForwardHistoryState>(
-                      valueListenable: history.stateListenable,
-                      builder: (context, historyState, _) => Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          desktopCommandIconButton(
-                            context,
-                            key: const Key('desktop-command-back'),
-                            constraints: iconConstraints,
-                            padding: iconPadding,
-                            iconSize: 17,
-                            tooltip: l10n.navBack,
-                            onPressed: historyState.canGoBack
-                                ? () => unawaited(history.goBack())
-                                : null,
-                            icon: const Icon(UiIcons.arrowBack),
-                          ),
-                          desktopCommandIconButton(
-                            context,
-                            key: const Key('desktop-command-forward'),
-                            constraints: iconConstraints,
-                            padding: iconPadding,
-                            iconSize: 17,
-                            tooltip: l10n.navForward,
-                            onPressed: historyState.canGoForward
-                                ? () => unawaited(history.goForward())
-                                : null,
-                            icon: const Icon(UiIcons.arrowForward),
-                          ),
-                        ],
-                      ),
-                    ),
-                    desktopCommandIconButton(
-                      context,
-                      key: const Key('desktop-command-refresh'),
-                      constraints: iconConstraints,
-                      padding: iconPadding,
-                      iconSize: 17,
-                      tooltip: l10n.refresh,
-                      onPressed: () =>
-                          PullToRefresh.triggerActive(_navContext()),
-                      icon: const Icon(UiIcons.refresh),
-                    ),
-                  ],
-                  if (usesSystemTitleBar)
-                    const Spacer()
-                  else
-                    Expanded(
-                      child: DesktopCommandDragSpacer(
-                        key: _leftDragKey,
-                        height: barHeight,
-                        actions: actions,
-                      ),
-                    ),
-                  if (!isPreHome)
-                    compactSearch
-                        ? SearchShortcutAnchor(
-                            onTrigger: () => unawaited(_openSearch(uri)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                KeyedSubtree(
-                                  key: _searchPillKey,
-                                  child: desktopCommandIconButton(
-                                    context,
-                                    key: const Key(
-                                      'desktop-command-search-pill',
-                                    ),
-                                    constraints: iconConstraints,
-                                    padding: iconPadding,
-                                    iconSize: 17,
-                                    tooltip: l10n.searchHint,
-                                    onPressed: () =>
-                                        unawaited(_openSearch(uri)),
-                                    icon: const Icon(AppIcons.search),
-                                  ),
-                                ),
-                                desktopCommandIconButton(
-                                  context,
-                                  key: const Key(
-                                    'desktop-command-reverse-search',
-                                  ),
-                                  constraints: iconConstraints,
-                                  padding: iconPadding,
-                                  iconSize: 16,
-                                  tooltip: l10n.searchReverseImage,
-                                  onPressed: () {
-                                    final navContext = _navContext();
-                                    if (navContext != null) {
-                                      unawaited(
-                                        openReverseImageSearch(navContext),
-                                      );
-                                    }
-                                  },
-                                  icon: const Icon(AppIcons.imageSearch),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: effectiveSearchWidth,
-                            ),
-                            child: SizedBox(
-                              width: effectiveSearchWidth,
-                              child: SearchShortcutAnchor(
-                                onTrigger: () => unawaited(_openSearch(uri)),
-                                child: DesktopCommandSearchPill(
-                                  key: _searchPillKey,
-                                  height: usesSystemTitleBar ? 30 : 32,
-                                  hint: l10n.searchHint,
-                                  keyword: keywordText,
-                                  reverseTooltip: l10n.searchReverseImage,
-                                  showShortcutBadge: showShortcutBadge,
-                                  onTapPill: () => unawaited(_openSearch(uri)),
-                                  onTapReverse: () {
-                                    final navContext = _navContext();
-                                    if (navContext != null) {
-                                      unawaited(
-                                        openReverseImageSearch(navContext),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                  if (usesSystemTitleBar)
-                    const Spacer()
-                  else
-                    Expanded(
-                      child: DesktopCommandDragSpacer(
-                        key: _rightDragKey,
-                        height: barHeight,
-                        actions: actions,
-                      ),
-                    ),
-                  if (!isPreHome) ...[
-                    if (contextAction != null) ...[
-                      contextAction,
-                      const SizedBox(width: FuncSpacing.xxs),
-                    ],
-                    TapRegion(
-                      groupId: _filterMenuGroup,
-                      child: KeyedSubtree(
-                        key: _filterButtonKey,
-                        child: desktopCommandIconButton(
-                          context,
-                          key: const Key('desktop-command-filter'),
-                          constraints: iconConstraints,
-                          padding: iconPadding,
-                          iconSize: 18,
-                          tooltip: l10n.commandContentFilter,
-                          onPressed: () => unawaited(_openFilterPopover()),
-                          icon: const Icon(AppIcons.shield),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: FuncSpacing.xs),
-                    TapRegion(
-                      groupId: _accountMenuGroup,
-                      child: KeyedSubtree(
-                        key: _accountButtonKey,
-                        child: Semantics(
-                          container: true,
-                          button: true,
-                          label: l10n.commandSwitchAccount,
-                          excludeSemantics: true,
-                          child: maybeWrapCommandTooltip(
-                            context,
-                            message: l10n.commandSwitchAccount,
-                            excludeFromSemantics: true,
-                            child: InkWell(
-                              key: const Key('desktop-command-account'),
-                              customBorder: const CircleBorder(),
-                              onTap: () => unawaited(_openAccountPopover()),
-                              child: Padding(
-                                padding: const EdgeInsets.all(FuncSpacing.xxs),
-                                child: DecoratedBox(
+                              if (showBrandPill) ...[
+                                DecoratedBox(
                                   decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
+                                    color: tokens.brandTintWeak,
+                                    borderRadius: FuncShape.pill,
                                     border: Border.all(
-                                      color: colors.primary.withValues(
-                                        alpha: 0.48,
-                                      ),
-                                      width: 1.5,
+                                      color: tokens.brandHairline,
                                     ),
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsets.all(
-                                      FuncSpacing.xxs,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: showBrandWordmark
+                                          ? FuncSpacing.sm + FuncSpacing.xxs
+                                          : FuncSpacing.sm,
+                                      vertical: FuncSpacing.xs,
                                     ),
-                                    child: PersonAvatar(
-                                      imageUrl: currentAccount?.profileImageUrl,
-                                      radius: 12,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Image.asset(
+                                          'assets/branding/parfait_icon.png',
+                                          width: 15,
+                                          height: 15,
+                                          excludeFromSemantics: true,
+                                        ),
+                                        if (showBrandWordmark) ...[
+                                          const SizedBox(width: FuncSpacing.xs),
+                                          Text(
+                                            'Parfait',
+                                            style: theme.textTheme.labelMedium
+                                                ?.copyWith(
+                                                  color: colors.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: -0.2,
+                                                ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: FuncSpacing.sm),
+                              ],
+                              Builder(
+                                builder: (barContext) {
+                                  final tabs =
+                                      DesktopWorkspaceTabsScope.maybeOf(
+                                        barContext,
+                                      );
+                                  final onSecondary =
+                                      tabs?.isOnSecondaryTab ?? false;
+                                  final canBack = onSecondary
+                                      ? tabs!.canActiveSecondaryPop
+                                      : historyState.canGoBack;
+                                  final canForward =
+                                      !onSecondary && historyState.canGoForward;
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      desktopCommandIconButton(
+                                        barContext,
+                                        key: const Key('desktop-command-back'),
+                                        constraints: iconConstraints,
+                                        padding: iconPadding,
+                                        iconSize: 17,
+                                        tooltip: l10n.navBack,
+                                        onPressed: !hasBlockingModal && canBack
+                                            ? () => unawaited(
+                                                onSecondary
+                                                    ? tabs!.popActiveSecondary()
+                                                    : history.goBack(),
+                                              )
+                                            : null,
+                                        icon: const Icon(UiIcons.arrowBack),
+                                      ),
+                                      desktopCommandIconButton(
+                                        barContext,
+                                        key: const Key(
+                                          'desktop-command-forward',
+                                        ),
+                                        constraints: iconConstraints,
+                                        padding: iconPadding,
+                                        iconSize: 17,
+                                        tooltip: l10n.navForward,
+                                        onPressed:
+                                            !hasBlockingModal && canForward
+                                            ? () =>
+                                                  unawaited(history.goForward())
+                                            : null,
+                                        icon: const Icon(UiIcons.arrowForward),
+                                      ),
+                                      desktopCommandIconButton(
+                                        barContext,
+                                        key: const Key(
+                                          'desktop-command-refresh',
+                                        ),
+                                        constraints: iconConstraints,
+                                        padding: iconPadding,
+                                        iconSize: 17,
+                                        tooltip: l10n.refresh,
+                                        onPressed: hasBlockingModal
+                                            ? null
+                                            : () => PullToRefresh.triggerActive(
+                                                onSecondary
+                                                    ? (tabs!.activeSecondaryContext ??
+                                                          _navContext())
+                                                    : _navContext(),
+                                              ),
+                                        icon: const Icon(UiIcons.refresh),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (usesSystemTitleBar)
+                        const Spacer()
+                      else
+                        Expanded(
+                          child: DesktopCommandDragSpacer(
+                            key: _leftDragKey,
+                            height: barHeight,
+                            actions: actions,
+                          ),
+                        ),
+                      if (!isPreHome)
+                        guardModal(
+                          hasBlockingModal,
+                          compactSearch
+                              ? SearchShortcutAnchor(
+                                  onTrigger: () => unawaited(_openSearch(uri)),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      KeyedSubtree(
+                                        key: _searchPillKey,
+                                        child: desktopCommandIconButton(
+                                          context,
+                                          key: const Key(
+                                            'desktop-command-search-pill',
+                                          ),
+                                          constraints: iconConstraints,
+                                          padding: iconPadding,
+                                          iconSize: 17,
+                                          tooltip: l10n.searchHint,
+                                          onPressed: hasBlockingModal
+                                              ? null
+                                              : () =>
+                                                    unawaited(_openSearch(uri)),
+                                          icon: const Icon(AppIcons.search),
+                                        ),
+                                      ),
+                                      desktopCommandIconButton(
+                                        context,
+                                        key: const Key(
+                                          'desktop-command-reverse-search',
+                                        ),
+                                        constraints: iconConstraints,
+                                        padding: iconPadding,
+                                        iconSize: 16,
+                                        tooltip: l10n.searchReverseImage,
+                                        onPressed: hasBlockingModal
+                                            ? null
+                                            : () {
+                                                final navContext =
+                                                    _navContext();
+                                                if (navContext != null) {
+                                                  unawaited(
+                                                    openReverseImageSearch(
+                                                      navContext,
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                        icon: const Icon(AppIcons.imageSearch),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: effectiveSearchWidth,
+                                  ),
+                                  child: SizedBox(
+                                    width: effectiveSearchWidth,
+                                    child: SearchShortcutAnchor(
+                                      onTrigger: () =>
+                                          unawaited(_openSearch(uri)),
+                                      child: DesktopCommandSearchPill(
+                                        key: _searchPillKey,
+                                        height: usesSystemTitleBar ? 30 : 32,
+                                        hint: l10n.searchHint,
+                                        keyword: keywordText,
+                                        reverseTooltip: l10n.searchReverseImage,
+                                        showShortcutBadge: showShortcutBadge,
+                                        onTapPill: () =>
+                                            unawaited(_openSearch(uri)),
+                                        onTapReverse: () {
+                                          final navContext = _navContext();
+                                          if (navContext != null) {
+                                            unawaited(
+                                              openReverseImageSearch(
+                                                navContext,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      if (usesSystemTitleBar)
+                        const Spacer()
+                      else
+                        Expanded(
+                          child: DesktopCommandDragSpacer(
+                            key: _rightDragKey,
+                            height: barHeight,
+                            actions: actions,
+                          ),
+                        ),
+                      if (!isPreHome)
+                        guardModal(
+                          hasBlockingModal,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (contextAction != null) ...[
+                                contextAction,
+                                const SizedBox(width: FuncSpacing.xxs),
+                              ],
+                              TapRegion(
+                                groupId: _filterMenuGroup,
+                                child: KeyedSubtree(
+                                  key: _filterButtonKey,
+                                  child: desktopCommandIconButton(
+                                    context,
+                                    key: const Key('desktop-command-filter'),
+                                    constraints: iconConstraints,
+                                    padding: iconPadding,
+                                    iconSize: 18,
+                                    tooltip: l10n.commandContentFilter,
+                                    onPressed: hasBlockingModal
+                                        ? null
+                                        : () => unawaited(_openFilterPopover()),
+                                    icon: const Icon(AppIcons.shield),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: FuncSpacing.xs),
+                              TapRegion(
+                                groupId: _accountMenuGroup,
+                                child: KeyedSubtree(
+                                  key: _accountButtonKey,
+                                  child: Semantics(
+                                    container: true,
+                                    button: true,
+                                    label: l10n.commandSwitchAccount,
+                                    excludeSemantics: true,
+                                    child: maybeWrapCommandTooltip(
+                                      context,
+                                      message: l10n.commandSwitchAccount,
+                                      excludeFromSemantics: true,
+                                      child: InkWell(
+                                        key: const Key(
+                                          'desktop-command-account',
+                                        ),
+                                        customBorder: const CircleBorder(),
+                                        onTap: hasBlockingModal
+                                            ? null
+                                            : () => unawaited(
+                                                _openAccountPopover(),
+                                              ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(
+                                            FuncSpacing.xxs,
+                                          ),
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: colors.primary
+                                                    .withValues(alpha: 0.48),
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(
+                                                FuncSpacing.xxs,
+                                              ),
+                                              child: PersonAvatar(
+                                                imageUrl: currentAccount
+                                                    ?.profileImageUrl,
+                                                radius: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
+                        ),
+                      SizedBox(
+                        width: showCustomButtons ? 138.0 + 8.0 : FuncSpacing.md,
+                      ),
+                    ],
+                  ),
+                  if (hasBlockingModal)
+                    const Positioned.fill(
+                      child: IgnorePointer(
+                        child: ColoredBox(
+                          key: Key('desktop-command-bar-modal-scrim'),
+                          color: Colors.black54,
                         ),
                       ),
                     ),
-                  ],
-                  SizedBox(
-                    width: showCustomButtons ? 138.0 + 8.0 : FuncSpacing.md,
-                  ),
-                ],
-              ),
-              if (showCustomButtons)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: KeyedSubtree(
-                    key: _captionButtonsKey,
-                    child: DesktopWindowCaptionButtons(
-                      height: barHeight,
-                      isMaximized: chrome?.isMaximized ?? false,
-                      isActive: chrome?.isActive ?? true,
-                      nativeHoveredButton: hostMetrics.hoveredButton,
-                      nativePressedButton: hostMetrics.pressedButton,
-                      maximizeKey: _maximizeKey,
-                      actions: actions,
-                      brightnessListenable: null,
+                  if (showCustomButtons)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: KeyedSubtree(
+                        key: _captionButtonsKey,
+                        child: DesktopWindowCaptionButtons(
+                          height: barHeight,
+                          isMaximized: chrome?.isMaximized ?? false,
+                          isActive: chrome?.isActive ?? true,
+                          nativeHoveredButton: hostMetrics.hoveredButton,
+                          nativePressedButton: hostMetrics.pressedButton,
+                          maximizeKey: _maximizeKey,
+                          actions: actions,
+                          brightnessListenable: null,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ),

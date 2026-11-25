@@ -8,15 +8,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/api_responses.dart';
+import 'helpers/illust_fixtures.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
+import 'package:parfait/app/widgets/tag_chips.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -678,4 +682,52 @@ void main() {
       expect(repository.adds, hasLength(2));
     });
   });
+
+  testWidgets(
+    'bookmark sheet offers work tags and seeds new bookmarks from defaults',
+    (tester) async {
+      final repository = BookmarkApi();
+      final container = await bookmarkWorld(repository);
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      await container
+          .read(settingsProvider.notifier)
+          .setDefaultBookmarkRestrict(BookmarkRestrict.private);
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust({
+          ...illustJson(1),
+          'tags': [
+            {'name': '風景', 'translated_name': 'scenery'},
+            {'name': 'オリジナル', 'translated_name': 'original'},
+          ],
+        }),
+      ]);
+
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          body: const Center(
+            child: BookmarkSwitchButton(illustId: 1, title: 'work 1'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.byType(BookmarkSwitchButton));
+      await tester.pumpAndSettle();
+
+      expect(_privateSwitch(tester).value, isTrue);
+      expect(find.text('作品标签'), findsOneWidget);
+      expect(find.byType(TagChip), findsNWidgets(2));
+
+      await tester.tap(find.byType(TagChip).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+
+      expect(repository.adds.single.$2, 'private');
+      expect(repository.adds.single.$3, ['風景']);
+    },
+  );
 }

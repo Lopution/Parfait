@@ -59,10 +59,17 @@ import com.pichillilorenzo.flutter_inappwebview_android.webview.WebViewChannelDe
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import io.flutter.plugin.common.PluginRegistry;
 
@@ -74,12 +81,77 @@ public class InAppWebViewChromeClient extends WebChromeClient implements PluginR
 
   /**
    * Optional one-shot file chooser result (vendored patch, Parfait reverse
-   * image search). When non-null the next {@link #onShowFileChooser} consumes
-   * and clears it instead of launching the system picker. The Chromium file
-   * chooser can only be opened by a real user gesture, so a site the user
-   * taps still performs its own upload — this slot only pre-fills the file.
+   * image search) bound to an allowlist of HTTPS hosts. When set, only a
+   * WebView currently loaded on an allowed HTTPS host consumes and clears the
+   * slot in {@link #onShowFileChooser}; unrelated WebViews and cross-origin
+   * pages never receive or consume the armed URIs.
    */
-  public static volatile Uri[] armedFileChooserUris;
+  private static final class ArmedFileChooserSlot {
+    final Uri[] uris;
+    final Set<String> allowedHosts;
+
+    ArmedFileChooserSlot(Uri[] uris, Set<String> allowedHosts) {
+      this.uris = uris;
+      this.allowedHosts = allowedHosts;
+    }
+  }
+
+  private static ArmedFileChooserSlot armedFileChooserSlot;
+
+  public static synchronized void armFileChooser(
+          @Nullable Uri[] uris,
+          @Nullable Collection<String> allowedHosts) {
+    if (uris == null || uris.length == 0 || allowedHosts == null || allowedHosts.isEmpty()) {
+      armedFileChooserSlot = null;
+      return;
+    }
+    Set<String> normalized = new HashSet<>();
+    for (String host : allowedHosts) {
+      if (host != null) {
+        String trimmed = host.trim().toLowerCase(Locale.ROOT);
+        if (!trimmed.isEmpty()) {
+          normalized.add(trimmed);
+        }
+      }
+    }
+    if (normalized.isEmpty()) {
+      armedFileChooserSlot = null;
+      return;
+    }
+    armedFileChooserSlot = new ArmedFileChooserSlot(
+            Arrays.copyOf(uris, uris.length),
+            Collections.unmodifiableSet(normalized));
+  }
+
+  public static synchronized void disarmFileChooser() {
+    armedFileChooserSlot = null;
+  }
+
+  public static synchronized @Nullable Uri[] consumeArmedFileChooserUris(@Nullable String currentUrl) {
+    ArmedFileChooserSlot slot = armedFileChooserSlot;
+    if (slot == null || currentUrl == null) {
+      return null;
+    }
+    String trimmed = currentUrl.trim();
+    if (trimmed.isEmpty()) {
+      return null;
+    }
+    URI parsed;
+    try {
+      parsed = new URI(trimmed);
+    } catch (URISyntaxException ignored) {
+      return null;
+    }
+    if (!"https".equalsIgnoreCase(parsed.getScheme())) {
+      return null;
+    }
+    String host = parsed.getHost();
+    if (host == null || !slot.allowedHosts.contains(host.toLowerCase(Locale.ROOT))) {
+      return null;
+    }
+    armedFileChooserSlot = null;
+    return Arrays.copyOf(slot.uris, slot.uris.length);
+  }
 
   private InAppBrowserDelegate inAppBrowserDelegate;
 
@@ -844,12 +916,12 @@ public class InAppWebViewChromeClient extends WebChromeClient implements PluginR
   @TargetApi(Build.VERSION_CODES.LOLLIPOP)
   @Override
   public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-    // Vendored patch (Parfait): a pre-armed file is consumed exactly once —
-    // the site's own upload button performs the submission so Cloudflare
-    // challenges run in a real browser context.
-    final Uri[] armed = armedFileChooserUris;
+    // Vendored patch (Parfait): a pre-armed file is consumed exactly once by
+    // a WebView loaded on one of the armed HTTPS hosts — unrelated WebViews
+    // and cross-origin redirects never receive or consume it.
+    final Uri[] armed = consumeArmedFileChooserUris(
+            webView != null ? webView.getUrl() : null);
     if (armed != null) {
-      armedFileChooserUris = null;
       filePathCallback.onReceiveValue(armed);
       return true;
     }

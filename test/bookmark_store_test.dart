@@ -185,11 +185,10 @@ void main() {
 
       store().observeRemoteAll(page, snapshotRevision: 0);
       expect(writes, 1);
+      // Unseen default-false items stay sparse (omitted from state map).
       expect(
-        store()
-            .entryOf(const BookmarkKey(BookmarkEntityType.illust, 101))!
-            .bookmarked,
-        isFalse,
+        store().entryOf(const BookmarkKey(BookmarkEntityType.illust, 101)),
+        isNull,
       );
       expect(
         store()
@@ -200,6 +199,15 @@ void main() {
 
       store().observeRemoteAll(page, snapshotRevision: 0);
       expect(writes, 1, reason: 'an unchanged page must not notify');
+
+      store().observeRemoteAll(const [
+        (
+          key: BookmarkKey(BookmarkEntityType.illust, 999),
+          bookmarked: false,
+          restrict: null,
+        ),
+      ], snapshotRevision: 0);
+      expect(writes, 1, reason: 'unseen false snapshots emit zero writes');
     });
 
     test('a batch still gates each snapshot on its own entry', () {

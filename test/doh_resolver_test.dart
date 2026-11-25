@@ -8,6 +8,7 @@ import 'package:parfait/core/network/compat/dns_message.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
+import 'package:parfait/core/network/local_network_address.dart';
 
 /// Scripted DoH server standing in for `https://1.1.1.1/dns-query`.
 class _FakeDohServer {
@@ -331,6 +332,47 @@ void main() {
     expect(result.addresses.single.address, public.ip.address);
     expect(local.requests, isEmpty);
   });
+
+  test(
+    'rejects http, userinfo, and loopback endpoints and blocks ECH hosts',
+    () async {
+      final fake = _FakeDohServer(address: '192.168.1.2');
+      final client = _DohServerClient([fake]);
+      for (final bad in const [
+        'http://1.1.1.1/dns-query',
+        'https://user:pass@1.1.1.1/dns-query',
+        'https://127.0.0.1/dns-query',
+        'https://[::1]/dns-query',
+        'https://[::ffff:127.0.0.1]/dns-query',
+        'https://localhost/dns-query',
+      ]) {
+        final resolver = DohResolver(endpointUrls: [bad], client: client);
+        addTearDown(resolver.dispose);
+        await expectLater(
+          resolver.pixiv(),
+          throwsA(isA<SecureResolutionException>()),
+          reason: bad,
+        );
+        await expectLater(
+          resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision),
+          throwsA(isA<SecureResolutionException>()),
+          reason: 'ech:$bad',
+        );
+      }
+
+      final blockedEch = DohResolver(
+        endpointUrls: const ['https://192.168.1.2/dns-query'],
+        blockedHosts: const {'192.168.1.2'},
+        client: client,
+      );
+      addTearDown(blockedEch.dispose);
+      await expectLater(
+        blockedEch.lookupEchConfig('cloudflare-ech.com', revision: _revision),
+        throwsA(isA<LocalNetworkBlocked>()),
+      );
+      expect(fake.requests, isEmpty);
+    },
+  );
 
   test('all endpoints down raises SecureResolutionException', () async {
     final client = _DohServerClient([

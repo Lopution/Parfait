@@ -509,6 +509,7 @@ void main() {
         Uri.parse('https://saucenao.com/'),
       );
       expect(armer.armedPaths, [file.path]);
+      expect(armer.armedHosts, [ReverseImageEngineSpecs.sauceNao.webViewHosts]);
       expect(state.webUpload?.armedUri, 'content://armed/1');
     },
   );
@@ -978,10 +979,14 @@ class _RecordingUploadArmer implements ReverseImageUploadArmer {
 
   final bool failArm;
   final armedPaths = <String>[];
+  final armedHosts = <Set<String>>[];
   var disarmCount = 0;
 
   @override
-  Future<String?> armUpload(String path) async {
+  Future<String?> armUpload(
+    String path, {
+    Set<String> allowedHosts = const {},
+  }) async {
     if (failArm) {
       throw const ReverseImagePlatformException(
         ReverseImagePlatformFailureCode.unavailable,
@@ -989,6 +994,7 @@ class _RecordingUploadArmer implements ReverseImageUploadArmer {
       );
     }
     armedPaths.add(path);
+    armedHosts.add(allowedHosts);
     return 'content://armed/${armedPaths.length}';
   }
 

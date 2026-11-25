@@ -3,7 +3,7 @@ prefix: HIST
 applies_to:
   - lib/core/history/**
   - lib/features/history/**
-reviewed: 2026-11-23
+reviewed: 2026-11-25
 ---
 
 # Browsing history
@@ -17,16 +17,20 @@ reviewed: 2026-11-23
 
 ### HIST-01 One connection, owned by the repository
 - **Rule:** `HistoryDatabase` opens `history.db` lazily once per provider
-  container and closes it on dispose. All access goes through
+  container and closes it on dispose (schema v4 with composite B-tree
+  indexes `history_records_type_order` and `history_records_author`,
+  SQLite 3.22+ compatible without FTS5). All access goes through
   `HistoryRepository`; a write that touches a record and the outbox uses
-  one transaction. A backup overwrite replaces an account's rows in one
-  transaction (`replaceAll`); rows the table refuses
+  one transaction. Backup merges (`mergeAll`), overwrites (`replaceAll`),
+  and multi-select deletes (`deleteAll`) each run in one transaction and
+  emit a single change notification; rows the table refuses
   (`HistoryRecord.checkStorable`) fail the file at parse, before an import
   writes anything.
-- **Why:** Opening per operation raced concurrent first opens. An
-  overwrite cleared the history, then inserted row by row: a refused row
-  or a death mid-way left it empty.
-- **Check:** `test/history_persistence_test.dart` "commits local row and merged outbox duration atomically"; `test/backup_test.dart` "a row overwrite cannot store leaves the old history whole" "rejects structurally malformed fields"
+- **Why:** Opening per operation raced concurrent first opens; per-row
+  transactions during backup restore or multi-delete caused N WAL fsyncs
+  and N stream refreshes. An overwrite that cleared history row by row left
+  it empty on failure.
+- **Check:** `test/history_persistence_test.dart` "commits local row and merged outbox duration atomically" "mergeAll, deleteAll, v4 indexes, and search coalescing keep history fast and atomic"; `test/backup_test.dart` "a row overwrite cannot store leaves the old history whole" "rejects structurally malformed fields"
 - **Code:** `lib/core/history/history_database.dart`, `lib/core/history/history_repository.dart`
 
 ### HIST-02 Store a compact snapshot, never payloads
@@ -105,9 +109,10 @@ reviewed: 2026-11-23
 - **Rule:** The history feed's cursor is the last loaded row's
   (`last_viewed_at`, id); `HistoryRepository.page(contentType:, query:, after:)`
   applies content-type and tokenized SQLite filters (escaped `LIKE` over
-  `title`/`author_name`/`tags_text`, exact positive integer match on
-  `content_id`/`author_id`) and reads past the cursor in
-  `last_viewed_at DESC, id DESC` order, never by offset, telling whether
+  `title`/`author_name`/`tags_text`, indexed `UNION` lookup for positive
+  integer `content_id`/`author_id` tokens), coalesces overlapping
+  interactive searches via a single-flight gate, and reads past the cursor
+  in `last_viewed_at DESC, id DESC` order, never by offset, telling whether
   another page follows from the same read (one row more), not from a second
   count. A failed first read shows `FeedError` with retry, not the empty
   view. A reader that needs every row (the backup export) reads them in

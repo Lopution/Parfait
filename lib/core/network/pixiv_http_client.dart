@@ -116,6 +116,7 @@ class PixivHttpClient {
   /// worker ([dataWorkerProvider]); the inline default keeps tests and
   /// tools on one isolate.
   final DataWorker _dataWorker;
+  DataWorker get dataWorker => _dataWorker;
   final String languageTag;
   final Duration requestTimeout;
   final Map<_GetRequestFlightKey, Future<http.Response>> _getFlights = {};

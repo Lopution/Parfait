@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../download/download_recovery.dart';
@@ -160,10 +161,51 @@ class _StagedFileSink
         ResumableMediaStoreHandle,
         StagedSafDocument,
         ResumableSafDocument {
-  _StagedFileSink._(this._file, this._id);
+  _StagedFileSink._(this._file, this._id, this._reservationKey);
 
   static int _nextId = 0;
   static const _stagedSuffix = '.part';
+
+  /// Normalized target paths currently held by open staged sinks in this
+  /// process so concurrent non-unique filenames never delete each other's
+  /// `.part` files or race on commit.
+  static final Set<String> _activePaths = <String>{};
+
+  static String _keyFor(String path) {
+    final normalized = p.normalize(path);
+    return Platform.isWindows ? normalized.toLowerCase() : normalized;
+  }
+
+  static (String stem, String ext) _splitExtension(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot <= 0) return (fileName, '');
+    return (fileName.substring(0, dot), fileName.substring(dot));
+  }
+
+  /// Synchronously reserves a unique target file path inside [dir] without
+  /// overwriting an existing completed file or colliding with an active sink.
+  static ({File file, String key}) _reserveUniqueTargetSync(
+    Directory dir,
+    String safeName, {
+    bool skipExisting = true,
+  }) {
+    final sep = Platform.pathSeparator;
+    final (stem, ext) = _splitExtension(safeName);
+    for (var attempt = 0; attempt < 10000; attempt++) {
+      final candidateName = attempt == 0 ? safeName : '$stem ($attempt)$ext';
+      final candidatePath = '${dir.path}$sep$candidateName';
+      final key = _keyFor(candidatePath);
+      if (_activePaths.contains(key)) continue;
+      if (skipExisting && File(candidatePath).existsSync()) continue;
+      _activePaths.add(key);
+      return (file: File(candidatePath), key: key);
+    }
+    final fallbackName = '$stem (${DateTime.now().microsecondsSinceEpoch})$ext';
+    final fallbackPath = '${dir.path}$sep$fallbackName';
+    final key = _keyFor(fallbackPath);
+    _activePaths.add(key);
+    return (file: File(fallbackPath), key: key);
+  }
 
   static Future<_StagedFileSink> create({
     required String directory,
@@ -172,37 +214,52 @@ class _StagedFileSink
     final safeName = sanitizeDesktopFileName(displayName);
     final dir = Directory(directory);
     await dir.create(recursive: true);
-    final target = File('${dir.path}${Platform.pathSeparator}$safeName');
-    // A stale .part from a crashed run belongs to a dead session — replacing
-    // it is the same contract as MediaStore aborting a pending row.
-    final staged = File('${target.path}.part');
-    if (await staged.exists()) await staged.delete();
-    final file = _StagedFileSink._(target, ++_nextId);
-    file._sink = staged.openWrite();
-    return file;
+    final reserved = _reserveUniqueTargetSync(dir, safeName);
+    final target = reserved.file;
+    try {
+      // A stale .part from a crashed run (not held in _activePaths) belongs
+      // to a dead session — replacing it matches MediaStore pending abort.
+      final staged = File('${target.path}$_stagedSuffix');
+      if (await staged.exists()) await staged.delete();
+      final file = _StagedFileSink._(target, ++_nextId, reserved.key);
+      file._sink = staged.openWrite();
+      return file;
+    } on Object {
+      _activePaths.remove(reserved.key);
+      rethrow;
+    }
   }
 
   /// Reopens a detached `.part` for appending (D8). Returns null when the
-  /// staged file is missing or the locator is not a `.part` path — the
-  /// caller discards the anchor and begins fresh.
+  /// staged file is missing, already held by an active sink, or the locator
+  /// is not a `.part` path — the caller discards the anchor and begins fresh.
   static Future<({_StagedFileSink sink, int storedBytes})?> resume(
     String stagedPath,
   ) async {
     if (!stagedPath.endsWith(_stagedSuffix)) return null;
-    final staged = File(stagedPath);
-    if (!await staged.exists()) return null;
     final finalPath = stagedPath.substring(
       0,
       stagedPath.length - _stagedSuffix.length,
     );
-    final storedBytes = await staged.length();
-    final sink = _StagedFileSink._(File(finalPath), ++_nextId);
-    sink._sink = staged.openWrite(mode: FileMode.append);
-    return (sink: sink, storedBytes: storedBytes);
+    final key = _keyFor(finalPath);
+    if (_activePaths.contains(key)) return null;
+    final staged = File(stagedPath);
+    if (!await staged.exists()) return null;
+    if (!_activePaths.add(key)) return null;
+    try {
+      final storedBytes = await staged.length();
+      final sink = _StagedFileSink._(File(finalPath), ++_nextId, key);
+      sink._sink = staged.openWrite(mode: FileMode.append);
+      return (sink: sink, storedBytes: storedBytes);
+    } on Object {
+      _activePaths.remove(key);
+      rethrow;
+    }
   }
 
-  final File _file;
+  File _file;
   final int _id;
+  final String _reservationKey;
   late final IOSink _sink;
   bool _closed = false;
 
@@ -266,8 +323,12 @@ class _StagedFileSink
   Future<String> detach() async {
     if (_closed) throw StateError('sink is closed');
     _closed = true;
-    await _sink.close();
-    return stagedPath;
+    try {
+      await _sink.close();
+      return stagedPath;
+    } finally {
+      _activePaths.remove(_reservationKey);
+    }
   }
 
   /// SAF variant of [detach]: same stream close, locator stays stagedPath.
@@ -277,10 +338,26 @@ class _StagedFileSink
   Future<void> _commit() async {
     if (_closed) return;
     _closed = true;
-    await _sink.close();
-    final staged = File(stagedPath);
-    if (await staged.exists()) {
-      await staged.rename(_file.path);
+    String? promotedKey;
+    try {
+      await _sink.close();
+      final staged = File(stagedPath);
+      if (await staged.exists()) {
+        var destination = _file;
+        if (destination.existsSync()) {
+          final reserved = _reserveUniqueTargetSync(
+            destination.parent,
+            p.basename(destination.path),
+          );
+          destination = reserved.file;
+          promotedKey = reserved.key;
+        }
+        await staged.rename(destination.path);
+        _file = destination;
+      }
+    } finally {
+      _activePaths.remove(_reservationKey);
+      if (promotedKey != null) _activePaths.remove(promotedKey);
     }
   }
 
@@ -288,14 +365,35 @@ class _StagedFileSink
     if (_closed) return;
     _closed = true;
     try {
-      await _sink.close();
-    } catch (_) {
-      // Cleanup must not mask the original failure.
+      try {
+        await _sink.close();
+      } catch (_) {
+        // Cleanup must not mask the original failure.
+      }
+      try {
+        await File(stagedPath).delete();
+      } catch (_) {}
+    } finally {
+      _activePaths.remove(_reservationKey);
     }
-    try {
-      await File(stagedPath).delete();
-    } catch (_) {}
   }
+}
+
+/// Joins sanitized relative [subdirectories] onto [baseDirectory].
+String _resolveDesktopDirectory(
+  String baseDirectory,
+  List<String> subdirectories,
+) {
+  if (subdirectories.isEmpty) return baseDirectory;
+  final sep = Platform.pathSeparator;
+  final trimmed = baseDirectory.endsWith(sep)
+      ? baseDirectory.substring(0, baseDirectory.length - sep.length)
+      : baseDirectory;
+  final segments = [
+    for (final raw in subdirectories)
+      sanitizeDesktopFileName(raw, fallback: 'folder'),
+  ];
+  return '$trimmed$sep${segments.join(sep)}';
 }
 
 /// `SafDocumentSinkFactory` for desktop: `treeUri` is a filesystem directory
@@ -313,8 +411,12 @@ class DesktopSafDocumentSinkFactory
     required String mimeType,
     DownloadOutputOwner? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   }) {
-    return _StagedFileSink.create(directory: treeUri, displayName: displayName);
+    return _StagedFileSink.create(
+      directory: _resolveDesktopDirectory(treeUri, subdirectories),
+      displayName: displayName,
+    );
   }
 
   /// [uri] is the opaque locator emitted by [ResumableSafDocument.resumeLocator]
@@ -332,7 +434,8 @@ class DesktopSafDocumentSinkFactory
 
 /// `MediaStoreSession` for desktop: writes into the user's Downloads folder
 /// (fallback: application support). `relativePath` keeps its Android meaning
-/// of "album subdirectory" — `Pictures/<album>` maps to `<base>/<album>`.
+/// of "album subdirectory" — `Pictures/<album>[/<subfolders>]` maps to
+/// `<base>/<album>[/<subfolders>]`.
 class DesktopFileMediaStoreSession
     implements
         MediaStoreSession,
@@ -355,14 +458,20 @@ class DesktopFileMediaStoreSession
     if (relativePath == null || relativePath.trim().isEmpty) {
       return _defaultAlbum;
     }
-    // Drop the platform root segment (`Pictures`) and keep the album name.
+    // Drop the platform root segment (`Pictures`) and keep album + subfolders.
     final segments = relativePath
         .split(RegExp(r'[/\\]'))
         .where((s) => s.trim().isNotEmpty)
         .toList();
     if (segments.isEmpty) return _defaultAlbum;
-    final raw = segments.length == 1 ? segments.first : segments.last;
-    return sanitizeDesktopFileName(raw, fallback: _defaultAlbum);
+    final body =
+        segments.length > 1 && segments.first.toLowerCase() == 'pictures'
+        ? segments.sublist(1)
+        : segments;
+    return [
+      for (final seg in body)
+        sanitizeDesktopFileName(seg, fallback: _defaultAlbum),
+    ].join(Platform.pathSeparator);
   }
 
   Future<MediaStoreHandle> _open({
@@ -501,11 +610,12 @@ class MacosBookmarkSafDocumentSinkFactory
     required String mimeType,
     DownloadOutputOwner? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   }) async {
     final directory = await _startAccess(treeUri);
     try {
       final sink = await _StagedFileSink.create(
-        directory: directory,
+        directory: _resolveDesktopDirectory(directory, subdirectories),
         displayName: displayName,
       );
       return _BookmarkedSafSink(

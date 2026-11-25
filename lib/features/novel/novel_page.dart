@@ -16,9 +16,12 @@ import '../../app/widgets/caption_rich_text.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/inline_translation.dart';
 import '../../app/widgets/meta_fact.dart';
+import '../../app/widgets/middle_click_region.dart';
+import '../../app/widgets/novel_download_actions.dart';
 import '../../app/widgets/person_card.dart';
 import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
+import '../../app/window/desktop_workspace_tabs.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
@@ -239,6 +242,22 @@ class NovelPage extends ConsumerWidget {
       );
     }
 
+    VoidCallback? openTagInNewTab(String tag) {
+      final tabs = DesktopWorkspaceTabsScope.maybeOf(
+        sheetContext,
+        listen: false,
+      );
+      if (tabs == null) return null;
+      return () => tabs.openTargetInBackground(
+        SearchTabTarget(
+          NovelSearchQuery(
+            keyword: tag,
+            filters: ref.read(searchNovelFiltersProvider),
+          ),
+        ),
+      );
+    }
+
     // The same entries as the long-press panel, beside the pointer on a
     // PC (R11).
     void showTagActions(NovelTag tag, {Offset? position}) {
@@ -250,6 +269,7 @@ class NovelPage extends ConsumerWidget {
           muted: muted,
           position: position,
           onSearch: () => searchTag(tag.name),
+          onOpenInNewTab: openTagInNewTab(tag.name),
           onToggleMute: () => unawaited(
             toggleTagMute(
               sheetContext,
@@ -274,20 +294,29 @@ class NovelPage extends ConsumerWidget {
           novel: novel,
           // The sheet closes before the profile opens. The sheet is the
           // card tier already, so the card takes the next one up.
-          author: PersonCard(
-            color: Theme.of(listContext).colorScheme.surfaceContainerHigh,
-            tapHint: listContext.l10n.openAuthorProfile,
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              unawaited(openUser(listContext, novel.user.id));
-            },
-            child: AuthorSummary(
-              name: novel.user.name,
-              account: novel.user.account.isEmpty
-                  ? null
-                  : '@${novel.user.account}',
-              imageUrl: novel.user.profileImageUrl,
-              avatarRadius: 20,
+          author: MiddleClickRegion(
+            onMiddleClick: () =>
+                DesktopWorkspaceTabsScope.maybeOf(
+                  listContext,
+                  listen: false,
+                )?.openTargetInBackground(
+                  UserTabTarget(userId: novel.user.id, name: novel.user.name),
+                ),
+            child: PersonCard(
+              color: Theme.of(listContext).colorScheme.surfaceContainerHigh,
+              tapHint: listContext.l10n.openAuthorProfile,
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(openUser(listContext, novel.user.id));
+              },
+              child: AuthorSummary(
+                name: novel.user.name,
+                account: novel.user.account.isEmpty
+                    ? null
+                    : '@${novel.user.account}',
+                imageUrl: novel.user.profileImageUrl,
+                avatarRadius: 20,
+              ),
             ),
           ),
           series: switch ((novel.seriesId, novel.seriesTitle)) {
@@ -311,6 +340,7 @@ class NovelPage extends ConsumerWidget {
                   label: tag.name,
                   translated: tag.translatedName,
                   onTap: () => searchTag(tag.name),
+                  onMiddleClick: openTagInNewTab(tag.name),
                   onLongPress: () => showTagActions(tag),
                   onSecondaryTapAt: (position) =>
                       showTagActions(tag, position: position),
@@ -696,6 +726,18 @@ class _NovelBookmarkMenuButton extends ConsumerWidget {
           icon: AppIcons.heart,
           label: context.l10n.bookmarkEditTitle,
           enabled: !unsettled,
+        ),
+        AppMenuEntry(
+          value: () =>
+              unawaited(savePixivNovelOfflineAction(context, ref, novel)),
+          icon: AppIcons.localNovel,
+          label: context.l10n.novelSaveOffline,
+        ),
+        AppMenuEntry(
+          value: () =>
+              unawaited(exportPixivNovelTxtAction(context, ref, novel)),
+          icon: AppIcons.download,
+          label: context.l10n.novelExportTxt,
         ),
       ],
       onSelected: (_, action) => action(),

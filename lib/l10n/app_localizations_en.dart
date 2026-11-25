@@ -3551,4 +3551,264 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => 'Playback speed';
+
+  @override
+  String get loginWebViewStalled =>
+      'Sign-in page timed out. Open in a browser or paste a callback link or token.';
+
+  @override
+  String get accountTransferExportToken => 'Copy refresh_token';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token copied. Paste it soon; it is cleared when you return to Parfait after 5 minutes.';
+
+  @override
+  String get offlineQueueTitle => 'Pending offline actions';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return '$count pending';
+  }
+
+  @override
+  String get offlineQueueClear => 'Clear queue';
+
+  @override
+  String get offlineQueueCleared => 'Pending actions cleared';
+
+  @override
+  String get offlineQueueRetrying => 'Retrying offline actions…';
+
+  @override
+  String get bookmarkDefaultRestrict => 'Default bookmark visibility';
+
+  @override
+  String get bookmarkAttachWorkTags => 'Auto-attach work tags';
+
+  @override
+  String get bookmarkAttachWorkTagsHint =>
+      'Automatically attach up to 10 work tags when quick-bookmarking or opening a new bookmark.';
+
+  @override
+  String get bookmarkWorkTags => 'Work tags';
+
+  @override
+  String get bookmarkTagLimitReached => 'Up to 10 tags per bookmark';
+
+  @override
+  String get bookmarkTagUncategorized => 'Uncategorized';
+
+  @override
+  String get bookmarkRemove => 'Remove bookmark';
+
+  @override
+  String get menuHelp => 'Help';
+
+  @override
+  String get keyboardShortcutsTitle => 'Keyboard shortcuts';
+
+  @override
+  String get shortcutsGroupNavigation => 'Navigation';
+
+  @override
+  String get shortcutsGroupArtwork => 'Artwork & Viewer';
+
+  @override
+  String get shortcutsGroupNovel => 'Novel Reader';
+
+  @override
+  String get shortcutNavBackForward => 'Back / Forward';
+
+  @override
+  String get shortcutNavTabs => 'Switch home tabs';
+
+  @override
+  String get shortcutNavSearch => 'Search';
+
+  @override
+  String get shortcutNavRefresh => 'Refresh';
+
+  @override
+  String get shortcutNavSettings => 'Settings';
+
+  @override
+  String get shortcutNavRailOrBookmarks => 'Toggle rail / Bookmarks';
+
+  @override
+  String get shortcutNavSelectAll => 'Select all in feed';
+
+  @override
+  String get shortcutNavShortcuts => 'Keyboard shortcuts';
+
+  @override
+  String get shortcutArtworkBookmark => 'Bookmark / Edit tags';
+
+  @override
+  String get shortcutArtworkSave => 'Save image';
+
+  @override
+  String get shortcutArtworkCopy => 'Copy original image';
+
+  @override
+  String get shortcutArtworkChrome => 'Toggle controls';
+
+  @override
+  String get shortcutArtworkInfo => 'Artwork info';
+
+  @override
+  String get shortcutArtworkSwitchWork => 'Previous / Next artwork';
+
+  @override
+  String get shortcutArtworkSwitchPage => 'Previous / Next page';
+
+  @override
+  String get shortcutArtworkZoom => 'Zoom in / out / fit';
+
+  @override
+  String get shortcutNovelToc => 'Contents & progress';
+
+  @override
+  String get shortcutNovelNavigate => 'Turn page / Scroll';
+
+  @override
+  String get searchBookmarkLocalFilterHint =>
+      'Non-tag targets filter bookmark counts locally on loaded results';
+
+  @override
+  String get searchExcludeTag => 'Exclude tag';
+
+  @override
+  String get searchInsertOr => 'Insert OR';
+
+  @override
+  String get searchHistoryPin => 'Pin';
+
+  @override
+  String get searchHistoryUnpin => 'Unpin';
+
+  @override
+  String get profileWorkTagPickerTitle => 'Filter works by tag';
+
+  @override
+  String get profileWorkTagSearchHint => 'Search tags or keyword';
+
+  @override
+  String get profileWorkTagClear => 'Clear filter';
+
+  @override
+  String get profileWorkTagLoadMore => 'Load more';
+
+  @override
+  String get downloadSubfolderMode => 'Subfolder grouping';
+
+  @override
+  String get downloadSubfolderNone => 'None (flat)';
+
+  @override
+  String get downloadSubfolderByArtist => 'By artist';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => 'By artist & series';
+
+  @override
+  String get downloadMultiPageSubfolder => 'Subfolder for multi-page works';
+
+  @override
+  String get downloadMultiPageSubfolderHint =>
+      'Place multi-page artworks into a subfolder named by artwork ID';
+
+  @override
+  String get downloadPadPageNumbers => 'Zero-pad page numbers';
+
+  @override
+  String get downloadPadPageNumbersHint =>
+      'Pad page and series indices to total digits (e.g. _p00, _p01) for lexical sorting';
+
+  @override
+  String get downloadAuthorSubfolderToggle => 'Save into artist subfolder';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return 'Queue $works static works ($pages pages) and $ugoira ugoira works for download.';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return 'Include ugoira works ($count, export as GIF)';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return 'Only $count ugoira works were found. Turn on the switch below to export them as GIFs.';
+  }
+
+  @override
+  String get novelSaveOffline => 'Save to offline library';
+
+  @override
+  String get novelSavedOffline => 'Saved to offline library';
+
+  @override
+  String get novelSaveOfflineFailed => 'Offline save failed';
+
+  @override
+  String get novelExportTxt => 'Export TXT';
+
+  @override
+  String get novelExportTxtQueued => 'TXT export queued';
+
+  @override
+  String get novelExportTxtShared => 'TXT file shared';
+
+  @override
+  String get novelExportTxtFailed => 'TXT export failed';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Exporting TXT on Android requires a custom folder destination';
+
+  @override
+  String get novelSeriesSaveOffline => 'Save series offline';
+
+  @override
+  String get novelSeriesExportTxt => 'Export series TXT';
+
+  @override
+  String get novelSeriesExportMerged => 'Merge into one TXT';
+
+  @override
+  String get novelSeriesExportSplit => 'Export one TXT per chapter';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return 'Saved $saved chapters ($skipped unavailable skipped)';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return 'Queued $queued chapters ($skipped unavailable skipped)';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters =>
+      'No viewable chapters in this series';
+
+  @override
+  String get openInNewTab => 'Open in new tab';
+
+  @override
+  String get workspaceRootTab => 'Workspace';
+
+  @override
+  String get windowCloseTab => 'Close Tab';
+
+  @override
+  String get closeTabTooltip => 'Close tab';
+
+  @override
+  String get shortcutCloseTab => 'Close overlay or active tab';
+
+  @override
+  String get shortcutNextTab => 'Switch workspace tab';
 }

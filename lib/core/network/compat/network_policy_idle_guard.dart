@@ -1,23 +1,9 @@
 part of 'network_policy.dart';
 
-/// Adds the two streaming budgets a route's connect timeout cannot express.
-/// Image-purpose routes deliberately carry no *total* request timeout (a
-/// large download must not abort mid-body — see
-/// [RhttpClientFactory.timeoutsFor]), which left two unbounded waits:
-/// `send()` (connect+TLS+request+first byte) and each gap between body
-/// chunks. A socket that stalls at either point previously hung the
-/// request forever; the route ladder never got a chance to advance.
-///
-/// A headers deadline miss surfaces from `send()` as a `timeout`, so the
-/// ladder can advance for idempotent GETs. A body stall surfaces on the
-/// stream as a `TimeoutException`: the image cache shows a visible error
-/// and the download manager retries through its resume anchor. Either
-/// way, and whenever a reader gives the body up, the request's abort
-/// trigger fires: rhttp keeps the transfer and its socket otherwise.
-///
-/// A request given up, by its reader or by its own abort trigger, counts
-/// against its route candidate when it had stalled ([ImageStall]): no
-/// headers for [headersStall], or no body bytes for [bodyStall].
+/// Adds headers and body-idle budgets to streaming image/download routes
+/// (which carry no total timeout so large transfers never abort mid-body).
+/// An aborted or stalled request fires the abort trigger and reports to
+/// [_observer] when it had stalled ([ImageStall]).
 class _StreamIdleGuardClient extends http.BaseClient {
   _StreamIdleGuardClient(
     this._inner, {
@@ -29,18 +15,14 @@ class _StreamIdleGuardClient extends http.BaseClient {
   }) : _observer = observer;
 
   final http.Client _inner;
-
-  /// Hears how bodies end on a pixiv image route candidate.
   final _CandidateObserver? _observer;
-
-  /// Time budget for `send()` to resolve, i.e. until response headers.
   final Duration headersTimeout;
-
-  /// Maximum gap between body chunks before the stream errors out.
   final Duration idleTimeout;
-
   final Duration headersStall;
   final Duration bodyStall;
+
+  void rebindRevision(NetworkRevision revision) =>
+      _observer?.rebindRevision(revision);
 
   static const defaultHeadersTimeout = Duration(seconds: 15);
   static const defaultIdleTimeout = Duration(seconds: 15);
@@ -237,7 +219,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
        _cancelOnError = cancelOnError,
        _stall = stall {
     _source = source.listen(_data, onError: _sourceError, onDone: _done);
-    _rearm();
+    _armTimer(_idle);
     // Before the abort's own error, which would read as the route's.
     unawaited(givenUp?.then((_) => _end(_givenUp), onError: (_) {}));
   }
@@ -254,6 +236,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   final _quiet = Stopwatch()..start();
   var _bytes = 0;
   var _ended = false;
+  var _closed = false;
   late final StreamSubscription<List<int>> _source;
   void Function(List<int> event)? _onData;
   Function? _onError;
@@ -261,7 +244,6 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   Timer? _timer;
 
   void _data(List<int> event) {
-    _rearm();
     _quiet.reset();
     _bytes += event.length;
     _onData?.call(event);
@@ -279,11 +261,14 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   void _sourceError(Object error, StackTrace stack) {
     _end(_BodyEnd.failed);
     if (_cancelOnError) {
+      _closed = true;
       _timer?.cancel();
+      _timer = null;
       unawaited(_cancelSource());
     } else {
       // The body goes on after the error; so does its idle budget.
-      _rearm();
+      _quiet.reset();
+      if (_timer == null) _armTimer(_idle);
     }
     _error(error, stack);
   }
@@ -301,25 +286,34 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   }
 
   void _done() {
+    _closed = true;
     _timer?.cancel();
+    _timer = null;
     _end(_BodyEnd.done);
     _onDone?.call();
   }
 
-  void _rearm() {
+  void _armTimer(Duration delay) {
     _timer?.cancel();
     // The idle budget is wall-clock semantics, so the timer is rooted in
     // the real zone: a fake-zone timer (widget tests) would stay pending
     // for any stream still draining at teardown, and in production there
     // is no fake zone anyway.
-    _timer = Zone.root.createTimer(_idle, () {
-      _end(_BodyEnd.failed);
-      unawaited(_cancelSource());
-      _error(
-        TimeoutException('response stream idle', _idle),
-        StackTrace.current,
-      );
-    });
+    _timer = Zone.root.createTimer(delay, _onIdleTick);
+  }
+
+  void _onIdleTick() {
+    _timer = null;
+    if (_closed) return;
+    final remaining = _idle - _quiet.elapsed;
+    if (remaining > Duration.zero) {
+      _armTimer(remaining);
+      return;
+    }
+    _closed = true;
+    _end(_BodyEnd.failed);
+    unawaited(_cancelSource());
+    _error(TimeoutException('response stream idle', _idle), StackTrace.current);
   }
 
   /// Also stops the idle timer: an abandoned body (raced loser drained
@@ -331,7 +325,9 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   /// the image cache 15–30 s late.
   @override
   Future<void> cancel() {
+    _closed = true;
     _timer?.cancel();
+    _timer = null;
     _end(_givenUp);
     unawaited(_cancelSource());
     return Future<void>.value();

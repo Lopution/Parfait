@@ -18,6 +18,7 @@ import '../widgets/replica_switch_tile.dart';
 import '../widgets/settings/persist_settings.dart';
 import 'desktop_drag_region.dart';
 import 'desktop_title_bar.dart';
+import 'desktop_workspace_tabs.dart';
 
 /// Draggable title-bar spacer between command-bar clusters.
 class DesktopCommandDragSpacer extends StatelessWidget {
@@ -309,6 +310,7 @@ class DesktopCommandAccountPopover extends ConsumerWidget {
           title: Text(l10n.accountSettings),
           onTap: () {
             Navigator.of(context).pop();
+            DesktopWorkspaceTabsController.active?.selectTab(0);
             final currentUri = liveRouterUri(router);
             if (currentUri.path == settingsAccountPath) {
               ForwardHistoryStack.ofRouter(

@@ -168,8 +168,10 @@ class IllustStore {
       final bookmarkAuthority = _authorityOf?.call(entity.id);
       final existing = _entities[entity.id];
       if (existing == null || existing == entity) {
-        _entities[entity.id] = bookmarkAuthority == null
-            ? entity
+        _entities[entity.id] =
+            bookmarkAuthority == null ||
+                bookmarkAuthority == entity.isBookmarked
+            ? (existing ?? entity)
             : entity.copyWith(isBookmarked: bookmarkAuthority);
         continue;
       }
@@ -244,7 +246,7 @@ class IllustStore {
   void updateBookmark(int id, bool bookmarked) {
     if (_retired) return;
     final existing = _entities[id];
-    if (existing != null) {
+    if (existing != null && existing.isBookmarked != bookmarked) {
       _entities[id] = existing.copyWith(isBookmarked: bookmarked);
     }
   }

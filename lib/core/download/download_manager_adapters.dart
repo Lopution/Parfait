@@ -9,101 +9,6 @@ class _DownloadOwnershipException implements Exception {
   String toString() => 'DownloadOwnershipException: $message';
 }
 
-class DownloadStorageException implements Exception {
-  const DownloadStorageException(this.message);
-
-  final String message;
-}
-
-class DownloadPermissionException implements Exception {
-  const DownloadPermissionException(this.message);
-
-  final String message;
-}
-
-class DownloadDecodeException implements Exception {
-  const DownloadDecodeException(this.message);
-
-  final String message;
-}
-
-class DownloadResourceLimitException implements Exception {
-  const DownloadResourceLimitException(this.message);
-
-  final String message;
-}
-
-/// Why a write failed, for the message that says so: a download's, or a
-/// GIF export's.
-DownloadFailureKind classifyDownloadFailure(Object error) {
-  if (error is DownloadCancelledException) return DownloadFailureKind.canceled;
-  if (error is _DownloadOwnershipException) {
-    return DownloadFailureKind.ownership;
-  }
-  if (error is DownloadHttpStatusException) {
-    return switch (error.statusCode) {
-      401 || 403 => DownloadFailureKind.auth,
-      408 || 425 || 500 || 502 || 503 || 504 => DownloadFailureKind.network,
-      413 => DownloadFailureKind.resource,
-      429 => DownloadFailureKind.rateLimit,
-      507 => DownloadFailureKind.storage,
-      _ => DownloadFailureKind.unknown,
-    };
-  }
-  if (error is PlatformException) {
-    if (_hostFailureKind(error.code) case final kind?) return kind;
-  }
-  if (error is FileSystemException && error.osError?.errorCode == _enospc) {
-    return DownloadFailureKind.noSpace;
-  }
-  if (error is DownloadStorageException || error is FileSystemException) {
-    return DownloadFailureKind.storage;
-  }
-  if (error is DownloadPermissionException ||
-      error.toString().toLowerCase().contains('permission')) {
-    return DownloadFailureKind.permission;
-  }
-  if (error is DownloadDecodeException || error is FormatException) {
-    return DownloadFailureKind.decode;
-  }
-  if (error is DownloadResourceLimitException ||
-      error.toString().toLowerCase().contains('out of memory') ||
-      error.toString().toLowerCase().contains('limit exceeded')) {
-    return DownloadFailureKind.resource;
-  }
-  // A timeout here is the transport's: no body byte within its idle budget.
-  if (error is NetworkFailureException ||
-      error is DownloadTransportException ||
-      error is SocketException ||
-      error is TimeoutException) {
-    return DownloadFailureKind.network;
-  }
-  return DownloadFailureKind.unknown;
-}
-
-/// POSIX errno for a full disk (Linux, Android, macOS).
-const _enospc = 28;
-
-/// The SAF, MediaStore, and iOS Photo Library hosts' `<channel>_<reason>` codes
-/// (DROID-02, DL-13). A SAF permission failure means the folder grant is gone,
-/// and a missing SAF document means the folder or the file in it is gone:
-/// either way the folder has to be picked again. MediaStore and iOS Photos
-/// permission errors map to app storage/photo permission.
-DownloadFailureKind? _hostFailureKind(String code) => switch (code) {
-  'saf_permission' || 'saf_not_found' => DownloadFailureKind.destination,
-  'mediastore_permission' ||
-  'ios_photo_permission_denied' => DownloadFailureKind.permission,
-  'saf_no_space' ||
-  'mediastore_no_space' ||
-  'ios_photo_no_space' => DownloadFailureKind.noSpace,
-  _
-      when code.startsWith('saf_') ||
-          code.startsWith('mediastore_') ||
-          code.startsWith('ios_photo_') =>
-    DownloadFailureKind.storage,
-  _ => null,
-};
-
 String _safeError(Object error) {
   if (error is DownloadHttpStatusException) {
     return 'HTTP ${error.statusCode} download failure';
@@ -222,4 +127,101 @@ class _FileDownloadResponse implements DownloadResponse {
 
   @override
   Future<void> close() async {}
+}
+
+class _Job {
+  _Job({
+    required this.id,
+    required this.key,
+    required this.request,
+    required this.displayName,
+    required this.submission,
+    required this.owner,
+    DownloadTaskSnapshot? snapshot,
+  }) : snapshot =
+           snapshot ??
+           DownloadTaskSnapshot(
+             id: id,
+             illustId: request.illustId,
+             pageIndex: request.pageIndex,
+             url: request.url,
+             target: request.target.name,
+             displayName: displayName,
+             status: DownloadStatus.queued,
+             submission: submission,
+             outputOwner: owner,
+           );
+
+  final String id;
+  final String key;
+  final DownloadRequest request;
+  final String displayName;
+  final DownloadSubmissionSnapshot submission;
+  final DownloadOutputOwner owner;
+
+  DownloadCancelToken cancelToken = DownloadCancelToken();
+  DownloadTaskSnapshot snapshot;
+  var terminalEmitted = false;
+  var cleanupStarted = false;
+  int? pendingOutputId;
+  var ownerInvalidated = false;
+
+  /// Durable token for preserved partial output (D8); mirrored into every
+  /// snapshot via [_update] so the UI sees the same value the record has.
+  ResumeAnchor? resumeAnchor;
+
+  /// A pause was requested; the next cancellation unwind preserves bytes
+  /// and lands in `retryable` instead of `canceled`.
+  var pauseRequested = false;
+
+  void applySnapshot(DownloadTaskSnapshot value) {
+    snapshot = value;
+  }
+}
+
+/// What [DownloadManager.dismissAll] removed, kept so
+/// [DownloadManager.restore] can put it back. Opaque outside the manager.
+final class DownloadRemoval {
+  const DownloadRemoval._(this._jobs);
+
+  final List<_RemovedJob> _jobs;
+
+  /// Ids of the tasks that were removed.
+  List<String> get taskIds => [for (final removed in _jobs) removed.job.id];
+
+  int get count => _jobs.length;
+  bool get isEmpty => _jobs.isEmpty;
+}
+
+/// A removed task and where it sat: its index in the task list and, for a
+/// group child, its group (enough to bring the group back), the group's
+/// index among groups and the task's position in it.
+final class _RemovedJob {
+  const _RemovedJob({
+    required this.job,
+    required this.index,
+    required this.group,
+  });
+
+  final _Job job;
+  final int index;
+  final ({
+    String id,
+    DownloadSubmissionSnapshot submission,
+    int index,
+    int position,
+  })?
+  group;
+}
+
+class _DownloadGroup {
+  _DownloadGroup({
+    required this.id,
+    required this.jobIds,
+    required this.submission,
+  });
+
+  final String id;
+  final List<String> jobIds;
+  final DownloadSubmissionSnapshot submission;
 }

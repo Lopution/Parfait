@@ -164,7 +164,9 @@ class _IosCardContextMenuOverlay extends ConsumerWidget {
     final viewport = MediaQuery.sizeOf(context);
 
     final muted =
-        ref.watch(muteStoreProvider.select((s) => muteHitFor(entity, s))) !=
+        ref.watch(
+              effectiveMutesProvider.select((s) => muteHitFor(entity, s)),
+            ) !=
             null &&
         !ref.watch(
           revealedMuteIdsProvider.select((ids) => ids.contains(entity.id)),

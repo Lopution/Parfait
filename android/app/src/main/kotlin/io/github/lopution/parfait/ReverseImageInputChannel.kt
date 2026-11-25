@@ -24,8 +24,8 @@ internal interface ReverseImageOperations {
 }
 
 internal interface ReverseImageUploadArmer {
-    /** Arms [path] for the next webview file chooser; returns the content Uri. */
-    fun arm(path: String): String
+    /** Arms [path] for the next webview file chooser on [allowedHosts]; returns the content Uri. */
+    fun arm(path: String, allowedHosts: Set<String>): String
 
     fun disarm()
 }
@@ -91,7 +91,7 @@ object ReverseImageInputChannel {
             openExternal(activity, url)
         }
         val armer = object : ReverseImageUploadArmer {
-            override fun arm(path: String): String {
+            override fun arm(path: String, allowedHosts: Set<String>): String {
                 val target = requireOwnedInputFile(
                     File(appContext.cacheDir, "reverse_image_inputs"),
                     path,
@@ -101,12 +101,12 @@ object ReverseImageInputChannel {
                     "${appContext.packageName}.fileProvider",
                     target,
                 )
-                InAppWebViewChromeClient.armedFileChooserUris = arrayOf(uri)
+                InAppWebViewChromeClient.armFileChooser(arrayOf(uri), allowedHosts)
                 return uri.toString()
             }
 
             override fun disarm() {
-                InAppWebViewChromeClient.armedFileChooserUris = null
+                InAppWebViewChromeClient.disarmFileChooser()
             }
         }
         backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
@@ -166,10 +166,18 @@ object ReverseImageInputChannel {
             }
             "armReverseUpload" -> {
                 val path = call.argument<String>("path")
+                val rawHosts = call.argument<List<*>>("allowedHosts")
+                val allowedHosts = rawHosts
+                    ?.mapNotNull { (it as? String)?.trim()?.lowercase() }
+                    ?.filter { it.isNotEmpty() }
+                    ?.toSet()
+                    .orEmpty()
                 if (path.isNullOrBlank()) {
                     result.error("invalid_path", "armed image path is invalid", null)
+                } else if (allowedHosts.isEmpty()) {
+                    result.error("invalid_hosts", "allowed hosts must not be empty", null)
                 } else {
-                    runCatching { armer.arm(path) }
+                    runCatching { armer.arm(path, allowedHosts) }
                         .onSuccess(result::success)
                         .onFailure {
                             result.error("arm_failed", messageFor(it), null)

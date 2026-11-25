@@ -6,7 +6,7 @@ applies_to:
   - lib/core/auth/credential_store.dart
   - lib/core/translation/**
   - lib/core/auth/account_transfer*.dart
-reviewed: 2026-10-14
+reviewed: 2026-11-25
 ---
 
 # Settings persistence and secrets
@@ -22,12 +22,20 @@ reviewed: 2026-10-14
 ### PREF-01 Settings migrate field by field and keep their sources
 - **Rule:** `SettingsRepository` reads the allowlisted preference map once
   into the immutable `AppSettings`, validates each field against its own
-  fallback and migrates legacy keys into the versioned JSON without
-  deleting the source data. One damaged field never resets the others.
+  fallback (including DoH/ECH overrides via `network_endpoint_validation.dart`,
+  which reject non-HTTPS, userinfo and loopback/localhost targets) and migrates
+  legacy keys into the versioned JSON without deleting the source data. One
+  damaged field never resets the others. On backup import, `merge` leaves local
+  `AppSettings` untouched and `overwrite` strips device/network-override fields
+  (`safTreeUri`, `safFolder`, `dohEndpointOverride`, `echFrontHost`,
+  `customImageSource`, non-preset image sources, `loginProxyNoticeAcknowledged`)
+  via `BackupService.sanitizeImportedSettings`.
 - **Why:** Deleting the source on migration lost settings when a later
-  build had to roll back.
-- **Check:** `test/app_settings_test.dart` "corrupt fields fall back independently and valid fields survive" "legacy individual keys migrate to the versioned JSON key"
-- **Code:** `lib/core/settings/settings_repository.dart`, `lib/core/settings/app_settings.dart`
+  build had to roll back; importing untrusted backups without stripping
+  device/network fields could redirect DNS/media traffic or persist stale
+  foreign SAF grants.
+- **Check:** `test/app_settings_test.dart` "corrupt fields fall back independently and valid fields survive" "legacy individual keys migrate to the versioned JSON key", `test/backup_test.dart` "merge adds server mutes, unions work ids and keeps newer history" "overwrite replaces local work mutes and clears history first"
+- **Code:** `lib/core/settings/settings_repository.dart`, `lib/core/settings/app_settings.dart`, `lib/core/settings/network_endpoint_validation.dart`, `lib/core/backup/backup_service.dart`
 
 ### PREF-02 A failed write keeps the previous value visible
 - **Rule:** `SettingsController` queues writes after initial load completes and publishes the new value only after the write succeeds; a failure leaves the old value and surfaces `SettingsWriteException`. Writes queued but not yet started when the controller is disposed are skipped; in-flight repository saves continue, but their result or error is discarded without throwing `SettingsWriteException` or accessing an unmounted `Ref`.
@@ -80,11 +88,19 @@ reviewed: 2026-10-14
   `payload{accountId, userId, credential{accessToken, refreshToken[,
   cookie]}}` and `checksum`; anything else is a design decision. A new
   secret family adds tests that settings JSON, the envelope and `toString`
-  exclude it and that clearing it reports "not configured".
+  exclude it and that clearing it reports "not configured". Clipboard and
+  manual import (`parseTransferInput`, `AccountTransferService`) also accept
+  bare 40–64 char Pixiv `refresh_token` strings and peer JSON exports
+  carrying `refresh_token`/`refreshToken` (exchanging over `OAuthService.refreshSession`
+  and verifying against `/v1/user/detail` while leaving unrelated clipboard text
+  untouched on `corrupt`), and `AccountSettingsPage` offers plain
+  `refresh_token` export behind the same plaintext warning and auto-clear
+  timer.
 - **Why:** The envelope sits on the clipboard; extra fields would leak
-  other secrets.
-- **Check:** `test/account_transfer_service_test.dart` "exported envelope carries only the account credential, never translation secrets"
-- **Code:** `lib/core/auth/account_transfer.dart`, `lib/core/auth/account_transfer_service.dart`
+  other secrets, while accepting standard `refresh_token` formats enables
+  proxy-free migration across Pixiv clients.
+- **Check:** `test/account_transfer_service_test.dart` "exported envelope carries only the account credential, never translation secrets" "clipboard and text import accept bare refresh_token and peer JSON while ignoring unrelated text"
+- **Code:** `lib/core/auth/account_transfer.dart`, `lib/core/auth/account_transfer_service.dart`, `lib/features/settings/pages/account_settings_page.dart`
 
 ## Editable state
 

@@ -48,10 +48,12 @@ class UgoiraAsset {
     return this.index.inspectFrame(index);
   }
 
-  Future<ui.Image> decodeFrame(int index) async {
+  Future<ui.Image> decodeFrame(int index, {int? targetWidth}) async {
     _ensureOpen();
     final bytes = await readFrameBytes(index);
-    return UgoiraFrameDecoder(limits: limits).decode(bytes);
+    return UgoiraFrameDecoder(
+      limits: limits,
+    ).decode(bytes, targetWidth: targetWidth);
   }
 
   Future<void> dispose() async {

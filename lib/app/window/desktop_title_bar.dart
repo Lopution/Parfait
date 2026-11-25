@@ -286,6 +286,7 @@ class DesktopWindowFrame extends StatefulWidget {
 class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
   final GlobalKey _dragKey = GlobalKey();
   final GlobalKey _maximizeKey = GlobalKey();
+  final GlobalKey _captionButtonsKey = GlobalKey();
   final DesktopTitleBarRegionPublisher _regionPublisher =
       DesktopTitleBarRegionPublisher();
 
@@ -351,12 +352,19 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
               _maximizeKey,
               'maximize',
             );
+            DesktopTitleBarRegionPublisher.addRegion(
+              regions,
+              _captionButtonsKey,
+              'buttons',
+            );
           }
         }
         return (
           actions: currentActions,
           regions: regions,
-          titleBarHeight: null,
+          titleBarHeight: currentChrome.hasCustomChrome
+              ? currentChrome.titleBarHeight
+              : null,
         );
       },
     );
@@ -443,6 +451,7 @@ class _DesktopWindowFrameState extends State<DesktopWindowFrame> {
             actions: actions,
             dragKey: _dragKey,
             maximizeKey: _maximizeKey,
+            captionButtonsKey: _captionButtonsKey,
             brightnessListenable: brightnessListenable,
             showSimulatedTrafficLights: showSimulatedTrafficLights,
             ignorePointerOnWindowsDrag: false,

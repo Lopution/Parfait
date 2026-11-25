@@ -11,7 +11,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_snapshot_codec.dart';
 import 'package:parfait/core/novel/novel_feed_controller.dart';
@@ -71,6 +70,16 @@ class _HeldSnapshotStore extends FeedSnapshotStore {
   Completer<void> reads = Completer<void>()..complete();
 
   @override
+  Future<RawFeedSnapshot?> readRaw(
+    String accountId,
+    String feedKey, {
+    Duration maxAge = FeedSnapshotStore.maxAge,
+  }) async {
+    await reads.future;
+    return super.readRaw(accountId, feedKey, maxAge: maxAge);
+  }
+
+  @override
   Future<FeedSnapshot?> read(
     String accountId,
     String feedKey, {
@@ -114,9 +123,6 @@ Future<_World> _makeWorld({
     others: const [Account(id: '200', userId: 200, name: 'b')],
     overrides: [
       feedSnapshotStoreProvider.overrideWithValue(_HeldSnapshotStore(database)),
-      // Snapshot writes encode inline so a test can await them; the
-      // isolate round trip is data_worker_test's.
-      dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
     ],
   );
   return _World(container, fixture, database, directory);

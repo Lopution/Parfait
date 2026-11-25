@@ -29,6 +29,7 @@ import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
 import 'search_filter_labels.dart';
 import 'search_filter_sheet.dart';
+import 'search_input_chips.dart';
 import 'search_section_header.dart';
 import 'search_text.dart';
 import '../../app/icons/app_icons.dart';
@@ -274,6 +275,11 @@ class SearchInputEngineState extends ConsumerState<SearchInputEngine>
     ),
   );
 
+  void _excludeTag(String tag) =>
+      _edit(appendExcludedTag(_textController.value, tag));
+
+  void _insertOr() => _edit(insertOrOperator(_textController.value));
+
   void _edit(TextEditingValue value) {
     _textController.value = value;
     _focusNode.requestFocus();
@@ -390,6 +396,8 @@ class SearchInputEngineState extends ConsumerState<SearchInputEngine>
             type: type,
             onSearch: _search,
             onFill: _fill,
+            onExcludeTag: _excludeTag,
+            onInsertOr: _insertOr,
             onComplete: _edit,
             onShortcut: widget.onShortcut,
           ),
@@ -414,6 +422,8 @@ class _SearchInputBody extends ConsumerWidget {
     required this.type,
     required this.onSearch,
     required this.onFill,
+    required this.onExcludeTag,
+    required this.onInsertOr,
     required this.onComplete,
     this.onShortcut,
   });
@@ -422,6 +432,8 @@ class _SearchInputBody extends ConsumerWidget {
   final SearchResultType type;
   final ValueChanged<String> onSearch;
   final ValueChanged<String> onFill;
+  final ValueChanged<String> onExcludeTag;
+  final VoidCallback onInsertOr;
   final ValueChanged<TextEditingValue> onComplete;
 
   /// The host's own handling of an id or a link; the full page swaps itself
@@ -435,7 +447,12 @@ class _SearchInputBody extends ConsumerWidget {
     final state = ref.watch(searchAutocompleteProvider);
     final text = value.text;
     if (text.trim().isEmpty) {
-      return _SearchStart(type: type, onSearch: onSearch, onFill: onFill);
+      return _SearchStart(
+        type: type,
+        onSearch: onSearch,
+        onFill: onFill,
+        onExcludeTag: onExcludeTag,
+      );
     }
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final shortcut = searchShortcutFor(text, type);
@@ -463,29 +480,57 @@ class _SearchInputBody extends ConsumerWidget {
     if (type == SearchResultType.user) {
       return const SizedBox.shrink();
     }
+    final operatorBar = SearchOperatorBar(
+      onInsertOr: onInsertOr,
+      onInsertExclude: () {
+        final trimmed = text.trimRight();
+        final next = trimmed.isEmpty
+            ? '-'
+            : trimmed.endsWith('-')
+            ? text
+            : '$trimmed -';
+        onComplete(
+          TextEditingValue(
+            text: next,
+            selection: TextSelection.collapsed(offset: next.length),
+          ),
+        );
+      },
+    );
     final keyword = keywordAtCaret(value);
-    // Right after a space or a bare exclusion '-': no tag query started yet.
+    // Right after a space, `OR`, or a bare exclusion '-': no tag query started yet.
     if (keyword == null ||
         completionQueryOf(keyword.textInside(text)).isEmpty) {
-      return const SizedBox.shrink();
+      return Align(alignment: Alignment.topLeft, child: operatorBar);
     }
+    Widget wrapWithOperators(Widget child) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        operatorBar,
+        Expanded(child: child),
+      ],
+    );
     if (state.loading) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: const FeedLoading(),
+      return wrapWithOperators(
+        Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: const FeedLoading(),
+        ),
       );
     }
     if (state.error != null) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: FeedError(
-          title: context.l10n.searchLoadFailed,
-          error: state.error!,
-          retryLabel: context.l10n.searchRetry,
-          onRetry: () => ref
-              .read(searchAutocompleteProvider.notifier)
-              .update(state.keyword),
-          scrollable: false,
+      return wrapWithOperators(
+        Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: FeedError(
+            title: context.l10n.searchLoadFailed,
+            error: state.error!,
+            retryLabel: context.l10n.searchRetry,
+            onRetry: () => ref
+                .read(searchAutocompleteProvider.notifier)
+                .update(state.keyword),
+            scrollable: false,
+          ),
         ),
       );
     }
@@ -495,50 +540,66 @@ class _SearchInputBody extends ConsumerWidget {
         if (!present.contains(suggestion.keyword)) suggestion,
     ];
     if (suggestions.isEmpty) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: Center(child: Text(context.l10n.searchNoSuggestions)),
+      return wrapWithOperators(
+        Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Center(child: Text(context.l10n.searchNoSuggestions)),
+        ),
       );
     }
-    void complete(String suggestion) => onComplete(
-      replaceKeyword(value, keyword, suggestion, thenSeparate: true),
+    void complete(String suggestion, {bool exclude = false}) => onComplete(
+      replaceKeyword(
+        value,
+        keyword,
+        suggestion,
+        thenSeparate: true,
+        exclude: exclude,
+      ),
     );
     // No dividers: rows of one list, like M3's search view.
-    return ListView.builder(
-      padding: EdgeInsets.only(
-        top: FuncSpacing.sm,
-        bottom: FuncSpacing.sm + MediaQuery.viewInsetsOf(context).bottom,
+    return wrapWithOperators(
+      ListView.builder(
+        padding: EdgeInsets.only(
+          top: FuncSpacing.sm,
+          bottom: FuncSpacing.sm + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        itemCount: suggestions.length,
+        itemBuilder: (context, index) {
+          final suggestion = suggestions[index];
+          return Semantics(
+            onLongPressHint: context.l10n.searchSuggestionFill,
+            child: ListTile(
+              leading: const Icon(AppIcons.search),
+              title: Text(suggestion.displayName),
+              subtitle: suggestion.translatedName == null
+                  ? null
+                  : Text(suggestion.keyword),
+              onTap: () => onSearch(
+                replaceKeyword(value, keyword, suggestion.keyword).text.trim(),
+              ),
+              onLongPress: () {
+                AppHaptics.longPress();
+                complete(suggestion.keyword);
+              },
+              trailing: EdgeIconButtons(
+                children: [
+                  IconButton(
+                    tooltip: context.l10n.searchExcludeTag,
+                    onPressed: () =>
+                        complete(suggestion.keyword, exclude: true),
+                    icon: const Icon(UiIcons.removeCircle),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.searchSuggestionFill,
+                    onPressed: () => complete(suggestion.keyword),
+                    icon: const Icon(UiIcons.fillSuggestion),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
-      itemCount: suggestions.length,
-      itemBuilder: (context, index) {
-        final suggestion = suggestions[index];
-        return Semantics(
-          onLongPressHint: context.l10n.searchSuggestionFill,
-          child: ListTile(
-            leading: const Icon(AppIcons.search),
-            title: Text(suggestion.displayName),
-            subtitle: suggestion.translatedName == null
-                ? null
-                : Text(suggestion.keyword),
-            onTap: () => onSearch(
-              replaceKeyword(value, keyword, suggestion.keyword).text.trim(),
-            ),
-            onLongPress: () {
-              AppHaptics.longPress();
-              complete(suggestion.keyword);
-            },
-            trailing: EdgeIconButtons(
-              children: [
-                IconButton(
-                  tooltip: context.l10n.searchSuggestionFill,
-                  onPressed: () => complete(suggestion.keyword),
-                  icon: const Icon(UiIcons.fillSuggestion),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -559,11 +620,13 @@ class _SearchStart extends ConsumerWidget {
     required this.type,
     required this.onSearch,
     required this.onFill,
+    required this.onExcludeTag,
   });
 
   final SearchResultType type;
   final ValueChanged<String> onSearch;
   final ValueChanged<String> onFill;
+  final ValueChanged<String> onExcludeTag;
 
   /// Two or three rows of tags on a phone; the full grid is on the search
   /// tab.
@@ -573,6 +636,7 @@ class _SearchStart extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final history = ref.watch(searchHistoryProvider);
+    final pinned = ref.watch(searchHistoryPinnedProvider);
     final trending = type == SearchResultType.user
         ? const <TrendingTag>[]
         : ref.watch(trendingTagsProvider(type)).value ?? const <TrendingTag>[];
@@ -618,10 +682,17 @@ class _SearchStart extends ConsumerWidget {
               runSpacing: FuncSpacing.sm,
               children: [
                 for (final keyword in history)
-                  _HistoryChip(
+                  SearchHistoryChip(
                     keyword: keyword,
+                    pinned: pinned.contains(keyword),
                     onTap: () => onSearch(keyword),
                     onLongPress: () => fillWithHaptic(keyword),
+                    onExclude: () => onExcludeTag(keyword),
+                    onTogglePin: () => unawaited(
+                      ref
+                          .read(searchHistoryProvider.notifier)
+                          .togglePin(keyword),
+                    ),
                     onDeleted: () => unawaited(_remove(context, ref, keyword)),
                   ),
               ],
@@ -651,6 +722,11 @@ class _SearchStart extends ConsumerWidget {
                             label: l10n.searchSuggestionFill,
                             onSelected: () => fillWithHaptic(tag.name),
                           ),
+                          DisplayAction(
+                            icon: UiIcons.removeCircle,
+                            label: l10n.searchExcludeTag,
+                            onSelected: () => onExcludeTag(tag.name),
+                          ),
                         ],
                       ),
                     ),
@@ -668,16 +744,16 @@ class _SearchStart extends ConsumerWidget {
     WidgetRef ref,
     String keyword,
   ) async {
-    final index = await ref
+    final removed = await ref
         .read(searchHistoryProvider.notifier)
         .remove(keyword);
-    if (index == null || !context.mounted) return;
+    if (removed == null || !context.mounted) return;
     showUndoSnackBar(
       context,
       context.l10n.searchHistoryRemoved,
       onUndo: (container) => container
           .read(searchHistoryProvider.notifier)
-          .restore(keyword, index),
+          .restore(keyword, removed.index, pinIndex: removed.pinIndex),
     );
   }
 
@@ -703,49 +779,4 @@ class _SearchStart extends ConsumerWidget {
     if (confirmed != true) return;
     await ref.read(searchHistoryProvider.notifier).clear();
   }
-}
-
-/// A recent search: tap searches it again, long press edits it, the
-/// trailing cross removes it (with undo).
-class _HistoryChip extends StatelessWidget {
-  const _HistoryChip({
-    required this.keyword,
-    required this.onTap,
-    required this.onLongPress,
-    required this.onDeleted,
-  });
-
-  final String keyword;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final VoidCallback onDeleted;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    onLongPressHint: context.l10n.searchSuggestionFill,
-    child: GestureDetector(
-      onLongPress: onLongPress,
-      onSecondaryTapUp: (details) => unawaited(
-        showDisplayActions(
-          context,
-          position: details.globalPosition,
-          onLongPress: onLongPress,
-          actions: [
-            DisplayAction(
-              icon: UiIcons.fillSuggestion,
-              label: context.l10n.searchSuggestionFill,
-              onSelected: onLongPress,
-            ),
-          ],
-        ),
-      ),
-      child: InputChip(
-        avatar: const Icon(AppIcons.history),
-        label: Text(keyword),
-        onPressed: onTap,
-        onDeleted: onDeleted,
-        deleteButtonTooltipMessage: context.l10n.searchHistoryRemove,
-      ),
-    ),
-  );
 }

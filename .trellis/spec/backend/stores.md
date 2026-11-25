@@ -13,7 +13,7 @@ applies_to:
   - lib/core/paging/**
   - lib/core/series/**
   - lib/core/novel/**
-reviewed: 2026-10-30
+reviewed: 2026-11-25
 ---
 
 # Stores, mutations and the account boundary
@@ -44,11 +44,18 @@ reviewed: 2026-10-30
 - **Rule:** Illusts, users, comments, bookmark and follow state live in
   their account-scoped store; feeds hold ordered ids only. Pages never
   keep a local copy of an entity or a bookmark/follow flag. After a merge,
-  read the entity back with `store.get(id)`.
+  read the entity back with `store.get(id)`. `BookmarkStore` and
+  `FollowStore` stay sparse (omitting unseen default-`false` remote entries)
+  and entity stores (`IllustStore`, `NovelStore`, `UserStore`) skip
+  redundant copies when a merge produces no field change. Feed/card
+  filtering consumers watch `effectiveMutesProvider` (`MuteFilterSnapshot`,
+  value-equatable) rather than full `muteStoreProvider`, isolating feed
+  rebuilds from mute-management metadata (`pending`, `loading`, `error`).
 - **Why:** Cards, the detail page and the viewer showed different data for
-  the same work.
-- **Check:** `test/illust_store_test.dart` "merges entities keyed by ID without duplicates"
-- **Code:** `lib/core/entity/illust_store.dart`, `lib/core/user/user_store.dart`
+  the same work; dense `false` maps and full-store mute subscriptions
+  caused unnecessary O(N) rebuilds on every page load or mute toggle.
+- **Check:** `test/illust_store_test.dart` "merges entities keyed by ID without duplicates", `test/bookmark_store_test.dart` "a page of snapshots lands as one write, a repeat as none", `test/mute_store_test.dart` "effectiveMutesProvider ignores empty hydrate and pending sync flags"
+- **Code:** `lib/core/entity/illust_store.dart`, `lib/core/user/user_store.dart`, `lib/core/bookmark/bookmark_store.dart`, `lib/core/user/follow_store.dart`, `lib/core/mute/mute_store.dart`
 
 ### STORE-03 Every IllustEntity field has a merge decision per source
 - **Rule:** `IllustStore.mergeAll` is the only write path for API payloads,
@@ -130,15 +137,10 @@ reviewed: 2026-10-30
 - **Code:** `lib/core/bookmark`, `lib/core/user/follow_store.dart`, `lib/core/watchlist`
 
 ### STORE-07 One request per target; the last tap wins
-- **Rule:** A tap on an unsettled entry only records the wish. The action
-  that started the request runs `settleToggle`, which sends one follow-up
-  after the commit if the wish differs. Never send the opposite request
-  while one is in flight. A re-add after a delete restores the deleted
-  visibility and tags.
-- **Why:** Two writes in flight can land on the server in either order; a
-  private bookmark tapped back mid-delete came back public.
-- **Check:** `test/bookmark_flow_test.dart` "an odd number of taps sends only the first request" "an even number of taps follows up once the first answers" "tapping back mid-delete keeps a private bookmark private"
-- **Code:** `lib/core/mutation/mutation_models.dart`
+- **Rule:** A tap on an unsettled entry only records the wish; `settleToggle` sends one follow-up after commit if the wish differs, never sending the opposite request in flight. Re-adding after a delete restores deleted visibility/tags; a fresh quick-bookmark applies `defaultBookmarkRestrictProvider` and up to 10 deduplicated cached work tags when `bookmarkAttachWorkTagsProvider` is enabled. The edit sheet offers one-tap cached work tags (`BookmarkTagEditorBody`, capped at `kMaxBookmarkTags = 10`) and seeds new bookmarks from those defaults; uncategorized bookmarks stay reachable via `kUncategorizedBookmarkTag` (`'未分類'`) in `ProfileFilterBar` and `BookmarkTagsPage` even when user tags are empty.
+- **Why:** Two in-flight writes can reorder on the server; tapping back mid-delete used to lose privacy, and users need default privacy, work-tag auto-attach, and uncategorized filtering.
+- **Check:** `test/bookmark_flow_test.dart` "an odd number of taps sends only the first request" "an even number of taps follows up once the first answers" "tapping back mid-delete keeps a private bookmark private" "fresh toggle applies defaultBookmarkRestrict and bookmarkAttachWorkTags without overriding undo restore"; `test/bookmark_switch_button_test.dart` "bookmark sheet offers work tags and seeds new bookmarks from defaults"; `test/bookmark_tags_test.dart` "BookmarkTagsPage keeps uncategorized row reachable when tags are empty and BookmarkTagFeedPage localizes its title"
+- **Code:** `lib/core/mutation/mutation_models.dart`, `lib/core/bookmark/bookmark_actions.dart`, `lib/core/bookmark/bookmark_models.dart`, `lib/app/widgets/bookmark_work_tags_section.dart`, `lib/features/bookmark/bookmark_tags_page.dart`, `lib/features/profile/profile_filter_bar.dart`, `lib/features/profile/bookmark_tag_feed_page.dart`
 
 ### STORE-08 Queued intents can be taken back, running ones cannot
 - **Rule:** A connectivity failure queues the intent and marks the entry
@@ -148,12 +150,17 @@ reviewed: 2026-10-30
   permanently (`maxAttempts` exhausted or unknown handler), `ActionQueue`
   notifies permanent-failure listeners so `action_bootstrap` rolls back the
   still-queued store entry (`failQueued`), keeping taps and remote snapshots
-  unblocked while reporting the error silently (`FB-10`).
+  unblocked while reporting the error silently (`FB-10`). `ActionQueue`
+  exposes `pendingCount`, `changes`, and `clearPending` (which drops
+  non-running rows while protecting `running` rows), backing a conditional
+  pending-actions row (`actionQueuePendingCountProvider`) on
+  `MeDashboardPage` with retry and clear actions when pending count `> 0`.
 - **Why:** A row dropped after `nextReady` read it replayed anyway; silent
   permanent failures left entries stuck in `queued`, ignoring remote
-  snapshots and deadlocking taps on `deletePending`.
-- **Check:** `test/action_queue_test.dart` "a dropped pending row never replays, even if already read", `test/watchlist_test.dart` "a tap on a queued watch takes the intent back" "permanent replay failure rolls back queued watchlist entry", `test/action_replay_test.dart` "permanent replay failure rolls back queued bookmark and follow so taps and snapshots recover"
-- **Code:** `lib/core/actionqueue`
+  snapshots and deadlocking taps on `deletePending`; users had no way to
+  inspect, retry, or clear queued offline mutations.
+- **Check:** `test/action_queue_test.dart` "a dropped pending row never replays, even if already read" "pendingCount, changes stream, and clearPending protect running rows", `test/watchlist_test.dart` "a tap on a queued watch takes the intent back" "permanent replay failure rolls back queued watchlist entry", `test/action_replay_test.dart` "permanent replay failure rolls back queued bookmark and follow so taps and snapshots recover"
+- **Code:** `lib/core/actionqueue`, `lib/features/settings/me_dashboard_page.dart`
 
 ### STORE-13 The queue recovers interrupted replays and wakes itself
 - **Rule:** A queue's first drain (one queue per process) returns rows a
@@ -261,7 +268,10 @@ reviewed: 2026-10-30
   switch, re-auth mark, removal, reload) one at a time, each reading, persisting
   and publishing before the next. A token refresh saves through
   `saveRefreshed`: only while the account is still stored, without
-  selecting it or resetting the network session. The account list and
+  selecting it or resetting the network session. `switchAccount`,
+  `markReauthRequired` and `removeAccount` clear the shared WebView session
+  via `WebProfileSession.clearSession()`, while `saveRefreshed` keeps it
+  intact. The account list and
   the current id are two preference keys; `save` orders them so a failure
   or death between the writes leaves loadable metadata whose current id is
   the one from before or after: the current id first while the stored
@@ -274,6 +284,7 @@ reviewed: 2026-10-30
   id: a death between them left a store that refused to load. A late
   refresh of account A made A current after the user switched to B, or
   brought A back after it was removed. A re-added account replayed the
-  offline actions it had queued before its removal.
-- **Check:** `test/account_store_test.dart` "removeAccount reselects, deletes the secret, the outbox, queued actions" "a cleanup that fails leaves the others done and is surfaced" "metadata cut short at any write still loads" "a refresh saved mid-way neither revives nor reselects"; `test/pixiv_http_client_test.dart` "a request keeps its account through a switch, its refresh too"
-- **Code:** `lib/core/auth/account_repository.dart`, `lib/core/auth/account_store.dart`
+  offline actions it had queued before its removal. Leaving WebView cookies
+  across switches, re-auth or logout bled account A's web session into B.
+- **Check:** `test/account_store_test.dart` "removeAccount reselects, deletes the secret, the outbox, queued actions" "a cleanup that fails leaves the others done and is surfaced" "metadata cut short at any write still loads" "a refresh saved mid-way neither revives nor reselects" "switchAccount, markReauthRequired, and removeAccount clear WebView session; saveRefreshed keeps it", `test/pixiv_http_client_test.dart` "a request keeps its account through a switch, its refresh too"
+- **Code:** `lib/core/auth/account_repository.dart`, `lib/core/auth/account_store.dart`, `lib/core/profile/web_profile_session.dart`

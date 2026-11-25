@@ -339,15 +339,10 @@ class _ViewerInfoPanel extends StatelessWidget {
                         ),
                       ),
                       const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(AppIcons.download),
-                        title: Text(l10n.downloadAll),
-                        onTap: onSaveAll,
-                      ),
-                      ListTile(
-                        leading: const Icon(AppIcons.externalLink),
-                        title: Text(l10n.viewerOpenDetail),
-                        onTap: onOpenDetail,
+                      ViewerInfoPanelActions(
+                        entity: entity,
+                        onSaveAll: onSaveAll,
+                        onOpenDetail: onOpenDetail,
                       ),
                     ],
                   ),

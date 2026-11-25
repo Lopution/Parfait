@@ -178,6 +178,31 @@ class SafTreeChannelTest {
     }
 
     @Test
+    fun `resolveFinalizedDocument fails loudly when display name is null or blank`() {
+        val missing = runCatching {
+            SafTreeChannel.resolveFinalizedDocument("content://doc/1", null) { "content://doc/renamed" }
+        }.exceptionOrNull()
+        assertEquals("saf_finalize_failed", SafTreeChannel.safErrorCode("finalize", missing!!))
+
+        val blank = runCatching {
+            SafTreeChannel.resolveFinalizedDocument("content://doc/1", "  ") { "content://doc/renamed" }
+        }.exceptionOrNull()
+        assertEquals("saf_finalize_failed", SafTreeChannel.safErrorCode("finalize", blank!!))
+
+        assertEquals(
+            "content://doc/plain",
+            SafTreeChannel.resolveFinalizedDocument("content://doc/plain", "a.txt") { null },
+        )
+        assertEquals(
+            "content://doc/renamed",
+            SafTreeChannel.resolveFinalizedDocument("content://doc/1", "a.jpg.part") { finalName ->
+                assertEquals("a.jpg", finalName)
+                "content://doc/renamed"
+            },
+        )
+    }
+
+    @Test
     fun `unknown method is notImplemented`() {
         val result = dispatch("noSuchMethod", emptyMap())
         assertTrue(result.notImplemented)
@@ -372,6 +397,49 @@ class SafTreeChannelTest {
     }
 
     @Test
+    fun `create resolves or creates nested subdirectories and rejects unsafe segments`() {
+        val provider = RecordingDocumentProvider(
+            existingDirs = mapOf(
+                ("content://p/tree/t/document/t" to "Artist") to "content://p/tree/t/document/t%2FArtist",
+            ),
+        )
+        SafTreeChannel.createInTree(
+            provider,
+            "content://p/tree/t",
+            "a.jpg",
+            "image/jpeg",
+            true,
+            listOf("Artist", "Series"),
+        )
+        assertEquals(
+            listOf(
+                Triple(
+                    "content://p/tree/t/document/t%2FArtist",
+                    android.provider.DocumentsContract.Document.MIME_TYPE_DIR,
+                    "Series",
+                ),
+                Triple(
+                    "content://p/tree/t/document/t%2FArtist%2FSeries",
+                    "application/octet-stream",
+                    "a.jpg.part",
+                ),
+            ),
+            provider.created,
+        )
+        val bad = runCatching {
+            SafTreeChannel.createInTree(
+                provider,
+                "content://p/tree/t",
+                "a.jpg",
+                "image/jpeg",
+                false,
+                listOf(".."),
+            )
+        }.exceptionOrNull()
+        assertEquals("saf_invalid_argument", SafTreeChannel.safErrorCode("create", bad!!))
+    }
+
+    @Test
     fun `create provider refusal is an error, not a null uri`() {
         val provider = RecordingDocumentProvider(refuse = true)
         val error = runCatching {
@@ -470,10 +538,17 @@ class SafTreeChannelTest {
 
     private class RecordingDocumentProvider(
         private val refuse: Boolean = false,
+        private val existingDirs: Map<Pair<String, String>, String> = emptyMap(),
     ) : SafDocumentProvider {
         val created = mutableListOf<Triple<String, String, String>>()
 
         override fun treeRootDocument(treeUri: String) = "$treeUri/document/t"
+
+        override fun findChildDirectory(
+            treeUri: String,
+            parentUri: String,
+            displayName: String,
+        ): String? = existingDirs[parentUri to displayName]
 
         override fun createDocument(
             parentUri: String,
@@ -508,15 +583,18 @@ class SafTreeChannelTest {
         }
 
         var lastStaged = false
+        var lastSubdirectories: List<String> = emptyList()
 
         override fun create(
             treeUri: String,
             displayName: String,
             mimeType: String,
             staged: Boolean,
+            subdirectories: List<String>,
         ): String {
             maybeThrow("create")
             lastStaged = staged
+            lastSubdirectories = subdirectories
             return "content://doc/1"
         }
 

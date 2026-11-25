@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'shared_preferences.dart';
 
+import '../bookmark/bookmark_models.dart';
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
 import '../errors/no_retry.dart';
@@ -11,6 +12,7 @@ import '../reverse_image/reverse_image_engine.dart';
 import '../search/search_models.dart';
 import 'app_settings.dart';
 import 'arrangement.dart';
+import 'network_endpoint_validation.dart';
 import 'settings_repository.dart';
 
 /// Error raised after a settings mutation failed to persist.
@@ -123,21 +125,31 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setDohEnabled(bool enabled) =>
       _update((settings) => settings.copyWith(enableDoh: enabled));
 
-  Future<void> setEchFrontHost(String value) => _update(
-    (settings) => settings.copyWith(
-      echFrontHost: value.trim().isEmpty
-          ? AppSettings.defaultEchFrontHost
-          : value.trim(),
-    ),
-  );
+  Future<void> setEchFrontHost(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return _update(
+        (settings) =>
+            settings.copyWith(echFrontHost: AppSettings.defaultEchFrontHost),
+      );
+    }
+    final normalized = normalizeEchFrontHost(trimmed);
+    if (normalized == null) return Future<void>.value();
+    return _update((settings) => settings.copyWith(echFrontHost: normalized));
+  }
 
-  Future<void> setDohEndpointOverride(String? value) => _update(
-    (settings) => settings.copyWith(
-      dohEndpointOverride: value == null || value.trim().isEmpty
-          ? null
-          : value.trim(),
-    ),
-  );
+  Future<void> setDohEndpointOverride(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return _update(
+        (settings) => settings.copyWith(dohEndpointOverride: null),
+      );
+    }
+    final normalized = normalizeDohEndpointOverride(value);
+    if (normalized == null) return Future<void>.value();
+    return _update(
+      (settings) => settings.copyWith(dohEndpointOverride: normalized),
+    );
+  }
 
   Future<void> setHistoryEnabled(bool enabled) =>
       _update((settings) => settings.copyWith(enableHistory: enabled));
@@ -205,6 +217,16 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setDownloadCaption(bool enabled) =>
       _update((settings) => settings.copyWith(downloadCaption: enabled));
 
+  Future<void> setDownloadSubfolderMode(DownloadSubfolderMode mode) =>
+      _update((settings) => settings.copyWith(downloadSubfolderMode: mode));
+
+  Future<void> setDownloadMultiPageSubfolder(bool enabled) => _update(
+    (settings) => settings.copyWith(downloadMultiPageSubfolder: enabled),
+  );
+
+  Future<void> setDownloadPadPageNumbers(bool enabled) =>
+      _update((settings) => settings.copyWith(downloadPadPageNumbers: enabled));
+
   /// Null restores the default ranking categories.
   Future<void> setIllustRankingArrangement(List<ArrangedEntry>? entries) =>
       _update(
@@ -239,6 +261,13 @@ class SettingsController extends AsyncNotifier<AppSettings> {
 
   Future<void> setCloseToTray(bool enabled) =>
       _update((settings) => settings.copyWith(closeToTray: enabled));
+
+  Future<void> setDefaultBookmarkRestrict(BookmarkRestrict restrict) => _update(
+    (settings) => settings.copyWith(defaultBookmarkRestrict: restrict),
+  );
+
+  Future<void> setBookmarkAttachWorkTags(bool enabled) =>
+      _update((settings) => settings.copyWith(bookmarkAttachWorkTags: enabled));
 
   /// The desktop window's place, saved when it moves, resizes or maximizes
   /// ends (debounced by the window binding). Desktop only; a no-op call
@@ -427,6 +456,53 @@ final downloadCaptionProvider = Provider<bool>((ref) {
   );
 });
 
+/// Subfolder grouping preset for downloads (ignored on iOS Photos).
+final downloadSubfolderModeProvider = Provider<DownloadSubfolderMode>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) =>
+          async.value?.downloadSubfolderMode ?? DownloadSubfolderMode.none,
+    ),
+  );
+});
+
+/// Whether multi-page artworks download into a per-work subfolder.
+final downloadMultiPageSubfolderProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.downloadMultiPageSubfolder ?? false,
+    ),
+  );
+});
+
+/// Whether `{page}`, `{page1}`, and `{series_order}` are zero-padded.
+final downloadPadPageNumbersProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.downloadPadPageNumbers ?? false,
+    ),
+  );
+});
+
+/// Default visibility for quick-bookmark and new bookmark sheets.
+final defaultBookmarkRestrictProvider = Provider<BookmarkRestrict>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) =>
+          async.value?.defaultBookmarkRestrict ?? BookmarkRestrict.public,
+    ),
+  );
+});
+
+/// Whether quick-bookmark and new bookmark sheets pre-attach cached work tags.
+final bookmarkAttachWorkTagsProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.bookmarkAttachWorkTags ?? false,
+    ),
+  );
+});
+
 /// File naming rule (D6; preset or bounded custom template).
 final namingRuleProvider = Provider<NamingRule>((ref) {
   return ref.watch(
@@ -497,12 +573,8 @@ final dohEndpointsProvider = Provider<List<String>>((ref) {
   final override = ref.watch(
     settingsProvider.select((async) => async.value?.dohEndpointOverride),
   );
-  if (override == null) return AppSettings.defaultDohEndpoints;
-  return override
-      .split(',')
-      .map((entry) => entry.trim())
-      .where((entry) => entry.isNotEmpty)
-      .toList(growable: false);
+  final parsed = parseDohEndpointList(override);
+  return parsed.isEmpty ? AppSettings.defaultDohEndpoints : parsed;
 });
 
 /// Persisted reverse-image engine choice (page seeds its session from it).

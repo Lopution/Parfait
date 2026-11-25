@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -1190,14 +1191,14 @@ void main() {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
         try {
           const channel = MethodChannel('parfait/image_clipboard');
-          final copiedPayloads = <Uint8List>[];
+          final copiedPaths = <String>[];
           var channelResult = true;
           Completer<bool>? pendingReply;
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
               .setMockMethodCallHandler(channel, (call) async {
-                if (call.method == 'copyImage') {
+                if (call.method == 'copyImageFile') {
                   final args = call.arguments as Map<dynamic, dynamic>;
-                  copiedPayloads.add(args['bytes'] as Uint8List);
+                  copiedPaths.add(args['path'] as String);
                   if (pendingReply case final pending?) {
                     return pending.future;
                   }
@@ -1253,15 +1254,18 @@ void main() {
               entity,
             ),
           );
-          await pumpIoUntil(tester, () => copiedPayloads.length == 1);
+          await pumpIoUntil(tester, () => copiedPaths.length == 1);
           mountHost.value = false;
           await tester.pump();
           pendingReply.complete(true);
           pendingReply = null;
           await tester.pump();
           await tester.pumpAndSettle();
-          expect(copiedPayloads, hasLength(1));
-          expect(copiedPayloads.single, orderedEquals(onePixelPng));
+          expect(copiedPaths, hasLength(1));
+          expect(
+            File(copiedPaths.single).readAsBytesSync(),
+            orderedEquals(onePixelPng),
+          );
           expect(
             find.text(lookupAppLocalizations(zhCN).imageCopiedToClipboard),
             findsOneWidget,
@@ -1278,7 +1282,7 @@ void main() {
               entity,
             ),
           );
-          await pumpIoUntil(tester, () => copiedPayloads.length == 2);
+          await pumpIoUntil(tester, () => copiedPaths.length == 2);
           await tester.pumpAndSettle();
           expect(
             find.text(lookupAppLocalizations(zhCN).imageCopyFailed),

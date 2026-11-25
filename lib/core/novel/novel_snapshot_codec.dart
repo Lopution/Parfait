@@ -32,25 +32,14 @@ final class NovelSnapshotCodec extends FeedSnapshotCodec {
   Object? encodeEntity(Object entity) => _encode(entity as NovelEntity);
 
   @override
-  List<int> restoreEntities(
-    Ref ref,
-    List<int> ids,
-    Map<String, Object?> entitiesJson,
-  ) {
-    final decoded = <NovelEntity>[];
-    final restored = <int>[];
-    for (final id in ids) {
-      final payload = entitiesJson['$id'];
-      if (payload is! Map<String, dynamic>) continue;
-      final entity = _decode(payload);
-      if (entity == null) continue;
-      decoded.add(entity);
-      restored.add(id);
-    }
-    if (decoded.isNotEmpty) {
-      ref.read(novelStoreProvider.notifier).mergeAll(decoded);
-    }
-    return restored;
+  Object? decodeEntity(Object? payload) =>
+      payload is Map<String, dynamic> ? _decode(payload) : null;
+
+  @override
+  void mergeEntities(Ref ref, List<Object> entities) {
+    ref
+        .read(novelStoreProvider.notifier)
+        .mergeAll(entities.cast<NovelEntity>());
   }
 
   static Map<String, Object?> _encode(NovelEntity entity) => {

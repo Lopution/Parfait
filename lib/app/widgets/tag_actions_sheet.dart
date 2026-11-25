@@ -27,6 +27,7 @@ Future<void> showTagActionsSheet(
   BuildContext context, {
   required String tag,
   required VoidCallback onSearch,
+  VoidCallback? onOpenInNewTab,
   bool muted = false,
   VoidCallback? onToggleMute,
   VoidCallback? onMuteMode,
@@ -44,6 +45,7 @@ Future<void> showTagActionsSheet(
       tag: tag,
       muted: muted,
       onSearch: onSearch,
+      onOpenInNewTab: onOpenInNewTab,
       onCopy: () => unawaited(
         copyToClipboard(context, tag, message: context.l10n.tagCopied),
       ),
@@ -68,6 +70,12 @@ Future<void> showTagActionsSheet(
         label: l10n.tagActionSearch,
         onSelected: onSearch,
       ),
+      if (onOpenInNewTab != null)
+        DisplayAction(
+          icon: AppIcons.externalLink,
+          label: l10n.openInNewTab,
+          onSelected: onOpenInNewTab,
+        ),
       DisplayAction(
         icon: AppIcons.copy,
         label: l10n.tagActionCopy,
@@ -129,6 +137,7 @@ class _TagActions extends ConsumerStatefulWidget {
     required this.muted,
     required this.onSearch,
     required this.onCopy,
+    this.onOpenInNewTab,
     this.onToggleMute,
     this.onMuteMode,
     this.autoTranslate = false,
@@ -138,6 +147,7 @@ class _TagActions extends ConsumerStatefulWidget {
   final bool muted;
   final VoidCallback onSearch;
   final VoidCallback onCopy;
+  final VoidCallback? onOpenInNewTab;
   final VoidCallback? onToggleMute;
   final VoidCallback? onMuteMode;
 
@@ -182,6 +192,12 @@ class _TagActionsState extends ConsumerState<_TagActions>
               title: Text(l10n.tagActionSearch),
               onTap: _closing(widget.onSearch),
             ),
+            if (widget.onOpenInNewTab case final openInNewTab?)
+              ListTile(
+                leading: const Icon(AppIcons.externalLink),
+                title: Text(l10n.openInNewTab),
+                onTap: _closing(openInNewTab),
+              ),
             ListTile(
               leading: const Icon(AppIcons.copy),
               title: Text(l10n.tagActionCopy),

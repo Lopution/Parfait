@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-11-23
+reviewed: 2026-11-25
 ---
 
 # Image pipeline and animated media
@@ -105,13 +105,15 @@ reviewed: 2026-11-23
 ### IMG-12 The worker writes files without an IOSink
 - **Rule:** Code in the image worker writes files through an awaited
   `RandomAccessFile` (`open`, `writeFrom`, `close`), never
-  `File.openWrite`. `DiskImageCache.store` recreates its directory before
-  each write and cancels the body when it cannot write.
+  `File.openWrite`. `DiskImageCache.store` buffers small TLS chunks up to
+  256 KiB via `BytesBuilder(copy: false)` before each `writeFrom`,
+  recreates its directory before each write, and cancels the body when it
+  cannot write.
 - **Why:** An IOSink whose file cannot be opened reports the error as
-  uncaught and never completes its flush. An uncaught error is fatal in
-  the worker, so clearing the cache while the app ran killed the worker on
-  the next image.
-- **Check:** `test/disk_image_cache_test.dart` "a directory cleared while the app runs is recreated by the next write" "a write the cache cannot hold fails alone and lets go of the body"
+  uncaught and never completes its flush, killing the worker isolate;
+  buffering small TLS chunks avoids hundreds of tiny syscalls per original
+  image while keeping explicit awaited writes.
+- **Check:** `test/disk_image_cache_test.dart` "a directory cleared while the app runs is recreated by the next write" "a write the cache cannot hold fails alone and lets go of the body" "buffered multi-chunk write (>256 KiB) commits exact bytes"
 - **Code:** `lib/core/image/disk_image_cache.dart`
 
 ## Demand, lanes and retry
@@ -148,11 +150,12 @@ reviewed: 2026-11-23
 
 ### IMG-16 A stalled visible image is sent again over another route
 - **Rule:** A whole-body image GET (not an original) with no headers for
-  2.5 s, or no body bytes for 2 s (`ImageStall`), has stalled and tells
-  its flight. While a foreground request waits on the flight, now or once
-  one joins it, the GET is sent once more to a route candidate the first
-  send did not use (`ImageRouteTrack.avoid`; never a fallback tier, never
-  a mirror), at most three at once per worker. The first whole body is
+  2.5 s, or no body bytes for 2 s (`ImageStall`, tracked via a lazy
+  monotonic stopwatch timer without per-chunk timer churn), has stalled and
+  tells its flight. While a foreground request waits on the flight, now or
+  once one joins it, the GET is sent once more to a route candidate the
+  first send did not use (`ImageRouteTrack.avoid`; never a fallback tier,
+  never a mirror), at most three at once per worker. The first whole body is
   kept: the first send streams to disk as any fetch, the hedge's body is
   held in memory (at most 8 MB), and the other send stops. Progress
   follows the further send; when both fail, the first send's error is the
@@ -162,7 +165,7 @@ reviewed: 2026-11-23
   learnt from those loads, but the image that hit the stall waited 15 s
   for its idle budget and a retry. A healthy route sends headers within
   about 2 s (p90) and leaves at most 1.3 s between chunks (p99).
-- **Check:** `test/hedged_image_fetch_test.dart` "a send stalled after its first bytes is sent again elsewhere at " "the first send finishing stops the hedge" "a fourth image stalled at once is not sent again" "a prefetch is sent again only once a visible request joins it" "a hedge that " "both sends failing fail with the first one's error" "progress follows the further of the two sends", `test/restricted_compat_image_test.dart` "a second send goes to a candidate the first did not use, and "
+- **Check:** `test/hedged_image_fetch_test.dart` "a send stalled after its first bytes is sent again elsewhere at " "the first send finishing stops the hedge" "a fourth image stalled at once is not sent again" "a prefetch is sent again only once a visible request joins it" "a hedge that " "both sends failing fail with the first one's error" "progress follows the further of the two sends" "lazy monotonic timer resets across chunk bursts and stalls on time", `test/restricted_compat_image_test.dart` "a second send goes to a candidate the first did not use, and "
 - **Code:** `lib/core/image/hedged_image_fetch.dart`, `lib/core/image/image_worker_host.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ### IMG-08 Retry belongs to the visible image
@@ -210,42 +213,48 @@ reviewed: 2026-11-23
 ### IMG-10 An animated work owns its resources and frees them
 - **Rule:** Each ugoira load owns one temporary archive, one index, one
   bounded frame cache and one scheduler. The cache disposes every
-  `ui.Image` it evicts or replaces; the viewer stops the scheduler before
+  `ui.Image` it evicts or replaces; playback uses `loopAware: true` eviction
+  (retaining early loop frames rather than thrashing 0% on loop 2) with
+  display-width `targetWidth` decode (`jpegEdgeSafeDecodeWidth`, IMG-13) and
+  1-frame lookahead prefetch; the viewer stops the scheduler before
   teardown. Playback (`UgoiraViewer`) and app-level GIF export
   (`UgoiraExportController`) each load and dispose their own independent
   `UgoiraAsset` and temporary archive — an export never borrows the viewer's
   playback asset.
-- **Why:** Undisposed frames and temp files leaked across viewers, and
-  borrowing the viewer's asset deleted the ZIP mid-export when leaving the
-  detail page.
-- **Check:** `test/ugoira_test.dart` "evicts the least recently used frame and disposes it" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state"
+- **Why:** Undisposed frames and temp files leaked across viewers, plain LRU
+  thrashed 0% on looping playback when frames exceeded the cache cap, full-res
+  decode wasted GPU memory, and borrowing the viewer's asset deleted the ZIP
+  mid-export when leaving the detail page.
+- **Check:** `test/ugoira_test.dart` "evicts the least recently used frame and disposes it" "loopAware cache retains prefix frames, worker reads ZIP, and octree encodes encoded frames" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state"
 - **Code:** `lib/core/ugoira`
 
 ### IMG-15 A ugoira entry never inflates past its declared size
 - **Rule:** `SafeZipIndex` checks every entry against the metadata, its
-  local header and the compression-ratio limit, and inflates in chunks
-  into a sink that fails as soon as the output passes the declared size;
-  the size and CRC checks follow.
-- **Why:** The whole entry used to be inflated before the size check, so a
-  forged entry declaring a few megabytes could expand to gigabytes.
+  local header and the compression-ratio limit, and inflates in 64 KiB chunks
+  inside a cancellable worker isolate (`UgoiraZipWorker` for file-backed
+  archives) into a sink that fails as soon as the output passes the declared
+  size; the size and CRC checks follow before returning `TransferableTypedData`.
+- **Why:** Inflating whole entries on the UI isolate both stalled playback
+  frames and let forged entries expand unboundedly before size checks ran.
 - **Check:** `test/ugoira_test.dart` "a forged entry fails once it inflates past its declared size" "rejects metadata count mismatch and forged local sizes"
-- **Code:** `lib/core/ugoira/ugoira_zip.dart`
+- **Code:** `lib/core/ugoira/ugoira_zip.dart`, `lib/core/ugoira/ugoira_zip_worker.dart`
 
-### IMG-11 GIF export is a cancellable app-level worker job with one terminal state
-- **Rule:** GIF export runs through app-level `UgoiraExportController`
-  (`ugoiraExportControllerProvider`, invoked on demand from `UgoiraViewer`,
-  `DetailActionBar`, or inspector download actions without requiring prior
-  playback and never falling back to a static first-frame JPEG). It
-  quantizes in a worker isolate, checks cancellation between frames and
-  before finalize, owns one pending MediaStore item and its own temporary
-  archive, continues after leaving the detail page (delivering terminal
-  feedback through `PromptHost` and showing live progress + cancel on
-  same-process re-entry), and emits exactly one terminal snapshot. It never
-  holds the full decoded frame list on the UI isolate. Its recovery record
-  uses its own key and owner prefix and never enters the download retry
-  queue; after a process restart an unfinished export becomes `orphaned`.
-- **Why:** Quantization on the UI isolate froze the app, page-scoped jobs
-  died on back navigation, bottom-bar downloads saved static JPEGs, and a
-  synthetic GIF URL in the download queue retried forever.
-- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state", `test/ugoira_viewer_test.dart` "UgoiraViewer exports GIF on demand without prior playback, survives leaving page, and shows progress/cancel on re-entry", `test/illust_detail_download_test.dart` "blank-area tap keeps page selection, single-page hides select-pages, and ugoira bottom button routes to GIF export", `test/download_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned"
-- **Code:** `lib/core/ugoira/ugoira_export.dart`, `lib/core/ugoira/ugoira_export_controller.dart`, `lib/core/ugoira/ugoira_recovery.dart`, `lib/features/illust/detail/ugoira_export_action.dart`, `lib/features/illust/detail/ugoira_viewer.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`
+### IMG-11 GIF export is a cancellable DownloadManager worker job with one terminal state
+- **Rule:** GIF export runs as `DownloadTarget.ugoiraGif` inside
+  `DownloadManager` via `UgoiraGifDownloadExecutor` (bridged by
+  `UgoiraExportController` and `IllustDownloadCoordinator.downloadUgoiraGif`,
+  invoked across card actions, multi-select, detail bar, `UgoiraViewer`, and
+  opt-in bulk author downloads without ever falling back to a static cover
+  JPEG). It populates full `NamingRule` metadata and `CaptionExporter`
+  sidecars, caps active GIF worker isolates to one, decodes/quantizes with
+  `QuantizerType.octree` inside the worker isolate (zero UI-isolate `ui.Image`
+  decode), writes chunks via `Uint8List.sublistView`, checks cancellation and
+  ownership throughout, owns its temporary archive and cleans it on every
+  terminal path, and surfaces live progress, cancel, explicit retry, and
+  desktop reveal in `DownloadTasksPage`. Interrupted `ugoiraGif` records
+  never use HTTP `Range` resume and become `orphaned` on restart (`DL-02`/`DL-05`).
+- **Why:** Quantization on the UI isolate froze the app, parallel GIF encodes
+  risked OOM, card/multi-select paths saved static JPEGs, and standalone
+  exports bypassed templates, captions, and task history.
+- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output" "UgoiraExportController owns its temp ZIP independently, deduplicates, cancels, and cleans up on every terminal state", `test/ugoira_viewer_test.dart` "UgoiraViewer exports GIF on demand without prior playback, survives leaving page, and shows progress/cancel on re-entry", `test/illust_detail_download_test.dart` "blank-area tap keeps page selection, single-page hides select-pages, and ugoira bottom button routes to GIF export", `test/download_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned", `test/author_works_download_test.dart` "author bulk dialog separates ugoira works and supports opt-in GIF export"
+- **Code:** `lib/core/ugoira/ugoira_export.dart`, `lib/core/ugoira/ugoira_gif_download_executor.dart`, `lib/core/ugoira/ugoira_export_controller.dart`, `lib/core/download/illust_download_coordinator.dart`, `lib/core/illust/illust_download_controller.dart`, `lib/features/illust/detail/ugoira_export_action.dart`, `lib/features/illust/detail/ugoira_viewer.dart`, `lib/features/illust/detail/widgets/detail_action_bar.dart`

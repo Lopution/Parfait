@@ -7,6 +7,12 @@ bool isKeywordSeparator(String char) => char == ' ' || char == '\u3000';
 /// pixiv's mark for a keyword a search leaves out.
 const _exclude = '-';
 
+/// Boolean operator recognized by pixiv search queries.
+const kSearchOrOperator = 'OR';
+
+/// Whether [token] is a boolean operator rather than a tag prefix.
+bool isBooleanOperatorToken(String token) => token == kSearchOrOperator;
+
 /// The keywords of [text], in order, as ranges into it.
 List<TextRange> keywordRanges(String text) {
   final ranges = <TextRange>[];
@@ -42,9 +48,11 @@ TextRange? keywordAtCaret(TextEditingValue value) {
 }
 
 /// What [keyword] asks autocomplete for: an excluded keyword without its
-/// minus.
-String completionQueryOf(String keyword) =>
-    keyword.startsWith(_exclude) ? keyword.substring(1) : keyword;
+/// minus, or empty when [keyword] is a boolean operator like `OR`.
+String completionQueryOf(String keyword) {
+  if (isBooleanOperatorToken(keyword)) return '';
+  return keyword.startsWith(_exclude) ? keyword.substring(1) : keyword;
+}
 
 /// The keywords of [text] other than the one at [except], as autocomplete
 /// would name them: a suggestion matching one of them is already there.
@@ -54,18 +62,21 @@ Set<String> otherKeywords(String text, TextRange except) => {
 };
 
 /// [value] with the keyword at [range] replaced by [replacement], keeping
-/// its exclusion minus. [thenSeparate] adds a space after it unless one
-/// follows and puts the caret past it, ready for the next keyword.
+/// its exclusion minus (or forcing `-` when [exclude] is true). [thenSeparate]
+/// adds a space after it unless one follows and puts the caret past it.
 TextEditingValue replaceKeyword(
   TextEditingValue value,
   TextRange range,
   String replacement, {
   bool thenSeparate = false,
+  bool exclude = false,
 }) {
   final text = value.text;
-  final keyword = range.textInside(text).startsWith(_exclude)
-      ? '$_exclude$replacement'
+  final clean = replacement.startsWith(_exclude)
+      ? replacement.substring(1)
       : replacement;
+  final shouldExclude = exclude || range.textInside(text).startsWith(_exclude);
+  final keyword = shouldExclude ? '$_exclude$clean' : clean;
   var after = text.substring(range.end);
   if (thenSeparate && (after.isEmpty || !isKeywordSeparator(after[0]))) {
     after = ' $after';
@@ -74,5 +85,41 @@ TextEditingValue replaceKeyword(
   return TextEditingValue(
     text: text.substring(0, range.start) + keyword + after,
     selection: TextSelection.collapsed(offset: caret),
+  );
+}
+
+/// Appends `-tag ` to [value] (avoiding duplicate `-tag` tokens).
+TextEditingValue appendExcludedTag(TextEditingValue value, String tag) {
+  final clean = tag.trim().startsWith(_exclude)
+      ? tag.trim().substring(1)
+      : tag.trim();
+  if (clean.isEmpty) return value;
+  final token = '$_exclude$clean';
+  final current = value.text.trimRight();
+  final next = current.isEmpty ? '$token ' : '$current $token ';
+  return TextEditingValue(
+    text: next,
+    selection: TextSelection.collapsed(offset: next.length),
+  );
+}
+
+/// Inserts the `OR` operator at the end of [value] when a preceding keyword
+/// exists and the query does not already end with `OR`.
+TextEditingValue insertOrOperator(TextEditingValue value) {
+  final trimmed = value.text.trimRight();
+  if (trimmed.isEmpty) return value;
+  final ranges = keywordRanges(trimmed);
+  if (ranges.isNotEmpty &&
+      isBooleanOperatorToken(ranges.last.textInside(trimmed))) {
+    final next = '$trimmed ';
+    return TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+  }
+  final next = '$trimmed $kSearchOrOperator ';
+  return TextEditingValue(
+    text: next,
+    selection: TextSelection.collapsed(offset: next.length),
   );
 }

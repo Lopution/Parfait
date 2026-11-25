@@ -232,20 +232,55 @@ class UserEntity {
   /// loaded detail profile.
   UserEntity merge(UserEntity incoming) {
     final detail = incoming.hasDetail ? incoming : this;
+    final nextName = incoming.name.isNotEmpty ? incoming.name : name;
+    final nextAccount = incoming.account.isNotEmpty
+        ? incoming.account
+        : account;
+    final nextProfileImageUrl = incoming.profileImageUrl ?? profileImageUrl;
+    final nextBackgroundImageUrl = incoming.hasDetail
+        ? incoming.backgroundImageUrl
+        : backgroundImageUrl;
+    final nextComment = incoming.comment ?? comment;
+    final nextIsFollowed = incoming.isFollowed ?? isFollowed;
+    final nextIsPremium = incoming.isPremium ?? isPremium;
+    final nextVisible = visible && incoming.visible;
+    final nextIsMuted = isMuted || incoming.isMuted;
+    final nextHasDetail = hasDetail || incoming.hasDetail;
+    if (nextName == name &&
+        nextAccount == account &&
+        nextProfileImageUrl == profileImageUrl &&
+        nextBackgroundImageUrl == backgroundImageUrl &&
+        nextComment == comment &&
+        detail.webpage == webpage &&
+        detail.twitterUrl == twitterUrl &&
+        detail.pawooUrl == pawooUrl &&
+        nextIsFollowed == isFollowed &&
+        nextIsPremium == isPremium &&
+        detail.totalFollowUsers == totalFollowUsers &&
+        detail.totalMyPixivUsers == totalMyPixivUsers &&
+        detail.totalIllusts == totalIllusts &&
+        detail.totalManga == totalManga &&
+        detail.totalNovels == totalNovels &&
+        detail.totalIllustBookmarksPublic == totalIllustBookmarksPublic &&
+        detail.totalIllustSeries == totalIllustSeries &&
+        detail.totalNovelSeries == totalNovelSeries &&
+        nextVisible == visible &&
+        nextIsMuted == isMuted &&
+        nextHasDetail == hasDetail) {
+      return this;
+    }
     return UserEntity(
       id: id,
-      name: incoming.name.isNotEmpty ? incoming.name : name,
-      account: incoming.account.isNotEmpty ? incoming.account : account,
-      profileImageUrl: incoming.profileImageUrl ?? profileImageUrl,
-      backgroundImageUrl: incoming.hasDetail
-          ? incoming.backgroundImageUrl
-          : backgroundImageUrl,
-      comment: incoming.comment ?? comment,
+      name: nextName,
+      account: nextAccount,
+      profileImageUrl: nextProfileImageUrl,
+      backgroundImageUrl: nextBackgroundImageUrl,
+      comment: nextComment,
       webpage: detail.webpage,
       twitterUrl: detail.twitterUrl,
       pawooUrl: detail.pawooUrl,
-      isFollowed: incoming.isFollowed ?? isFollowed,
-      isPremium: incoming.isPremium ?? isPremium,
+      isFollowed: nextIsFollowed,
+      isPremium: nextIsPremium,
       totalFollowUsers: detail.totalFollowUsers,
       totalMyPixivUsers: detail.totalMyPixivUsers,
       totalIllusts: detail.totalIllusts,
@@ -254,9 +289,9 @@ class UserEntity {
       totalIllustBookmarksPublic: detail.totalIllustBookmarksPublic,
       totalIllustSeries: detail.totalIllustSeries,
       totalNovelSeries: detail.totalNovelSeries,
-      visible: visible && incoming.visible,
-      isMuted: isMuted || incoming.isMuted,
-      hasDetail: hasDetail || incoming.hasDetail,
+      visible: nextVisible,
+      isMuted: nextIsMuted,
+      hasDetail: nextHasDetail,
     );
   }
 

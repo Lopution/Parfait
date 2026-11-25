@@ -65,8 +65,29 @@ final class ActionQueue {
   final Map<String, DateTime> _cooldownUntil = {};
   final Map<String, Timer> _wakes = {};
   final Set<String> _parked = {};
+  final StreamController<void> _changes = StreamController<void>.broadcast();
   Future<void>? _recovery;
   var _disposed = false;
+
+  /// Fires whenever rows are enqueued, dropped, replayed, failed, or cleared.
+  Stream<void> get changes => _changes.stream;
+
+  void _notifyChanged() {
+    if (!_disposed && !_changes.isClosed) _changes.add(null);
+  }
+
+  /// Current pending action count for [owner].
+  Future<int> pendingCount(String owner) => _store.countPending(owner);
+
+  /// Clears all non-running queued rows for [owner] (leaving any in-flight
+  /// `running` row intact) and cancels pending wakes.
+  Future<int> clearPending(String owner) async {
+    _wakes.remove(owner)?.cancel();
+    _cooldownUntil.remove(owner);
+    final cleared = await _store.clearNonRunning(owner);
+    _notifyChanged();
+    return cleared;
+  }
 
   /// Cumulative counters since construction (replayed / dropped).
   final telemetry = ActionTelemetry();
@@ -107,6 +128,7 @@ final class ActionQueue {
     );
     final id = await _store.enqueue(draft);
     if (!_wakes.containsKey(owner)) _wakeAt(owner, _now().add(cooldown));
+    _notifyChanged();
     return id;
   }
 
@@ -115,7 +137,11 @@ final class ActionQueue {
   Future<bool> dropPending({
     required String owner,
     required String dedupeKey,
-  }) => _store.deletePending(owner, dedupeKey);
+  }) async {
+    final dropped = await _store.deletePending(owner, dedupeKey);
+    if (dropped) _notifyChanged();
+    return dropped;
+  }
 
   /// Drains [owner]'s ready rows serially, oldest first, then arms the
   /// owner's wake for whatever is left. Re-entrant calls are coalesced — a
@@ -160,6 +186,7 @@ final class ActionQueue {
     }
     _wakes.clear();
     _failureListeners.clear();
+    unawaited(_changes.close());
   }
 
   Future<void> _drainExclusive(String owner) async {
@@ -246,6 +273,7 @@ final class ActionQueue {
       // spin on a row that can never succeed.
       await _store.markFailed(action.id);
       telemetry.dropped++;
+      _notifyChanged();
       _notifyPermanentFailure(
         action,
         UnsupportedError('Unknown action type: ${action.type}'),
@@ -260,8 +288,10 @@ final class ActionQueue {
       await runAsAccount(action.owner, () => handler(action));
       await _store.delete(action.id);
       telemetry.replayed++;
+      _notifyChanged();
     } on Object catch (error) {
       await _handleFailure(action, error);
+      _notifyChanged();
     }
   }
 

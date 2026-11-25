@@ -99,6 +99,7 @@ NovelParagraphSlice _buildSlice(List<NovelPageLine> group) {
         start: offset + ruby.start,
         end: offset + ruby.end,
         reading: ruby.reading,
+        box: ruby.box,
       ));
     }
     prev = line;
@@ -336,14 +337,16 @@ class _NovelRichSliceState extends State<_NovelRichSlice> {
         final effectiveRuby = link != null
             ? rubyStyle.copyWith(color: linkColor)
             : rubyStyle;
-        final box = measureNovelRubyBox(
-          base: base,
-          reading: ruby.reading,
-          baseStyle: effectiveBase,
-          rubyStyle: effectiveRuby,
-          textDirection: textDirection,
-          textScaler: textScaler,
-        );
+        final box =
+            ruby.box ??
+            measureNovelRubyBox(
+              base: base,
+              reading: ruby.reading,
+              baseStyle: effectiveBase,
+              rubyStyle: effectiveRuby,
+              textDirection: textDirection,
+              textScaler: textScaler,
+            );
         Widget rubyWidget = _NovelRubyInline(
           base: base,
           reading: ruby.reading,

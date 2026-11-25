@@ -8,6 +8,7 @@ class UgoiraFrameCache<T> {
     required int maxBytes,
     required int Function(T value) sizeOf,
     required void Function(T value) dispose,
+    this.loopAware = false,
   }) : assert(maxBytes > 0),
        _maxBytes = maxBytes,
        _sizeOf = sizeOf,
@@ -16,6 +17,11 @@ class UgoiraFrameCache<T> {
   final int _maxBytes;
   final int Function(T value) _sizeOf;
   final void Function(T value) _dispose;
+
+  /// When true, evicts the most-recently-played prior frame (furthest in the
+  /// next loop) rather than the oldest prefix frame, avoiding 0% hit-rate LRU
+  /// thrash on looping playback whose total frames exceed [_maxBytes].
+  final bool loopAware;
   final Map<int, _CacheEntry<T>> _entries = {};
   int _residentBytes = 0;
 
@@ -53,13 +59,26 @@ class UgoiraFrameCache<T> {
     _residentBytes += bytes;
 
     while (_residentBytes > _maxBytes && _entries.isNotEmpty) {
-      final oldestKey = _entries.keys.first;
-      final oldest = _entries.remove(oldestKey)!;
-      _residentBytes -= oldest.bytes;
-      if (!identical(oldest.value, value)) {
-        _dispose(oldest.value);
+      final victimKey = _pickEvictionKey(index);
+      final victim = _entries.remove(victimKey)!;
+      _residentBytes -= victim.bytes;
+      if (!identical(victim.value, value)) {
+        _dispose(victim.value);
       }
     }
+  }
+
+  int _pickEvictionKey(int justInserted) {
+    if (!loopAware || _entries.length <= 1) {
+      return _entries.keys.first;
+    }
+    // Evict the most recently used entry other than [justInserted] (which was
+    // just played and is furthest away in the next loop).
+    int? victim;
+    for (final key in _entries.keys) {
+      if (key != justInserted) victim = key;
+    }
+    return victim ?? _entries.keys.first;
   }
 
   void remove(int index) {

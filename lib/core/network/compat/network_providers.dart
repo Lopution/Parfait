@@ -78,12 +78,17 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   // The identity string also keys the persisted route kinds, so returning
   // to a known network re-seeds its last-good tiers.
   var connectivityIdentity = 'initial';
+  var hasRealIdentity = false;
+  var fallbackElapsed = false;
+  var lastAutoNotifiedIdentity = '';
+  Timer? startupFallbackTimer;
   // In auto mode the winner applies through [autoImageSourceWinnerProvider]:
   // its update rebuilds [imageMirrorProvider], so image URLs start
   // rewriting through it.
   final autoSource = AutoSourceSelector(
     store: AutoImageSource(preferences: ref.watch(sharedPreferencesProvider)),
-    race: () => AutoImageSource.race(policy),
+    raceWithCancel: (cancel) =>
+        AutoImageSource.race(policy, cancelSignal: cancel),
     enabled: () =>
         ref.read(settingsProvider).value?.imageSource ==
         ImageSourceMode.auto.host,
@@ -92,18 +97,41 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   );
   ref.onDispose(autoSource.dispose);
 
+  void maybeNotifyAutoSource() {
+    if (!hasRealIdentity && !fallbackElapsed) return;
+    if (ref.read(settingsProvider).value == null) return;
+    if (connectivityIdentity == lastAutoNotifiedIdentity) return;
+    lastAutoNotifiedIdentity = connectivityIdentity;
+    autoSource.networkSeen(connectivityIdentity);
+  }
+
   // A dead mirror winner (every ladder tier exhausted) is dropped back to
   // direct and the candidates are re-raced — the next reachable source
   // takes over without user intervention.
   policy.onImageHostExhausted = autoSource.winnerExhausted;
 
   void onConnectivity(String identity) {
-    if (identity == connectivityIdentity) return;
+    final wasInitial = connectivityIdentity == 'initial';
+    hasRealIdentity = true;
+    startupFallbackTimer?.cancel();
+    startupFallbackTimer = null;
+    if (identity == connectivityIdentity) {
+      maybeNotifyAutoSource();
+      return;
+    }
     connectivityIdentity = identity;
-    policy.advanceNetworkRevision(networkIdentity: identity);
-    autoSource.networkSeen(identity);
+    if (wasInitial && identity != 'none') {
+      policy.bindInitialNetworkIdentity(identity);
+    } else {
+      policy.advanceNetworkRevision(networkIdentity: identity);
+    }
+    maybeNotifyAutoSource();
     ref.read(networkRestoreSignalProvider.notifier).observe(identity);
   }
+
+  ref.listen(settingsProvider, (_, next) {
+    if (next.hasValue) maybeNotifyAutoSource();
+  });
 
   StreamSubscription<String>? connectivitySub;
   // A platform stream errors asynchronously when no ServicesBinding exists
@@ -126,11 +154,22 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
           onConnectivity,
           onError: (Object error) => log('network identity: $error'),
         );
+    // Bounded fallback for environments whose connectivity plugin never emits.
+    startupFallbackTimer = Zone.root.createTimer(
+      const Duration(milliseconds: 500),
+      () {
+        startupFallbackTimer = null;
+        if (hasRealIdentity) return;
+        fallbackElapsed = true;
+        maybeNotifyAutoSource();
+      },
+    );
+  } else {
+    fallbackElapsed = true;
+    maybeNotifyAutoSource();
   }
-  // Even with no connectivity events (plugin absent/failed) auto mode still
-  // gets a source under the 'initial' identity.
-  autoSource.networkSeen(connectivityIdentity);
   ref.onDispose(() {
+    startupFallbackTimer?.cancel();
     unawaited(() async {
       try {
         await connectivitySub?.cancel();

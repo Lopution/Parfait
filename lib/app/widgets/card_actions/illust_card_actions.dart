@@ -192,8 +192,9 @@ class _MuteWorkAction extends CardAction {
   @override
   String get id => 'mute-work';
 
-  bool _muted(CardActionState state, IllustEntity entity) =>
-      state.watch(muteStoreProvider.select((s) => s.isWorkMuted(entity.id)));
+  bool _muted(CardActionState state, IllustEntity entity) => state.watch(
+    effectiveMutesProvider.select((s) => s.isWorkMuted(entity.id)),
+  );
 
   @override
   IconData iconFor(CardActionState state, IllustEntity entity) =>
@@ -251,7 +252,7 @@ class _MuteUserAction extends CardAction {
   String get id => 'mute-user';
 
   bool _muted(CardActionState state, IllustEntity entity) => state.watch(
-    muteStoreProvider.select((s) => s.isUserMuted(entity.user.id)),
+    effectiveMutesProvider.select((s) => s.isUserMuted(entity.user.id)),
   );
 
   @override

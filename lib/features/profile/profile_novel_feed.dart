@@ -17,6 +17,7 @@ import '../../app/layout/card_columns.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/icons/ui_icons.dart';
+import 'profile_work_tag_filter.dart';
 
 /// A user's novels, or their novel bookmarks when [feedKey] is a
 /// bookmarks key. [localFilter] narrows the loaded list to titles and tags
@@ -26,11 +27,13 @@ class ProfileNovelFeed extends ConsumerWidget {
     super.key,
     required this.feedKey,
     this.localFilter,
+    this.onClearLocalFilter,
     this.isNested = true,
   });
 
   final ProfileFeedKey feedKey;
   final String? localFilter;
+  final VoidCallback? onClearLocalFilter;
 
   /// True inside [UserPage]'s `NestedScrollView`; false on standalone pages.
   final bool isNested;
@@ -114,11 +117,16 @@ class ProfileNovelFeed extends ConsumerWidget {
                               feed: feed,
                               onLoadMore: () => controller().retryLoadMore(),
                             )
+                          : query.isNotEmpty
+                          ? ProfileFilteredEmptyState(
+                              hasMore: !feed.exhausted,
+                              loadingMore: feed.showLoadMoreSpinner,
+                              onLoadMore: () => controller().retryLoadMore(),
+                              onClearFilter: onClearLocalFilter,
+                            )
                           : FeedEmpty(
                               icon: UiIcons.inbox,
-                              title: query.isEmpty
-                                  ? context.l10n.profileItemsEmpty
-                                  : context.l10n.bookmarkTagFilterEmpty,
+                              title: context.l10n.profileItemsEmpty,
                             ),
                     )
                   else
@@ -147,13 +155,22 @@ class ProfileNovelFeed extends ConsumerWidget {
           );
         }
 
-        return isNested
-            ? buildScroll(null, const AlwaysScrollableScrollPhysics())
-            : SmoothWheelScroll(
-                basePhysics: const AlwaysScrollableScrollPhysics(),
-                builder: (context, scrollController, physics) =>
-                    buildScroll(scrollController, physics),
-              );
+        return ProfileFilterRefillRunner(
+          filterKey: query.isEmpty ? null : '$storageId:$query',
+          visibleCount: novels.length,
+          loadedCount: feed.ids.length,
+          hasMore: !feed.exhausted,
+          loadingMore: feed.showLoadMoreSpinner,
+          hasLoadMoreError: feed.showLoadMoreError,
+          onLoadMore: () => controller().loadMore(),
+          child: isNested
+              ? buildScroll(null, const AlwaysScrollableScrollPhysics())
+              : SmoothWheelScroll(
+                  basePhysics: const AlwaysScrollableScrollPhysics(),
+                  builder: (context, scrollController, physics) =>
+                      buildScroll(scrollController, physics),
+                ),
+        );
       },
     );
   }

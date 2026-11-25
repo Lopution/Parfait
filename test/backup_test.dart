@@ -23,6 +23,7 @@ import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/platform/desktop_file_sink.dart';
 import 'package:parfait/core/platform/saf_tree.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/pages/backup_settings_page.dart';
@@ -110,6 +111,7 @@ class _FakeSinkFactory implements SafDocumentSinkFactory {
     required String mimeType,
     Object? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   }) async {
     lastTreeUri = treeUri;
     lastDisplayName = displayName;
@@ -623,9 +625,10 @@ void main() {
           hasLength(1),
         );
 
-        final settings = container.read(settingsProvider).value!;
-        expect(settings.languageTag, 'ja-JP');
-        expect(settings.enableLocalBlockR18, isTrue);
+        final settings = await container.read(settingsProvider.future);
+        // Merge adds mutes and history without overwriting local settings.
+        expect(settings.languageTag, 'en-US');
+        expect(settings.enableLocalBlockR18, isFalse);
 
         final rows = await world.history.page(accountId: '100', limit: 100);
         expect(rows.records, hasLength(3));
@@ -655,7 +658,16 @@ void main() {
 
         final envelope = BackupEnvelope(
           exportedAt: DateTime.utc(2026, 9, 20),
-          settings: const {'languageTag': 'ru'},
+          settings: const {
+            'languageTag': 'ru',
+            'destinationKind': 'safFolder',
+            'safTreeUri': '/tmp/unconsented-dir',
+            'dohEndpointOverride': 'https://9.9.9.9/dns-query',
+            'echFrontHost': 'ech.mirror-test.invalid',
+            'imageSource': 'https://img.mirror-test.invalid',
+            'customImageSource': 'https://img.mirror-test.invalid',
+            'loginProxyNoticeAcknowledged': true,
+          },
           muteWorks: {
             ..._works([9]),
             8: const MutedWork(illustId: 8, title: 'file', thumbnailUrl: 't8'),
@@ -682,7 +694,14 @@ void main() {
         expect(rows.records, hasLength(1));
         expect(rows.records.single.contentId, 9);
         expect(rows.records.single.snapshot.title, 'imported 9');
-        expect(container.read(settingsProvider).value!.languageTag, 'ru-RU');
+        final updated = container.read(settingsProvider).value!;
+        expect(updated.languageTag, 'ru-RU');
+        expect(updated.downloadDestination.isBuiltin, isTrue);
+        expect(updated.dohEndpointOverride, isNull);
+        expect(updated.echFrontHost, AppSettings.defaultEchFrontHost);
+        expect(updated.imageSource, AppSettings.defaultImageSource);
+        expect(updated.customImageSource, isNull);
+        expect(updated.loginProxyNoticeAcknowledged, isFalse);
       },
     );
 
@@ -737,7 +756,7 @@ void main() {
       );
 
       await expectLater(
-        world.service.apply(envelope, BackupImportStrategy.merge),
+        world.service.apply(envelope, BackupImportStrategy.overwrite),
         throwsA(anything),
       );
       // Settings and history were not touched by the failed import.

@@ -309,46 +309,29 @@ class _ControlledSauceNaoWebViewState
         onOpen: () => widget.onOpenExternal(externalUri),
       );
     }
-    final error =
-        _error ??
-        (DevWebViewEnvironmentHolder.isUnavailableInDevWindows()
-            ? '${DevWebViewEnvironmentHolder.initError ?? 'Dev WebView2 environment unavailable'}'
-            : null);
-    if (error != null) {
-      return _webViewErrorBody(context, error);
-    }
-    return Stack(
-      children: [
-        InAppWebView(
-          webViewEnvironment: DevWebViewEnvironmentHolder.resolveForWebView(),
-          initialUrlRequest: result.resultUrl != null
-              ? URLRequest(url: WebUri.uri(result.resultUrl!))
-              : null,
-          initialData: result.html != null
-              ? InAppWebViewInitialData(
-                  data: result.html!,
-                  baseUrl: WebUri(
-                    widget.spec.resultBaseUrl ??
-                        SauceNaoWebViewProvider.defaultEndpoint,
-                  ),
-                )
-              : null,
-          initialSettings: _guard.settings,
-          shouldOverrideUrlLoading: _guard.shouldOverrideUrlLoading,
-          onLoadStart: _guard.onLoadStart,
-          onProgressChanged: (controller, progress) {
-            if (mounted) setState(() => _progress = progress / 100.0);
-          },
-          onReceivedError: (controller, request, error) {
-            if (request.isForMainFrame == false || !mounted) return;
-            setState(() {
-              _error = '${error.type}: ${error.description}';
-            });
-          },
-        ),
-        if (_progress != null && _progress! < 1.0)
-          AppProgressBar(value: _progress, minHeight: 2),
-      ],
+    if (_error != null) return _webViewErrorBody(context, _error!);
+    return _guardedWebView(
+      context: context,
+      guard: _guard,
+      progress: _progress,
+      initialUrlRequest: result.resultUrl != null
+          ? URLRequest(url: WebUri.uri(result.resultUrl!))
+          : null,
+      initialData: result.html != null
+          ? InAppWebViewInitialData(
+              data: result.html!,
+              baseUrl: WebUri(
+                widget.spec.resultBaseUrl ??
+                    SauceNaoWebViewProvider.defaultEndpoint,
+              ),
+            )
+          : null,
+      onProgress: (p) {
+        if (mounted) setState(() => _progress = p);
+      },
+      onError: (e) {
+        if (mounted) setState(() => _error = e);
+      },
     );
   }
 }
@@ -380,10 +363,27 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
   String? _error;
   double? _progress;
   bool _showUploadHint = true;
+  late var _guard = _buildGuard();
+
+  WebNavigationGuard _buildGuard() => WebNavigationGuard(
+    widget.caps,
+    (raw) => _applyNavigationAction(
+      context,
+      widget.policy.decide(Uri.tryParse(raw)),
+      raw,
+      widget.onOpenExternal,
+    ),
+    allowContentAccess: widget.upload.armedUri != null,
+  );
 
   @override
   void didUpdateWidget(covariant _UploadInAppWebView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.caps != widget.caps ||
+        (oldWidget.upload.armedUri != null) !=
+            (widget.upload.armedUri != null)) {
+      _guard = _buildGuard();
+    }
     if (oldWidget.upload.uploadPageUrl != widget.upload.uploadPageUrl ||
         oldWidget.upload.imagePath != widget.upload.imagePath) {
       _showUploadHint = true;
@@ -399,10 +399,7 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
         onOpen: () => widget.onOpenExternal(widget.upload.uploadPageUrl),
       );
     }
-    final error = _error;
-    if (error != null) {
-      return _webViewErrorBody(context, error);
-    }
+    if (_error != null) return _webViewErrorBody(context, _error!);
     return Column(
       children: [
         Reveal(
@@ -427,54 +424,64 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
                 ),
         ),
         Expanded(
-          child: DevWebViewEnvironmentHolder.isUnavailableInDevWindows()
-              ? _webViewErrorBody(
-                  context,
-                  '${DevWebViewEnvironmentHolder.initError ?? 'Dev WebView2 environment unavailable'}',
-                )
-              : Stack(
-                  children: [
-                    InAppWebView(
-                      webViewEnvironment:
-                          DevWebViewEnvironmentHolder.resolveForWebView(),
-                      initialUrlRequest: URLRequest(
-                        url: WebUri.uri(widget.upload.uploadPageUrl),
-                      ),
-                      initialSettings: InAppWebViewSettings(
-                        javaScriptEnabled: true,
-                      ),
-                      onLoadStart: (controller, url) {
-                        if (url == null) return;
-                        final raw = url.toString();
-                        if (_applyNavigationAction(
-                          context,
-                          widget.policy.decide(Uri.tryParse(raw)),
-                          raw,
-                          widget.onOpenExternal,
-                        )) {
-                          unawaited(controller.stopLoading());
-                        }
-                      },
-                      onProgressChanged: (controller, progress) {
-                        if (mounted) {
-                          setState(() => _progress = progress / 100.0);
-                        }
-                      },
-                      onReceivedError: (controller, request, error) {
-                        if (request.isForMainFrame == false || !mounted) return;
-                        setState(() {
-                          _error = '${error.type}: ${error.description}';
-                        });
-                      },
-                    ),
-                    if (_progress != null && _progress! < 1.0)
-                      AppProgressBar(value: _progress, minHeight: 2),
-                  ],
-                ),
+          child: _guardedWebView(
+            context: context,
+            guard: _guard,
+            progress: _progress,
+            initialUrlRequest: URLRequest(
+              url: WebUri.uri(widget.upload.uploadPageUrl),
+            ),
+            onProgress: (p) {
+              if (mounted) setState(() => _progress = p);
+            },
+            onError: (e) {
+              if (mounted) setState(() => _error = e);
+            },
+          ),
         ),
       ],
     );
   }
+}
+
+Widget _guardedWebView({
+  required BuildContext context,
+  required WebNavigationGuard guard,
+  required double? progress,
+  URLRequest? initialUrlRequest,
+  InAppWebViewInitialData? initialData,
+  required ValueChanged<double> onProgress,
+  required ValueChanged<String> onError,
+}) {
+  if (DevWebViewEnvironmentHolder.isUnavailableInDevWindows()) {
+    return _webViewErrorBody(
+      context,
+      '${DevWebViewEnvironmentHolder.initError ?? 'Dev WebView2 environment unavailable'}',
+    );
+  }
+  return Stack(
+    children: [
+      InAppWebView(
+        webViewEnvironment: DevWebViewEnvironmentHolder.resolveForWebView(),
+        initialUrlRequest: initialUrlRequest,
+        initialData: initialData,
+        initialSettings: guard.settings,
+        shouldOverrideUrlLoading: guard.shouldOverrideUrlLoading,
+        onLoadStart: guard.onLoadStart,
+        onUpdateVisitedHistory: (controller, url, _) {
+          if (!guard.beforeLoad) guard.stopAsStarted(controller, url);
+        },
+        onProgressChanged: (_, p) => onProgress(p / 100.0),
+        onReceivedError: (_, request, error) {
+          if (request.isForMainFrame != false) {
+            onError('${error.type}: ${error.description}');
+          }
+        },
+      ),
+      if (progress != null && progress < 1.0)
+        AppProgressBar(value: progress, minHeight: 2),
+    ],
+  );
 }
 
 /// Fallback body shown when the platform has no embedded WebView (Linux),
@@ -522,36 +529,29 @@ class _ExternalWebFallback extends StatelessWidget {
 /// headline, the network category (a main-frame error is always a
 /// connectivity failure); the engine-reported detail goes to the crash
 /// log.
-Widget _webViewErrorBody(BuildContext context, String error) {
-  return Center(
+Widget _webViewErrorBody(BuildContext context, String error) => Center(
+  child: Padding(
+    padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(UiIcons.errorOutline, size: 56),
         const SizedBox(height: FuncSpacing.md),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                context.l10n.searchReversePageLoadFailed,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              Text(
-                errorCategoryText(context, ErrorCategory.network),
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-              FailureReport(
-                action: context.l10n.searchReversePageLoadFailed,
-                error: error,
-              ),
-            ],
-          ),
+        Text(
+          context.l10n.searchReversePageLoadFailed,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: FuncSpacing.sm),
+        Text(
+          errorCategoryText(context, ErrorCategory.network),
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
+        FailureReport(
+          action: context.l10n.searchReversePageLoadFailed,
+          error: error,
         ),
       ],
     ),
-  );
-}
+  ),
+);

@@ -405,6 +405,18 @@ String namingPresetLabel(BuildContext context, NamingPreset preset) {
   };
 }
 
+String downloadSubfolderModeLabel(
+  BuildContext context,
+  DownloadSubfolderMode mode,
+) {
+  return switch (mode) {
+    DownloadSubfolderMode.none => context.l10n.downloadSubfolderNone,
+    DownloadSubfolderMode.byArtist => context.l10n.downloadSubfolderByArtist,
+    DownloadSubfolderMode.byArtistAndSeries =>
+      context.l10n.downloadSubfolderByArtistAndSeries,
+  };
+}
+
 String downloadDestinationLabel(
   BuildContext context,
   DownloadDestination destination,

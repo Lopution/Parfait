@@ -17,6 +17,7 @@ import '../../l10n/context.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/icons/ui_icons.dart';
+import 'profile_work_tag_filter.dart';
 
 /// Grid padding shared by this feed and `ProfileSkeleton`'s grid block.
 const gridPadding = IllustFeedGrid.defaultPadding;
@@ -38,11 +39,13 @@ class ProfileIllustFeed extends ConsumerWidget {
     super.key,
     required this.feedKey,
     this.localFilter,
+    this.onClearLocalFilter,
     this.isNested = true,
   });
 
   final ProfileFeedKey feedKey;
   final String? localFilter;
+  final VoidCallback? onClearLocalFilter;
 
   /// True inside [UserPage]'s `NestedScrollView`; false on standalone pages
   /// (bookmark tag feed, wide Me workspace panes) so pull-to-refresh omits
@@ -132,11 +135,16 @@ class ProfileIllustFeed extends ConsumerWidget {
                               feed: feed,
                               onLoadMore: controller.retryLoadMore,
                             )
+                          : query.isNotEmpty
+                          ? ProfileFilteredEmptyState(
+                              hasMore: !feed.exhausted,
+                              loadingMore: feed.showLoadMoreSpinner,
+                              onLoadMore: () => controller.retryLoadMore(),
+                              onClearFilter: onClearLocalFilter,
+                            )
                           : FeedEmpty(
                               icon: UiIcons.inbox,
-                              title: query.isEmpty
-                                  ? context.l10n.profileItemsEmpty
-                                  : context.l10n.bookmarkTagFilterEmpty,
+                              title: context.l10n.profileItemsEmpty,
                             ),
                     )
                   else
@@ -175,14 +183,23 @@ class ProfileIllustFeed extends ConsumerWidget {
         // Inside NestedScrollView, driving position via SmoothWheelScroll's
         // animateTo bypasses the nested coordinator so the profile header would
         // never collapse on wheel; standalone callers get SmoothWheelScroll.
-        return SelectableFeedHost(
-          child: isNested
-              ? buildScroll(null, const AlwaysScrollableScrollPhysics())
-              : SmoothWheelScroll(
-                  basePhysics: const AlwaysScrollableScrollPhysics(),
-                  builder: (context, scrollController, physics) =>
-                      buildScroll(scrollController, physics),
-                ),
+        return ProfileFilterRefillRunner(
+          filterKey: query.isEmpty ? null : '$feedKey:$query',
+          visibleCount: visibleEntities.length,
+          loadedCount: feed.ids.length,
+          hasMore: !feed.exhausted,
+          loadingMore: feed.showLoadMoreSpinner,
+          hasLoadMoreError: feed.showLoadMoreError,
+          onLoadMore: () => controller.loadMore(),
+          child: SelectableFeedHost(
+            child: isNested
+                ? buildScroll(null, const AlwaysScrollableScrollPhysics())
+                : SmoothWheelScroll(
+                    basePhysics: const AlwaysScrollableScrollPhysics(),
+                    builder: (context, scrollController, physics) =>
+                        buildScroll(scrollController, physics),
+                  ),
+          ),
         );
       },
     );

@@ -29,6 +29,7 @@ import '../../core/network/compat/image_route_scores.dart'
 import '../../core/log.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
+import '../../core/settings/network_endpoint_validation.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
@@ -443,7 +444,7 @@ class _NetworkAdvancedSettingsPageState
     final echValue = _echHostController.text.trim();
     if (_echHostDirty &&
         echValue.isNotEmpty &&
-        !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(echValue)) {
+        normalizeEchFrontHost(echValue) == null) {
       showAppSnackBar(context, context.l10n.networkEchHostInvalid);
       return;
     }
@@ -468,27 +469,8 @@ class _NetworkAdvancedSettingsPageState
     }
   }
 
-  static bool _validEndpointList(String value) {
-    final entries = value
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    if (entries.isEmpty) return false;
-    for (final entry in entries) {
-      final uri = Uri.tryParse(entry);
-      if (uri == null ||
-          uri.scheme != 'https' ||
-          uri.host.isEmpty ||
-          // IP-literal or hostname: IP-literal endpoints keep the
-          // certificate's iPAddress SAN; hostname endpoints go through
-          // the static anycast override (defaults) or their own DNS.
-          !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(uri.host)) {
-        return false;
-      }
-    }
-    return true;
-  }
+  static bool _validEndpointList(String value) =>
+      normalizeDohEndpointOverride(value) != null;
 
   /// Resetting rewrites three stored fields at once (DoH toggle, DoH
   /// endpoint override, ECH front host), so it asks first —

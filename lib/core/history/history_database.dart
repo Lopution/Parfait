@@ -30,7 +30,7 @@ class HistoryDatabase {
   static const databaseName = 'history.db';
   static const historyTable = 'history_records';
   static const outboxTable = 'pixiv_history_outbox';
-  static const schemaVersion = 3;
+  static const schemaVersion = 4;
 
   final SqliteDatabase _sqlite;
 
@@ -67,6 +67,7 @@ class HistoryDatabase {
       CREATE INDEX ${historyTable}_order
       ON $historyTable (account_id, last_viewed_at DESC, id DESC)
     ''');
+    await _createV4Indexes(db);
     await db.execute('''
       CREATE TABLE $outboxTable (
         account_id TEXT NOT NULL,
@@ -106,5 +107,19 @@ class HistoryDatabase {
     if (oldVersion < 3) {
       await db.execute('ALTER TABLE $historyTable ADD COLUMN tags_text TEXT');
     }
+    if (oldVersion < 4) {
+      await _createV4Indexes(db);
+    }
+  }
+
+  static Future<void> _createV4Indexes(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS ${historyTable}_type_order
+      ON $historyTable (account_id, content_type, last_viewed_at DESC, id DESC)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS ${historyTable}_author
+      ON $historyTable (account_id, author_id, last_viewed_at DESC, id DESC)
+    ''');
   }
 }

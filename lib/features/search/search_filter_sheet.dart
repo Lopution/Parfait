@@ -5,15 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/search/search_bookmark_synthesis.dart';
 import '../../core/search/search_models.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/reveal.dart';
+import 'search_bookmark_filter_section.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
 import '../../app/widgets/fit_label.dart';
-import '../../app/icons/app_icons.dart';
 import '../../app/icons/ui_icons.dart';
 
 /// What the filter sheet applies: the edited set plus whether the user also
@@ -412,7 +413,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
       ],
     ),
     const SizedBox(height: FuncSpacing.xs),
-    _DateFilterTile(
+    SearchDateFilterTile(
       label: context.l10n.searchStartDate,
       value: _dateText(context, _filters.startDate),
       onTap: () => _pickDate(start: true),
@@ -421,7 +422,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
           : () =>
                 setState(() => _filters = _filters.copyShared(startDate: null)),
     ),
-    _DateFilterTile(
+    SearchDateFilterTile(
       label: context.l10n.searchEndDate,
       value: _dateText(context, _filters.endDate),
       onTap: () => _pickDate(start: false),
@@ -484,6 +485,17 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
   /// Bounds on counts and sizes.
   List<Widget> _countGroup(BuildContext context) => [
     _SectionTitle(context.l10n.searchBookmarkSection),
+    SearchBookmarkPresetsAndNotice(
+      filters: _filters,
+      showLocalNotice:
+          (_filters.bookmarkMin != null || _filters.bookmarkMax != null) &&
+          !canSynthesizeUsersIri(_filters.normalizedTarget) &&
+          !_isPremium,
+      onSelectMin: (value) => setState(() {
+        _filters = _filters.copyShared(bookmarkMin: value);
+        _bookmarkMin.text = value?.toString() ?? '';
+      }),
+    ),
     _BoundRow(
       minController: _bookmarkMin,
       maxController: _bookmarkMax,
@@ -886,46 +898,6 @@ class _BoundRow extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _DateFilterTile extends StatelessWidget {
-  const _DateFilterTile({
-    required this.label,
-    required this.value,
-    required this.onTap,
-    required this.onClear,
-    this.errorText,
-  });
-
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final VoidCallback? onClear;
-  final String? errorText;
-
-  @override
-  Widget build(BuildContext context) {
-    final errorText = this.errorText;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
-      title: Text(label),
-      subtitle: errorText == null
-          ? Text(value)
-          : Text(
-              errorText,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-      onTap: onTap,
-      trailing: onClear == null
-          ? const Icon(AppIcons.calendar)
-          : IconButton(
-              tooltip: context.l10n.searchClear,
-              onPressed: onClear,
-              icon: const Icon(UiIcons.close),
-            ),
     );
   }
 }

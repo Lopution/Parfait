@@ -6,6 +6,7 @@ import '../platform/saf_tree.dart';
 import 'download_destination.dart';
 import 'download_recovery.dart';
 import 'download_request.dart';
+import 'download_subfolders.dart';
 import 'resume_anchor.dart';
 
 /// One pending output item. Mirrors the MediaStore pending lifecycle:
@@ -90,6 +91,7 @@ abstract interface class RawDownloadSinkFactory {
     required String mimeType,
     required DownloadDestination destination,
     DownloadOutputOwner? owner,
+    List<String> subdirectories = const [],
   });
 }
 
@@ -176,17 +178,21 @@ class MediaStoreSinkFactory
     DownloadOutputOwner owner, {
     DownloadDestination destination = DownloadDestination.builtin,
   }) async {
+    final relativePath = _relativePathFor(
+      destination,
+      subdirectories: request.subdirectories,
+    );
     final handle = _session is OwnedMediaStoreSession
         ? await (_session as OwnedMediaStoreSession).beginOwned(
             displayName: displayName,
             mimeType: request.mimeType,
             owner: owner,
-            relativePath: _relativePathFor(destination),
+            relativePath: relativePath,
           )
         : await _session.begin(
             displayName: displayName,
             mimeType: request.mimeType,
-            relativePath: _relativePathFor(destination),
+            relativePath: relativePath,
           );
     return _MediaStoreSink(handle);
   }
@@ -199,7 +205,10 @@ class MediaStoreSinkFactory
     final handle = await _session.begin(
       displayName: displayName,
       mimeType: request.mimeType,
-      relativePath: _relativePathFor(destination),
+      relativePath: _relativePathFor(
+        destination,
+        subdirectories: request.subdirectories,
+      ),
     );
     return _MediaStoreSink(handle);
   }
@@ -211,8 +220,12 @@ class MediaStoreSinkFactory
     required String mimeType,
     DownloadOutputOwner? owner,
     DownloadDestination destination = DownloadDestination.builtin,
+    List<String> subdirectories = const [],
   }) async {
-    final relativePath = _relativePathFor(destination);
+    final relativePath = _relativePathFor(
+      destination,
+      subdirectories: subdirectories,
+    );
     final handle = owner != null && _session is OwnedMediaStoreSession
         ? await (_session as OwnedMediaStoreSession).beginOwned(
             displayName: displayName,
@@ -228,16 +241,13 @@ class MediaStoreSinkFactory
     return _MediaStoreSink(handle);
   }
 
-  /// D5: built-in album is the platform default; a custom album adds one
-  /// `Pictures/<name>` segment after platform-side normalization.
-  static String? _relativePathFor(DownloadDestination destination) {
-    return switch (destination.kind) {
-      DownloadDestinationKind.pixivAlbum => null,
-      DownloadDestinationKind.customAlbum =>
-        'Pictures/${destination.customAlbumName ?? 'Parfait'}',
-      DownloadDestinationKind.safFolder => null,
-    };
-  }
+  /// D5: built-in album is the platform default; a custom album or relative
+  /// subfolder chain builds a sanitized `Pictures/<album>[/<subfolders>]` path
+  /// clamped to Android's 128-char `RELATIVE_PATH` cap.
+  static String? _relativePathFor(
+    DownloadDestination destination, {
+    List<String> subdirectories = const [],
+  }) => mediaStoreRelativePathFor(destination, subdirectories: subdirectories);
 
   @override
   Future<List<PendingMediaStoreItem>> listPending() async {
@@ -403,6 +413,9 @@ class MemorySinkFactory
   /// the `<stem>.txt` name here.
   final rawNames = <String>[];
 
+  /// Subdirectory chains handed to [beginRaw], in order.
+  final rawSubdirectories = <List<String>>[];
+
   @override
   Future<DownloadSink> begin(
     DownloadRequest request,
@@ -431,9 +444,11 @@ class MemorySinkFactory
     required String mimeType,
     required DownloadDestination destination,
     DownloadOutputOwner? owner,
+    List<String> subdirectories = const [],
   }) async {
     _checkOwner(owner);
     rawNames.add(displayName);
+    rawSubdirectories.add(List<String>.unmodifiable(subdirectories));
     final sink = MemorySink();
     sinks.add(sink);
     return sink;
@@ -519,13 +534,9 @@ class SafDownloadSink implements DownloadSink, ResumableDownloadSink {
     if (_closed) return;
     _closed = true;
     _writer.discard();
-    // Best effort: remove the document so cancellation/failure cannot leave a
-    // partial file in the user's selected tree.
-    try {
-      await _doc.close();
-    } on Object {
-      // Cleanup must never mask the original failure.
-    }
+    // Best effort: delete closes the underlying stream and removes the staged
+    // output. Never call `_doc.close()` first — on desktop staged sinks,
+    // `close()` commits `.part` to the final name.
     try {
       await _doc.delete();
     } on Object {
@@ -589,6 +600,7 @@ class DestinationAwareSinkFactory
     required String mimeType,
     required DownloadDestination destination,
     DownloadOutputOwner? owner,
+    List<String> subdirectories = const [],
   }) async {
     if (destination.isSafFolder) {
       // Caption sidecars are single small writes — straight to the final
@@ -598,6 +610,7 @@ class DestinationAwareSinkFactory
         displayName: displayName,
         mimeType: mimeType,
         owner: owner,
+        subdirectories: subdirectories,
       );
       return SafDownloadSink(doc, owner: owner);
     }
@@ -606,6 +619,7 @@ class DestinationAwareSinkFactory
       mimeType: mimeType,
       owner: owner,
       destination: destination,
+      subdirectories: subdirectories,
     );
   }
 
@@ -660,6 +674,7 @@ class DestinationAwareSinkFactory
       mimeType: request.mimeType,
       owner: owner,
       staged: true,
+      subdirectories: request.subdirectories,
     );
     return SafDownloadSink(doc, owner: owner, staged: true);
   }

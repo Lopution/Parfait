@@ -5,11 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:parfait/core/download/caption_exporter.dart';
 import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_recovery.dart';
 import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/download_subfolders.dart';
 import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/download/illust_download_coordinator.dart';
 import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/series/series_models.dart';
+import 'package:parfait/core/series/series_repository.dart';
+import 'package:parfait/core/settings/settings_enums.dart';
 
 import 'helpers/illust_fixtures.dart';
 
@@ -50,6 +57,7 @@ class _FailingRawFactory implements RawDownloadSinkFactory {
     required String mimeType,
     required DownloadDestination destination,
     DownloadOutputOwner? owner,
+    List<String> subdirectories = const [],
   }) async => sink;
 }
 
@@ -133,21 +141,21 @@ void main() {
       expect(sinks.sinks, hasLength(3));
     });
 
-    test('skips ugoira and unowned submissions', () async {
+    test('exports ugoira captions and skips unowned submissions', () async {
       final sinks = MemorySinkFactory();
       final exporter = _exporter(sinks);
 
       await exporter.export(
         illust: parseIllust(illustJson(9, type: 'ugoira')),
         submission: _submission(),
-        pageZeroName: '9_p0.jpg',
+        pageZeroName: '9.gif',
       );
       await exporter.export(
         illust: parseIllust(illustJson(10)),
         submission: _submission(accountId: null),
         pageZeroName: '10_p0.jpg',
       );
-      expect(sinks.sinks, isEmpty);
+      expect(sinks.rawNames, ['9.txt']);
     });
 
     test('on Android only a folder takes the caption', () async {
@@ -243,6 +251,19 @@ void main() {
         ),
         '5_Road_3of12_p0.png',
       );
+      const nonMediaSuffix = NamingRule(
+        preset: NamingPreset.custom,
+        template: '{title}.canary',
+      );
+      expect(
+        nonMediaSuffix.resolve(
+          illustId: 5,
+          pageIndex: 0,
+          extension: 'jpg',
+          title: 'art',
+        ),
+        'art.canary.jpg',
+      );
     });
 
     test('DownloadRequest.displayName consumes the metadata fields', () {
@@ -264,5 +285,185 @@ void main() {
       // pageZero re-points the stem for the caption sidecar.
       expect(request.pageZero.displayName, '55_7_4p1_1024x768.png');
     });
+
+    test(
+      'padPageNumbers pads page, page1, and series_order to total width',
+      () {
+        const rule = NamingRule(
+          preset: NamingPreset.custom,
+          template: '{id}_s{series_order}_p{page}_{page1}.{ext}',
+        );
+        expect(
+          rule.resolve(
+            illustId: 7,
+            pageIndex: 0,
+            extension: 'jpg',
+            totalPages: 12,
+            seriesOrder: 2,
+            seriesTotal: 100,
+            padPageNumbers: true,
+          ),
+          '7_s002_p00_01.jpg',
+        );
+        expect(
+          rule.resolve(
+            illustId: 7,
+            pageIndex: 0,
+            extension: 'jpg',
+            totalPages: 5,
+            padPageNumbers: true,
+          ),
+          '7_s_p00_01.jpg',
+        );
+        expect(
+          rule.resolve(
+            illustId: 7,
+            pageIndex: 0,
+            extension: 'jpg',
+            totalPages: 5,
+            padPageNumbers: false,
+          ),
+          '7_s_p0_1.jpg',
+        );
+      },
+    );
+
+    test(
+      'download_subfolders sanitizes hazards, resolves hierarchy, and clamps MediaStore path',
+      () {
+        expect(sanitizeSubdirectorySegment('  CON  '), '_CON');
+        expect(sanitizeSubdirectorySegment('..'), 'work');
+        expect(sanitizeSubdirectorySegment('a/b\\c:d*e'), 'a_b_c_d_e');
+        expect(
+          () => validateSubdirectories(['ok', '../escape']),
+          throwsFormatException,
+        );
+        expect(() => validateSubdirectories(['NUL']), throwsFormatException);
+        expect(
+          resolveWorkSubdirectories(
+            mode: DownloadSubfolderMode.byArtistAndSeries,
+            multiPageSubfolder: true,
+            illustId: 88,
+            pageCount: 3,
+            artist: 'Art/ist',
+            authorId: 9,
+            seriesTitle: 'Saga:1',
+            seriesId: 4,
+          ),
+          ['Art_ist', 'Saga_1', '88'],
+        );
+        final longPath = mediaStoreRelativePathFor(
+          DownloadDestination.customAlbum('MyAlbum'),
+          subdirectories: ['a' * 64, 'b' * 64, 'c' * 64],
+        );
+        expect(longPath, isNotNull);
+        expect(longPath!.length, lessThanOrEqualTo(128));
+      },
+    );
+
+    test(
+      'IllustDownloadCoordinator resolves series metadata, subfolders, and caption routing',
+      () async {
+        final sinks = MemorySinkFactory();
+        final manager = DownloadManager(
+          transport: _NoopDownloadTransport(),
+          sinkFactory: sinks,
+          submissionContext: () => const DownloadSubmissionContext(
+            accountId: 'acc',
+            destination: DownloadDestination.builtin,
+          ),
+        );
+        addTearDown(manager.dispose);
+        final exporter = _exporter(sinks);
+        var contextCalls = 0;
+        final coordinator = IllustDownloadCoordinator(
+          manager,
+          captionExporter: exporter,
+          readSubfolderMode: () => DownloadSubfolderMode.byArtistAndSeries,
+          readMultiPageSubfolder: () => true,
+          readPadPageNumbers: () => true,
+          resolveSeriesContext: (illustId) async {
+            contextCalls++;
+            return IllustSeriesContextResult(
+              detail: const IllustSeriesEntity(
+                id: 50,
+                title: 'Chronicle',
+                userId: 9,
+                userName: 'Maker',
+                caption: '',
+                coverUrl: null,
+                workCount: 12,
+                watchlistAdded: null,
+                isConcluded: null,
+              ),
+              context: const IllustSeriesContext(seriesId: 50, contentOrder: 3),
+            );
+          },
+        );
+        final work = parseIllust({
+          ...illustJson(77, pageCount: 12),
+          'user': {
+            'id': 9,
+            'name': 'Maker',
+            'account': 'maker',
+            'profile_image_urls': {'medium': 'https://i.pximg.net/u/9.jpg'},
+          },
+          'series': {'id': 50, 'title': 'Chronicle'},
+        });
+        final snapshot = await coordinator.downloadPage(
+          work: work,
+          pageIndex: 1,
+          url: Uri.parse('https://i.pximg.net/77_p1.jpg'),
+          namingRule: const NamingRule(
+            preset: NamingPreset.custom,
+            template: '{series}_{series_order}of{chapters}_p{page1}.{ext}',
+          ),
+        );
+        expect(contextCalls, 1);
+        expect(snapshot.displayName, 'Chronicle_03of12_p02.jpg');
+        expect(snapshot.submission?.subdirectories, [
+          'Maker',
+          'Chronicle',
+          '77',
+        ]);
+        expect(sinks.rawSubdirectories, [
+          ['Maker', 'Chronicle', '77'],
+        ]);
+        expect(sinks.rawNames, ['Chronicle_03of12_p01.txt']);
+
+        // Bulk author download uses warm metadata only (no per-work context fetches).
+        final reqs = coordinator.authorWorksRequests([
+          work.copyWith(
+            pageCount: 1,
+            metaSinglePageOriginalUrl: 'https://i.pximg.net/77_p0.jpg',
+          ),
+        ]);
+        expect(contextCalls, 1);
+        expect(reqs.single.subdirectories, ['Maker', 'Chronicle']);
+      },
+    );
   });
+}
+
+class _NoopDownloadTransport implements DownloadTransport {
+  @override
+  Future<DownloadResponse> open(
+    Uri url, {
+    required Map<String, String> headers,
+    required DownloadCancelToken cancelToken,
+  }) async => _NoopDownloadResponse();
+}
+
+class _NoopDownloadResponse implements DownloadResponse {
+  @override
+  int get statusCode => 200;
+
+  @override
+  int? get contentLength => 2;
+
+  @override
+  Stream<List<int>> get stream => Stream<List<int>>.value(const [1, 2]);
+
+  @override
+  Future<void> close() async {}
 }

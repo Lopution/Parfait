@@ -230,23 +230,43 @@ void main() {
       expect(entries.first, 'k${SearchHistoryNotifier.maxEntries + 4}');
     });
 
-    test('a removed entry goes back where it was', () async {
-      container.listen(searchHistoryProvider, (_, _) {});
-      for (final keyword in ['c', 'b', 'a']) {
-        await history().record(keyword);
-      }
-      final index = await history().remove('b');
-      expect(index, 1);
-      expect(container.read(searchHistoryProvider), ['a', 'c']);
-      await history().restore('b', index!);
-      expect(container.read(searchHistoryProvider), ['a', 'b', 'c']);
-      // Searched again in between: restoring must not duplicate it.
-      await history().remove('b');
-      await history().record('b');
-      await history().restore('b', 2);
-      expect(container.read(searchHistoryProvider), ['b', 'a', 'c']);
-      expect(await history().remove('missing'), isNull);
-    });
+    test(
+      'a removed entry goes back where it was and keeps pin state',
+      () async {
+        container.listen(searchHistoryProvider, (_, _) {});
+        for (final keyword in ['c', 'b', 'a']) {
+          await history().record(keyword);
+        }
+        final removed = await history().remove('b');
+        expect(removed?.index, 1);
+        expect(removed?.pinIndex, isNull);
+        expect(container.read(searchHistoryProvider), ['a', 'c']);
+        await history().restore(
+          'b',
+          removed!.index,
+          pinIndex: removed.pinIndex,
+        );
+        expect(container.read(searchHistoryProvider), ['a', 'b', 'c']);
+        await history().togglePin('c');
+        expect(container.read(searchHistoryProvider), ['c', 'a', 'b']);
+        final removedPinned = await history().remove('c');
+        expect(removedPinned, (index: 0, pinIndex: 0));
+        expect(history().isPinned('c'), isFalse);
+        await history().restore(
+          'c',
+          removedPinned!.index,
+          pinIndex: removedPinned.pinIndex,
+        );
+        expect(container.read(searchHistoryProvider), ['c', 'a', 'b']);
+        expect(history().isPinned('c'), isTrue);
+        // Searched again in between: restoring must not duplicate it.
+        await history().remove('b');
+        await history().record('b');
+        await history().restore('b', 2);
+        expect(container.read(searchHistoryProvider), ['c', 'b', 'a']);
+        expect(await history().remove('missing'), isNull);
+      },
+    );
 
     test('survives a restart', () async {
       container.listen(searchHistoryProvider, (_, _) {});
@@ -454,4 +474,49 @@ void main() {
     );
     expect(container.read(searchHistoryProvider), isEmpty);
   });
+
+  test(
+    'search keywords support OR operator skip, appendExcludedTag, and insertOrOperator',
+    () {
+      expect(completionQueryOf('OR'), isEmpty);
+      expect(completionQueryOf('-spoiler'), 'spoiler');
+      final withOr = insertOrOperator(
+        const TextEditingValue(
+          text: 'cat',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+      expect(withOr.text, 'cat OR ');
+      expect(insertOrOperator(withOr).text, 'cat OR ');
+      final excluded = appendExcludedTag(withOr, 'ai');
+      expect(excluded.text, 'cat OR -ai ');
+    },
+  );
+
+  test(
+    'SearchHistoryNotifier pins survive clear and persist across restart',
+    () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.listen(searchHistoryProvider, (_, _) {});
+      final notifier = container.read(searchHistoryProvider.notifier);
+      await notifier.record('cat');
+      await notifier.record('dog');
+      await notifier.togglePin('cat');
+      await pumpEventQueue();
+      expect(container.read(searchHistoryProvider), ['cat', 'dog']);
+      expect(container.read(searchHistoryPinnedProvider), {'cat'});
+
+      await notifier.clear();
+      await pumpEventQueue();
+      expect(container.read(searchHistoryProvider), ['cat']);
+
+      final restarted = ProviderContainer();
+      addTearDown(restarted.dispose);
+      restarted.listen(searchHistoryProvider, (_, _) {});
+      await pumpEventQueue();
+      expect(restarted.read(searchHistoryProvider), ['cat']);
+      expect(restarted.read(searchHistoryPinnedProvider), {'cat'});
+    },
+  );
 }

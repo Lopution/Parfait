@@ -86,4 +86,59 @@ void main() {
     expect(users.requests.last, 'bookmarks:100:private:');
     expect(find.byType(ProfileNovelFeed), findsNothing);
   });
+
+  testWidgets(
+    'artist work tabs expose progressive tag filter with searchable picker and clear/load-more empty state',
+    (tester) async {
+      final users = UserApi(
+        detail: sampleUser(42).copyWith(hasDetail: true, totalIllusts: 2),
+        works: [
+          {
+            ...illustJson(1),
+            'title': 'Sunset Lake',
+            'tags': [
+              {'name': '風景', 'translated_name': 'scenery'},
+              {'name': 'オリジナル'},
+            ],
+          },
+          {
+            ...illustJson(2),
+            'title': 'City Cat',
+            'tags': [
+              {'name': '猫', 'translated_name': 'cat'},
+            ],
+          },
+        ],
+      );
+      final container = await makeProfileWorld(users: users);
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          builder: promptHostBuilder,
+          home: const UserPage(id: 42),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      const filterKey = ValueKey('profile-work-tag-filter-illust');
+      expect(find.byKey(filterKey), findsOneWidget);
+
+      // Select top tag from dropdown -> filters to matching work only.
+      await pickFilterMenu(tester, 'profile-work-tag-filter-illust', '風景 (1)');
+      expect(find.text('Sunset Lake'), findsOneWidget);
+      expect(find.text('City Cat'), findsNothing);
+
+      // Open searchable picker and enter a custom non-matching keyword -> shows clear button.
+      await pickFilterMenu(tester, 'profile-work-tag-filter-illust', '更多标签…');
+      expect(find.text('按标签筛选作品'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'missing_tag');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(find.text('清除筛选'), findsOneWidget);
+
+      await tester.tap(find.text('清除筛选'));
+      await tester.pumpAndSettle();
+      expect(find.text('City Cat'), findsOneWidget);
+    },
+  );
 }

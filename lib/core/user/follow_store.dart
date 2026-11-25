@@ -231,6 +231,9 @@ class FollowStore extends Notifier<Map<int, FollowEntry>>
     }
     final nextFollowed = followed ?? entry?.followed ?? false;
     final nextRestrict = nextFollowed ? (restrict ?? entry?.restrict) : null;
+    if (entry == null && !nextFollowed && nextRestrict == null) {
+      return null;
+    }
     if (entry != null &&
         entry.status == MutationStatus.idle &&
         entry.pending == null &&
@@ -256,17 +259,17 @@ class FollowStore extends Notifier<Map<int, FollowEntry>>
 
   @override
   void settlePendingOnBoundaryInvalidated() {
-    final next = <int, FollowEntry>{...state};
-    for (final item in next.entries) {
+    Map<int, FollowEntry>? next;
+    for (final item in state.entries) {
       if (!item.value.isUnsettled) continue;
-      next[item.key] = FollowEntry(
+      (next ??= {...state})[item.key] = FollowEntry(
         followed: item.value.followed,
         restrict: item.value.restrict,
         confirmedRevision: item.value.confirmedRevision,
         status: MutationStatus.cancelled,
       );
     }
-    state = next;
+    if (next != null) state = next;
   }
 
   void _setCancelled(FollowOperation operation) {

@@ -1090,7 +1090,7 @@ void main() {
         final session = _FakeMediaStoreSession();
         final factory = DestinationAwareSinkFactory(
           mediaStore: MediaStoreSinkFactory(session),
-          saf: _UnusedSafDocumentSinkFactory(),
+          saf: const MethodChannelSafTree(),
         );
         final sink = await factory.begin(
           request(),
@@ -1280,17 +1280,6 @@ class _ScriptedTransport extends HttpDownloadTransport {
     opened.add(url.toString());
     return _pending.removeAt(0);
   }
-}
-
-class _UnusedSafDocumentSinkFactory implements SafDocumentSinkFactory {
-  @override
-  Future<SafDocumentSink> create({
-    required String treeUri,
-    required String displayName,
-    required String mimeType,
-    DownloadOutputOwner? owner,
-    bool staged = false,
-  }) => throw StateError('SAF factory should not be called in this test');
 }
 
 class _BeginCall {

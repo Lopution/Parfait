@@ -16,12 +16,12 @@ Package names, Java packages and channel names are unchanged.
    `getDefaultProguardFile('proguard-android-optimize.txt')` instead of
    `'proguard-android.txt'`. AGP 9 dropped the non-optimizing file, and the
    upstream name fails the build.
-2. **One-shot file chooser slot for reverse image search**
+2. **Host-bound one-shot file chooser slot for reverse image search**
    (`android/src/main/java/com/pichillilorenzo/flutter_inappwebview_android/webview/in_app_webview/InAppWebViewChromeClient.java`):
-   - The patch adds a static `armedFileChooserUris` field.
-   - When the field is set, the next `onShowFileChooser` hands those URIs to the page and clears the field, instead of opening the system picker.
+   - The patch adds synchronized `armFileChooser(Uri[], Collection<String>)`, `disarmFileChooser()`, and `consumeArmedFileChooserUris(String)` helpers backed by a host-scoped static slot.
+   - When armed, `onShowFileChooser` hands those URIs to the page and clears the slot only when `webView.getUrl()` is an `https://` URL whose host is in the armed allowlist; unrelated WebViews or non-matching origins never receive or consume the armed URIs.
    - The chooser still opens only from the user's own tap on the site's upload button. So the site, including any Cloudflare challenge, runs its own upload in a real browser context. The patch only pre-fills the file.
-   - The app arms the slot from `ReverseImageInputChannel`.
+   - The app arms the slot from `ReverseImageInputChannel` with the active engine's `webViewHosts`.
 3. **Not vendored**: the upstream `example/` and `test/` directories, and the empty `android/src/main/assets/` directory.
 
 ## Removing the fork

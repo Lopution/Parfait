@@ -513,58 +513,320 @@ static void desktop_window_method_cb(FlMethodChannel* channel,
   }
 }
 
-static bool CopyEncodedImageToGtkClipboard(const uint8_t* data, size_t len) {
-  if (data == nullptr || len == 0 ||
-      len > static_cast<size_t>(std::numeric_limits<gsize>::max())) {
-    return false;
-  }
-  g_autoptr(GdkPixbufLoader) loader = gdk_pixbuf_loader_new();
-  g_autoptr(GError) error = nullptr;
-  if (!gdk_pixbuf_loader_write(loader, data, static_cast<gsize>(len), &error)) {
-    return false;
-  }
-  if (!gdk_pixbuf_loader_close(loader, &error)) {
-    return false;
-  }
-  GdkPixbuf* pixbuf = gdk_pixbuf_loader_get_pixbuf(loader);
-  if (pixbuf == nullptr) {
-    return false;
-  }
-  GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-  if (clipboard == nullptr) {
-    return false;
-  }
-  gtk_clipboard_set_image(clipboard, pixbuf);
-  gtk_clipboard_store(clipboard);
-  return true;
+static constexpr gsize kMaxClipboardImageBytes = 32 * 1024 * 1024;
+static uint64_t g_linux_clipboard_copy_seq = 0;
+
+static bool HasPngSignature(const uint8_t* data, gsize len) {
+  static constexpr uint8_t kSig[8] = {0x89, 0x50, 0x4E, 0x47,
+                                      0x0D, 0x0A, 0x1A, 0x0A};
+  return data != nullptr && len >= sizeof(kSig) &&
+         std::memcmp(data, kSig, sizeof(kSig)) == 0;
 }
 
-static constexpr gsize kMaxClipboardImageBytes = 32 * 1024 * 1024;
+struct LinuxClipboardImageOwner {
+  GBytes* png_bytes = nullptr;
+  GdkPixbuf* pixbuf = nullptr;
+};
 
-static FlValue* ReadEncodedImageFromGtkClipboard() {
-  GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-  if (clipboard == nullptr) {
-    return nullptr;
+static void linux_clipboard_image_get_cb(GtkClipboard* clipboard,
+                                         GtkSelectionData* selection_data,
+                                         guint info,
+                                         gpointer user_data) {
+  (void)clipboard;
+  (void)info;
+  auto* owner = static_cast<LinuxClipboardImageOwner*>(user_data);
+  if (owner == nullptr) {
+    return;
   }
-  g_autoptr(GdkPixbuf) pixbuf = gtk_clipboard_wait_for_image(clipboard);
-  if (pixbuf == nullptr) {
-    return nullptr;
+  GdkAtom target = gtk_selection_data_get_target(selection_data);
+  GdkAtom png_atom = gdk_atom_intern_static_string("image/png");
+  if (target == png_atom && owner->png_bytes != nullptr) {
+    gsize size = 0;
+    const guchar* data = static_cast<const guchar*>(
+        g_bytes_get_data(owner->png_bytes, &size));
+    if (data != nullptr && size > 0) {
+      gtk_selection_data_set(selection_data, target, 8, data,
+                             static_cast<gint>(size));
+      return;
+    }
   }
-  gchar* buffer = nullptr;
-  gsize buffer_size = 0;
+  if (owner->pixbuf != nullptr) {
+    gtk_selection_data_set_pixbuf(selection_data, owner->pixbuf);
+  }
+}
+
+static void linux_clipboard_image_clear_cb(GtkClipboard* clipboard,
+                                           gpointer user_data) {
+  (void)clipboard;
+  auto* owner = static_cast<LinuxClipboardImageOwner*>(user_data);
+  if (owner == nullptr) {
+    return;
+  }
+  if (owner->png_bytes != nullptr) {
+    g_bytes_unref(owner->png_bytes);
+  }
+  if (owner->pixbuf != nullptr) {
+    g_object_unref(owner->pixbuf);
+  }
+  delete owner;
+}
+
+struct LinuxCopyImageTaskData {
+  gchar* path = nullptr;
+  uint64_t seq = 0;
+  FlMethodCall* call = nullptr;
+  GBytes* png_bytes = nullptr;
+  GdkPixbuf* pixbuf = nullptr;
+  bool ok = false;
+
+  ~LinuxCopyImageTaskData() {
+    g_free(path);
+    if (call != nullptr) {
+      g_object_unref(call);
+    }
+    if (png_bytes != nullptr) {
+      g_bytes_unref(png_bytes);
+    }
+    if (pixbuf != nullptr) {
+      g_object_unref(pixbuf);
+    }
+  }
+};
+
+static void destroy_copy_image_task_data(gpointer data) {
+  delete static_cast<LinuxCopyImageTaskData*>(data);
+}
+
+static void copy_image_worker_thread(GTask* task,
+                                     gpointer source_object,
+                                     gpointer task_data,
+                                     GCancellable* cancellable) {
+  (void)source_object;
+  (void)cancellable;
+  auto* data = static_cast<LinuxCopyImageTaskData*>(task_data);
+  gchar* contents = nullptr;
+  gsize length = 0;
   g_autoptr(GError) error = nullptr;
-  if (!gdk_pixbuf_save_to_buffer(pixbuf, &buffer, &buffer_size, "png", &error,
-                                 nullptr)) {
-    return nullptr;
+  if (data->path == nullptr ||
+      !g_file_get_contents(data->path, &contents, &length, &error) ||
+      contents == nullptr || length == 0 || length > kMaxClipboardImageBytes) {
+    g_free(contents);
+    g_task_return_boolean(task, FALSE);
+    return;
   }
-  FlValue* value = nullptr;
-  if (buffer != nullptr && buffer_size > 0 &&
-      buffer_size <= kMaxClipboardImageBytes) {
-    value = fl_value_new_uint8_list(reinterpret_cast<const uint8_t*>(buffer),
-                                    buffer_size);
+
+  g_autoptr(GdkPixbufLoader) loader = gdk_pixbuf_loader_new();
+  if (!gdk_pixbuf_loader_write(loader,
+                               reinterpret_cast<const guchar*>(contents),
+                               length, &error) ||
+      !gdk_pixbuf_loader_close(loader, &error)) {
+    g_free(contents);
+    g_task_return_boolean(task, FALSE);
+    return;
   }
-  g_free(buffer);
-  return value;
+  GdkPixbuf* loaded = gdk_pixbuf_loader_get_pixbuf(loader);
+  if (loaded == nullptr) {
+    g_free(contents);
+    g_task_return_boolean(task, FALSE);
+    return;
+  }
+
+  data->pixbuf = GDK_PIXBUF(g_object_ref(loaded));
+  if (HasPngSignature(reinterpret_cast<const uint8_t*>(contents), length)) {
+    data->png_bytes = g_bytes_new_take(contents, length);
+    data->ok = true;
+  } else {
+    g_free(contents);
+    gchar* encoded = nullptr;
+    gsize encoded_size = 0;
+    if (gdk_pixbuf_save_to_buffer(data->pixbuf, &encoded, &encoded_size, "png",
+                                  &error, nullptr) &&
+        encoded != nullptr && encoded_size > 0 &&
+        encoded_size <= kMaxClipboardImageBytes) {
+      data->png_bytes = g_bytes_new_take(encoded, encoded_size);
+      data->ok = true;
+    } else {
+      g_free(encoded);
+    }
+  }
+  g_task_return_boolean(task, data->ok ? TRUE : FALSE);
+}
+
+static void copy_image_task_done_cb(GObject* source_object,
+                                    GAsyncResult* res,
+                                    gpointer user_data) {
+  (void)source_object;
+  (void)user_data;
+  GTask* task = G_TASK(res);
+  auto* data = static_cast<LinuxCopyImageTaskData*>(g_task_get_task_data(task));
+  bool copied = false;
+  if (data != nullptr && data->ok && data->seq == g_linux_clipboard_copy_seq &&
+      data->png_bytes != nullptr && data->pixbuf != nullptr) {
+    GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+    if (clipboard != nullptr) {
+      GtkTargetList* target_list = gtk_target_list_new(nullptr, 0);
+      gtk_target_list_add_image_targets(target_list, 0, TRUE);
+      gint n_targets = 0;
+      GtkTargetEntry* targets =
+          gtk_target_table_new_from_list(target_list, &n_targets);
+      auto* owner = new LinuxClipboardImageOwner();
+      owner->png_bytes = g_bytes_ref(data->png_bytes);
+      owner->pixbuf = GDK_PIXBUF(g_object_ref(data->pixbuf));
+      if (targets != nullptr && n_targets > 0 &&
+          gtk_clipboard_set_with_data(clipboard, targets, n_targets,
+                                      linux_clipboard_image_get_cb,
+                                      linux_clipboard_image_clear_cb, owner)) {
+        gtk_clipboard_set_can_store(clipboard, targets, n_targets);
+        copied = true;
+      } else {
+        linux_clipboard_image_clear_cb(clipboard, owner);
+      }
+      if (targets != nullptr) {
+        gtk_target_table_free(targets, n_targets);
+      }
+      gtk_target_list_unref(target_list);
+    }
+  }
+  if (data != nullptr && data->call != nullptr) {
+    g_autoptr(FlValue) result = fl_value_new_bool(copied ? TRUE : FALSE);
+    RespondSuccess(data->call, result);
+  }
+}
+
+struct LinuxPasteWriteTaskData {
+  gchar* target_path = nullptr;
+  FlMethodCall* call = nullptr;
+  GBytes* raw_png = nullptr;
+  GdkPixbuf* pixbuf = nullptr;
+
+  ~LinuxPasteWriteTaskData() {
+    g_free(target_path);
+    if (call != nullptr) {
+      g_object_unref(call);
+    }
+    if (raw_png != nullptr) {
+      g_bytes_unref(raw_png);
+    }
+    if (pixbuf != nullptr) {
+      g_object_unref(pixbuf);
+    }
+  }
+};
+
+static void destroy_paste_write_task_data(gpointer data) {
+  delete static_cast<LinuxPasteWriteTaskData*>(data);
+}
+
+static void paste_write_worker_thread(GTask* task,
+                                      gpointer source_object,
+                                      gpointer task_data,
+                                      GCancellable* cancellable) {
+  (void)source_object;
+  (void)cancellable;
+  auto* data = static_cast<LinuxPasteWriteTaskData*>(task_data);
+  if (data == nullptr || data->target_path == nullptr) {
+    g_task_return_boolean(task, FALSE);
+    return;
+  }
+  g_autoptr(GError) error = nullptr;
+  if (data->raw_png != nullptr) {
+    gsize size = 0;
+    const gchar* bytes =
+        static_cast<const gchar*>(g_bytes_get_data(data->raw_png, &size));
+    const gboolean ok =
+        bytes != nullptr && size > 0 && size <= kMaxClipboardImageBytes &&
+        g_file_set_contents(data->target_path, bytes,
+                            static_cast<gssize>(size), &error);
+    g_task_return_boolean(task, ok);
+    return;
+  }
+  if (data->pixbuf != nullptr) {
+    gchar* buffer = nullptr;
+    gsize size = 0;
+    gboolean ok = FALSE;
+    if (gdk_pixbuf_save_to_buffer(data->pixbuf, &buffer, &size, "png", &error,
+                                  nullptr) &&
+        buffer != nullptr && size > 0 && size <= kMaxClipboardImageBytes) {
+      ok = g_file_set_contents(data->target_path, buffer,
+                               static_cast<gssize>(size), &error);
+    }
+    g_free(buffer);
+    g_task_return_boolean(task, ok);
+    return;
+  }
+  g_task_return_boolean(task, FALSE);
+}
+
+static void paste_write_task_done_cb(GObject* source_object,
+                                     GAsyncResult* res,
+                                     gpointer user_data) {
+  (void)source_object;
+  (void)user_data;
+  GTask* task = G_TASK(res);
+  auto* data =
+      static_cast<LinuxPasteWriteTaskData*>(g_task_get_task_data(task));
+  const gboolean wrote = g_task_propagate_boolean(task, nullptr);
+  if (data != nullptr && data->call != nullptr) {
+    g_autoptr(FlValue) result = fl_value_new_bool(wrote);
+    RespondSuccess(data->call, result);
+  }
+}
+
+struct LinuxPasteRequestState {
+  gchar* target_path = nullptr;
+  FlMethodCall* call = nullptr;
+};
+
+static void linux_clipboard_pixbuf_received_cb(GtkClipboard* clipboard,
+                                               GdkPixbuf* pixbuf,
+                                               gpointer user_data) {
+  (void)clipboard;
+  auto* state = static_cast<LinuxPasteRequestState*>(user_data);
+  if (pixbuf == nullptr) {
+    g_autoptr(FlValue) result = fl_value_new_bool(FALSE);
+    RespondSuccess(state->call, result);
+    g_free(state->target_path);
+    g_object_unref(state->call);
+    delete state;
+    return;
+  }
+  auto* task_data = new LinuxPasteWriteTaskData();
+  task_data->target_path = state->target_path;
+  task_data->call = state->call;
+  task_data->pixbuf = GDK_PIXBUF(g_object_ref(pixbuf));
+  delete state;
+
+  g_autoptr(GTask) task =
+      g_task_new(nullptr, nullptr, paste_write_task_done_cb, nullptr);
+  g_task_set_task_data(task, task_data, destroy_paste_write_task_data);
+  g_task_run_in_thread(task, paste_write_worker_thread);
+}
+
+static void linux_clipboard_png_received_cb(GtkClipboard* clipboard,
+                                            GtkSelectionData* selection_data,
+                                            gpointer user_data) {
+  auto* state = static_cast<LinuxPasteRequestState*>(user_data);
+  const gint length = selection_data != nullptr
+                          ? gtk_selection_data_get_length(selection_data)
+                          : -1;
+  const guchar* raw =
+      length > 0 ? gtk_selection_data_get_data(selection_data) : nullptr;
+  if (raw != nullptr && length > 0 &&
+      static_cast<gsize>(length) <= kMaxClipboardImageBytes) {
+    auto* task_data = new LinuxPasteWriteTaskData();
+    task_data->target_path = state->target_path;
+    task_data->call = state->call;
+    task_data->raw_png = g_bytes_new(raw, static_cast<gsize>(length));
+    delete state;
+
+    g_autoptr(GTask) task =
+        g_task_new(nullptr, nullptr, paste_write_task_done_cb, nullptr);
+    g_task_set_task_data(task, task_data, destroy_paste_write_task_data);
+    g_task_run_in_thread(task, paste_write_worker_thread);
+    return;
+  }
+  gtk_clipboard_request_image(clipboard, linux_clipboard_pixbuf_received_cb,
+                              state);
 }
 
 static const gchar* OpenLocalFileOnLinux(const gchar* path) {
@@ -775,32 +1037,69 @@ static void image_clipboard_method_cb(FlMethodChannel* channel,
   (void)channel;
   (void)user_data;
   const gchar* method = fl_method_call_get_name(method_call);
-  if (g_strcmp0(method, "readImage") == 0) {
-    g_autoptr(FlValue) result = ReadEncodedImageFromGtkClipboard();
-    RespondSuccess(method_call, result);
-    return;
-  }
-  if (g_strcmp0(method, "copyImage") == 0) {
-    FlValue* args = fl_method_call_get_args(method_call);
+  FlValue* args = fl_method_call_get_args(method_call);
+  if (g_strcmp0(method, "readImageToTempFile") == 0) {
     if (args == nullptr || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
       g_autoptr(GError) error = nullptr;
       fl_method_call_respond_error(method_call, "INVALID_ARGS",
                                    "Expected argument map", nullptr, &error);
       return;
     }
-    FlValue* bytes_val = fl_value_lookup_string(args, "bytes");
-    if (bytes_val == nullptr ||
-        fl_value_get_type(bytes_val) != FL_VALUE_TYPE_UINT8_LIST) {
+    FlValue* target_val = fl_value_lookup_string(args, "targetPath");
+    if (target_val == nullptr ||
+        fl_value_get_type(target_val) != FL_VALUE_TYPE_STRING) {
       g_autoptr(GError) error = nullptr;
       fl_method_call_respond_error(method_call, "INVALID_ARGS",
-                                   "Expected Uint8List bytes", nullptr, &error);
+                                   "Expected targetPath string", nullptr,
+                                   &error);
       return;
     }
-    const uint8_t* data = fl_value_get_uint8_list(bytes_val);
-    const size_t len = fl_value_get_length(bytes_val);
-    g_autoptr(FlValue) result = fl_value_new_bool(
-        CopyEncodedImageToGtkClipboard(data, len) ? TRUE : FALSE);
-    RespondSuccess(method_call, result);
+    const gchar* target_path = fl_value_get_string(target_val);
+    GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+    if (clipboard == nullptr || target_path == nullptr ||
+        target_path[0] == '\0') {
+      g_autoptr(FlValue) result = fl_value_new_bool(FALSE);
+      RespondSuccess(method_call, result);
+      return;
+    }
+    auto* state = new LinuxPasteRequestState();
+    state->target_path = g_strdup(target_path);
+    state->call = FL_METHOD_CALL(g_object_ref(method_call));
+    gtk_clipboard_request_contents(clipboard,
+                                   gdk_atom_intern_static_string("image/png"),
+                                   linux_clipboard_png_received_cb, state);
+    return;
+  }
+  if (g_strcmp0(method, "copyImageFile") == 0) {
+    if (args == nullptr || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
+      g_autoptr(GError) error = nullptr;
+      fl_method_call_respond_error(method_call, "INVALID_ARGS",
+                                   "Expected argument map", nullptr, &error);
+      return;
+    }
+    FlValue* path_val = fl_value_lookup_string(args, "path");
+    if (path_val == nullptr ||
+        fl_value_get_type(path_val) != FL_VALUE_TYPE_STRING) {
+      g_autoptr(GError) error = nullptr;
+      fl_method_call_respond_error(method_call, "INVALID_ARGS",
+                                   "Expected path string", nullptr, &error);
+      return;
+    }
+    const gchar* path = fl_value_get_string(path_val);
+    if (path == nullptr || path[0] == '\0') {
+      g_autoptr(FlValue) result = fl_value_new_bool(FALSE);
+      RespondSuccess(method_call, result);
+      return;
+    }
+    auto* task_data = new LinuxCopyImageTaskData();
+    task_data->path = g_strdup(path);
+    task_data->seq = ++g_linux_clipboard_copy_seq;
+    task_data->call = FL_METHOD_CALL(g_object_ref(method_call));
+
+    g_autoptr(GTask) task =
+        g_task_new(nullptr, nullptr, copy_image_task_done_cb, nullptr);
+    g_task_set_task_data(task, task_data, destroy_copy_image_task_data);
+    g_task_run_in_thread(task, copy_image_worker_thread);
     return;
   }
 

@@ -11,6 +11,7 @@ import '../network/compat/network_contracts.dart';
 import '../network/compat/network_policy.dart';
 import '../network/compat/origin_refresh.dart';
 import '../network/compat/pixiv_network_factory.dart';
+import '../network/compat/secure_resolver.dart';
 import '../network/compat/continued_fetch.dart';
 import '../network/dev_transport_override.dart';
 import '../network/pixiv_headers.dart';
@@ -347,13 +348,22 @@ class ImageWorkerHost {
       _originRefresh = OriginRefresh(policy, idle: idle, image: _probeImage);
       _network++;
     } else if (next.networkIdentity != previous.networkIdentity) {
-      _policy!.advanceNetworkRevision(networkIdentity: next.networkIdentity);
-      _network++;
+      final prevValue = _policy!.revision.value;
+      final nextRev =
+          previous.networkIdentity == 'initial' &&
+              next.networkIdentity != 'none' &&
+              prevValue == 0
+          ? _policy!.bindInitialNetworkIdentity(next.networkIdentity)
+          : _policy!.advanceNetworkRevision(
+              networkIdentity: next.networkIdentity,
+            );
+      if (nextRev.value != prevValue) _network++;
       _routeMemoryState.reseed(
         learnedFastRoutes: next.learnedFastRoutes,
         routeKinds: next.routeKinds,
       );
     }
+    _seedEchFromConfig(_policy!, next);
     _imageClient =
         _fetchClient?.call() ??
         PixivPolicyHttpClient(
@@ -361,6 +371,24 @@ class ImageWorkerHost {
           purpose: PixivDestinationPurpose.image,
           urlRewriter: _mirror.rewrite,
         );
+  }
+
+  void _seedEchFromConfig(NetworkAccessPolicy policy, ImageWorkerConfig cfg) {
+    final seed = cfg.echSeed;
+    if (seed == null) return;
+    final bytes = (seed['echConfig'] as List?)?.cast<int>();
+    final ttlMs = seed['ttlMs'] as int?;
+    final addrs = (seed['frontAddresses'] as List?)?.cast<String>() ?? const [];
+    if (bytes == null || bytes.isEmpty || ttlMs == null || ttlMs <= 0) return;
+    final parsed = [for (final raw in addrs) ?InternetAddress.tryParse(raw)];
+    policy.seedEchConfig(
+      cfg.echFrontHost,
+      EchConfigResult(
+        echConfig: bytes,
+        ttl: Duration(milliseconds: ttlMs),
+        frontAddresses: parsed,
+      ),
+    );
   }
 
   NetworkAccessPolicy _buildPolicy(

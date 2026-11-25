@@ -3,16 +3,25 @@ import '../network/pixiv_http_client.dart';
 import '../user/user_repository.dart';
 
 /// Result of walking every author-work page for a bulk download
-/// (ugoira excluded, hard cap enforced).
+/// (static works and ugoira separated, hard cap enforced).
 class AuthorWorksResult {
-  const AuthorWorksResult({required this.works, required this.truncated});
+  const AuthorWorksResult({
+    required this.works,
+    this.ugoiraWorks = const [],
+    required this.truncated,
+  });
 
-  /// Illust+manga works in enumeration order, ugoira filtered out.
+  /// Illust+manga static works in enumeration order.
   final List<IllustEntity> works;
+
+  /// Ugoira works discovered during enumeration (opted into separately).
+  final List<IllustEntity> ugoiraWorks;
 
   /// True when enumeration stopped at [AuthorWorksEnumerator.maxWorks]
   /// before reaching the last page.
   final bool truncated;
+
+  bool get isEmpty => works.isEmpty && ugoiraWorks.isEmpty;
 }
 
 /// Walks `/v1/user/illusts` pages (illust then manga) so the author page can
@@ -27,8 +36,8 @@ class AuthorWorksEnumerator {
 
   final UserRepository _repository;
 
-  /// Enumerates every illust and manga work of [userId]. [onProgress] fires
-  /// after each page with the number of downloadable works found so far.
+  /// Enumerates every illust, manga, and ugoira work of [userId]. [onProgress]
+  /// fires after each page with the total downloadable works found so far.
   /// Cancellation travels through [cancelToken] to the in-flight request.
   Future<AuthorWorksResult> enumerate(
     int userId, {
@@ -36,6 +45,7 @@ class AuthorWorksEnumerator {
     void Function(int works)? onProgress,
   }) async {
     final works = <IllustEntity>[];
+    final ugoiraWorks = <IllustEntity>[];
     var truncated = false;
     enumerate:
     for (final type in const [UserWorkType.illust, UserWorkType.manga]) {
@@ -48,19 +58,24 @@ class AuthorWorksEnumerator {
           cancelToken: cancelToken,
         );
         for (final illust in page.illusts) {
-          // Ugoira pages need the ugoira metadata pipeline, not plain image
-          // URLs — they are out of scope for bulk image download.
-          if (illust.isUgoira) continue;
-          works.add(illust);
-          if (works.length >= maxWorks) {
+          if (illust.isUgoira) {
+            ugoiraWorks.add(illust);
+          } else {
+            works.add(illust);
+          }
+          if (works.length + ugoiraWorks.length >= maxWorks) {
             truncated = true;
             break enumerate;
           }
         }
-        onProgress?.call(works.length);
+        onProgress?.call(works.length + ugoiraWorks.length);
         cursor = page.nextUrl;
       } while (cursor != null);
     }
-    return AuthorWorksResult(works: works, truncated: truncated);
+    return AuthorWorksResult(
+      works: works,
+      ugoiraWorks: ugoiraWorks,
+      truncated: truncated,
+    );
   }
 }

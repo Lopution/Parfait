@@ -3,7 +3,7 @@ prefix: DL
 applies_to:
   - lib/core/download/**
   - lib/features/settings/pages/download_*.dart
-reviewed: 2026-11-22
+reviewed: 2026-11-25
 ---
 
 # Downloads and recovery
@@ -31,11 +31,16 @@ reviewed: 2026-11-22
   destination match exactly is restored, as `retryable`; the user retries
   from the download tasks page. Anything else becomes a visible `orphaned`
   record. A crash seen in `finalizing` is `orphaned`, never retried.
-  Records are deduplicated by `dedupeKey`, newest first.
+  Records are deduplicated by `dedupeKey`, newest first. Recovery writes
+  coalesce per microtask via `DownloadPersistenceCoalescer`
+  (`upsertAll`/`removeAll`), cache serialized record JSON per id in
+  `PreferencesDownloadRecoveryStore`, batch multi-page `submitGroup`
+  transitions, and schedule queued jobs in O(1) FIFO order.
 - **Why:** Auto-resent downloads surprised users after a crash; a
-  finalizing output may already be visible.
-- **Check:** `test/download_recovery_test.dart` "finalizing recovery becomes orphaned instead of retrying post-process" "recovery keeps the newest record for one identity"
-- **Code:** `lib/core/download/download_recovery.dart`
+  finalizing output may already be visible; per-job full-list JSON
+  re-encoding caused quadratic I/O stalls on multi-page downloads.
+- **Check:** `test/download_recovery_test.dart` "finalizing recovery becomes orphaned instead of retrying post-process" "recovery keeps the newest record for one identity" "submitGroup coalesces initial recovery persistence and change notifications"
+- **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_manager.dart`
 
 ### DL-03 Pending rows are cleaned only by their exact owner
 - **Rule:** Pending MediaStore rows and SAF documents are cleaned only
@@ -62,16 +67,17 @@ reviewed: 2026-11-22
 - **Check:** `test/caption_exporter_test.dart` "writes <stem>.txt with the info header"
 - **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_sink.dart`
 
-### DL-11 A caption goes only where a text file fits
-- **Rule:** On Android a caption sidecar is written only to a folder (SAF)
-  destination (`captionFits`): an album is a MediaStore image collection,
-  which refuses a text file and keeps non-media files out of `Pictures/`.
-  While an album is the destination the caption switch is greyed out and
-  says why; the stored choice comes back with a folder.
-- **Why:** With an album, every caption export failed and the download
-  reported an error.
-- **Check:** `test/caption_exporter_test.dart` "on Android only a folder takes the caption", `test/download_settings_page_test.dart` "on Android an album greys the caption switch out"
-- **Code:** `lib/core/download/caption_exporter.dart`, `lib/features/settings/pages/download_settings_page.dart`
+### DL-11 A caption or TXT export goes only where a text file fits
+- **Rule:** On Android a caption sidecar or UTF-8 `.txt` novel export is
+  written only to a folder (SAF) destination (`captionFits`): an album is a
+  MediaStore image collection, which refuses a text file and keeps non-media
+  files out of `Pictures/`. While an album is the destination the caption
+  switch is greyed out and says why, and Android novel `.txt` export prompts
+  for a folder; on iOS novel `.txt` export stages into temp storage and shares
+  via `SharePlus`. `CaptionExporter` covers `illust`, `manga`, and `ugoira`.
+- **Why:** With an album, every text export failed and reported an error.
+- **Check:** `test/caption_exporter_test.dart` "on Android only a folder takes the caption", `test/download_settings_page_test.dart` "on Android an album greys the caption switch out", `test/local_novel_test.dart` "NovelDownloadCoordinator saves offline with chapters and exports TXT per platform"
+- **Code:** `lib/core/download/caption_exporter.dart`, `lib/core/novel/novel_download_coordinator.dart`, `lib/features/settings/pages/download_settings_page.dart`
 
 ### DL-04 Job and group ids are unique across launches
 - **Rule:** Job and group ids carry a random per-launch token next to the
@@ -84,14 +90,24 @@ reviewed: 2026-11-22
 - **Code:** `lib/core/download/download_manager.dart`
 
 ### DL-05 The file name is frozen at submission
-- **Rule:** The snapshot freezes the resolved display name, re-validated on
-  decode; a retry writes the stored name instead of recomputing it. Display
-  fields (`thumbnailUrl`, `totalPages`) are presentation only: never in
-  `dedupeKey` or owner checks, and records without them still recover.
+- **Rule:** The snapshot freezes both the resolved display name and any
+  relative subdirectory segments (`subdirectories`), re-validated on
+  decode (rejecting traversal, separators, control chars, or Windows
+  reserved names); a retry writes the stored name and subdirectories
+  instead of recomputing them. `NamingRule.resolve` always guarantees
+  the resolved filename ends with `.$ext` before trimming, so custom
+  naming templates cannot drop or spoof the media extension, and
+  optional zero-padding (`padPageNumbers`) pads `{page}`/`{page1}` to
+  `totalPages` width and `{series_order}` to `seriesTotal` width.
+  Display fields (`thumbnailUrl`, `totalPages`) are presentation only:
+  never in `dedupeKey` or owner checks, and records without them still
+  recover.
 - **Why:** A restored request lacks template inputs (`{author_id}`, `{w}`,
-  `{h}`), so a recomputed name came out with empty segments.
-- **Check:** `test/download_recovery_test.dart` "retrying a recovered task writes the stored name" "a stored name with traversal segments is rejected" "records without display fields still recover"
-- **Code:** `lib/core/download/download_recovery.dart`
+  `{h}`, series order), so a recomputed name or folder chain came out
+  with empty segments; a custom template omitting `{ext}` could write
+  media bytes under an arbitrary extension such as `.apk` or `.exe`.
+- **Check:** `test/download_recovery_test.dart` "retrying a recovered task writes the stored name" "a stored name with traversal segments is rejected" "records without display fields still recover" "recovery round-trips frozen subdirectories and rejects traversal segments", `test/caption_exporter_test.dart` "DownloadRequest.displayName consumes the metadata fields" "padPageNumbers pads page, page1, and series_order to total width" "IllustDownloadCoordinator resolves series metadata, subfolders, and caption routing"
+- **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_subfolders.dart`, `lib/core/download/naming_rule.dart`, `lib/core/download/illust_download_coordinator.dart`
 
 ## Output and transport
 

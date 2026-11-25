@@ -6520,6 +6520,486 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'播放倍速'**
   String get ugoiraPlaybackSpeed;
+
+  /// No description provided for @loginWebViewStalled.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录页面加载超时，可改用浏览器打开或粘贴回调/令牌'**
+  String get loginWebViewStalled;
+
+  /// No description provided for @accountTransferExportToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制 refresh_token'**
+  String get accountTransferExportToken;
+
+  /// No description provided for @accountTransferTokenCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。'**
+  String get accountTransferTokenCopied;
+
+  /// No description provided for @offlineQueueTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'待同步离线操作'**
+  String get offlineQueueTitle;
+
+  /// No description provided for @offlineQueuePendingCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 项等待同步'**
+  String offlineQueuePendingCount(int count);
+
+  /// No description provided for @offlineQueueClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空队列'**
+  String get offlineQueueClear;
+
+  /// No description provided for @offlineQueueCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清空待同步操作'**
+  String get offlineQueueCleared;
+
+  /// No description provided for @offlineQueueRetrying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在重试离线操作…'**
+  String get offlineQueueRetrying;
+
+  /// No description provided for @bookmarkDefaultRestrict.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认收藏可见性'**
+  String get bookmarkDefaultRestrict;
+
+  /// No description provided for @bookmarkAttachWorkTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速收藏自动附带作品标签'**
+  String get bookmarkAttachWorkTags;
+
+  /// No description provided for @bookmarkAttachWorkTagsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'单击收藏或新建收藏时，自动附带最多 10 个作品标签。'**
+  String get bookmarkAttachWorkTagsHint;
+
+  /// No description provided for @bookmarkWorkTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品标签'**
+  String get bookmarkWorkTags;
+
+  /// No description provided for @bookmarkTagLimitReached.
+  ///
+  /// In zh, this message translates to:
+  /// **'最多可添加 10 个标签'**
+  String get bookmarkTagLimitReached;
+
+  /// No description provided for @bookmarkTagUncategorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'未分类'**
+  String get bookmarkTagUncategorized;
+
+  /// No description provided for @bookmarkRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏'**
+  String get bookmarkRemove;
+
+  /// No description provided for @menuHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮助'**
+  String get menuHelp;
+
+  /// No description provided for @keyboardShortcutsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'快捷键'**
+  String get keyboardShortcutsTitle;
+
+  /// No description provided for @shortcutsGroupNavigation.
+  ///
+  /// In zh, this message translates to:
+  /// **'导航'**
+  String get shortcutsGroupNavigation;
+
+  /// No description provided for @shortcutsGroupArtwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情与看图'**
+  String get shortcutsGroupArtwork;
+
+  /// No description provided for @shortcutsGroupNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说阅读'**
+  String get shortcutsGroupNovel;
+
+  /// No description provided for @shortcutNavBackForward.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回 / 前进'**
+  String get shortcutNavBackForward;
+
+  /// No description provided for @shortcutNavTabs.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换首页标签'**
+  String get shortcutNavTabs;
+
+  /// No description provided for @shortcutNavSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索'**
+  String get shortcutNavSearch;
+
+  /// No description provided for @shortcutNavRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get shortcutNavRefresh;
+
+  /// No description provided for @shortcutNavSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get shortcutNavSettings;
+
+  /// No description provided for @shortcutNavRailOrBookmarks.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换侧边栏 / 收藏'**
+  String get shortcutNavRailOrBookmarks;
+
+  /// No description provided for @shortcutNavSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选列表'**
+  String get shortcutNavSelectAll;
+
+  /// No description provided for @shortcutNavShortcuts.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示快捷键'**
+  String get shortcutNavShortcuts;
+
+  /// No description provided for @shortcutArtworkBookmark.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏 / 编辑标签'**
+  String get shortcutArtworkBookmark;
+
+  /// No description provided for @shortcutArtworkSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存图片'**
+  String get shortcutArtworkSave;
+
+  /// No description provided for @shortcutArtworkCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制原图'**
+  String get shortcutArtworkCopy;
+
+  /// No description provided for @shortcutArtworkChrome.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示 / 隐藏工具栏'**
+  String get shortcutArtworkChrome;
+
+  /// No description provided for @shortcutArtworkInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品信息'**
+  String get shortcutArtworkInfo;
+
+  /// No description provided for @shortcutArtworkSwitchWork.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一张 / 下一张作品'**
+  String get shortcutArtworkSwitchWork;
+
+  /// No description provided for @shortcutArtworkSwitchPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一页 / 下一页'**
+  String get shortcutArtworkSwitchPage;
+
+  /// No description provided for @shortcutArtworkZoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'放大 / 缩小 / 适应窗口'**
+  String get shortcutArtworkZoom;
+
+  /// No description provided for @shortcutNovelToc.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录与进度'**
+  String get shortcutNovelToc;
+
+  /// No description provided for @shortcutNovelNavigate.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻页 / 滚动'**
+  String get shortcutNovelNavigate;
+
+  /// No description provided for @searchBookmarkLocalFilterHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题或正文搜索仅在已加载结果中本地筛选收藏数'**
+  String get searchBookmarkLocalFilterHint;
+
+  /// No description provided for @searchExcludeTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'排除标签'**
+  String get searchExcludeTag;
+
+  /// No description provided for @searchInsertOr.
+  ///
+  /// In zh, this message translates to:
+  /// **'插入 OR'**
+  String get searchInsertOr;
+
+  /// No description provided for @searchHistoryPin.
+  ///
+  /// In zh, this message translates to:
+  /// **'置顶'**
+  String get searchHistoryPin;
+
+  /// No description provided for @searchHistoryUnpin.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消置顶'**
+  String get searchHistoryUnpin;
+
+  /// No description provided for @profileWorkTagPickerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'按标签筛选作品'**
+  String get profileWorkTagPickerTitle;
+
+  /// No description provided for @profileWorkTagSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索标签或输入关键词'**
+  String get profileWorkTagSearchHint;
+
+  /// No description provided for @profileWorkTagClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除筛选'**
+  String get profileWorkTagClear;
+
+  /// No description provided for @profileWorkTagLoadMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多'**
+  String get profileWorkTagLoadMore;
+
+  /// No description provided for @downloadSubfolderMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'子文件夹归类'**
+  String get downloadSubfolderMode;
+
+  /// No description provided for @downloadSubfolderNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不创建子文件夹'**
+  String get downloadSubfolderNone;
+
+  /// No description provided for @downloadSubfolderByArtist.
+  ///
+  /// In zh, this message translates to:
+  /// **'按作者归类'**
+  String get downloadSubfolderByArtist;
+
+  /// No description provided for @downloadSubfolderByArtistAndSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'按作者与系列归类'**
+  String get downloadSubfolderByArtistAndSeries;
+
+  /// No description provided for @downloadMultiPageSubfolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'多图作品单独建文件夹'**
+  String get downloadMultiPageSubfolder;
+
+  /// No description provided for @downloadMultiPageSubfolderHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'页数超过 1 页的作品放入以作品 ID 命名的子文件夹'**
+  String get downloadMultiPageSubfolderHint;
+
+  /// No description provided for @downloadPadPageNumbers.
+  ///
+  /// In zh, this message translates to:
+  /// **'页码补零对齐'**
+  String get downloadPadPageNumbers;
+
+  /// No description provided for @downloadPadPageNumbersHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列'**
+  String get downloadPadPageNumbersHint;
+
+  /// No description provided for @downloadAuthorSubfolderToggle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放入作者子文件夹'**
+  String get downloadAuthorSubfolderToggle;
+
+  /// No description provided for @downloadAuthorConfirmBodyWithUgoira.
+  ///
+  /// In zh, this message translates to:
+  /// **'将把 {works} 份静态作品（共 {pages} 页）与 {ugoira} 份动图加入下载队列。'**
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira);
+
+  /// No description provided for @downloadAuthorIncludeUgoira.
+  ///
+  /// In zh, this message translates to:
+  /// **'包含动图作品（{count} 份，导出为 GIF）'**
+  String downloadAuthorIncludeUgoira(int count);
+
+  /// No description provided for @downloadAuthorUgoiraOnlyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'该作者仅发现 {count} 份动图作品。开启下方开关即可导出为 GIF。'**
+  String downloadAuthorUgoiraOnlyHint(int count);
+
+  /// No description provided for @novelSaveOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存到离线书架'**
+  String get novelSaveOffline;
+
+  /// No description provided for @novelSavedOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存到离线书架'**
+  String get novelSavedOffline;
+
+  /// No description provided for @novelSaveOfflineFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线保存失败'**
+  String get novelSaveOfflineFailed;
+
+  /// No description provided for @novelExportTxt.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出 TXT'**
+  String get novelExportTxt;
+
+  /// No description provided for @novelExportTxtQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入 TXT 下载队列'**
+  String get novelExportTxtQueued;
+
+  /// No description provided for @novelExportTxtShared.
+  ///
+  /// In zh, this message translates to:
+  /// **'已分享 TXT 文件'**
+  String get novelExportTxtShared;
+
+  /// No description provided for @novelExportTxtFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出 TXT 失败'**
+  String get novelExportTxtFailed;
+
+  /// No description provided for @novelExportAndroidFolderRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android 上导出 TXT 需要先选择自定义文件夹作为保存位置'**
+  String get novelExportAndroidFolderRequired;
+
+  /// No description provided for @novelSeriesSaveOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线缓存全系列'**
+  String get novelSeriesSaveOffline;
+
+  /// No description provided for @novelSeriesExportTxt.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出系列 TXT'**
+  String get novelSeriesExportTxt;
+
+  /// No description provided for @novelSeriesExportMerged.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并为单个 TXT'**
+  String get novelSeriesExportMerged;
+
+  /// No description provided for @novelSeriesExportSplit.
+  ///
+  /// In zh, this message translates to:
+  /// **'按章节分文件导出'**
+  String get novelSeriesExportSplit;
+
+  /// No description provided for @novelSeriesSavedWithSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存 {saved} 章，跳过 {skipped} 章不可阅读内容'**
+  String novelSeriesSavedWithSkipped(int saved, int skipped);
+
+  /// No description provided for @novelSeriesExportQueuedWithSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入 {queued} 个章节导出，跳过 {skipped} 章不可阅读内容'**
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped);
+
+  /// No description provided for @novelSeriesNoViewableChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'该系列暂无可保存的章节'**
+  String get novelSeriesNoViewableChapters;
+
+  /// No description provided for @openInNewTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'在新标签页打开'**
+  String get openInNewTab;
+
+  /// No description provided for @workspaceRootTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'主工作区'**
+  String get workspaceRootTab;
+
+  /// No description provided for @windowCloseTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭标签页'**
+  String get windowCloseTab;
+
+  /// No description provided for @closeTabTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭标签页'**
+  String get closeTabTooltip;
+
+  /// No description provided for @shortcutCloseTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭弹窗或当前标签页'**
+  String get shortcutCloseTab;
+
+  /// No description provided for @shortcutNextTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换工作区标签页'**
+  String get shortcutNextTab;
 }
 
 class _AppLocalizationsDelegate

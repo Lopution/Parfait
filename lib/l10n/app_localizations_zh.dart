@@ -3430,4 +3430,258 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get ugoiraPlaybackSpeed => '播放倍速';
+
+  @override
+  String get loginWebViewStalled => '登录页面加载超时，可改用浏览器打开或粘贴回调/令牌';
+
+  @override
+  String get accountTransferExportToken => '复制 refresh_token';
+
+  @override
+  String get accountTransferTokenCopied =>
+      'refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。';
+
+  @override
+  String get offlineQueueTitle => '待同步离线操作';
+
+  @override
+  String offlineQueuePendingCount(int count) {
+    return '$count 项等待同步';
+  }
+
+  @override
+  String get offlineQueueClear => '清空队列';
+
+  @override
+  String get offlineQueueCleared => '已清空待同步操作';
+
+  @override
+  String get offlineQueueRetrying => '正在重试离线操作…';
+
+  @override
+  String get bookmarkDefaultRestrict => '默认收藏可见性';
+
+  @override
+  String get bookmarkAttachWorkTags => '快速收藏自动附带作品标签';
+
+  @override
+  String get bookmarkAttachWorkTagsHint => '单击收藏或新建收藏时，自动附带最多 10 个作品标签。';
+
+  @override
+  String get bookmarkWorkTags => '作品标签';
+
+  @override
+  String get bookmarkTagLimitReached => '最多可添加 10 个标签';
+
+  @override
+  String get bookmarkTagUncategorized => '未分类';
+
+  @override
+  String get bookmarkRemove => '取消收藏';
+
+  @override
+  String get menuHelp => '帮助';
+
+  @override
+  String get keyboardShortcutsTitle => '快捷键';
+
+  @override
+  String get shortcutsGroupNavigation => '导航';
+
+  @override
+  String get shortcutsGroupArtwork => '详情与看图';
+
+  @override
+  String get shortcutsGroupNovel => '小说阅读';
+
+  @override
+  String get shortcutNavBackForward => '返回 / 前进';
+
+  @override
+  String get shortcutNavTabs => '切换首页标签';
+
+  @override
+  String get shortcutNavSearch => '搜索';
+
+  @override
+  String get shortcutNavRefresh => '刷新';
+
+  @override
+  String get shortcutNavSettings => '设置';
+
+  @override
+  String get shortcutNavRailOrBookmarks => '切换侧边栏 / 收藏';
+
+  @override
+  String get shortcutNavSelectAll => '全选列表';
+
+  @override
+  String get shortcutNavShortcuts => '显示快捷键';
+
+  @override
+  String get shortcutArtworkBookmark => '收藏 / 编辑标签';
+
+  @override
+  String get shortcutArtworkSave => '保存图片';
+
+  @override
+  String get shortcutArtworkCopy => '复制原图';
+
+  @override
+  String get shortcutArtworkChrome => '显示 / 隐藏工具栏';
+
+  @override
+  String get shortcutArtworkInfo => '作品信息';
+
+  @override
+  String get shortcutArtworkSwitchWork => '上一张 / 下一张作品';
+
+  @override
+  String get shortcutArtworkSwitchPage => '上一页 / 下一页';
+
+  @override
+  String get shortcutArtworkZoom => '放大 / 缩小 / 适应窗口';
+
+  @override
+  String get shortcutNovelToc => '目录与进度';
+
+  @override
+  String get shortcutNovelNavigate => '翻页 / 滚动';
+
+  @override
+  String get searchBookmarkLocalFilterHint => '标题或正文搜索仅在已加载结果中本地筛选收藏数';
+
+  @override
+  String get searchExcludeTag => '排除标签';
+
+  @override
+  String get searchInsertOr => '插入 OR';
+
+  @override
+  String get searchHistoryPin => '置顶';
+
+  @override
+  String get searchHistoryUnpin => '取消置顶';
+
+  @override
+  String get profileWorkTagPickerTitle => '按标签筛选作品';
+
+  @override
+  String get profileWorkTagSearchHint => '搜索标签或输入关键词';
+
+  @override
+  String get profileWorkTagClear => '清除筛选';
+
+  @override
+  String get profileWorkTagLoadMore => '加载更多';
+
+  @override
+  String get downloadSubfolderMode => '子文件夹归类';
+
+  @override
+  String get downloadSubfolderNone => '不创建子文件夹';
+
+  @override
+  String get downloadSubfolderByArtist => '按作者归类';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => '按作者与系列归类';
+
+  @override
+  String get downloadMultiPageSubfolder => '多图作品单独建文件夹';
+
+  @override
+  String get downloadMultiPageSubfolderHint => '页数超过 1 页的作品放入以作品 ID 命名的子文件夹';
+
+  @override
+  String get downloadPadPageNumbers => '页码补零对齐';
+
+  @override
+  String get downloadPadPageNumbersHint => '按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列';
+
+  @override
+  String get downloadAuthorSubfolderToggle => '放入作者子文件夹';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return '将把 $works 份静态作品（共 $pages 页）与 $ugoira 份动图加入下载队列。';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return '包含动图作品（$count 份，导出为 GIF）';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return '该作者仅发现 $count 份动图作品。开启下方开关即可导出为 GIF。';
+  }
+
+  @override
+  String get novelSaveOffline => '保存到离线书架';
+
+  @override
+  String get novelSavedOffline => '已保存到离线书架';
+
+  @override
+  String get novelSaveOfflineFailed => '离线保存失败';
+
+  @override
+  String get novelExportTxt => '导出 TXT';
+
+  @override
+  String get novelExportTxtQueued => '已加入 TXT 下载队列';
+
+  @override
+  String get novelExportTxtShared => '已分享 TXT 文件';
+
+  @override
+  String get novelExportTxtFailed => '导出 TXT 失败';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Android 上导出 TXT 需要先选择自定义文件夹作为保存位置';
+
+  @override
+  String get novelSeriesSaveOffline => '离线缓存全系列';
+
+  @override
+  String get novelSeriesExportTxt => '导出系列 TXT';
+
+  @override
+  String get novelSeriesExportMerged => '合并为单个 TXT';
+
+  @override
+  String get novelSeriesExportSplit => '按章节分文件导出';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return '已保存 $saved 章，跳过 $skipped 章不可阅读内容';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return '已加入 $queued 个章节导出，跳过 $skipped 章不可阅读内容';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters => '该系列暂无可保存的章节';
+
+  @override
+  String get openInNewTab => '在新标签页打开';
+
+  @override
+  String get workspaceRootTab => '主工作区';
+
+  @override
+  String get windowCloseTab => '关闭标签页';
+
+  @override
+  String get closeTabTooltip => '关闭标签页';
+
+  @override
+  String get shortcutCloseTab => '关闭弹窗或当前标签页';
+
+  @override
+  String get shortcutNextTab => '切换工作区标签页';
 }

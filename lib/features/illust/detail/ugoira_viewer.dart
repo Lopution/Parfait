@@ -483,6 +483,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
         maxBytes: asset.limits.maxDecodedWindowBytes,
         sizeOf: (image) => image.width * image.height * 4,
         dispose: (image) => image.dispose(),
+        loopAware: true,
       );
       final scheduler = _buildScheduler(asset);
       _asset = asset;
@@ -523,6 +524,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     if (_disposed) return;
     final scheduler = _scheduler;
     final cache = _cache;
+    final asset = _asset;
     if (scheduler != null && cache != null && cache.get(index) == null) {
       scheduler.suspend();
       unawaited(
@@ -532,6 +534,11 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           }
         }),
       );
+    } else if (scheduler != null &&
+        scheduler.isPlaying &&
+        asset != null &&
+        asset.frameCount > 1) {
+      unawaited(_ensureFrame((index + 1) % asset.frameCount));
     }
     if (mounted) setState(() {});
   }
@@ -627,6 +634,13 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     if (asset != null) unawaited(asset.dispose());
   }
 
+  int? _targetDecodeWidth() {
+    if (!mounted) return null;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || box.size.width <= 0) return null;
+    return PixivImage.feedDecodeWidthOf(context, box.size.width, listen: false);
+  }
+
   Future<void> _decodeOne(
     UgoiraAsset asset,
     UgoiraFrameCache<ui.Image> cache,
@@ -634,7 +648,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   ) async {
     ui.Image? image;
     try {
-      image = await asset.decodeFrame(index);
+      image = await asset.decodeFrame(index, targetWidth: _targetDecodeWidth());
       if (_disposed || !identical(_asset, asset)) return;
       cache.put(index, image);
       image = null;

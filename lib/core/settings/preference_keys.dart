@@ -71,6 +71,9 @@ abstract final class PreferenceKeys {
   /// Device-local and shared by every account on the device.
   static const String searchHistory = 'parfait.search.history.v1';
 
+  /// Pinned search keywords preserved across history clears.
+  static const String searchHistoryPinned = 'parfait.search.history.pinned.v1';
+
   /// Pending auto-clear fingerprint + expiry for [FlutterTransferClipboard].
   static const String transferClipboardState =
       'parfait.transfer.clipboard.state.v1';

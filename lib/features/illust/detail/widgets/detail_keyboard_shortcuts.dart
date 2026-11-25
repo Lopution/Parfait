@@ -8,6 +8,7 @@ import '../../../../app/clipboard.dart';
 import '../../../../app/layout/input_modality.dart';
 import '../../../../app/widgets/bookmark_switch_button.dart';
 import '../../../../core/bookmark/bookmark_models.dart';
+import '../../../../core/bookmark/bookmark_store.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/platform/image_clipboard.dart';
 import '../detail_page_activity.dart';
@@ -15,6 +16,7 @@ import '../../illust_actions.dart';
 
 /// Desktop keyboard shortcuts for `IllustDetailPage`:
 /// - `B`: toggle bookmark
+/// - `Shift+B`: open bookmark create/edit sheet
 /// - `Ctrl/Cmd+S`: download all pages
 /// - `Ctrl/Cmd+C`: copy page 1 original image (desktop clipboard, skipped while
 ///   a text field or `SelectableRegion` owns focus so text copying works)
@@ -61,14 +63,26 @@ class _DetailKeyboardShortcutsState
 
     if (!primaryModifier &&
         !hw.isAltPressed &&
-        !hw.isShiftPressed &&
         key == LogicalKeyboardKey.keyB) {
-      unawaited(
-        toggleBookmark(
-          context,
-          BookmarkKey(BookmarkEntityType.illust, widget.entity.id),
-        ),
+      final bookmarkKey = BookmarkKey(
+        BookmarkEntityType.illust,
+        widget.entity.id,
       );
+      if (hw.isShiftPressed) {
+        final unsettled =
+            ref.read(bookmarkStoreProvider)[bookmarkKey]?.isUnsettled ?? false;
+        if (!unsettled) {
+          unawaited(
+            showBookmarkEditSheet(
+              context,
+              bookmarkKey,
+              title: widget.entity.title,
+            ),
+          );
+        }
+        return true;
+      }
+      unawaited(toggleBookmark(context, bookmarkKey));
       return true;
     }
 

@@ -1,5 +1,6 @@
 import Cocoa
 import FlutterMacOS
+import ImageIO
 
 class MainFlutterWindow: NSWindow {
   private(set) var lastPrimaryMouseEvent: NSEvent?
@@ -517,6 +518,11 @@ final class MacosDesktopWindowBridge: NSObject {
     case "close":
       window.performClose(nil)
       result(nil)
+    case "terminate":
+      result(nil)
+      DispatchQueue.main.async {
+        NSApp.terminate(nil)
+      }
     case "toggleFullScreen":
       window.toggleFullScreen(nil)
       result(nil)
@@ -742,7 +748,11 @@ final class MacosTrayBridge: NSObject {
   }
 
   @objc private func handleQuit() {
-    channel?.invokeMethod("onTrayAction", arguments: "quit")
+    if let channel {
+      channel.invokeMethod("onTrayAction", arguments: "quit")
+    } else {
+      NSApp.terminate(nil)
+    }
   }
 }
 
@@ -751,7 +761,9 @@ final class MacosImageClipboardBridge {
 
   private let channelName = "parfait/image_clipboard"
   private static let maxReadBytes = 32 * 1024 * 1024
+  private static let pngUti = "public.png" as CFString
   private var channel: FlutterMethodChannel?
+  private var copySequence: UInt64 = 0
 
   func register(messenger: FlutterBinaryMessenger) {
     let methodChannel = FlutterMethodChannel(
@@ -759,28 +771,77 @@ final class MacosImageClipboardBridge {
       binaryMessenger: messenger
     )
     channel = methodChannel
-    methodChannel.setMethodCallHandler { call, result in
+    methodChannel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(false)
+        return
+      }
       switch call.method {
-      case "copyImage":
+      case "copyImageFile":
         guard
           let args = call.arguments as? [String: Any],
-          let typed = args["bytes"] as? FlutterStandardTypedData
+          let path = args["path"] as? String,
+          !path.isEmpty
         else {
           result(
             FlutterError(
               code: "INVALID_ARGS",
-              message: "Missing image bytes",
+              message: "Missing image file path",
               details: nil
             )
           )
           return
         }
-        result(Self.copyImageData(typed.data))
-      case "readImage":
-        if let data = Self.readImageData() {
-          result(FlutterStandardTypedData(bytes: data))
-        } else {
-          result(nil)
+        self.copySequence &+= 1
+        let seq = self.copySequence
+        DispatchQueue.global(qos: .userInitiated).async {
+          let pngData = Self.preparePngDataFromFile(path: path)
+          DispatchQueue.main.async {
+            guard seq == self.copySequence, let png = pngData else {
+              result(false)
+              return
+            }
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            result(pasteboard.setData(png, forType: .png))
+          }
+        }
+      case "readImageToTempFile":
+        guard
+          let args = call.arguments as? [String: Any],
+          let targetPath = args["targetPath"] as? String,
+          !targetPath.isEmpty
+        else {
+          result(
+            FlutterError(
+              code: "INVALID_ARGS",
+              message: "Missing targetPath",
+              details: nil
+            )
+          )
+          return
+        }
+        let pasteboard = NSPasteboard.general
+        let rawPng = pasteboard.data(forType: .png)
+        let rawTiff = (rawPng == nil || rawPng!.isEmpty)
+          ? pasteboard.data(forType: .tiff)
+          : nil
+        guard
+          (rawPng != nil && !rawPng!.isEmpty) ||
+          (rawTiff != nil && !rawTiff!.isEmpty)
+        else {
+          result(false)
+          return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+          let wrote = Self.writeClipboardImage(
+            rawPng: rawPng,
+            rawTiff: rawTiff,
+            toPath: targetPath
+          )
+          DispatchQueue.main.async {
+            result(wrote)
+          }
         }
       default:
         result(FlutterMethodNotImplemented)
@@ -788,37 +849,82 @@ final class MacosImageClipboardBridge {
     }
   }
 
-  private static func copyImageData(_ data: Data) -> Bool {
-    guard !data.isEmpty,
-          let image = NSImage(data: data),
-          let tiff = image.tiffRepresentation,
-          let bitmap = NSBitmapImageRep(data: tiff),
-          let png = bitmap.representation(using: .png, properties: [:])
-    else {
-      return false
-    }
-    let pasteboard = NSPasteboard.general
-    pasteboard.clearContents()
-    return pasteboard.setData(png, forType: .png)
-  }
-
-  private static func readImageData() -> Data? {
-    let pasteboard = NSPasteboard.general
-    if let png = pasteboard.data(forType: .png),
-       !png.isEmpty,
-       png.count <= maxReadBytes {
-      return png
-    }
-    guard let image = NSImage(pasteboard: pasteboard),
-          let tiff = image.tiffRepresentation,
-          let bitmap = NSBitmapImageRep(data: tiff),
-          let png = bitmap.representation(using: .png, properties: [:]),
-          !png.isEmpty,
-          png.count <= maxReadBytes
+  private static func preparePngDataFromFile(path: String) -> Data? {
+    let url = URL(fileURLWithPath: path)
+    guard
+      let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+      values.isRegularFile == true,
+      let fileSize = values.fileSize,
+      fileSize > 0,
+      fileSize <= maxReadBytes,
+      let data = try? Data(contentsOf: url),
+      !data.isEmpty,
+      data.count <= maxReadBytes,
+      let source = CGImageSourceCreateWithData(data as CFData, nil),
+      CGImageSourceGetCount(source) > 0
     else {
       return nil
     }
-    return png
+    if let typeId = CGImageSourceGetType(source),
+       CFStringCompare(typeId, pngUti, []) == .compareEqualTo {
+      return data
+    }
+    guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+      return nil
+    }
+    return encodeCgImageToPng(cgImage)
+  }
+
+  private static func writeClipboardImage(
+    rawPng: Data?,
+    rawTiff: Data?,
+    toPath targetPath: String
+  ) -> Bool {
+    let pngData: Data?
+    if let png = rawPng, !png.isEmpty, png.count <= maxReadBytes,
+       let source = CGImageSourceCreateWithData(png as CFData, nil),
+       CGImageSourceGetCount(source) > 0 {
+      pngData = png
+    } else if let tiff = rawTiff, !tiff.isEmpty,
+              let source = CGImageSourceCreateWithData(tiff as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+      pngData = encodeCgImageToPng(cgImage)
+    } else {
+      pngData = nil
+    }
+    guard let out = pngData, !out.isEmpty, out.count <= maxReadBytes else {
+      return false
+    }
+    do {
+      try out.write(to: URL(fileURLWithPath: targetPath), options: .atomic)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private static func encodeCgImageToPng(_ image: CGImage) -> Data? {
+    let mutable = NSMutableData()
+    guard
+      let destination = CGImageDestinationCreateWithData(
+        mutable as CFMutableData,
+        pngUti,
+        1,
+        nil
+      )
+    else {
+      return nil
+    }
+    CGImageDestinationAddImage(destination, image, nil)
+    guard CGImageDestinationFinalize(destination) else {
+      return nil
+    }
+    let data = mutable as Data
+    guard !data.isEmpty, data.count <= maxReadBytes else {
+      return nil
+    }
+    return data
   }
 }
 

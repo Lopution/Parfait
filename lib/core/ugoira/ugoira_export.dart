@@ -14,6 +14,7 @@ import '../download/download_transport.dart';
 import 'ugoira_limits.dart';
 import 'ugoira_repository.dart';
 import 'ugoira_recovery.dart';
+import 'ugoira_zip.dart';
 
 enum UgoiraExportStatus {
   queued,
@@ -118,6 +119,23 @@ class ImagePackageUgoiraGifEncoder implements UgoiraGifEncoder {
     _frameCount++;
   }
 
+  /// Decodes and quantizes one encoded JPEG/PNG frame directly inside the
+  /// worker isolate without UI-isolate `ui.Image` decode or `toByteData`.
+  Future<void> addEncodedFrame(
+    Uint8List encodedBytes, {
+    required Duration delay,
+  }) async {
+    if (_finished) throw StateError('GIF encoder is finished');
+    if (_frameCount >= limits.maxFrameCount) {
+      throw const FormatException('GIF frame count exceeds limit');
+    }
+    await _worker.addEncodedFrame(
+      encodedBytes: encodedBytes,
+      delay: _centiseconds(delay),
+    );
+    _frameCount++;
+  }
+
   @override
   Future<List<int>> finish() async {
     if (_finished) throw StateError('GIF encoder is finished');
@@ -205,6 +223,17 @@ class _UgoiraGifWorker {
     });
   }
 
+  Future<void> addEncodedFrame({
+    required Uint8List encodedBytes,
+    required int delay,
+  }) async {
+    await _request({
+      'type': 'encodedFrame',
+      'delay': delay,
+      'bytes': TransferableTypedData.fromList([encodedBytes]),
+    });
+  }
+
   Future<List<int>> finish() async {
     final result = await _request(const {'type': 'finish'});
     if (result is! Uint8List) {
@@ -286,7 +315,13 @@ void _ugoiraGifWorkerMain(List<Object> args) {
   parentPort.send(commands.sendPort);
   final encoder = img.GifEncoder(
     numColors: 256,
-    quantizerType: img.QuantizerType.neural,
+    quantizerType: img.QuantizerType.octree,
+  );
+  final workerLimits = UgoiraLimits(
+    maxFrameCount: maxFrameCount,
+    maxFramePixels: maxFramePixels,
+    maxFrameDimension: maxFrameDimension,
+    maxExportBytes: maxExportBytes,
   );
   var frameCount = 0;
   var finished = false;
@@ -300,6 +335,47 @@ void _ugoiraGifWorkerMain(List<Object> args) {
     try {
       if (finished) throw StateError('GIF worker is finished');
       switch (rawMessage['type']) {
+        case 'encodedFrame':
+          final delay = rawMessage['delay'];
+          final transfer = rawMessage['bytes'];
+          if (delay is! int || transfer is! TransferableTypedData) {
+            throw const FormatException('GIF worker encoded frame malformed');
+          }
+          if (frameCount >= maxFrameCount) {
+            throw const FormatException('GIF frame count exceeds limit');
+          }
+          final encoded = transfer.materialize().asUint8List();
+          final header = UgoiraFrameHeader.parse(encoded);
+          header.validate(workerLimits);
+          final frame = img.decodeImage(encoded);
+          if (frame == null) {
+            throw const FormatException('GIF worker failed to decode frame');
+          }
+          if (frame.width != header.width || frame.height != header.height) {
+            throw const FormatException(
+              'decoded frame dimensions differ from header',
+            );
+          }
+          if (frame.width > 65535 ||
+              frame.height > 65535 ||
+              frame.width * frame.height > maxFramePixels) {
+            throw const FormatException('GIF frame dimensions are invalid');
+          }
+          if (width != null &&
+              (width != frame.width || height != frame.height)) {
+            throw const FormatException(
+              'GIF frames have inconsistent dimensions',
+            );
+          }
+          encoder.addFrame(frame, duration: delay);
+          final encodedLength = encoder.output?.length;
+          if (encodedLength != null && encodedLength > maxExportBytes) {
+            throw const FormatException('GIF output exceeds limit');
+          }
+          width = frame.width;
+          height = frame.height;
+          frameCount++;
+          break;
         case 'frame':
           final frameWidth = rawMessage['width'];
           final frameHeight = rawMessage['height'];
@@ -468,19 +544,21 @@ class UgoiraExportJob {
       for (var index = 0; index < _asset.frameCount; index++) {
         _checkCanceled();
         _checkOwner();
-        ui.Image? image;
-        try {
-          image = await _asset.decodeFrame(index);
-          await _awaitCancelable(
-            encoder.addFrame(
-              image,
-              delay: Duration(
-                milliseconds: _asset.metadata.delayForIndex(index),
-              ),
-            ),
-          );
-        } finally {
-          image?.dispose();
+        final delay = Duration(
+          milliseconds: _asset.metadata.delayForIndex(index),
+        );
+        if (encoder is ImagePackageUgoiraGifEncoder) {
+          final raw = await _awaitCancelable(_asset.readFrameBytes(index));
+          final bytes = raw is Uint8List ? raw : Uint8List.fromList(raw);
+          await _awaitCancelable(encoder.addEncodedFrame(bytes, delay: delay));
+        } else {
+          ui.Image? image;
+          try {
+            image = await _asset.decodeFrame(index);
+            await _awaitCancelable(encoder.addFrame(image, delay: delay));
+          } finally {
+            image?.dispose();
+          }
         }
         _checkCanceled();
         _emit(
@@ -496,11 +574,14 @@ class UgoiraExportJob {
       if (output.length > _asset.limits.maxExportBytes) {
         throw const FormatException('GIF output exceeds limit');
       }
-      for (var offset = 0; offset < output.length; offset += 64 * 1024) {
+      final outputBytes = output is Uint8List
+          ? output
+          : Uint8List.fromList(output);
+      for (var offset = 0; offset < outputBytes.length; offset += 64 * 1024) {
         _checkCanceled();
         _checkOwner();
-        final end = (offset + 64 * 1024).clamp(0, output.length);
-        await sink.write(output.sublist(offset, end));
+        final end = (offset + 64 * 1024).clamp(0, outputBytes.length);
+        await sink.write(Uint8List.sublistView(outputBytes, offset, end));
       }
       _checkCanceled();
       _checkOwner();

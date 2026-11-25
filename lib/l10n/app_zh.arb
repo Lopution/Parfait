@@ -2217,5 +2217,121 @@
   "ugoiraPlaybackSpeed": "播放倍速",
   "@ugoiraPlaybackSpeed": {
     "description": "Tooltip and semantics label for ugoira playback speed selector"
-  }
+  },
+  "loginWebViewStalled": "登录页面加载超时，可改用浏览器打开或粘贴回调/令牌",
+  "accountTransferExportToken": "复制 refresh_token",
+  "accountTransferTokenCopied": "refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。",
+  "offlineQueueTitle": "待同步离线操作",
+  "offlineQueuePendingCount": "{count} 项等待同步",
+  "@offlineQueuePendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineQueueClear": "清空队列",
+  "offlineQueueCleared": "已清空待同步操作",
+  "offlineQueueRetrying": "正在重试离线操作…",
+  "bookmarkDefaultRestrict": "默认收藏可见性",
+  "bookmarkAttachWorkTags": "快速收藏自动附带作品标签",
+  "bookmarkAttachWorkTagsHint": "单击收藏或新建收藏时，自动附带最多 10 个作品标签。",
+  "bookmarkWorkTags": "作品标签",
+  "bookmarkTagLimitReached": "最多可添加 10 个标签",
+  "bookmarkTagUncategorized": "未分类",
+  "bookmarkRemove": "取消收藏",
+  "menuHelp": "帮助",
+  "keyboardShortcutsTitle": "快捷键",
+  "shortcutsGroupNavigation": "导航",
+  "shortcutsGroupArtwork": "详情与看图",
+  "shortcutsGroupNovel": "小说阅读",
+  "shortcutNavBackForward": "返回 / 前进",
+  "shortcutNavTabs": "切换首页标签",
+  "shortcutNavSearch": "搜索",
+  "shortcutNavRefresh": "刷新",
+  "shortcutNavSettings": "设置",
+  "shortcutNavRailOrBookmarks": "切换侧边栏 / 收藏",
+  "shortcutNavSelectAll": "全选列表",
+  "shortcutNavShortcuts": "显示快捷键",
+  "shortcutArtworkBookmark": "收藏 / 编辑标签",
+  "shortcutArtworkSave": "保存图片",
+  "shortcutArtworkCopy": "复制原图",
+  "shortcutArtworkChrome": "显示 / 隐藏工具栏",
+  "shortcutArtworkInfo": "作品信息",
+  "shortcutArtworkSwitchWork": "上一张 / 下一张作品",
+  "shortcutArtworkSwitchPage": "上一页 / 下一页",
+  "shortcutArtworkZoom": "放大 / 缩小 / 适应窗口",
+  "shortcutNovelToc": "目录与进度",
+  "shortcutNovelNavigate": "翻页 / 滚动",
+  "searchBookmarkLocalFilterHint": "标题或正文搜索仅在已加载结果中本地筛选收藏数",
+  "searchExcludeTag": "排除标签",
+  "searchInsertOr": "插入 OR",
+  "searchHistoryPin": "置顶",
+  "searchHistoryUnpin": "取消置顶",
+  "profileWorkTagPickerTitle": "按标签筛选作品",
+  "profileWorkTagSearchHint": "搜索标签或输入关键词",
+  "profileWorkTagClear": "清除筛选",
+  "profileWorkTagLoadMore": "加载更多",
+  "downloadSubfolderMode": "子文件夹归类",
+  "downloadSubfolderNone": "不创建子文件夹",
+  "downloadSubfolderByArtist": "按作者归类",
+  "downloadSubfolderByArtistAndSeries": "按作者与系列归类",
+  "downloadMultiPageSubfolder": "多图作品单独建文件夹",
+  "downloadMultiPageSubfolderHint": "页数超过 1 页的作品放入以作品 ID 命名的子文件夹",
+  "downloadPadPageNumbers": "页码补零对齐",
+  "downloadPadPageNumbersHint": "按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列",
+  "downloadAuthorSubfolderToggle": "放入作者子文件夹",
+  "downloadAuthorConfirmBodyWithUgoira": "将把 {works} 份静态作品（共 {pages} 页）与 {ugoira} 份动图加入下载队列。",
+  "@downloadAuthorConfirmBodyWithUgoira": {
+    "placeholders": {
+      "works": {"type": "int"},
+      "pages": {"type": "int"},
+      "ugoira": {"type": "int"}
+    }
+  },
+  "downloadAuthorIncludeUgoira": "包含动图作品（{count} 份，导出为 GIF）",
+  "@downloadAuthorIncludeUgoira": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "downloadAuthorUgoiraOnlyHint": "该作者仅发现 {count} 份动图作品。开启下方开关即可导出为 GIF。",
+  "@downloadAuthorUgoiraOnlyHint": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "novelSaveOffline": "保存到离线书架",
+  "novelSavedOffline": "已保存到离线书架",
+  "novelSaveOfflineFailed": "离线保存失败",
+  "novelExportTxt": "导出 TXT",
+  "novelExportTxtQueued": "已加入 TXT 下载队列",
+  "novelExportTxtShared": "已分享 TXT 文件",
+  "novelExportTxtFailed": "导出 TXT 失败",
+  "novelExportAndroidFolderRequired": "Android 上导出 TXT 需要先选择自定义文件夹作为保存位置",
+  "novelSeriesSaveOffline": "离线缓存全系列",
+  "novelSeriesExportTxt": "导出系列 TXT",
+  "novelSeriesExportMerged": "合并为单个 TXT",
+  "novelSeriesExportSplit": "按章节分文件导出",
+  "novelSeriesSavedWithSkipped": "已保存 {saved} 章，跳过 {skipped} 章不可阅读内容",
+  "@novelSeriesSavedWithSkipped": {
+    "placeholders": {
+      "saved": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesExportQueuedWithSkipped": "已加入 {queued} 个章节导出，跳过 {skipped} 章不可阅读内容",
+  "@novelSeriesExportQueuedWithSkipped": {
+    "placeholders": {
+      "queued": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesNoViewableChapters": "该系列暂无可保存的章节",
+  "openInNewTab": "在新标签页打开",
+  "workspaceRootTab": "主工作区",
+  "windowCloseTab": "关闭标签页",
+  "closeTabTooltip": "关闭标签页",
+  "shortcutCloseTab": "关闭弹窗或当前标签页",
+  "shortcutNextTab": "切换工作区标签页"
 }

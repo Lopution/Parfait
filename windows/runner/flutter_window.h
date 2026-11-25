@@ -9,6 +9,8 @@
 #include <oleidl.h>
 #include <shellapi.h>
 
+#include <atomic>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -133,6 +135,9 @@ class FlutterWindow : public Win32Window {
   bool tray_initialized_ = false;
   NOTIFYICONDATAW tray_icon_data_{};
   TrayLabels tray_labels_{};
+  std::shared_ptr<std::atomic<bool>> alive_token_ =
+      std::make_shared<std::atomic<bool>>(true);
+  uint64_t clipboard_copy_seq_ = 0;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

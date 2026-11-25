@@ -12,6 +12,7 @@ import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
 import '../../core/bookmark/bookmark_tag_providers.dart';
 import '../../core/errors/error_category.dart';
+import '../../core/settings/settings_controller.dart';
 import '../haptics/app_haptics.dart';
 import 'app_spinner.dart';
 import '../layout/app_breakpoints.dart';
@@ -26,7 +27,7 @@ import '../widgets/errors/error_details.dart';
 import 'app_dialog.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
-import 'app_choice_chip.dart';
+import 'bookmark_work_tags_section.dart';
 import 'display_actions.dart';
 import 'settings/settings_control.dart';
 import '../icons/app_icons.dart';
@@ -413,11 +414,22 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
   bool _submitting = false;
   Object? _submitError;
   bool _hasPendingTagInput = false;
+  late final List<CachedWorkTag> _workTags;
 
   @override
   void initState() {
     super.initState();
     _tagInput.addListener(_onTagInputChanged);
+    _workTags = readCachedWorkTags(ref, widget.bookmarkKey);
+    if (!widget.initiallyBookmarked) {
+      final defaultRestrict = ref.read(defaultBookmarkRestrictProvider);
+      _restrict = defaultRestrict;
+      _initialRestrict = defaultRestrict;
+      if (ref.read(bookmarkAttachWorkTagsProvider) && _workTags.isNotEmpty) {
+        _tags = [for (final tag in _workTags.take(kMaxBookmarkTags)) tag.name];
+        _initialTags = _tags;
+      }
+    }
   }
 
   void _onTagInputChanged() {
@@ -473,7 +485,10 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
 
   Future<void> _confirm() async {
     final pending = _tagInput.text.trim();
-    final tags = (pending.isEmpty || _tags.contains(pending))
+    final tags =
+        (pending.isEmpty ||
+            _tags.contains(pending) ||
+            _tags.length >= kMaxBookmarkTags)
         ? _tags
         : [..._tags, pending];
     // The sheet may close during the submit: everything after the await
@@ -541,7 +556,11 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
 
   void _addTag(String raw) {
     final tag = raw.trim();
-    if (tag.isEmpty || _tags.contains(tag)) return;
+    if (tag.isEmpty ||
+        _tags.contains(tag) ||
+        _tags.length >= kMaxBookmarkTags) {
+      return;
+    }
     setState(() => _tags = [..._tags, tag]);
     _tagInput.clear();
   }
@@ -776,60 +795,15 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                                   child: AppSpinner(size: 24, strokeWidth: 2),
                                 ),
                               )
-                          else ...[
-                            if (_tags.isNotEmpty)
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: [
-                                  for (final tag in _tags)
-                                    InputChip(
-                                      label: Text(tag),
-                                      onDeleted: () => _removeTag(tag),
-                                    ),
-                                ],
-                              ),
-                            TextField(
-                              controller: _tagInput,
-                              decoration: InputDecoration(
-                                hintText: l10n.bookmarkTagNewHint,
-                                isDense: true,
-                              ),
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: _addTag,
+                          else
+                            BookmarkTagEditorBody(
+                              selectedTags: _tags,
+                              tagInput: _tagInput,
+                              workTags: _workTags,
+                              suggestions: suggestions,
+                              onAddTag: _addTag,
+                              onRemoveTag: _removeTag,
                             ),
-                            switch (suggestions) {
-                              AsyncData(:final value) when value.isNotEmpty =>
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: FuncSpacing.md),
-                                    Text(
-                                      l10n.bookmarkTagSuggestions,
-                                      style: FuncSemanticTokens.of(
-                                        context,
-                                      ).caption,
-                                    ),
-                                    const SizedBox(height: FuncSpacing.xs),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 4,
-                                      children: [
-                                        for (final suggestion in value)
-                                          if (!_tags.contains(suggestion.name))
-                                            AppChoiceChip.toggle(
-                                              label: Text(suggestion.name),
-                                              selected: false,
-                                              onChanged: (_) =>
-                                                  _addTag(suggestion.name),
-                                            ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              _ => const SizedBox.shrink(),
-                            },
-                          ],
                         ],
                       ),
                     ),

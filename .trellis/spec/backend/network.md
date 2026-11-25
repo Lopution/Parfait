@@ -8,7 +8,7 @@ applies_to:
   - lib/core/platform/local_network.dart
   - lib/core/platform/network_identity.dart
   - lib/core/settings/image_mirror.dart
-reviewed: 2026-11-21
+reviewed: 2026-11-25
 ---
 
 # Network policy, auth and transfers
@@ -59,22 +59,22 @@ reviewed: 2026-11-21
 - **Code:** `lib/core/network/compat/origin_refresh.dart`, `lib/core/network/compat/network_fast_route_store.dart`, `lib/core/network/compat/network_policy.dart`
 
 ### NET-19 A network is its carrier or its link
-- **Rule:** Network identity keys route memory, scoreboards, and auto image source. On Android it tracks the default network callback on the main looper (`mobile:<MCC+MNC>`, `wifi:<hash>` of IPv6 /32 or gateways+DNS, `vpn`, `none`, or bare `wifi`/`mobile`); elsewhere it uses `connectivity_plus`. Every identity change (including data-SIM switches) advances the network revision.
-- **Why:** Collapsing all carriers into `mobile` mixed opposite route winners.
-- **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/NetworkIdentityChannelTest.kt` "the kind and the data SIM's operator name the network" "a local link is named by its provider's IPv6 block, else by its router", `test/restricted_compat_network_test.dart` "on Android a data-SIM switch is a network change" "on Windows a failed first look still follows network changes"
-- **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait/NetworkIdentityChannel.kt`, `lib/core/platform/network_identity.dart`, `lib/core/network/compat/network_providers.dart`
+- **Rule:** Network identity keys route memory, scoreboards, and auto image source. On Android it tracks the default network callback on the main looper (`mobile:<MCC+MNC>`, `wifi:<hash>` of IPv6 /32 or gateways+DNS, `vpn`, `none`, or bare `wifi`/`mobile`); elsewhere it uses `connectivity_plus`. When the first online identity arrives at cold start (`0/initial` → first non-`none` identity), `bindInitialNetworkIdentity` re-keys pooled clients, route memory, and DoH/ECH caches in place without closing warm pools or bumping the revision; every subsequent identity change (including data-SIM switches and offline transitions) advances the network revision.
+- **Why:** Collapsing all carriers into `mobile` mixed opposite route winners, while bumping revision on the first startup connectivity callback tore down warm cold-start pools and duplicated DNS/ECH queries.
+- **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/NetworkIdentityChannelTest.kt` "the kind and the data SIM's operator name the network" "a local link is named by its provider's IPv6 block, else by its router", `test/restricted_compat_network_test.dart` "on Android a data-SIM switch is a network change" "on Windows a failed first look still follows network changes" "bindInitialNetworkIdentity rebinds revision 0 in place without closing pools"
+- **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait/NetworkIdentityChannel.kt`, `lib/core/platform/network_identity.dart`, `lib/core/network/compat/network_providers.dart`, `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/secure_resolver.dart`
 
 ### NET-22 The auto source measures each network rarely
-- **Rule:** Auto image-source mode applies the network's remembered winner immediately. Missing winners race immediately; winners older than 24 h (or without timestamp) race once 30 s after seeing the network, replacing the winner only if >= 1/0.85x faster or the winner failed. A winner failing all tiers falls back to direct and races immediately (or after 30 s cooldown). Network changes cancel pending races and discard cross-network results.
-- **Why:** Racing on every launch stalled the first screen with cold ECH lookups and flipped sources across launches.
+- **Rule:** Auto image-source startup waits for both settings load and the first connectivity identity (or a 500 ms fallback) before notifying `AutoSourceSelector`, avoiding premature `'initial'` races. Remembered winners apply immediately; missing winners race immediately; winners older than 24 h (or without timestamp) race once 30 s after seeing the network, replacing the winner only if >= 1/0.85x faster or the winner failed. A winner failing all tiers falls back to direct and races immediately (or after 30 s cooldown). Network changes and dispose cancel in-flight races via `NetworkCancelSignal` and discard cross-network results.
+- **Why:** Racing on every launch or before the first connectivity event arrived stalled the first screen with cold ECH lookups and flipped sources across launches.
 - **Check:** `test/restricted_compat_image_test.dart` "no winner remembered: the race runs at once and applies; an " "a stale winner applies at once, races after the deferral and " "a race replaces a winner it beats by 15 % or that failed" "a network change drops the old network's pending race; a " "the winner persists scoped to the network identity"
 - **Code:** `lib/core/network/compat/auto_image_source.dart`, `lib/core/network/compat/network_providers.dart`
 
 ### NET-05 Image and download exits use HTTP/1.1
-- **Rule:** Image and download exits use HTTP/1.1 (one connection per transfer, connect budget + idle guard, no total timeout); other exits negotiate ALPN. Idle timeouts propagate to post-`listen` handlers (so `drain()` ends on stalls), survive non-terminal errors, and forward unhandled errors to the listener's zone. Headers timeout, idle timeout, or reader cancel aborts the underlying request; raced losers drain with errors ignored.
-- **Why:** Shared HTTP/2 connections suffered head-of-line stalls, and un-aborted stalled bodies leaked rhttp sockets.
+- **Rule:** Image and download exits use HTTP/1.1 streaming (one connection per transfer, connect budget + lazy monotonic idle guard, no total timeout); non-streaming exits (API/OAuth/web) negotiate ALPN and buffer response bytes in one FFI call (`RhttpClient.requestBytes` with `throwOnStatusCode: false`). Idle timeouts propagate to post-`listen` handlers (so `drain()` ends on stalls), survive non-terminal errors, and forward unhandled errors to the listener's zone. Headers timeout, idle timeout, or reader cancel aborts the underlying request; raced losers cancel immediately (`stream.listen(null).cancel().ignore()`) rather than draining remaining bytes.
+- **Why:** Shared HTTP/2 connections suffered head-of-line stalls, un-aborted stalled bodies leaked rhttp sockets, per-chunk timer churn and streamed API responses added FFI overhead, and draining losing raced mirror bodies wasted bandwidth.
 - **Check:** `test/rhttp_client_factory_test.dart` "image exits use HTTP/1.1, every other exit negotiates" "streaming exits carry no total timeout", `test/restricted_compat_image_test.dart` "send() surfaces a headers timeout for image clients, aborting" "the response body errors after an idle gap" "a body that errs and goes on still times out" "an idle timeout nobody handles reaches the zone" "an abandoned body aborts its request"
-- **Code:** `lib/core/network/compat/rhttp_client_factory.dart`
+- **Code:** `lib/core/network/compat/rhttp_client_factory.dart`, `lib/core/network/compat/network_policy_idle_guard.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ## Failures and replay
 
@@ -109,10 +109,10 @@ reviewed: 2026-11-21
 - **Code:** `lib/core/network/pixiv_http_client.dart`
 
 ### NET-17 A blocked local address fails before connecting
-- **Rule:** On Android 17, user-configured hosts resolving to local networks request `ACCESS_LOCAL_NETWORK` via the system dialog once per host set; while pending or denied, policy, DoH, LLM, and login WebView fail immediately with `LocalNetworkBlocked` (`ErrorCategory.localNetwork`) without connecting. Built-in hosts are never checked. Known gap: requests are not held back while the first check after settings load or change runs (at most 3 s).
-- **Why:** User decision: fail immediately with the system permission dialog rather than hanging until TCP timeout.
-- **Check:** `test/local_network_test.dart` "configured local hosts ask once; denied, none connects", `test/doh_resolver_test.dart` "a blocked local endpoint is skipped without a request"
-- **Code:** `lib/core/platform/local_network.dart`, `lib/core/network/local_network_address.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/LocalNetworkChannel.kt`
+- **Rule:** On Android 17, user-configured hosts resolving to local networks request `ACCESS_LOCAL_NETWORK` via the system dialog once per host set; while pending or denied, policy, DoH, ECH, LLM, and login WebView fail immediately with `LocalNetworkBlocked` (`ErrorCategory.localNetwork`) without connecting. DoH and ECH endpoints also require HTTPS without userinfo or loopback/localhost hosts and enforce `blockedHosts` on both DoH and ECH queries before sending. Built-in hosts are never checked. Known gap: requests are not held back while the first check after settings load or change runs (at most 3 s).
+- **Why:** User decision: fail immediately with the system permission dialog rather than hanging until TCP timeout; unvalidated DoH/ECH overrides could downgrade DNS to HTTP or probe loopback/blocked local hosts.
+- **Check:** `test/local_network_test.dart` "configured local hosts ask once; denied, none connects", `test/doh_resolver_test.dart` "a blocked local endpoint is skipped without a request" "rejects http, userinfo, and loopback endpoints and blocks ECH hosts"
+- **Code:** `lib/core/platform/local_network.dart`, `lib/core/network/local_network_address.dart`, `lib/core/network/compat/secure_resolver.dart`, `lib/core/settings/network_endpoint_validation.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/LocalNetworkChannel.kt`
 
 ### NET-18 A cancelled body's late error is dropped
 - **Rule:** The image idle guard drops late cancel errors from rhttp streams and resolves `cancel()` immediately without waiting on Rust; any other rhttp body cancel wraps `cancel()` in `try` or `.ignore()`, never `unawaited`.
@@ -129,7 +129,7 @@ reviewed: 2026-11-21
 - **Code:** `lib/core/network/http_client_providers.dart`, `lib/core/network/compat/pixiv_network_factory.dart`
 
 ### NET-12 The image worker never persists routes
-- **Rule:** The worker reports learned routes, score samples, range marks, and discoveries tagged with their network identity back to the main isolate (sole preference writer); worker configs seed new workers, with fresh worker discoveries outranking stale config.
+- **Rule:** The worker reports learned routes, score samples, range marks, and discoveries tagged with their network identity back to the main isolate (sole preference writer); worker configs seed new workers (including any live in-memory ECH config seed from the main policy so the worker avoids redundant cold-start ECH DoH lookups), with fresh worker discoveries outranking stale config.
 - **Why:** Cross-isolate preference writes clobbered each other; main-isolate downloads reuse worker-learned routes.
 - **Check:** `test/image_worker_host_test.dart` "route samples go back to the main isolate under their network", `test/route_discovery_test.dart` "the worker sends its discoveries home, and a config sent before "
 - **Code:** `lib/core/image/image_worker_host.dart`, `lib/core/image/image_worker_providers.dart`, `lib/core/network/compat/route_kind_store.dart`, `lib/core/network/compat/image_route_score_store.dart`

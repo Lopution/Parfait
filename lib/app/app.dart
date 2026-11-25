@@ -45,6 +45,7 @@ import 'theme/system_colors.dart';
 import 'window/desktop_command_bar.dart';
 import 'window/desktop_menu_bar.dart';
 import 'window/desktop_title_bar.dart';
+import 'window/desktop_workspace_tabs.dart';
 import 'touch_exploration_scope.dart';
 import 'widgets/errors/error_details.dart';
 import 'widgets/prompt_host.dart';
@@ -447,6 +448,8 @@ class AppChrome extends ConsumerStatefulWidget {
 class _AppChromeState extends ConsumerState<AppChrome> {
   final DesktopSystemBarsController _systemBars = DesktopSystemBarsController();
   final DesktopCommandBarController _commandBar = DesktopCommandBarController();
+  final DesktopWorkspaceTabsController _workspaceTabs =
+      DesktopWorkspaceTabsController(pageBuilder: buildDesktopWorkspaceTabPage);
   final GlobalKey _routerSubtreeKey = GlobalKey();
   bool _isPreHome = false;
   bool _preHomeRebuildPending = false;
@@ -489,6 +492,8 @@ class _AppChromeState extends ConsumerState<AppChrome> {
   @override
   void dispose() {
     widget.router.routerDelegate.removeListener(_onRouterChanged);
+    _workspaceTabs.detachIfActive();
+    _workspaceTabs.dispose();
     _commandBar.dispose();
     _systemBars.dispose();
     super.dispose();
@@ -508,6 +513,11 @@ class _AppChromeState extends ConsumerState<AppChrome> {
         (platform == TargetPlatform.windows ||
             platform == TargetPlatform.macOS ||
             platform == TargetPlatform.linux);
+    if (usesCommandBar) {
+      _workspaceTabs.attachAsActive();
+    } else {
+      _workspaceTabs.detachIfActive();
+    }
     return DesktopWindowFrame(
       suppressOverlayBar: usesCommandBar,
       // Above the bridge so intent failures can prompt from its own context;
@@ -557,46 +567,55 @@ class _AppChromeState extends ConsumerState<AppChrome> {
   }) {
     final chrome = DesktopChromeMetrics.maybeOf(frameContext);
     final isFullScreen = chrome?.isFullScreen ?? false;
-    return DesktopMenuBar(
-      settings: widget.settings,
-      router: widget.router,
-      destinations: shownDestinations,
-      child: ValueListenableBuilder<bool>(
-        valueListenable: _commandBar.hidden,
-        builder: (context, commandBarHidden, _) {
-          final showCommandBar = !isFullScreen && !commandBarHidden;
-          return DesktopCommandBarScope(
-            active: showCommandBar && !_isPreHome,
-            controller: _commandBar,
-            child: Overlay.wrap(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (showCommandBar)
-                    DesktopCommandBar(
-                      settings: widget.settings,
-                      router: widget.router,
-                    ),
-                  Expanded(
-                    // Isolate Router's ModalBarrier BlockSemantics so earlier
-                    // sibling DesktopCommandBar stays reachable.
-                    child: Semantics(
-                      container: true,
-                      explicitChildNodes: true,
-                      child: Builder(
-                        builder: (contentContext) => _buildRoutedDesktopContent(
-                          contentContext,
-                          commandBarHidden: commandBarHidden,
-                          showCommandBar: showCommandBar,
+    return DesktopWorkspaceTabsScope(
+      controller: _workspaceTabs,
+      child: DesktopMenuBar(
+        settings: widget.settings,
+        router: widget.router,
+        destinations: shownDestinations,
+        child: ValueListenableBuilder<bool>(
+          valueListenable: _commandBar.hidden,
+          builder: (context, commandBarHidden, _) {
+            final showCommandBar = !isFullScreen && !commandBarHidden;
+            return DesktopCommandBarScope(
+              active: showCommandBar && !_isPreHome,
+              controller: _commandBar,
+              child: Overlay.wrap(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (showCommandBar)
+                      DesktopCommandBar(
+                        settings: widget.settings,
+                        router: widget.router,
+                      ),
+                    if (showCommandBar && !_isPreHome)
+                      DesktopWorkspaceTabStrip(controller: _workspaceTabs),
+                    Expanded(
+                      // Isolate Router's ModalBarrier BlockSemantics so earlier
+                      // sibling DesktopCommandBar stays reachable.
+                      child: Semantics(
+                        container: true,
+                        explicitChildNodes: true,
+                        child: DesktopWorkspaceTabHost(
+                          controller: _workspaceTabs,
+                          rootChild: Builder(
+                            builder: (contentContext) =>
+                                _buildRoutedDesktopContent(
+                                  contentContext,
+                                  commandBarHidden: commandBarHidden,
+                                  showCommandBar: showCommandBar,
+                                ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

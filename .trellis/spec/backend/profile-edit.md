@@ -3,7 +3,7 @@ prefix: PROF
 applies_to:
   - lib/core/profile/**
   - lib/features/profile/profile_edit_page.dart
-reviewed: 2026-10-29
+reviewed: 2026-11-25
 ---
 
 # Profile editing
@@ -49,15 +49,20 @@ reviewed: 2026-10-29
   the edited user (`<uid>_<hash>`, `webSessionUserId`); anything else
   (none, anonymous bare hex, another user, two values) gets the App API
   channel (`v1/user/profile/edit`, no background image). The web save
-  re-checks the cookie it sends. It caches each adapter for the
-  provider's life. Editing is a native form; never open a profile-edit
-  WebView.
+  re-checks the cookie it sends, and `IllustDetailRepository.fetchPageDimensions`
+  applies the same `webSessionUserId` check so `PHPSESSID` is attached only
+  when it matches the active account's `userId`. `LoginWebViewPage` clears
+  Pixiv auth cookies (`clearPixivAuthSession`) before loading the authorize
+  URL. It caches each adapter for the provider's life. Editing is a native
+  form; never open a profile-edit WebView.
 - **Why:** The OAuth login does not reliably plant a web cookie, which made
   the editor permanently unavailable; a fresh adapter per call lost the
   draft the post-save fallback needs. The jar is shared and outlives
-  account switches: editing account B rewrote account A's profile.
-- **Check:** `test/web_profile_repository_test.dart` "a session counts only when one signed-in PHPSESSID names the user" "another account's web session sends the editor to the App API" "keeps the local draft when App API refresh fails after save", `test/app_api_profile_edit_test.dart` "capabilities advertise the app-api channel and fields"
-- **Code:** `lib/core/profile/profile_edit_repository.dart`, `lib/core/profile/web_profile_session.dart`
+  account switches: editing account B rewrote account A's profile, and
+  stale cookies could cross-send `PHPSESSID` on page-dimension fetches or
+  auto-authorize the previous account during login.
+- **Check:** `test/web_profile_repository_test.dart` "a session counts only when one signed-in PHPSESSID names the user" "another account's web session sends the editor to the App API" "keeps the local draft when App API refresh fails after save", `test/app_api_profile_edit_test.dart` "capabilities advertise the app-api channel and fields", `test/illust_detail_controller_test.dart` "fetchPageDimensions sends PHPSESSID only when it matches the active userId", `test/login_navigation_test.dart` "clears Pixiv auth cookies before initial login load"
+- **Code:** `lib/core/profile/profile_edit_repository.dart`, `lib/core/profile/web_profile_session.dart`, `lib/core/illust/illust_detail_repository.dart`, `lib/features/login/login_webview_page.dart`
 
 ### PROF-05 The web save posts the complete merged profile
 - **Rule:** The web channel reads the CSRF token from the settings page and

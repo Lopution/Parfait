@@ -433,7 +433,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _scheduleLayout(force: true);
+      // Only relayout if viewport, typography, or content actually changed;
+      // forcing a relayout on every app resume stalls returning readers.
+      _scheduleLayout();
     }
   }
 
@@ -1051,22 +1053,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       chapterId: null,
       pageIndex: _reader.currentPage,
     );
-    try {
-      final result = await _layoutEngine.layoutDocumentCancellable(
-        document: document,
-        contentVersion: widget.novel.contentVersion,
-        viewport: viewport,
-        style: _style,
-        textColor: widget.textColor ?? Theme.of(context).colorScheme.onSurface,
-        brightness: brightness,
-        textDirection: direction,
-        textScaler: _requestedTextScaler ?? TextScaler.noScaling,
-        translations: widget.translations,
-        titleBlock: widget.titleBlock,
-        cancelToken: layoutContext.cancelToken,
-        budget: widget.budget,
-        jumpLabel: context.l10n.novelJumpToPage,
-      );
+    void commitLayout(NovelLayout result) {
       _commitGate.commit(
         layoutContext,
         contentVersion: widget.novel.contentVersion,
@@ -1169,6 +1156,28 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           });
         },
       );
+    }
+
+    try {
+      final result = await _layoutEngine.layoutDocumentCancellable(
+        document: document,
+        contentVersion: widget.novel.contentVersion,
+        viewport: viewport,
+        style: _style,
+        textColor: widget.textColor ?? Theme.of(context).colorScheme.onSurface,
+        brightness: brightness,
+        textDirection: direction,
+        textScaler: _requestedTextScaler ?? TextScaler.noScaling,
+        translations: widget.translations,
+        titleBlock: widget.titleBlock,
+        cancelToken: layoutContext.cancelToken,
+        budget: widget.budget,
+        jumpLabel: context.l10n.novelJumpToPage,
+        priorityAnchor: _liveAnchor ?? widget.initialAnchor,
+        onPreliminary: commitLayout,
+        preliminaryPrefixOnly: true,
+      );
+      commitLayout(result);
     } on ApiCancelled {
       // A newer viewport/style calculation owns the reader now.
     } catch (error) {

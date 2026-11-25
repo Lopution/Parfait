@@ -42,21 +42,24 @@ class _NovelStore extends Notifier<Map<int, NovelEntity>> {
           restrict: null,
         ),
     ]);
-    final next = Map<int, NovelEntity>.of(state);
+    Map<int, NovelEntity>? next;
     for (final entity in entities) {
       final bookmarkAuthority = bookmarks
           .entryOf(BookmarkKey(BookmarkEntityType.novel, entity.id))
           ?.bookmarked;
-      final existing = next[entity.id];
+      final existing = (next ?? state)[entity.id];
       if (existing == null) {
-        next[entity.id] = bookmarkAuthority == null
+        final resolved =
+            bookmarkAuthority == null ||
+                bookmarkAuthority == entity.isBookmarked
             ? entity
             : entity.copyWith(isBookmarked: bookmarkAuthority);
+        (next ??= Map<int, NovelEntity>.of(state))[entity.id] = resolved;
         continue;
       }
       // Metadata feeds do not contain body content. A preview must never
       // erase a body already loaded by the reader.
-      next[entity.id] = entity.copyWith(
+      final merged = entity.copyWith(
         paragraphs: entity.contentAvailable
             ? entity.paragraphs
             : existing.paragraphs,
@@ -81,14 +84,65 @@ class _NovelStore extends Notifier<Map<int, NovelEntity>> {
         isBookmarked:
             bookmarkAuthority ?? (entity.isBookmarked || existing.isBookmarked),
       );
+      if (!_sameNovel(existing, merged)) {
+        (next ??= Map<int, NovelEntity>.of(state))[entity.id] = merged;
+      }
     }
-    state = next;
+    if (next != null) state = next;
+  }
+
+  static bool _sameNovel(NovelEntity a, NovelEntity b) =>
+      identical(a, b) ||
+      (a.id == b.id &&
+          a.title == b.title &&
+          a.caption == b.caption &&
+          a.textLength == b.textLength &&
+          a.user.id == b.user.id &&
+          a.user.name == b.user.name &&
+          a.user.account == b.user.account &&
+          a.user.profileImageUrl == b.user.profileImageUrl &&
+          a.user.isFollowed == b.user.isFollowed &&
+          a.seriesId == b.seriesId &&
+          a.seriesTitle == b.seriesTitle &&
+          a.seriesPrevId == b.seriesPrevId &&
+          a.seriesNextId == b.seriesNextId &&
+          a.coverImageUrl == b.coverImageUrl &&
+          a.restrict == b.restrict &&
+          a.xRestrict == b.xRestrict &&
+          a.isOriginal == b.isOriginal &&
+          a.isBookmarked == b.isBookmarked &&
+          a.totalBookmarks == b.totalBookmarks &&
+          a.totalView == b.totalView &&
+          a.totalComments == b.totalComments &&
+          a.visible == b.visible &&
+          a.isMuted == b.isMuted &&
+          a.isMyPixivOnly == b.isMyPixivOnly &&
+          a.isXRestricted == b.isXRestricted &&
+          a.novelAiType == b.novelAiType &&
+          a.createDate == b.createDate &&
+          a.markerPage == b.markerPage &&
+          a.contentAvailable == b.contentAvailable &&
+          a.contentVersion == b.contentVersion &&
+          a.tags.length == b.tags.length &&
+          a.paragraphs.length == b.paragraphs.length &&
+          a.embeddedImages.length == b.embeddedImages.length &&
+          a.embeddedIllustThumbs.length == b.embeddedIllustThumbs.length &&
+          _sameTags(a.tags, b.tags));
+
+  static bool _sameTags(List<NovelTag> a, List<NovelTag> b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].name != b[i].name ||
+          a[i].translatedName != b[i].translatedName) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Applies a confirmed bookmark change from the shared BookmarkStore.
   void updateBookmark(int id, bool bookmarked) {
     final existing = state[id];
-    if (existing != null) {
+    if (existing != null && existing.isBookmarked != bookmarked) {
       state = {...state, id: existing.copyWith(isBookmarked: bookmarked)};
     }
   }
@@ -97,7 +151,7 @@ class _NovelStore extends Notifier<Map<int, NovelEntity>> {
   /// none, once the account has it.
   void updateMarker(int id, int? page) {
     final entity = state[id];
-    if (entity == null) return;
+    if (entity == null || entity.markerPage == page) return;
     state = {...state, id: entity.copyWith(markerPage: page)};
   }
 

@@ -83,6 +83,7 @@ class _HeldRawSinks extends MemorySinkFactory {
     required String mimeType,
     required DownloadDestination destination,
     DownloadOutputOwner? owner,
+    List<String> subdirectories = const [],
   }) async {
     await gate.future;
     return super.beginRaw(
@@ -90,6 +91,7 @@ class _HeldRawSinks extends MemorySinkFactory {
       mimeType: mimeType,
       destination: destination,
       owner: owner,
+      subdirectories: subdirectories,
     );
   }
 }
@@ -126,13 +128,14 @@ void main() {
 
       expect(result.truncated, isFalse);
       expect([for (final w in result.works) w.id], [1, 3, 4]);
+      expect([for (final w in result.ugoiraWorks) w.id], [2]);
       // Cursors chain per type; both types are enumerated.
       expect(repository.calls, [
         ('illust', null),
         ('illust', '2'),
         ('manga', null),
       ]);
-      expect(progress, [1, 2, 3]);
+      expect(progress, [2, 3, 4]);
     });
 
     test('stops at the hard cap and reports truncation', () async {
@@ -317,5 +320,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('确定'), findsOneWidget);
     });
+
+    testWidgets(
+      'author bulk dialog separates ugoira works and supports opt-in GIF export',
+      (tester) async {
+        final repository = _WorksPages()
+          ..script('illust', [
+            [_work(10, type: 'ugoira')],
+          ])
+          ..script('manga', [[]]);
+        final (_, manager) = await pumpDialog(tester, repository);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('动图'), findsWidgets);
+        // Ugoira-only author requires opting in before Confirm enables.
+        expect(
+          tester
+              .widget<FilledButton>(find.widgetWithText(FilledButton, '确定'))
+              .onPressed,
+          isNull,
+        );
+        await tester.tap(find.textContaining('包含动图作品'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('确定'));
+        await tester.pump();
+        sinks.gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(await dialogResult, 1);
+        expect(manager.tasks.single.target, 'ugoiraGif');
+        expect(manager.tasks.single.displayName, '10.gif');
+      },
+    );
   });
 }

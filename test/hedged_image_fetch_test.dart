@@ -298,4 +298,23 @@ void main() {
       expect(worker.scheduler.inFlight, 0);
     });
   });
+
+  test(
+    'lazy monotonic timer resets across chunk bursts and stalls on time',
+    () {
+      fakeAsync((async) {
+        final worker = _Worker(async);
+        worker.fetch('a');
+        final first = worker.sends['a']!.single..answer();
+        for (var i = 0; i < 6; i++) {
+          worker.elapse(800);
+          first.send([i]);
+        }
+        // Still active after 4.8s because chunks kept arriving < 2s apart.
+        expect(worker.sends['a'], hasLength(1));
+        worker.elapse(2000);
+        expect(worker.sends['a'], hasLength(2));
+      });
+    },
+  );
 }

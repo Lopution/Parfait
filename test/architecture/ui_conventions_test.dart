@@ -103,6 +103,7 @@ const _appFilledStates = <String, Set<String>>{
   },
   'lib/app/widgets/shell_rail.dart': {'heartFilled', 'settingsFilled'},
   'lib/app/widgets/tag_chips.dart': {'banFilled'},
+  'lib/features/illust/viewer/image_viewer_actions.dart': {'heartFilled'},
   'lib/features/illust/viewer/image_viewer_page.dart': {'infoFilled'},
   'lib/features/settings/me_dashboard_page.dart': {
     'heartFilled',

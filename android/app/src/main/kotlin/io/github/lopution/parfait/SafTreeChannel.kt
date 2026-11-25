@@ -26,7 +26,13 @@ import java.util.UUID
  * is not persisted on SAF documents today.
  */
 internal interface SafTreeOperations {
-    fun create(treeUri: String, displayName: String, mimeType: String, staged: Boolean): String
+    fun create(
+        treeUri: String,
+        displayName: String,
+        mimeType: String,
+        staged: Boolean,
+        subdirectories: List<String> = emptyList(),
+    ): String
 
     fun write(uri: String, bytes: ByteArray)
 
@@ -50,6 +56,9 @@ internal class DocumentTooLargeException(maxBytes: Long) :
 internal interface SafDocumentProvider {
     /** The document URI of [treeUri]'s root: the parent `createDocument` needs. */
     fun treeRootDocument(treeUri: String): String
+
+    /** Existing child directory URI named [displayName] under [parentUri], or null. */
+    fun findChildDirectory(treeUri: String, parentUri: String, displayName: String): String? = null
 
     fun createDocument(parentUri: String, mimeType: String, displayName: String): String?
 }
@@ -157,7 +166,16 @@ object SafTreeChannel {
                         call, result, "mimeType", PREFIX,
                     ) ?: return
                     val staged = call.argument<Boolean>("staged") ?: false
-                    result.success(ops.create(treeUri, displayName, mimeType, staged))
+                    val rawSubdirs = call.argument<List<*>>("subdirectories")
+                    val subdirectories = if (rawSubdirs == null) {
+                        emptyList()
+                    } else {
+                        rawSubdirs.map { item ->
+                            (item as? String)
+                                ?: throw IllegalArgumentException("subdirectory must be a string")
+                        }
+                    }
+                    result.success(ops.create(treeUri, displayName, mimeType, staged, subdirectories))
                 }
                 "write" -> {
                     val uri = ChannelArgs.requiredString(call, result, "uri", PREFIX) ?: return
@@ -260,9 +278,10 @@ object SafTreeChannel {
     }
 
     /**
-     * Creates the document under the tree's root document and returns its
-     * URI. D8: staged downloads land under `<name>.part` and only get the
-     * final display name when [finalizeDocument] renames on commit.
+     * Creates the document under the tree's root document (or nested relative
+     * [subdirectories], creating missing child folders along the way) and
+     * returns its URI. D8: staged downloads land under `<name>.part` and only
+     * get the final display name when [finalizeDocument] renames on commit.
      */
     internal fun createInTree(
         provider: SafDocumentProvider,
@@ -270,11 +289,31 @@ object SafTreeChannel {
         displayName: String,
         mimeType: String,
         staged: Boolean,
+        subdirectories: List<String> = emptyList(),
     ): String {
         require(displayName.isNotEmpty() && displayName.length <= 255)
         require(!displayName.contains('/') && !displayName.contains('\\'))
         require(mimeType.isNotEmpty())
-        val parent = provider.treeRootDocument(treeUri)
+        var parent = provider.treeRootDocument(treeUri)
+        for (segment in subdirectories) {
+            require(
+                segment.isNotEmpty() &&
+                    segment.length <= 128 &&
+                    segment != "." &&
+                    segment != ".." &&
+                    !segment.contains('/') &&
+                    !segment.contains('\\') &&
+                    !segment.contains("..") &&
+                    segment.none { it.code < 0x20 || it.code == 0x7f },
+            ) { "invalid SAF subdirectory segment: $segment" }
+            parent = provider.findChildDirectory(treeUri, parent, segment)
+                ?: provider.createDocument(
+                    parent,
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    segment,
+                )
+                ?: throw IllegalStateException("SAF createDirectory failed for $segment")
+        }
         return if (staged) {
             provider.createDocument(parent, STAGED_MIME, displayName + STAGED_SUFFIX)
         } else {
@@ -299,6 +338,36 @@ object SafTreeChannel {
             ).toString()
         }
 
+        override fun findChildDirectory(
+            treeUri: String,
+            parentUri: String,
+            displayName: String,
+        ): String? {
+            val tree = Uri.parse(treeUri)
+            val parentDocId = DocumentsContract.getDocumentId(Uri.parse(parentUri))
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentDocId)
+            val projection = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            )
+            context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+                val idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                val mimeIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                if (idIdx < 0 || nameIdx < 0 || mimeIdx < 0) return null
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(mimeIdx) == DocumentsContract.Document.MIME_TYPE_DIR &&
+                        cursor.getString(nameIdx) == displayName
+                    ) {
+                        val docId = cursor.getString(idIdx) ?: continue
+                        return DocumentsContract.buildDocumentUriUsingTree(tree, docId).toString()
+                    }
+                }
+            }
+            return null
+        }
+
         override fun createDocument(
             parentUri: String,
             mimeType: String,
@@ -321,9 +390,10 @@ object SafTreeChannel {
             displayName: String,
             mimeType: String,
             staged: Boolean,
+            subdirectories: List<String>,
         ): String = openCreated(
             context,
-            createInTree(provider, treeUri, displayName, mimeType, staged),
+            createInTree(provider, treeUri, displayName, mimeType, staged, subdirectories),
         )
 
         override fun write(uri: String, bytes: ByteArray) = writeDocument(uri, bytes)
@@ -474,9 +544,22 @@ object SafTreeChannel {
 
     /**
      * D8 staged commit: close the stream and rename `<name>.part` to the
-     * final display name. Documents without the `.part` suffix are
-     * already final — close and report their URI unchanged.
+     * final display name. Fails loudly when the display name cannot be read so
+     * a `.part` URI is never reported as a completed file.
      */
+    internal fun resolveFinalizedDocument(
+        uri: String,
+        displayName: String?,
+        rename: (finalName: String) -> String?,
+    ): String {
+        if (displayName.isNullOrBlank()) {
+            throw IllegalStateException("SAF finalize display name unavailable")
+        }
+        if (!displayName.endsWith(STAGED_SUFFIX)) return uri
+        return rename(displayName.removeSuffix(STAGED_SUFFIX))
+            ?: throw IllegalStateException("SAF rename failed")
+    }
+
     private fun finalizeDocument(context: android.content.Context, uri: String): String {
         streams.remove(uri)?.close()
         val parsed = Uri.parse(uri)
@@ -488,14 +571,14 @@ object SafTreeChannel {
             null,
         )?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
-        } ?: return uri
-        if (!name.endsWith(STAGED_SUFFIX)) return uri
-        val renamed = DocumentsContract.renameDocument(
-            context.contentResolver,
-            parsed,
-            name.removeSuffix(STAGED_SUFFIX),
-        ) ?: throw IllegalStateException("SAF rename failed")
-        return renamed.toString()
+        }
+        return resolveFinalizedDocument(uri, name) { finalName ->
+            DocumentsContract.renameDocument(
+                context.contentResolver,
+                parsed,
+                finalName,
+            )?.toString()
+        }
     }
 
     private fun clearPendingIfSame(expected: MethodChannel.Result) {

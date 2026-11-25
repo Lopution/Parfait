@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart' show MenuItemButton, ValueKey;
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
+import 'package:parfait/core/profile/web_profile_session.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/user/follow_models.dart';
 import 'package:parfait/core/user/user_entity.dart';
@@ -196,6 +197,32 @@ Future<UserRepository> userRepositoryOver(Map<String, ApiRoute> routes) async =>
     (await signedInApiContainer(
       PixivApi(routes).client,
     )).read(userRepositoryProvider);
+
+/// Shared test double for [WebProfileSession] (TEST-10).
+class FakeWebProfileSession implements WebProfileSession {
+  FakeWebProfileSession([this.cookie]);
+
+  String? cookie;
+  int clearCount = 0;
+  int clearAuthCount = 0;
+
+  @override
+  Future<String?> readSessionCookie() async => cookie;
+
+  @override
+  Future<bool> clearSession() async {
+    clearCount += 1;
+    cookie = null;
+    return true;
+  }
+
+  @override
+  Future<bool> clearPixivAuthSession() async {
+    clearAuthCount += 1;
+    cookie = null;
+    return true;
+  }
+}
 
 /// Answers the platform's pixiv.net session channel until the test ends:
 /// a session signed in as [userId], or none. Unanswered, its reply needs

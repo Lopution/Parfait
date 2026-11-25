@@ -583,9 +583,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         ])
           address.address: address,
       };
-      book = _originBooks[host] ??= _OriginBook(
+      book = _originBooks[host] ??= OriginBook(
         addresses.values.toList(growable: false),
-        health: _originHealth.putIfAbsent(host, _OriginHealth.new),
+        health: _originHealth.putIfAbsent(host, OriginHealth.new),
         clock: clock,
       );
     }
@@ -808,8 +808,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     switch (outcome) {
       case _RaceSuccess(value: final value):
         if (value is http.StreamedResponse) {
-          // Nobody waits for a loser's body: its idle timeout is no error.
-          value.stream.drain<void>().ignore();
+          // Abort the losing HTTP/1.1 transfer immediately instead of
+          // draining its remaining body chunks (NET-18).
+          value.stream.listen(null).cancel().ignore();
         }
       case _RaceFailure(:final route, :final error, :final latency):
         policyRecord(destination, route, error, latency);
@@ -880,7 +881,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         route.kind == NetworkRouteKind.ech &&
         existing?.kind == NetworkRouteKind.ech &&
         existing?.routeFor(_revision).key == route.key;
-    _routeMemory[host] = _HostRouteMemory(
+    _routeMemory[host] = HostRouteMemory(
       address,
       kind: route.kind,
       dnsSource: route.dnsSource,
@@ -900,7 +901,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           route.kind == NetworkRouteKind.ech &&
           current?.kind == NetworkRouteKind.ech &&
           current?.networkIdentity == _revision.networkIdentity;
-      _groupMemory[group] = _RouteGroupMemory(
+      _groupMemory[group] = RouteGroupMemory(
         kind: route.kind,
         ttl: route.ttl ?? _kRouteMemoryTtl,
         createdAt: keepEchGroupCreatedAt ? current!.createdAt : now,
@@ -1122,8 +1123,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         cancelSignal: cancelSignal,
       );
       if (resolved.host != echFrontHost ||
-          resolved.revision.value != _revision.value ||
-          resolved.revision.networkIdentity != _revision.networkIdentity) {
+          !_revisionMatches(resolved.revision)) {
         return null;
       }
       return resolved.addresses.where(isPublicNetworkAddress).firstOrNull;

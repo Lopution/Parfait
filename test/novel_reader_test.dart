@@ -1319,6 +1319,83 @@ void main() {
       expect(scrollHandle.currentPage!(), lessThan(totalScrollPages - 1));
     },
   );
+
+  test(
+    'progressive layout emits preliminary priority window and caches ruby boxes',
+    () async {
+      final paragraphs = [
+        for (var i = 0; i < 64; i++)
+          NovelParagraph(
+            id: 'p$i',
+            text: i == 50 ? '漢字テスト' : 'Line $i sample content for layout.',
+            inlineMarks: i == 50
+                ? const [
+                    NovelInlineMark(
+                      kind: 'rb',
+                      start: 0,
+                      end: 2,
+                      value: 'かんじ',
+                      raw: '[[rb:漢字 > かんじ]]',
+                    ),
+                  ]
+                : const [],
+          ),
+      ];
+      final preliminaries = <NovelLayout>[];
+      final engine = NovelLayoutEngine();
+      final full = await engine.layoutCancellable(
+        paragraphs: paragraphs,
+        contentVersion: 'prog-v1',
+        viewport: const Size(320, 480),
+        style: const NovelLayoutStyle(),
+        textColor: const Color(0xFF111111),
+        brightness: Brightness.light,
+        priorityAnchor: const NovelAnchor(paragraphId: 'p50', offset: 0),
+        onPreliminary: preliminaries.add,
+      );
+      expect(preliminaries, hasLength(1));
+      expect(preliminaries.single.isPreliminary, isTrue);
+      expect(
+        preliminaries.single.pages.any(
+          (p) => p.lines.any((l) => l.paragraphId == 'p50'),
+        ),
+        isTrue,
+      );
+      expect(full.isPreliminary, isFalse);
+      expect(
+        full.pages.length,
+        greaterThanOrEqualTo(preliminaries.single.pages.length),
+      );
+      final rubyLine = full.pages
+          .expand((p) => p.lines)
+          .firstWhere((l) => l.paragraphId == 'p50');
+      expect(rubyLine.rubies, hasLength(1));
+      expect(rubyLine.rubies.single.box, isNotNull);
+    },
+  );
+
+  testWidgets('app lifecycle resume skips redundant relayout when unchanged', (
+    tester,
+  ) async {
+    final engine = _CountingLayoutEngine();
+    await tester.pumpWidget(
+      ProviderScope(
+        child: localizedApp(
+          body: NovelReader(
+            novel: _novel('Resume check body.'),
+            layoutEngine: engine,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(engine.calls, 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(engine.calls, 1);
+  });
 }
 
 /// Records each document-layout invocation so tests can assert a retry
@@ -1342,6 +1419,9 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
     NovelJumpLabel? jumpLabel,
+    NovelAnchor? priorityAnchor,
+    void Function(NovelLayout preliminary)? onPreliminary,
+    bool preliminaryPrefixOnly = false,
   }) {
     calls += 1;
     return super.layoutDocumentCancellable(
@@ -1359,6 +1439,9 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
       budget: budget,
       onProgress: onProgress,
       jumpLabel: jumpLabel,
+      priorityAnchor: priorityAnchor,
+      onPreliminary: onPreliminary,
+      preliminaryPrefixOnly: preliminaryPrefixOnly,
     );
   }
 }

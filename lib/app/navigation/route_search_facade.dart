@@ -11,6 +11,7 @@ import '../../core/search/search_models.dart';
 import '../../core/search/search_shortcut.dart';
 import '../../l10n/context.dart';
 import '../widgets/app_snack_bar.dart';
+import '../window/desktop_workspace_tabs.dart';
 import 'docked_search_contract.dart';
 import 'route_extras.dart';
 import 'route_facade.dart';
@@ -36,6 +37,7 @@ Future<void> openSearchInput(
   SearchResultType type = SearchResultType.illust,
   Rect? Function()? anchor,
 }) async {
+  DesktopWorkspaceTabsController.active?.selectTab(0);
   final router = GoRouter.of(context);
   final root = stackRootOf(livePathOf(router));
   final trigger = anchor?.call();
@@ -91,6 +93,7 @@ Future<void> editSearchFromResults(
   IllustSearchFilters? initialIllustFilters,
   NovelSearchFilters? initialNovelFilters,
 }) async {
+  DesktopWorkspaceTabsController.active?.selectTab(0);
   final trigger = anchor?.call();
   if (trigger == null || !hasShellRail(context)) {
     return swapToSearchInput(
@@ -249,6 +252,7 @@ Future<void> openSearchResults(
     showAppSnackBar(context, context.l10n.searchInputEmpty);
     return;
   }
+  DesktopWorkspaceTabsController.active?.selectTab(0);
   final router = GoRouter.of(context);
   await _moveToSearchResults(
     router,
