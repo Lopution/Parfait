@@ -2,7 +2,7 @@
   "@@locale": "en",
   "networkDohEndpointsInvalid": "Invalid DoH endpoint list",
   "welcome1": "Thank you for using Parfait",
-  "welcome2": "Initial setup will begin now",
+  "welcome2": "Let’s set a few things up",
   "start": "Start",
   "selectLanguage": "Select your language",
   "next": "Next",
@@ -11,13 +11,13 @@
   "system": "System default",
   "loginTitle": "Register or log in",
   "loginProxyNoticeTitle": "Notice",
-  "loginProxyNoticeBody": "Because of network restrictions, turn on a system or external proxy before logging in or registering. Parfait does not include a built-in proxy.",
+  "loginProxyNoticeBody": "Due to network restrictions, enable a system or external proxy before signing in or registering. Parfait does not include a built-in proxy.",
   "loginProxyNoticeCancel": "Cancel",
   "loginProxyNoticeContinue": "I have enabled it",
   "register": "Register",
   "login": "Log in",
   "loginPageClosed": "The page was closed. Reopen it to try again.",
-  "loginCallbackInvalid": "Invalid login callback. Sign in again.",
+  "loginCallbackInvalid": "Invalid sign-in link or code. Please try again.",
   "loginNetworkError": "Network error (HTTP {status})",
   "@loginNetworkError": {
     "placeholders": {
@@ -33,9 +33,9 @@
   "loginRestart": "Log in again",
   "loginFailed": "Login failed",
   "loginExternalTitle": "Complete sign-in in browser",
-  "loginExternalDescription": "Finish signing in with your system browser, then paste the redirected pixiv:// URL or authorization code below.",
+  "loginExternalDescription": "After signing in to Pixiv in your browser, paste the redirected pixiv:// link or authorization code below.",
   "loginCallbackHint": "pixiv://account/login?code=… or authorization code",
-  "loginPasteCallback": "Paste callback or code",
+  "loginPasteCallback": "Paste sign-in link or code",
   "loginCompleteButton": "Complete sign-in",
   "loginBrowserLaunchFailed": "Could not open the system browser",
   "networkCompatibility": "Pixiv official network compatibility",
@@ -451,12 +451,12 @@
       }
     }
   },
-  "saveLocationUriCopied": "Folder URI copied",
+  "saveLocationUriCopied": "Folder link copied",
   "saveLocationDesktopFolder": "Default folder",
   "saveLocationDesktopDefaultFolder": "Parfait folder (default)",
   "saveLocationDesktopCustomSubfolder": "Custom subfolder name",
-  "saveLocationDesktopCustomFolder": "Custom directory (system folder picker)",
-  "saveLocationMacosBookmarkLabel": "Authorized folder (macOS sandbox bookmark)",
+  "saveLocationDesktopCustomFolder": "Custom folder",
+  "saveLocationMacosBookmarkLabel": "Authorized folder",
   "saveLocationPathCopied": "Folder path copied",
   "namingPreset": "File naming preset",
   "downloadGroupTasks": "Tasks",
@@ -518,7 +518,7 @@
   "translateIndexModel9B": "9B",
   "translateIndexModel35B": "35B-A3B",
   "translateIndexThinking": "Enable thinking",
-  "translateIndexThinkingHint": "Allows model reasoning output and may take longer",
+  "translateIndexThinkingHint": "Lets the model reason before translating; may take longer",
   "translateBaiduCredential": "Baidu AppID / secret",
   "translateLlmCredential": "LLM endpoint & key",
   "translateBaiduAppId": "AppID",
@@ -1312,7 +1312,7 @@
   "spotlightChallengeVerifying": "Verifying pixivision…",
   "spotlightChallengeManual": "pixivision needs a manual verification. Complete it below.",
   "spotlightChallengeFailed": "pixivision currently needs verification or a proxy",
-  "spotlightExternalBrowserHint": "In-app browser verification isn't available on this platform. Open the article in your browser instead.",
+  "spotlightExternalBrowserHint": "This page cannot be opened in-app here. Open it in your browser instead.",
   "spotlightCategoryAll": "All",
   "spotlightCategoryIllust": "Illustrations",
   "spotlightCategoryManga": "Manga",
@@ -1515,9 +1515,9 @@
   "ugoiraPlay": "Play animation",
   "ugoiraPause": "Pause animation",
   "ugoiraPlaybackSpeed": "Playback speed",
-  "loginWebViewStalled": "Sign-in page timed out. Open in a browser or paste a callback link or token.",
+  "loginWebViewStalled": "Sign-in page timed out. Open in a browser or paste a sign-in link or token.",
   "accountTransferExportToken": "Copy refresh_token",
-  "accountTransferTokenCopied": "refresh_token copied. Paste it soon; it is cleared when you return to Parfait after 5 minutes.",
+  "accountTransferTokenCopied": "refresh_token copied. Paste it soon; it clears automatically when you return to Parfait after 5 minutes.",
   "offlineQueueTitle": "Pending offline actions",
   "offlineQueuePendingCount": "{count} pending",
   "@offlineQueuePendingCount": {
@@ -1560,7 +1560,7 @@
   "shortcutArtworkZoom": "Zoom in / out / fit",
   "shortcutNovelToc": "Contents & progress",
   "shortcutNovelNavigate": "Turn page / Scroll",
-  "searchBookmarkLocalFilterHint": "Non-tag targets filter bookmark counts locally on loaded results",
+  "searchBookmarkLocalFilterHint": "Title and caption searches filter bookmarks locally on loaded results",
   "searchExcludeTag": "Exclude tag",
   "searchInsertOr": "Insert OR",
   "searchHistoryPin": "Pin",
@@ -1576,26 +1576,36 @@
   "downloadMultiPageSubfolder": "Subfolder for multi-page works",
   "downloadMultiPageSubfolderHint": "Place multi-page artworks into a subfolder named by artwork ID",
   "downloadPadPageNumbers": "Zero-pad page numbers",
-  "downloadPadPageNumbersHint": "Pad page and series indices to total digits (e.g. _p00, _p01) for lexical sorting",
+  "downloadPadPageNumbersHint": "Pad page numbers with leading zeros (e.g. _p00, _p01) so files stay in order",
   "downloadAuthorSubfolderToggle": "Save into artist subfolder",
-  "downloadAuthorConfirmBodyWithUgoira": "Queue {works} static works ({pages} pages) and {ugoira} ugoira works for download.",
+  "downloadAuthorConfirmBodyWithUgoira": "Add {works} artworks ({pages} pages) and {ugoira} ugoira to the download queue.",
   "@downloadAuthorConfirmBodyWithUgoira": {
     "placeholders": {
-      "works": {"type": "int"},
-      "pages": {"type": "int"},
-      "ugoira": {"type": "int"}
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      },
+      "ugoira": {
+        "type": "int"
+      }
     }
   },
-  "downloadAuthorIncludeUgoira": "Include ugoira works ({count}, export as GIF)",
+  "downloadAuthorIncludeUgoira": "Include ugoira ({count}, export as GIF)",
   "@downloadAuthorIncludeUgoira": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
-  "downloadAuthorUgoiraOnlyHint": "Only {count} ugoira works were found. Turn on the switch below to export them as GIFs.",
+  "downloadAuthorUgoiraOnlyHint": "This artist only has {count} ugoira works. Turn on the switch below to export them as GIFs.",
   "@downloadAuthorUgoiraOnlyHint": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "novelSaveOffline": "Save to offline library",
@@ -1605,26 +1615,34 @@
   "novelExportTxtQueued": "TXT export queued",
   "novelExportTxtShared": "TXT file shared",
   "novelExportTxtFailed": "TXT export failed",
-  "novelExportAndroidFolderRequired": "Exporting TXT on Android requires a custom folder destination",
+  "novelExportAndroidFolderRequired": "Choose a custom folder in Save location to export TXT files",
   "novelSeriesSaveOffline": "Save series offline",
   "novelSeriesExportTxt": "Export series TXT",
   "novelSeriesExportMerged": "Merge into one TXT",
   "novelSeriesExportSplit": "Export one TXT per chapter",
-  "novelSeriesSavedWithSkipped": "Saved {saved} chapters ({skipped} unavailable skipped)",
+  "novelSeriesSavedWithSkipped": "Saved {saved} episodes ({skipped} unavailable skipped)",
   "@novelSeriesSavedWithSkipped": {
     "placeholders": {
-      "saved": {"type": "int"},
-      "skipped": {"type": "int"}
+      "saved": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
-  "novelSeriesExportQueuedWithSkipped": "Queued {queued} chapters ({skipped} unavailable skipped)",
+  "novelSeriesExportQueuedWithSkipped": "Queued {queued} episodes ({skipped} unavailable skipped)",
   "@novelSeriesExportQueuedWithSkipped": {
     "placeholders": {
-      "queued": {"type": "int"},
-      "skipped": {"type": "int"}
+      "queued": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
-  "novelSeriesNoViewableChapters": "No viewable chapters in this series",
+  "novelSeriesNoViewableChapters": "No viewable episodes in this series",
   "openInNewTab": "Open in new tab",
   "workspaceRootTab": "Workspace",
   "windowCloseTab": "Close Tab",

@@ -12,10 +12,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkDohEndpointsInvalid => 'DoHエンドポイントリストが無効です';
 
   @override
-  String get welcome1 => 'Parfaitをご利用\nありがとうございます';
+  String get welcome1 => 'Parfait をご利用いただきありがとうございます';
 
   @override
-  String get welcome2 => '初期設定を開始します';
+  String get welcome2 => 'はじめに初期設定を行います';
 
   @override
   String get start => '開始';
@@ -61,7 +61,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginPageClosed => 'ページが閉じられました。再度開いてください。';
 
   @override
-  String get loginCallbackInvalid => 'ログインコールバックが無効です。もう一度ログインしてください';
+  String get loginCallbackInvalid => 'ログインURLまたはコードが無効です。もう一度お試しください';
 
   @override
   String loginNetworkError(String status) {
@@ -98,7 +98,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginCallbackHint => 'pixiv://account/login?code=… または認証コード';
 
   @override
-  String get loginPasteCallback => 'コールバックURL・コードを貼り付け';
+  String get loginPasteCallback => 'ログインURL・コードを貼り付け';
 
   @override
   String get loginCompleteButton => 'ログインを完了';
@@ -1058,7 +1058,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get saveLocationUriCopied => 'フォルダ URI をコピーしました';
+  String get saveLocationUriCopied => 'フォルダの場所をコピーしました';
 
   @override
   String get saveLocationDesktopFolder => 'デフォルトフォルダー';
@@ -1070,10 +1070,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get saveLocationDesktopCustomSubfolder => 'カスタムサブフォルダー名';
 
   @override
-  String get saveLocationDesktopCustomFolder => 'カスタムディレクトリ（システム選択）';
+  String get saveLocationDesktopCustomFolder => 'カスタムフォルダ';
 
   @override
-  String get saveLocationMacosBookmarkLabel => '許可済みフォルダー（macOS サンドボックスブックマーク）';
+  String get saveLocationMacosBookmarkLabel => '許可済みフォルダ';
 
   @override
   String get saveLocationPathCopied => 'フォルダーパスをコピーしました';
@@ -2514,7 +2514,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get translationCopied => '訳文をコピーしました';
 
   @override
-  String get commentEmoji => 'Emoji';
+  String get commentEmoji => '絵文字';
 
   @override
   String get commentSending => '送信中';
@@ -2525,7 +2525,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get commentStamps => 'Stamp';
+  String get commentStamps => 'スタンプ';
 
   @override
   String get commentPermissionDenied => '自分のコメントのみ削除できます';
@@ -3036,7 +3036,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String localNovelFileEncoding(String encoding) {
-    return 'エンコーディング: $encoding';
+    return 'エンコーディング：$encoding';
   }
 
   @override
@@ -3073,8 +3073,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get spotlightChallengeFailed => 'pixivision は現在、確認またはプロキシを必要としています';
 
   @override
-  String get spotlightExternalBrowserHint =>
-      'このプラットフォームではアプリ内ブラウザ検証を利用できません。外部ブラウザで開いてください。';
+  String get spotlightExternalBrowserHint => 'このページはアプリ内で開けません。ブラウザでご覧ください。';
 
   @override
   String get spotlightCategoryAll => 'すべて';
@@ -3461,7 +3460,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get loginWebViewStalled =>
-      'ログインページの読み込みがタイムアウトしました。ブラウザで開くか、コールバックまたはトークンを貼り付けてください。';
+      'ログインページの読み込みがタイムアウトしました。ブラウザで開くか、ログインURLまたはトークンを貼り付けてください。';
 
   @override
   String get accountTransferExportToken => 'refresh_token をコピー';
@@ -3672,7 +3671,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelExportAndroidFolderRequired =>
-      'Android で TXT を書き出すには、保存先としてカスタムフォルダを選択してください';
+      'TXT を書き出すには、保存先をカスタムフォルダに設定してください';
 
   @override
   String get novelSeriesSaveOffline => 'シリーズをオフライン保存';

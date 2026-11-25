@@ -16,12 +16,12 @@
 > [!NOTE]
 > Parfait is an unofficial client and is not affiliated with pixiv Inc. All works belong to their creators; downloads are for your personal collection, so please do not re-upload them or use them commercially.
 
-Parfait is an unofficial pixiv client for Android, rewritten from the discontinued open-source Pixiv Func. It aims to make browsing, novel reading and bulk downloads work in mainland China without keeping a proxy on.
+Parfait is an unofficial pixiv client for Android, rewritten from the discontinued open-source Pixiv Func. It lets you browse artwork, read novels, and batch-download in mainland China without keeping a proxy on.
 
-- **No proxy needed**: browsing and downloads need no proxy; only the first sign-in does (see [Signing in](#signing-in)). The image source defaults to **Auto**, which picks the fastest of pixiv's own servers and public mirrors on your current network, and when a connection fails, the built-in **Layered connectivity probe** shows where.
-- **Viewing and reading**: illustrations, manga, ugoira (savable as GIF) and novels. The novel reader shows inline illustrations, jumps between chapters, keeps pixiv markers in sync with your account and opens local TXT files. Tablets, foldables and phones in landscape get two-pane layouts.
-- **Bulk downloads**: download a selection or every work of an artist and name files with your own template; when you save to a folder, illustrations and manga can also get their captions in a TXT file alongside.
-- **No ads or analytics**: no ads, analytics or telemetry, and only the permissions the features need (see [FAQ](#faq)).
+- **No proxy needed**: daily browsing and downloads work without a proxy; only the first sign-in needs one (see [Signing in](#signing-in)). The image source defaults to **Auto**, picking the fastest route across pixiv's servers and public mirrors for your current network. When a connection fails, the built-in **Layered connectivity probe** pinpoints where.
+- **Viewing and reading**: supports illustrations, manga, ugoira (exportable as GIF), and novels. Novels support inline illustrations, chapter jumps, pixiv bookmark sync, offline saving, TXT export (single works and full series), and local TXT import; phones in landscape, tablets, and foldables get adaptive two-pane layouts.
+- **Bulk downloads**: download selected works or an artist's entire gallery (including ugoira as GIF), organize into artist/series/multi-page subfolders, zero-pad page numbers, and customize file names; when saving to a folder, captions can be exported as TXT alongside each work.
+- **No ads or analytics**: no ads, analytics, or telemetry—only the permissions the features actually need (see [FAQ](#faq)).
 
 ## Screenshots
 
@@ -43,12 +43,12 @@ Parfait is an unofficial pixiv client for Android, rewritten from the discontinu
 
 ## More features
 
-- **Search**: completes each keyword separately and filters by bookmark count, date and AI-generated works; reverse image search with SauceNAO, IQDB, ascii2d and TinEye.
-- **Bookmarks and series**: bookmarks with tags, watch later and history; follow manga and novel series and continue from the episode you reached. Bookmarks, follows and series subscriptions made offline are kept on the device and sent once you are back online.
-- **Muting**: mute tags, users or single works, or hide R-18 and AI-generated works locally.
-- **Comments and translation**: comment on the artwork page with emoji and stamps; translate comments and novels with Google, Baidu, Index Translate or any OpenAI-compatible endpoint.
-- **Accounts and backup**: switch between several accounts; back up settings, mute lists and history, and import them on another device.
-- **Customization**: choose the bottom bar pages, the start page and the grid density; take theme colors from your wallpaper; English, 简体中文, 日本語 and Русский.
+- **Search and filtering**: completes each keyword separately, supports tag exclusion and pinned history, lets free accounts filter by minimum bookmarks, and filters by date and AI-generated status; artist profiles can be filtered by tag; reverse image search supports SauceNAO, IQDB, ascii2d, and TinEye.
+- **Bookmarks, history, and series**: quick-bookmarking can auto-attach work tags; Watch later and searchable, filterable browsing history are built in; follow manga and novel series and pick up where you left off. Bookmarks, follows, and series actions made offline stay queued on-device and sync once you are back online.
+- **Muting**: mute tags, artists, or individual works, or hide R-18 and AI-generated works locally.
+- **Comments and translation**: post comments with emoji and stamps; translate comments and novels with Google, Baidu, Index Translate, or any OpenAI-compatible endpoint.
+- **Accounts and backup**: switch between multiple accounts; export settings, mute lists, and history to back up or move to another device.
+- **Customization**: customize navigation bar items, start page, and grid density; ships with a soft cherry-blossom pink theme and optional wallpaper dynamic color; available in English, 简体中文, 日本語, and Русский.
 
 ## Download
 
@@ -65,9 +65,9 @@ A Windows build is in preparation and will ship as a preview.
 
 ## Signing in
 
-pixiv only supports signing in on its official web page. The page, including its human verification, opens in a WebView that uses the system network rather than Parfait's direct connection, so **the first sign-in or registration needs a proxy set up in the system or another app**. After that, browsing and downloads need no proxy.
+pixiv only allows signing in on its official web page. That page—including its human verification—opens in the system WebView over your device's network rather than Parfait's direct connection, so **your first sign-in or registration still needs a proxy**. Once signed in, daily browsing and downloads work without one.
 
-Already signed in on another device? There, open **Me → Accounts → Export account credential**, then choose **Log in with clipboard data** on the new device's sign-in page; no proxy is needed.
+Already signed in on another device? Open **Me → Accounts** on the old device to export your account credential or copy your `refresh_token`, then sign in via clipboard data or token on the new device without a proxy. If the in-app sign-in page stalls, you can also complete sign-in in your system browser and paste the sign-in link back into Parfait.
 
 ## FAQ
 

@@ -1,8 +1,8 @@
 {
   "@@locale": "ja",
   "networkDohEndpointsInvalid": "DoHエンドポイントリストが無効です",
-  "welcome1": "Parfaitをご利用\nありがとうございます",
-  "welcome2": "初期設定を開始します",
+  "welcome1": "Parfait をご利用いただきありがとうございます",
+  "welcome2": "はじめに初期設定を行います",
   "start": "開始",
   "selectLanguage": "言語の選択",
   "next": "次へ",
@@ -17,7 +17,7 @@
   "register": "登録",
   "login": "ログイン",
   "loginPageClosed": "ページが閉じられました。再度開いてください。",
-  "loginCallbackInvalid": "ログインコールバックが無効です。もう一度ログインしてください",
+  "loginCallbackInvalid": "ログインURLまたはコードが無効です。もう一度お試しください",
   "loginNetworkError": "ネットワークエラー（HTTP {status}）",
   "@loginNetworkError": {
     "placeholders": {
@@ -35,7 +35,7 @@
   "loginExternalTitle": "ブラウザでログインを完了",
   "loginExternalDescription": "システムブラウザでログインを完了し、リダイレクト先の pixiv:// URL または認証コードを下に貼り付けてください。",
   "loginCallbackHint": "pixiv://account/login?code=… または認証コード",
-  "loginPasteCallback": "コールバックURL・コードを貼り付け",
+  "loginPasteCallback": "ログインURL・コードを貼り付け",
   "loginCompleteButton": "ログインを完了",
   "loginBrowserLaunchFailed": "システムブラウザを開けませんでした",
   "networkCompatibility": "Pixiv互換接続",
@@ -444,12 +444,12 @@
       }
     }
   },
-  "saveLocationUriCopied": "フォルダ URI をコピーしました",
+  "saveLocationUriCopied": "フォルダの場所をコピーしました",
   "saveLocationDesktopFolder": "デフォルトフォルダー",
   "saveLocationDesktopDefaultFolder": "Parfait フォルダー（デフォルト）",
   "saveLocationDesktopCustomSubfolder": "カスタムサブフォルダー名",
-  "saveLocationDesktopCustomFolder": "カスタムディレクトリ（システム選択）",
-  "saveLocationMacosBookmarkLabel": "許可済みフォルダー（macOS サンドボックスブックマーク）",
+  "saveLocationDesktopCustomFolder": "カスタムフォルダ",
+  "saveLocationMacosBookmarkLabel": "許可済みフォルダ",
   "saveLocationPathCopied": "フォルダーパスをコピーしました",
   "namingPreset": "ファイル名プリセット",
   "downloadGroupTasks": "タスク",
@@ -1049,7 +1049,7 @@
   "translationOpenSettings": "設定へ",
   "translationHide": "翻訳を閉じる",
   "translationCopied": "訳文をコピーしました",
-  "commentEmoji": "Emoji",
+  "commentEmoji": "絵文字",
   "commentSending": "送信中",
   "commentStampLabel": "スタンプ {id}",
   "@commentStampLabel": {
@@ -1059,7 +1059,7 @@
       }
     }
   },
-  "commentStamps": "Stamp",
+  "commentStamps": "スタンプ",
   "commentPermissionDenied": "自分のコメントのみ削除できます",
   "newTitle": "新着",
   "newFollowing": "フォロー中",
@@ -1267,7 +1267,7 @@
   "novelIllustration": "挿絵",
   "novelIllustrationUnavailable": "この挿絵は削除されたか、表示できません",
   "localNovelFileInfo": "ファイル情報",
-  "localNovelFileEncoding": "エンコーディング: {encoding}",
+  "localNovelFileEncoding": "エンコーディング：{encoding}",
   "@localNovelFileEncoding": {
     "placeholders": {
       "encoding": {
@@ -1305,7 +1305,7 @@
   "spotlightChallengeVerifying": "pixivision を確認しています…",
   "spotlightChallengeManual": "pixivision の手動確認が必要です。下で完了してください",
   "spotlightChallengeFailed": "pixivision は現在、確認またはプロキシを必要としています",
-  "spotlightExternalBrowserHint": "このプラットフォームではアプリ内ブラウザ検証を利用できません。外部ブラウザで開いてください。",
+  "spotlightExternalBrowserHint": "このページはアプリ内で開けません。ブラウザでご覧ください。",
   "spotlightCategoryAll": "すべて",
   "spotlightCategoryIllust": "イラスト",
   "spotlightCategoryManga": "マンガ",
@@ -1508,7 +1508,7 @@
   "ugoiraPlay": "うごイラを再生",
   "ugoiraPause": "うごイラを一時停止",
   "ugoiraPlaybackSpeed": "再生速度",
-  "loginWebViewStalled": "ログインページの読み込みがタイムアウトしました。ブラウザで開くか、コールバックまたはトークンを貼り付けてください。",
+  "loginWebViewStalled": "ログインページの読み込みがタイムアウトしました。ブラウザで開くか、ログインURLまたはトークンを貼り付けてください。",
   "accountTransferExportToken": "refresh_token をコピー",
   "accountTransferTokenCopied": "refresh_token をコピーしました。早めに貼り付けてください。5分後に Parfait に戻ると自動的に消去されます。",
   "offlineQueueTitle": "未同期のオフライン操作",
@@ -1574,21 +1574,31 @@
   "downloadAuthorConfirmBodyWithUgoira": "静止画 {works} 件（計 {pages} ページ）とうごイラ {ugoira} 件をダウンロードキューに追加します。",
   "@downloadAuthorConfirmBodyWithUgoira": {
     "placeholders": {
-      "works": {"type": "int"},
-      "pages": {"type": "int"},
-      "ugoira": {"type": "int"}
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      },
+      "ugoira": {
+        "type": "int"
+      }
     }
   },
   "downloadAuthorIncludeUgoira": "うごイラを含める（{count} 件・GIF 書き出し）",
   "@downloadAuthorIncludeUgoira": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "downloadAuthorUgoiraOnlyHint": "うごイラ作品が {count} 件見つかりました。下のスイッチをオンにすると GIF として書き出せます。",
   "@downloadAuthorUgoiraOnlyHint": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "novelSaveOffline": "オフライン書庫に保存",
@@ -1598,7 +1608,7 @@
   "novelExportTxtQueued": "TXT 書き出しをキューに追加しました",
   "novelExportTxtShared": "TXT ファイルを共有しました",
   "novelExportTxtFailed": "TXT の書き出しに失敗しました",
-  "novelExportAndroidFolderRequired": "Android で TXT を書き出すには、保存先としてカスタムフォルダを選択してください",
+  "novelExportAndroidFolderRequired": "TXT を書き出すには、保存先をカスタムフォルダに設定してください",
   "novelSeriesSaveOffline": "シリーズをオフライン保存",
   "novelSeriesExportTxt": "シリーズを TXT 書き出し",
   "novelSeriesExportMerged": "1 つの TXT に結合",
@@ -1606,15 +1616,23 @@
   "novelSeriesSavedWithSkipped": "{saved} 話を保存しました（閲覧不可 {skipped} 話をスキップ）",
   "@novelSeriesSavedWithSkipped": {
     "placeholders": {
-      "saved": {"type": "int"},
-      "skipped": {"type": "int"}
+      "saved": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
   "novelSeriesExportQueuedWithSkipped": "{queued} 話をキューに追加しました（閲覧不可 {skipped} 話をスキップ）",
   "@novelSeriesExportQueuedWithSkipped": {
     "placeholders": {
-      "queued": {"type": "int"},
-      "skipped": {"type": "int"}
+      "queued": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
   "novelSeriesNoViewableChapters": "このシリーズには保存可能な話がありません",

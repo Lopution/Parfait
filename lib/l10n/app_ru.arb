@@ -2,7 +2,7 @@
   "@@locale": "ru",
   "networkDohEndpointsInvalid": "Недопустимый список DoH-адресов",
   "welcome1": "Спасибо за использование Parfait",
-  "welcome2": "Начнется первоначальная настройка",
+  "welcome2": "Настроим приложение для начала",
   "start": "Начать",
   "selectLanguage": "Выберите язык",
   "next": "Далее",
@@ -17,7 +17,7 @@
   "register": "Регистрация",
   "login": "Вход",
   "loginPageClosed": "Страница закрыта. Откройте её снова.",
-  "loginCallbackInvalid": "Недействительный callback входа. Войдите снова.",
+  "loginCallbackInvalid": "Недействительная ссылка или код входа. Повторите попытку.",
   "loginNetworkError": "Сетевая ошибка (HTTP {status})",
   "@loginNetworkError": {
     "placeholders": {
@@ -35,7 +35,7 @@
   "loginExternalTitle": "Завершите вход в браузере",
   "loginExternalDescription": "Завершите вход в системном браузере, затем вставьте ниже ссылку перенаправления pixiv:// или код авторизации.",
   "loginCallbackHint": "pixiv://account/login?code=… или код авторизации",
-  "loginPasteCallback": "Вставить callback или код",
+  "loginPasteCallback": "Вставить ссылку входа или код",
   "loginCompleteButton": "Завершить вход",
   "loginBrowserLaunchFailed": "Не удалось открыть системный браузер",
   "networkCompatibility": "Совместимость с официальной сетью Pixiv",
@@ -444,12 +444,12 @@
       }
     }
   },
-  "saveLocationUriCopied": "URI папки скопирован",
+  "saveLocationUriCopied": "Адрес папки скопирован",
   "saveLocationDesktopFolder": "Папка по умолчанию",
   "saveLocationDesktopDefaultFolder": "Папка Parfait (по умолчанию)",
   "saveLocationDesktopCustomSubfolder": "Имя подпапки",
-  "saveLocationDesktopCustomFolder": "Выбранная папка (системный выбор)",
-  "saveLocationMacosBookmarkLabel": "Разрешённая папка (закладка песочницы macOS)",
+  "saveLocationDesktopCustomFolder": "Выбранная папка",
+  "saveLocationMacosBookmarkLabel": "Разрешённая папка",
   "saveLocationPathCopied": "Путь к папке скопирован",
   "namingPreset": "Пресет имени файла",
   "downloadGroupTasks": "Задачи",
@@ -503,7 +503,7 @@
   "translateProvider": "Сервис перевода",
   "translateGoogle": "Google Translate",
   "translateDisabled": "Отключено",
-  "translateBaidu": "Baidu Translate",
+  "translateBaidu": "Переводчик Baidu",
   "translateLlm": "Свой LLM (OpenAI-совместимый)",
   "translateIndex": "Index Translate",
   "translateIndexModel": "Модель Index Translate",
@@ -1049,7 +1049,7 @@
   "translationOpenSettings": "Настройки",
   "translationHide": "Скрыть перевод",
   "translationCopied": "Перевод скопирован",
-  "commentEmoji": "Emoji",
+  "commentEmoji": "Эмодзи",
   "commentSending": "Отправка",
   "commentStampLabel": "Стикер {id}",
   "@commentStampLabel": {
@@ -1059,7 +1059,7 @@
       }
     }
   },
-  "commentStamps": "Stamps",
+  "commentStamps": "Стикеры",
   "commentPermissionDenied": "Можно удалять только свои комментарии",
   "newTitle": "Новинки",
   "newFollowing": "Подписки",
@@ -1305,7 +1305,7 @@
   "spotlightChallengeVerifying": "Проверяем pixivision…",
   "spotlightChallengeManual": "pixivision требует проверки вручную. Завершите её ниже",
   "spotlightChallengeFailed": "pixivision сейчас требует проверки или прокси",
-  "spotlightExternalBrowserHint": "Встроенная проверка браузера недоступна на этой платформе. Откройте статью во внешнем браузере.",
+  "spotlightExternalBrowserHint": "Эту страницу нельзя открыть в приложении. Откройте её в браузере.",
   "spotlightCategoryAll": "Все",
   "spotlightCategoryIllust": "Иллюстрации",
   "spotlightCategoryManga": "Манга",
@@ -1508,7 +1508,7 @@
   "ugoiraPlay": "Воспроизвести анимацию",
   "ugoiraPause": "Приостановить анимацию",
   "ugoiraPlaybackSpeed": "Скорость воспроизведения",
-  "loginWebViewStalled": "Превышено время ожидания загрузки входа. Откройте в браузере или вставьте ссылку обратного вызова или токен.",
+  "loginWebViewStalled": "Страница входа не отвечает. Откройте её в браузере или вставьте ссылку входа или токен.",
   "accountTransferExportToken": "Копировать refresh_token",
   "accountTransferTokenCopied": "refresh_token скопирован. Вставьте его скорее; он очистится при возвращении в Parfait через 5 минут.",
   "offlineQueueTitle": "Отложенные офлайн-действия",
@@ -1574,21 +1574,31 @@
   "downloadAuthorConfirmBodyWithUgoira": "Будут добавлены в очередь {works} работ ({pages} стр.) и {ugoira} угойра.",
   "@downloadAuthorConfirmBodyWithUgoira": {
     "placeholders": {
-      "works": {"type": "int"},
-      "pages": {"type": "int"},
-      "ugoira": {"type": "int"}
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      },
+      "ugoira": {
+        "type": "int"
+      }
     }
   },
   "downloadAuthorIncludeUgoira": "Включить угойра ({count}, экспорт в GIF)",
   "@downloadAuthorIncludeUgoira": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "downloadAuthorUgoiraOnlyHint": "Найдено только {count} угойра. Включите переключатель ниже для экспорта в GIF.",
   "@downloadAuthorUgoiraOnlyHint": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "novelSaveOffline": "Сохранить офлайн",
@@ -1598,7 +1608,7 @@
   "novelExportTxtQueued": "Экспорт TXT добавлен в очередь",
   "novelExportTxtShared": "Файл TXT отправлен",
   "novelExportTxtFailed": "Не удалось экспортировать TXT",
-  "novelExportAndroidFolderRequired": "Для экспорта TXT на Android выберите пользовательскую папку сохранения",
+  "novelExportAndroidFolderRequired": "Для экспорта TXT выберите папку в настройках сохранения",
   "novelSeriesSaveOffline": "Сохранить серию офлайн",
   "novelSeriesExportTxt": "Экспорт серии в TXT",
   "novelSeriesExportMerged": "Объединить в один TXT",
@@ -1606,15 +1616,23 @@
   "novelSeriesSavedWithSkipped": "Сохранено глав: {saved} (пропущено недоступных: {skipped})",
   "@novelSeriesSavedWithSkipped": {
     "placeholders": {
-      "saved": {"type": "int"},
-      "skipped": {"type": "int"}
+      "saved": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
   "novelSeriesExportQueuedWithSkipped": "В очереди глав: {queued} (пропущено недоступных: {skipped})",
   "@novelSeriesExportQueuedWithSkipped": {
     "placeholders": {
-      "queued": {"type": "int"},
-      "skipped": {"type": "int"}
+      "queued": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
   "novelSeriesNoViewableChapters": "В серии нет доступных глав для сохранения",

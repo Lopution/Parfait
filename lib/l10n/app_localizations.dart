@@ -117,7 +117,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcome2.
   ///
   /// In zh, this message translates to:
-  /// **'下面将进行首次启动设置'**
+  /// **'先做几项初始设置'**
   String get welcome2;
 
   /// No description provided for @start.
@@ -171,7 +171,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginProxyNoticeBody.
   ///
   /// In zh, this message translates to:
-  /// **'由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Parfait 不提供内置代理。'**
+  /// **'由于网络环境限制，登录和注册需要先在系统或其他应用中开启代理。Parfait 不内置代理。'**
   String get loginProxyNoticeBody;
 
   /// No description provided for @loginProxyNoticeCancel.
@@ -207,7 +207,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginCallbackInvalid.
   ///
   /// In zh, this message translates to:
-  /// **'登录回调无效，请重新登录'**
+  /// **'登录链接或授权码无效，请重试'**
   String get loginCallbackInvalid;
 
   /// No description provided for @loginNetworkError.
@@ -261,7 +261,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginExternalDescription.
   ///
   /// In zh, this message translates to:
-  /// **'在系统浏览器中完成 Pixiv 登录后，复制重定向的 pixiv:// 链接或授权码粘贴到下方即可完成登录。'**
+  /// **'在系统浏览器完成 Pixiv 登录后，把跳转后的 pixiv:// 链接或授权码粘贴到下方即可。'**
   String get loginExternalDescription;
 
   /// No description provided for @loginCallbackHint.
@@ -273,7 +273,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginPasteCallback.
   ///
   /// In zh, this message translates to:
-  /// **'粘贴回调链接或授权码'**
+  /// **'粘贴登录链接或授权码'**
   String get loginPasteCallback;
 
   /// No description provided for @loginCompleteButton.
@@ -1311,13 +1311,13 @@ abstract class AppLocalizations {
   /// No description provided for @profileEditUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'暂无法编辑个人资料，请重新登录后再试。'**
+  /// **'暂时无法编辑资料，请重新登录后再试'**
   String get profileEditUnavailable;
 
   /// No description provided for @profileEditNoChanges.
   ///
   /// In zh, this message translates to:
-  /// **'资料未作修改'**
+  /// **'资料没有改动'**
   String get profileEditNoChanges;
 
   /// No description provided for @profileEditSaveFailed.
@@ -1365,7 +1365,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileEditFieldUnsupported.
   ///
   /// In zh, this message translates to:
-  /// **'当前暂不支持编辑此项'**
+  /// **'暂不支持编辑这一项'**
   String get profileEditFieldUnsupported;
 
   /// No description provided for @profileEditImageChoose.
@@ -2060,7 +2060,7 @@ abstract class AppLocalizations {
   /// No description provided for @saveLocationUriCopied.
   ///
   /// In zh, this message translates to:
-  /// **'已复制目录 URI'**
+  /// **'已复制目录地址'**
   String get saveLocationUriCopied;
 
   /// No description provided for @saveLocationDesktopFolder.
@@ -2084,13 +2084,13 @@ abstract class AppLocalizations {
   /// No description provided for @saveLocationDesktopCustomFolder.
   ///
   /// In zh, this message translates to:
-  /// **'自定义目录（系统目录选择）'**
+  /// **'自定义文件夹'**
   String get saveLocationDesktopCustomFolder;
 
   /// No description provided for @saveLocationMacosBookmarkLabel.
   ///
   /// In zh, this message translates to:
-  /// **'已授权目录（macOS 沙盒书签）'**
+  /// **'已授权文件夹'**
   String get saveLocationMacosBookmarkLabel;
 
   /// No description provided for @saveLocationPathCopied.
@@ -2354,7 +2354,7 @@ abstract class AppLocalizations {
   /// No description provided for @translateIndexThinkingHint.
   ///
   /// In zh, this message translates to:
-  /// **'允许模型输出思考内容，可能增加耗时'**
+  /// **'允许模型先思考再输出译文，耗时可能更长'**
   String get translateIndexThinkingHint;
 
   /// No description provided for @translateBaiduCredential.
@@ -2378,7 +2378,7 @@ abstract class AppLocalizations {
   /// No description provided for @translateBaiduSecret.
   ///
   /// In zh, this message translates to:
-  /// **'密钥 (Secret)'**
+  /// **'密钥'**
   String get translateBaiduSecret;
 
   /// No description provided for @translateLlmBaseUrl.
@@ -4772,7 +4772,7 @@ abstract class AppLocalizations {
   /// No description provided for @commentEmoji.
   ///
   /// In zh, this message translates to:
-  /// **'Emoji'**
+  /// **'表情'**
   String get commentEmoji;
 
   /// No description provided for @commentSending.
@@ -4790,7 +4790,7 @@ abstract class AppLocalizations {
   /// No description provided for @commentStamps.
   ///
   /// In zh, this message translates to:
-  /// **'Stamp'**
+  /// **'贴图'**
   String get commentStamps;
 
   /// No description provided for @commentPermissionDenied.
@@ -5828,7 +5828,7 @@ abstract class AppLocalizations {
   /// No description provided for @spotlightExternalBrowserHint.
   ///
   /// In zh, this message translates to:
-  /// **'当前平台不支持内置浏览器验证，请在系统浏览器中查看。'**
+  /// **'当前设备不支持应用内打开此页面，请在浏览器中查看。'**
   String get spotlightExternalBrowserHint;
 
   /// No description provided for @spotlightCategoryAll.
@@ -6434,7 +6434,7 @@ abstract class AppLocalizations {
   /// Context menu action in the full-screen image viewer to zoom to 2.5x
   ///
   /// In zh, this message translates to:
-  /// **'放大 (2.5×)'**
+  /// **'放大（2.5×）'**
   String get viewerZoomIn;
 
   /// Status tooltip while downloading the ugoira archive prior to GIF encoding
@@ -6524,7 +6524,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginWebViewStalled.
   ///
   /// In zh, this message translates to:
-  /// **'登录页面加载超时，可改用浏览器打开或粘贴回调/令牌'**
+  /// **'登录页加载超时，可改用浏览器打开，或粘贴登录链接 / 令牌'**
   String get loginWebViewStalled;
 
   /// No description provided for @accountTransferExportToken.
@@ -6536,7 +6536,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountTransferTokenCopied.
   ///
   /// In zh, this message translates to:
-  /// **'refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。'**
+  /// **'已复制 refresh_token，请尽快粘贴；5 分钟后回到 Parfait 时会自动清除。'**
   String get accountTransferTokenCopied;
 
   /// No description provided for @offlineQueueTitle.
@@ -6722,7 +6722,7 @@ abstract class AppLocalizations {
   /// No description provided for @shortcutArtworkSwitchWork.
   ///
   /// In zh, this message translates to:
-  /// **'上一张 / 下一张作品'**
+  /// **'上一篇 / 下一篇作品'**
   String get shortcutArtworkSwitchWork;
 
   /// No description provided for @shortcutArtworkSwitchPage.
@@ -6752,7 +6752,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchBookmarkLocalFilterHint.
   ///
   /// In zh, this message translates to:
-  /// **'标题或正文搜索仅在已加载结果中本地筛选收藏数'**
+  /// **'按标题或简介搜索时，收藏数仅在已加载的结果中筛选'**
   String get searchBookmarkLocalFilterHint;
 
   /// No description provided for @searchExcludeTag.
@@ -6836,7 +6836,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadMultiPageSubfolderHint.
   ///
   /// In zh, this message translates to:
-  /// **'页数超过 1 页的作品放入以作品 ID 命名的子文件夹'**
+  /// **'多页作品单独放进以作品 ID 命名的子文件夹'**
   String get downloadMultiPageSubfolderHint;
 
   /// No description provided for @downloadPadPageNumbers.
@@ -6848,7 +6848,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadPadPageNumbersHint.
   ///
   /// In zh, this message translates to:
-  /// **'按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列'**
+  /// **'按总页数位数补零（如 _p00、_p01），方便按顺序浏览'**
   String get downloadPadPageNumbersHint;
 
   /// No description provided for @downloadAuthorSubfolderToggle.
@@ -6860,19 +6860,19 @@ abstract class AppLocalizations {
   /// No description provided for @downloadAuthorConfirmBodyWithUgoira.
   ///
   /// In zh, this message translates to:
-  /// **'将把 {works} 份静态作品（共 {pages} 页）与 {ugoira} 份动图加入下载队列。'**
+  /// **'将加入 {works} 篇插画/漫画（共 {pages} 页）和 {ugoira} 篇动图到下载队列。'**
   String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira);
 
   /// No description provided for @downloadAuthorIncludeUgoira.
   ///
   /// In zh, this message translates to:
-  /// **'包含动图作品（{count} 份，导出为 GIF）'**
+  /// **'同时下载动图（{count} 篇，导出为 GIF）'**
   String downloadAuthorIncludeUgoira(int count);
 
   /// No description provided for @downloadAuthorUgoiraOnlyHint.
   ///
   /// In zh, this message translates to:
-  /// **'该作者仅发现 {count} 份动图作品。开启下方开关即可导出为 GIF。'**
+  /// **'这位画师目前只有 {count} 篇动图，打开下方开关即可导出为 GIF。'**
   String downloadAuthorUgoiraOnlyHint(int count);
 
   /// No description provided for @novelSaveOffline.
@@ -6920,13 +6920,13 @@ abstract class AppLocalizations {
   /// No description provided for @novelExportAndroidFolderRequired.
   ///
   /// In zh, this message translates to:
-  /// **'Android 上导出 TXT 需要先选择自定义文件夹作为保存位置'**
+  /// **'导出 TXT 需要先把保存位置设为自定义文件夹'**
   String get novelExportAndroidFolderRequired;
 
   /// No description provided for @novelSeriesSaveOffline.
   ///
   /// In zh, this message translates to:
-  /// **'离线缓存全系列'**
+  /// **'离线保存全系列'**
   String get novelSeriesSaveOffline;
 
   /// No description provided for @novelSeriesExportTxt.
@@ -6950,19 +6950,19 @@ abstract class AppLocalizations {
   /// No description provided for @novelSeriesSavedWithSkipped.
   ///
   /// In zh, this message translates to:
-  /// **'已保存 {saved} 章，跳过 {skipped} 章不可阅读内容'**
+  /// **'已保存 {saved} 话，跳过 {skipped} 话无法查看的内容'**
   String novelSeriesSavedWithSkipped(int saved, int skipped);
 
   /// No description provided for @novelSeriesExportQueuedWithSkipped.
   ///
   /// In zh, this message translates to:
-  /// **'已加入 {queued} 个章节导出，跳过 {skipped} 章不可阅读内容'**
+  /// **'已加入 {queued} 话导出，跳过 {skipped} 话无法查看的内容'**
   String novelSeriesExportQueuedWithSkipped(int queued, int skipped);
 
   /// No description provided for @novelSeriesNoViewableChapters.
   ///
   /// In zh, this message translates to:
-  /// **'该系列暂无可保存的章节'**
+  /// **'这个系列暂时没有可保存的内容'**
   String get novelSeriesNoViewableChapters;
 
   /// No description provided for @openInNewTab.

@@ -15,7 +15,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcome1 => 'Thank you for using Parfait';
 
   @override
-  String get welcome2 => 'Initial setup will begin now';
+  String get welcome2 => 'Let’s set a few things up';
 
   @override
   String get start => 'Start';
@@ -43,7 +43,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginProxyNoticeBody =>
-      'Because of network restrictions, turn on a system or external proxy before logging in or registering. Parfait does not include a built-in proxy.';
+      'Due to network restrictions, enable a system or external proxy before signing in or registering. Parfait does not include a built-in proxy.';
 
   @override
   String get loginProxyNoticeCancel => 'Cancel';
@@ -61,7 +61,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginPageClosed => 'The page was closed. Reopen it to try again.';
 
   @override
-  String get loginCallbackInvalid => 'Invalid login callback. Sign in again.';
+  String get loginCallbackInvalid =>
+      'Invalid sign-in link or code. Please try again.';
 
   @override
   String loginNetworkError(String status) {
@@ -92,14 +93,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginExternalDescription =>
-      'Finish signing in with your system browser, then paste the redirected pixiv:// URL or authorization code below.';
+      'After signing in to Pixiv in your browser, paste the redirected pixiv:// link or authorization code below.';
 
   @override
   String get loginCallbackHint =>
       'pixiv://account/login?code=… or authorization code';
 
   @override
-  String get loginPasteCallback => 'Paste callback or code';
+  String get loginPasteCallback => 'Paste sign-in link or code';
 
   @override
   String get loginCompleteButton => 'Complete sign-in';
@@ -1081,7 +1082,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get saveLocationUriCopied => 'Folder URI copied';
+  String get saveLocationUriCopied => 'Folder link copied';
 
   @override
   String get saveLocationDesktopFolder => 'Default folder';
@@ -1093,12 +1094,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveLocationDesktopCustomSubfolder => 'Custom subfolder name';
 
   @override
-  String get saveLocationDesktopCustomFolder =>
-      'Custom directory (system folder picker)';
+  String get saveLocationDesktopCustomFolder => 'Custom folder';
 
   @override
-  String get saveLocationMacosBookmarkLabel =>
-      'Authorized folder (macOS sandbox bookmark)';
+  String get saveLocationMacosBookmarkLabel => 'Authorized folder';
 
   @override
   String get saveLocationPathCopied => 'Folder path copied';
@@ -1237,7 +1236,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get translateIndexThinkingHint =>
-      'Allows model reasoning output and may take longer';
+      'Lets the model reason before translating; may take longer';
 
   @override
   String get translateBaiduCredential => 'Baidu AppID / secret';
@@ -3156,7 +3155,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spotlightExternalBrowserHint =>
-      'In-app browser verification isn\'t available on this platform. Open the article in your browser instead.';
+      'This page cannot be opened in-app here. Open it in your browser instead.';
 
   @override
   String get spotlightCategoryAll => 'All';
@@ -3554,14 +3553,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginWebViewStalled =>
-      'Sign-in page timed out. Open in a browser or paste a callback link or token.';
+      'Sign-in page timed out. Open in a browser or paste a sign-in link or token.';
 
   @override
   String get accountTransferExportToken => 'Copy refresh_token';
 
   @override
   String get accountTransferTokenCopied =>
-      'refresh_token copied. Paste it soon; it is cleared when you return to Parfait after 5 minutes.';
+      'refresh_token copied. Paste it soon; it clears automatically when you return to Parfait after 5 minutes.';
 
   @override
   String get offlineQueueTitle => 'Pending offline actions';
@@ -3673,7 +3672,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchBookmarkLocalFilterHint =>
-      'Non-tag targets filter bookmark counts locally on loaded results';
+      'Title and caption searches filter bookmarks locally on loaded results';
 
   @override
   String get searchExcludeTag => 'Exclude tag';
@@ -3723,24 +3722,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadPadPageNumbersHint =>
-      'Pad page and series indices to total digits (e.g. _p00, _p01) for lexical sorting';
+      'Pad page numbers with leading zeros (e.g. _p00, _p01) so files stay in order';
 
   @override
   String get downloadAuthorSubfolderToggle => 'Save into artist subfolder';
 
   @override
   String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
-    return 'Queue $works static works ($pages pages) and $ugoira ugoira works for download.';
+    return 'Add $works artworks ($pages pages) and $ugoira ugoira to the download queue.';
   }
 
   @override
   String downloadAuthorIncludeUgoira(int count) {
-    return 'Include ugoira works ($count, export as GIF)';
+    return 'Include ugoira ($count, export as GIF)';
   }
 
   @override
   String downloadAuthorUgoiraOnlyHint(int count) {
-    return 'Only $count ugoira works were found. Turn on the switch below to export them as GIFs.';
+    return 'This artist only has $count ugoira works. Turn on the switch below to export them as GIFs.';
   }
 
   @override
@@ -3766,7 +3765,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelExportAndroidFolderRequired =>
-      'Exporting TXT on Android requires a custom folder destination';
+      'Choose a custom folder in Save location to export TXT files';
 
   @override
   String get novelSeriesSaveOffline => 'Save series offline';
@@ -3782,17 +3781,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String novelSeriesSavedWithSkipped(int saved, int skipped) {
-    return 'Saved $saved chapters ($skipped unavailable skipped)';
+    return 'Saved $saved episodes ($skipped unavailable skipped)';
   }
 
   @override
   String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
-    return 'Queued $queued chapters ($skipped unavailable skipped)';
+    return 'Queued $queued episodes ($skipped unavailable skipped)';
   }
 
   @override
   String get novelSeriesNoViewableChapters =>
-      'No viewable chapters in this series';
+      'No viewable episodes in this series';
 
   @override
   String get openInNewTab => 'Open in new tab';

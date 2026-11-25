@@ -320,7 +320,7 @@ void main() {
 
         // The stamp key opens on the stamp panel, in place of the bar.
         await tester.tap(
-          find.descendant(of: entry, matching: find.byTooltip('Stamp')),
+          find.descendant(of: entry, matching: find.byTooltip('贴图')),
         );
         await settle();
         expect(composer().debugInputState, CommentComposerInputState.stamp);
@@ -378,7 +378,7 @@ void main() {
         expect(shown(), 1);
         await tester.enterText(find.byType(TextField), 'hello');
         // An emoji inserted last is part of it too.
-        await tester.tap(find.byTooltip('Emoji'));
+        await tester.tap(find.byTooltip('表情'));
         await settle();
         await tester.tap(
           find

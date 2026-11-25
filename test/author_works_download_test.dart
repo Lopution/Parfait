@@ -340,7 +340,7 @@ void main() {
               .onPressed,
           isNull,
         );
-        await tester.tap(find.textContaining('包含动图作品'));
+        await tester.tap(find.textContaining('同时下载动图'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('确定'));
         await tester.pump();

@@ -2,7 +2,7 @@
   "@@locale": "zh",
   "networkDohEndpointsInvalid": "DoH 地址列表无效",
   "welcome1": "感谢使用 Parfait",
-  "welcome2": "下面将进行首次启动设置",
+  "welcome2": "先做几项初始设置",
   "start": "开始",
   "selectLanguage": "选择你的语言",
   "next": "下一步",
@@ -11,13 +11,13 @@
   "system": "跟随系统",
   "loginTitle": "注册或登录",
   "loginProxyNoticeTitle": "提示",
-  "loginProxyNoticeBody": "由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Parfait 不提供内置代理。",
+  "loginProxyNoticeBody": "由于网络环境限制，登录和注册需要先在系统或其他应用中开启代理。Parfait 不内置代理。",
   "loginProxyNoticeCancel": "取消",
   "loginProxyNoticeContinue": "我已开启代理",
   "register": "注册",
   "login": "登录",
   "loginPageClosed": "页面已关闭，请重新打开",
-  "loginCallbackInvalid": "登录回调无效，请重新登录",
+  "loginCallbackInvalid": "登录链接或授权码无效，请重试",
   "loginNetworkError": "网络错误（HTTP {status}）",
   "@loginNetworkError": {
     "placeholders": {
@@ -33,9 +33,9 @@
   "loginRestart": "重新登录",
   "loginFailed": "登录失败",
   "loginExternalTitle": "在浏览器中完成登录",
-  "loginExternalDescription": "在系统浏览器中完成 Pixiv 登录后，复制重定向的 pixiv:// 链接或授权码粘贴到下方即可完成登录。",
+  "loginExternalDescription": "在系统浏览器完成 Pixiv 登录后，把跳转后的 pixiv:// 链接或授权码粘贴到下方即可。",
   "loginCallbackHint": "pixiv://account/login?code=… 或授权码",
-  "loginPasteCallback": "粘贴回调链接或授权码",
+  "loginPasteCallback": "粘贴登录链接或授权码",
   "loginCompleteButton": "完成登录",
   "loginBrowserLaunchFailed": "无法打开系统浏览器",
   "networkCompatibility": "Pixiv 官方网络兼容",
@@ -265,8 +265,8 @@
   "dismiss": "知道了",
   "profileEditTitle": "编辑个人资料",
   "profileEditLoadFailed": "个人资料加载失败",
-  "profileEditUnavailable": "暂无法编辑个人资料，请重新登录后再试。",
-  "profileEditNoChanges": "资料未作修改",
+  "profileEditUnavailable": "暂时无法编辑资料，请重新登录后再试",
+  "profileEditNoChanges": "资料没有改动",
   "profileEditSaveFailed": "保存个人资料失败，请稍后重试",
   "profileEditConfirmed": "资料已确认并同步。",
   "profileEditDisplayName": "昵称",
@@ -274,7 +274,7 @@
   "profileEditWebpage": "网页",
   "profileEditAvatar": "头像",
   "profileEditBackground": "背景图",
-  "profileEditFieldUnsupported": "当前暂不支持编辑此项",
+  "profileEditFieldUnsupported": "暂不支持编辑这一项",
   "profileEditImageChoose": "选择一张受支持的图片",
   "profileEditImageFailed": "图片处理失败",
   "profileEditChooseImage": "选择图片",
@@ -480,12 +480,12 @@
       }
     }
   },
-  "saveLocationUriCopied": "已复制目录 URI",
+  "saveLocationUriCopied": "已复制目录地址",
   "saveLocationDesktopFolder": "默认文件夹",
   "saveLocationDesktopDefaultFolder": "Parfait 文件夹（默认）",
   "saveLocationDesktopCustomSubfolder": "自定义子文件夹名称",
-  "saveLocationDesktopCustomFolder": "自定义目录（系统目录选择）",
-  "saveLocationMacosBookmarkLabel": "已授权目录（macOS 沙盒书签）",
+  "saveLocationDesktopCustomFolder": "自定义文件夹",
+  "saveLocationMacosBookmarkLabel": "已授权文件夹",
   "saveLocationPathCopied": "已复制目录路径",
   "namingPreset": "文件命名预设",
   "downloadGroupTasks": "任务",
@@ -601,11 +601,11 @@
   "translateIndexModel9B": "9B",
   "translateIndexModel35B": "35B-A3B",
   "translateIndexThinking": "启用思考模式",
-  "translateIndexThinkingHint": "允许模型输出思考内容，可能增加耗时",
+  "translateIndexThinkingHint": "允许模型先思考再输出译文，耗时可能更长",
   "translateBaiduCredential": "百度 AppID / 密钥",
   "translateLlmCredential": "LLM 接口与密钥",
   "translateBaiduAppId": "AppID",
-  "translateBaiduSecret": "密钥 (Secret)",
+  "translateBaiduSecret": "密钥",
   "translateLlmBaseUrl": "接口地址（HTTPS）",
   "translateLlmApiKey": "API Key",
   "translateLlmModel": "模型名",
@@ -1496,7 +1496,7 @@
   "translationOpenSettings": "去设置",
   "translationHide": "收起翻译",
   "translationCopied": "已复制译文",
-  "commentEmoji": "Emoji",
+  "commentEmoji": "表情",
   "commentSending": "发送中",
   "commentStampLabel": "贴图 {id}",
   "@commentStampLabel": {
@@ -1506,7 +1506,7 @@
       }
     }
   },
-  "commentStamps": "Stamp",
+  "commentStamps": "贴图",
   "commentPermissionDenied": "只能删除自己的评论",
   "newTitle": "新作",
   "newFollowing": "关注",
@@ -1811,7 +1811,7 @@
   "spotlightChallengeVerifying": "正在通过 pixivision 验证…",
   "spotlightChallengeManual": "pixivision 需要人工验证，请完成下方验证",
   "spotlightChallengeFailed": "pixivision 当前需要验证或代理",
-  "spotlightExternalBrowserHint": "当前平台不支持内置浏览器验证，请在系统浏览器中查看。",
+  "spotlightExternalBrowserHint": "当前设备不支持应用内打开此页面，请在浏览器中查看。",
   "spotlightCategoryAll": "全部",
   "spotlightCategoryIllust": "插画",
   "spotlightCategoryManga": "漫画",
@@ -2158,7 +2158,7 @@
   "@cardActionSelect": {
     "description": "Card long-press action on touch tablets to enter multi-select mode with this work"
   },
-  "viewerZoomIn": "放大 (2.5×)",
+  "viewerZoomIn": "放大（2.5×）",
   "@viewerZoomIn": {
     "description": "Context menu action in the full-screen image viewer to zoom to 2.5x"
   },
@@ -2218,9 +2218,9 @@
   "@ugoiraPlaybackSpeed": {
     "description": "Tooltip and semantics label for ugoira playback speed selector"
   },
-  "loginWebViewStalled": "登录页面加载超时，可改用浏览器打开或粘贴回调/令牌",
+  "loginWebViewStalled": "登录页加载超时，可改用浏览器打开，或粘贴登录链接 / 令牌",
   "accountTransferExportToken": "复制 refresh_token",
-  "accountTransferTokenCopied": "refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。",
+  "accountTransferTokenCopied": "已复制 refresh_token，请尽快粘贴；5 分钟后回到 Parfait 时会自动清除。",
   "offlineQueueTitle": "待同步离线操作",
   "offlineQueuePendingCount": "{count} 项等待同步",
   "@offlineQueuePendingCount": {
@@ -2258,12 +2258,12 @@
   "shortcutArtworkCopy": "复制原图",
   "shortcutArtworkChrome": "显示 / 隐藏工具栏",
   "shortcutArtworkInfo": "作品信息",
-  "shortcutArtworkSwitchWork": "上一张 / 下一张作品",
+  "shortcutArtworkSwitchWork": "上一篇 / 下一篇作品",
   "shortcutArtworkSwitchPage": "上一页 / 下一页",
   "shortcutArtworkZoom": "放大 / 缩小 / 适应窗口",
   "shortcutNovelToc": "目录与进度",
   "shortcutNovelNavigate": "翻页 / 滚动",
-  "searchBookmarkLocalFilterHint": "标题或正文搜索仅在已加载结果中本地筛选收藏数",
+  "searchBookmarkLocalFilterHint": "按标题或简介搜索时，收藏数仅在已加载的结果中筛选",
   "searchExcludeTag": "排除标签",
   "searchInsertOr": "插入 OR",
   "searchHistoryPin": "置顶",
@@ -2277,28 +2277,38 @@
   "downloadSubfolderByArtist": "按作者归类",
   "downloadSubfolderByArtistAndSeries": "按作者与系列归类",
   "downloadMultiPageSubfolder": "多图作品单独建文件夹",
-  "downloadMultiPageSubfolderHint": "页数超过 1 页的作品放入以作品 ID 命名的子文件夹",
+  "downloadMultiPageSubfolderHint": "多页作品单独放进以作品 ID 命名的子文件夹",
   "downloadPadPageNumbers": "页码补零对齐",
-  "downloadPadPageNumbersHint": "按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列",
+  "downloadPadPageNumbersHint": "按总页数位数补零（如 _p00、_p01），方便按顺序浏览",
   "downloadAuthorSubfolderToggle": "放入作者子文件夹",
-  "downloadAuthorConfirmBodyWithUgoira": "将把 {works} 份静态作品（共 {pages} 页）与 {ugoira} 份动图加入下载队列。",
+  "downloadAuthorConfirmBodyWithUgoira": "将加入 {works} 篇插画/漫画（共 {pages} 页）和 {ugoira} 篇动图到下载队列。",
   "@downloadAuthorConfirmBodyWithUgoira": {
     "placeholders": {
-      "works": {"type": "int"},
-      "pages": {"type": "int"},
-      "ugoira": {"type": "int"}
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      },
+      "ugoira": {
+        "type": "int"
+      }
     }
   },
-  "downloadAuthorIncludeUgoira": "包含动图作品（{count} 份，导出为 GIF）",
+  "downloadAuthorIncludeUgoira": "同时下载动图（{count} 篇，导出为 GIF）",
   "@downloadAuthorIncludeUgoira": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
-  "downloadAuthorUgoiraOnlyHint": "该作者仅发现 {count} 份动图作品。开启下方开关即可导出为 GIF。",
+  "downloadAuthorUgoiraOnlyHint": "这位画师目前只有 {count} 篇动图，打开下方开关即可导出为 GIF。",
   "@downloadAuthorUgoiraOnlyHint": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "novelSaveOffline": "保存到离线书架",
@@ -2308,26 +2318,34 @@
   "novelExportTxtQueued": "已加入 TXT 下载队列",
   "novelExportTxtShared": "已分享 TXT 文件",
   "novelExportTxtFailed": "导出 TXT 失败",
-  "novelExportAndroidFolderRequired": "Android 上导出 TXT 需要先选择自定义文件夹作为保存位置",
-  "novelSeriesSaveOffline": "离线缓存全系列",
+  "novelExportAndroidFolderRequired": "导出 TXT 需要先把保存位置设为自定义文件夹",
+  "novelSeriesSaveOffline": "离线保存全系列",
   "novelSeriesExportTxt": "导出系列 TXT",
   "novelSeriesExportMerged": "合并为单个 TXT",
   "novelSeriesExportSplit": "按章节分文件导出",
-  "novelSeriesSavedWithSkipped": "已保存 {saved} 章，跳过 {skipped} 章不可阅读内容",
+  "novelSeriesSavedWithSkipped": "已保存 {saved} 话，跳过 {skipped} 话无法查看的内容",
   "@novelSeriesSavedWithSkipped": {
     "placeholders": {
-      "saved": {"type": "int"},
-      "skipped": {"type": "int"}
+      "saved": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
-  "novelSeriesExportQueuedWithSkipped": "已加入 {queued} 个章节导出，跳过 {skipped} 章不可阅读内容",
+  "novelSeriesExportQueuedWithSkipped": "已加入 {queued} 话导出，跳过 {skipped} 话无法查看的内容",
   "@novelSeriesExportQueuedWithSkipped": {
     "placeholders": {
-      "queued": {"type": "int"},
-      "skipped": {"type": "int"}
+      "queued": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
     }
   },
-  "novelSeriesNoViewableChapters": "该系列暂无可保存的章节",
+  "novelSeriesNoViewableChapters": "这个系列暂时没有可保存的内容",
   "openInNewTab": "在新标签页打开",
   "workspaceRootTab": "主工作区",
   "windowCloseTab": "关闭标签页",
