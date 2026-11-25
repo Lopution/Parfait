@@ -441,5 +441,32 @@ void main() {
       expect(novelAnchorForReadOffset(1, text), (paragraphId: 'p0', offset: 1));
       expect(novelAnchorForReadOffset(2, text), (paragraphId: 'p1', offset: 0));
     });
+
+    test(
+      'indexed lineStarts binary search and O(1) save match linear scan',
+      () {
+        const text = 'ab\n\ncd\nef\n';
+        final starts = buildLocalNovelLineStarts(text);
+        for (var pos = 0; pos <= text.length + 2; pos++) {
+          final anchor = novelAnchorForReadOffsetWithStarts(
+            pos,
+            starts,
+            text.length,
+          );
+          expect(anchor, novelAnchorForReadOffset(pos, text));
+          if (anchor != null) {
+            expect(
+              localNovelReadOffsetForAnchor(
+                paragraphId: anchor.paragraphId,
+                offset: anchor.offset,
+                lineStarts: starts,
+                textLength: text.length,
+              ),
+              pos.clamp(0, text.length),
+            );
+          }
+        }
+      },
+    );
   });
 }

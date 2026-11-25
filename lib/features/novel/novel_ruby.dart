@@ -5,8 +5,15 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/novel/novel_entity.dart';
 
 /// A ruby (furigana) annotation on a line or paragraph slice: its range in
-/// the owning text and the reading painted above the base characters.
-typedef NovelLineRuby = ({int start, int end, String reading});
+/// the owning text, the reading painted above the base characters, and the
+/// pre-measured box geometry cached by layout so widget builds avoid
+/// repeating [TextPainter.layout].
+typedef NovelLineRuby = ({
+  int start,
+  int end,
+  String reading,
+  NovelRubyBox? box,
+});
 
 /// Pre-measured geometry of a single stacked furigana box, shared between
 /// layout (`NovelLayoutEngine`) and rendering (`NovelParagraphSliceView`).
@@ -47,7 +54,7 @@ List<NovelLineRuby> extractNovelRubies(NovelParagraph paragraph) {
     final start = mark.start.clamp(0, length);
     final end = mark.end.clamp(start, length);
     if (end <= start || start < cursor) continue;
-    result.add((start: start, end: end, reading: reading));
+    result.add((start: start, end: end, reading: reading, box: null));
     cursor = end;
   }
   return result;
@@ -139,7 +146,12 @@ measureRubyParagraphRows({
     if (box.width > maxWidth) {
       appendPlain(ruby.start, ruby.end);
     } else {
-      activeRubies.add(ruby);
+      activeRubies.add((
+        start: ruby.start,
+        end: ruby.end,
+        reading: ruby.reading,
+        box: box,
+      ));
       spans.add(
         const WidgetSpan(
           alignment: PlaceholderAlignment.baseline,
@@ -226,6 +238,11 @@ List<NovelLineRuby> sliceNovelRubies(
   return [
     for (final r in rubies)
       if (r.start >= start && r.end <= end)
-        (start: r.start - start, end: r.end - start, reading: r.reading),
+        (
+          start: r.start - start,
+          end: r.end - start,
+          reading: r.reading,
+          box: r.box,
+        ),
   ];
 }
