@@ -3793,4 +3793,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get novelSeriesNoViewableChapters =>
       'No viewable chapters in this series';
+
+  @override
+  String get openInNewTab => 'Open in new tab';
+
+  @override
+  String get workspaceRootTab => 'Workspace';
+
+  @override
+  String get windowCloseTab => 'Close Tab';
+
+  @override
+  String get closeTabTooltip => 'Close tab';
+
+  @override
+  String get shortcutCloseTab => 'Close overlay or active tab';
+
+  @override
+  String get shortcutNextTab => 'Switch workspace tab';
 }

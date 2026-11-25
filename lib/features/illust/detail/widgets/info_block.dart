@@ -14,11 +14,15 @@ import '../../../../app/widgets/edge_icon_buttons.dart';
 import '../../../../app/widgets/feed/feed_text_warmup.dart';
 import '../../../../app/widgets/follow_switch_button.dart';
 import '../../../../app/widgets/meta_fact.dart';
+import '../../../../app/widgets/middle_click_region.dart';
 import '../../../../app/widgets/person_card.dart';
 import '../../../../app/widgets/tag_chips.dart';
+import '../../../../app/window/desktop_workspace_tabs.dart';
 import '../../../../core/auth/account_store.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/mute/mute_store.dart';
+import '../../../../core/search/search_models.dart';
+import '../../../../core/settings/settings_controller.dart';
 import '../../../../l10n/context.dart';
 import '../../../../app/widgets/caption_rich_text.dart';
 import '../../../../app/widgets/inline_translation.dart';
@@ -202,31 +206,40 @@ class DetailAuthorCard extends ConsumerWidget {
           color: tokens.surface,
           border: Border.all(color: tokens.brandHairline),
         ),
-        child: PersonCard(
-          key: const Key('illust-author-row'),
-          onTap: () => openUser(context, author.id),
-          tapHint: context.l10n.openAuthorProfile,
-          trailing: author.id == ownUserId
-              ? null
-              // Capped at half the card so a long localized label leaves
-              // the name a lane; the button scales its label down past it.
-              : ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: constraints.maxWidth / 2,
+        child: MiddleClickRegion(
+          onMiddleClick: () =>
+              DesktopWorkspaceTabsScope.maybeOf(
+                context,
+                listen: false,
+              )?.openTargetInBackground(
+                UserTabTarget(userId: author.id, name: author.name),
+              ),
+          child: PersonCard(
+            key: const Key('illust-author-row'),
+            onTap: () => openUser(context, author.id),
+            tapHint: context.l10n.openAuthorProfile,
+            trailing: author.id == ownUserId
+                ? null
+                // Capped at half the card so a long localized label leaves
+                // the name a lane; the button scales its label down past it.
+                : ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth / 2,
+                    ),
+                    child: FollowSwitchButton(
+                      userId: author.id,
+                      userName: author.name,
+                      userAccount: author.account,
+                      compact: true,
+                    ),
                   ),
-                  child: FollowSwitchButton(
-                    userId: author.id,
-                    userName: author.name,
-                    userAccount: author.account,
-                    compact: true,
-                  ),
-                ),
-          child: AuthorSummary(
-            name: author.name,
-            account: _handle(author),
-            imageUrl: author.profileImageUrl,
-            avatarRadius: 20,
-            avatarRingColor: colors.primary.withValues(alpha: 0.45),
+            child: AuthorSummary(
+              name: author.name,
+              account: _handle(author),
+              imageUrl: author.profileImageUrl,
+              avatarRadius: 20,
+              avatarRingColor: colors.primary.withValues(alpha: 0.45),
+            ),
           ),
         ),
       ),
@@ -263,6 +276,19 @@ class _TagsSectionState extends ConsumerState<_TagsSection> {
     // official /v1/mute list instead of the legacy local-only pref.
     final mutedTags = ref.watch(effectiveMutesProvider.select((s) => s.tags));
     final muteStore = ref.read(muteStoreProvider.notifier);
+    VoidCallback? openTagInNewTab(IllustTag tag) {
+      final tabs = DesktopWorkspaceTabsScope.maybeOf(context, listen: false);
+      if (tabs == null) return null;
+      return () => tabs.openTargetInBackground(
+        SearchTabTarget(
+          IllustSearchQuery(
+            keyword: tag.name,
+            filters: ref.read(searchIllustFiltersProvider),
+          ),
+        ),
+      );
+    }
+
     // The same entries as the long-press panel, beside the chip/pointer on a
     // PC (R11).
     void showTagActions(
@@ -278,6 +304,7 @@ class _TagsSectionState extends ConsumerState<_TagsSection> {
           muted: muted,
           position: position,
           onSearch: () => openTagSearch(context, tag.name),
+          onOpenInNewTab: openTagInNewTab(tag),
           onToggleMute: () => unawaited(
             toggleTagMute(context, muteStore, tag.name, muted: muted),
           ),
@@ -323,6 +350,9 @@ class _TagsSectionState extends ConsumerState<_TagsSection> {
                     blockMode: blockMode,
                     blocked: mutedTags.contains(entity.tags[i].name),
                     onTap: tapFor(entity.tags[i]),
+                    onMiddleClick: blockMode
+                        ? null
+                        : openTagInNewTab(entity.tags[i]),
                     onShowActions: (anchorContext, {position}) =>
                         showTagActions(
                           anchorContext,
@@ -342,6 +372,9 @@ class _TagsSectionState extends ConsumerState<_TagsSection> {
                     blockMode: blockMode,
                     blocked: mutedTags.contains(entity.tags[i].name),
                     onTap: tapFor(entity.tags[i]),
+                    onMiddleClick: blockMode
+                        ? null
+                        : openTagInNewTab(entity.tags[i]),
                     // Long-press opens the direct action menu (search /
                     // copy / mute / batch-mute entry) instead of silently
                     // flipping the block mode.
@@ -371,6 +404,7 @@ class _DesktopAnchoredTagChip extends StatefulWidget {
     required this.blockMode,
     required this.blocked,
     required this.onTap,
+    this.onMiddleClick,
     required this.onShowActions,
   });
 
@@ -378,6 +412,7 @@ class _DesktopAnchoredTagChip extends StatefulWidget {
   final bool blockMode;
   final bool blocked;
   final VoidCallback onTap;
+  final VoidCallback? onMiddleClick;
   final void Function(BuildContext anchorContext, {Offset? position})
   onShowActions;
 
@@ -409,6 +444,7 @@ class _DesktopAnchoredTagChipState extends State<_DesktopAnchoredTagChip> {
           blockMode: widget.blockMode,
           blocked: widget.blocked,
           onTap: widget.onTap,
+          onMiddleClick: widget.onMiddleClick,
           onLongPress: () =>
               widget.onShowActions(_anchorKey.currentContext ?? context),
           onSecondaryTapAt: (position) => widget.onShowActions(

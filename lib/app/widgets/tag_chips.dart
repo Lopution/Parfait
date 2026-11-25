@@ -6,6 +6,7 @@ import '../motion/press_scale.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import 'feed/feed_text_warmup.dart';
+import 'middle_click_region.dart';
 import '../icons/app_icons.dart';
 
 /// Visible height of a tag pill; text scaling may grow it.
@@ -37,6 +38,7 @@ class TagChip extends StatefulWidget {
     this.onTap,
     this.onLongPress,
     this.onSecondaryTapAt,
+    this.onMiddleClick,
     this.blockMode = false,
     this.blocked = false,
   });
@@ -50,6 +52,7 @@ class TagChip extends StatefulWidget {
   /// actions beside the pointer on a PC (R11); without it the right-click
   /// runs [onLongPress].
   final ValueChanged<Offset>? onSecondaryTapAt;
+  final VoidCallback? onMiddleClick;
   final bool blockMode;
   final bool blocked;
 
@@ -141,7 +144,7 @@ class _TagChipState extends State<TagChip> {
         ),
       ),
     );
-    final chip = PressScale(
+    Widget chip = PressScale(
       scale: MotionTokens.pillPressScale,
       enabled: interactive,
       child: InkWell(
@@ -165,6 +168,12 @@ class _TagChipState extends State<TagChip> {
         child: Padding(padding: _hitMargin, child: pill),
       ),
     );
+    if (widget.onMiddleClick != null) {
+      chip = MiddleClickRegion(
+        onMiddleClick: widget.onMiddleClick,
+        child: chip,
+      );
+    }
     final modality =
         InputModalityScope.maybeOf(context) ??
         defaultInputModalityFor(Theme.of(context).platform);

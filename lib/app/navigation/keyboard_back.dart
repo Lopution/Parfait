@@ -12,6 +12,8 @@ import '../layout/input_modality.dart';
 import '../layout/window_layout_spec.dart';
 import '../pull_to_refresh.dart';
 import '../widgets/feed/feed_selection.dart';
+import '../window/desktop_close_dispatcher.dart';
+import '../window/desktop_workspace_tabs.dart';
 import 'forward_history.dart';
 import 'keyboard_shortcuts_sheet.dart';
 
@@ -344,6 +346,8 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _ToggleRailIntent(),
         const SingleActivator(LogicalKeyboardKey.slash, meta: true):
             const _ShowShortcutsIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+            const _CloseActiveIntent(),
         for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], meta: true): _GoHomeDestinationIntent(
             destinations[i],
@@ -367,10 +371,16 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _ToggleRailIntent(),
         const SingleActivator(LogicalKeyboardKey.slash, control: true):
             const _ShowShortcutsIntent(),
+        const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+            const _CloseActiveIntent(),
         for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], control: true):
               _GoHomeDestinationIntent(destinations[i]),
       },
+      const SingleActivator(LogicalKeyboardKey.tab, control: true):
+          const _CycleWorkspaceTabIntent(delta: 1),
+      const SingleActivator(LogicalKeyboardKey.tab, control: true, shift: true):
+          const _CycleWorkspaceTabIntent(delta: -1),
       const SingleActivator(LogicalKeyboardKey.slash): const _SearchIntent(),
       const SingleActivator(LogicalKeyboardKey.slash, shift: true):
           const _ShowShortcutsIntent(),
@@ -409,6 +419,11 @@ class _KeyboardBackState extends State<KeyboardBack>
               ),
               _GoHomeDestinationIntent: _GoHomeDestinationAction(widget.router),
               _ShowShortcutsIntent: _ShowShortcutsAction(widget.router),
+              _CloseActiveIntent: _CloseActiveAction(
+                widget.router,
+                isMacOS: platform == TargetPlatform.macOS,
+              ),
+              _CycleWorkspaceTabIntent: _CycleWorkspaceTabAction(),
             },
             child: widget.child,
           ),
@@ -474,6 +489,16 @@ class _BackAction extends Action<_BackIntent> {
         FeedSelectionAnchor.clearActiveSelection()) {
       return null;
     }
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      if (tabs.hasSecondaryModalOverlay || tabs.canActiveSecondaryPop) {
+        return tabs.popActiveSecondary();
+      }
+      if (hasModalOrRootOverlay(router)) {
+        return router.routerDelegate.popRoute();
+      }
+      return null;
+    }
     // False at the start page's root: nothing left to go back to.
     return router.routerDelegate.popRoute();
   }
@@ -508,7 +533,9 @@ bool hasModalOrRootOverlay(GoRouter router, {bool checkFocusRoute = true}) {
     if (focusContext != null && focusContext.mounted) {
       final focusRoute = ModalRoute.of(focusContext);
       if (focusRoute is PopupRoute ||
-          (focusRoute != null && focusRoute.settings is! Page)) {
+          (focusRoute != null &&
+              !focusRoute.isFirst &&
+              focusRoute.settings is! Page)) {
         return true;
       }
     }
@@ -584,7 +611,11 @@ class _RefreshAction extends Action<_RefreshIntent> {
 
   @override
   Object? invoke(_RefreshIntent intent) {
+    final tabs = DesktopWorkspaceTabsController.active;
     final focusContext =
+        (tabs != null && tabs.isOnSecondaryTab
+            ? tabs.activeSecondaryContext
+            : null) ??
         primaryFocus?.context ??
         router.routerDelegate.navigatorKey.currentContext;
     PullToRefresh.triggerActive(focusContext);
@@ -607,6 +638,7 @@ class _OpenSettingsAction extends Action<_OpenSettingsIntent> {
 
   @override
   Object? invoke(_OpenSettingsIntent intent) {
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     if (liveRouterUri(router).path != '/settings/all') {
       router.go('/settings/all');
     }
@@ -630,6 +662,7 @@ class _ToggleRailAction extends Action<_ToggleRailIntent> {
       onToggleRail!.call();
       return null;
     }
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     // On FormFactor.pc the rail is fixed expanded (onToggleRail == null), so
     // Ctrl/Cmd+B opens Bookmarks instead of being a dead binding.
     if (liveRouterUri(router).toString() != '/settings/me?tab=bookmarks') {
@@ -650,6 +683,7 @@ class _GoHomeDestinationAction extends Action<_GoHomeDestinationIntent> {
 
   @override
   Object? invoke(_GoHomeDestinationIntent intent) {
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     ForwardHistoryStack.ofRouter(
       router,
     ).selectHomeDestination(intent.destination);
@@ -676,6 +710,46 @@ class _ShowShortcutsAction extends Action<_ShowShortcutsIntent> {
     if (nav != null) {
       unawaited(showKeyboardShortcutsSheet(nav));
     }
+    return null;
+  }
+}
+
+class _CloseActiveIntent extends Intent {
+  const _CloseActiveIntent();
+}
+
+class _CloseActiveAction extends Action<_CloseActiveIntent> {
+  _CloseActiveAction(this.router, {required this.isMacOS});
+
+  final GoRouter router;
+  final bool isMacOS;
+
+  @override
+  bool isEnabled(_CloseActiveIntent intent) =>
+      !isTextEditingFocused() && canDismissDesktopOverlayOrTab(router);
+
+  @override
+  Object? invoke(_CloseActiveIntent intent) {
+    dispatchLayeredDesktopClose(router: router, isMacOS: isMacOS);
+    return null;
+  }
+}
+
+class _CycleWorkspaceTabIntent extends Intent {
+  const _CycleWorkspaceTabIntent({required this.delta});
+
+  final int delta;
+}
+
+class _CycleWorkspaceTabAction extends Action<_CycleWorkspaceTabIntent> {
+  @override
+  bool isEnabled(_CycleWorkspaceTabIntent intent) =>
+      !isTextEditingFocused() &&
+      (DesktopWorkspaceTabsController.active?.hasSecondaryTabs ?? false);
+
+  @override
+  Object? invoke(_CycleWorkspaceTabIntent intent) {
+    DesktopWorkspaceTabsController.active?.cycleTab(delta: intent.delta);
     return null;
   }
 }

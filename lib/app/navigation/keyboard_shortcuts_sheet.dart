@@ -50,6 +50,8 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
           (label: l10n.shortcutNavSettings, keys: '$mod+,'),
           (label: l10n.shortcutNavRailOrBookmarks, keys: '$mod+B'),
           (label: l10n.shortcutNavSelectAll, keys: '$mod+A'),
+          (label: l10n.shortcutCloseTab, keys: '$mod+W'),
+          (label: l10n.shortcutNextTab, keys: 'Ctrl+Tab'),
           (label: l10n.shortcutNavShortcuts, keys: '? / $mod+/'),
         ],
       ),

@@ -13,6 +13,7 @@ import '../format/app_format.dart';
 import '../navigation/route_facade.dart';
 import '../pixiv_image.dart';
 import '../theme/func_semantic_tokens.dart';
+import '../window/desktop_workspace_tabs.dart';
 import 'bookmark_switch_button.dart';
 import 'display_actions.dart';
 import 'entity_row.dart';
@@ -278,58 +279,77 @@ class NovelEntry extends ConsumerWidget {
                 .reveal(entity.id)
           : onTap ?? () => openNovel(context, entity.id),
       onLongPress: onLongPress,
+      onMiddleClick: muted || selected
+          ? null
+          : () => DesktopWorkspaceTabsScope.maybeOf(
+              context,
+              listen: false,
+            )?.openTargetInBackground(NovelTabTarget(entity)),
       onSecondaryTapAt: muted || selected
           ? null
-          : (position) => unawaited(
-              showDisplayActions(
+          : (position) {
+              final tabs = DesktopWorkspaceTabsScope.maybeOf(
                 context,
-                position: position,
-                onLongPress: onLongPress ?? () {},
-                actions: [
-                  DisplayAction(
-                    icon: AppIcons.externalLink,
-                    label: context.l10n.downloadOpenWork,
-                    onSelected: onTap ?? () => openNovel(context, entity.id),
-                  ),
-                  DisplayAction(
-                    icon: AppIcons.heart,
-                    label: context.l10n.bookmarkEditTitle,
-                    onSelected: () => unawaited(
-                      showBookmarkEditSheet(
-                        context,
-                        BookmarkKey(BookmarkEntityType.novel, entity.id),
-                        title: entity.title,
+                listen: false,
+              );
+              unawaited(
+                showDisplayActions(
+                  context,
+                  position: position,
+                  onLongPress: onLongPress ?? () {},
+                  actions: [
+                    if (tabs != null)
+                      DisplayAction(
+                        icon: AppIcons.externalLink,
+                        label: context.l10n.openInNewTab,
+                        onSelected: () =>
+                            tabs.openTargetInBackground(NovelTabTarget(entity)),
+                      ),
+                    DisplayAction(
+                      icon: AppIcons.externalLink,
+                      label: context.l10n.downloadOpenWork,
+                      onSelected: onTap ?? () => openNovel(context, entity.id),
+                    ),
+                    DisplayAction(
+                      icon: AppIcons.heart,
+                      label: context.l10n.bookmarkEditTitle,
+                      onSelected: () => unawaited(
+                        showBookmarkEditSheet(
+                          context,
+                          BookmarkKey(BookmarkEntityType.novel, entity.id),
+                          title: entity.title,
+                        ),
                       ),
                     ),
-                  ),
-                  DisplayAction(
-                    icon: AppIcons.localNovel,
-                    label: context.l10n.novelSaveOffline,
-                    onSelected: () => unawaited(
-                      savePixivNovelOfflineAction(context, ref, entity),
-                    ),
-                  ),
-                  DisplayAction(
-                    icon: AppIcons.download,
-                    label: context.l10n.novelExportTxt,
-                    onSelected: () => unawaited(
-                      exportPixivNovelTxtAction(context, ref, entity),
-                    ),
-                  ),
-                  DisplayAction(
-                    icon: AppIcons.link,
-                    label: context.l10n.copyLink,
-                    onSelected: () => unawaited(
-                      copyToClipboard(
-                        context,
-                        'https://www.pixiv.net/novel/show.php?id=${entity.id}',
-                        message: context.l10n.linkCopied,
+                    DisplayAction(
+                      icon: AppIcons.localNovel,
+                      label: context.l10n.novelSaveOffline,
+                      onSelected: () => unawaited(
+                        savePixivNovelOfflineAction(context, ref, entity),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                    DisplayAction(
+                      icon: AppIcons.download,
+                      label: context.l10n.novelExportTxt,
+                      onSelected: () => unawaited(
+                        exportPixivNovelTxtAction(context, ref, entity),
+                      ),
+                    ),
+                    DisplayAction(
+                      icon: AppIcons.link,
+                      label: context.l10n.copyLink,
+                      onSelected: () => unawaited(
+                        copyToClipboard(
+                          context,
+                          'https://www.pixiv.net/novel/show.php?id=${entity.id}',
+                          message: context.l10n.linkCopied,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
       selected: selected,
       semanticLabel: muted ? identity : semanticLabel ?? identity,
     );
