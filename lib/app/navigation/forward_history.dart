@@ -110,19 +110,22 @@ class ForwardHistoryState {
   const ForwardHistoryState({
     required this.canGoBack,
     required this.canGoForward,
+    this.hasBlockingModal = false,
   });
 
   final bool canGoBack;
   final bool canGoForward;
+  final bool hasBlockingModal;
 
   @override
   bool operator ==(Object other) =>
       other is ForwardHistoryState &&
       other.canGoBack == canGoBack &&
-      other.canGoForward == canGoForward;
+      other.canGoForward == canGoForward &&
+      other.hasBlockingModal == hasBlockingModal;
 
   @override
-  int get hashCode => Object.hash(canGoBack, canGoForward);
+  int get hashCode => Object.hash(canGoBack, canGoForward, hasBlockingModal);
 }
 
 @immutable
@@ -272,6 +275,23 @@ class ForwardHistoryStack {
     final active = _activeBucket();
     for (final bucket in _openModals.values) {
       if (bucket == 'root' || bucket == active) return true;
+    }
+    return false;
+  }
+
+  /// True while a root or active-branch modal with a visible (non-transparent)
+  /// barrier is open. Transparent popovers (e.g. command-bar filter/account
+  /// menus) return false so their `TapRegion` toggle buttons remain live.
+  bool get hasBlockingModal {
+    if (_openModals.isEmpty) return false;
+    final active = _activeBucket();
+    for (final entry in _openModals.entries) {
+      if (entry.value != 'root' && entry.value != active) continue;
+      final route = entry.key;
+      if (route is ModalRoute<dynamic>) {
+        final barrier = route.barrierColor;
+        if (barrier != null && barrier.a > 0) return true;
+      }
     }
     return false;
   }
@@ -674,6 +694,7 @@ class ForwardHistoryStack {
     final next = ForwardHistoryState(
       canGoBack: canGoBack,
       canGoForward: canGoForward,
+      hasBlockingModal: hasBlockingModal,
     );
     _stateListenable.update(next);
   }

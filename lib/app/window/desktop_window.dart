@@ -28,14 +28,6 @@ import 'window_geometry.dart';
 
 export 'desktop_window_adapter.dart';
 
-/// Whether the desktop window API applies on this platform. Phones and the
-/// web keep their single window.
-bool get desktopWindowSupported =>
-    !kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux ||
-        defaultTargetPlatform == TargetPlatform.macOS);
-
 DesktopWindowPlatformMetrics _preparedDesktopMetrics =
     DesktopWindowPlatformMetrics.fallback;
 
@@ -136,16 +128,6 @@ Rect _workAreaOf(Display display) => workAreaOf(
   visibleSize: display.visibleSize,
 );
 
-/// Callback persisting desktop window geometry.
-typedef SaveWindowGeometryCallback =
-    Future<void> Function({
-      double? width,
-      double? height,
-      double? x,
-      double? y,
-      required bool maximized,
-    });
-
 /// Coordinates desktop window geometry persistence, Wayland safety, close-to-tray
 /// lifecycle, native chrome metrics, and tray menu actions.
 class DesktopWindowSession with WindowListener {
@@ -160,12 +142,14 @@ class DesktopWindowSession with WindowListener {
     this.onOpenDownloads,
     this.onBeforeDestroy,
     DesktopWindowPlatformMetrics? initialMetrics,
+    TargetPlatform? platformOverride,
   }) : _adapter = adapter,
        _host = host,
        _trayPort = trayPort,
        _readCloseToTray = readCloseToTray,
        _readSavedPlace = readSavedPlace,
        _saveGeometry = saveGeometry,
+       _platformOverride = platformOverride,
        metrics = ValueNotifier<DesktopWindowPlatformMetrics>(
          initialMetrics ?? DesktopWindowPlatformMetrics.fallback,
        );
@@ -183,6 +167,9 @@ class DesktopWindowSession with WindowListener {
   final SaveWindowGeometryCallback _saveGeometry;
   final VoidCallback? onOpenDownloads;
   final Future<void> Function()? onBeforeDestroy;
+  final TargetPlatform? _platformOverride;
+
+  TargetPlatform get _platform => _platformOverride ?? defaultTargetPlatform;
 
   final ValueNotifier<DesktopWindowPlatformMetrics> metrics;
 
@@ -378,12 +365,23 @@ class DesktopWindowSession with WindowListener {
     _saveTimer?.cancel();
     _closingInProgress = true;
     try {
+      final hideForMacDock = !forceQuit && _platform == TargetPlatform.macOS;
       final closeToTray =
-          !forceQuit && _readCloseToTray() && await _trayPort.isSupported();
+          !forceQuit &&
+          !hideForMacDock &&
+          _readCloseToTray() &&
+          await _trayPort.isSupported();
       try {
         await saveNow().timeout(_closeSaveTimeout);
       } on TimeoutException {
         log('window: saveNow timed out during close');
+      }
+      if (hideForMacDock) {
+        if (await _adapter.isFullScreen()) {
+          await _adapter.setFullScreen(false);
+        }
+        await _adapter.hide();
+        return;
       }
       if (closeToTray) {
         await _adapter.hide();
