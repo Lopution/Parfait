@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart'
-    show PointerDeviceKind, kMiddleMouseButton;
+    show PointerDeviceKind, kBackMouseButton, kMiddleMouseButton;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
+import 'package:parfait/app/navigation/route_facade.dart';
 import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/widgets/feed/feed_selection.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -20,6 +21,7 @@ import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/illust_fixtures.dart';
@@ -472,6 +474,142 @@ void main() {
         isTrue,
       );
       expect(windowClosed, 1);
+    },
+  );
+
+  testWidgets(
+    'Secondary tab switches unfocus root editor, isolate mouse back, skip hidden inspector, dedupe search filters, and focus root on GoRouter navigation',
+    (tester) async {
+      // P2-1: search tabs with different filters have distinct dedupe keys.
+      const q1 = IllustSearchQuery(
+        keyword: 'cat',
+        filters: IllustSearchFilters(sort: SearchSort.dateDesc),
+      );
+      const q2 = IllustSearchQuery(
+        keyword: 'cat',
+        filters: IllustSearchFilters(sort: SearchSort.popularDesc),
+      );
+      expect(
+        SearchTabTarget(q1).dedupeKey,
+        isNot(SearchTabTarget(q2).dedupeKey),
+      );
+
+      final tabs = DesktopWorkspaceTabsController()..attachAsActive();
+      addTearDown(() {
+        tabs.detachIfActive();
+        tabs.dispose();
+      });
+
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) =>
+                const Scaffold(body: TextField(key: Key('root-text-field'))),
+          ),
+          GoRoute(
+            path: '/downloads',
+            builder: (_, _) => const Scaffold(body: Text('Downloads')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      tabs.openBackgroundTab(
+        title: 'Secondary',
+        icon: UiIcons.chevronRight,
+        builder: (_) => const Scaffold(body: Text('Secondary Root')),
+      );
+
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          locale: const Locale('en'),
+          builder: (context, child) => DesktopWorkspaceTabsScope(
+            controller: tabs,
+            child: KeyboardBack(
+              router: router,
+              destinations: HomeDestination.values,
+              child: DesktopWorkspaceTabHost(
+                controller: tabs,
+                rootChild: child!,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // P2-9: focusing root TextField then switching to secondary tab clears
+      // focus so isTextEditingFocused() is false.
+      await tester.tap(find.byKey(const Key('root-text-field')));
+      await tester.pump();
+      expect(isTextEditingFocused(), isTrue);
+
+      tabs.selectTab(1);
+      await tester.pumpAndSettle();
+      expect(isTextEditingFocused(), isFalse);
+
+      // P1-2: mouse back button pops a pushed route inside the active
+      // secondary tab without touching the offstage root router.
+      final secondaryNav = Navigator.of(tabs.activeSecondaryContext!);
+      secondaryNav.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Secondary Pushed')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Secondary Pushed'), findsOneWidget);
+
+      final mouse = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kBackMouseButton,
+      );
+      await mouse.addPointer(location: const Offset(200, 200));
+      await mouse.down(const Offset(200, 200));
+      await tester.pump();
+      await mouse.up();
+      await mouse.removePointer();
+      await tester.pumpAndSettle();
+      expect(find.text('Secondary Pushed'), findsNothing);
+      expect(find.text('Secondary Root'), findsOneWidget);
+
+      // P2-10: an offstage inspector (isActive: false) is ignored by layered
+      // close so Ctrl+W closes the visible secondary tab instead.
+      var offstageDismissed = false;
+      bool dismissHidden() {
+        offstageDismissed = true;
+        return true;
+      }
+
+      DesktopInspectorDismissRegistry.register(
+        dismissHidden,
+        isActive: () => false,
+      );
+      addTearDown(
+        () => DesktopInspectorDismissRegistry.unregister(dismissHidden),
+      );
+      expect(DesktopInspectorDismissRegistry.hasActive, isFalse);
+
+      // P1-1: root-level navigation (e.g. tray openDownloadsFromRouter)
+      // switches back to tab 0 so the target route is visible.
+      openDownloadsFromRouter(router, rail: false);
+      await tester.pumpAndSettle();
+      expect(tabs.activeIndex, 0);
+      expect(find.text('Downloads'), findsOneWidget);
+
+      // Switching back to tab 1 and invoking layered close closes tab 1 while
+      // leaving the hidden inspector untouched.
+      tabs.selectTab(1);
+      await tester.pumpAndSettle();
+      expect(
+        dispatchLayeredDesktopClose(router: router, isMacOS: false),
+        isTrue,
+      );
+      expect(offstageDismissed, isFalse);
+      expect(tabs.tabCount, 1);
+      expect(tabs.activeIndex, 0);
     },
   );
 }

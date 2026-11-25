@@ -225,19 +225,45 @@ class _KeyboardBackState extends State<KeyboardBack>
     return false;
   }
 
+  Future<bool> _dispatchBackNavigation() {
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      if (tabs.hasSecondaryModalOverlay || tabs.canActiveSecondaryPop) {
+        return tabs.popActiveSecondary();
+      }
+      if (hasModalOrRootOverlay(widget.router)) {
+        return widget.router.routerDelegate.popRoute();
+      }
+      return Future<bool>.value(false);
+    }
+    return widget.router.routerDelegate.popRoute();
+  }
+
+  Future<bool> _dispatchForwardNavigation() {
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      return Future<bool>.value(false);
+    }
+    return _history.goForward();
+  }
+
   Future<Object?> _handleNavigationCommand(MethodCall call) async {
     switch (call.method) {
       case 'back':
         if (_shouldSuppressCrossSource('back', fromChannel: true)) {
           return true;
         }
-        return await widget.router.routerDelegate.popRoute();
+        return await _dispatchBackNavigation();
       case 'forward':
         if (_shouldSuppressCrossSource('forward', fromChannel: true)) {
-          return _history.canGoForward;
+          final tabs = DesktopWorkspaceTabsController.active;
+          return (tabs == null || !tabs.isOnSecondaryTab) &&
+              _history.canGoForward;
         }
-        final handled = await _history.goForward();
-        _lastChannelPushGen = _history.pushGeneration;
+        final handled = await _dispatchForwardNavigation();
+        if (handled) {
+          _lastChannelPushGen = _history.pushGeneration;
+        }
         return handled;
       default:
         return false;
@@ -288,14 +314,15 @@ class _KeyboardBackState extends State<KeyboardBack>
     if ((event.buttons & kBackMouseButton) != 0) {
       _heldBackPointers.add(event.pointer);
       if (_shouldSuppressCrossSource('back', fromChannel: false)) return;
-      unawaited(widget.router.routerDelegate.popRoute());
+      unawaited(_dispatchBackNavigation());
       return;
     }
     if ((event.buttons & kForwardMouseButton) != 0) {
       _heldForwardPointers.add(event.pointer);
       if (_shouldSuppressCrossSource('forward', fromChannel: false)) return;
-      if (_history.canGoForward) {
-        unawaited(_history.goForward());
+      final tabs = DesktopWorkspaceTabsController.active;
+      if ((tabs == null || !tabs.isOnSecondaryTab) && _history.canGoForward) {
+        unawaited(_dispatchForwardNavigation());
         _lastPointerPushGen = _history.pushGeneration;
       }
     }
@@ -510,9 +537,12 @@ class _ForwardAction extends Action<_ForwardIntent> {
   final GoRouter router;
 
   @override
-  bool isEnabled(_ForwardIntent intent) =>
-      !isTextEditingFocused() &&
-      ForwardHistoryStack.ofRouter(router).canGoForward;
+  bool isEnabled(_ForwardIntent intent) {
+    final tabs = DesktopWorkspaceTabsController.active;
+    if (tabs != null && tabs.isOnSecondaryTab) return false;
+    return !isTextEditingFocused() &&
+        ForwardHistoryStack.ofRouter(router).canGoForward;
+  }
 
   @override
   Object? invoke(_ForwardIntent intent) =>
@@ -591,6 +621,7 @@ class _SearchAction extends Action<_SearchIntent> {
   @override
   Object? invoke(_SearchIntent intent) {
     if (!_canOpenSearchShortcut(router)) return null;
+    DesktopWorkspaceTabsController.active?.selectTab(0);
     if (_SearchShortcutAnchorState.triggerActive()) return null;
     final path = liveRouterUri(router).path;
     final root = _stackRootOfPath(path);
@@ -706,7 +737,12 @@ class _ShowShortcutsAction extends Action<_ShowShortcutsIntent> {
 
   @override
   Object? invoke(_ShowShortcutsIntent intent) {
-    final nav = router.routerDelegate.navigatorKey.currentContext;
+    final tabs = DesktopWorkspaceTabsController.active;
+    final nav =
+        (tabs != null && tabs.isOnSecondaryTab
+            ? tabs.activeSecondaryContext
+            : null) ??
+        router.routerDelegate.navigatorKey.currentContext;
     if (nav != null) {
       unawaited(showKeyboardShortcutsSheet(nav));
     }

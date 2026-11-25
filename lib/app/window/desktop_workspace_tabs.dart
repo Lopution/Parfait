@@ -84,7 +84,7 @@ final class SearchTabTarget extends DesktopTabTarget {
   IconData get icon => AppIcons.search;
 
   @override
-  String get dedupeKey => 'search:${query.runtimeType}:${query.keyword}';
+  String get dedupeKey => 'search:${query.cacheKey}';
 }
 
 typedef DesktopTabPageBuilder = WidgetBuilder Function(DesktopTabTarget target);
@@ -200,6 +200,7 @@ class DesktopWorkspaceTabsController extends ChangeNotifier {
   void selectTab(int index) {
     final clamped = index.clamp(0, _secondaryTabs.length);
     if (clamped == _activeIndex) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     _activeIndex = clamped;
     notifyListeners();
   }
@@ -216,8 +217,12 @@ class DesktopWorkspaceTabsController extends ChangeNotifier {
   /// workspace) is permanent and cannot be closed.
   bool closeTabAt(int index) {
     if (index < 1 || index > _secondaryTabs.length) return false;
+    final closingActive = _activeIndex == index;
+    if (closingActive) {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
     _secondaryTabs.removeAt(index - 1);
-    if (_activeIndex == index) {
+    if (closingActive) {
       _activeIndex = (index - 1).clamp(0, _secondaryTabs.length);
     } else if (_activeIndex > index) {
       _activeIndex -= 1;
@@ -556,9 +561,14 @@ class _FrozenTabSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     return Offstage(
       offstage: !active,
-      child: TickerMode(
-        enabled: active,
-        child: HeroMode(enabled: active, child: child),
+      child: Focus(
+        canRequestFocus: false,
+        descendantsAreFocusable: active,
+        descendantsAreTraversable: active,
+        child: TickerMode(
+          enabled: active,
+          child: HeroMode(enabled: active, child: child),
+        ),
       ),
     );
   }

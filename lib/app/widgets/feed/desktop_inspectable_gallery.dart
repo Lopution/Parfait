@@ -95,15 +95,25 @@ class _DesktopInspectableGalleryState
     });
   }
 
-  bool _dismissFromShortcut() {
+  bool _isInspectorVisibleForShortcut() {
     if (!mounted || _selected == null) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final route = ModalRoute.of(context);
+    return route == null || route.isCurrent;
+  }
+
+  bool _dismissFromShortcut() {
+    if (!_isInspectorVisibleForShortcut()) return false;
     _close();
     return true;
   }
 
   void _open(DesktopInspectorTarget target) {
     if (!mounted) return;
-    DesktopInspectorDismissRegistry.register(_dismissFromShortcut);
+    DesktopInspectorDismissRegistry.register(
+      _dismissFromShortcut,
+      isActive: _isInspectorVisibleForShortcut,
+    );
     setState(() {
       _selected = target;
       _rendered = target;

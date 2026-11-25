@@ -188,8 +188,22 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     );
   }
 
+  ({BuildContext context, bool useRootNavigator})? _popoverHost() {
+    final tabs = DesktopWorkspaceTabsScope.maybeOf(context, listen: false);
+    if (tabs != null && tabs.isOnSecondaryTab) {
+      final secondary = tabs.activeSecondaryContext;
+      if (secondary != null && secondary.mounted) {
+        return (context: secondary, useRootNavigator: false);
+      }
+    }
+    final navContext = _navContext();
+    if (navContext == null) return null;
+    return (context: navContext, useRootNavigator: true);
+  }
+
   Future<void> _openSearch(Uri currentUri) async {
     if (_searchOpening) return;
+    DesktopWorkspaceTabsScope.maybeOf(context, listen: false)?.selectTab(0);
     final navContext = _navContext();
     if (navContext == null) return;
     _searchOpening = true;
@@ -228,15 +242,15 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
     required double maxHeight,
     required WidgetBuilder builder,
   }) async {
-    final navContext = _navContext();
-    if (navContext == null) return;
+    final host = _popoverHost();
+    if (host == null) return;
     await showAppAdaptivePopover<void>(
-      context: navContext,
+      context: host.context,
       anchorContext: anchorKey.currentContext,
       minWidth: minWidth,
       maxWidth: maxWidth,
       maxHeight: maxHeight,
-      useRootNavigator: true,
+      useRootNavigator: host.useRootNavigator,
       builder: (popoverContext) {
         final route = ModalRoute.of(popoverContext);
         return TapRegion(
@@ -257,10 +271,13 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
   }
 
   Future<void> _openFilterPopover() async {
-    final navContext = _navContext();
-    if (navContext == null) return;
+    final host = _popoverHost();
+    if (host == null) return;
     if (_filterMenuOpen) {
-      await Navigator.of(navContext, rootNavigator: true).maybePop();
+      await Navigator.of(
+        host.context,
+        rootNavigator: host.useRootNavigator,
+      ).maybePop();
       return;
     }
     _filterMenuOpen = true;
@@ -280,10 +297,13 @@ class _DesktopCommandBarState extends ConsumerState<DesktopCommandBar> {
   }
 
   Future<void> _openAccountPopover() async {
-    final navContext = _navContext();
-    if (navContext == null) return;
+    final host = _popoverHost();
+    if (host == null) return;
     if (_accountMenuOpen) {
-      await Navigator.of(navContext, rootNavigator: true).maybePop();
+      await Navigator.of(
+        host.context,
+        rootNavigator: host.useRootNavigator,
+      ).maybePop();
       return;
     }
     _accountMenuOpen = true;
