@@ -149,21 +149,30 @@ class _TagFilter extends ConsumerWidget {
         .value;
     final names = [
       for (final entry in loaded?.tags.take(menuLimit) ?? <UserBookmarkTag>[])
-        entry.name,
+        if (entry.name != kUncategorizedBookmarkTag) entry.name,
     ];
     // Until the list is known to fit, the full tag page stays reachable.
     final more =
         loaded == null || loaded.hasMore || loaded.tags.length > menuLimit;
+    String displayTag(String value) => value == kUncategorizedBookmarkTag
+        ? l10n.bookmarkTagUncategorized
+        : value;
     return FilterMenuButton<String?>(
       key: const ValueKey('profile-filter-tag'),
       label: tag == null
           ? l10n.profileTagFilterAll
-          : l10n.profileTagFilter(tag),
+          : l10n.profileTagFilter(displayTag(tag)),
       value: tag,
       options: [
         AppMenuEntry(value: null, label: l10n.profileTagAny),
+        AppMenuEntry(
+          value: kUncategorizedBookmarkTag,
+          label: l10n.bookmarkTagUncategorized,
+        ),
         for (final name in names) AppMenuEntry(value: name, label: name),
-        if (tag != null && !names.contains(tag))
+        if (tag != null &&
+            tag != kUncategorizedBookmarkTag &&
+            !names.contains(tag))
           AppMenuEntry(value: tag, label: tag),
       ],
       onChanged: onChanged,

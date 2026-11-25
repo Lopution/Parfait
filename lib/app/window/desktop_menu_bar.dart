@@ -13,6 +13,7 @@ import '../../l10n/context.dart';
 import '../layout/input_modality.dart';
 import '../navigation/forward_history.dart';
 import '../navigation/keyboard_back.dart';
+import '../navigation/keyboard_shortcuts_sheet.dart';
 import '../navigation/route_facade.dart';
 import '../navigation/route_search_facade.dart';
 import '../pull_to_refresh.dart';
@@ -319,6 +320,19 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
               ),
             ],
           ),
+      ],
+    ),
+    PlatformMenu(
+      label: l10n.menuHelp,
+      menus: [
+        PlatformMenuItem(
+          label: l10n.keyboardShortcutsTitle,
+          shortcut: const SingleActivator(LogicalKeyboardKey.slash, meta: true),
+          onSelected: guard(() {
+            final nav = _navContextOf(router);
+            if (nav != null) unawaited(showKeyboardShortcutsSheet(nav));
+          }),
+        ),
       ],
     ),
   ];

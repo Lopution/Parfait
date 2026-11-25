@@ -13,6 +13,7 @@ import '../layout/window_layout_spec.dart';
 import '../pull_to_refresh.dart';
 import '../widgets/feed/feed_selection.dart';
 import 'forward_history.dart';
+import 'keyboard_shortcuts_sheet.dart';
 
 const _navigationCommandsChannel = MethodChannel('parfait/navigation_commands');
 
@@ -341,6 +342,8 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _OpenSettingsIntent(),
         const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
             const _ToggleRailIntent(),
+        const SingleActivator(LogicalKeyboardKey.slash, meta: true):
+            const _ShowShortcutsIntent(),
         for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], meta: true): _GoHomeDestinationIntent(
             destinations[i],
@@ -362,11 +365,17 @@ class _KeyboardBackState extends State<KeyboardBack>
             const _OpenSettingsIntent(),
         const SingleActivator(LogicalKeyboardKey.keyB, control: true):
             const _ToggleRailIntent(),
+        const SingleActivator(LogicalKeyboardKey.slash, control: true):
+            const _ShowShortcutsIntent(),
         for (var i = 0; i < digitCount; i++)
           SingleActivator(_digitKeys[i], control: true):
               _GoHomeDestinationIntent(destinations[i]),
       },
       const SingleActivator(LogicalKeyboardKey.slash): const _SearchIntent(),
+      const SingleActivator(LogicalKeyboardKey.slash, shift: true):
+          const _ShowShortcutsIntent(),
+      const SingleActivator(LogicalKeyboardKey.question):
+          const _ShowShortcutsIntent(),
       const SingleActivator(LogicalKeyboardKey.f5): const _RefreshIntent(),
     };
 
@@ -399,6 +408,7 @@ class _KeyboardBackState extends State<KeyboardBack>
                 widget.onToggleRail,
               ),
               _GoHomeDestinationIntent: _GoHomeDestinationAction(widget.router),
+              _ShowShortcutsIntent: _ShowShortcutsAction(widget.router),
             },
             child: widget.child,
           ),
@@ -643,6 +653,29 @@ class _GoHomeDestinationAction extends Action<_GoHomeDestinationIntent> {
     ForwardHistoryStack.ofRouter(
       router,
     ).selectHomeDestination(intent.destination);
+    return null;
+  }
+}
+
+class _ShowShortcutsIntent extends Intent {
+  const _ShowShortcutsIntent();
+}
+
+class _ShowShortcutsAction extends Action<_ShowShortcutsIntent> {
+  _ShowShortcutsAction(this.router);
+
+  final GoRouter router;
+
+  @override
+  bool isEnabled(_ShowShortcutsIntent intent) =>
+      !isTextEditingFocused() && !hasModalOrRootOverlay(router);
+
+  @override
+  Object? invoke(_ShowShortcutsIntent intent) {
+    final nav = router.routerDelegate.navigatorKey.currentContext;
+    if (nav != null) {
+      unawaited(showKeyboardShortcutsSheet(nav));
+    }
     return null;
   }
 }

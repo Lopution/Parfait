@@ -666,6 +666,42 @@ void main() {
         expect(find.byTooltip('清除'), findsNothing);
       },
     );
+
+    testWidgets(
+      'BookmarkTagsPage keeps uncategorized row reachable when tags are empty and BookmarkTagFeedPage localizes its title',
+      (tester) async {
+        final container = await _makeContainer(_users(), {
+          '/v1/user/bookmark-tags/illust': (_) async =>
+              jsonResponse({'bookmark_tags': <dynamic>[], 'next_url': null}),
+          '/v1/user/bookmarks/illust': (_) async =>
+              jsonResponse({'illusts': <dynamic>[], 'next_url': null}),
+        });
+        await tester.pumpWidget(
+          _testApp(
+            container,
+            const BookmarkTagsPage(initialRestrict: BookmarkRestrict.public),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('bookmark-tag-uncategorized')),
+          findsOneWidget,
+        );
+        expect(find.text('未分类'), findsOneWidget);
+
+        await tester.pumpWidget(
+          _testApp(
+            container,
+            const BookmarkTagFeedPage(
+              tag: kUncategorizedBookmarkTag,
+              restrict: BookmarkRestrict.public,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('未分类'), findsOneWidget);
+      },
+    );
   });
 }
 

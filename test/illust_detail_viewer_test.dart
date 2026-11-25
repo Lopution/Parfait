@@ -16,6 +16,7 @@ import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
@@ -1127,6 +1128,27 @@ void main() {
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
+      },
+    );
+
+    testWidgets(
+      'ImageViewer exposes bottom bookmark button and Shift+B edit sheet',
+      (tester) async {
+        final entity = parseIllust(illustJson(42));
+        await tester.pumpWidget(
+          _host(
+            ImageViewerPage(urls: [entity.originalUrlAt(0)!], entity: entity),
+          ),
+        );
+        await tester.pump();
+        expect(find.byKey(const Key('viewer-bookmark-button')), findsOneWidget);
+        expect(find.byType(BookmarkSwitchButton), findsOneWidget);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(find.text('收藏插画'), findsOneWidget);
       },
     );
   });

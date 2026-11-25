@@ -174,6 +174,12 @@ enum Setting implements SettingsEntry {
     'novelImageQuality',
     optionKeys: ['qualityLarge', 'qualityOriginal'],
   ),
+  defaultBookmarkRestrict(
+    SettingsPageRef.browse,
+    'bookmarkDefaultRestrict',
+    optionKeys: ['restrictPublic', 'restrictPrivate'],
+  ),
+  bookmarkAttachWorkTags(SettingsPageRef.browse, 'bookmarkAttachWorkTags'),
   interfaceForm(
     SettingsPageRef.navigation,
     'interfaceForm',

@@ -3572,4 +3572,95 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get offlineQueueRetrying => 'Повторная отправка офлайн-действий…';
+
+  @override
+  String get bookmarkDefaultRestrict => 'Видимость закладок по умолчанию';
+
+  @override
+  String get bookmarkAttachWorkTags => 'Автодобавление тегов работы';
+
+  @override
+  String get bookmarkAttachWorkTagsHint =>
+      'Автоматически добавлять до 10 тегов работы при быстром или новом сохранении в закладки.';
+
+  @override
+  String get bookmarkWorkTags => 'Теги работы';
+
+  @override
+  String get bookmarkTagLimitReached => 'Максимум 10 тегов для закладки';
+
+  @override
+  String get bookmarkTagUncategorized => 'Без категории';
+
+  @override
+  String get bookmarkRemove => 'Удалить из закладок';
+
+  @override
+  String get menuHelp => 'Справка';
+
+  @override
+  String get keyboardShortcutsTitle => 'Горячие клавиши';
+
+  @override
+  String get shortcutsGroupNavigation => 'Навигация';
+
+  @override
+  String get shortcutsGroupArtwork => 'Просмотр работ';
+
+  @override
+  String get shortcutsGroupNovel => 'Чтение новелл';
+
+  @override
+  String get shortcutNavBackForward => 'Назад / Вперёд';
+
+  @override
+  String get shortcutNavTabs => 'Переключить вкладки';
+
+  @override
+  String get shortcutNavSearch => 'Поиск';
+
+  @override
+  String get shortcutNavRefresh => 'Обновить';
+
+  @override
+  String get shortcutNavSettings => 'Настройки';
+
+  @override
+  String get shortcutNavRailOrBookmarks => 'Панель / Закладки';
+
+  @override
+  String get shortcutNavSelectAll => 'Выбрать всё в ленте';
+
+  @override
+  String get shortcutNavShortcuts => 'Список горячих клавиш';
+
+  @override
+  String get shortcutArtworkBookmark => 'В закладки / Теги';
+
+  @override
+  String get shortcutArtworkSave => 'Сохранить изображение';
+
+  @override
+  String get shortcutArtworkCopy => 'Копировать оригинал';
+
+  @override
+  String get shortcutArtworkChrome => 'Показать / скрыть панель';
+
+  @override
+  String get shortcutArtworkInfo => 'Информация о работе';
+
+  @override
+  String get shortcutArtworkSwitchWork => 'Предыдущая / следующая работа';
+
+  @override
+  String get shortcutArtworkSwitchPage => 'Предыдущая / следующая страница';
+
+  @override
+  String get shortcutArtworkZoom => 'Масштаб / по размеру';
+
+  @override
+  String get shortcutNovelToc => 'Оглавление и прогресс';
+
+  @override
+  String get shortcutNovelNavigate => 'Листание / прокрутка';
 }

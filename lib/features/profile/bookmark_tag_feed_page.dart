@@ -62,7 +62,13 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.tag, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(
+                  widget.tag == kUncategorizedBookmarkTag
+                      ? l10n.bookmarkTagUncategorized
+                      : widget.tag,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 Text(
                   // The kind is named for novels only: illustrations are what
                   // this page always showed.

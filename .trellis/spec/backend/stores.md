@@ -137,15 +137,10 @@ reviewed: 2026-11-25
 - **Code:** `lib/core/bookmark`, `lib/core/user/follow_store.dart`, `lib/core/watchlist`
 
 ### STORE-07 One request per target; the last tap wins
-- **Rule:** A tap on an unsettled entry only records the wish. The action
-  that started the request runs `settleToggle`, which sends one follow-up
-  after the commit if the wish differs. Never send the opposite request
-  while one is in flight. A re-add after a delete restores the deleted
-  visibility and tags.
-- **Why:** Two writes in flight can land on the server in either order; a
-  private bookmark tapped back mid-delete came back public.
-- **Check:** `test/bookmark_flow_test.dart` "an odd number of taps sends only the first request" "an even number of taps follows up once the first answers" "tapping back mid-delete keeps a private bookmark private"
-- **Code:** `lib/core/mutation/mutation_models.dart`
+- **Rule:** A tap on an unsettled entry only records the wish; `settleToggle` sends one follow-up after commit if the wish differs, never sending the opposite request in flight. Re-adding after a delete restores deleted visibility/tags; a fresh quick-bookmark applies `defaultBookmarkRestrictProvider` and up to 10 deduplicated cached work tags when `bookmarkAttachWorkTagsProvider` is enabled. The edit sheet offers one-tap cached work tags (`BookmarkTagEditorBody`, capped at `kMaxBookmarkTags = 10`) and seeds new bookmarks from those defaults; uncategorized bookmarks stay reachable via `kUncategorizedBookmarkTag` (`'未分類'`) in `ProfileFilterBar` and `BookmarkTagsPage` even when user tags are empty.
+- **Why:** Two in-flight writes can reorder on the server; tapping back mid-delete used to lose privacy, and users need default privacy, work-tag auto-attach, and uncategorized filtering.
+- **Check:** `test/bookmark_flow_test.dart` "an odd number of taps sends only the first request" "an even number of taps follows up once the first answers" "tapping back mid-delete keeps a private bookmark private" "fresh toggle applies defaultBookmarkRestrict and bookmarkAttachWorkTags without overriding undo restore"; `test/bookmark_switch_button_test.dart` "bookmark sheet offers work tags and seeds new bookmarks from defaults"; `test/bookmark_tags_test.dart` "BookmarkTagsPage keeps uncategorized row reachable when tags are empty and BookmarkTagFeedPage localizes its title"
+- **Code:** `lib/core/mutation/mutation_models.dart`, `lib/core/bookmark/bookmark_actions.dart`, `lib/core/bookmark/bookmark_models.dart`, `lib/app/widgets/bookmark_work_tags_section.dart`, `lib/features/bookmark/bookmark_tags_page.dart`, `lib/features/profile/profile_filter_bar.dart`, `lib/features/profile/bookmark_tag_feed_page.dart`
 
 ### STORE-08 Queued intents can be taken back, running ones cannot
 - **Rule:** A connectivity failure queues the intent and marks the entry

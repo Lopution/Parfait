@@ -7,6 +7,7 @@ import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_menu_tile.dart';
+import '../../../core/bookmark/bookmark_models.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
@@ -163,6 +164,41 @@ class BrowseSettingsPage extends ConsumerWidget {
                     () => ref
                         .read(settingsProvider.notifier)
                         .setNovelImageQuality(quality),
+                  ),
+                ),
+              ],
+            ),
+            SettingsGroup(
+              children: [
+                SettingsMenuTile<BookmarkRestrict>(
+                  setting: Setting.defaultBookmarkRestrict,
+                  value: settings.defaultBookmarkRestrict,
+                  options: [
+                    AppMenuEntry(
+                      value: BookmarkRestrict.public,
+                      label: context.l10n.restrictPublic,
+                    ),
+                    AppMenuEntry(
+                      value: BookmarkRestrict.private,
+                      label: context.l10n.restrictPrivate,
+                    ),
+                  ],
+                  onChanged: (restrict) => persistSettings(
+                    context,
+                    () => ref
+                        .read(settingsProvider.notifier)
+                        .setDefaultBookmarkRestrict(restrict),
+                  ),
+                ),
+                SettingsControl(
+                  setting: Setting.bookmarkAttachWorkTags,
+                  subtitle: Text(context.l10n.bookmarkAttachWorkTagsHint),
+                  value: settings.bookmarkAttachWorkTags,
+                  onChanged: (value) => persistSettings(
+                    context,
+                    () => ref
+                        .read(settingsProvider.notifier)
+                        .setBookmarkAttachWorkTags(value),
                   ),
                 ),
               ],

@@ -3579,4 +3579,95 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offlineQueueRetrying => 'Retrying offline actions…';
+
+  @override
+  String get bookmarkDefaultRestrict => 'Default bookmark visibility';
+
+  @override
+  String get bookmarkAttachWorkTags => 'Auto-attach work tags';
+
+  @override
+  String get bookmarkAttachWorkTagsHint =>
+      'Automatically attach up to 10 work tags when quick-bookmarking or opening a new bookmark.';
+
+  @override
+  String get bookmarkWorkTags => 'Work tags';
+
+  @override
+  String get bookmarkTagLimitReached => 'Up to 10 tags per bookmark';
+
+  @override
+  String get bookmarkTagUncategorized => 'Uncategorized';
+
+  @override
+  String get bookmarkRemove => 'Remove bookmark';
+
+  @override
+  String get menuHelp => 'Help';
+
+  @override
+  String get keyboardShortcutsTitle => 'Keyboard shortcuts';
+
+  @override
+  String get shortcutsGroupNavigation => 'Navigation';
+
+  @override
+  String get shortcutsGroupArtwork => 'Artwork & Viewer';
+
+  @override
+  String get shortcutsGroupNovel => 'Novel Reader';
+
+  @override
+  String get shortcutNavBackForward => 'Back / Forward';
+
+  @override
+  String get shortcutNavTabs => 'Switch home tabs';
+
+  @override
+  String get shortcutNavSearch => 'Search';
+
+  @override
+  String get shortcutNavRefresh => 'Refresh';
+
+  @override
+  String get shortcutNavSettings => 'Settings';
+
+  @override
+  String get shortcutNavRailOrBookmarks => 'Toggle rail / Bookmarks';
+
+  @override
+  String get shortcutNavSelectAll => 'Select all in feed';
+
+  @override
+  String get shortcutNavShortcuts => 'Keyboard shortcuts';
+
+  @override
+  String get shortcutArtworkBookmark => 'Bookmark / Edit tags';
+
+  @override
+  String get shortcutArtworkSave => 'Save image';
+
+  @override
+  String get shortcutArtworkCopy => 'Copy original image';
+
+  @override
+  String get shortcutArtworkChrome => 'Toggle controls';
+
+  @override
+  String get shortcutArtworkInfo => 'Artwork info';
+
+  @override
+  String get shortcutArtworkSwitchWork => 'Previous / Next artwork';
+
+  @override
+  String get shortcutArtworkSwitchPage => 'Previous / Next page';
+
+  @override
+  String get shortcutArtworkZoom => 'Zoom in / out / fit';
+
+  @override
+  String get shortcutNovelToc => 'Contents & progress';
+
+  @override
+  String get shortcutNovelNavigate => 'Turn page / Scroll';
 }

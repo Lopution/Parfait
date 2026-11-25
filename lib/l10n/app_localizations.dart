@@ -6568,6 +6568,186 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在重试离线操作…'**
   String get offlineQueueRetrying;
+
+  /// No description provided for @bookmarkDefaultRestrict.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认收藏可见性'**
+  String get bookmarkDefaultRestrict;
+
+  /// No description provided for @bookmarkAttachWorkTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速收藏自动附带作品标签'**
+  String get bookmarkAttachWorkTags;
+
+  /// No description provided for @bookmarkAttachWorkTagsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'单击收藏或新建收藏时，自动附带最多 10 个作品标签。'**
+  String get bookmarkAttachWorkTagsHint;
+
+  /// No description provided for @bookmarkWorkTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品标签'**
+  String get bookmarkWorkTags;
+
+  /// No description provided for @bookmarkTagLimitReached.
+  ///
+  /// In zh, this message translates to:
+  /// **'最多可添加 10 个标签'**
+  String get bookmarkTagLimitReached;
+
+  /// No description provided for @bookmarkTagUncategorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'未分类'**
+  String get bookmarkTagUncategorized;
+
+  /// No description provided for @bookmarkRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏'**
+  String get bookmarkRemove;
+
+  /// No description provided for @menuHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮助'**
+  String get menuHelp;
+
+  /// No description provided for @keyboardShortcutsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'快捷键'**
+  String get keyboardShortcutsTitle;
+
+  /// No description provided for @shortcutsGroupNavigation.
+  ///
+  /// In zh, this message translates to:
+  /// **'导航'**
+  String get shortcutsGroupNavigation;
+
+  /// No description provided for @shortcutsGroupArtwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情与看图'**
+  String get shortcutsGroupArtwork;
+
+  /// No description provided for @shortcutsGroupNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说阅读'**
+  String get shortcutsGroupNovel;
+
+  /// No description provided for @shortcutNavBackForward.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回 / 前进'**
+  String get shortcutNavBackForward;
+
+  /// No description provided for @shortcutNavTabs.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换首页标签'**
+  String get shortcutNavTabs;
+
+  /// No description provided for @shortcutNavSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索'**
+  String get shortcutNavSearch;
+
+  /// No description provided for @shortcutNavRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get shortcutNavRefresh;
+
+  /// No description provided for @shortcutNavSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get shortcutNavSettings;
+
+  /// No description provided for @shortcutNavRailOrBookmarks.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换侧边栏 / 收藏'**
+  String get shortcutNavRailOrBookmarks;
+
+  /// No description provided for @shortcutNavSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选列表'**
+  String get shortcutNavSelectAll;
+
+  /// No description provided for @shortcutNavShortcuts.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示快捷键'**
+  String get shortcutNavShortcuts;
+
+  /// No description provided for @shortcutArtworkBookmark.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏 / 编辑标签'**
+  String get shortcutArtworkBookmark;
+
+  /// No description provided for @shortcutArtworkSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存图片'**
+  String get shortcutArtworkSave;
+
+  /// No description provided for @shortcutArtworkCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制原图'**
+  String get shortcutArtworkCopy;
+
+  /// No description provided for @shortcutArtworkChrome.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示 / 隐藏工具栏'**
+  String get shortcutArtworkChrome;
+
+  /// No description provided for @shortcutArtworkInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品信息'**
+  String get shortcutArtworkInfo;
+
+  /// No description provided for @shortcutArtworkSwitchWork.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一张 / 下一张作品'**
+  String get shortcutArtworkSwitchWork;
+
+  /// No description provided for @shortcutArtworkSwitchPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一页 / 下一页'**
+  String get shortcutArtworkSwitchPage;
+
+  /// No description provided for @shortcutArtworkZoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'放大 / 缩小 / 适应窗口'**
+  String get shortcutArtworkZoom;
+
+  /// No description provided for @shortcutNovelToc.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录与进度'**
+  String get shortcutNovelToc;
+
+  /// No description provided for @shortcutNovelNavigate.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻页 / 滚动'**
+  String get shortcutNovelNavigate;
 }
 
 class _AppLocalizationsDelegate

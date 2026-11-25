@@ -650,4 +650,52 @@ void main() {
       expect(find.text('me:bookmarks'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'KeyboardBack opens keyboard shortcuts dialog on ? and Ctrl/Cmd+/',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const Scaffold(body: Text('recommended')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        await tester.pumpWidget(
+          localizedRouterApp(
+            router,
+            builder: (_, child) => KeyboardBack(router: router, child: child!),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _sendChord(
+          tester,
+          key: LogicalKeyboardKey.slash,
+          modifier: LogicalKeyboardKey.shiftLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('快捷键'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('快捷键'), findsNothing);
+
+        await _sendChord(
+          tester,
+          key: LogicalKeyboardKey.slash,
+          modifier: LogicalKeyboardKey.controlLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('快捷键'), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
 }
