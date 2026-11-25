@@ -17,20 +17,7 @@ import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
 
-class _FakeSession implements WebProfileSession {
-  _FakeSession(this.cookie);
-
-  String? cookie;
-
-  @override
-  Future<String?> readSessionCookie() async => cookie;
-
-  @override
-  Future<bool> clearSession() async {
-    cookie = null;
-    return true;
-  }
-}
+typedef _FakeSession = FakeWebProfileSession;
 
 const _sessionCookie = 'PHPSESSID=1_0123456789abcdef0123456789abcdef';
 

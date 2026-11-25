@@ -22,6 +22,7 @@ import '../../core/network/local_network_address.dart';
 import '../../core/platform/dev_webview_environment.dart';
 import '../../core/platform/local_network.dart';
 import '../../core/platform/platform_caps.dart';
+import '../../core/profile/web_profile_session.dart';
 
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
@@ -94,6 +95,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// Whether a page has started loading; until then a reload has nothing
   /// to reload and loads [_startUrl] instead.
   bool _loaded = false;
+  bool _authCookiesCleared = false;
 
   static final Uri _webView2InstallUri = Uri.parse(
     'https://developer.microsoft.com/microsoft-edge/webview2/',
@@ -162,6 +164,15 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     final controller = _controller;
     if (!mounted || controller == null) return;
     if (url == null) return controller.reload();
+    if (!_authCookiesCleared) {
+      _authCookiesCleared = true;
+      try {
+        await ref.read(webProfileSessionProvider).clearPixivAuthSession();
+      } on Object {
+        // Non-fatal: login still proceeds if WebView cookie storage is absent.
+      }
+      if (!mounted || _controller == null) return;
+    }
     _loaded = true;
     await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(url)));
   }
@@ -327,6 +338,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _error = null;
       _errorDetails = null;
       _fatal = false;
+      _authCookiesCleared = false;
       _startUrl = authorizeUrl;
     });
     if (!ref.read(platformCapsProvider).supportsInAppWebView) {
