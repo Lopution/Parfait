@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:meta/meta.dart';
@@ -408,7 +410,11 @@ abstract interface class DownloadRecoveryStore {
 
   Future<void> upsert(DownloadRecoveryRecord record);
 
+  Future<void> upsertAll(List<DownloadRecoveryRecord> records);
+
   Future<void> remove(String jobId);
+
+  Future<void> removeAll(Iterable<String> jobIds);
 }
 
 /// Deterministic store for unit/restart fixtures.
@@ -427,9 +433,31 @@ class MemoryDownloadRecoveryStore implements DownloadRecoveryStore {
   }
 
   @override
+  Future<void> upsertAll(List<DownloadRecoveryRecord> records) async {
+    for (final record in records) {
+      _records[record.jobId] = record;
+    }
+  }
+
+  @override
   Future<void> remove(String jobId) async {
     _records.remove(jobId);
   }
+
+  @override
+  Future<void> removeAll(Iterable<String> jobIds) async {
+    for (final jobId in jobIds) {
+      _records.remove(jobId);
+    }
+  }
+}
+
+final class _CachedRecoveryEntry {
+  const _CachedRecoveryEntry(this.record, this.encoded, this.generation);
+
+  final DownloadRecoveryRecord record;
+  final String encoded;
+  final int generation;
 }
 
 /// Versioned preferences store for app process recovery. Terminal records are
@@ -449,59 +477,82 @@ class PreferencesDownloadRecoveryStore implements DownloadRecoveryStore {
   final String _storageKey;
   Future<void> _writeTail = Future<void>.value();
   var _loaded = false;
+  var _generation = 0;
+
+  // Insertion-ordered cache keyed by jobId; each entry keeps its serialized
+  // JSON so unchanged records are never re-encoded on subsequent writes.
+  LinkedHashMap<String, _CachedRecoveryEntry> _cache = LinkedHashMap();
+  Queue<(String, int)> _terminalQueue = Queue();
 
   @override
   Future<List<DownloadRecoveryRecord>> load() async {
     await _writeTail;
     await _ensureLoaded();
-    return List.unmodifiable(_cache);
+    return List.unmodifiable([for (final e in _cache.values) e.record]);
   }
 
   @override
-  Future<void> upsert(DownloadRecoveryRecord record) => _enqueue(() async {
-    await _ensureLoaded();
-    final records = _read()
-        .where((existing) => existing.jobId != record.jobId)
-        .toList(growable: true);
-    records.add(record);
-    while (records.length > _maxRecords) {
-      final evictIndex = records.indexWhere(
-        (existing) => switch (existing.status) {
-          DownloadStatus.succeeded ||
-          DownloadStatus.failed ||
-          DownloadStatus.canceled ||
-          DownloadStatus.orphaned => true,
-          _ => false,
-        },
-      );
-      if (evictIndex == -1) break;
-      records.removeAt(evictIndex);
-    }
-    await _preferences.setStringList(
-      _storageKey,
-      records
-          .map((value) => jsonEncode(value.toJson()))
-          .toList(growable: false),
-    );
-    _cache
-      ..clear()
-      ..addAll(records);
-  });
+  Future<void> upsert(DownloadRecoveryRecord record) => upsertAll([record]);
 
   @override
-  Future<void> remove(String jobId) => _enqueue(() async {
-    await _ensureLoaded();
-    final records = _read()
-        .where((record) => record.jobId != jobId)
-        .map((record) => jsonEncode(record.toJson()))
-        .toList(growable: false);
-    if (records.isEmpty) {
-      await _preferences.remove(_storageKey);
-    } else {
-      await _preferences.setStringList(_storageKey, records);
-    }
-    _cache.removeWhere((record) => record.jobId == jobId);
-  });
+  Future<void> upsertAll(List<DownloadRecoveryRecord> records) {
+    if (records.isEmpty) return Future<void>.value();
+    return _enqueue(() async {
+      await _ensureLoaded();
+      final nextCache = LinkedHashMap<String, _CachedRecoveryEntry>.of(_cache);
+      final nextTerminals = Queue<(String, int)>.of(_terminalQueue);
+      var nextGen = _generation;
+      for (final record in records) {
+        final encoded = jsonEncode(record.toJson());
+        final gen = ++nextGen;
+        nextCache.remove(record.jobId);
+        nextCache[record.jobId] = _CachedRecoveryEntry(record, encoded, gen);
+        if (_isTerminalStatus(record.status)) {
+          nextTerminals.addLast((record.jobId, gen));
+        }
+      }
+      while (nextCache.length > _maxRecords && nextTerminals.isNotEmpty) {
+        final (candidateId, gen) = nextTerminals.removeFirst();
+        final existing = nextCache[candidateId];
+        if (existing != null && existing.generation == gen) {
+          nextCache.remove(candidateId);
+        }
+      }
+      await _preferences.setStringList(_storageKey, [
+        for (final entry in nextCache.values) entry.encoded,
+      ]);
+      _cache = nextCache;
+      _terminalQueue = nextTerminals;
+      _generation = nextGen;
+    });
+  }
+
+  @override
+  Future<void> remove(String jobId) => removeAll([jobId]);
+
+  @override
+  Future<void> removeAll(Iterable<String> jobIds) {
+    final ids = jobIds is Set<String> ? jobIds : jobIds.toSet();
+    if (ids.isEmpty) return Future<void>.value();
+    return _enqueue(() async {
+      await _ensureLoaded();
+      final nextCache = LinkedHashMap<String, _CachedRecoveryEntry>.of(_cache);
+      var removedAny = false;
+      for (final id in ids) {
+        if (nextCache.remove(id) != null) removedAny = true;
+      }
+      if (!removedAny) return;
+      if (nextCache.isEmpty) {
+        await _preferences.remove(_storageKey);
+      } else {
+        await _preferences.setStringList(_storageKey, [
+          for (final entry in nextCache.values) entry.encoded,
+        ]);
+      }
+      _cache = nextCache;
+      if (nextCache.isEmpty) _terminalQueue.clear();
+    });
+  }
 
   Future<void> _enqueue(Future<void> Function() operation) {
     final next = _writeTail.then((_) => operation());
@@ -511,38 +562,107 @@ class PreferencesDownloadRecoveryStore implements DownloadRecoveryStore {
 
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
-    final records = await _readFromPreferences();
-    _cache
-      ..clear()
-      ..addAll(records);
+    final raw = await _preferences.getStringList(_storageKey);
+    _cache.clear();
+    _terminalQueue.clear();
+    if (raw != null) {
+      for (final encoded in raw) {
+        final record = DownloadRecoveryRecord.fromJson(
+          (jsonDecode(encoded) as Map).cast<String, dynamic>(),
+        );
+        final gen = ++_generation;
+        _cache.remove(record.jobId);
+        _cache[record.jobId] = _CachedRecoveryEntry(record, encoded, gen);
+        if (_isTerminalStatus(record.status)) {
+          _terminalQueue.addLast((record.jobId, gen));
+        }
+      }
+    }
     _loaded = true;
   }
 
-  Future<List<DownloadRecoveryRecord>> _readFromPreferences() async {
-    final raw = await _preferences.getStringList(_storageKey);
-    if (raw == null) return const [];
-    return [
-      for (final value in raw)
-        DownloadRecoveryRecord.fromJson(
-          (jsonDecode(value) as Map).cast<String, dynamic>(),
-        ),
-    ];
-  }
-
-  List<DownloadRecoveryRecord> _read() {
-    // _read is called only from the serialized write queue. SharedPreferences
-    // Async has no synchronous getter, so writes use the last loaded cache.
-    final cache = _cache;
-    return List<DownloadRecoveryRecord>.from(cache);
-  }
-
-  final List<DownloadRecoveryRecord> _cache = [];
+  static bool _isTerminalStatus(DownloadStatus status) => switch (status) {
+    DownloadStatus.succeeded ||
+    DownloadStatus.failed ||
+    DownloadStatus.canceled ||
+    DownloadStatus.orphaned => true,
+    _ => false,
+  };
 
   static String _validateStorageKey(String value) {
     if (value.trim().isEmpty) {
       throw ArgumentError.value(value, 'storageKey', 'must not be empty');
     }
     return value;
+  }
+}
+
+/// Coalesces per-turn recovery store writes and removals into one serialized
+/// batch per microtask so group submissions and synchronous status transitions
+/// avoid N+1 preference writes while [flush] commits immediately.
+class DownloadPersistenceCoalescer {
+  DownloadPersistenceCoalescer(
+    this._store, {
+    required void Function(Object error) onError,
+  }) : _onError = onError;
+
+  final DownloadRecoveryStore _store;
+  final void Function(Object error) _onError;
+  final Map<String, DownloadRecoveryRecord> _pendingUpserts = {};
+  final Set<String> _pendingRemovals = {};
+  Future<void> _tail = Future<void>.value();
+  var _flushScheduled = false;
+
+  void upsert(DownloadRecoveryRecord record) {
+    _pendingRemovals.remove(record.jobId);
+    _pendingUpserts[record.jobId] = record;
+    _schedule();
+  }
+
+  void remove(String jobId) {
+    _pendingUpserts.remove(jobId);
+    _pendingRemovals.add(jobId);
+    _schedule();
+  }
+
+  Future<void> flush() {
+    _drain();
+    return _tail;
+  }
+
+  void _schedule() {
+    if (_flushScheduled) return;
+    _flushScheduled = true;
+    scheduleMicrotask(_drain);
+  }
+
+  void _drain() {
+    _flushScheduled = false;
+    if (_pendingRemovals.isEmpty && _pendingUpserts.isEmpty) return;
+    final removals = _pendingRemovals.isEmpty
+        ? const <String>[]
+        : _pendingRemovals.toList(growable: false);
+    final upserts = _pendingUpserts.isEmpty
+        ? const <DownloadRecoveryRecord>[]
+        : _pendingUpserts.values.toList(growable: false);
+    _pendingRemovals.clear();
+    _pendingUpserts.clear();
+    _tail = _tail.then((_) async {
+      if (removals.isNotEmpty) {
+        try {
+          await _store.removeAll(removals);
+        } on Object catch (error) {
+          _onError(error);
+        }
+      }
+      if (upserts.isNotEmpty) {
+        try {
+          await _store.upsertAll(upserts);
+        } on Object catch (error) {
+          _onError(error);
+        }
+      }
+    });
   }
 }
 

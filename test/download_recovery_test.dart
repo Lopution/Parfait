@@ -696,6 +696,54 @@ void main() {
     expect(store.records.map((record) => record.jobId), ['job-new']);
   });
 
+  test(
+    'submitGroup coalesces initial recovery persistence and change notifications',
+    () async {
+      final store = _CountingRecoveryStore();
+      final gate = Completer<void>();
+      final manager = DownloadManager(
+        transport: _StreamTransport(
+          _StreamResponse(
+            stream: Stream<List<int>>.multi((controller) async {
+              await gate.future;
+              controller.add(const [1]);
+              await controller.close();
+            }),
+            contentLength: 1,
+          ),
+        ),
+        sinkFactory: MemorySinkFactory(),
+        submissionContext: _context,
+        recoveryStore: store,
+      );
+      addTearDown(manager.dispose);
+
+      var changeCount = 0;
+      final sub = manager.changes.listen((_) => changeCount++);
+      addTearDown(sub.cancel);
+
+      final requests = [for (var i = 0; i < 20; i++) _request(pageIndex: i)];
+      final submission = manager.submitGroup(requests);
+      await manager.flushPersistence();
+
+      expect(submission.tasks, hasLength(20));
+      expect(store.upsertCount, 1);
+      expect(store.records, hasLength(20));
+      // 1 group notification + 3 running transitions for maxConcurrent=3.
+      expect(changeCount, lessThanOrEqualTo(4));
+
+      gate.complete();
+      await turnUntil(
+        () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+      );
+      await manager.flushPersistence();
+      expect(
+        store.records.every((r) => r.status == DownloadStatus.succeeded),
+        isTrue,
+      );
+    },
+  );
+
   test('a custom-template file name survives recovery unchanged', () {
     // The frozen serialized name must be used.
     final record = _record(
@@ -922,6 +970,12 @@ class _CountingRecoveryStore extends MemoryDownloadRecoveryStore {
   Future<void> upsert(DownloadRecoveryRecord record) async {
     upsertCount++;
     await super.upsert(record);
+  }
+
+  @override
+  Future<void> upsertAll(List<DownloadRecoveryRecord> records) async {
+    upsertCount++;
+    await super.upsertAll(records);
   }
 }
 
