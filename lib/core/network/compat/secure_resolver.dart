@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import '../../settings/network_endpoint_validation.dart';
 import '../local_network_address.dart';
 import 'dns_message.dart';
 import 'network_contracts.dart';
@@ -304,19 +305,29 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     }
   }
 
+  Uri _validateEndpointUri(String endpoint) {
+    final uri = validateDohEndpointUri(endpoint);
+    if (uri == null) {
+      throw const SecureResolutionException('invalid DoH endpoint');
+    }
+    final endpointHost = uri.host.toLowerCase();
+    if (blockedHosts.contains(uri.host) ||
+        blockedHosts.contains(endpointHost)) {
+      throw LocalNetworkBlocked(uri.host);
+    }
+    return uri;
+  }
+
   Future<ResolvedHost> _query(
     String endpoint,
     String host,
     NetworkRevision revision,
   ) async {
-    final endpointHost = Uri.parse(endpoint).host;
-    if (blockedHosts.contains(endpointHost)) {
-      throw LocalNetworkBlocked(endpointHost);
-    }
+    final endpointUri = _validateEndpointUri(endpoint);
     final id = _nextQueryId++ & 0xffff;
     final payload = encodeQuery(id: id, name: host, type: 1);
 
-    final request = http.Request('POST', Uri.parse(endpoint))
+    final request = http.Request('POST', endpointUri)
       ..headers['content-type'] = 'application/dns-message'
       ..headers['accept'] = 'application/dns-message'
       ..bodyBytes = payload;
@@ -500,10 +511,11 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     String frontHost,
     NetworkRevision revision,
   ) async {
+    final endpointUri = _validateEndpointUri(endpoint);
     final id = _nextQueryId++ & 0xffff;
     final payload = encodeQuery(id: id, name: frontHost, type: 65);
 
-    final request = http.Request('POST', Uri.parse(endpoint))
+    final request = http.Request('POST', endpointUri)
       ..headers['content-type'] = 'application/dns-message'
       ..headers['accept'] = 'application/dns-message'
       ..bodyBytes = payload;
@@ -734,6 +746,9 @@ http.Client _staticMappedClient(Map<String, List<InternetAddress>> overrides) {
   client.findProxy = (_) => 'DIRECT';
   if (overrides.isNotEmpty) {
     client.connectionFactory = (url, proxyHost, proxyPort) {
+      if (url.scheme.toLowerCase() != 'https') {
+        throw const SocketException('non-https DoH endpoint rejected');
+      }
       final addresses = overrides[url.host];
       if (addresses == null || addresses.isEmpty) {
         // Not an overridden host: normal destination, still needs the

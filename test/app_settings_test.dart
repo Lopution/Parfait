@@ -85,6 +85,8 @@ void main() {
       'maxDownloadCount': 100,
       'namingRule': 'artist_{id}',
       'translateIndex': 99,
+      'dohEndpointOverride': 'http://127.0.0.1/dns-query',
+      'echFrontHost': '127.0.0.1',
     }, fallback: baseTestSettings());
 
     expect(settings.guideCompleted, isTrue);
@@ -98,6 +100,23 @@ void main() {
     expect(settings.namingRule.preset, NamingPreset.custom);
     expect(settings.namingRule.template, 'artist_{id}');
     expect(settings.translateIndex, 1);
+    expect(settings.dohEndpointOverride, isNull);
+    expect(settings.echFrontHost, AppSettings.defaultEchFrontHost);
+
+    final validDoh = AppSettings.fromJson({
+      'dohEndpointOverride': 'https://[2606:4700:4700::1111]/dns-query',
+      'echFrontHost': 'ECH.Example.COM',
+    }, fallback: baseTestSettings());
+    expect(
+      validDoh.dohEndpointOverride,
+      'https://[2606:4700:4700::1111]/dns-query',
+    );
+    expect(validDoh.echFrontHost, 'ech.example.com');
+
+    final commaOnly = AppSettings.fromJson({
+      'dohEndpointOverride': ' , , ',
+    }, fallback: validDoh);
+    expect(commaOnly.dohEndpointOverride, validDoh.dohEndpointOverride);
   });
 
   test('the desktop window place round-trips; damage falls back', () {
