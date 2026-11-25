@@ -217,6 +217,16 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setDownloadCaption(bool enabled) =>
       _update((settings) => settings.copyWith(downloadCaption: enabled));
 
+  Future<void> setDownloadSubfolderMode(DownloadSubfolderMode mode) =>
+      _update((settings) => settings.copyWith(downloadSubfolderMode: mode));
+
+  Future<void> setDownloadMultiPageSubfolder(bool enabled) => _update(
+    (settings) => settings.copyWith(downloadMultiPageSubfolder: enabled),
+  );
+
+  Future<void> setDownloadPadPageNumbers(bool enabled) =>
+      _update((settings) => settings.copyWith(downloadPadPageNumbers: enabled));
+
   /// Null restores the default ranking categories.
   Future<void> setIllustRankingArrangement(List<ArrangedEntry>? entries) =>
       _update(
@@ -443,6 +453,34 @@ final downloadDestinationProvider = Provider<DownloadDestination>((ref) {
 final downloadCaptionProvider = Provider<bool>((ref) {
   return ref.watch(
     settingsProvider.select((async) => async.value?.downloadCaption ?? false),
+  );
+});
+
+/// Subfolder grouping preset for downloads (ignored on iOS Photos).
+final downloadSubfolderModeProvider = Provider<DownloadSubfolderMode>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) =>
+          async.value?.downloadSubfolderMode ?? DownloadSubfolderMode.none,
+    ),
+  );
+});
+
+/// Whether multi-page artworks download into a per-work subfolder.
+final downloadMultiPageSubfolderProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.downloadMultiPageSubfolder ?? false,
+    ),
+  );
+});
+
+/// Whether `{page}`, `{page1}`, and `{series_order}` are zero-padded.
+final downloadPadPageNumbersProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.downloadPadPageNumbers ?? false,
+    ),
   );
 });
 

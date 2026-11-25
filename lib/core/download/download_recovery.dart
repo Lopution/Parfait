@@ -10,6 +10,7 @@ import '../settings/preference_keys.dart';
 import 'download_destination.dart';
 import 'naming_rule.dart';
 import 'download_request.dart';
+import 'download_subfolders.dart';
 import 'resume_anchor.dart';
 
 /// Lifecycle states persisted for one download attempt.
@@ -92,7 +93,13 @@ class DownloadSubmissionSnapshot {
     required this.submittedAt,
     this.destination = DownloadDestination.builtin,
     String? displayName,
-  }) : displayName = displayName ?? request.displayName;
+    List<String>? subdirectories,
+  }) : displayName = displayName ?? request.displayName,
+       subdirectories = List<String>.unmodifiable(
+         subdirectories ?? request.subdirectories,
+       ) {
+    validateSubdirectories(this.subdirectories);
+  }
 
   final String snapshotId;
   final String jobId;
@@ -107,6 +114,10 @@ class DownloadSubmissionSnapshot {
   /// recovery would render empty segments. Serialization reads this field;
   /// recovery passes the stored value back through the constructor.
   final String displayName;
+
+  /// Relative subdirectories fixed at submission time so retries and
+  /// recovery write to the same subfolder hierarchy.
+  final List<String> subdirectories;
 
   int get illustId => request.illustId;
   int get pageIndex => request.pageIndex;
@@ -130,6 +141,7 @@ class DownloadSubmissionSnapshot {
       submittedAt: submittedAt,
       destination: destination,
       displayName: displayName,
+      subdirectories: subdirectories,
     );
   }
 
@@ -223,6 +235,8 @@ class DownloadRecoveryRecord {
       'url': snapshot.sourceUrl.toString(),
       'target': snapshot.target.name,
       'displayName': snapshot.displayName,
+      if (snapshot.subdirectories.isNotEmpty)
+        'subdirectories': snapshot.subdirectories,
       'format': snapshot.format,
       'destination': snapshot.destination.identity,
       if (snapshot.request.namingRule != null)
@@ -297,6 +311,33 @@ class DownloadRecoveryRecord {
     final thumbnailUrl = rawSnapshot['thumbnailUrl'] is String
         ? rawSnapshot['thumbnailUrl'] as String
         : null;
+    final rawSubdirectories = rawSnapshot['subdirectories'];
+    final List<String> subdirectories;
+    if (rawSubdirectories == null) {
+      subdirectories = const [];
+    } else if (rawSubdirectories is List) {
+      final parsed = <String>[];
+      for (final item in rawSubdirectories) {
+        if (item is! String) {
+          throw const DownloadRecoveryDataException(
+            'snapshot subdirectories invalid',
+          );
+        }
+        parsed.add(item);
+      }
+      try {
+        validateSubdirectories(parsed);
+      } on FormatException {
+        throw const DownloadRecoveryDataException(
+          'snapshot subdirectories invalid',
+        );
+      }
+      subdirectories = List<String>.unmodifiable(parsed);
+    } else {
+      throw const DownloadRecoveryDataException(
+        'snapshot subdirectories invalid',
+      );
+    }
     final request = DownloadRequest(
       illustId: rawSnapshot['illustId'] as int,
       pageIndex: rawSnapshot['pageIndex'] as int,
@@ -308,6 +349,7 @@ class DownloadRecoveryRecord {
       date: date,
       totalPages: totalPages,
       thumbnailUrl: thumbnailUrl,
+      subdirectories: subdirectories,
     );
     final statusName = json['status'];
     final status = DownloadStatus.values.where(
@@ -353,6 +395,7 @@ class DownloadRecoveryRecord {
         rawSnapshot['destination'] as String?,
       ),
       displayName: displayName,
+      subdirectories: subdirectories,
     );
     return DownloadRecoveryRecord(
       jobId: json['jobId'] as String,

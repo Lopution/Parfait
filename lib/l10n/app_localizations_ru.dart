@@ -3691,4 +3691,33 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileWorkTagLoadMore => 'Загрузить ещё';
+
+  @override
+  String get downloadSubfolderMode => 'Группировка по подпапкам';
+
+  @override
+  String get downloadSubfolderNone => 'Без подпапок';
+
+  @override
+  String get downloadSubfolderByArtist => 'По автору';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => 'По автору и серии';
+
+  @override
+  String get downloadMultiPageSubfolder => 'Подпапка для многостраничных работ';
+
+  @override
+  String get downloadMultiPageSubfolderHint =>
+      'Сохранять работы с несколькими страницами в подпапку с ID работы';
+
+  @override
+  String get downloadPadPageNumbers => 'Ведущие нули в номерах страниц';
+
+  @override
+  String get downloadPadPageNumbersHint =>
+      'Дополнять номера страниц нулями по числу цифр (например, _p00, _p01) для правильной сортировки';
+
+  @override
+  String get downloadAuthorSubfolderToggle => 'Сохранить в подпапку автора';
 }

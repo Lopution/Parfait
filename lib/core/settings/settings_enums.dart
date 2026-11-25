@@ -244,3 +244,32 @@ enum NetworkMode {
     return tryFromCode(value) ?? NetworkMode.automatic;
   }
 }
+
+/// A non-secret pointer to a credential stored by [CredentialStore].
+///
+/// This object is intentionally not serializable as part of [AppSettings].
+/// It identifies a secure-storage record without carrying the record's
+/// token, cookie, or API key.
+class SecretSettingRef {
+  const SecretSettingRef(this.credentialKey);
+
+  final String credentialKey;
+
+  @override
+  String toString() => 'SecretSettingRef(credentialKey: $credentialKey)';
+}
+
+/// Typed subfolder organization preset for downloaded artworks.
+enum DownloadSubfolderMode {
+  none,
+  byArtist,
+  byArtistAndSeries;
+
+  static DownloadSubfolderMode? tryFromName(Object? value) {
+    if (value is! String) return null;
+    for (final mode in values) {
+      if (mode.name == value) return mode;
+    }
+    return null;
+  }
+}

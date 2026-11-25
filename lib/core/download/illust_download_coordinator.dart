@@ -1,21 +1,48 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/illust_entity.dart';
+import '../series/series_models.dart';
+import '../series/series_repository.dart';
+import '../series/series_store.dart';
+import '../settings/settings_controller.dart';
+import '../settings/settings_enums.dart';
 import 'caption_exporter.dart';
 import 'download_manager.dart';
 import 'download_providers.dart';
 import 'download_request.dart';
+import 'download_subfolders.dart';
 import 'download_task.dart';
 import 'naming_rule.dart';
+
+typedef _ResolvedSeriesMeta = ({String? title, int? order, int? total});
 
 /// Detail-page download facade: single page and
 /// Download All submit typed requests; toasts remain at the call site.
 class IllustDownloadCoordinator {
-  IllustDownloadCoordinator(this._manager, {CaptionExporter? captionExporter})
-    : _captionExporter = captionExporter;
+  IllustDownloadCoordinator(
+    this._manager, {
+    CaptionExporter? captionExporter,
+    DownloadSubfolderMode Function()? readSubfolderMode,
+    bool Function()? readMultiPageSubfolder,
+    bool Function()? readPadPageNumbers,
+    IllustSeriesEntity? Function(int seriesId)? lookupSeries,
+    Future<IllustSeriesContextResult?> Function(int illustId)?
+    resolveSeriesContext,
+  }) : _captionExporter = captionExporter,
+       _readSubfolderMode = readSubfolderMode,
+       _readMultiPageSubfolder = readMultiPageSubfolder,
+       _readPadPageNumbers = readPadPageNumbers,
+       _lookupSeries = lookupSeries,
+       _resolveSeriesContext = resolveSeriesContext;
 
   final DownloadManager _manager;
   final CaptionExporter? _captionExporter;
+  final DownloadSubfolderMode Function()? _readSubfolderMode;
+  final bool Function()? _readMultiPageSubfolder;
+  final bool Function()? _readPadPageNumbers;
+  final IllustSeriesEntity? Function(int seriesId)? _lookupSeries;
+  final Future<IllustSeriesContextResult?> Function(int illustId)?
+  _resolveSeriesContext;
 
   /// Submits one page. Returns the (deduped) task snapshot; throws
   /// [FormatException] when the URL/extension is unsafe.
@@ -24,12 +51,27 @@ class IllustDownloadCoordinator {
     required int pageIndex,
     required Uri url,
     NamingRule? namingRule,
+    DownloadSubfolderMode? subfolderMode,
+    bool? multiPageSubfolder,
+    bool? padPageNumbers,
   }) async {
+    final effectiveSubfolder = _effectiveSubfolderMode(subfolderMode);
+    final effectiveMultiPage = _effectiveMultiPageSubfolder(multiPageSubfolder);
+    final effectivePadding = _effectivePadPageNumbers(padPageNumbers);
+    final series = await _resolveSeriesForSingleWork(
+      work,
+      namingRule: namingRule,
+      subfolderMode: effectiveSubfolder,
+    );
     final request = _requestFor(
       work,
       pageIndex: pageIndex,
       url: url,
       namingRule: namingRule,
+      subfolderMode: effectiveSubfolder,
+      multiPageSubfolder: effectiveMultiPage,
+      padPageNumbers: effectivePadding,
+      series: series,
     );
     final snapshot = _manager.submit(request);
     await _exportCaption(work, request, snapshot);
@@ -42,7 +84,21 @@ class IllustDownloadCoordinator {
     required IllustEntity work,
     required List<Uri> pageUrls,
     NamingRule? namingRule,
+    DownloadSubfolderMode? subfolderMode,
+    bool? multiPageSubfolder,
+    bool? padPageNumbers,
   }) async {
+    if (pageUrls.isEmpty) {
+      throw const FormatException('work has no downloadable pages');
+    }
+    final effectiveSubfolder = _effectiveSubfolderMode(subfolderMode);
+    final effectiveMultiPage = _effectiveMultiPageSubfolder(multiPageSubfolder);
+    final effectivePadding = _effectivePadPageNumbers(padPageNumbers);
+    final series = await _resolveSeriesForSingleWork(
+      work,
+      namingRule: namingRule,
+      subfolderMode: effectiveSubfolder,
+    );
     final requests = [
       for (var i = 0; i < pageUrls.length; i++)
         _requestFor(
@@ -50,11 +106,12 @@ class IllustDownloadCoordinator {
           pageIndex: i,
           url: pageUrls[i],
           namingRule: namingRule,
+          subfolderMode: effectiveSubfolder,
+          multiPageSubfolder: effectiveMultiPage,
+          padPageNumbers: effectivePadding,
+          series: series,
         ),
     ];
-    if (requests.isEmpty) {
-      throw const FormatException('work has no downloadable pages');
-    }
     final submission = _manager.submitGroup(requests);
     final first = submission.tasks.first;
     if (submission.group != null) {
@@ -69,7 +126,13 @@ class IllustDownloadCoordinator {
   List<DownloadRequest> authorWorksRequests(
     List<IllustEntity> works, {
     NamingRule? namingRule,
+    DownloadSubfolderMode? subfolderMode,
+    bool? multiPageSubfolder,
+    bool? padPageNumbers,
   }) {
+    final effectiveSubfolder = _effectiveSubfolderMode(subfolderMode);
+    final effectiveMultiPage = _effectiveMultiPageSubfolder(multiPageSubfolder);
+    final effectivePadding = _effectivePadPageNumbers(padPageNumbers);
     return [
       for (final work in works)
         for (var i = 0; i < work.pageCount; i++)
@@ -79,6 +142,10 @@ class IllustDownloadCoordinator {
               pageIndex: i,
               url: Uri.parse(url),
               namingRule: namingRule,
+              subfolderMode: effectiveSubfolder,
+              multiPageSubfolder: effectiveMultiPage,
+              padPageNumbers: effectivePadding,
+              series: _warmSeriesFor(work),
             ),
     ];
   }
@@ -89,8 +156,17 @@ class IllustDownloadCoordinator {
   Future<DownloadGroupSubmission> downloadAuthorWorks({
     required List<IllustEntity> works,
     NamingRule? namingRule,
+    DownloadSubfolderMode? subfolderMode,
+    bool? multiPageSubfolder,
+    bool? padPageNumbers,
   }) async {
-    final requests = authorWorksRequests(works, namingRule: namingRule);
+    final requests = authorWorksRequests(
+      works,
+      namingRule: namingRule,
+      subfolderMode: subfolderMode,
+      multiPageSubfolder: multiPageSubfolder,
+      padPageNumbers: padPageNumbers,
+    );
     if (requests.isEmpty) {
       throw const FormatException('author works have no downloadable pages');
     }
@@ -125,12 +201,88 @@ class IllustDownloadCoordinator {
     return null;
   }
 
+  DownloadSubfolderMode _effectiveSubfolderMode(
+    DownloadSubfolderMode? override,
+  ) => override ?? _readSubfolderMode?.call() ?? DownloadSubfolderMode.none;
+
+  bool _effectiveMultiPageSubfolder(bool? override) =>
+      override ?? _readMultiPageSubfolder?.call() ?? false;
+
+  bool _effectivePadPageNumbers(bool? override) =>
+      override ?? _readPadPageNumbers?.call() ?? false;
+
+  _ResolvedSeriesMeta _warmSeriesFor(IllustEntity work) {
+    final seriesId = work.seriesId;
+    final stored = seriesId == null ? null : _lookupSeries?.call(seriesId);
+    final title = _nonEmpty(work.seriesTitle) ?? _nonEmpty(stored?.title);
+    final workCount = stored?.workCount;
+    final total = workCount != null && workCount > 0 ? workCount : null;
+    return (title: title, order: null, total: total);
+  }
+
+  Future<_ResolvedSeriesMeta> _resolveSeriesForSingleWork(
+    IllustEntity work, {
+    required NamingRule? namingRule,
+    required DownloadSubfolderMode subfolderMode,
+  }) async {
+    final warm = _warmSeriesFor(work);
+    final seriesId = work.seriesId;
+    final fetcher = _resolveSeriesContext;
+    if (seriesId == null || fetcher == null) return warm;
+    final template = namingRule?.preset == NamingPreset.custom
+        ? (namingRule?.template ?? '')
+        : '';
+    final needsOrder = template.contains('{series_order}');
+    final needsTotal = template.contains('{chapters}') && warm.total == null;
+    final needsTitle =
+        warm.title == null &&
+        (subfolderMode == DownloadSubfolderMode.byArtistAndSeries ||
+            template.contains('{series}'));
+    if (!needsOrder && !needsTotal && !needsTitle) return warm;
+    try {
+      final result = await fetcher(work.id);
+      if (result == null) return warm;
+      final title = warm.title ?? _nonEmpty(result.detail?.title);
+      final order = result.context?.contentOrder;
+      final detailWorkCount = result.detail?.workCount;
+      final total =
+          warm.total ??
+          (detailWorkCount != null && detailWorkCount > 0
+              ? detailWorkCount
+              : null);
+      return (title: title, order: order, total: total);
+    } on Object {
+      // Series metadata lookup is best-effort; never block a work download.
+      return warm;
+    }
+  }
+
+  static String? _nonEmpty(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   DownloadRequest _requestFor(
     IllustEntity work, {
     required int pageIndex,
     required Uri url,
+    required DownloadSubfolderMode subfolderMode,
+    required bool multiPageSubfolder,
+    required bool padPageNumbers,
+    required _ResolvedSeriesMeta series,
     NamingRule? namingRule,
   }) {
+    final subdirectories = resolveWorkSubdirectories(
+      mode: subfolderMode,
+      multiPageSubfolder: multiPageSubfolder,
+      illustId: work.id,
+      pageCount: work.pageCount,
+      artist: work.user.name,
+      authorId: work.user.id,
+      seriesTitle: series.title,
+      seriesId: work.seriesId,
+    );
     return DownloadRequest(
       illustId: work.id,
       pageIndex: pageIndex,
@@ -143,8 +295,13 @@ class IllustDownloadCoordinator {
       totalPages: work.pageCount,
       width: work.width,
       height: work.height,
+      seriesTitle: series.title,
+      seriesOrder: series.order,
+      seriesTotal: series.total,
       date: DateTime.tryParse(work.createDate ?? ''),
       thumbnailUrl: work.squareUrlAt(pageIndex),
+      subdirectories: subdirectories,
+      padPageNumbers: padPageNumbers,
     );
   }
 
@@ -172,5 +329,19 @@ final illustDownloadCoordinatorProvider = Provider<IllustDownloadCoordinator>(
   (ref) => IllustDownloadCoordinator(
     ref.watch(downloadManagerProvider),
     captionExporter: ref.watch(captionExporterProvider),
+    readSubfolderMode: () => ref.read(downloadSubfolderModeProvider),
+    readMultiPageSubfolder: () => ref.read(downloadMultiPageSubfolderProvider),
+    readPadPageNumbers: () => ref.read(downloadPadPageNumbersProvider),
+    lookupSeries: (seriesId) => ref.read(illustSeriesStoreProvider)[seriesId],
+    resolveSeriesContext: (illustId) async {
+      final result = await ref
+          .read(seriesRepositoryProvider)
+          .fetchIllustSeriesContext(illustId);
+      final detail = result.detail;
+      if (detail != null) {
+        ref.read(illustSeriesStoreProvider.notifier).mergeAll([detail]);
+      }
+      return result;
+    },
   ),
 );

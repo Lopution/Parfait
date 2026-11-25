@@ -236,6 +236,20 @@ enum Setting implements SettingsEntry {
   networkAdvancedReset(SettingsPageRef.networkAdvanced, 'networkAdvancedReset'),
   maxDownloadCount(SettingsPageRef.download, 'maxDownloadCount'),
   downloadCaption(SettingsPageRef.download, 'downloadCaption'),
+  downloadSubfolderMode(
+    SettingsPageRef.download,
+    'downloadSubfolderMode',
+    optionKeys: [
+      'downloadSubfolderNone',
+      'downloadSubfolderByArtist',
+      'downloadSubfolderByArtistAndSeries',
+    ],
+  ),
+  downloadMultiPageSubfolder(
+    SettingsPageRef.download,
+    'downloadMultiPageSubfolder',
+  ),
+  downloadPadPageNumbers(SettingsPageRef.download, 'downloadPadPageNumbers'),
   namingPreset(
     SettingsPageRef.download,
     'namingPreset',
@@ -288,7 +302,9 @@ enum Setting implements SettingsEntry {
       defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS,
     followSystemColors ||
-    saveLocationSafFolder => defaultTargetPlatform != TargetPlatform.iOS,
+    saveLocationSafFolder ||
+    downloadSubfolderMode ||
+    downloadMultiPageSubfolder => defaultTargetPlatform != TargetPlatform.iOS,
     interfaceForm || closeToTray || desktopDetailMode => _desktop,
     aboutDisplayRefreshRate =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android,

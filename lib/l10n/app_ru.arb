@@ -1561,5 +1561,14 @@
   "profileWorkTagPickerTitle": "Фильтр работ по тегу",
   "profileWorkTagSearchHint": "Поиск тегов или ключевого слова",
   "profileWorkTagClear": "Сбросить фильтр",
-  "profileWorkTagLoadMore": "Загрузить ещё"
+  "profileWorkTagLoadMore": "Загрузить ещё",
+  "downloadSubfolderMode": "Группировка по подпапкам",
+  "downloadSubfolderNone": "Без подпапок",
+  "downloadSubfolderByArtist": "По автору",
+  "downloadSubfolderByArtistAndSeries": "По автору и серии",
+  "downloadMultiPageSubfolder": "Подпапка для многостраничных работ",
+  "downloadMultiPageSubfolderHint": "Сохранять работы с несколькими страницами в подпапку с ID работы",
+  "downloadPadPageNumbers": "Ведущие нули в номерах страниц",
+  "downloadPadPageNumbersHint": "Дополнять номера страниц нулями по числу цифр (например, _p00, _p01) для правильной сортировки",
+  "downloadAuthorSubfolderToggle": "Сохранить в подпапку автора"
 }

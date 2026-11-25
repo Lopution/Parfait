@@ -1568,5 +1568,14 @@
   "profileWorkTagPickerTitle": "Filter works by tag",
   "profileWorkTagSearchHint": "Search tags or keyword",
   "profileWorkTagClear": "Clear filter",
-  "profileWorkTagLoadMore": "Load more"
+  "profileWorkTagLoadMore": "Load more",
+  "downloadSubfolderMode": "Subfolder grouping",
+  "downloadSubfolderNone": "None (flat)",
+  "downloadSubfolderByArtist": "By artist",
+  "downloadSubfolderByArtistAndSeries": "By artist & series",
+  "downloadMultiPageSubfolder": "Subfolder for multi-page works",
+  "downloadMultiPageSubfolderHint": "Place multi-page artworks into a subfolder named by artwork ID",
+  "downloadPadPageNumbers": "Zero-pad page numbers",
+  "downloadPadPageNumbersHint": "Pad page and series indices to total digits (e.g. _p00, _p01) for lexical sorting",
+  "downloadAuthorSubfolderToggle": "Save into artist subfolder"
 }

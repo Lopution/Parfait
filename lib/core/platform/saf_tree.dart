@@ -43,6 +43,7 @@ abstract class SafDocumentSinkFactory {
     required String mimeType,
     DownloadOutputOwner? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   });
 }
 
@@ -184,6 +185,7 @@ class MethodChannelSafTree
     required String mimeType,
     DownloadOutputOwner? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   }) async {
     final uri = await _channel.invokeMethod<String>('create', {
       'treeUri': treeUri,
@@ -191,6 +193,7 @@ class MethodChannelSafTree
       'mimeType': mimeType,
       if (owner != null) 'ownerId': owner.ownerId,
       if (staged) 'staged': true,
+      if (subdirectories.isNotEmpty) 'subdirectories': subdirectories,
     });
     if (uri == null) {
       throw const _SafTreeChannelException('create returned null uri');

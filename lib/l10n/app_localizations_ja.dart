@@ -3605,4 +3605,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get profileWorkTagLoadMore => 'さらに読み込む';
+
+  @override
+  String get downloadSubfolderMode => 'サブフォルダ分類';
+
+  @override
+  String get downloadSubfolderNone => '作成しない';
+
+  @override
+  String get downloadSubfolderByArtist => '作者別';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => '作者・シリーズ別';
+
+  @override
+  String get downloadMultiPageSubfolder => '複数ページ作品を個別フォルダへ';
+
+  @override
+  String get downloadMultiPageSubfolderHint => '2ページ以上の作品を作品ID名のサブフォルダに保存します';
+
+  @override
+  String get downloadPadPageNumbers => 'ページ番号をゼロ埋め';
+
+  @override
+  String get downloadPadPageNumbersHint =>
+      '総ページ数の桁数に合わせてゼロ埋め（例: _p00、_p01）し、辞書順を揃えます';
+
+  @override
+  String get downloadAuthorSubfolderToggle => '作者のサブフォルダに保存';
 }

@@ -111,6 +111,7 @@ class _FakeSinkFactory implements SafDocumentSinkFactory {
     required String mimeType,
     Object? owner,
     bool staged = false,
+    List<String> subdirectories = const [],
   }) async {
     lastTreeUri = treeUri;
     lastDisplayName = displayName;

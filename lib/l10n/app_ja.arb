@@ -1561,5 +1561,14 @@
   "profileWorkTagPickerTitle": "タグで作品を絞り込み",
   "profileWorkTagSearchHint": "タグまたはキーワードを検索",
   "profileWorkTagClear": "絞り込みを解除",
-  "profileWorkTagLoadMore": "さらに読み込む"
+  "profileWorkTagLoadMore": "さらに読み込む",
+  "downloadSubfolderMode": "サブフォルダ分類",
+  "downloadSubfolderNone": "作成しない",
+  "downloadSubfolderByArtist": "作者別",
+  "downloadSubfolderByArtistAndSeries": "作者・シリーズ別",
+  "downloadMultiPageSubfolder": "複数ページ作品を個別フォルダへ",
+  "downloadMultiPageSubfolderHint": "2ページ以上の作品を作品ID名のサブフォルダに保存します",
+  "downloadPadPageNumbers": "ページ番号をゼロ埋め",
+  "downloadPadPageNumbersHint": "総ページ数の桁数に合わせてゼロ埋め（例: _p00、_p01）し、辞書順を揃えます",
+  "downloadAuthorSubfolderToggle": "作者のサブフォルダに保存"
 }

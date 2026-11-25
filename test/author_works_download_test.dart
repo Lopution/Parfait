@@ -83,6 +83,7 @@ class _HeldRawSinks extends MemorySinkFactory {
     required String mimeType,
     required DownloadDestination destination,
     DownloadOutputOwner? owner,
+    List<String> subdirectories = const [],
   }) async {
     await gate.future;
     return super.beginRaw(
@@ -90,6 +91,7 @@ class _HeldRawSinks extends MemorySinkFactory {
       mimeType: mimeType,
       destination: destination,
       owner: owner,
+      subdirectories: subdirectories,
     );
   }
 }

@@ -3574,4 +3574,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get profileWorkTagLoadMore => '加载更多';
+
+  @override
+  String get downloadSubfolderMode => '子文件夹归类';
+
+  @override
+  String get downloadSubfolderNone => '不创建子文件夹';
+
+  @override
+  String get downloadSubfolderByArtist => '按作者归类';
+
+  @override
+  String get downloadSubfolderByArtistAndSeries => '按作者与系列归类';
+
+  @override
+  String get downloadMultiPageSubfolder => '多图作品单独建文件夹';
+
+  @override
+  String get downloadMultiPageSubfolderHint => '页数超过 1 页的作品放入以作品 ID 命名的子文件夹';
+
+  @override
+  String get downloadPadPageNumbers => '页码补零对齐';
+
+  @override
+  String get downloadPadPageNumbersHint => '按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列';
+
+  @override
+  String get downloadAuthorSubfolderToggle => '放入作者子文件夹';
 }

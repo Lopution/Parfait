@@ -2,17 +2,20 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
+import '../../../app/widgets/settings/settings_menu_tile.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../core/download/caption_exporter.dart';
 import '../../../core/download/naming_rule.dart';
 import '../../../core/platform/platform_caps.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../core/settings/settings_enums.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
@@ -112,10 +115,14 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
       _templateController.text = namingRule.template ?? '';
     }
     final destination = settings.downloadDestination;
+    final platform = Theme.of(context).platform;
     final captionFitsHere = captionFits(
       destination,
       isAndroid: ref.watch(platformCapsProvider).supportsMediaStore,
     );
+    final showSubfolders =
+        Setting.downloadSubfolderMode.available &&
+        platform != TargetPlatform.iOS;
     return guardDraft(
       dirty: _templateDirty,
       child: Scaffold(
@@ -199,6 +206,49 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                           )
                         : null,
                   ),
+                  if (showSubfolders) ...[
+                    SettingsMenuTile<DownloadSubfolderMode>(
+                      setting: Setting.downloadSubfolderMode,
+                      value: settings.downloadSubfolderMode,
+                      options: [
+                        for (final mode in DownloadSubfolderMode.values)
+                          AppMenuEntry(
+                            value: mode,
+                            label: downloadSubfolderModeLabel(context, mode),
+                          ),
+                      ],
+                      onChanged: (mode) => persistSettings(
+                        context,
+                        () => ref
+                            .read(settingsProvider.notifier)
+                            .setDownloadSubfolderMode(mode),
+                      ),
+                    ),
+                    SettingsControl(
+                      setting: Setting.downloadMultiPageSubfolder,
+                      subtitle: Text(
+                        context.l10n.downloadMultiPageSubfolderHint,
+                      ),
+                      value: settings.downloadMultiPageSubfolder,
+                      onChanged: (enabled) => persistSettings(
+                        context,
+                        () => ref
+                            .read(settingsProvider.notifier)
+                            .setDownloadMultiPageSubfolder(enabled),
+                      ),
+                    ),
+                  ],
+                  SettingsControl(
+                    setting: Setting.downloadPadPageNumbers,
+                    subtitle: Text(context.l10n.downloadPadPageNumbersHint),
+                    value: settings.downloadPadPageNumbers,
+                    onChanged: (enabled) => persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .setDownloadPadPageNumbers(enabled),
+                    ),
+                  ),
                 ],
               ),
               SettingsGroup(
@@ -258,6 +308,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                                   preset: NamingPreset.custom,
                                   template: _templateController.text,
                                 ),
+                                padPageNumbers: settings.downloadPadPageNumbers,
                               ),
                             ),
                             style: Theme.of(context).textTheme.bodySmall,
@@ -335,7 +386,11 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
   }
 
   /// Every variable has a sample, so any chip visibly changes the preview.
-  String _previewName(BuildContext context, NamingRule rule) {
+  String _previewName(
+    BuildContext context,
+    NamingRule rule, {
+    bool padPageNumbers = false,
+  }) {
     final l10n = context.l10n;
     return rule.preview(
       illustId: 123456,
@@ -345,12 +400,13 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
       title: l10n.namingSampleTitle,
       date: DateTime(2026, 9, 1, 12, 30),
       authorId: 7890,
-      totalPages: 3,
+      totalPages: 12,
       width: 1200,
       height: 1600,
       seriesTitle: l10n.namingSampleSeries,
       seriesOrder: 2,
       seriesTotal: 10,
+      padPageNumbers: padPageNumbers,
     );
   }
 
