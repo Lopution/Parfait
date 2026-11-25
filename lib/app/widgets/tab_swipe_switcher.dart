@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../motion/still_work.dart';
 import '../motion/swipe_paging.dart';
+import '../navigation/frozen_while_hidden.dart';
 
 /// Sideways drag for a page's own tabs ([SwipePaging]). At the first or
 /// last tab a swipe outwards goes to the enclosing [SwipePagerScope] (the
@@ -169,33 +170,67 @@ class TabSlideStack extends StatelessWidget {
   Widget build(BuildContext context) {
     final animation = controller.animation;
     final rtl = Directionality.of(context) == TextDirection.rtl;
-    Widget stack(double position) => Stack(
-      fit: StackFit.expand,
-      clipBehavior: Clip.hardEdge,
-      children: [
-        for (var i = 0; i < children.length; i++)
-          Offstage(
-            key: switch (children[i].key) {
-              final key? => ValueKey(key),
-              null => null,
-            },
-            offstage: (i - position).abs() >= 1.0,
-            child: TickerMode(
-              enabled: (i - position).abs() < 1.0,
-              child: FractionalTranslation(
-                translation: Offset(rtl ? position - i : i - position, 0),
-                child: children[i],
-              ),
+    Widget stack(double position) {
+      final from = controller.previousIndex;
+      final to = controller.index;
+      final hopping = controller.indexIsChanging && (to - from).abs() > 1;
+      final hopProgress = hopping
+          ? ((position - from) / (to - from)).clamp(0.0, 1.0)
+          : 0.0;
+      final hopDir = to > from ? 1.0 : -1.0;
+
+      return Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.hardEdge,
+        children: [
+          for (var i = 0; i < children.length; i++)
+            _buildSlot(
+              child: children[i],
+              rtl: rtl,
+              active: hopping
+                  ? (i == from || i == to)
+                  : (i - position).abs() < 1.0,
+              dx: hopping
+                  ? (i == from
+                        ? -hopDir * hopProgress
+                        : i == to
+                        ? hopDir * (1.0 - hopProgress)
+                        : 0.0)
+                  : i - position,
             ),
-          ),
-      ],
-    );
+        ],
+      );
+    }
+
     if (animation == null) return stack(controller.index.toDouble());
     return AnimatedBuilder(
       animation: animation,
       builder: (context, _) => stack(animation.value),
     );
   }
+
+  Widget _buildSlot({
+    required Widget child,
+    required bool rtl,
+    required bool active,
+    required double dx,
+  }) => Offstage(
+    key: switch (child.key) {
+      final key? => ValueKey(key),
+      null => null,
+    },
+    offstage: !active,
+    child: TickerMode(
+      enabled: active,
+      child: FrozenWhileHidden.when(
+        hidden: !active,
+        child: FractionalTranslation(
+          translation: Offset(rtl ? -dx : dx, 0),
+          child: child,
+        ),
+      ),
+    ),
+  );
 }
 
 /// Re-reports [controller]'s list position after a tab switch, so the app
