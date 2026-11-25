@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/format/app_format.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../core/auth/account_store.dart';
 import '../../core/errors/no_retry.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
@@ -14,6 +15,7 @@ import '../../core/localnovel/local_novel_store.dart';
 import '../../core/localnovel/read_offset_anchor.dart';
 import '../../core/network/data_worker.dart';
 import '../../core/novel/novel_entity.dart';
+import '../../core/novel/reader_settings.dart';
 import '../../core/user/user_entity.dart';
 import '../../l10n/context.dart';
 import 'novel_layout.dart';
@@ -40,11 +42,22 @@ class _LoadedLocalNovel {
 _LoadedLocalNovel _buildLoadedLocalNovel((LocalNovel, String) input) {
   final (novel, text) = input;
   final lineStarts = buildLocalNovelLineStarts(text);
-  final paragraphs = List<NovelParagraph>.generate(lineStarts.length, (i) {
-    final start = lineStarts[i];
-    final end = i + 1 < lineStarts.length ? lineStarts[i + 1] - 1 : text.length;
-    return NovelParagraph(id: 'p$i', text: text.substring(start, end));
-  }, growable: false);
+  final bool hasPixivMarkers =
+      novel.isPixivCached ||
+      text.contains('[chapter:') ||
+      text.contains('[newpage]');
+  final NovelMarkupDocument? parsed = hasPixivMarkers
+      ? NovelContentMapper.parse(text, images: false)
+      : null;
+  final List<NovelParagraph> paragraphs =
+      parsed?.paragraphs ??
+      List<NovelParagraph>.generate(lineStarts.length, (i) {
+        final start = lineStarts[i];
+        final end = i + 1 < lineStarts.length
+            ? lineStarts[i + 1] - 1
+            : text.length;
+        return NovelParagraph(id: 'p$i', text: text.substring(start, end));
+      }, growable: false);
   final entity = NovelEntity(
     // Negative id keeps the synthetic entity disjoint from real Pixiv
     // novel ids anywhere an id leaks into an observer.
@@ -53,9 +66,12 @@ _LoadedLocalNovel _buildLoadedLocalNovel((LocalNovel, String) input) {
     caption: '',
     user: UserEntity(id: 0, name: novel.author ?? '', account: 'local'),
     tags: const [],
+    seriesId: novel.pixivSeriesId,
+    seriesTitle: novel.pixivSeriesTitle,
     textLength: text.length,
     contentVersion: 'local:${novel.id}:${text.length}',
     paragraphs: paragraphs,
+    markup: parsed,
   );
   return _LoadedLocalNovel(
     novel: novel,
@@ -195,14 +211,44 @@ class _LocalProgressBinding implements ReaderProgressBinding {
   final ProviderContainer _container;
   final _LoadedLocalNovel loaded;
 
+  String? get _accountId => _container.read(
+    accountStoreProvider.select((a) => a.value?.usableCurrent?.id),
+  );
+
   @override
   Future<NovelAnchor?> load() async {
+    final localOffset = loaded.novel.readOffset;
+    final pixivNovelId = loaded.novel.pixivNovelId;
+    final accountId = _accountId;
+    NovelAnchor? onlineAnchor;
+    int? onlineOffset;
+    if (pixivNovelId != null && accountId != null) {
+      final saved = await _container
+          .read(novelProgressStoreProvider)
+          .read(accountId, pixivNovelId);
+      if (saved != null) {
+        onlineAnchor = NovelAnchor(
+          paragraphId: saved.paragraphId,
+          offset: saved.offset,
+        );
+        onlineOffset = localNovelReadOffsetForAnchor(
+          paragraphId: saved.paragraphId,
+          offset: saved.offset,
+          lineStarts: loaded.lineStarts,
+          textLength: loaded.textLength,
+        );
+      }
+    }
+    if (onlineAnchor != null &&
+        (localOffset == null || (onlineOffset ?? 0) > localOffset)) {
+      return onlineAnchor;
+    }
     final restored = novelAnchorForReadOffsetWithStarts(
-      loaded.novel.readOffset,
+      localOffset,
       loaded.lineStarts,
       loaded.textLength,
     );
-    if (restored == null) return null;
+    if (restored == null) return onlineAnchor;
     return NovelAnchor(
       paragraphId: restored.paragraphId,
       offset: restored.offset,
@@ -210,15 +256,27 @@ class _LocalProgressBinding implements ReaderProgressBinding {
   }
 
   @override
-  Future<void> save(NovelAnchor anchor) {
+  Future<void> save(NovelAnchor anchor) async {
     final offset = localNovelReadOffsetForAnchor(
       paragraphId: anchor.paragraphId,
       offset: anchor.offset,
       lineStarts: loaded.lineStarts,
       textLength: loaded.textLength,
     );
-    return _container
+    await _container
         .read(localNovelStoreProvider.notifier)
         .updateReadOffset(loaded.novel.id, offset);
+    final pixivNovelId = loaded.novel.pixivNovelId;
+    final accountId = _accountId;
+    if (pixivNovelId != null && accountId != null) {
+      await _container
+          .read(novelProgressStoreProvider)
+          .write(
+            accountId,
+            pixivNovelId,
+            paragraphId: anchor.paragraphId,
+            offset: anchor.offset,
+          );
+    }
   }
 }

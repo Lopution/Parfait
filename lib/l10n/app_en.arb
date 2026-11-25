@@ -1577,5 +1577,52 @@
   "downloadMultiPageSubfolderHint": "Place multi-page artworks into a subfolder named by artwork ID",
   "downloadPadPageNumbers": "Zero-pad page numbers",
   "downloadPadPageNumbersHint": "Pad page and series indices to total digits (e.g. _p00, _p01) for lexical sorting",
-  "downloadAuthorSubfolderToggle": "Save into artist subfolder"
+  "downloadAuthorSubfolderToggle": "Save into artist subfolder",
+  "downloadAuthorConfirmBodyWithUgoira": "Queue {works} static works ({pages} pages) and {ugoira} ugoira works for download.",
+  "@downloadAuthorConfirmBodyWithUgoira": {
+    "placeholders": {
+      "works": {"type": "int"},
+      "pages": {"type": "int"},
+      "ugoira": {"type": "int"}
+    }
+  },
+  "downloadAuthorIncludeUgoira": "Include ugoira works ({count}, export as GIF)",
+  "@downloadAuthorIncludeUgoira": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "downloadAuthorUgoiraOnlyHint": "Only {count} ugoira works were found. Turn on the switch below to export them as GIFs.",
+  "@downloadAuthorUgoiraOnlyHint": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "novelSaveOffline": "Save to offline library",
+  "novelSavedOffline": "Saved to offline library",
+  "novelSaveOfflineFailed": "Offline save failed",
+  "novelExportTxt": "Export TXT",
+  "novelExportTxtQueued": "TXT export queued",
+  "novelExportTxtShared": "TXT file shared",
+  "novelExportTxtFailed": "TXT export failed",
+  "novelExportAndroidFolderRequired": "Exporting TXT on Android requires a custom folder destination",
+  "novelSeriesSaveOffline": "Save series offline",
+  "novelSeriesExportTxt": "Export series TXT",
+  "novelSeriesExportMerged": "Merge into one TXT",
+  "novelSeriesExportSplit": "Export one TXT per chapter",
+  "novelSeriesSavedWithSkipped": "Saved {saved} chapters ({skipped} unavailable skipped)",
+  "@novelSeriesSavedWithSkipped": {
+    "placeholders": {
+      "saved": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesExportQueuedWithSkipped": "Queued {queued} chapters ({skipped} unavailable skipped)",
+  "@novelSeriesExportQueuedWithSkipped": {
+    "placeholders": {
+      "queued": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesNoViewableChapters": "No viewable chapters in this series"
 }

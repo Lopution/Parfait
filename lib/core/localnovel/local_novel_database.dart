@@ -24,7 +24,7 @@ class LocalNovelDatabase {
 
   static const databaseName = 'local_novels.db';
   static const table = 'local_novels';
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
 
   final SqliteDatabase _sqlite;
 
@@ -42,7 +42,10 @@ class LocalNovelDatabase {
         char_count INTEGER NOT NULL DEFAULT 0,
         imported_at INTEGER NOT NULL,
         read_offset INTEGER,
-        encoding TEXT
+        encoding TEXT,
+        pixiv_novel_id INTEGER,
+        pixiv_series_id INTEGER,
+        pixiv_series_title TEXT
       )
     ''');
   }
@@ -58,6 +61,11 @@ class LocalNovelDatabase {
     }
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE $table ADD COLUMN encoding TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE $table ADD COLUMN pixiv_novel_id INTEGER');
+      await db.execute('ALTER TABLE $table ADD COLUMN pixiv_series_id INTEGER');
+      await db.execute('ALTER TABLE $table ADD COLUMN pixiv_series_title TEXT');
     }
   }
 }

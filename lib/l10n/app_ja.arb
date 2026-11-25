@@ -1570,5 +1570,52 @@
   "downloadMultiPageSubfolderHint": "2ページ以上の作品を作品ID名のサブフォルダに保存します",
   "downloadPadPageNumbers": "ページ番号をゼロ埋め",
   "downloadPadPageNumbersHint": "総ページ数の桁数に合わせてゼロ埋め（例: _p00、_p01）し、辞書順を揃えます",
-  "downloadAuthorSubfolderToggle": "作者のサブフォルダに保存"
+  "downloadAuthorSubfolderToggle": "作者のサブフォルダに保存",
+  "downloadAuthorConfirmBodyWithUgoira": "静止画 {works} 件（計 {pages} ページ）とうごイラ {ugoira} 件をダウンロードキューに追加します。",
+  "@downloadAuthorConfirmBodyWithUgoira": {
+    "placeholders": {
+      "works": {"type": "int"},
+      "pages": {"type": "int"},
+      "ugoira": {"type": "int"}
+    }
+  },
+  "downloadAuthorIncludeUgoira": "うごイラを含める（{count} 件・GIF 書き出し）",
+  "@downloadAuthorIncludeUgoira": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "downloadAuthorUgoiraOnlyHint": "うごイラ作品が {count} 件見つかりました。下のスイッチをオンにすると GIF として書き出せます。",
+  "@downloadAuthorUgoiraOnlyHint": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "novelSaveOffline": "オフライン書庫に保存",
+  "novelSavedOffline": "オフライン書庫に保存しました",
+  "novelSaveOfflineFailed": "オフライン保存に失敗しました",
+  "novelExportTxt": "TXT を書き出す",
+  "novelExportTxtQueued": "TXT 書き出しをキューに追加しました",
+  "novelExportTxtShared": "TXT ファイルを共有しました",
+  "novelExportTxtFailed": "TXT の書き出しに失敗しました",
+  "novelExportAndroidFolderRequired": "Android で TXT を書き出すには、保存先としてカスタムフォルダを選択してください",
+  "novelSeriesSaveOffline": "シリーズをオフライン保存",
+  "novelSeriesExportTxt": "シリーズを TXT 書き出し",
+  "novelSeriesExportMerged": "1 つの TXT に結合",
+  "novelSeriesExportSplit": "話ごとに TXT 書き出し",
+  "novelSeriesSavedWithSkipped": "{saved} 話を保存しました（閲覧不可 {skipped} 話をスキップ）",
+  "@novelSeriesSavedWithSkipped": {
+    "placeholders": {
+      "saved": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesExportQueuedWithSkipped": "{queued} 話をキューに追加しました（閲覧不可 {skipped} 話をスキップ）",
+  "@novelSeriesExportQueuedWithSkipped": {
+    "placeholders": {
+      "queued": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesNoViewableChapters": "このシリーズには保存可能な話がありません"
 }

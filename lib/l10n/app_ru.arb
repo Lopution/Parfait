@@ -1570,5 +1570,52 @@
   "downloadMultiPageSubfolderHint": "Сохранять работы с несколькими страницами в подпапку с ID работы",
   "downloadPadPageNumbers": "Ведущие нули в номерах страниц",
   "downloadPadPageNumbersHint": "Дополнять номера страниц нулями по числу цифр (например, _p00, _p01) для правильной сортировки",
-  "downloadAuthorSubfolderToggle": "Сохранить в подпапку автора"
+  "downloadAuthorSubfolderToggle": "Сохранить в подпапку автора",
+  "downloadAuthorConfirmBodyWithUgoira": "Будут добавлены в очередь {works} работ ({pages} стр.) и {ugoira} угойра.",
+  "@downloadAuthorConfirmBodyWithUgoira": {
+    "placeholders": {
+      "works": {"type": "int"},
+      "pages": {"type": "int"},
+      "ugoira": {"type": "int"}
+    }
+  },
+  "downloadAuthorIncludeUgoira": "Включить угойра ({count}, экспорт в GIF)",
+  "@downloadAuthorIncludeUgoira": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "downloadAuthorUgoiraOnlyHint": "Найдено только {count} угойра. Включите переключатель ниже для экспорта в GIF.",
+  "@downloadAuthorUgoiraOnlyHint": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "novelSaveOffline": "Сохранить офлайн",
+  "novelSavedOffline": "Сохранено в офлайн-библиотеку",
+  "novelSaveOfflineFailed": "Не удалось сохранить офлайн",
+  "novelExportTxt": "Экспорт в TXT",
+  "novelExportTxtQueued": "Экспорт TXT добавлен в очередь",
+  "novelExportTxtShared": "Файл TXT отправлен",
+  "novelExportTxtFailed": "Не удалось экспортировать TXT",
+  "novelExportAndroidFolderRequired": "Для экспорта TXT на Android выберите пользовательскую папку сохранения",
+  "novelSeriesSaveOffline": "Сохранить серию офлайн",
+  "novelSeriesExportTxt": "Экспорт серии в TXT",
+  "novelSeriesExportMerged": "Объединить в один TXT",
+  "novelSeriesExportSplit": "Отдельный TXT на главу",
+  "novelSeriesSavedWithSkipped": "Сохранено глав: {saved} (пропущено недоступных: {skipped})",
+  "@novelSeriesSavedWithSkipped": {
+    "placeholders": {
+      "saved": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesExportQueuedWithSkipped": "В очереди глав: {queued} (пропущено недоступных: {skipped})",
+  "@novelSeriesExportQueuedWithSkipped": {
+    "placeholders": {
+      "queued": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "novelSeriesNoViewableChapters": "В серии нет доступных глав для сохранения"
 }

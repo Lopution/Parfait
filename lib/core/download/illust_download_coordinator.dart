@@ -45,7 +45,7 @@ class IllustDownloadCoordinator {
   _resolveSeriesContext;
 
   /// Submits one page. Returns the (deduped) task snapshot; throws
-  /// [FormatException] when the URL/extension is unsafe.
+  /// [FormatException] when the URL/extension is unsafe or the work is ugoira.
   Future<DownloadTaskSnapshot> downloadPage({
     required IllustEntity work,
     required int pageIndex,
@@ -55,6 +55,9 @@ class IllustDownloadCoordinator {
     bool? multiPageSubfolder,
     bool? padPageNumbers,
   }) async {
+    if (work.isUgoira) {
+      throw const FormatException('ugoira works require GIF export');
+    }
     final effectiveSubfolder = _effectiveSubfolderMode(subfolderMode);
     final effectiveMultiPage = _effectiveMultiPageSubfolder(multiPageSubfolder);
     final effectivePadding = _effectivePadPageNumbers(padPageNumbers);
@@ -80,6 +83,7 @@ class IllustDownloadCoordinator {
 
   /// Download All: one request per page URL, page index = list position.
   /// Repeated submissions while tasks are live dedupe to the same tasks.
+  /// Rejects ugoira works so callers never save static cover JPEGs.
   Future<DownloadGroupSubmission> downloadAllPages({
     required IllustEntity work,
     required List<Uri> pageUrls,
@@ -88,6 +92,9 @@ class IllustDownloadCoordinator {
     bool? multiPageSubfolder,
     bool? padPageNumbers,
   }) async {
+    if (work.isUgoira) {
+      throw const FormatException('ugoira works require GIF export');
+    }
     if (pageUrls.isEmpty) {
       throw const FormatException('work has no downloadable pages');
     }
@@ -120,11 +127,37 @@ class IllustDownloadCoordinator {
     return submission;
   }
 
-  /// Per-page requests a bulk author submission needs. Exposed so the
-  /// confirmation dialog can show the real page count before enqueueing;
-  /// works with no usable original URL contribute nothing.
+  /// Submits a unified `DownloadTarget.ugoiraGif` job into [DownloadManager]
+  /// carrying all naming metadata, subfolder hierarchy, and caption sidecar.
+  Future<DownloadTaskSnapshot> downloadUgoiraGif({
+    required IllustEntity work,
+    NamingRule? namingRule,
+    DownloadSubfolderMode? subfolderMode,
+    bool? padPageNumbers,
+  }) async {
+    final effectiveSubfolder = _effectiveSubfolderMode(subfolderMode);
+    final effectivePadding = _effectivePadPageNumbers(padPageNumbers);
+    final series = await _resolveSeriesForSingleWork(
+      work,
+      namingRule: namingRule,
+      subfolderMode: effectiveSubfolder,
+    );
+    final request = _ugoiraRequestFor(
+      work,
+      namingRule: namingRule,
+      subfolderMode: effectiveSubfolder,
+      padPageNumbers: effectivePadding,
+      series: series,
+    );
+    final snapshot = _manager.submit(request);
+    await _exportCaption(work, request, snapshot);
+    return snapshot;
+  }
+
+  /// Per-page and optional ugoira requests a bulk author submission needs.
   List<DownloadRequest> authorWorksRequests(
     List<IllustEntity> works, {
+    List<IllustEntity> ugoiraWorks = const [],
     NamingRule? namingRule,
     DownloadSubfolderMode? subfolderMode,
     bool? multiPageSubfolder,
@@ -135,26 +168,36 @@ class IllustDownloadCoordinator {
     final effectivePadding = _effectivePadPageNumbers(padPageNumbers);
     return [
       for (final work in works)
-        for (var i = 0; i < work.pageCount; i++)
-          if (work.originalUrlAt(i) case final url?)
-            _requestFor(
-              work,
-              pageIndex: i,
-              url: Uri.parse(url),
-              namingRule: namingRule,
-              subfolderMode: effectiveSubfolder,
-              multiPageSubfolder: effectiveMultiPage,
-              padPageNumbers: effectivePadding,
-              series: _warmSeriesFor(work),
-            ),
+        if (!work.isUgoira)
+          for (var i = 0; i < work.pageCount; i++)
+            if (work.originalUrlAt(i) case final url?)
+              _requestFor(
+                work,
+                pageIndex: i,
+                url: Uri.parse(url),
+                namingRule: namingRule,
+                subfolderMode: effectiveSubfolder,
+                multiPageSubfolder: effectiveMultiPage,
+                padPageNumbers: effectivePadding,
+                series: _warmSeriesFor(work),
+              ),
+      for (final ugoira in ugoiraWorks)
+        _ugoiraRequestFor(
+          ugoira,
+          namingRule: namingRule,
+          subfolderMode: effectiveSubfolder,
+          padPageNumbers: effectivePadding,
+          series: _warmSeriesFor(ugoira),
+        ),
     ];
   }
 
-  /// Bulk author download: one group containing every
-  /// downloadable page of every enumerated work. An empty request set is a
-  /// caller-visible error, never a silent no-op.
+  /// Bulk author download: one group containing every downloadable static page
+  /// plus any opted-in ugoira works. An empty request set is a caller-visible
+  /// error, never a silent no-op.
   Future<DownloadGroupSubmission> downloadAuthorWorks({
     required List<IllustEntity> works,
+    List<IllustEntity> ugoiraWorks = const [],
     NamingRule? namingRule,
     DownloadSubfolderMode? subfolderMode,
     bool? multiPageSubfolder,
@@ -162,6 +205,7 @@ class IllustDownloadCoordinator {
   }) async {
     final requests = authorWorksRequests(
       works,
+      ugoiraWorks: ugoiraWorks,
       namingRule: namingRule,
       subfolderMode: subfolderMode,
       multiPageSubfolder: multiPageSubfolder,
@@ -173,7 +217,10 @@ class IllustDownloadCoordinator {
     final submission = _manager.submitGroup(requests);
     // Caption sidecars ride the same submission; per-work dedupe keeps this
     // idempotent when the same author is re-enqueued later.
-    final workById = {for (final work in works) work.id: work};
+    final workById = {
+      for (final work in works) work.id: work,
+      for (final ugoira in ugoiraWorks) ugoira.id: ugoira,
+    };
     final seen = <int>{};
     if (submission.group == null) return submission;
     for (var i = 0; i < requests.length; i++) {
@@ -185,6 +232,16 @@ class IllustDownloadCoordinator {
       await _exportCaption(work, request, snapshot);
     }
     return submission;
+  }
+
+  DownloadTaskSnapshot? ugoiraTaskFor(int illustId) {
+    for (final task in _manager.tasks) {
+      if (task.illustId == illustId &&
+          task.target == DownloadTarget.ugoiraGif.name) {
+        return task;
+      }
+    }
+    return null;
   }
 
   DownloadTaskSnapshot? taskFor({
@@ -300,6 +357,45 @@ class IllustDownloadCoordinator {
       seriesTotal: series.total,
       date: DateTime.tryParse(work.createDate ?? ''),
       thumbnailUrl: work.squareUrlAt(pageIndex),
+      subdirectories: subdirectories,
+      padPageNumbers: padPageNumbers,
+    );
+  }
+
+  DownloadRequest _ugoiraRequestFor(
+    IllustEntity work, {
+    required DownloadSubfolderMode subfolderMode,
+    required bool padPageNumbers,
+    required _ResolvedSeriesMeta series,
+    NamingRule? namingRule,
+  }) {
+    final subdirectories = resolveWorkSubdirectories(
+      mode: subfolderMode,
+      multiPageSubfolder: false,
+      illustId: work.id,
+      pageCount: 1,
+      artist: work.user.name,
+      authorId: work.user.id,
+      seriesTitle: series.title,
+      seriesId: work.seriesId,
+    );
+    return DownloadRequest(
+      illustId: work.id,
+      pageIndex: 0,
+      url: Uri.parse('https://i.pximg.net/ugoira/${work.id}.gif'),
+      target: DownloadTarget.ugoiraGif,
+      namingRule: namingRule,
+      artist: work.user.name,
+      title: work.title,
+      authorId: work.user.id,
+      totalPages: work.pageCount,
+      width: work.width,
+      height: work.height,
+      seriesTitle: series.title,
+      seriesOrder: series.order,
+      seriesTotal: series.total,
+      date: DateTime.tryParse(work.createDate ?? ''),
+      thumbnailUrl: work.squareUrlAt(0),
       subdirectories: subdirectories,
       padPageNumbers: padPageNumbers,
     );

@@ -26,6 +26,9 @@ class LocalNovel {
     this.author,
     this.encoding,
     this.readOffset,
+    this.pixivNovelId,
+    this.pixivSeriesId,
+    this.pixivSeriesTitle,
   });
 
   final int id;
@@ -41,6 +44,13 @@ class LocalNovel {
   /// Reading cursor written by the local reader (character offset).
   final int? readOffset;
 
+  /// Origin Pixiv metadata when cached from an online novel or novel series.
+  final int? pixivNovelId;
+  final int? pixivSeriesId;
+  final String? pixivSeriesTitle;
+
+  bool get isPixivCached => pixivNovelId != null || pixivSeriesId != null;
+
   File get file => File(path);
 
   LocalNovel withReadOffset(int? readOffset) => LocalNovel(
@@ -52,6 +62,9 @@ class LocalNovel {
     importedAt: importedAt,
     encoding: encoding,
     readOffset: readOffset,
+    pixivNovelId: pixivNovelId,
+    pixivSeriesId: pixivSeriesId,
+    pixivSeriesTitle: pixivSeriesTitle,
   );
 }
 
@@ -197,6 +210,131 @@ class LocalNovelRepository {
     );
   }
 
+  /// Caches a Pixiv novel or merged series into the offline library, updating
+  /// any existing entry with the same [pixivNovelId] or merged [pixivSeriesId]
+  /// while enforcing the same decoded char/paragraph limits as [importBytes].
+  Future<LocalNovel> savePixivNovel({
+    required String title,
+    required String? author,
+    required String text,
+    required Directory targetDir,
+    int? pixivNovelId,
+    int? pixivSeriesId,
+    String? pixivSeriesTitle,
+  }) async {
+    final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    if (normalized.length > maxImportChars) {
+      throw LocalNovelTooLargeException(
+        kind: LocalNovelLimitKind.chars,
+        actual: normalized.length,
+        limit: maxImportChars,
+      );
+    }
+    var paragraphs = 1;
+    for (var i = 0; i < normalized.length; i++) {
+      if (normalized.codeUnitAt(i) == 0x0A) paragraphs += 1;
+    }
+    if (paragraphs > maxImportParagraphs) {
+      throw LocalNovelTooLargeException(
+        kind: LocalNovelLimitKind.paragraphs,
+        actual: paragraphs,
+        limit: maxImportParagraphs,
+      );
+    }
+    await targetDir.create(recursive: true);
+    final db = await _database.database;
+    LocalNovel? existing;
+    if (pixivNovelId != null) {
+      final rows = await db.query(
+        LocalNovelDatabase.table,
+        where: 'pixiv_novel_id = ?',
+        whereArgs: [pixivNovelId],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) existing = _fromRow(rows.first);
+    } else if (pixivSeriesId != null) {
+      final rows = await db.query(
+        LocalNovelDatabase.table,
+        where: 'pixiv_novel_id IS NULL AND pixiv_series_id = ?',
+        whereArgs: [pixivSeriesId],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) existing = _fromRow(rows.first);
+    }
+    final importedAt = DateTime.now();
+    if (existing != null) {
+      final file = File(existing.path);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(normalized, flush: true);
+      final clampedOffset = existing.readOffset?.clamp(0, normalized.length);
+      await db.update(
+        LocalNovelDatabase.table,
+        {
+          'title': title,
+          'author': author,
+          'char_count': normalized.length,
+          'imported_at': importedAt.millisecondsSinceEpoch,
+          'read_offset': clampedOffset,
+          'encoding': LocalNovelEncoding.utf8.name,
+          'pixiv_novel_id': pixivNovelId,
+          'pixiv_series_id': pixivSeriesId,
+          'pixiv_series_title': pixivSeriesTitle,
+        },
+        where: 'id = ?',
+        whereArgs: [existing.id],
+      );
+      return LocalNovel(
+        id: existing.id,
+        title: title,
+        author: author,
+        path: existing.path,
+        charCount: normalized.length,
+        importedAt: importedAt,
+        encoding: LocalNovelEncoding.utf8,
+        readOffset: clampedOffset,
+        pixivNovelId: pixivNovelId,
+        pixivSeriesId: pixivSeriesId,
+        pixivSeriesTitle: pixivSeriesTitle,
+      );
+    }
+    final file = await _createUniqueFile(targetDir, '$title.txt');
+    final int id;
+    try {
+      await file.writeAsString(normalized, flush: true);
+      id = await db.insert(LocalNovelDatabase.table, {
+        'title': title,
+        'author': author,
+        'path': file.path,
+        'char_count': normalized.length,
+        'imported_at': importedAt.millisecondsSinceEpoch,
+        'read_offset': null,
+        'encoding': LocalNovelEncoding.utf8.name,
+        'pixiv_novel_id': pixivNovelId,
+        'pixiv_series_id': pixivSeriesId,
+        'pixiv_series_title': pixivSeriesTitle,
+      });
+    } on Object {
+      try {
+        await file.delete();
+      } on FileSystemException catch (error) {
+        log('local novel: orphaned file not removed: $error');
+      }
+      rethrow;
+    }
+    return LocalNovel(
+      id: id,
+      title: title,
+      author: author,
+      path: file.path,
+      charCount: normalized.length,
+      importedAt: importedAt,
+      encoding: LocalNovelEncoding.utf8,
+      pixivNovelId: pixivNovelId,
+      pixivSeriesId: pixivSeriesId,
+      pixivSeriesTitle: pixivSeriesTitle,
+    );
+  }
+
   /// Removes the index row and the stored file together; a missing file is
   /// tolerated so cleanup of a half-deleted entry still completes.
   Future<void> delete(LocalNovel novel) async {
@@ -261,6 +399,9 @@ class LocalNovelRepository {
       encoding: LocalNovelEncoding.values
           .asNameMap()[row['encoding'] as String?],
       readOffset: row['read_offset'] as int?,
+      pixivNovelId: row['pixiv_novel_id'] as int?,
+      pixivSeriesId: row['pixiv_series_id'] as int?,
+      pixivSeriesTitle: row['pixiv_series_title'] as String?,
     );
   }
 }

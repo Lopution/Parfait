@@ -3727,4 +3727,70 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadAuthorSubfolderToggle => 'Save into artist subfolder';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return 'Queue $works static works ($pages pages) and $ugoira ugoira works for download.';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return 'Include ugoira works ($count, export as GIF)';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return 'Only $count ugoira works were found. Turn on the switch below to export them as GIFs.';
+  }
+
+  @override
+  String get novelSaveOffline => 'Save to offline library';
+
+  @override
+  String get novelSavedOffline => 'Saved to offline library';
+
+  @override
+  String get novelSaveOfflineFailed => 'Offline save failed';
+
+  @override
+  String get novelExportTxt => 'Export TXT';
+
+  @override
+  String get novelExportTxtQueued => 'TXT export queued';
+
+  @override
+  String get novelExportTxtShared => 'TXT file shared';
+
+  @override
+  String get novelExportTxtFailed => 'TXT export failed';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Exporting TXT on Android requires a custom folder destination';
+
+  @override
+  String get novelSeriesSaveOffline => 'Save series offline';
+
+  @override
+  String get novelSeriesExportTxt => 'Export series TXT';
+
+  @override
+  String get novelSeriesExportMerged => 'Merge into one TXT';
+
+  @override
+  String get novelSeriesExportSplit => 'Export one TXT per chapter';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return 'Saved $saved chapters ($skipped unavailable skipped)';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return 'Queued $queued chapters ($skipped unavailable skipped)';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters =>
+      'No viewable chapters in this series';
 }

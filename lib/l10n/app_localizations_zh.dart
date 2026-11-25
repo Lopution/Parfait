@@ -3601,4 +3601,69 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get downloadAuthorSubfolderToggle => '放入作者子文件夹';
+
+  @override
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
+    return '将把 $works 份静态作品（共 $pages 页）与 $ugoira 份动图加入下载队列。';
+  }
+
+  @override
+  String downloadAuthorIncludeUgoira(int count) {
+    return '包含动图作品（$count 份，导出为 GIF）';
+  }
+
+  @override
+  String downloadAuthorUgoiraOnlyHint(int count) {
+    return '该作者仅发现 $count 份动图作品。开启下方开关即可导出为 GIF。';
+  }
+
+  @override
+  String get novelSaveOffline => '保存到离线书架';
+
+  @override
+  String get novelSavedOffline => '已保存到离线书架';
+
+  @override
+  String get novelSaveOfflineFailed => '离线保存失败';
+
+  @override
+  String get novelExportTxt => '导出 TXT';
+
+  @override
+  String get novelExportTxtQueued => '已加入 TXT 下载队列';
+
+  @override
+  String get novelExportTxtShared => '已分享 TXT 文件';
+
+  @override
+  String get novelExportTxtFailed => '导出 TXT 失败';
+
+  @override
+  String get novelExportAndroidFolderRequired =>
+      'Android 上导出 TXT 需要先选择自定义文件夹作为保存位置';
+
+  @override
+  String get novelSeriesSaveOffline => '离线缓存全系列';
+
+  @override
+  String get novelSeriesExportTxt => '导出系列 TXT';
+
+  @override
+  String get novelSeriesExportMerged => '合并为单个 TXT';
+
+  @override
+  String get novelSeriesExportSplit => '按章节分文件导出';
+
+  @override
+  String novelSeriesSavedWithSkipped(int saved, int skipped) {
+    return '已保存 $saved 章，跳过 $skipped 章不可阅读内容';
+  }
+
+  @override
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
+    return '已加入 $queued 个章节导出，跳过 $skipped 章不可阅读内容';
+  }
+
+  @override
+  String get novelSeriesNoViewableChapters => '该系列暂无可保存的章节';
 }

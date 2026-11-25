@@ -67,16 +67,17 @@ reviewed: 2026-11-25
 - **Check:** `test/caption_exporter_test.dart` "writes <stem>.txt with the info header"
 - **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_sink.dart`
 
-### DL-11 A caption goes only where a text file fits
-- **Rule:** On Android a caption sidecar is written only to a folder (SAF)
-  destination (`captionFits`): an album is a MediaStore image collection,
-  which refuses a text file and keeps non-media files out of `Pictures/`.
-  While an album is the destination the caption switch is greyed out and
-  says why; the stored choice comes back with a folder.
-- **Why:** With an album, every caption export failed and the download
-  reported an error.
-- **Check:** `test/caption_exporter_test.dart` "on Android only a folder takes the caption", `test/download_settings_page_test.dart` "on Android an album greys the caption switch out"
-- **Code:** `lib/core/download/caption_exporter.dart`, `lib/features/settings/pages/download_settings_page.dart`
+### DL-11 A caption or TXT export goes only where a text file fits
+- **Rule:** On Android a caption sidecar or UTF-8 `.txt` novel export is
+  written only to a folder (SAF) destination (`captionFits`): an album is a
+  MediaStore image collection, which refuses a text file and keeps non-media
+  files out of `Pictures/`. While an album is the destination the caption
+  switch is greyed out and says why, and Android novel `.txt` export prompts
+  for a folder; on iOS novel `.txt` export stages into temp storage and shares
+  via `SharePlus`. `CaptionExporter` covers `illust`, `manga`, and `ugoira`.
+- **Why:** With an album, every text export failed and reported an error.
+- **Check:** `test/caption_exporter_test.dart` "on Android only a folder takes the caption", `test/download_settings_page_test.dart` "on Android an album greys the caption switch out", `test/local_novel_test.dart` "NovelDownloadCoordinator saves offline with chapters and exports TXT per platform"
+- **Code:** `lib/core/download/caption_exporter.dart`, `lib/core/novel/novel_download_coordinator.dart`, `lib/features/settings/pages/download_settings_page.dart`
 
 ### DL-04 Job and group ids are unique across launches
 - **Rule:** Job and group ids carry a random per-launch token next to the

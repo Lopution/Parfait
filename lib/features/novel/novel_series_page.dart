@@ -36,6 +36,8 @@ import '../../app/window/desktop_command_bar_scope.dart';
 import '../../l10n/context.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/icons/ui_icons.dart';
+import '../../app/widgets/app_menu_button.dart';
+import '../../app/widgets/novel_download_actions.dart';
 
 /// One novel series (`/v2/novel/series`): a header with the series' facts
 /// and reading actions, then its novels in series order, each under its
@@ -481,6 +483,48 @@ class _SeriesActions extends ConsumerWidget {
                       : l10n.novelSeriesReadLatestEpisode(latestOrder),
                 ),
               ),
+            TextButton.icon(
+              key: const ValueKey('novel-series-save-offline'),
+              style: startEdgeTextButtonStyle(),
+              onPressed: () => unawaited(
+                savePixivNovelSeriesOfflineAction(
+                  context,
+                  ref,
+                  series.seriesId,
+                ),
+              ),
+              icon: const Icon(AppIcons.localNovel),
+              label: Text(l10n.novelSeriesSaveOffline),
+            ),
+            AppMenuButton<bool>(
+              entries: [
+                AppMenuEntry(
+                  value: true,
+                  icon: AppIcons.download,
+                  label: l10n.novelSeriesExportMerged,
+                ),
+                AppMenuEntry(
+                  value: false,
+                  icon: AppIcons.download,
+                  label: l10n.novelSeriesExportSplit,
+                ),
+              ],
+              onSelected: (_, merged) => unawaited(
+                exportPixivNovelSeriesTxtAction(
+                  context,
+                  ref,
+                  series.seriesId,
+                  merged: merged,
+                ),
+              ),
+              anchorBuilder: (anchorContext, toggle) => TextButton.icon(
+                key: const ValueKey('novel-series-export-txt'),
+                style: startEdgeTextButtonStyle(),
+                onPressed: toggle,
+                icon: const Icon(AppIcons.download),
+                label: Text(l10n.novelSeriesExportTxt),
+              ),
+            ),
           ],
         ),
       ],

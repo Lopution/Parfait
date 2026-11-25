@@ -31,9 +31,12 @@ class CaptionExporter {
   final SharedPreferencesAsync _preferences;
   final bool _isAndroid;
 
-  /// Only illust/manga pages participate — ugoira and other targets carry
-  /// no downloadable image caption pairing.
-  static const _supportedTypes = {IllustType.illust, IllustType.manga};
+  /// Illust, manga, and ugoira works carry downloadable caption sidecars.
+  static const _supportedTypes = {
+    IllustType.illust,
+    IllustType.manga,
+    IllustType.ugoira,
+  };
 
   static String _dedupeKey(
     DownloadSubmissionSnapshot submission,

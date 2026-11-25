@@ -85,7 +85,7 @@ const _grandfatheredFileLineCaps = <String, int>{
   'lib/app/widgets/home_branch_stack.dart': 888,
   'lib/app/widgets/ranking_category_sheet.dart': 909,
   'lib/app/widgets/shell_rail.dart': 849,
-  'lib/core/download/download_manager.dart': 1823,
+  'lib/core/download/download_manager.dart': 1782,
   'lib/core/network/compat/network_policy.dart': 840,
   'lib/core/network/compat/network_policy_ladder.dart': 1179,
   'lib/core/network/compat/secure_resolver.dart': 831,
@@ -114,7 +114,7 @@ const _grandfatheredFileLineCaps = <String, int>{
 const _grandfatheredLibraryLineCaps = <String, int>{
   'lib/app/motion/hero_transition.dart': 2198,
   'lib/app/navigation/routes.dart': 1372,
-  'lib/core/download/download_manager.dart': 2042,
+  'lib/core/download/download_manager.dart': 2009,
   'lib/core/network/compat/network_policy.dart': 2377,
   'lib/features/illust/viewer/image_viewer_page.dart': 2258,
   'lib/features/novel/novel_reader.dart': 1881,

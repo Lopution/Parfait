@@ -6856,6 +6856,114 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'放入作者子文件夹'**
   String get downloadAuthorSubfolderToggle;
+
+  /// No description provided for @downloadAuthorConfirmBodyWithUgoira.
+  ///
+  /// In zh, this message translates to:
+  /// **'将把 {works} 份静态作品（共 {pages} 页）与 {ugoira} 份动图加入下载队列。'**
+  String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira);
+
+  /// No description provided for @downloadAuthorIncludeUgoira.
+  ///
+  /// In zh, this message translates to:
+  /// **'包含动图作品（{count} 份，导出为 GIF）'**
+  String downloadAuthorIncludeUgoira(int count);
+
+  /// No description provided for @downloadAuthorUgoiraOnlyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'该作者仅发现 {count} 份动图作品。开启下方开关即可导出为 GIF。'**
+  String downloadAuthorUgoiraOnlyHint(int count);
+
+  /// No description provided for @novelSaveOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存到离线书架'**
+  String get novelSaveOffline;
+
+  /// No description provided for @novelSavedOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存到离线书架'**
+  String get novelSavedOffline;
+
+  /// No description provided for @novelSaveOfflineFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线保存失败'**
+  String get novelSaveOfflineFailed;
+
+  /// No description provided for @novelExportTxt.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出 TXT'**
+  String get novelExportTxt;
+
+  /// No description provided for @novelExportTxtQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入 TXT 下载队列'**
+  String get novelExportTxtQueued;
+
+  /// No description provided for @novelExportTxtShared.
+  ///
+  /// In zh, this message translates to:
+  /// **'已分享 TXT 文件'**
+  String get novelExportTxtShared;
+
+  /// No description provided for @novelExportTxtFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出 TXT 失败'**
+  String get novelExportTxtFailed;
+
+  /// No description provided for @novelExportAndroidFolderRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android 上导出 TXT 需要先选择自定义文件夹作为保存位置'**
+  String get novelExportAndroidFolderRequired;
+
+  /// No description provided for @novelSeriesSaveOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线缓存全系列'**
+  String get novelSeriesSaveOffline;
+
+  /// No description provided for @novelSeriesExportTxt.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出系列 TXT'**
+  String get novelSeriesExportTxt;
+
+  /// No description provided for @novelSeriesExportMerged.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并为单个 TXT'**
+  String get novelSeriesExportMerged;
+
+  /// No description provided for @novelSeriesExportSplit.
+  ///
+  /// In zh, this message translates to:
+  /// **'按章节分文件导出'**
+  String get novelSeriesExportSplit;
+
+  /// No description provided for @novelSeriesSavedWithSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存 {saved} 章，跳过 {skipped} 章不可阅读内容'**
+  String novelSeriesSavedWithSkipped(int saved, int skipped);
+
+  /// No description provided for @novelSeriesExportQueuedWithSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入 {queued} 个章节导出，跳过 {skipped} 章不可阅读内容'**
+  String novelSeriesExportQueuedWithSkipped(int queued, int skipped);
+
+  /// No description provided for @novelSeriesNoViewableChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'该系列暂无可保存的章节'**
+  String get novelSeriesNoViewableChapters;
 }
 
 class _AppLocalizationsDelegate

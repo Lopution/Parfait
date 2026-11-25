@@ -4,9 +4,10 @@ import '../network/compat/network_contracts.dart';
 import 'naming_rule.dart';
 
 /// What a download produces. `illustPage` names files by page index inside
-/// the detail flow; `ugoiraZip` is reserved for the later ugoira export task.
-/// `updaterApk` is an app-private signed-release download.
-enum DownloadTarget { illustPage, ugoiraZip, ugoiraGif, updaterApk }
+/// the detail flow; `ugoiraGif` synthesizes animated GIFs inside
+/// `DownloadManager`; `novelTxt` exports UTF-8 `.txt` novels; `updaterApk` is
+/// an app-private signed-release download.
+enum DownloadTarget { illustPage, ugoiraZip, ugoiraGif, novelTxt, updaterApk }
 
 /// Typed download request submitted by feature code (detail page, ugoira
 /// export). Carries everything normalization needs; consumers never touch
@@ -105,6 +106,9 @@ class DownloadRequest {
       seriesOrder: seriesOrder,
       seriesTotal: seriesTotal,
       padPageNumbers: padPageNumbers,
+      omitPageSuffix:
+          target == DownloadTarget.novelTxt ||
+          target == DownloadTarget.ugoiraGif,
     );
   }
 
@@ -145,6 +149,7 @@ const Set<String> _kDownloadExtensions = {
   'gif',
   'webp',
   'zip',
+  'txt',
   'apk',
 };
 
@@ -161,6 +166,8 @@ String _mimeTypeForExtension(String extension) {
       return 'image/webp';
     case 'zip':
       return 'application/zip';
+    case 'txt':
+      return 'text/plain';
     case 'apk':
       return 'application/vnd.android.package-archive';
     default:

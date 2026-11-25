@@ -61,6 +61,19 @@ class _IllustDownloadController {
   /// is in flight (with the mean progress over all pages), exist once every
   /// page is saved, error when a page failed and none is in flight.
   IllustWorkSaveState workStateFor(IllustEntity entity) {
+    if (entity.isUgoira) {
+      final task = _coordinator.ugoiraTaskFor(entity.id);
+      if (task == null) {
+        return const IllustWorkSaveState(IllustPageSaveState.none);
+      }
+      final state = _pageState(task.status);
+      return IllustWorkSaveState(
+        state,
+        progress: state == IllustPageSaveState.downloading
+            ? task.progress
+            : null,
+      );
+    }
     final pages = entity.pageCount;
     final states = List.filled(pages, IllustPageSaveState.none);
     final progress = List.filled(pages, 0.0);
@@ -95,12 +108,15 @@ class _IllustDownloadController {
     return const IllustWorkSaveState(IllustPageSaveState.none);
   }
 
-  /// Submits (or retries) one page; beta56 download(index). Throws
-  /// [FormatException] when the work has no usable original URL.
+  /// Submits (or retries) one page; beta56 download(index). Routes ugoira
+  /// works to animated GIF export instead of static cover JPEGs.
   Future<DownloadTaskSnapshot> download(
     IllustEntity entity,
     int pageIndex,
   ) async {
+    if (entity.isUgoira) {
+      return downloadUgoira(entity);
+    }
     final url = entity.originalUrlAt(pageIndex);
     if (url == null) {
       throw const FormatException('work has no original image URL');
@@ -124,8 +140,46 @@ class _IllustDownloadController {
     );
   }
 
-  /// Download All (beta56 downloadAll): every page, deduped by the manager.
+  /// Submits (or retries) an animated GIF export for an ugoira [entity] into
+  /// [DownloadManager].
+  Future<DownloadTaskSnapshot> downloadUgoira(IllustEntity entity) {
+    final existing = _coordinator.ugoiraTaskFor(entity.id);
+    if (existing != null &&
+        (existing.status == DownloadStatus.failed ||
+            existing.status == DownloadStatus.canceled)) {
+      final retried = _manager.retry(existing.id);
+      if (retried != null) return Future.value(retried);
+    }
+    return _coordinator.downloadUgoiraGif(
+      work: entity,
+      namingRule: _ref.read(namingRuleProvider),
+    );
+  }
+
+  /// Download All (beta56 downloadAll): every static page, or animated GIF
+  /// export for ugoira works — never saving static cover JPEGs.
   Future<DownloadGroupSubmission> downloadAll(IllustEntity entity) async {
+    if (entity.isUgoira) {
+      final existing = _coordinator.ugoiraTaskFor(entity.id);
+      final alreadyActive = existing != null && !isTerminal(existing.status);
+      final task = await downloadUgoira(entity);
+      final submission = task.submission;
+      return DownloadGroupSubmission(
+        group: alreadyActive || submission == null
+            ? null
+            : DownloadGroupSnapshot(
+                id: task.id,
+                jobIds: [task.id],
+                submission: submission,
+                childCount: 1,
+                succeededCount: task.status == DownloadStatus.succeeded ? 1 : 0,
+                receivedBytes: task.receivedBytes,
+                totalBytes: task.totalBytes,
+                status: _groupStatus(task.status),
+              ),
+        tasks: List.unmodifiable([task]),
+      );
+    }
     final urls = <String>[
       for (var i = 0; i < entity.pageCount; i++) ?entity.originalUrlAt(i),
     ];
@@ -138,6 +192,19 @@ class _IllustDownloadController {
       namingRule: _ref.read(namingRuleProvider),
     );
   }
+
+  static DownloadGroupStatus _groupStatus(DownloadStatus status) =>
+      switch (status) {
+        DownloadStatus.queued => DownloadGroupStatus.queued,
+        DownloadStatus.running => DownloadGroupStatus.running,
+        DownloadStatus.finalizing => DownloadGroupStatus.finalizing,
+        DownloadStatus.canceling => DownloadGroupStatus.running,
+        DownloadStatus.succeeded => DownloadGroupStatus.succeeded,
+        DownloadStatus.failed => DownloadGroupStatus.failed,
+        DownloadStatus.canceled => DownloadGroupStatus.canceled,
+        DownloadStatus.retryable => DownloadGroupStatus.retryable,
+        DownloadStatus.orphaned => DownloadGroupStatus.orphaned,
+      };
 }
 
 final illustDownloadControllerProvider = Provider<_IllustDownloadController>(
