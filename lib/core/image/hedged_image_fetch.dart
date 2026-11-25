@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
@@ -82,6 +83,8 @@ class HedgedImageFetch<T> {
   late final Future<T?> _primaryRun;
   final _result = Completer<T>();
   Timer? _quiet;
+  late final Stopwatch _quietWatch = clock.stopwatch()..start();
+  var _quietGap = ImageStall.headers;
   var _stalled = false;
   var _received = 0;
   int? _total;
@@ -97,10 +100,11 @@ class HedgedImageFetch<T> {
   /// Runs the fetch; call once.
   Future<T> run() {
     _flight.onSeen = _hedgeIfStalled;
-    _rearm(ImageStall.headers);
+    _armQuiet(ImageStall.headers, forceReset: true);
     _primaryRun = _runPrimary();
     return _result.future.whenComplete(() {
       _quiet?.cancel();
+      _quiet = null;
       _flight.onSeen = null;
     });
   }
@@ -119,7 +123,7 @@ class HedgedImageFetch<T> {
       }
       final length = response.contentLength;
       _total ??= length;
-      _rearm(ImageStall.body);
+      _armQuiet(ImageStall.body, forceReset: true);
       final body = _EndableBody(response.stream);
       leg.end = body.end;
       // `map` holds an error that `end` adds while the store is paused
@@ -220,25 +224,42 @@ class HedgedImageFetch<T> {
 
   void _chunk(_Leg leg, int length) {
     leg.received += length;
-    _rearm(ImageStall.body);
+    _quietWatch.reset();
+    if (_stalled) {
+      _stalled = false;
+      _flight.stalled(false);
+    }
+    if (_quiet == null && _winner == null && !_result.isCompleted) {
+      _armQuiet(ImageStall.body);
+    }
     if (leg.received > _received) {
       _received = leg.received;
       _progress?.call(_received, _total);
     }
   }
 
-  void _rearm(Duration gap) {
-    _quiet?.cancel();
-    if (_winner != null) return;
+  void _armQuiet(Duration gap, {bool forceReset = false}) {
+    if (_winner != null || _result.isCompleted) return;
+    _quietGap = gap;
+    _quietWatch.reset();
     if (_stalled) {
       _stalled = false;
       _flight.stalled(false);
     }
-    _quiet = _timer(gap, _onQuiet);
+    if (forceReset || _quiet == null) {
+      _quiet?.cancel();
+      _quiet = _timer(gap, _onQuiet);
+    }
   }
 
   void _onQuiet() {
+    _quiet = null;
     if (_winner != null || _result.isCompleted) return;
+    final remaining = _quietGap - _quietWatch.elapsed;
+    if (remaining > Duration.zero) {
+      _quiet = _timer(remaining, _onQuiet);
+      return;
+    }
     _stalled = true;
     _flight.stalled(true);
     _hedgeIfStalled();

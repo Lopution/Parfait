@@ -17,6 +17,13 @@ class FakeClient extends http.BaseClient {
   int statusCode;
   final String body;
   final requests = <http.BaseRequest>[];
+  var closed = false;
+
+  @override
+  void close() {
+    closed = true;
+    super.close();
+  }
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {

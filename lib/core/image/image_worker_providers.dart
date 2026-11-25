@@ -30,6 +30,7 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
     final policy = ref.read(networkAccessPolicyProvider);
     final identity = policy.revision.networkIdentity;
     final learned = await fastRoutes.learned();
+    final ech = policy.cachedEchConfig();
     return ImageWorkerConfig(
       imageSource:
           ref.read(settingsProvider).value?.imageSource ??
@@ -54,6 +55,13 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
       devLoopbackOrigin: ref
           .read(devTransportProvider)
           .activeLoopbackOriginString,
+      echSeed: ech == null
+          ? null
+          : {
+              'echConfig': ech.echConfig,
+              'ttlMs': ech.ttl.inMilliseconds,
+              'frontAddresses': [for (final a in ech.frontAddresses) a.address],
+            },
     );
   }
 

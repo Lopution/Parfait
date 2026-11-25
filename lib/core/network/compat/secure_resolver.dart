@@ -3,12 +3,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 
 import '../../settings/network_endpoint_validation.dart';
 import '../local_network_address.dart';
 import 'dns_message.dart';
 import 'network_contracts.dart';
+import 'secure_resolver_support.dart';
+
+export 'secure_resolver_support.dart' show isPublicNetworkAddress;
 
 abstract interface class SecureResolver {
   Future<ResolvedHost> resolve(
@@ -87,7 +89,7 @@ class SystemSecureResolver implements SecureResolver {
     required NetworkRevision revision,
     NetworkCancelSignal? cancelSignal,
   }) async {
-    _validateDnsName(host);
+    validateDnsName(host);
     if (cancelSignal?.isCancelled ?? false) {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
     }
@@ -95,7 +97,7 @@ class SystemSecureResolver implements SecureResolver {
       host,
       type: InternetAddressType.any,
     ).timeout(lookupTimeout);
-    final addresses = await _raceCancellation(lookup, cancelSignal);
+    final addresses = await raceResolverCancellation(lookup, cancelSignal);
     final safe = addresses
         .where(isPublicNetworkAddress)
         .toList(growable: false);
@@ -146,7 +148,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     this.endpointFailureWindow = const Duration(seconds: 30),
     this.clock = DateTime.now,
   }) : assert(endpointUrls.isNotEmpty, 'at least one DoH endpoint required'),
-       _client = client ?? _staticMappedClient(hostOverrides),
+       _client = client ?? staticMappedDohClient(hostOverrides),
        _ownsClient = client == null,
        _endpoints = List.of(endpointUrls),
        _echEndpoints = List.of(echEndpointUrls ?? endpointUrls);
@@ -199,8 +201,91 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   static const int _maxEchCacheEntries = 16;
   int _endpointCursor = 0;
   bool _disposed = false;
-
   int _nextQueryId = 0;
+  String? _reboundInitialIdentity;
+
+  NetworkRevision _effectiveRevision(NetworkRevision revision) =>
+      _reboundInitialIdentity != null &&
+          revision.value == 0 &&
+          revision.networkIdentity == 'initial'
+      ? NetworkRevision(0, networkIdentity: _reboundInitialIdentity!)
+      : revision;
+
+  /// Returns a fresh cached ECH config for [frontHost] at [revision], or null.
+  EchConfigResult? cachedEchConfig(String frontHost, NetworkRevision revision) {
+    if (_disposed) return null;
+    final key = _EchCacheKey(frontHost, revision);
+    final cached = _echCache[key];
+    if (cached == null) return null;
+    if (!cached.isUsable(clock())) {
+      _echCache.remove(key);
+      return null;
+    }
+    return _copyEchResult(cached.result);
+  }
+
+  /// Pre-populates the ECH cache (e.g. from the main isolate into the image worker).
+  void seedEchConfig(
+    String frontHost,
+    NetworkRevision revision,
+    EchConfigResult result,
+  ) {
+    if (_disposed || result.echConfig.isEmpty) return;
+    _rememberEchResult(
+      _EchCacheKey(frontHost, revision),
+      _copyEchResult(result),
+    );
+  }
+
+  /// Re-keys cached and in-flight `0/initial` DNS & ECH entries in place when
+  /// the first real network identity arrives at cold start.
+  void rebindInitialIdentity(String identity) {
+    if (_disposed || identity == 'initial') return;
+    _reboundInitialIdentity = identity;
+    final rebound = NetworkRevision(0, networkIdentity: identity);
+    for (final entry in _addressCache.entries.toList(growable: false)) {
+      if (entry.key.revision.value == 0 &&
+          entry.key.revision.networkIdentity == 'initial') {
+        _addressCache.remove(entry.key);
+        final r = entry.value.result;
+        _addressCache[_AddressCacheKey(
+          entry.key.host,
+          rebound,
+        )] = _AddressCacheEntry(
+          ResolvedHost(
+            host: r.host,
+            addresses: r.addresses,
+            dnsSource: r.dnsSource,
+            revision: rebound,
+            ttl: r.ttl,
+          ),
+          entry.value.createdAt,
+        );
+      }
+    }
+    for (final entry in _addressInflight.entries.toList(growable: false)) {
+      if (entry.key.revision.value == 0 &&
+          entry.key.revision.networkIdentity == 'initial') {
+        unawaited(_addressInflight.remove(entry.key));
+        _addressInflight[_AddressCacheKey(entry.key.host, rebound)] =
+            entry.value;
+      }
+    }
+    for (final entry in _echCache.entries.toList(growable: false)) {
+      if (entry.key.revision.value == 0 &&
+          entry.key.revision.networkIdentity == 'initial') {
+        _echCache.remove(entry.key);
+        _echCache[_EchCacheKey(entry.key.frontHost, rebound)] = entry.value;
+      }
+    }
+    for (final entry in _echInflight.entries.toList(growable: false)) {
+      if (entry.key.revision.value == 0 &&
+          entry.key.revision.networkIdentity == 'initial') {
+        unawaited(_echInflight.remove(entry.key));
+        _echInflight[_EchCacheKey(entry.key.frontHost, rebound)] = entry.value;
+      }
+    }
+  }
 
   @override
   Future<ResolvedHost> resolve(
@@ -208,7 +293,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     required NetworkRevision revision,
     NetworkCancelSignal? cancelSignal,
   }) async {
-    _validateDnsName(host);
+    validateDnsName(host);
     _checkUsable();
     if (cancelSignal?.isCancelled ?? false) {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
@@ -226,7 +311,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     // cached for the others (a cold feed sends eight image requests at once,
     // each with its own cancel signal).
     return _copyResolved(
-      await _raceCancellation(_sharedAddress(key), cancelSignal),
+      await raceResolverCancellation(_sharedAddress(key), cancelSignal),
     );
   }
 
@@ -237,11 +322,29 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     flight = () async {
       try {
         final result = await _resolveUncached(key.host, key.revision);
-        _rememberAddress(key, result);
-        return result;
+        final effRev = _effectiveRevision(key.revision);
+        final effectiveKey = _AddressCacheKey(key.host, effRev);
+        final effectiveResult = effRev == key.revision
+            ? result
+            : ResolvedHost(
+                host: result.host,
+                addresses: result.addresses,
+                dnsSource: result.dnsSource,
+                revision: effRev,
+                ttl: result.ttl,
+              );
+        _rememberAddress(effectiveKey, effectiveResult);
+        return effectiveResult;
       } finally {
+        final effKey = _AddressCacheKey(
+          key.host,
+          _effectiveRevision(key.revision),
+        );
         if (identical(_addressInflight[key], flight)) {
           unawaited(_addressInflight.remove(key));
+        }
+        if (identical(_addressInflight[effKey], flight)) {
+          unawaited(_addressInflight.remove(effKey));
         }
       }
     }();
@@ -407,7 +510,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     required NetworkRevision revision,
     NetworkCancelSignal? cancelSignal,
   }) async {
-    _validateDnsName(frontHost);
+    validateDnsName(frontHost);
     _checkUsable();
     if (cancelSignal?.isCancelled ?? false) {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
@@ -424,7 +527,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
 
     // Shared like [resolve]: a caller's cancel ends only its own wait.
     return _copyEchResult(
-      await _raceCancellation(_sharedEch(key), cancelSignal),
+      await raceResolverCancellation(_sharedEch(key), cancelSignal),
     );
   }
 
@@ -438,11 +541,22 @@ class DohResolver implements SecureResolver, EchConfigResolver {
           key.frontHost,
           key.revision,
         );
-        _rememberEchResult(key, result);
+        final effKey = _EchCacheKey(
+          key.frontHost,
+          _effectiveRevision(key.revision),
+        );
+        _rememberEchResult(effKey, result);
         return result;
       } finally {
+        final effKey = _EchCacheKey(
+          key.frontHost,
+          _effectiveRevision(key.revision),
+        );
         if (identical(_echInflight[key], flight)) {
           unawaited(_echInflight.remove(key));
+        }
+        if (identical(_echInflight[effKey], flight)) {
+          unawaited(_echInflight.remove(effKey));
         }
       }
     }();
@@ -690,7 +804,7 @@ class StaticSecureResolver implements SecureResolver {
     required NetworkRevision revision,
     NetworkCancelSignal? cancelSignal,
   }) async {
-    _validateDnsName(host);
+    validateDnsName(host);
     if (cancelSignal?.isCancelled ?? false) {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
     }
@@ -710,117 +824,4 @@ class StaticSecureResolver implements SecureResolver {
 
   @override
   Future<void> dispose() async {}
-}
-
-Future<T> _raceCancellation<T>(
-  Future<T> operation,
-  NetworkCancelSignal? cancelSignal,
-) {
-  if (cancelSignal == null) return operation;
-  return Future.any<T>([
-    operation,
-    cancelSignal.whenCancel.then<T>(
-      (_) => throw const NetworkFailureException(NetworkFailureKind.cancelled),
-    ),
-  ]);
-}
-
-void _validateDnsName(String host) {
-  if (host.isEmpty ||
-      host.endsWith('.') ||
-      host != host.toLowerCase() ||
-      host.codeUnits.any((value) => value > 0x7f) ||
-      InternetAddress.tryParse(host) != null) {
-    throw const SecureResolutionException('unsafe DNS name');
-  }
-}
-
-/// A dart:io client whose connectionFactory steers known endpoint hosts to
-/// static IPs while keeping the URI's real hostname (SNI, Host header,
-/// certificate chain and hostname verification all unchanged). Pinned by
-/// test/tls_sni_behaviour_test.dart: a raw connectionFactory socket skips
-/// TLS entirely, so every steered socket MUST be wrapped in
-/// `SecureSocket.secure(socket, host: url.host)`.
-http.Client _staticMappedClient(Map<String, List<InternetAddress>> overrides) {
-  final client = HttpClient();
-  client.findProxy = (_) => 'DIRECT';
-  if (overrides.isNotEmpty) {
-    client.connectionFactory = (url, proxyHost, proxyPort) {
-      if (url.scheme.toLowerCase() != 'https') {
-        throw const SocketException('non-https DoH endpoint rejected');
-      }
-      final addresses = overrides[url.host];
-      if (addresses == null || addresses.isEmpty) {
-        // Not an overridden host: normal destination, still needs the
-        // SecureSocket wrapper (a bare connectionFactory socket skips TLS).
-        if (proxyHost != null || proxyPort != null) {
-          throw const SocketException('proxy route rejected');
-        }
-        return Socket.startConnect(url.host, url.port).then(
-          (rawTask) => ConnectionTask.fromSocket<Socket>(
-            rawTask.socket.then<Socket>(
-              (socket) => SecureSocket.secure(socket, host: url.host),
-            ),
-            rawTask.cancel,
-          ),
-        );
-      }
-      if (proxyHost != null || proxyPort != null) {
-        throw const SocketException('proxy route rejected');
-      }
-      return Socket.startConnect(addresses.first, url.port).then(
-        (rawTask) => ConnectionTask.fromSocket<Socket>(
-          rawTask.socket.then<Socket>(
-            (socket) => SecureSocket.secure(socket, host: url.host),
-          ),
-          rawTask.cancel,
-        ),
-      );
-    };
-  }
-  return IOClient(client);
-}
-
-bool isPublicNetworkAddress(InternetAddress address) {
-  final bytes = address.rawAddress;
-  if (address.isLoopback || address.isLinkLocal || address.isMulticast) {
-    return false;
-  }
-  if (address.type == InternetAddressType.IPv4 && bytes.length == 4) {
-    final a = bytes[0];
-    final b = bytes[1];
-    final c = bytes[2];
-    if (a == 0 ||
-        a == 10 ||
-        a == 127 ||
-        (a == 100 && b >= 64 && b <= 127) ||
-        (a == 169 && b == 254) ||
-        (a == 172 && b >= 16 && b <= 31) ||
-        (a == 192 && (b == 0 || b == 2 || b == 168)) ||
-        (a == 198 && (b == 18 || b == 19 || b == 51)) ||
-        (a == 203 && b == 0 && c == 113) ||
-        a >= 224) {
-      return false;
-    }
-    return true;
-  }
-  if (address.type == InternetAddressType.IPv6 && bytes.length == 16) {
-    final first = bytes[0];
-    final second = bytes[1];
-    // Unspecified (::), ULA (fc00::/7), documentation (2001:db8::/32),
-    // and IPv4-mapped addresses are not accepted as public route candidates.
-    if (bytes.every((value) => value == 0) ||
-        (first & 0xfe) == 0xfc ||
-        (first == 0x20 &&
-            second == 0x01 &&
-            bytes[2] == 0x0d &&
-            bytes[3] == 0xb8) ||
-        bytes.sublist(0, 10).every((value) => value == 0) &&
-            bytes[10] == 0xff &&
-            bytes[11] == 0xff) {
-      return false;
-    }
-    return true;
-  }
-  return false;
 }

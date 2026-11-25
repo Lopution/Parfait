@@ -290,12 +290,15 @@ class AutoSourceRace {
 class AutoSourceSelector {
   AutoSourceSelector({
     required AutoImageSource store,
-    required Future<AutoSourceRace?> Function() race,
+    Future<AutoSourceRace?> Function()? race,
+    Future<AutoSourceRace?> Function(NetworkCancelSignal cancel)?
+    raceWithCancel,
     required bool Function() enabled,
     required String? Function() current,
     required void Function(String? host) apply,
-  }) : _store = store,
-       _race = race,
+  }) : assert(race != null || raceWithCancel != null),
+       _store = store,
+       _race = raceWithCancel ?? ((_) => race!()),
        _enabled = enabled,
        _current = current,
        _apply = apply;
@@ -309,7 +312,7 @@ class AutoSourceSelector {
   static const replaceRatio = 0.85;
 
   final AutoImageSource _store;
-  final Future<AutoSourceRace?> Function() _race;
+  final Future<AutoSourceRace?> Function(NetworkCancelSignal cancel) _race;
   final bool Function() _enabled;
   final String? Function() _current;
   final void Function(String? host) _apply;
@@ -320,6 +323,7 @@ class AutoSourceSelector {
   int _seenCount = 0;
   Timer? _deferred;
   bool _racing = false;
+  _AutoRaceCancelSignal? _raceCancel;
   String? _pendingIdentity;
   DateTime? _lastRaceAt;
   bool _disposed = false;
@@ -328,6 +332,7 @@ class AutoSourceSelector {
   void networkSeen(String identity) {
     _deferred?.cancel();
     _deferred = null;
+    if (_identity != identity) _raceCancel?.cancel();
     _identity = identity;
     final seen = ++_seenCount;
     if (!_enabled()) return;
@@ -366,14 +371,16 @@ class AutoSourceSelector {
   void dispose() {
     _disposed = true;
     _deferred?.cancel();
+    _raceCancel?.cancel();
   }
 
   void _raceNow(String identity, {bool throttled = false}) {
     if (_disposed || !_enabled()) return;
     if (_racing) {
-      // A race is running, perhaps for an older network: one more runs for
-      // the latest identity once it ends.
+      // A race is running, perhaps for an older network: cancel it when the
+      // network moved on and run one more for the latest identity once it ends.
       _pendingIdentity = identity;
+      if (identity != _identity) _raceCancel?.cancel();
       return;
     }
     final now = clock.now();
@@ -392,12 +399,19 @@ class AutoSourceSelector {
     }
     _racing = true;
     _lastRaceAt = now;
+    final cancel = _AutoRaceCancelSignal();
+    _raceCancel = cancel;
     unawaited(() async {
       try {
-        final result = await _race();
+        final result = await _race(cancel);
         // A result measured on a network that is no longer current is
         // meaningless here.
-        if (_disposed || result == null || identity != _identity) return;
+        if (_disposed ||
+            cancel.isCancelled ||
+            result == null ||
+            identity != _identity) {
+          return;
+        }
         final held = _current();
         final winner = held != null && !_replaces(result, held)
             ? held
@@ -407,6 +421,7 @@ class AutoSourceSelector {
       } on Object catch (error) {
         log('auto image source race failed: $error');
       } finally {
+        if (identical(_raceCancel, cancel)) _raceCancel = null;
         _racing = false;
         final pending = _pendingIdentity;
         _pendingIdentity = null;
@@ -425,5 +440,19 @@ class AutoSourceSelector {
     if (bestBps == null) return false;
     if (heldBps == null) return true;
     return bestBps * replaceRatio >= heldBps;
+  }
+}
+
+final class _AutoRaceCancelSignal implements NetworkCancelSignal {
+  final _completer = Completer<void>();
+
+  @override
+  bool get isCancelled => _completer.isCompleted;
+
+  @override
+  Future<void> get whenCancel => _completer.future;
+
+  void cancel() {
+    if (!_completer.isCompleted) _completer.complete();
   }
 }
