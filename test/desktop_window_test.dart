@@ -1147,6 +1147,11 @@ void main() {
             destroyedCount++;
           },
         );
+        // Uninitialized tray must fall back to destroy instead of hiding.
+        await session.handleWindowClose();
+        expect(adapter.calls, contains('destroy'));
+        expect(adapter.calls, isNot(contains('hide')));
+        adapter.calls.clear();
         await session.attach(
           initialLabels: const TrayMenuLabels(
             tooltip: 'Parfait',
@@ -1157,8 +1162,8 @@ void main() {
         );
         expect(host.terminateHandler, isNotNull);
         await host.terminateHandler!();
-        expect(savedCount, 1);
-        expect(destroyedCount, 1);
+        expect(savedCount, 2);
+        expect(destroyedCount, 2);
         expect(adapter.calls, isNot(contains('hide')));
         session.dispose();
         expect(host.terminateHandler, isNull);

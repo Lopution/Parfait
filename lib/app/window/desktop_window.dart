@@ -370,6 +370,7 @@ class DesktopWindowSession with WindowListener {
           !forceQuit &&
           !hideForMacDock &&
           _readCloseToTray() &&
+          _trayInitialized &&
           await _trayPort.isSupported();
       try {
         await saveNow().timeout(_closeSaveTimeout);
@@ -384,8 +385,12 @@ class DesktopWindowSession with WindowListener {
         return;
       }
       if (closeToTray) {
-        await _adapter.hide();
-        return;
+        try {
+          await _adapter.hide();
+          return;
+        } on Object catch (error) {
+          log('window: hide to tray failed, destroying instead: $error');
+        }
       }
       if (onBeforeDestroy case final cleanup?) {
         try {

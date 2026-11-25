@@ -12,22 +12,27 @@ import 'desktop_workspace_tabs.dart';
 class DesktopInspectorDismissRegistry {
   DesktopInspectorDismissRegistry._();
 
-  static final List<bool Function()> _handlers = [];
+  static final List<({bool Function() dismiss, bool Function() isActive})>
+  _entries = [];
 
-  static void register(bool Function() dismiss) {
-    _handlers.remove(dismiss);
-    _handlers.add(dismiss);
+  static bool _alwaysActive() => true;
+
+  static void register(bool Function() dismiss, {bool Function()? isActive}) {
+    _entries.removeWhere((entry) => entry.dismiss == dismiss);
+    _entries.add((dismiss: dismiss, isActive: isActive ?? _alwaysActive));
   }
 
   static void unregister(bool Function() dismiss) {
-    _handlers.remove(dismiss);
+    _entries.removeWhere((entry) => entry.dismiss == dismiss);
   }
 
-  static bool get hasActive => _handlers.isNotEmpty;
+  static bool get hasActive => _entries.any((entry) => entry.isActive());
 
   static bool dismissActive() {
-    for (var i = _handlers.length - 1; i >= 0; i--) {
-      if (_handlers[i]()) return true;
+    for (var i = _entries.length - 1; i >= 0; i--) {
+      final entry = _entries[i];
+      if (!entry.isActive()) continue;
+      if (entry.dismiss()) return true;
     }
     return false;
   }

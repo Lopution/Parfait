@@ -22,6 +22,7 @@ import '../widgets/feed/feed_text_warmup.dart';
 import '../widgets/feed/illust_pager_source.dart';
 import '../widgets/tag_chips.dart';
 import '../window/desktop_command_bar_scope.dart';
+import '../window/desktop_workspace_tabs.dart';
 import 'route_extras.dart';
 import 'route_query_codecs.dart';
 import 'viewer_session.dart';
@@ -70,10 +71,15 @@ String currentStackRoot(BuildContext context) {
 bool hasShellRail(BuildContext context) =>
     FormFactor.of(context).hasRail(MediaQuery.sizeOf(context).width);
 
+void _focusRootWorkspace() {
+  DesktopWorkspaceTabsController.active?.selectTab(0);
+}
+
 /// Opens the download tasks screen from process-level triggers (tray menu).
 void openDownloadsFromRouter(GoRouter router, {bool? rail}) {
   final path = livePathOf(router);
   if (_isPreHomePath(path)) return;
+  _focusRootWorkspace();
   if (path == '/downloads' || path.endsWith('/downloads')) return;
   final effectiveRail = rail ?? _hasRailFromRouter(router);
   unawaited(
@@ -117,6 +123,7 @@ Future<void> pushRoute(
   String location, {
   Object? extra,
 }) async {
+  _focusRootWorkspace();
   final router = GoRouter.of(context);
   assert(
     pushStaysInStack(router, location),
@@ -134,6 +141,7 @@ Future<void> pushReplacementRoute(
   String location, {
   Object? extra,
 }) async {
+  _focusRootWorkspace();
   final router = GoRouter.of(context);
   assert(
     pushStaysInStack(router, location),
@@ -252,6 +260,7 @@ Future<void> openSpotlightArticle(
 enum MeTab { bookmarks, following, myPixiv }
 
 Future<void> openMe(BuildContext context, {MeTab? tab}) async {
+  _focusRootWorkspace();
   // The profile is an app-level page: it opens on whatever stack is
   // showing (the settings branch included) instead of switching branches.
   await context.push<void>(
@@ -269,11 +278,13 @@ Future<void> openMe(BuildContext context, {MeTab? tab}) async {
 /// App settings are the fifth home destination: opening them switches the
 /// shell branch rather than pushing a page over it.
 Future<void> openSettings(BuildContext context) async {
+  _focusRootWorkspace();
   GoRouter.of(context).go('/settings');
 }
 
 /// Pushes the full settings index page on top of the current navigation stack.
 Future<void> openAllSettings(BuildContext context) async {
+  _focusRootWorkspace();
   await GoRouter.of(context).push<void>('/settings/all');
 }
 
@@ -282,13 +293,17 @@ const settingsAccountPath = '/settings/account';
 
 /// Pushes the account management page.
 Future<void> openAccountSettings(BuildContext context) async {
+  _focusRootWorkspace();
   await GoRouter.of(context).push<void>(settingsAccountPath);
 }
 
 /// The update prompt can be shown above any route, including root overlays.
 /// Going to the about page keeps a single home shell instead of pushing a
 /// settings branch below the page that displayed the prompt.
-void goToAbout(GoRouter router) => router.go('/settings/about');
+void goToAbout(GoRouter router) {
+  _focusRootWorkspace();
+  router.go('/settings/about');
+}
 
 /// [atPixivPage] opens at that Pixiv page rather than the saved place.
 /// Pass [replaceCurrent] when stepping to an adjacent chapter inside the
@@ -318,6 +333,7 @@ Future<void> openNovelRanking(BuildContext context) async {
 /// page: a novel ranking pushed from the ranking root pops back to it; one
 /// in another stack (a link) goes to the ranking branch.
 void openIllustRanking(BuildContext context) {
+  _focusRootWorkspace();
   final router = GoRouter.of(context);
   if (currentStackRoot(context) == '/ranking' && router.canPop()) {
     router.pop();
@@ -366,11 +382,14 @@ void Function({bool alreadyQueued}) deferDownloadSubmittedSnackBar(
           ? null
           : PromptAction(
               label: l10n.downloadViewResult,
-              onPressed: () => unawaited(
-                router.push<void>(
-                  appPageLocation(router, 'downloads', rail: rail),
-                ),
-              ),
+              onPressed: () {
+                _focusRootWorkspace();
+                unawaited(
+                  router.push<void>(
+                    appPageLocation(router, 'downloads', rail: rail),
+                  ),
+                );
+              },
             ),
     );
   };
@@ -378,8 +397,10 @@ void Function({bool alreadyQueued}) deferDownloadSubmittedSnackBar(
 
 /// Switches the home shell to [destination] from a page inside it: the
 /// way to a destination the user took off the bar.
-void openHomeDestination(BuildContext context, HomeDestination destination) =>
-    StatefulNavigationShell.of(context).goBranch(destination.branchIndex);
+void openHomeDestination(BuildContext context, HomeDestination destination) {
+  _focusRootWorkspace();
+  StatefulNavigationShell.of(context).goBranch(destination.branchIndex);
+}
 
 Future<void> openWatchLater(BuildContext context) async {
   await pushRoute(context, '${currentStackRoot(context)}/watchlater');
