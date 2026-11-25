@@ -454,4 +454,49 @@ void main() {
     );
     expect(container.read(searchHistoryProvider), isEmpty);
   });
+
+  test(
+    'search keywords support OR operator skip, appendExcludedTag, and insertOrOperator',
+    () {
+      expect(completionQueryOf('OR'), isEmpty);
+      expect(completionQueryOf('-spoiler'), 'spoiler');
+      final withOr = insertOrOperator(
+        const TextEditingValue(
+          text: 'cat',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+      expect(withOr.text, 'cat OR ');
+      expect(insertOrOperator(withOr).text, 'cat OR ');
+      final excluded = appendExcludedTag(withOr, 'ai');
+      expect(excluded.text, 'cat OR -ai ');
+    },
+  );
+
+  test(
+    'SearchHistoryNotifier pins survive clear and persist across restart',
+    () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.listen(searchHistoryProvider, (_, _) {});
+      final notifier = container.read(searchHistoryProvider.notifier);
+      await notifier.record('cat');
+      await notifier.record('dog');
+      await notifier.togglePin('cat');
+      await pumpEventQueue();
+      expect(container.read(searchHistoryProvider), ['cat', 'dog']);
+      expect(container.read(searchHistoryPinnedProvider), {'cat'});
+
+      await notifier.clear();
+      await pumpEventQueue();
+      expect(container.read(searchHistoryProvider), ['cat']);
+
+      final restarted = ProviderContainer();
+      addTearDown(restarted.dispose);
+      restarted.listen(searchHistoryProvider, (_, _) {});
+      await pumpEventQueue();
+      expect(restarted.read(searchHistoryProvider), ['cat']);
+      expect(restarted.read(searchHistoryPinnedProvider), {'cat'});
+    },
+  );
 }

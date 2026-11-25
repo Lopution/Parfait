@@ -44,10 +44,9 @@ import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
 import 'profile_statistics.dart';
 import 'profile_wide_header.dart';
+import 'profile_work_tag_filter.dart';
 import 'user_series_feed.dart';
 import '../../core/bookmark/bookmark_models.dart';
-import '../../core/novel/novel_feed_controller.dart';
-import '../../core/novel/novel_store.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/series/series_feed_controller.dart';
 import '../../core/series/series_store.dart';
@@ -172,6 +171,9 @@ class _UserPageState extends ConsumerState<UserPage>
   /// Own bookmarks only: the tag filter, null for every bookmark. Tags are
   /// per kind and visibility, so a change of either clears it.
   String? _bookmarkTag;
+
+  /// Per-tab artist work tag filter for illust, manga, and novel tabs.
+  final Map<_ProfileTab, String?> _workTagFilters = {};
   int _selectedIndex = 0;
   bool _staleBannerVisible = true;
 
@@ -447,17 +449,31 @@ class _UserPageState extends ConsumerState<UserPage>
     };
   }
 
-  /// A work tab's total, above its list while loaded items are present. A
-  /// preview snapshot has no counters, so it shows none rather than zero.
+  /// A work tab's total and progressive tag filter, above its list while loaded
+  /// items are present. A preview snapshot has no counters, so it shows none
+  /// rather than zero.
   Widget? _worksTotalFor(_ProfileTab tab, UserEntity user) {
-    if (!user.hasDetail) return null;
-    final count = switch (tab) {
-      _ProfileTab.illust => user.totalIllusts,
-      _ProfileTab.manga => user.totalManga,
-      _ProfileTab.novel => user.totalNovels,
-      _ProfileTab.series => user.totalIllustSeries,
-      _ => null,
-    };
+    final feedKey = _feedKeyFor(tab);
+    final count = user.hasDetail
+        ? switch (tab) {
+            _ProfileTab.illust => user.totalIllusts,
+            _ProfileTab.manga => user.totalManga,
+            _ProfileTab.novel => user.totalNovels,
+            _ProfileTab.series => user.totalIllustSeries,
+            _ => null,
+          }
+        : null;
+    if (feedKey != null &&
+        (tab == _ProfileTab.illust ||
+            tab == _ProfileTab.manga ||
+            tab == _ProfileTab.novel)) {
+      return ProfileWorkTagHeader(
+        feedKey: feedKey,
+        totalCount: count,
+        selectedTag: _workTagFilters[tab],
+        onTagChanged: (tag) => setState(() => _workTagFilters[tab] = tag),
+      );
+    }
     return count == null || count <= 0
         ? null
         : _LiveWorksTotal(userId: widget.userId, tab: tab, count: count);
@@ -798,6 +814,10 @@ class _UserPageState extends ConsumerState<UserPage>
     isSeries: tab == _ProfileTab.series,
     feedKey: _feedKeyFor(tab),
     header: _filterBarFor(tab) ?? _worksTotalFor(tab, user),
+    localFilter: _workTagFilters[tab],
+    onClearLocalFilter: _workTagFilters[tab] == null
+        ? null
+        : () => setState(() => _workTagFilters.remove(tab)),
     statistics: statistics,
   );
 
@@ -976,37 +996,16 @@ class _LiveWorksTotal extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasVisibleItems = switch (tab) {
-      _ProfileTab.illust || _ProfileTab.manga => hasVisibleProfileIllusts(
-        ref,
-        ProfileFeedKey(
-          userId: userId,
-          kind: ProfileFeedKind.work,
-          workType: tab.section!.wireWorkType,
-        ),
+    if (tab != _ProfileTab.series) return const SizedBox.shrink();
+    final feed = ref.watch(userSeriesFeedProvider(userId)).value;
+    if (feed == null || feed.showInitialError || feed.ids.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final hasVisibleItems = ref.watch(
+      illustSeriesStoreProvider.select(
+        (store) => feed.ids.any(store.containsKey),
       ),
-      _ProfileTab.novel => () {
-        final feed = ref.watch(userNovelFeedProvider(userId)).value;
-        if (feed == null || feed.showInitialError || feed.ids.isEmpty) {
-          return false;
-        }
-        return ref.watch(
-          novelStoreProvider.select((store) => feed.ids.any(store.containsKey)),
-        );
-      }(),
-      _ProfileTab.series => () {
-        final feed = ref.watch(userSeriesFeedProvider(userId)).value;
-        if (feed == null || feed.showInitialError || feed.ids.isEmpty) {
-          return false;
-        }
-        return ref.watch(
-          illustSeriesStoreProvider.select(
-            (store) => feed.ids.any(store.containsKey),
-          ),
-        );
-      }(),
-      _ => false,
-    };
+    );
     if (!hasVisibleItems) return const SizedBox.shrink();
     return _WorksTotal(count: count);
   }

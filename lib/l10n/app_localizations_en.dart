@@ -3670,4 +3670,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shortcutNovelNavigate => 'Turn page / Scroll';
+
+  @override
+  String get searchBookmarkLocalFilterHint =>
+      'Non-tag targets filter bookmark counts locally on loaded results';
+
+  @override
+  String get searchExcludeTag => 'Exclude tag';
+
+  @override
+  String get searchInsertOr => 'Insert OR';
+
+  @override
+  String get searchHistoryPin => 'Pin';
+
+  @override
+  String get searchHistoryUnpin => 'Unpin';
+
+  @override
+  String get profileWorkTagPickerTitle => 'Filter works by tag';
+
+  @override
+  String get profileWorkTagSearchHint => 'Search tags or keyword';
+
+  @override
+  String get profileWorkTagClear => 'Clear filter';
+
+  @override
+  String get profileWorkTagLoadMore => 'Load more';
 }

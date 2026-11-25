@@ -3547,4 +3547,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get shortcutNovelNavigate => '翻页 / 滚动';
+
+  @override
+  String get searchBookmarkLocalFilterHint => '标题或正文搜索仅在已加载结果中本地筛选收藏数';
+
+  @override
+  String get searchExcludeTag => '排除标签';
+
+  @override
+  String get searchInsertOr => '插入 OR';
+
+  @override
+  String get searchHistoryPin => '置顶';
+
+  @override
+  String get searchHistoryUnpin => '取消置顶';
+
+  @override
+  String get profileWorkTagPickerTitle => '按标签筛选作品';
+
+  @override
+  String get profileWorkTagSearchHint => '搜索标签或输入关键词';
+
+  @override
+  String get profileWorkTagClear => '清除筛选';
+
+  @override
+  String get profileWorkTagLoadMore => '加载更多';
 }

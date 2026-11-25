@@ -33,6 +33,8 @@ abstract final class UiIcons {
   static const IconData more = FLucideIcons.ellipsis;
   static const IconData pause = FLucideIcons.pause;
   static const IconData pauseCircle = FLucideIcons.circlePause;
+  static const IconData pin = FLucideIcons.pin;
+  static const IconData pinOff = FLucideIcons.pinOff;
   static const IconData play = FLucideIcons.play;
   static const IconData pointer = FLucideIcons.mousePointer;
   static const IconData recordDot = FLucideIcons.circleDot;

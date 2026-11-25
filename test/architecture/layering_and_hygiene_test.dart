@@ -102,7 +102,7 @@ const _grandfatheredFileLineCaps = <String, int>{
   'lib/features/novel/novel_reader_stage.dart': 1149,
   'lib/features/profile/profile_header_delegate.dart': 1188,
   'lib/features/profile/user_page.dart': 1087,
-  'lib/features/search/search_filter_sheet.dart': 934,
+  'lib/features/search/search_filter_sheet.dart': 920,
   'lib/features/search/search_page.dart': 824,
   'lib/features/search/search_result_page.dart': 869,
   'lib/features/settings/network_settings_page.dart': 865,

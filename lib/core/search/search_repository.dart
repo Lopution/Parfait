@@ -10,6 +10,7 @@ import '../network/pixiv_http_client.dart';
 import '../novel/novel_entity.dart';
 import '../user/user_entity.dart';
 import '../user/user_repository.dart';
+import 'search_bookmark_synthesis.dart';
 import 'search_models.dart';
 import '../entity/json_read.dart';
 
@@ -274,11 +275,18 @@ class _PixivSearchRepository implements SearchRepository {
           // carries the rest of the paging state.
           requiredQuery: {'word': query.keyword.trim()},
         ),
-      IllustSearchQuery(:final filters) => (
-        path: '/v1/search/illust',
-        requestQuery: query.toQuery(),
-        requiredQuery: _pinned(query.toQuery(), filters),
-      ),
+      IllustSearchQuery(:final filters) => () {
+        final rawQuery = applyFreeAccountBookmarkSynthesis(
+          query.toQuery(),
+          filters: filters,
+          isPremium: isPremium,
+        );
+        return (
+          path: '/v1/search/illust',
+          requestQuery: rawQuery,
+          requiredQuery: _pinned(rawQuery, filters),
+        );
+      }(),
       NovelSearchQuery(:final filters)
           when filters.sort.isPopular && !isPremium =>
         (
@@ -286,11 +294,18 @@ class _PixivSearchRepository implements SearchRepository {
           requestQuery: filters.toPreviewQuery(word: query.keyword),
           requiredQuery: {'word': query.keyword.trim()},
         ),
-      NovelSearchQuery(:final filters) => (
-        path: '/v1/search/novel',
-        requestQuery: query.toQuery(),
-        requiredQuery: _pinned(query.toQuery(), filters),
-      ),
+      NovelSearchQuery(:final filters) => () {
+        final rawQuery = applyFreeAccountBookmarkSynthesis(
+          query.toQuery(),
+          filters: filters,
+          isPremium: isPremium,
+        );
+        return (
+          path: '/v1/search/novel',
+          requestQuery: rawQuery,
+          requiredQuery: _pinned(rawQuery, filters),
+        );
+      }(),
       UserSearchQuery() => (
         path: '/v1/search/user',
         requestQuery: query.toQuery(),

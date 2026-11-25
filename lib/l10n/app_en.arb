@@ -1559,5 +1559,14 @@
   "shortcutArtworkSwitchPage": "Previous / Next page",
   "shortcutArtworkZoom": "Zoom in / out / fit",
   "shortcutNovelToc": "Contents & progress",
-  "shortcutNovelNavigate": "Turn page / Scroll"
+  "shortcutNovelNavigate": "Turn page / Scroll",
+  "searchBookmarkLocalFilterHint": "Non-tag targets filter bookmark counts locally on loaded results",
+  "searchExcludeTag": "Exclude tag",
+  "searchInsertOr": "Insert OR",
+  "searchHistoryPin": "Pin",
+  "searchHistoryUnpin": "Unpin",
+  "profileWorkTagPickerTitle": "Filter works by tag",
+  "profileWorkTagSearchHint": "Search tags or keyword",
+  "profileWorkTagClear": "Clear filter",
+  "profileWorkTagLoadMore": "Load more"
 }
