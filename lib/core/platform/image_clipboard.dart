@@ -24,16 +24,20 @@ class ImageClipboard {
     'parfait/image_clipboard',
   );
 
-  /// Writes encoded image [bytes] (PNG/JPEG/WebP/GIF) as an image entry on the
-  /// OS clipboard. Returns `false` if the platform rejected or lacks support.
-  static Future<bool> copyImageBytes(Uint8List bytes) async {
-    if (!isDesktopImageClipboardSupported || bytes.isEmpty) {
+  /// Writes an encoded image file at [path] (PNG/JPEG/WebP/GIF) onto the OS
+  /// clipboard without passing raw image buffers over the method channel.
+  /// Returns `false` if the platform rejected the file or lacks support.
+  static Future<bool> copyImageFile(
+    String path, {
+    MethodChannel? channel,
+  }) async {
+    if (!isDesktopImageClipboardSupported || path.isEmpty) {
       return false;
     }
     try {
-      final copied = await _channel.invokeMethod<bool>(
-        'copyImage',
-        <String, Object>{'bytes': bytes},
+      final copied = await (channel ?? _channel).invokeMethod<bool>(
+        'copyImageFile',
+        <String, Object>{'path': path},
       );
       return copied ?? false;
     } on MissingPluginException {
@@ -43,29 +47,33 @@ class ImageClipboard {
     }
   }
 
-  /// Reads an encoded image (PNG) from the OS clipboard on desktop platforms.
-  /// Returns `null` when the clipboard has no image or on unsupported targets.
-  static Future<Uint8List?> readImageBytes({MethodChannel? channel}) async {
-    if (!isDesktopImageClipboardSupported) {
-      return null;
+  /// Reads an image from the OS clipboard directly into [targetPath] as PNG
+  /// on desktop platforms. Returns `false` when the clipboard has no image or
+  /// on unsupported targets.
+  static Future<bool> readImageToTempFile(
+    String targetPath, {
+    MethodChannel? channel,
+  }) async {
+    if (!isDesktopImageClipboardSupported || targetPath.isEmpty) {
+      return false;
     }
     try {
-      final bytes = await (channel ?? _channel).invokeMethod<Uint8List>(
-        'readImage',
+      final wrote = await (channel ?? _channel).invokeMethod<bool>(
+        'readImageToTempFile',
+        <String, Object>{'targetPath': targetPath},
       );
-      if (bytes == null || bytes.isEmpty) return null;
-      return bytes;
+      return wrote ?? false;
     } on MissingPluginException {
-      return null;
+      return false;
     } on PlatformException {
-      return null;
+      return false;
     }
   }
 }
 
-/// Injectable desktop clipboard image reader so widget tests can supply
-/// pasted image bytes without a live OS clipboard.
+/// Injectable desktop clipboard image file reader so widget tests can stage
+/// pasted images without a live OS clipboard.
 final desktopImageClipboardReaderProvider =
-    Provider<Future<Uint8List?> Function()>(
-      (ref) => ImageClipboard.readImageBytes,
+    Provider<Future<bool> Function(String targetPath)>(
+      (ref) => ImageClipboard.readImageToTempFile,
     );

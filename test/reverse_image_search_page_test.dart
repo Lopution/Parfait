@@ -618,9 +618,14 @@ void main() {
             platformCapsProvider.overrideWithValue(
               const PlatformCaps(isWindows: true),
             ),
-            desktopImageClipboardReaderProvider.overrideWithValue(
-              () async => clipboardImage,
-            ),
+            desktopImageClipboardReaderProvider.overrideWithValue((
+              targetPath,
+            ) async {
+              final bytes = clipboardImage;
+              if (bytes == null || bytes.isEmpty) return false;
+              await File(targetPath).writeAsBytes(bytes, flush: true);
+              return true;
+            }),
             desktopFileDropSourceProvider.overrideWithValue(
               _StreamDropSource(dropEvents.stream),
             ),
@@ -648,8 +653,7 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pump();
-      expect(find.text('剪贴板中没有图片'), findsOneWidget);
+      await pumpUntilVisible(tester, find.text('剪贴板中没有图片'));
 
       // Paste valid PNG bytes via button -> ready state.
       clipboardImage = image.readAsBytesSync();

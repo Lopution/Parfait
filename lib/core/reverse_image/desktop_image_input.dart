@@ -154,39 +154,54 @@ class DesktopReverseImageInputPlatform implements ReverseImageInputPlatform {
     );
   }
 
-  /// Stages clipboard image bytes in a temporary file, runs [onReference]
-  /// (typically `controller.prepare`), and deletes the staging file in
-  /// `finally` so no temporary paste files leak (`REV-01`).
-  static Future<void> withStagedClipboardBytes(
-    Uint8List bytes,
+  /// Stages a clipboard image directly into a temporary file via [readToFile],
+  /// validates its header and size (`REV-01`), runs [onReference] (typically
+  /// `controller.prepare`), and deletes the staging file in `finally` so no
+  /// temporary paste files leak. Returns `false` when the clipboard had no
+  /// image.
+  static Future<bool> withStagedClipboardFile(
+    Future<bool> Function(String targetPath) readToFile,
     Future<void> Function(ReverseImageInputReference reference) onReference,
   ) async {
-    final detected = sniffEncodedImage(bytes);
-    final mimeType = detected?.mimeType ?? 'application/octet-stream';
-    SharedImageValidator.validateMetadata(
-      mimeType: mimeType,
-      sizeBytes: bytes.length,
-    );
     final temp = await AppStoragePaths.active.resolveTempDir();
     final stagingDir = Directory(p.join(temp.path, 'reverse_image'));
     await stagingDir.create(recursive: true);
     final stagingFile = File(
       p.join(
         stagingDir.path,
-        'paste_${DateTime.now().microsecondsSinceEpoch}${detected?.extension ?? '.png'}',
+        'paste_${DateTime.now().microsecondsSinceEpoch}.png',
       ),
     );
-    await stagingFile.writeAsBytes(bytes, flush: true);
     try {
+      final wrote = await readToFile(stagingFile.path);
+      if (!wrote) return false;
+      final stat = await stagingFile.stat();
+      if (stat.type != FileSystemEntityType.file || stat.size <= 0) {
+        return false;
+      }
+      Uint8List header;
+      final raf = await stagingFile.open();
+      try {
+        header = await raf.read(16);
+      } finally {
+        await raf.close();
+      }
+      final detected = sniffEncodedImage(header);
+      final mimeType = detected?.mimeType ?? 'application/octet-stream';
+      SharedImageValidator.validateMetadata(
+        mimeType: mimeType,
+        sizeBytes: stat.size,
+      );
       await onReference(
         ReverseImageInputReference(
           contentUri: stagingFile.path,
           mimeType: mimeType,
-          sizeBytes: bytes.length,
+          sizeBytes: stat.size,
           hasReadUriPermission: true,
           source: ReverseImageInputSource.picker,
         ),
       );
+      return true;
     } finally {
       try {
         if (await stagingFile.exists()) {

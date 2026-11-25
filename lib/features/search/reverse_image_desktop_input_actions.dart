@@ -58,17 +58,19 @@ Future<void> pasteReverseImageFromClipboard(
     context,
     action: l10n.searchReverseImage,
   );
-  final bytes = await ref.read(desktopImageClipboardReaderProvider)();
-  if (!context.mounted) return;
-  if (bytes == null || bytes.isEmpty) {
-    showEmpty();
-    return;
-  }
+  final reader = ref.read(desktopImageClipboardReaderProvider);
   try {
-    await DesktopReverseImageInputPlatform.withStagedClipboardBytes(
-      bytes,
-      controller.prepare,
-    );
+    final pasted =
+        await DesktopReverseImageInputPlatform.withStagedClipboardFile(reader, (
+          reference,
+        ) async {
+          if (!context.mounted) return;
+          await controller.prepare(reference);
+        });
+    if (!context.mounted) return;
+    if (!pasted) {
+      showEmpty();
+    }
   } on Object catch (error, stack) {
     showError(error, stack);
   }
