@@ -15,7 +15,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get welcome1 => '感谢使用 Parfait';
 
   @override
-  String get welcome2 => '下面将进行首次启动设置';
+  String get welcome2 => '先做几项初始设置';
 
   @override
   String get start => '开始';
@@ -43,7 +43,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get loginProxyNoticeBody =>
-      '由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Parfait 不提供内置代理。';
+      '由于网络环境限制，登录和注册需要先在系统或其他应用中开启代理。Parfait 不内置代理。';
 
   @override
   String get loginProxyNoticeCancel => '取消';
@@ -61,7 +61,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginPageClosed => '页面已关闭，请重新打开';
 
   @override
-  String get loginCallbackInvalid => '登录回调无效，请重新登录';
+  String get loginCallbackInvalid => '登录链接或授权码无效，请重试';
 
   @override
   String loginNetworkError(String status) {
@@ -92,13 +92,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get loginExternalDescription =>
-      '在系统浏览器中完成 Pixiv 登录后，复制重定向的 pixiv:// 链接或授权码粘贴到下方即可完成登录。';
+      '在系统浏览器完成 Pixiv 登录后，把跳转后的 pixiv:// 链接或授权码粘贴到下方即可。';
 
   @override
   String get loginCallbackHint => 'pixiv://account/login?code=… 或授权码';
 
   @override
-  String get loginPasteCallback => '粘贴回调链接或授权码';
+  String get loginPasteCallback => '粘贴登录链接或授权码';
 
   @override
   String get loginCompleteButton => '完成登录';
@@ -643,10 +643,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditLoadFailed => '个人资料加载失败';
 
   @override
-  String get profileEditUnavailable => '暂无法编辑个人资料，请重新登录后再试。';
+  String get profileEditUnavailable => '暂时无法编辑资料，请重新登录后再试';
 
   @override
-  String get profileEditNoChanges => '资料未作修改';
+  String get profileEditNoChanges => '资料没有改动';
 
   @override
   String get profileEditSaveFailed => '保存个人资料失败，请稍后重试';
@@ -670,7 +670,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditBackground => '背景图';
 
   @override
-  String get profileEditFieldUnsupported => '当前暂不支持编辑此项';
+  String get profileEditFieldUnsupported => '暂不支持编辑这一项';
 
   @override
   String get profileEditImageChoose => '选择一张受支持的图片';
@@ -1041,7 +1041,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get saveLocationUriCopied => '已复制目录 URI';
+  String get saveLocationUriCopied => '已复制目录地址';
 
   @override
   String get saveLocationDesktopFolder => '默认文件夹';
@@ -1053,10 +1053,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveLocationDesktopCustomSubfolder => '自定义子文件夹名称';
 
   @override
-  String get saveLocationDesktopCustomFolder => '自定义目录（系统目录选择）';
+  String get saveLocationDesktopCustomFolder => '自定义文件夹';
 
   @override
-  String get saveLocationMacosBookmarkLabel => '已授权目录（macOS 沙盒书签）';
+  String get saveLocationMacosBookmarkLabel => '已授权文件夹';
 
   @override
   String get saveLocationPathCopied => '已复制目录路径';
@@ -1193,7 +1193,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateIndexThinking => '启用思考模式';
 
   @override
-  String get translateIndexThinkingHint => '允许模型输出思考内容，可能增加耗时';
+  String get translateIndexThinkingHint => '允许模型先思考再输出译文，耗时可能更长';
 
   @override
   String get translateBaiduCredential => '百度 AppID / 密钥';
@@ -1205,7 +1205,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateBaiduAppId => 'AppID';
 
   @override
-  String get translateBaiduSecret => '密钥 (Secret)';
+  String get translateBaiduSecret => '密钥';
 
   @override
   String get translateLlmBaseUrl => '接口地址（HTTPS）';
@@ -2488,7 +2488,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translationCopied => '已复制译文';
 
   @override
-  String get commentEmoji => 'Emoji';
+  String get commentEmoji => '表情';
 
   @override
   String get commentSending => '发送中';
@@ -2499,7 +2499,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get commentStamps => 'Stamp';
+  String get commentStamps => '贴图';
 
   @override
   String get commentPermissionDenied => '只能删除自己的评论';
@@ -3046,7 +3046,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get spotlightChallengeFailed => 'pixivision 当前需要验证或代理';
 
   @override
-  String get spotlightExternalBrowserHint => '当前平台不支持内置浏览器验证，请在系统浏览器中查看。';
+  String get spotlightExternalBrowserHint => '当前设备不支持应用内打开此页面，请在浏览器中查看。';
 
   @override
   String get spotlightCategoryAll => '全部';
@@ -3387,7 +3387,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cardActionSelect => '多选';
 
   @override
-  String get viewerZoomIn => '放大 (2.5×)';
+  String get viewerZoomIn => '放大（2.5×）';
 
   @override
   String get ugoiraPreparingExport => '正在准备动图…';
@@ -3432,14 +3432,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ugoiraPlaybackSpeed => '播放倍速';
 
   @override
-  String get loginWebViewStalled => '登录页面加载超时，可改用浏览器打开或粘贴回调/令牌';
+  String get loginWebViewStalled => '登录页加载超时，可改用浏览器打开，或粘贴登录链接 / 令牌';
 
   @override
   String get accountTransferExportToken => '复制 refresh_token';
 
   @override
   String get accountTransferTokenCopied =>
-      'refresh_token 已复制，请尽快粘贴。5 分钟后回到 Parfait 时将自动清除。';
+      '已复制 refresh_token，请尽快粘贴；5 分钟后回到 Parfait 时会自动清除。';
 
   @override
   String get offlineQueueTitle => '待同步离线操作';
@@ -3534,7 +3534,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shortcutArtworkInfo => '作品信息';
 
   @override
-  String get shortcutArtworkSwitchWork => '上一张 / 下一张作品';
+  String get shortcutArtworkSwitchWork => '上一篇 / 下一篇作品';
 
   @override
   String get shortcutArtworkSwitchPage => '上一页 / 下一页';
@@ -3549,7 +3549,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shortcutNovelNavigate => '翻页 / 滚动';
 
   @override
-  String get searchBookmarkLocalFilterHint => '标题或正文搜索仅在已加载结果中本地筛选收藏数';
+  String get searchBookmarkLocalFilterHint => '按标题或简介搜索时，收藏数仅在已加载的结果中筛选';
 
   @override
   String get searchExcludeTag => '排除标签';
@@ -3591,30 +3591,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadMultiPageSubfolder => '多图作品单独建文件夹';
 
   @override
-  String get downloadMultiPageSubfolderHint => '页数超过 1 页的作品放入以作品 ID 命名的子文件夹';
+  String get downloadMultiPageSubfolderHint => '多页作品单独放进以作品 ID 命名的子文件夹';
 
   @override
   String get downloadPadPageNumbers => '页码补零对齐';
 
   @override
-  String get downloadPadPageNumbersHint => '按总页数位数补零（如 _p00、_p01），确保文件按阅读顺序排列';
+  String get downloadPadPageNumbersHint => '按总页数位数补零（如 _p00、_p01），方便按顺序浏览';
 
   @override
   String get downloadAuthorSubfolderToggle => '放入作者子文件夹';
 
   @override
   String downloadAuthorConfirmBodyWithUgoira(int works, int pages, int ugoira) {
-    return '将把 $works 份静态作品（共 $pages 页）与 $ugoira 份动图加入下载队列。';
+    return '将加入 $works 篇插画/漫画（共 $pages 页）和 $ugoira 篇动图到下载队列。';
   }
 
   @override
   String downloadAuthorIncludeUgoira(int count) {
-    return '包含动图作品（$count 份，导出为 GIF）';
+    return '同时下载动图（$count 篇，导出为 GIF）';
   }
 
   @override
   String downloadAuthorUgoiraOnlyHint(int count) {
-    return '该作者仅发现 $count 份动图作品。开启下方开关即可导出为 GIF。';
+    return '这位画师目前只有 $count 篇动图，打开下方开关即可导出为 GIF。';
   }
 
   @override
@@ -3639,11 +3639,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelExportTxtFailed => '导出 TXT 失败';
 
   @override
-  String get novelExportAndroidFolderRequired =>
-      'Android 上导出 TXT 需要先选择自定义文件夹作为保存位置';
+  String get novelExportAndroidFolderRequired => '导出 TXT 需要先把保存位置设为自定义文件夹';
 
   @override
-  String get novelSeriesSaveOffline => '离线缓存全系列';
+  String get novelSeriesSaveOffline => '离线保存全系列';
 
   @override
   String get novelSeriesExportTxt => '导出系列 TXT';
@@ -3656,16 +3655,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String novelSeriesSavedWithSkipped(int saved, int skipped) {
-    return '已保存 $saved 章，跳过 $skipped 章不可阅读内容';
+    return '已保存 $saved 话，跳过 $skipped 话无法查看的内容';
   }
 
   @override
   String novelSeriesExportQueuedWithSkipped(int queued, int skipped) {
-    return '已加入 $queued 个章节导出，跳过 $skipped 章不可阅读内容';
+    return '已加入 $queued 话导出，跳过 $skipped 话无法查看的内容';
   }
 
   @override
-  String get novelSeriesNoViewableChapters => '该系列暂无可保存的章节';
+  String get novelSeriesNoViewableChapters => '这个系列暂时没有可保存的内容';
 
   @override
   String get openInNewTab => '在新标签页打开';

@@ -1476,12 +1476,7 @@ void main() {
             ),
           ),
         );
-        for (final label in const [
-          '默认文件夹',
-          '自定义子文件夹名称',
-          '自定义目录（系统目录选择）',
-          '已授权目录（macOS 沙盒书签）',
-        ]) {
+        for (final label in const ['默认文件夹', '自定义子文件夹名称', '自定义文件夹', '已授权文件夹']) {
           expect(find.text(label), findsOneWidget);
         }
         expect(find.text(fakeBookmark), findsNothing);

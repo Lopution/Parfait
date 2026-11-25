@@ -15,7 +15,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get welcome1 => 'Спасибо за использование Parfait';
 
   @override
-  String get welcome2 => 'Начнется первоначальная настройка';
+  String get welcome2 => 'Настроим приложение для начала';
 
   @override
   String get start => 'Начать';
@@ -62,7 +62,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get loginCallbackInvalid =>
-      'Недействительный callback входа. Войдите снова.';
+      'Недействительная ссылка или код входа. Повторите попытку.';
 
   @override
   String loginNetworkError(String status) {
@@ -100,7 +100,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'pixiv://account/login?code=… или код авторизации';
 
   @override
-  String get loginPasteCallback => 'Вставить callback или код';
+  String get loginPasteCallback => 'Вставить ссылку входа или код';
 
   @override
   String get loginCompleteButton => 'Завершить вход';
@@ -1081,7 +1081,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get saveLocationUriCopied => 'URI папки скопирован';
+  String get saveLocationUriCopied => 'Адрес папки скопирован';
 
   @override
   String get saveLocationDesktopFolder => 'Папка по умолчанию';
@@ -1093,12 +1093,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get saveLocationDesktopCustomSubfolder => 'Имя подпапки';
 
   @override
-  String get saveLocationDesktopCustomFolder =>
-      'Выбранная папка (системный выбор)';
+  String get saveLocationDesktopCustomFolder => 'Выбранная папка';
 
   @override
-  String get saveLocationMacosBookmarkLabel =>
-      'Разрешённая папка (закладка песочницы macOS)';
+  String get saveLocationMacosBookmarkLabel => 'Разрешённая папка';
 
   @override
   String get saveLocationPathCopied => 'Путь к папке скопирован';
@@ -1212,7 +1210,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get translateDisabled => 'Отключено';
 
   @override
-  String get translateBaidu => 'Baidu Translate';
+  String get translateBaidu => 'Переводчик Baidu';
 
   @override
   String get translateLlm => 'Свой LLM (OpenAI-совместимый)';
@@ -2575,7 +2573,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get translationCopied => 'Перевод скопирован';
 
   @override
-  String get commentEmoji => 'Emoji';
+  String get commentEmoji => 'Эмодзи';
 
   @override
   String get commentSending => 'Отправка';
@@ -2586,7 +2584,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get commentStamps => 'Stamps';
+  String get commentStamps => 'Стикеры';
 
   @override
   String get commentPermissionDenied => 'Можно удалять только свои комментарии';
@@ -3140,7 +3138,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get spotlightExternalBrowserHint =>
-      'Встроенная проверка браузера недоступна на этой платформе. Откройте статью во внешнем браузере.';
+      'Эту страницу нельзя открыть в приложении. Откройте её в браузере.';
 
   @override
   String get spotlightCategoryAll => 'Все';
@@ -3547,7 +3545,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get loginWebViewStalled =>
-      'Превышено время ожидания загрузки входа. Откройте в браузере или вставьте ссылку обратного вызова или токен.';
+      'Страница входа не отвечает. Откройте её в браузере или вставьте ссылку входа или токен.';
 
   @override
   String get accountTransferExportToken => 'Копировать refresh_token';
@@ -3759,7 +3757,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelExportAndroidFolderRequired =>
-      'Для экспорта TXT на Android выберите пользовательскую папку сохранения';
+      'Для экспорта TXT выберите папку в настройках сохранения';
 
   @override
   String get novelSeriesSaveOffline => 'Сохранить серию офлайн';

@@ -487,7 +487,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byTooltip('Stamp'));
+    await tester.tap(find.byTooltip('贴图'));
     await tester.pump();
     await _settlePanel(tester);
 
@@ -689,7 +689,7 @@ void main() {
         tester.widget<EditableText>(find.byType(EditableText));
 
     // none → emoji: opening the panel releases the field.
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pump();
     await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
@@ -704,7 +704,7 @@ void main() {
     expect(find.byType(GridView), findsNothing);
 
     // Same convergence from the stamp leg.
-    await tester.tap(find.byTooltip('Stamp'));
+    await tester.tap(find.byTooltip('贴图'));
     await tester.pump();
     await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
@@ -737,7 +737,7 @@ void main() {
     await tester.tap(find.text('push'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pump();
     await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
@@ -820,7 +820,7 @@ void main() {
     // as the IME leaves: keyboard → panel does not jump.
     double slot() =>
         tester.getSize(find.byType(CommentComposer)).height - idleHeight;
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pump();
     expect(tester.getSize(find.byType(GridView)).height, 300);
     await tester.pumpWidget(withInsets(0));
@@ -872,11 +872,11 @@ void main() {
     // the default panel, above the navigation bar.
     await tester.tap(find.byType(TextField));
     await tester.pumpWidget(withInsets(90));
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pumpWidget(withInsets(0));
     await _settlePanel(tester);
     expect(row(), resting - 280);
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await _settlePanel(tester);
     expect(row(), resting);
 
@@ -884,14 +884,14 @@ void main() {
     await tester.pumpWidget(withInsets(330));
     final typing = row();
     expect(typing, resting - 330 + 48);
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pumpWidget(withInsets(0));
     await _settlePanel(tester);
     expect(row(), typing);
 
     // A new composer opens its panel at the remembered height.
     await tester.pumpWidget(withInsets(0, key: UniqueKey()));
-    await tester.tap(find.byTooltip('Stamp'));
+    await tester.tap(find.byTooltip('贴图'));
     await _settlePanel(tester);
     expect(row(), typing);
   });
@@ -978,7 +978,7 @@ void main() {
     double slot() =>
         tester.getSize(find.byType(CommentComposer)).height - idleHeight;
 
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
     expect(slot(), inExclusiveRange(0, 280));
@@ -998,7 +998,7 @@ void main() {
     await tester.pumpWidget(
       MotionScope(reduce: true, child: composerApp(bareComposer())),
     );
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pump();
     expect(slot(), 280);
 
@@ -1019,7 +1019,7 @@ void main() {
       tester.widget<Opacity>(find.byType(Opacity).first).opacity,
       closeTo(1.0, 0.001),
     );
-    await tester.tap(find.byTooltip('Emoji'), kind: PointerDeviceKind.mouse);
+    await tester.tap(find.byTooltip('表情'), kind: PointerDeviceKind.mouse);
     await _settlePanel(tester);
     expect(slot(), 280);
     await tester.tap(find.byType(TextField), kind: PointerDeviceKind.mouse);
@@ -1039,7 +1039,7 @@ void main() {
 
     // No keyboard height known yet: half of the 411 window, not the
     // portrait default, so the page above keeps its room.
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await _settlePanel(tester);
     expect(
       tester.getSize(find.byType(CommentComposer)).height - idleHeight,
@@ -1059,19 +1059,19 @@ void main() {
 
     expect(state().debugInputState, CommentComposerInputState.none);
 
-    await tester.tap(find.byTooltip('Emoji'));
+    await tester.tap(find.byTooltip('表情'));
     await tester.pump();
     expect(state().debugInputState, CommentComposerInputState.emoji);
 
     // Same-region swap: stamp replaces emoji directly, no intermediate none.
-    await tester.tap(find.byTooltip('Stamp'));
+    await tester.tap(find.byTooltip('贴图'));
     await tester.pump();
     expect(state().debugInputState, CommentComposerInputState.stamp);
     await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
 
     // Toggling the active button rests the surface.
-    await tester.tap(find.byTooltip('Stamp'));
+    await tester.tap(find.byTooltip('贴图'));
     await tester.pump();
     expect(state().debugInputState, CommentComposerInputState.none);
     await _settlePanel(tester);

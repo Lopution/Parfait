@@ -270,7 +270,7 @@ void main() {
 
     // The headline is plain copy; the developer reason never shows, only
     // the diagnostics copy carries it.
-    expect(find.text('登录回调无效，请重新登录'), findsOneWidget);
+    expect(find.text('登录链接或授权码无效，请重试'), findsOneWidget);
     expect(find.textContaining('missing code'), findsNothing);
     expect(await _copyDiagnostics(tester), 'missing code');
   });
@@ -358,7 +358,7 @@ void main() {
     );
     await tester.pump();
     expect(webView.controller.stopCount, 1);
-    expect(find.text('登录回调无效，请重新登录'), findsOneWidget);
+    expect(find.text('登录链接或授权码无效，请重试'), findsOneWidget);
   });
 
   testWidgets('a recoverable error card reloads the page in place', (
@@ -604,7 +604,7 @@ void main() {
       );
       expect(find.byType(LoginWebViewErrorCard), findsOneWidget);
       expect(find.text('在浏览器打开'), findsOneWidget);
-      expect(find.text('粘贴回调链接或授权码'), findsOneWidget);
+      expect(find.text('粘贴登录链接或授权码'), findsOneWidget);
     },
   );
 }

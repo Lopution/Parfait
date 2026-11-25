@@ -963,7 +963,7 @@ void main() {
             buttons: kSecondaryMouseButton,
           );
           await tester.pumpAndSettle();
-          expect(find.text('放大 (2.5×)'), findsOneWidget);
+          expect(find.text('放大（2.5×）'), findsOneWidget);
           expect(find.text('100%'), findsNothing);
           await tester.tapAt(
             const Offset(10, 10),
