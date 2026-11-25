@@ -230,25 +230,33 @@ reviewed: 2026-11-23
 - **Check:** `test/architecture/ui_conventions_test.dart` "UI clipboard writes go through copyToClipboard"
 - **Code:** `lib/app/clipboard.dart`
 
-### FB-16 Desktop image clipboard copy/paste and file drop use native channels and deferAppSnackBar
+### FB-16 Desktop image clipboard copy/paste and file drop use file-path native channels on worker threads and deferAppSnackBar
 - **Rule:** On desktop platforms (`isDesktopImageClipboardSupported` on Windows,
   macOS, and Linux), card and detail action sheets expose original-image copy
   via `copyIllustOriginalImageToClipboard`: read strings and prompt host before
-  any `await` (`deferAppSnackBar`), resolve original image bytes through
-  `imageWorkerProvider`, invoke `MethodChannel('parfait/image_clipboard')`, emit
+  any `await` (`deferAppSnackBar`), resolve the cached original file path
+  through `imageWorkerProvider`, invoke `MethodChannel('parfait/image_clipboard')`
+  with `copyImageFile` (file path, never loading full multi-megabyte image
+  bytes across the Dart codec or platform channel), run native image decoding
+  / encoding on a background worker thread (skipping PNG re-compression for PNG
+  inputs and guarding stale writes with a monotonic sequence number), emit
   `AppHaptics.success()` on success, and surface `imageCopyFailed` explicitly on
-  failure; non-desktop platforms omit this action. `ImageClipboard.readImageBytes`
-  (`readImage`) backs `Ctrl/Cmd+V` and the desktop paste button on
-  `ReverseImageSearchPage`, surfacing `reverseImagePasteEmpty` when no image is
-  present. `DesktopFileDropTarget` listens to `EventChannel('parfait/file_drop/events')`
+  failure; non-desktop platforms omit this action.
+  `ImageClipboard.readImageToTempFile` (`readImageToFile`) writes pasted images
+  directly to a temp staging file on a native worker thread (no main-thread
+  blocking `gtk_clipboard_store` or sync WIC/NSImage transcode) to back
+  `Ctrl/Cmd+V` and the desktop paste button on `ReverseImageSearchPage`,
+  surfacing `reverseImagePasteEmpty` when no image is present.
+  `DesktopFileDropTarget` listens to `EventChannel('parfait/file_drop/events')`
   only while its route `isCurrent`, paints a `FuncShape.panel` highlight overlay
   during drag hover, and forwards dropped files to `ReverseImageSearchPage` and
   `LocalNovelsPage`.
-- **Why:** Native image copy/paste and file drops span async OS codecs and
-  sandbox permissions; capturing prompt hosts upfront guarantees feedback
-  outlives dismissed openers while keeping mobile chrome uncluttered.
+- **Why:** Passing full image bytes across the platform channel and transcoding
+  on the native UI thread froze desktop runners on large artworks; file-path
+  channels plus native worker threads keep UI frames responsive while capturing
+  prompt hosts upfront so feedback outlives dismissed openers.
 - **Check:** `test/illust_detail_actions_test.dart` "ImageClipboard channel and copy-image action copy original bytes with desktop-only gating and deferAppSnackBar"; `test/reverse_image_search_page_test.dart` "desktop Ctrl+V pastes clipboard image, reports empty clipboard, and handles file drop"; `test/local_novel_page_test.dart` "desktop file drop shows highlight, rejects non-TXT, and imports TXT"
-- **Code:** `lib/core/platform/image_clipboard.dart`, `lib/core/platform/desktop_file_drop.dart`, `lib/app/widgets/desktop_file_drop_target.dart`, `lib/app/clipboard.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/features/search/reverse_image_search_page.dart`, `lib/features/localnovel/local_novels_page.dart`, `windows/runner/flutter_window.cpp`, `macos/Runner/MainFlutterWindow.swift`, `linux/runner/my_application.cc`
+- **Code:** `lib/core/platform/image_clipboard.dart`, `lib/core/platform/desktop_file_drop.dart`, `lib/core/reverse_image/desktop_image_input.dart`, `lib/app/widgets/desktop_file_drop_target.dart`, `lib/app/clipboard.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/features/search/reverse_image_search_page.dart`, `lib/features/localnovel/local_novels_page.dart`, `windows/runner/flutter_window.cpp`, `macos/Runner/MainFlutterWindow.swift`, `linux/runner/my_application.cc`
 
 ## Late callbacks
 
