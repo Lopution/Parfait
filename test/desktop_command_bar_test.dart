@@ -1168,4 +1168,126 @@ void main() {
       }
     },
   );
+
+  testWidgets(
+    'DesktopCommandBar scrims and disables controls behind blocking modals while layered Cmd+W pops overlays first',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        setViewSize(tester, const Size(1280, 800));
+        await seedSettings(AppSettings.defaults());
+        await seedAccounts([testerAccount], currentId: testerAccount.id);
+        final credStore = FakeCredentialStore(
+          values: {
+            testerAccount.id: const Credential(
+              accessToken: 't',
+              refreshToken: 'r',
+            ),
+          },
+        );
+        final history = ForwardHistoryStack.detached();
+        final router = GoRouter(
+          initialLocation: '/recommended',
+          observers: [history.rootObserver],
+          routes: [
+            GoRoute(
+              path: '/recommended',
+              builder: (_, _) => const Scaffold(body: Text('home body')),
+            ),
+          ],
+        );
+        history.attachRouter(router);
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(
+          localizedRouterApp(
+            router,
+            overrides: accountProviderOverrides(credentialStore: credStore),
+            builder: (context, child) => AppChrome(
+              settings: AppSettings.defaults(),
+              router: router,
+              child: child!,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Transparent filter popover must not trigger the blocking modal scrim.
+        await tester.tap(
+          find.byKey(const Key('desktop-command-filter')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(history.hasBlockingModal, isFalse);
+        expect(
+          find.byKey(const Key('desktop-command-bar-modal-scrim')),
+          findsNothing,
+        );
+        await tester.tap(
+          find.byKey(const Key('desktop-command-filter')),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+
+        // Blocking dialog triggers scrim, disables toolbar controls, and lets
+        // layered Cmd+W pop the dialog before closing the window.
+        final navContext = router.routerDelegate.navigatorKey.currentContext!;
+        unawaited(
+          showDialog<void>(
+            context: navContext,
+            builder: (_) => const AlertDialog(title: Text('Blocking modal')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(history.hasBlockingModal, isTrue);
+        expect(
+          find.byKey(const Key('desktop-command-bar-modal-scrim')),
+          findsOneWidget,
+        );
+        final refreshBtn = tester.widget<IconButton>(
+          find.byKey(const Key('desktop-command-refresh')),
+        );
+        expect(refreshBtn.onPressed, isNull);
+
+        var closeCount = 0;
+        final l10n = AppLocalizations.of(navContext);
+        List<PlatformMenuItem> allMenus() {
+          final collected = <PlatformMenuItem>[];
+          _collectMenuItems(
+            buildDesktopPlatformMenus(
+              l10n: l10n,
+              router: router,
+              isFullScreen: false,
+              onCloseWindow: () => closeCount++,
+            ),
+            collected,
+          );
+          return collected;
+        }
+
+        final closeWithModal = allMenus().firstWhere(
+          (item) => item.label == l10n.windowClose,
+        );
+        closeWithModal.onSelected?.call();
+        await tester.pumpAndSettle();
+        expect(closeCount, 0);
+        expect(history.hasBlockingModal, isFalse);
+        expect(
+          find.byKey(const Key('desktop-command-bar-modal-scrim')),
+          findsNothing,
+        );
+
+        final closeWithoutModal = allMenus().firstWhere(
+          (item) => item.label == l10n.windowClose,
+        );
+        closeWithoutModal.onSelected?.call();
+        expect(closeCount, 1);
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
 }

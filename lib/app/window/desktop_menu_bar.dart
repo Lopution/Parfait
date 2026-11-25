@@ -200,7 +200,20 @@ List<PlatformMenuItem> buildDesktopPlatformMenus({
                 LogicalKeyboardKey.keyW,
                 meta: true,
               ),
-              onSelected: onCloseWindow,
+              onSelected:
+                  onCloseWindow == null &&
+                      !hasModalOrRootOverlay(router, checkFocusRoute: false)
+                  ? null
+                  : () {
+                      if (hasModalOrRootOverlay(
+                        router,
+                        checkFocusRoute: false,
+                      )) {
+                        unawaited(router.routerDelegate.popRoute());
+                        return;
+                      }
+                      onCloseWindow?.call();
+                    },
             ),
           ],
         ),

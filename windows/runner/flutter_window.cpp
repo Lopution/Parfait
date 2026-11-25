@@ -1531,7 +1531,10 @@ LRESULT FlutterWindow::HitTestNonClient(int screen_x, int screen_y) const {
   }
 
   HMONITOR monitor = ::MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-  const UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+  UINT dpi = ::GetDpiForWindow(hwnd);
+  if (dpi == 0) {
+    dpi = FlutterDesktopGetDpiForMonitor(monitor);
+  }
 
   POINT client_pt{screen_x, screen_y};
   if (!::ScreenToClient(hwnd, &client_pt)) {
@@ -1563,6 +1566,16 @@ LRESULT FlutterWindow::HitTestNonClient(int screen_x, int screen_y) const {
     }
   }
 
+  // Caption buttons always take precedence over resize rims so top-edge and
+  // Aero-Snapped clicks on Minimize/Maximize/Close never fall through to
+  // HTTOP / HTTOPRIGHT.
+  if (in_maximize_button) {
+    return HTMAXBUTTON;
+  }
+  if (in_caption_buttons) {
+    return HTCLIENT;
+  }
+
   const bool resizable =
       !IsFullscreenState() && ::IsZoomed(hwnd) == FALSE &&
       (::GetWindowLongPtrW(hwnd, GWL_STYLE) & WS_THICKFRAME) != 0;
@@ -1571,23 +1584,51 @@ LRESULT FlutterWindow::HitTestNonClient(int screen_x, int screen_y) const {
                          ::GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
     const int border_y = ::GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
                          ::GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-    const int button_rim =
-        std::max(1, ::MulDiv(2, static_cast<int>(dpi), 96));
     const int right_rim =
         std::min(border_x, std::max(1, ::MulDiv(3, static_cast<int>(dpi), 96)));
-    const int top_hit_height = in_caption_buttons ? button_rim : border_y;
+
+    bool snapped_left = false;
+    bool snapped_right = false;
+    bool snapped_top = false;
+    bool snapped_bottom = false;
+    MONITORINFO mi{};
+    mi.cbSize = sizeof(mi);
+    if (::GetMonitorInfoW(monitor, &mi)) {
+      const RECT& work = mi.rcWork;
+      const bool touches_left =
+          std::abs(window_rect.left - work.left) <= border_x;
+      const bool touches_right =
+          std::abs(window_rect.right - work.right) <= border_x;
+      const bool touches_top =
+          std::abs(window_rect.top - work.top) <= border_y;
+      const bool touches_bottom =
+          std::abs(window_rect.bottom - work.bottom) <= border_y;
+      // Treat edges touching the work area alongside a full vertical or
+      // horizontal span as Aero-Snapped edges, skipping their outer resize
+      // rims while keeping unsnapped interior edges resizable.
+      const bool full_height = touches_top && touches_bottom;
+      const bool full_width = touches_left && touches_right;
+      if (full_height || full_width) {
+        snapped_left = touches_left;
+        snapped_right = touches_right;
+        snapped_top = touches_top;
+        snapped_bottom = touches_bottom;
+      }
+    }
 
     const bool on_left =
-        screen_x >= window_rect.left && screen_x < window_rect.left + border_x;
-    const bool on_top = screen_y >= window_rect.top &&
-                        screen_y < window_rect.top + top_hit_height;
-    const bool on_bottom = screen_y < window_rect.bottom &&
-                           screen_y >= window_rect.bottom - border_y;
-    const int right_hit_width = in_caption_buttons
-        ? button_rim
-        : ((on_top || on_bottom) ? border_x : right_rim);
-    const bool on_right = screen_x < window_rect.right &&
-                          screen_x >= window_rect.right - right_hit_width;
+        !snapped_left && screen_x >= window_rect.left &&
+        screen_x < window_rect.left + border_x;
+    const bool on_top =
+        !snapped_top && screen_y >= window_rect.top &&
+        screen_y < window_rect.top + border_y;
+    const bool on_bottom =
+        !snapped_bottom && screen_y < window_rect.bottom &&
+        screen_y >= window_rect.bottom - border_y;
+    const int right_hit_width = (on_top || on_bottom) ? border_x : right_rim;
+    const bool on_right =
+        !snapped_right && screen_x < window_rect.right &&
+        screen_x >= window_rect.right - right_hit_width;
 
     if (on_top && on_left) return HTTOPLEFT;
     if (on_top && on_right) return HTTOPRIGHT;
@@ -1599,12 +1640,6 @@ LRESULT FlutterWindow::HitTestNonClient(int screen_x, int screen_y) const {
     if (on_bottom) return HTBOTTOM;
   }
 
-  if (in_maximize_button) {
-    return HTMAXBUTTON;
-  }
-  if (in_caption_buttons) {
-    return HTCLIENT;
-  }
   for (const auto& region : title_bar_regions_) {
     if (region.kind == "caption" && lx >= region.left && lx < region.right &&
         ly >= region.top && ly < region.bottom) {

@@ -518,6 +518,11 @@ final class MacosDesktopWindowBridge: NSObject {
     case "close":
       window.performClose(nil)
       result(nil)
+    case "terminate":
+      result(nil)
+      DispatchQueue.main.async {
+        NSApp.terminate(nil)
+      }
     case "toggleFullScreen":
       window.toggleFullScreen(nil)
       result(nil)
@@ -743,7 +748,11 @@ final class MacosTrayBridge: NSObject {
   }
 
   @objc private func handleQuit() {
-    channel?.invokeMethod("onTrayAction", arguments: "quit")
+    if let channel {
+      channel.invokeMethod("onTrayAction", arguments: "quit")
+    } else {
+      NSApp.terminate(nil)
+    }
   }
 }
 

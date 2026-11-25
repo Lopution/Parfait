@@ -1217,6 +1217,64 @@ void main() {
         expect(drags, 1);
       },
     );
+
+    testWidgets(
+      'macOS close exits fullscreen and hides to Dock, and touch DesktopWindowFrame publishes buttons region',
+      (tester) async {
+        final adapter = _FakeDesktopWindowAdapter(fullScreen: true);
+        final host = _FakeDesktopWindowHost();
+        final session = DesktopWindowSession(
+          adapter: adapter,
+          host: host,
+          trayPort: _FakeTrayPort(supported: false),
+          readCloseToTray: () => false,
+          readSavedPlace: () => (width: 1280, height: 800, x: 80, y: 50),
+          saveGeometry: ({width, height, x, y, required maximized}) async {},
+          platformOverride: TargetPlatform.macOS,
+        );
+        await session.handleWindowClose();
+        expect(adapter.calls, containsAllInOrder(['setFullScreen', 'hide']));
+        expect(adapter.calls, isNot(contains('destroy')));
+        await session.handleWindowClose(forceQuit: true);
+        expect(adapter.calls, contains('destroy'));
+        session.dispose();
+
+        List<DesktopTitleBarRegion> published = const [];
+        double publishedHeight = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            theme: ThemeData(platform: TargetPlatform.windows),
+            home: DesktopWindowFrame(
+              metricsOverride: const DesktopWindowPlatformMetrics(
+                usesSystemTitleBar: false,
+              ),
+              actionsOverride: DesktopWindowActions(
+                onMinimize: () {},
+                onToggleMaximize: () {},
+                onClose: () {},
+                onToggleFullScreen: () {},
+                onStartDragging: () {},
+                onTitleBarDoubleClick: () {},
+                onRegionsChanged: (_) {},
+                onRegionsWithHeightChanged: (regions, height) {
+                  published = regions;
+                  publishedHeight = height;
+                },
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(
+          published.map((r) => r.kind),
+          containsAll(['caption', 'maximize', 'buttons']),
+        );
+        expect(publishedHeight, greaterThan(0));
+      },
+    );
   });
 }
 
@@ -1226,6 +1284,7 @@ class _FakeDesktopWindowAdapter implements DesktopWindowAdapter {
     this.position = const Offset(80, 50),
     this.maximized = false,
     this.minimized = false,
+    this.fullScreen = false,
     this.throwOnGetPosition = false,
     Display? primaryDisplay,
   }) : _primaryDisplay =
@@ -1242,7 +1301,7 @@ class _FakeDesktopWindowAdapter implements DesktopWindowAdapter {
   Offset position;
   final bool maximized;
   bool minimized;
-  final bool fullScreen = false;
+  bool fullScreen;
   final bool throwOnGetPosition;
   final Display _primaryDisplay;
 
