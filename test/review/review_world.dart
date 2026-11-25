@@ -32,6 +32,7 @@ import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
 import 'package:parfait/core/illust/illust_detail_controller.dart';
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/network/http_client_providers.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
@@ -248,6 +249,7 @@ class ReviewWorld {
           MockClient((_) async => http.Response('unavailable', 403)),
         ),
         feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
+        dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
         historyRepositoryProvider.overrideWithValue(historyRepo),
         watchLaterRepositoryProvider.overrideWithValue(watchRepo),
         localNovelRepositoryProvider.overrideWithValue(novelRepo),

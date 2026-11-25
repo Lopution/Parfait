@@ -632,7 +632,7 @@ class _UserPageState extends ConsumerState<UserPage>
     final canBulkDownload =
         selectedTab == _ProfileTab.illust || selectedTab == _ProfileTab.manga;
     final muted = ref.watch(
-      muteStoreProvider.select((state) => state.isUserMuted(user.id)),
+      effectiveMutesProvider.select((state) => state.isUserMuted(user.id)),
     );
     final onDownloadAll = canBulkDownload ? _downloadAuthorWorks : null;
     void onCopyLink() => unawaited(_copyProfileLink(context, user));

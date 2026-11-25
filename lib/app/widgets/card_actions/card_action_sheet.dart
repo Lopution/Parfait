@@ -167,7 +167,9 @@ class _SheetHeader extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final tokens = FuncSemanticTokens.of(context);
     final muted =
-        ref.watch(muteStoreProvider.select((s) => muteHitFor(entity, s))) !=
+        ref.watch(
+              effectiveMutesProvider.select((s) => muteHitFor(entity, s)),
+            ) !=
             null &&
         !ref.watch(
           revealedMuteIdsProvider.select((ids) => ids.contains(entity.id)),

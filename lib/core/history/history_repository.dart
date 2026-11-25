@@ -79,6 +79,8 @@ class HistoryRepository {
   /// again meanwhile never shifts it). The same read takes one row more to
   /// tell whether another page follows: a second statement would see
   /// deletes made in between.
+  final Map<String, _SearchGate> _searchGates = {};
+
   Future<HistoryPageResult> page({
     required String accountId,
     HistoryContentType? contentType,
@@ -90,6 +92,42 @@ class HistoryRepository {
     if (limit < 1 || limit > 100) {
       throw ArgumentError.value(limit, 'limit', 'must be between 1 and 100');
     }
+    final tokens = query == null
+        ? const <String>[]
+        : tokenizeHistoryQuery(query);
+    if (tokens.isNotEmpty && after == null) {
+      final gate = _searchGates.putIfAbsent(accountId, _SearchGate.new);
+      return gate.run(
+        () => _queryPage(
+          accountId: accountId,
+          contentType: contentType,
+          tokens: tokens,
+          after: null,
+          limit: limit,
+        ),
+        onIdle: () {
+          if (identical(_searchGates[accountId], gate)) {
+            _searchGates.remove(accountId);
+          }
+        },
+      );
+    }
+    return _queryPage(
+      accountId: accountId,
+      contentType: contentType,
+      tokens: tokens,
+      after: after,
+      limit: limit,
+    );
+  }
+
+  Future<HistoryPageResult> _queryPage({
+    required String accountId,
+    required HistoryContentType? contentType,
+    required List<String> tokens,
+    required ({DateTime viewedAt, int rowId})? after,
+    required int limit,
+  }) async {
     final db = await _database.database;
     final where = StringBuffer('account_id = ?');
     final whereArgs = <Object?>[accountId];
@@ -97,9 +135,6 @@ class HistoryRepository {
       where.write(' AND content_type = ?');
       whereArgs.add(contentType.storageValue);
     }
-    final tokens = query == null
-        ? const <String>[]
-        : tokenizeHistoryQuery(query);
     for (final token in tokens) {
       final pattern = '%${_escapeLike(token)}%';
       final numericId = _positiveDigits.hasMatch(token)
@@ -107,10 +142,24 @@ class HistoryRepository {
           : null;
       if (numericId != null && numericId > 0) {
         where.write(
-          r" AND (title LIKE ? ESCAPE '\' OR author_name LIKE ? ESCAPE '\' "
-          r"OR tags_text LIKE ? ESCAPE '\' OR content_id = ? OR author_id = ?)",
+          ' AND (id IN ('
+          'SELECT id FROM ${HistoryDatabase.historyTable} '
+          'WHERE account_id = ? AND content_id = ? '
+          'UNION '
+          'SELECT id FROM ${HistoryDatabase.historyTable} '
+          'WHERE account_id = ? AND author_id = ?'
+          r") OR title LIKE ? ESCAPE '\' OR author_name LIKE ? ESCAPE '\' "
+          r"OR tags_text LIKE ? ESCAPE '\')",
         );
-        whereArgs.addAll([pattern, pattern, pattern, numericId, numericId]);
+        whereArgs.addAll([
+          accountId,
+          numericId,
+          accountId,
+          numericId,
+          pattern,
+          pattern,
+          pattern,
+        ]);
       } else {
         where.write(
           r" AND (title LIKE ? ESCAPE '\' OR author_name LIKE ? ESCAPE '\' "
@@ -204,6 +253,119 @@ class HistoryRepository {
     );
     if (deleted > 0) _changed();
     return deleted;
+  }
+
+  /// Deletes multiple records in one SQLite transaction and emits [changes]
+  /// once when at least one row was removed.
+  Future<int> deleteAll(
+    String accountId,
+    Iterable<({HistoryContentType contentType, int contentId})> keys,
+  ) async {
+    _validateAccount(accountId);
+    final unique = <({HistoryContentType contentType, int contentId})>{};
+    for (final key in keys) {
+      _validateContentId(key.contentId);
+      unique.add(key);
+    }
+    if (unique.isEmpty) return 0;
+    final db = await _database.database;
+    final total = await db.transaction<int>((txn) async {
+      final batch = txn.batch();
+      for (final key in unique) {
+        batch.delete(
+          HistoryDatabase.historyTable,
+          where: 'account_id = ? AND content_type = ? AND content_id = ?',
+          whereArgs: [accountId, key.contentType.storageValue, key.contentId],
+        );
+      }
+      final results = await batch.commit();
+      var deleted = 0;
+      for (final value in results) {
+        if (value is int) deleted += value;
+      }
+      return deleted;
+    });
+    if (total > 0) _changed();
+    return total;
+  }
+
+  /// Merges [records] into [accountId]'s history in one SQLite transaction,
+  /// keeping whichever row has the newer `last_viewed_at`. Emits [changes]
+  /// once when at least one row is written. Compatible with SQLite 3.22+.
+  Future<int> mergeAll(String accountId, List<HistoryRecord> records) async {
+    _validateAccount(accountId);
+    final deduped =
+        <({HistoryContentType contentType, int contentId}), HistoryRecord>{};
+    for (final record in records) {
+      if (record.accountId != accountId) {
+        throw ArgumentError.value(record.accountId, 'record.accountId');
+      }
+      record.checkStorable();
+      final key = (
+        contentType: record.contentType,
+        contentId: record.contentId,
+      );
+      final prev = deduped[key];
+      if (prev == null || !prev.lastViewedAt.isAfter(record.lastViewedAt)) {
+        deduped[key] = record;
+      }
+    }
+    if (deduped.isEmpty) return 0;
+    final db = await _database.database;
+    final written = await db.transaction<int>((txn) async {
+      final existingViewedAt =
+          <({HistoryContentType contentType, int contentId}), int>{};
+      for (final type in HistoryContentType.values) {
+        final ids = [
+          for (final key in deduped.keys)
+            if (key.contentType == type) key.contentId,
+        ];
+        const chunkSize = 500;
+        for (var i = 0; i < ids.length; i += chunkSize) {
+          final slice = ids.sublist(
+            i,
+            i + chunkSize > ids.length ? ids.length : i + chunkSize,
+          );
+          final placeholders = List.filled(slice.length, '?').join(',');
+          final rows = await txn.query(
+            HistoryDatabase.historyTable,
+            columns: const ['content_id', 'last_viewed_at'],
+            where:
+                'account_id = ? AND content_type = ? '
+                'AND content_id IN ($placeholders)',
+            whereArgs: [accountId, type.storageValue, ...slice],
+          );
+          for (final row in rows) {
+            existingViewedAt[(
+              contentType: type,
+              contentId: (row['content_id'] as num).toInt(),
+            )] = (row['last_viewed_at'] as num)
+                .toInt();
+          }
+        }
+      }
+      final batch = txn.batch();
+      var count = 0;
+      for (final entry in deduped.entries) {
+        final existingMicros = existingViewedAt[entry.key];
+        final incomingMicros = entry.value.lastViewedAt
+            .toUtc()
+            .microsecondsSinceEpoch;
+        if (existingMicros != null && incomingMicros <= existingMicros) {
+          continue;
+        }
+        batch.insert(
+          HistoryDatabase.historyTable,
+          entry.value.toColumns(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        count++;
+      }
+      if (count > 0) await batch.commit(noResult: true);
+      return count;
+    });
+    if (written > 0) _changed();
+    return written;
   }
 
   /// Clears local rows and their not-yet-submitted remote work for one account.
@@ -525,3 +687,56 @@ final historyAccountIdProvider = Provider<String?>((ref) {
     accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
   );
 });
+
+/// Single-flight gate for interactive history searches: keeps at most one
+/// active SQLite scan and one latest pending scan per account, resolving
+/// superseded unstarted callers with the latest scan's result.
+final class _SearchGate {
+  bool _running = false;
+  Future<HistoryPageResult> Function()? _pendingRun;
+  final List<Completer<HistoryPageResult>> _pendingCompleters = [];
+
+  Future<HistoryPageResult> run(
+    Future<HistoryPageResult> Function() task, {
+    required void Function() onIdle,
+  }) {
+    final completer = Completer<HistoryPageResult>();
+    if (!_running) {
+      _running = true;
+      unawaited(_execute(task, [completer], onIdle));
+      return completer.future;
+    }
+    _pendingRun = task;
+    _pendingCompleters.add(completer);
+    return completer.future;
+  }
+
+  Future<void> _execute(
+    Future<HistoryPageResult> Function() task,
+    List<Completer<HistoryPageResult>> completers,
+    void Function() onIdle,
+  ) async {
+    try {
+      final result = await task();
+      for (final c in completers) {
+        c.complete(result);
+      }
+    } on Object catch (error, stackTrace) {
+      for (final c in completers) {
+        c.completeError(error, stackTrace);
+      }
+    }
+    final nextRun = _pendingRun;
+    if (nextRun != null) {
+      final nextCompleters = List<Completer<HistoryPageResult>>.of(
+        _pendingCompleters,
+      );
+      _pendingRun = null;
+      _pendingCompleters.clear();
+      unawaited(_execute(nextRun, nextCompleters, onIdle));
+    } else {
+      _running = false;
+      onIdle();
+    }
+  }
+}

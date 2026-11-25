@@ -42,16 +42,22 @@ class UserPreviewRow extends ConsumerWidget {
       userPreviewIdsProvider.select((previews) => previews[entity.id]),
     );
     if (ids == null || ids.isEmpty) return const [];
-    final settings = ref.watch(settingsProvider).value;
-    final mutes = ref.watch(muteStoreProvider);
+    final blockFlags = ref.watch(
+      settingsProvider.select(
+        (async) => (
+          r18: async.value?.enableLocalBlockR18 ?? false,
+          ai: async.value?.enableLocalBlockAI ?? false,
+        ),
+      ),
+    );
+    final mutes = ref.watch(effectiveMutesProvider);
     return [
       for (final illust in ref.watch(illustStoreProvider).getAll(ids))
-        if (!(settings != null &&
-                isLocallyBlocked(
-                  illust,
-                  blockR18: settings.enableLocalBlockR18,
-                  blockAI: settings.enableLocalBlockAI,
-                )) &&
+        if (!isLocallyBlocked(
+              illust,
+              blockR18: blockFlags.r18,
+              blockAI: blockFlags.ai,
+            ) &&
             muteHitFor(illust, mutes) == null)
           illust,
     ];

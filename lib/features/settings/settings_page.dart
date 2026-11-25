@@ -762,8 +762,9 @@ Widget _pageSummary(
     case SettingsPageRef.navigation:
       return Text(l10n.settingsNavigationHint);
     case SettingsPageRef.muted:
-      final muted = ref.watch(muteStoreProvider);
-      final count = muted.tags.length + muted.users.length + muted.works.length;
+      final count = ref.watch(
+        effectiveMutesProvider.select((m) => m.totalCount),
+      );
       return Text(
         count == 0 ? l10n.mutedEmpty : l10n.settingsMutedSummary(count),
       );

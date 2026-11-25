@@ -6,7 +6,7 @@ applies_to:
   - lib/core/network/next_page_parser.dart
   - lib/core/*/*_feed*.dart
   - lib/core/*/*_repository.dart
-reviewed: 2026-10-30
+reviewed: 2026-11-25
 ---
 
 # Paged feeds, commits and the data worker
@@ -129,11 +129,16 @@ reviewed: 2026-10-30
 - **Rule:** Repositories map pages through `PixivHttpClient.getParsed`,
   whose `parse` is a top-level or static function, or a closure built in a
   non-async static factory over sendable values; never a closure over
-  `this` or created in an async body. Store merges stay on the UI isolate.
+  `this` or created in an async body. Cold-start feed snapshot restoration
+  reads raw JSON via `FeedSnapshotStore.readRaw` and offloads JSON decode
+  onto `dataWorkerProvider` (`decodeFeedSnapshot`), fenced by
+  `AccountClaim.holds` before committing. Store merges stay on the UI
+  isolate.
 - **Why:** Unsendable closures failed only in release, where the isolate
-  worker runs.
-- **Check:** `test/data_worker_test.dart` "InlineDataWorker rejects work the isolate worker could not carry"
-- **Code:** `lib/core/network/data_worker.dart`
+  worker runs; decoding large feed snapshots on the UI isolate janked cold
+  starts.
+- **Check:** `test/data_worker_test.dart` "InlineDataWorker rejects work the isolate worker could not carry", `test/feed_snapshot_test.dart` "v4 LRU index covers eviction and DataWorker decodes readRaw"
+- **Code:** `lib/core/network/data_worker.dart`, `lib/core/paging/feed_snapshot_store.dart`, `lib/core/paging/paged_feed_controller.dart`
 
 ### PAGING-09 Widget tests use InlineDataWorker
 - **Rule:** Widget tests that go through the real `pixivHttpClientProvider`

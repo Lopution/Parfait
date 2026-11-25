@@ -260,6 +260,9 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>>
     }
     final nextBookmarked = bookmarked ?? entry?.bookmarked ?? false;
     final nextRestrict = restrict ?? entry?.restrict;
+    if (entry == null && !nextBookmarked && nextRestrict == null) {
+      return null;
+    }
     if (entry != null &&
         entry.status == MutationStatus.idle &&
         entry.pending == null &&
@@ -286,10 +289,10 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>>
 
   @override
   void settlePendingOnBoundaryInvalidated() {
-    final next = <BookmarkKey, BookmarkEntry>{...state};
-    for (final item in next.entries) {
+    Map<BookmarkKey, BookmarkEntry>? next;
+    for (final item in state.entries) {
       if (!item.value.isUnsettled) continue;
-      next[item.key] = BookmarkEntry(
+      (next ??= {...state})[item.key] = BookmarkEntry(
         bookmarked: item.value.bookmarked,
         restrict: item.value.restrict,
         tags: item.value.tags,
@@ -297,7 +300,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>>
         status: MutationStatus.cancelled,
       );
     }
-    state = next;
+    if (next != null) state = next;
   }
 
   void _setCancelled(BookmarkOp operation) {

@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-11-23
+reviewed: 2026-11-25
 ---
 
 # Image pipeline and animated media
@@ -105,13 +105,15 @@ reviewed: 2026-11-23
 ### IMG-12 The worker writes files without an IOSink
 - **Rule:** Code in the image worker writes files through an awaited
   `RandomAccessFile` (`open`, `writeFrom`, `close`), never
-  `File.openWrite`. `DiskImageCache.store` recreates its directory before
-  each write and cancels the body when it cannot write.
+  `File.openWrite`. `DiskImageCache.store` buffers small TLS chunks up to
+  256 KiB via `BytesBuilder(copy: false)` before each `writeFrom`,
+  recreates its directory before each write, and cancels the body when it
+  cannot write.
 - **Why:** An IOSink whose file cannot be opened reports the error as
-  uncaught and never completes its flush. An uncaught error is fatal in
-  the worker, so clearing the cache while the app ran killed the worker on
-  the next image.
-- **Check:** `test/disk_image_cache_test.dart` "a directory cleared while the app runs is recreated by the next write" "a write the cache cannot hold fails alone and lets go of the body"
+  uncaught and never completes its flush, killing the worker isolate;
+  buffering small TLS chunks avoids hundreds of tiny syscalls per original
+  image while keeping explicit awaited writes.
+- **Check:** `test/disk_image_cache_test.dart` "a directory cleared while the app runs is recreated by the next write" "a write the cache cannot hold fails alone and lets go of the body" "buffered multi-chunk write (>256 KiB) commits exact bytes"
 - **Code:** `lib/core/image/disk_image_cache.dart`
 
 ## Demand, lanes and retry
@@ -148,11 +150,12 @@ reviewed: 2026-11-23
 
 ### IMG-16 A stalled visible image is sent again over another route
 - **Rule:** A whole-body image GET (not an original) with no headers for
-  2.5 s, or no body bytes for 2 s (`ImageStall`), has stalled and tells
-  its flight. While a foreground request waits on the flight, now or once
-  one joins it, the GET is sent once more to a route candidate the first
-  send did not use (`ImageRouteTrack.avoid`; never a fallback tier, never
-  a mirror), at most three at once per worker. The first whole body is
+  2.5 s, or no body bytes for 2 s (`ImageStall`, tracked via a lazy
+  monotonic stopwatch timer without per-chunk timer churn), has stalled and
+  tells its flight. While a foreground request waits on the flight, now or
+  once one joins it, the GET is sent once more to a route candidate the
+  first send did not use (`ImageRouteTrack.avoid`; never a fallback tier,
+  never a mirror), at most three at once per worker. The first whole body is
   kept: the first send streams to disk as any fetch, the hedge's body is
   held in memory (at most 8 MB), and the other send stops. Progress
   follows the further send; when both fail, the first send's error is the
@@ -162,7 +165,7 @@ reviewed: 2026-11-23
   learnt from those loads, but the image that hit the stall waited 15 s
   for its idle budget and a retry. A healthy route sends headers within
   about 2 s (p90) and leaves at most 1.3 s between chunks (p99).
-- **Check:** `test/hedged_image_fetch_test.dart` "a send stalled after its first bytes is sent again elsewhere at " "the first send finishing stops the hedge" "a fourth image stalled at once is not sent again" "a prefetch is sent again only once a visible request joins it" "a hedge that " "both sends failing fail with the first one's error" "progress follows the further of the two sends", `test/restricted_compat_image_test.dart` "a second send goes to a candidate the first did not use, and "
+- **Check:** `test/hedged_image_fetch_test.dart` "a send stalled after its first bytes is sent again elsewhere at " "the first send finishing stops the hedge" "a fourth image stalled at once is not sent again" "a prefetch is sent again only once a visible request joins it" "a hedge that " "both sends failing fail with the first one's error" "progress follows the further of the two sends" "lazy monotonic timer resets across chunk bursts and stalls on time", `test/restricted_compat_image_test.dart` "a second send goes to a candidate the first did not use, and "
 - **Code:** `lib/core/image/hedged_image_fetch.dart`, `lib/core/image/image_worker_host.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ### IMG-08 Retry belongs to the visible image

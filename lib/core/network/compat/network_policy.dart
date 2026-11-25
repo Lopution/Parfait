@@ -15,6 +15,7 @@ import 'network_fast_route_store.dart';
 import 'proven_origins.dart';
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
+import 'network_route_memory.dart';
 import 'route_memory.dart';
 import 'rhttp_client_factory.dart';
 import '../rhttp_gate.dart';
@@ -181,7 +182,7 @@ class NetworkAccessPolicy {
   /// compatibility tier is remembered so subsequent requests skip the cold
   /// route discovery path. Bounded, TTL'd, and cleared with the same events
   /// that close route pools (mode/revision changes).
-  final Map<String, _HostRouteMemory> _routeMemory = {};
+  final Map<String, HostRouteMemory> _routeMemory = {};
 
   /// How pixiv's image route candidates have been loading on the current
   /// network; they keep no other memory. A new network starts a new board.
@@ -194,11 +195,11 @@ class NetworkAccessPolicy {
   Set<String> _imageCandidateKeys = const {};
 
   /// Each pixiv image host's origin addresses and the one in use.
-  final Map<String, _OriginBook> _originBooks = {};
+  final Map<String, OriginBook> _originBooks = {};
 
   /// Each pixiv image host's failing origin addresses on this network; it
   /// outlasts a book an origin refresh replaces.
-  final Map<String, _OriginHealth> _originHealth = {};
+  final Map<String, OriginHealth> _originHealth = {};
 
   /// The origin addresses DNS named and an image proved; read from
   /// [fastRouteStore] when the first book is made.
@@ -206,11 +207,12 @@ class NetworkAccessPolicy {
 
   /// A successful strict route is also remembered for its destination group.
   /// The value changes candidate order only; target addresses remain per-host.
-  final Map<_RouteGroup, _RouteGroupMemory> _groupMemory = {};
+  final Map<_RouteGroup, RouteGroupMemory> _groupMemory = {};
   static const int _maxRouteMemoryEntries = 32;
 
   NetworkMode _mode;
   NetworkRevision _revision;
+  bool _reboundFromInitial = false;
   final Duration _imageHeadersTimeout;
   final Duration _imageIdleTimeout;
   final Duration _imageHeadersStall;
@@ -370,32 +372,49 @@ class NetworkAccessPolicy {
   /// unscoped client; the native pool is keyed by route + host + purpose
   /// because rhttp's DNS override is per-host and its time budget is
   /// per-purpose.
+  bool _revisionMatches(NetworkRevision rev) =>
+      rev.value == _revision.value &&
+      (rev.networkIdentity == _revision.networkIdentity ||
+          (_reboundFromInitial &&
+              rev.value == 0 &&
+              rev.networkIdentity == 'initial'));
+
   http.Client clientFor(
     PixivDestinationPurpose purpose,
     NetworkRoute route,
     String canonicalHost,
   ) {
     _checkUsable();
-    if (route.revision.value != _revision.value ||
-        route.revision.networkIdentity != _revision.networkIdentity) {
+    if (!_revisionMatches(route.revision)) {
       throw StateError('network route revision is stale');
     }
-    final key = '${route.key}|$canonicalHost|${purpose.name}';
+    final normalized =
+        route.revision.networkIdentity == _revision.networkIdentity
+        ? route
+        : NetworkRoute.remembered(
+            _revision,
+            route.kind,
+            route.address,
+            dnsSource: route.dnsSource,
+            ttl: route.ttl,
+            echConfig: route.echConfig,
+          );
+    final key = '${normalized.key}|$canonicalHost|${purpose.name}';
     return _clients.putIfAbsent(
       key,
       () => purpose == PixivDestinationPurpose.image
           ? _StreamIdleGuardClient(
-              _clientFactory(route, canonicalHost, purpose),
+              _clientFactory(normalized, canonicalHost, purpose),
               headersTimeout: _imageHeadersTimeout,
               idleTimeout: _imageIdleTimeout,
               headersStall: _imageHeadersStall,
               bodyStall: _imageBodyStall,
               observer:
                   _routeGroupFor(purpose, canonicalHost) == _RouteGroup.image
-                  ? _CandidateObserver(this, canonicalHost, route)
+                  ? _CandidateObserver(this, canonicalHost, normalized)
                   : null,
             )
-          : _clientFactory(route, canonicalHost, purpose),
+          : _clientFactory(normalized, canonicalHost, purpose),
     );
   }
 
@@ -412,8 +431,7 @@ class NetworkAccessPolicy {
       revision: _revision,
       cancelSignal: cancelSignal,
     );
-    if (resolved.revision.value != _revision.value ||
-        resolved.revision.networkIdentity != _revision.networkIdentity ||
+    if (!_revisionMatches(resolved.revision) ||
         resolved.host != destination.canonicalHost) {
       throw const SecureResolutionException('stale or mismatched DNS result');
     }
@@ -476,9 +494,7 @@ class NetworkAccessPolicy {
   /// [route]'s candidate while its network is current: what a closed
   /// network's transfers show is not this network's.
   String? _currentCandidate(NetworkRoute route) {
-    if (_disposed ||
-        route.revision.value != _revision.value ||
-        route.revision.networkIdentity != _revision.networkIdentity) {
+    if (_disposed || !_revisionMatches(route.revision)) {
       return null;
     }
     return _imageCandidateKey(route.kind, route.address);
@@ -552,7 +568,7 @@ class NetworkAccessPolicy {
     final address = route.address;
     if (route.kind == NetworkRouteKind.bootstrapNoSni && address != null) {
       _originHealth
-          .putIfAbsent(host, _OriginHealth.new)
+          .putIfAbsent(host, OriginHealth.new)
           .failed(address.address, clock());
       _originBooks[host]?.movedOff(address);
     }
@@ -577,8 +593,41 @@ class NetworkAccessPolicy {
     _forgetRoutes();
   }
 
+  EchConfigResult? cachedEchConfig() => switch (_resolver) {
+    final DohResolver doh => doh.cachedEchConfig(echFrontHost, _revision),
+    _ => null,
+  };
+
+  void seedEchConfig(String frontHost, EchConfigResult result) {
+    if (_resolver case final DohResolver doh) {
+      doh.seedEchConfig(frontHost, _revision, result);
+    }
+  }
+
+  /// Re-keys the cold-start `0/initial` revision in place when the first real
+  /// online network identity arrives, preserving warm pools and DNS/ECH state.
+  /// Falls back to [advanceNetworkRevision] when already bound or offline.
+  NetworkRevision bindInitialNetworkIdentity(String identity) {
+    final canRebind =
+        _revision.value == 0 &&
+        _revision.networkIdentity == 'initial' &&
+        identity != 'initial' &&
+        identity != 'none';
+    if (!canRebind) {
+      return advanceNetworkRevision(networkIdentity: identity);
+    }
+    _reboundFromInitial = true;
+    _revision = NetworkRevision(0, networkIdentity: identity);
+    _rekeyInitialState(identity);
+    unawaited(_seedImageRouteScores());
+    unawaited(_seedPersistedGroupKinds());
+    onRevisionAdvanced?.call(_revision);
+    return _revision;
+  }
+
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
     final identity = networkIdentity ?? _revision.networkIdentity;
+    _reboundFromInitial = false;
     final newNetwork = identity != _revision.networkIdentity;
     if (newNetwork) {
       _imageScores = ImageRouteScores(clock: clock);
@@ -587,11 +636,32 @@ class NetworkAccessPolicy {
     _revision = NetworkRevision(_revision.value + 1, networkIdentity: identity);
     if (newNetwork) unawaited(_seedImageRouteScores());
     _forgetRoutes();
-    // Re-seed group preferences for the *new* identity — the same store
-    // that accelerates a cold restart accelerates a Wi-Fi↔cellular flip.
     unawaited(_seedPersistedGroupKinds());
     onRevisionAdvanced?.call(_revision);
     return _revision;
+  }
+
+  void _rekeyInitialState(String identity) {
+    const initialPrefix = '0|initial|';
+    final nextPrefix = '0|$identity|';
+    final entries = _clients.entries.toList(growable: false);
+    _clients.clear();
+    for (final MapEntry(:key, :value) in entries) {
+      final reboundKey = key.startsWith(initialPrefix)
+          ? '$nextPrefix${key.substring(initialPrefix.length)}'
+          : key;
+      _clients[reboundKey] = value;
+      if (value is _StreamIdleGuardClient) value.rebindRevision(_revision);
+    }
+    _routeMemory.updateAll(
+      (_, m) => m.networkIdentity == 'initial' ? m.withIdentity(identity) : m,
+    );
+    _groupMemory.updateAll(
+      (_, m) => m.networkIdentity == 'initial' ? m.withIdentity(identity) : m,
+    );
+    if (_resolver case final DohResolver doh) {
+      doh.rebindInitialIdentity(identity);
+    }
   }
 
   /// Seeds group route-kind preferences persisted for the current network
@@ -614,7 +684,7 @@ class NetworkAccessPolicy {
       // Older versions persisted pixiv image preferences; their scores
       // replace them.
       if (kind == null || !_isGroupPreference(group, kind)) continue;
-      _groupMemory[group] = _RouteGroupMemory(
+      _groupMemory[group] = RouteGroupMemory(
         kind: kind,
         ttl: _kRouteMemoryTtl,
         createdAt: now,
@@ -664,115 +734,23 @@ class NetworkAccessPolicy {
   }
 }
 
-/// A pixiv image host's failing origin addresses: an address other than
-/// the built-in ones that fails [skipAfter] loads in a row is skipped for
-/// [skipFor].
-class _OriginHealth {
-  static const skipAfter = 3;
-  static const skipFor = Duration(days: 1);
-
-  final _failures = <String, int>{};
-  final _skipped = <String, DateTime>{};
-
-  void failed(String address, DateTime now) {
-    final builtIn = PixivFastRouteStore.originAddresses.any(
-      (origin) => origin.address == address,
-    );
-    if (builtIn) return;
-    final failures = (_failures[address] ?? 0) + 1;
-    if (failures >= skipAfter) {
-      _failures.remove(address);
-      _skipped[address] = now;
-    } else {
-      _failures[address] = failures;
-    }
-  }
-
-  void served(String address) => _failures.remove(address);
-
-  bool skips(String address, DateTime now) {
-    final since = _skipped[address];
-    return since != null && now.difference(since) < skipFor;
-  }
-}
-
-/// A pixiv image host's origin addresses and the one in use, which moves
-/// on after a failure there, past the addresses [_health] skips.
-class _OriginBook {
-  _OriginBook(
-    this.addresses, {
-    required _OriginHealth health,
-    required DateTime Function() clock,
-  }) : _health = health,
-       _clock = clock {
-    if (_health.skips(current.address, _clock())) _moveOn();
-  }
-
-  final List<InternetAddress> addresses;
-  final _OriginHealth _health;
-  final DateTime Function() _clock;
-  var _index = 0;
-
-  InternetAddress get current => addresses[_index];
-
-  /// Requests that failed together on one address move the book once.
-  void movedOff(InternetAddress address) {
-    if (address.address == current.address) _moveOn();
-  }
-
-  void _moveOn() {
-    final now = _clock();
-    for (var i = 0; i < addresses.length; i++) {
-      _index = (_index + 1) % addresses.length;
-      if (!_health.skips(current.address, now)) break;
-    }
-  }
-}
-
-class _HostRouteMemory {
-  _HostRouteMemory(
-    this.address, {
-    required this.kind,
-    required this.dnsSource,
-    required this.ttl,
-    required this.createdAt,
-    required this.networkIdentity,
-    this.echConfig,
-  });
-
-  final InternetAddress? address;
-  final NetworkRouteKind kind;
-  final DnsSource dnsSource;
-  final Duration ttl;
-  final DateTime createdAt;
-  final String networkIdentity;
-  final List<int>? echConfig;
-
-  bool isFresh(DateTime now) =>
-      !now.isBefore(createdAt) && now.difference(createdAt) < ttl;
-
-  bool isUsable(DateTime now, String currentNetworkIdentity) =>
-      networkIdentity == currentNetworkIdentity && isFresh(now);
-
-  /// Rebuilds the route at the [revision] seen by [NetworkRoute.kind].
-  NetworkRoute routeFor(NetworkRevision revision) => NetworkRoute.remembered(
-    revision,
-    kind,
-    address,
-    dnsSource: dnsSource,
-    ttl: ttl,
-    echConfig: echConfig,
-  );
-}
-
-/// Hears how the transfers on one pixiv image route candidate end, for the
-/// policy's scores.
 class _CandidateObserver {
   _CandidateObserver(this._policy, this._host, this._route);
 
   final NetworkAccessPolicy _policy;
   final String _host;
-  final NetworkRoute _route;
+  NetworkRoute _route;
+
+  void rebindRevision(NetworkRevision revision) {
+    _route = NetworkRoute.remembered(
+      revision,
+      _route.kind,
+      _route.address,
+      dnsSource: _route.dnsSource,
+      ttl: _route.ttl,
+      echConfig: _route.echConfig,
+    );
+  }
 
   void loaded({
     required Duration headers,
@@ -843,24 +821,5 @@ _RouteGroup _routeGroupFor(PixivDestinationPurpose purpose, String host) =>
       PixivDestinationPurpose.accountsWeb ||
       PixivDestinationPurpose.pixivWeb => _RouteGroup.cloudflare,
     };
-
-class _RouteGroupMemory {
-  const _RouteGroupMemory({
-    required this.kind,
-    required this.ttl,
-    required this.createdAt,
-    required this.networkIdentity,
-  });
-
-  final NetworkRouteKind kind;
-  final Duration ttl;
-  final DateTime createdAt;
-  final String networkIdentity;
-
-  bool isUsable(DateTime now, String currentNetworkIdentity) =>
-      networkIdentity == currentNetworkIdentity &&
-      !now.isBefore(createdAt) &&
-      now.difference(createdAt) < ttl;
-}
 
 const _kRouteMemoryTtl = Duration(minutes: 10);

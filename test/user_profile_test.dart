@@ -212,7 +212,7 @@ void main() {
     container.read(userStoreProvider.notifier).mergeAll(users);
     expect(writes, 1);
     expect(container.read(followStoreProvider)[300]!.followed, isTrue);
-    expect(container.read(followStoreProvider)[301]!.followed, isFalse);
+    expect(container.read(followStoreProvider)[301], isNull);
 
     container.read(userStoreProvider.notifier).mergeAll(users);
     expect(writes, 1, reason: 'an unchanged page must not notify');

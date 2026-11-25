@@ -77,11 +77,15 @@ class MuteStore extends Notifier<MuteState> {
       ...?await prefs.getStringList(PreferenceKeys.blockedTags),
     };
     if (!_stillCurrent(accountId)) return;
-    state = state.copyWith(
-      works: works,
-      tags: {...state.tags, ...legacyTags},
-      legacyTagsPending: legacyTags,
-    );
+    if (works.isNotEmpty || legacyTags.isNotEmpty) {
+      state = state.copyWith(
+        works: works.isEmpty ? state.works : works,
+        tags: legacyTags.isEmpty ? state.tags : {...state.tags, ...legacyTags},
+        legacyTagsPending: legacyTags.isEmpty
+            ? state.legacyTagsPending
+            : legacyTags,
+      );
+    }
 
     MuteListResult remote;
     try {
@@ -92,9 +96,15 @@ class MuteStore extends Notifier<MuteState> {
       return;
     }
     if (!_stillCurrent(accountId)) return;
+    final nextTags = remote.tags.isEmpty || state.tags.containsAll(remote.tags)
+        ? state.tags
+        : {...state.tags, ...remote.tags};
+    final nextUsers = remote.users.isEmpty && state.users.isEmpty
+        ? state.users
+        : remote.users;
     state = state.copyWith(
-      tags: {...state.tags, ...remote.tags},
-      users: remote.users,
+      tags: nextTags,
+      users: nextUsers,
       serverSynced: true,
     );
 
@@ -132,6 +142,51 @@ class MuteStore extends Notifier<MuteState> {
   Future<void> unmuteWork(int illustId) =>
       _writeWork(illustId, (works) => {...works}..remove(illustId));
 
+  /// Applies imported work mutes in one map pass and one preference write.
+  /// Backfilling metadata onto existing entries persists without being
+  /// counted as a mute change.
+  Future<int> applyBackupWorks(
+    Map<int, MutedWork> imported, {
+    required bool overwrite,
+  }) async {
+    await _hydrated;
+    final accountId = _requireAccountId();
+    final next = Map<int, MutedWork>.of(state.works);
+    var changed = 0;
+    var mutated = false;
+    for (final work in imported.values) {
+      final current = next[work.illustId];
+      if (current == null) {
+        next[work.illustId] = work;
+        changed++;
+        mutated = true;
+        continue;
+      }
+      final filled = current.filledFrom(work);
+      if (filled != current) {
+        next[work.illustId] = filled;
+        mutated = true;
+      }
+    }
+    if (overwrite) {
+      final toRemove = [
+        for (final id in next.keys)
+          if (!imported.containsKey(id)) id,
+      ];
+      for (final id in toRemove) {
+        next.remove(id);
+        changed++;
+        mutated = true;
+      }
+    }
+    if (!mutated) return 0;
+    await _persistWorks(accountId, next);
+    if (_stillCurrent(accountId)) {
+      state = state.copyWith(works: next);
+    }
+    return changed;
+  }
+
   /// Optimistic; persisted per account. The account id is captured up front
   /// so an account switch mid-write cannot persist the old account's list
   /// under the new account's key.
@@ -143,10 +198,9 @@ class MuteStore extends Notifier<MuteState> {
     final accountId = _requireAccountId();
     final key = MuteKey.work(illustId);
     if (state.pending.contains(key)) return;
-    state = state.copyWith(pending: {...state.pending, key});
+    final next = change(state.works);
+    state = state.copyWith(pending: {...state.pending, key}, works: next);
     try {
-      final next = change(state.works);
-      state = state.copyWith(works: next);
       await _persistWorks(accountId, next);
     } finally {
       if (_stillCurrent(accountId)) {
@@ -196,8 +250,7 @@ class MuteStore extends Notifier<MuteState> {
   }) async {
     await _hydrated;
     if (state.pending.contains(key)) return;
-    state = state.copyWith(pending: {...state.pending, key});
-    state = apply();
+    state = apply().copyWith(pending: {...state.pending, key});
     try {
       _requireAccountId();
       await edit(ref.read(muteRepositoryProvider));
@@ -225,3 +278,9 @@ class MuteStore extends Notifier<MuteState> {
 }
 
 final muteStoreProvider = NotifierProvider<MuteStore, MuteState>(MuteStore.new);
+
+/// Effective-only mute projection for feeds and cards: ignores `pending`,
+/// `legacyTagsPending`, and `serverSynced` metadata writes.
+final effectiveMutesProvider = Provider<MuteFilterSnapshot>(
+  (ref) => ref.watch(muteStoreProvider.select((s) => s.effective)),
+);

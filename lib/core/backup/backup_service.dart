@@ -248,7 +248,6 @@ class BackupService {
 
     var tagsAdded = 0;
     var usersAdded = 0;
-    var workMutesChanged = 0;
 
     for (final tag in envelope.muteTags) {
       if (_readMuteState().isTagMuted(tag)) continue;
@@ -261,27 +260,10 @@ class BackupService {
       usersAdded++;
     }
 
-    final currentWorks = _readMuteState().works;
-    for (final work in envelope.muteWorks.values) {
-      final current = currentWorks[work.illustId];
-      if (current == null) {
-        await _muteStore.muteWork(work);
-        workMutesChanged++;
-        continue;
-      }
-      // Under either strategy an entry kept from before titles were stored
-      // takes them from the file; one that has them keeps its own. Not a
-      // mute change, so not counted.
-      final filled = current.filledFrom(work);
-      if (filled != current) await _muteStore.muteWork(filled);
-    }
-    if (strategy == BackupImportStrategy.overwrite) {
-      for (final workId in currentWorks.keys) {
-        if (envelope.muteWorks.containsKey(workId)) continue;
-        await _muteStore.unmuteWork(workId);
-        workMutesChanged++;
-      }
-    }
+    final workMutesChanged = await _muteStore.applyBackupWorks(
+      envelope.muteWorks,
+      overwrite: strategy == BackupImportStrategy.overwrite,
+    );
 
     if (strategy == BackupImportStrategy.overwrite) {
       await _writeSettings(
@@ -332,25 +314,12 @@ class BackupService {
     return sanitized;
   }
 
-  /// Upsert per identity, keeping the newer `last_viewed_at` when a row
-  /// already exists locally.
-  Future<int> _mergeHistory(String accountId, BackupEnvelope envelope) async {
-    var written = 0;
-    for (final record in envelope.history) {
-      final existing = await _history.find(
-        accountId: accountId,
-        contentType: record.contentType,
-        contentId: record.contentId,
-      );
-      if (existing != null &&
-          !record.lastViewedAt.isAfter(existing.lastViewedAt)) {
-        continue;
-      }
-      await _history.upsert(_forAccount(record, accountId));
-      written++;
-    }
-    return written;
-  }
+  /// Upsert per identity in one SQLite transaction, keeping the newer
+  /// `last_viewed_at` when a row already exists locally.
+  Future<int> _mergeHistory(String accountId, BackupEnvelope envelope) =>
+      _history.mergeAll(accountId, [
+        for (final record in envelope.history) _forAccount(record, accountId),
+      ]);
 
   Future<int> _replaceHistory(String accountId, BackupEnvelope envelope) async {
     await _history.replaceAll(accountId, [

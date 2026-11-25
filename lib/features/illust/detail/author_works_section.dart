@@ -77,7 +77,7 @@ class _StripBody extends ConsumerWidget {
     final feed = profileIllustFeedProvider(feedKey);
     final async = ref.watch(feed);
     final store = ref.watch(illustStoreProvider);
-    final mutes = ref.watch(muteStoreProvider);
+    final mutes = ref.watch(effectiveMutesProvider);
     final state = async.asData?.value;
     // The user-works feed drops R-18/AI; mute hits are skipped here too,
     // never blurred: a blurred square this small says nothing (PAGE-05).

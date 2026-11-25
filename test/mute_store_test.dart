@@ -98,6 +98,28 @@ void main() {
   });
 
   test(
+    'effectiveMutesProvider ignores empty hydrate and pending sync flags',
+    () async {
+      final (container, _, _) = await _makeWorld();
+      var effectiveUpdates = 0;
+      container.listen(
+        effectiveMutesProvider,
+        (_, _) => effectiveUpdates++,
+        fireImmediately: false,
+      );
+      container.read(muteStoreProvider);
+      await pollUntil(() => container.read(muteStoreProvider).serverSynced);
+      expect(effectiveUpdates, 0);
+
+      await container.read(muteStoreProvider.notifier).toggleTag('spam');
+      await container.pump();
+      expect(effectiveUpdates, 1);
+      expect(container.read(effectiveMutesProvider).isTagMuted('spam'), isTrue);
+      expect(container.read(muteStoreProvider).pending, isEmpty);
+    },
+  );
+
+  test(
     'legacy blocked tags migrate: effective immediately, pushed once',
     () async {
       final (container, fixture, prefs) = await _makeWorld(

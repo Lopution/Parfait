@@ -35,6 +35,7 @@ class ImageWorkerConfig {
     this.routeDiscovery,
     this.provenOrigins,
     this.devLoopbackOrigin,
+    this.echSeed,
   });
 
   /// Persisted `imageSource` setting (`i.pximg.net`, `auto`, a preset host
@@ -94,6 +95,10 @@ class ImageWorkerConfig {
   /// in production / live mode.
   final String? devLoopbackOrigin;
 
+  /// In-memory ECH config seed shared from the main isolate's live DoH cache
+  /// so the worker skips a duplicate cold-start HTTPS-RR query.
+  final Map<String, Object?>? echSeed;
+
   Map<String, Object?> toJson() => {
     'imageSource': imageSource,
     'autoWinnerHost': autoWinnerHost,
@@ -112,6 +117,7 @@ class ImageWorkerConfig {
     'routeDiscovery': routeDiscovery?.toJson(),
     'provenOrigins': provenOrigins?.toJson(),
     'devLoopbackOrigin': devLoopbackOrigin,
+    'echSeed': echSeed,
   };
 
   static ImageWorkerConfig fromJson(Map<String, Object?> json) {
@@ -138,6 +144,7 @@ class ImageWorkerConfig {
           : ImageRouteDiscovery.fromJson(json['routeDiscovery']),
       provenOrigins: ProvenOrigins.fromJson(json['provenOrigins']),
       devLoopbackOrigin: json['devLoopbackOrigin'] as String?,
+      echSeed: (json['echSeed'] as Map?)?.cast<String, Object?>(),
     );
   }
 }

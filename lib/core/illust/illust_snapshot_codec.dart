@@ -25,28 +25,21 @@ final class IllustSnapshotCodec extends FeedSnapshotCodec {
   Object? encodeEntity(Object entity) => (entity as IllustEntity).toJson();
 
   @override
-  List<int> restoreEntities(
-    Ref ref,
-    List<int> ids,
-    Map<String, Object?> entitiesJson,
-  ) {
-    final decoded = <IllustEntity>[];
-    final restored = <int>[];
-    for (final id in ids) {
-      final payload = entitiesJson['$id'];
-      if (payload is! Map<String, dynamic>) continue;
-      try {
-        decoded.add(IllustEntity.fromJson(payload));
-        restored.add(id);
-      } on Object {
-        // A single corrupt entry drops only its id; the rest of the
-        // snapshot still renders.
-        continue;
-      }
+  Object? decodeEntity(Object? payload) {
+    if (payload is! Map<String, dynamic>) return null;
+    try {
+      return IllustEntity.fromJson(payload);
+    } on Object {
+      // A single corrupt entry drops only its id; the rest of the
+      // snapshot still renders.
+      return null;
     }
-    if (decoded.isNotEmpty) {
-      ref.read(illustStoreProvider).mergeAll(decoded, fromLocalCache: true);
-    }
-    return restored;
+  }
+
+  @override
+  void mergeEntities(Ref ref, List<Object> entities) {
+    ref
+        .read(illustStoreProvider)
+        .mergeAll(entities.cast<IllustEntity>(), fromLocalCache: true);
   }
 }

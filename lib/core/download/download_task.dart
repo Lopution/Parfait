@@ -7,6 +7,7 @@ export 'download_recovery.dart'
     show
         DownloadFailureKind,
         DownloadOutputOwner,
+        DownloadPersistenceCoalescer,
         DownloadRecoveryDataException,
         DownloadRecoveryRecord,
         DownloadRecoveryReport,

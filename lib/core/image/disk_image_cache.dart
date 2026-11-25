@@ -112,6 +112,11 @@ class DiskImageCache {
     return file;
   }
 
+  /// Buffers small TLS chunks (4–16 KiB) before writing through
+  /// [RandomAccessFile.writeFrom] (matching download sink coalescing while
+  /// keeping IMG-12's no-IOSink rule).
+  static const _writeBufferBytes = 256 * 1024;
+
   /// Streams [body] into a temp file and commits it under [url]'s key.
   /// When [expectedLength] is given and the received byte count differs the
   /// partial file is deleted and [ImageCacheIncomplete] is thrown — only a
@@ -141,10 +146,22 @@ class DiskImageCache {
       rethrow;
     }
     var written = 0;
+    final buffer = BytesBuilder(copy: false);
     try {
       await for (final chunk in body) {
+        if (chunk.isEmpty) continue;
         written += chunk.length;
-        await file.writeFrom(chunk);
+        if (buffer.isEmpty && chunk.length >= _writeBufferBytes) {
+          await file.writeFrom(chunk);
+        } else {
+          buffer.add(chunk);
+          if (buffer.length >= _writeBufferBytes) {
+            await file.writeFrom(buffer.takeBytes());
+          }
+        }
+      }
+      if (buffer.isNotEmpty) {
+        await file.writeFrom(buffer.takeBytes());
       }
       await file.close();
       file = null;

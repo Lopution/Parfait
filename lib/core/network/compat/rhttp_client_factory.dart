@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -76,13 +77,19 @@ abstract final class RhttpClientFactory {
     String canonicalHost,
     PixivDestinationPurpose purpose,
   ) {
-    return rhttp.RhttpCompatibleClient.createSync(
-      settings: settingsFor(
-        route,
-        destinationHost: canonicalHost,
-        purpose: purpose,
-      ),
+    final settings = settingsFor(
+      route,
+      destinationHost: canonicalHost,
+      purpose: purpose,
     );
+    if (!_isStreaming(purpose)) {
+      return _BufferedRhttpClient(
+        rhttp.RhttpClient.createSync(
+          settings: settings.copyWith(throwOnStatusCode: false),
+        ),
+      );
+    }
+    return rhttp.RhttpCompatibleClient.createSync(settings: settings);
   }
 
   /// The rhttp [rhttp.ClientSettings] for [route]. Pure mapping; unit-tested
@@ -188,4 +195,65 @@ abstract final class RhttpClientFactory {
       throw ArgumentError('direct route must not carry an address');
     }
   }
+}
+
+/// Non-streaming `package:http` adapter over [rhttp.RhttpClient.requestBytes],
+/// returning buffered JSON/API/DoH responses in one FFI call without stream
+/// chunk overhead while preserving [rhttp.RhttpCompatibleClient] exceptions.
+final class _BufferedRhttpClient extends http.BaseClient {
+  _BufferedRhttpClient(this._client);
+
+  final rhttp.RhttpClient _client;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    rhttp.CancelToken? cancelToken;
+    if (request case http.Abortable(abortTrigger: final trigger?)) {
+      cancelToken = rhttp.CancelToken();
+      unawaited(trigger.then((_) => cancelToken?.cancel()));
+    }
+    try {
+      final response = await _client.requestBytes(
+        method: rhttp.HttpMethod(request.method.toUpperCase()),
+        url: request.url.toString(),
+        headers: rhttp.HttpHeaders.rawMap(request.headers),
+        body: rhttp.HttpBody.bytes(await request.finalize().toBytes()),
+        cancelToken: cancelToken,
+      );
+      final headers = response.headerMapList.map(
+        (key, value) => MapEntry(key, value.join(', ')),
+      );
+      return http.StreamedResponse(
+        Stream<List<int>>.value(response.body),
+        response.statusCode,
+        contentLength: switch (headers['content-length']) {
+          final String s => int.tryParse(s) ?? response.body.length,
+          null => response.body.length,
+        },
+        request: request,
+        headers: headers,
+        isRedirect: false,
+        persistentConnection: true,
+      );
+    } on rhttp.RhttpException catch (e, st) {
+      if (e is rhttp.RhttpCancelException) {
+        Error.throwWithStackTrace(
+          http.RequestAbortedException(request.url),
+          st,
+        );
+      }
+      Error.throwWithStackTrace(
+        rhttp.RhttpWrappedClientException(e.toString(), request.url, e),
+        st,
+      );
+    } catch (e, st) {
+      Error.throwWithStackTrace(
+        http.ClientException(e.toString(), request.url),
+        st,
+      );
+    }
+  }
+
+  @override
+  void close() => _client.dispose(cancelRunningRequests: true);
 }

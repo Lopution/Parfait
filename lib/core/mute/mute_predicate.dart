@@ -20,8 +20,8 @@ class MuteHit {
 
 /// Pure effective-mute predicate. Work wins over user wins over tag so the
 /// most specific reason surfaces first. No side effects — callers pass the
-/// resolved [MuteState].
-MuteHit? muteHitFor(IllustEntity entity, MuteState state) {
+/// resolved [EffectiveMutes].
+MuteHit? muteHitFor(IllustEntity entity, EffectiveMutes state) {
   if (state.isWorkMuted(entity.id)) {
     return MuteHit(kind: MuteKind.work, label: entity.title);
   }
@@ -35,16 +35,17 @@ MuteHit? muteHitFor(IllustEntity entity, MuteState state) {
 
 /// [muteHitFor] for a novel: its author or a tag. Work mutes hold illust
 /// ids, so they never match a novel.
-MuteHit? novelMuteHitFor(NovelEntity novel, MuteState state) => _authorOrTagHit(
-  (novel.user.id, novel.user.name),
-  novel.tags.map((tag) => tag.name),
-  state,
-);
+MuteHit? novelMuteHitFor(NovelEntity novel, EffectiveMutes state) =>
+    _authorOrTagHit(
+      (novel.user.id, novel.user.name),
+      novel.tags.map((tag) => tag.name),
+      state,
+    );
 
 MuteHit? _authorOrTagHit(
   (int, String) author,
   Iterable<String> tags,
-  MuteState state,
+  EffectiveMutes state,
 ) {
   final (authorId, authorName) = author;
   final mutedUser = state.users[authorId];

@@ -924,4 +924,57 @@ void main() {
       'POST',
     ], reason: 'the POST succeeds on the tier that can actually handle it');
   });
+
+  test(
+    'bindInitialNetworkIdentity rebinds revision 0 in place without closing pools',
+    () async {
+      final created = <FakeClient>[];
+      final policy = NetworkAccessPolicy(
+        resolver: FakeEchResolver(
+          [InternetAddress('1.2.3.50')],
+          frontAddresses: [InternetAddress('1.2.3.51')],
+        ),
+        clientFactory: (route, canonicalHost, _) {
+          final c = FakeClient();
+          created.add(c);
+          return c;
+        },
+      );
+      addTearDown(policy.dispose);
+      final client = _appApi(policy);
+
+      await client.get(apiUri);
+      final pooledBefore = policy.clientFor(
+        PixivDestinationPurpose.appApi,
+        NetworkRoute.direct(policy.revision),
+        'app-api.pixiv.net',
+      );
+      final bound = policy.bindInitialNetworkIdentity('wifi');
+      expect(bound.value, 0);
+      expect(bound.networkIdentity, 'wifi');
+      expect(
+        created.where((c) => c.closed),
+        isEmpty,
+        reason: 'initial rebind preserves warm client pools',
+      );
+      expect(
+        policy.clientFor(
+          PixivDestinationPurpose.appApi,
+          NetworkRoute.direct(bound),
+          'app-api.pixiv.net',
+        ),
+        same(pooledBefore),
+      );
+      expect(
+        policy.rememberedRouteKind('app-api.pixiv.net'),
+        NetworkRouteKind.ech,
+      );
+
+      final handover = policy.bindInitialNetworkIdentity('cellular');
+      expect(handover.value, 1);
+      expect(handover.networkIdentity, 'cellular');
+      expect(created.where((c) => c.closed), isNotEmpty);
+      expect(policy.rememberedRouteKind('app-api.pixiv.net'), isNull);
+    },
+  );
 }
