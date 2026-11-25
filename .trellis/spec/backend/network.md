@@ -109,10 +109,10 @@ reviewed: 2026-11-21
 - **Code:** `lib/core/network/pixiv_http_client.dart`
 
 ### NET-17 A blocked local address fails before connecting
-- **Rule:** On Android 17, user-configured hosts resolving to local networks request `ACCESS_LOCAL_NETWORK` via the system dialog once per host set; while pending or denied, policy, DoH, LLM, and login WebView fail immediately with `LocalNetworkBlocked` (`ErrorCategory.localNetwork`) without connecting. Built-in hosts are never checked. Known gap: requests are not held back while the first check after settings load or change runs (at most 3 s).
-- **Why:** User decision: fail immediately with the system permission dialog rather than hanging until TCP timeout.
-- **Check:** `test/local_network_test.dart` "configured local hosts ask once; denied, none connects", `test/doh_resolver_test.dart` "a blocked local endpoint is skipped without a request"
-- **Code:** `lib/core/platform/local_network.dart`, `lib/core/network/local_network_address.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/LocalNetworkChannel.kt`
+- **Rule:** On Android 17, user-configured hosts resolving to local networks request `ACCESS_LOCAL_NETWORK` via the system dialog once per host set; while pending or denied, policy, DoH, ECH, LLM, and login WebView fail immediately with `LocalNetworkBlocked` (`ErrorCategory.localNetwork`) without connecting. DoH and ECH endpoints also require HTTPS without userinfo or loopback/localhost hosts and enforce `blockedHosts` on both DoH and ECH queries before sending. Built-in hosts are never checked. Known gap: requests are not held back while the first check after settings load or change runs (at most 3 s).
+- **Why:** User decision: fail immediately with the system permission dialog rather than hanging until TCP timeout; unvalidated DoH/ECH overrides could downgrade DNS to HTTP or probe loopback/blocked local hosts.
+- **Check:** `test/local_network_test.dart` "configured local hosts ask once; denied, none connects", `test/doh_resolver_test.dart` "a blocked local endpoint is skipped without a request" "rejects http, userinfo, and loopback endpoints and blocks ECH hosts"
+- **Code:** `lib/core/platform/local_network.dart`, `lib/core/network/local_network_address.dart`, `lib/core/network/compat/secure_resolver.dart`, `lib/core/settings/network_endpoint_validation.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/LocalNetworkChannel.kt`
 
 ### NET-18 A cancelled body's late error is dropped
 - **Rule:** The image idle guard drops late cancel errors from rhttp streams and resolves `cancel()` immediately without waiting on Rust; any other rhttp body cancel wraps `cancel()` in `try` or `.ignore()`, never `unawaited`.
