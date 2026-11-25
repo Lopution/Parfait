@@ -6,67 +6,67 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-25
+
+### 新增
+
+- **搜索与画师页筛选：** 免费账号现支持设置收藏数下限筛选；搜索输入新增排除标签（`-标签`）、插入 `OR` 与搜索历史置顶；画师主页支持按标签筛选作品。
+- **快速收藏自动带标签：** 设置中可开启快速收藏自动附带最多 10 个作品标签；收藏面板支持从作品标签一键点选，并支持筛选未分类收藏。
+- **小说离线保存与 TXT 导出：** 单篇 Pixiv 小说与整套小说系列均支持一键保存到离线书架，也可合并为单个 TXT 或按话分文件导出（Android 需先指定保存文件夹）。
+- **下载子文件夹、补零与动图批量导出：** 下载支持按作者、作者与系列或多图作品自动归类子文件夹，支持页码与系列序号补零对齐；画师批量下载现支持包含动图（自动导出为 GIF），动图导出改为全局后台队列，离开详情页也不会中断。
+- **下载任务筛选与快捷操作：** 下载任务页支持按「全部 / 进行中 / 失败 / 已完成」筛选与一键重试全部失败任务；已完成的下载可直接打开文件或定位所在目录。
+- **浏览历史搜索与筛选：** 浏览历史页支持按标题、画师、标签或作品 ID 搜索，并支持按「全部 / 插画 / 小说」筛选。
+- **翻译改用 Index Translate：** 移除已下线的豆包翻译，接入公开的 Bilibili Index Translate，支持 2B、9B、35B-A3B 模型切换与思考模式开关。
+- **更稳妥的登录与令牌迁移：** 内置登录页加载超时时，可直接改用系统浏览器完成登录，或粘贴登录链接 / `refresh_token`；账号管理支持单独复制 `refresh_token`（附带防历史隐私标记与 5 分钟自动清理）。
+- **离线队列管理与网络探测快捷操作：** 可查看、手动重试或清空断网时暂存的离线操作；分层连通性探测页新增一键切换「兼容优先」和开启 DoH。
+- **大屏、平板与折叠屏深度适配：** 手机横屏保留居中底部导航栏，个人主页头部收成一行；平板、折叠屏与宽屏换上可折叠侧边栏（「收藏」「下载」快捷入口、展开状态记忆与「界面形态」设置）、统一顶栏与原位下拉搜索面板；支持折叠屏折痕避让与双页小说阅读；两栏详情支持多图划到末尾自然切到下一篇作品、快速滑动先显示网格占位图、单双栏切换保留当前图片；支持键盘方向键与桌面右键菜单。
+
 ### 变更
 
-- **主题色：** 主题色改为更柔和的樱花粉；浅色模式的页面和卡片带一点淡粉，深色模式的文字和图标强调色更浅，应用图标同步更新。
-- **横屏手机的导航栏：** 手机横过来时保留底部导航栏，不再换成占去一截屏幕高度的侧边导航栏；导航项改为图标与文字并排，整组居中。
-- **平板和电脑的侧边栏：** 平板、展开的折叠屏和电脑的侧边栏换了新样式：选中项是一块淡色底，侧边栏投下浅阴影代替分隔线，导航项下面多了「收藏」和「下载」两个快捷入口。从侧边栏打开个人主页或下载页时，侧边栏不再被盖住。
-- **电脑上展开侧边栏：** 电脑上点侧边栏顶部的菜单按钮可以把侧边栏展开成带文字的面板，再点一次收起；窗口很宽时默认展开，之后记住你的选择。「设置 → 导航与布局」新增「界面形态」，可以在电脑上改用平板式的界面。
-- **平板上的提示：** 提示条在侧边栏旁边的内容区域居中，不再按整个窗口居中。
-- **横屏的个人主页：** 窗口较矮时，个人主页的头部收成一行，头像缩小，名字、分享和关注按钮并排，较宽的窗口里关注和好P友的数量也在这一行；第一屏就能看到标签页和作品。
-- **平板和电脑的顶栏：** 推荐、排行、新作和搜索页的标签靠左，页面自己的操作靠右，最右端是搜索框；内容区较窄时搜索框收成搜索图标。搜索结果页的类型标签移到标题一行，筛选按钮和关键词框在右侧，筛选摘要仍在下方。
-- **平板和电脑的搜索面板：** 点顶栏的搜索框（或搜索图标），输入面板就在它下方展开，历史、联想、类型和筛选都在面板里；回车直接看结果。从结果页改关键词会替换当前结果。在输入框里按 Esc 先取消焦点，再按一次收起面板；点面板外或返回键也收起。窗口变窄成手机布局时自动换成整页输入，已输入的内容和筛选都不丢。
-- **电脑上的右键菜单：** 在电脑上右键作品卡片、标签、收藏心形、下载任务、图片、搜索历史上的关键词、推荐标签和排行标签时，菜单在指针旁弹出，条目与长按面板相同；选「翻译」或「编辑收藏」时仍打开原来的面板。触控设备上右键与长按执行同一个动作：有面板的弹出原来的面板，没有的直接执行（例如填进搜索框）。
-- **平板和横屏手机上的作品详情：** 从带作品分页的列表或作品流打开的两栏详情，多图作品翻到最后一张后继续横滑，会切到下一个作品；在第一张反向滑动则切到上一个作品。翻图途中横滑仍然只翻图。
-- **键盘操作作品卡片：** 作品卡片可以用 Tab 和方向键走到，选中时有可见的焦点框；回车打开作品，菜单键或 Shift+F10 打开与长按相同的操作。
-- **窗口开合时保留图片：** 详情在单栏和两栏布局之间切换（折叠屏开合、平板转向、拖动窗口）时，保留当前看到的那张图，两个方向都一样。
-- **两栏详情的占位：** 快速滑到还没加载好的作品时，图片区先显示网格里已加载的图，不再是一片空白底色。
+- **主题色与界面视觉统一：** 默认主题色改为柔和樱花粉并更新应用图标，支持跟随系统壁纸动态取色；统一全应用基础控件、线性图标、弹窗与底部面板样式。
+- **安全与隐私加固：** 网络校验不再信任被攻破的 eMudhra 中间证书，Android 14 及以上改用系统可更新根证书库；退出或切换账号时彻底清理 WebView 登录态与缓存；导入备份不再覆盖本机下载路径或自定义网络地址；外链、自定义 DoH 与内置网页统一加强地址校验。
+- **流畅度与存储性能提升：** 优化批量下载进度写入、浏览历史检索与批量删除、长篇小说排版与切章、动图播放与 GIF 导出，以及备份导入和屏蔽切换时的主线程响应速度。
 
 ### 修复
 
-- 横屏窗口里的特辑文章，封面按原比例限高并居中，打开文章就能看到正文开头；加载中的占位也守住同一高度。
-- 宽屏的个人主页，名字、分享和关注按钮收在一个内容宽度里，不再分处窗口两端。
-- 设置、下载、评论、收藏标签和登录这些限宽页面，宽窗口里顶栏的返回键和操作按钮与内容列对齐。
-- 平板竖屏的作品详情，简介和评论限宽居中，不再一行排满大半个窗口。
-- 宽屏多列的小说和系列列表，每一格的作者、标签和统计用满格子宽度，不再挤在左侧一小条里。
-- 大窗口的欢迎页和登录页，标志、说明和按钮作为一组居中排列，按钮不再贴底、标志不再贴顶。
-- 宽屏的小说阅读器，底部进度提示跟随正文列，不再贴在窗口最左边。
-- 平板上在小说阅读器里打开面板时，侧边栏会出现在正文旁边。
-- 平板横屏的作品详情页，图片和信息栏之间多一条分隔线。
-- 手机横屏时，小说阅读器的「阅读设置」面板显示不全，「阅读进度」面板超出屏幕底部。
-- 手机横屏时，还没弹出过键盘就打开评论的表情面板，面板几乎占满屏幕，上方只剩一条。
-- 手机横屏时，带筛选栏的搜索没有结果，提示里的按钮被挤出屏幕。
+- 修复折叠屏外屏、弹出键盘等较矮窗口下打开登录、欢迎和语言选择页崩溃的问题。
+- 修复横屏手机与宽屏设备上的多处排版与溢出：特辑封面限高、宽屏个人主页与限宽页顶栏对齐、平板竖屏简介/评论阅读宽度、多列小说/系列卡片、欢迎登录居中、小说阅读器设置/进度面板、评论表情面板与空搜索提示。
+- 修复同名下载并发或顺序执行时互相覆盖、以及取消/失败下载偶发留下截断文件的问题。
+- 修复系列小说离线保存或导出途中取消、断网时被静默计为「跳过」的问题，现在会明确报错中止。
+- 修复免费账号同时使用精确标签与收藏数下限时混入非精确匹配结果的问题。
+- 修复编辑搜索词丢失已选筛选、收藏与设置草稿丢失、以及刷新列表失败时缺少提示的问题。
+- 修复多账号下稍后再看误删、429 限流冷却跨账号互相影响，以及清理历史后偶发残留旧条目的问题。
+- 修复应用内更新下载途中离开再回到「关于」页面时进度与取消按钮丢失的问题。
+
+### Added
+
+- **Search & artist profile filters:** Free accounts can now filter by minimum bookmark count; search input adds tag exclusion (`-tag`), `OR` insertion, and pinned search history; artist profiles can be filtered by tag.
+- **Auto-attach work tags on bookmark:** Quick-bookmarking can automatically attach up to 10 work tags; the bookmark sheet supports tapping work tags directly and filtering uncategorized bookmarks.
+- **Offline novels & TXT export:** Save single Pixiv novels or entire novel series to the offline library, or export them as a merged TXT or one TXT per episode (requires a custom folder on Android).
+- **Download subfolders, zero-padding & batch ugoira:** Organize downloads into artist, artist & series, or multi-page subfolders with zero-padded page/series numbers; artist batch downloads can include ugoira (exported as GIF), and ugoira exports now run in a global background queue that keeps going after leaving the detail page.
+- **Download filters & quick actions:** Filter downloads by All / In progress / Failed / Completed, retry all failed tasks in one tap, and open finished files or reveal them in their folder.
+- **Searchable browsing history:** Search browsing history by title, artist, tag, or work ID, and filter by All / Illustrations / Novels.
+- **Index Translate:** Replaced discontinued Doubao translation with the public Bilibili Index Translate API, supporting 2B, 9B, and 35B-A3B models plus a thinking toggle.
+- **Resilient sign-in & token transfer:** When the in-app sign-in page stalls, switch to your system browser or paste a sign-in link / `refresh_token`; account management can copy `refresh_token` directly with privacy flags and 5-minute auto-clear.
+- **Offline queue & network probe shortcuts:** View, retry, or clear queued offline actions; the connectivity probe adds one-tap switches for Compatibility-first mode and DoH.
+- **Large-screen, tablet & foldable layouts:** Phones in landscape keep a centered bottom bar with a compact one-row profile header; tablets, foldables, and wide windows get a collapsible sidebar (with Bookmarks and Downloads shortcuts, remembered state, and an Interface setting), unified top bars, and a docked search panel; foldables gain hinge-aware two-pane layouts and two-page novel spreads; two-pane artwork pages hand edge swipes across works, show decoded grid placeholders, preserve the current image across layout changes, and support keyboard navigation and desktop context menus.
 
 ### Changed
 
-- **Theme color:** The theme color is now a softer cherry-blossom pink. In light mode, pages and cards carry a faint pink; in dark mode, accented text and icons are lighter; the app icon matches.
-- **Navigation on a turned phone:** A phone held sideways keeps the bottom navigation bar instead of switching to a side rail that took up part of an already short screen. Each item now shows its icon beside its label, and the items are centered.
-- **Sidebar on tablets and computers:** The sidebar on tablets, unfolded foldables and computers has a new look: the selected item sits on a light tint, the sidebar casts a soft shadow instead of a divider line, and Bookmarks and Downloads shortcuts sit below the destinations. Opening your profile or the downloads from the sidebar no longer covers it.
-- **Expanding the sidebar on a computer:** On a computer, the menu button at the top of the sidebar opens it into a labeled panel, and a second click closes it. It opens by itself in a very wide window and then remembers your choice. A new Interface setting under Settings → Navigation & layout lets a computer use the tablet layout instead.
-- **Messages on tablets:** Messages now center on the content next to the sidebar rather than on the whole window.
-- **Profiles in a short window:** In a short window, the profile header fits into one row: a smaller avatar with the name, share and follow buttons beside it, and the counts too when the window is wide enough. The tabs and works now show on the first screen.
-- **Top bars on tablets and computers:** On Recommended, Ranking, New and Search, the tabs now sit at the left, the page's own actions at the right, and a search field at the far end; a narrow content area shrinks the field to a search icon. On search results, the type tabs share the title row, the filter button and the query field sit at the right, and the filter summary stays below.
-- **Search on tablets and computers:** Tapping the search field (or the search icon) opens the input as a panel under it, with history, suggestions, kinds and filters inside; Enter shows the results. Editing the query from the results replaces them. In the field, Esc first leaves the field and a second press closes the panel; a tap outside the panel or the back button also closes it. As the window narrows to the phone layout, the input becomes a full page with what you typed and your filters kept.
-- **Right-click menus on a computer:** On a computer, right-clicking a work card, tag, bookmark heart, download task, image, search history entry, trending tag or ranking tab opens a menu beside the pointer with the same entries as the long-press panel; Translate and Edit bookmark still open their original panels. On touch screens a right-click does what a long press does: it opens the same panel where there is one, and otherwise runs the action itself (filling the search box, for example).
-- **Artwork pages on tablets and turned phones:** In a two-pane detail opened from a list or feed that pages through works, swiping on past a multi-page work's last image moves on to the next work, and swiping back from the first image moves to the previous one; a swipe in the middle still only turns the image.
-- **Work cards with a keyboard:** Tab and the arrow keys reach a work card, which shows a visible focus ring; Enter opens the work, and the menu key or Shift+F10 opens the same actions as a long press.
-- **Keeping the image when the window changes:** When the detail page switches between the single column and the two-pane layout (a foldable opening or closing, a tablet turning, a dragged window), it keeps the image you were on, in both directions.
-- **Two-pane placeholders:** Swiping quickly to a work that has not loaded yet shows the image already decoded for the grid in the image pane instead of a blank ground.
+- **Theme & UI unification:** Switched the default accent to a softer cherry-blossom pink with a matching app icon, added wallpaper dynamic color, and unified core controls, linear icons, dialogs, and bottom sheets across the app.
+- **Security & privacy hardening:** Dropped trust for compromised eMudhra intermediate certificates and adopted the system updatable root store on Android 14+; cleared WebView sessions on sign-out and account switch; prevented backup imports from overwriting local download paths or network endpoints; tightened URL validation across external links, custom DoH, and embedded WebViews.
+- **Performance & storage efficiency:** Reduced main-thread stalls across batch download progress persistence, history queries and bulk deletes, long-novel pagination, ugoira playback and GIF export, backup imports, and mute toggles.
 
 ### Fixed
 
-- In a landscape window, a spotlight article's cover keeps its ratio at a capped height and is centred, so the article opens on its first lines; the loading placeholder keeps the same height.
-- On a wide profile, the name, share and follow controls stay within one content width instead of sitting at the window's two edges.
-- On wide windows, the top bars of the width-capped pages (settings, downloads, comments, bookmark tags, sign-in) line their back button and actions up with the content column.
-- On a tablet held upright, artwork captions and comments keep a centred reading width instead of running much of the window's width.
-- In several-column novel and series lists, each card's author, tags and counts use the whole cell instead of a narrow strip at its left.
-- In a large window, the welcome and sign-in pages centre the mark, text and button as one group instead of pinning them to the top and bottom edges.
-- In a wide window, the novel reader's bottom progress hint follows the text column instead of sitting at the window's left edge.
-- On a tablet, opening a panel in the novel reader showed the sidebar next to the text.
-- On a tablet held sideways, a divider line ran between the image and the information column on artwork pages.
-- On a phone held sideways, the novel reader's Reading settings panel was cut off, and the Reading progress panel ran past the bottom of the screen.
-- On a phone held sideways, opening the emoji panel in comments before the keyboard had appeared filled almost the whole screen, leaving a sliver above it.
-- On a phone held sideways, when a search with a filter bar had no results, the buttons in its message were pushed off the screen.
+- Fixed crashes on the sign-in, welcome, and language pages in short windows (folded cover screens or open keyboards).
+- Fixed landscape and wide-screen layout glitches across spotlight covers, wide profile and width-capped top bars, upright tablet captions/comments, multi-column novel/series cards, welcome/login centering, novel reader panels, comment emoji panels, and empty search results.
+- Fixed same-name downloads overwriting each other or leaving truncated files behind under final names after cancellation or failure.
+- Fixed series novel saves and exports silently treating cancellations or network errors as skipped episodes instead of failing clearly.
+- Fixed free-account exact-tag searches with a minimum bookmark count returning partial-match works.
+- Fixed editing a search query dropping active filters, lost bookmark/settings drafts, and silent feed refresh failures.
+- Fixed cross-account watch-later deletions, shared 429 rate-limit cooldowns across accounts, and stale entries remaining after clearing history.
+- Fixed in-app update progress and cancel controls disappearing when leaving and reopening About mid-download.
 
 ## [1.1.1] - 2026-11-06
 
