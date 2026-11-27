@@ -315,6 +315,13 @@ def _run_android_flows(
     with ManagedWorkbenchServer(allow_emulator_host=True) as srv:
         wb = srv.client()
         serial = ensure_emulator_running(avd_name)
+        # Ensure screen is awake and keyguard is dismissed even when reusing a
+        # pre-booted CI emulator; Android 10+ denies ClipboardManager reads while
+        # keyguard holds window focus.
+        _adb(["shell", "svc", "power", "stayon", "true"], serial=serial, check=False)
+        _adb(["shell", "input", "keyevent", "224"], serial=serial, check=False)
+        _adb(["shell", "wm", "dismiss-keyguard"], serial=serial, check=False)
+        _adb(["shell", "cmd", "statusbar", "collapse"], serial=serial, check=False)
         _adb(["reverse", f"tcp:{srv.bound_port}", f"tcp:{srv.bound_port}"], serial=serial, check=False)
         build_and_install_dev_apk(
             serial,

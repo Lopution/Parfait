@@ -122,6 +122,12 @@ def build_and_install_dev_apk(
         if extra_paths:
             env["PATH"] = f"{':'.join(extra_paths)}:{env.get('PATH', '')}"
         origin = f"http://10.0.2.2:{workbench_port}"
+        abi = _adb(["shell", "getprop", "ro.product.cpu.abi"], serial=serial, check=False).stdout.strip()
+        target_platform = {
+            "x86_64": "android-x64",
+            "arm64-v8a": "android-arm64",
+            "armeabi-v7a": "android-arm",
+        }.get(abi)
         flutter_cmd = [
             flutter,
             "build",
@@ -131,6 +137,7 @@ def build_and_install_dev_apk(
             "github",
             "-t",
             "lib/main_dev.dart",
+            *(["--target-platform", target_platform] if target_platform else []),
             "--dart-define=PARFAIT_DEV_APP_ID=true",
             "--dart-define=PARFAIT_DEV_SHELL=false",
             "--dart-define=PARFAIT_DEV_FRESH_ONBOARDING=true",
