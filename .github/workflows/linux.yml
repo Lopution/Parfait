@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'linux/**'
+      - 'lib/app/clipboard.dart'
       - 'lib/app/window/**'
       - 'lib/app/dev_workbench/**'
       - 'lib/core/platform/**'
