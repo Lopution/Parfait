@@ -36,7 +36,11 @@ class ConnectivityNetworkIdentitySource implements NetworkIdentitySource {
   const ConnectivityNetworkIdentitySource();
 
   /// A failed first look is logged and skipped: an error inside this
-  /// generator would end the stream before it follows any change.
+  /// generator would end the stream before it follows any change. When Linux
+  /// has no `org.freedesktop.NetworkManager` DBus service, subscribing to
+  /// `onConnectivityChanged` would leak an unhandled async exception from
+  /// `connectivity_plus_linux`'s `StreamController.onListen`, so stop after
+  /// logging instead of subscribing.
   @override
   Stream<String> identities() async* {
     final connectivity = Connectivity();
@@ -44,6 +48,11 @@ class ConnectivityNetworkIdentitySource implements NetworkIdentitySource {
       yield _identityOf(await connectivity.checkConnectivity());
     } on Object catch (error) {
       log('network identity: $error');
+      final text = error.toString();
+      if (text.contains('org.freedesktop.DBus.Error.ServiceUnknown') ||
+          text.contains('org.freedesktop.NetworkManager')) {
+        return;
+      }
     }
     yield* connectivity.onConnectivityChanged.map(_identityOf);
   }

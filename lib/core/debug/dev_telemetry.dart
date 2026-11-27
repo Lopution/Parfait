@@ -37,8 +37,20 @@ class DevTelemetry {
 
   final ListQueue<DevLogEntry> _entries = ListQueue<DevLogEntry>(maxEntries);
   int _nextSeq = 1;
+  int _errorCount = 0;
 
   int get latestSeq => _nextSeq - 1;
+
+  int get errorCount => _errorCount;
+
+  List<DevLogEntry> recentErrors({int limit = 20}) {
+    final errors = <DevLogEntry>[];
+    for (final entry in _entries) {
+      if (entry.level == 'error') errors.add(entry);
+    }
+    if (errors.length <= limit) return errors;
+    return errors.sublist(errors.length - limit);
+  }
 
   void record(
     String message, {
@@ -47,6 +59,7 @@ class DevTelemetry {
     DateTime? timestamp,
   }) {
     final sanitized = redactDevText(message);
+    if (level == 'error') _errorCount += 1;
     final entry = DevLogEntry(
       seq: _nextSeq++,
       timestampIso: (timestamp ?? DateTime.now().toUtc()).toIso8601String(),
@@ -73,5 +86,6 @@ class DevTelemetry {
 
   void clear() {
     _entries.clear();
+    _errorCount = 0;
   }
 }

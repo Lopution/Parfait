@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "in_app_journeys": [
+    {
+      "id": "journey.1.home_feeds_and_update",
+      "title": "Recommended feed tabs, branch state preservation, and update prompt",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 1: recommended feed tabs, branch state preservation, and update prompt"
+    },
+    {
+      "id": "journey.2.detail_bookmark_follow_sync",
+      "title": "Work detail optimistic bookmark and author follow sync back to feed",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 2: work detail optimistic bookmark and author follow sync back to feed"
+    },
+    {
+      "id": "journey.3.viewer_and_download_submission",
+      "title": "Multi-page viewer open/close and real download submission flow",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 3: multi-page viewer open/close and real download submission flow"
+    },
+    {
+      "id": "journey.4.search_and_novel_filters",
+      "title": "Novel search forwards is_original_only and text_length filters end-to-end",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 4: novel search forwards is_original_only and text_length filters end-to-end"
+    },
+    {
+      "id": "journey.5.author_profile_and_follow",
+      "title": "Author profile loads works, switches to novels/bookmarks, and toggles follow",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 5: author profile loads works, switches to novels/bookmarks, and toggles follow"
+    },
+    {
+      "id": "journey.6.online_and_offline_novel_reader",
+      "title": "Online novel reader and offline local novel reader render parsed text",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 6: online novel reader and offline local novel reader render parsed text"
+    },
+    {
+      "id": "journey.7.me_history_and_watch_later",
+      "title": "Me dashboard, history list, and watch-later list render seeded items",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 7: Me dashboard, history list, and watch-later list render seeded items"
+    },
+    {
+      "id": "journey.8a.desktop_download_caption_settings",
+      "title": "Desktop download settings enable and persist caption export",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 8a: desktop download settings enable and persist caption export"
+    },
+    {
+      "id": "journey.8b.ios_photo_library_caption_guard",
+      "title": "iOS download settings disable caption export on photo library",
+      "file": "test/e2e/in_app_e2e_test.dart",
+      "test_name": "Journey 8b: iOS download settings disable caption export on photo library"
+    },
+    {
+      "id": "journey.9.desktop_workspace_tabs",
+      "title": "Desktop workspace tabs, middle-click background open, and layered Cmd/Ctrl+W",
+      "file": "test/e2e/desktop_workspace_e2e_test.dart",
+      "test_name": "DesktopWorkspaceTabStrip auto-hides at 1 tab, preserves scroll, cycles, inherits GoRouter, and closes on middle-click"
+    }
+  ],
+  "seam_invariants": [
+    {
+      "id": "seam.desktop_tab_shell_ancestry_and_close",
+      "description": "Desktop secondary tabs inherit GoRouter, mount Material/HeroControllerScope cleanly, and scope layered Cmd/Ctrl+W close.",
+      "file": "test/e2e/desktop_workspace_e2e_test.dart",
+      "test_name": "Layered Cmd+W and Ctrl+W dismiss overlays, inspector, secondary tab, then macOS window only"
+    },
+    {
+      "id": "seam.novel_txt_cold_restart_url_dispatch",
+      "description": "NovelTxtDownloadExecutor dispatches cold-restart retries strictly by URL shape without calling fetchNovelDetail on series/local URLs.",
+      "file": "test/local_novel_test.dart",
+      "test_name": "NovelTxtDownloadExecutor cold-restart never fetches series or local URLs via fetchNovelDetail"
+    },
+    {
+      "id": "seam.search_producer_allowlist_pairing",
+      "description": "Every IllustSearchFilters and NovelSearchFilters query key produced by search UI is admitted by NextPageParser.firstPage.",
+      "file": "test/next_page_parser_test.dart",
+      "test_name": "every IllustSearchFilters and NovelSearchFilters query key is admitted by firstPage"
+    },
+    {
+      "id": "seam.caption_five_platform_capability",
+      "description": "Caption sidecar capability enforces Android SAF-only and iOS PHPhotoLibrary skip across coordinator, sink, and settings UI.",
+      "file": "test/caption_exporter_test.dart",
+      "test_name": "iOS Photo Library skips caption sidecar instead of cancelling the download batch"
+    }
+  ],
+  "os_boundary_categories": [
+    {
+      "category": "os_intent_and_share",
+      "flow_ids": ["os.android.intent_and_share"],
+      "assertion_ids": [
+        "os.android.intent_deep_link_route",
+        "os.android.intent_deep_link_zero_errors",
+        "os.android.intent_process_alive"
+      ]
+    },
+    {
+      "category": "os_real_storage_and_downloads",
+      "flow_ids": ["os.storage.dev_isolated_persistence"],
+      "assertion_ids": [
+        "os.storage.isolated_dev_root",
+        "os.storage.preferences_persisted_on_disk",
+        "os.storage.download_settings_zero_errors"
+      ]
+    },
+    {
+      "category": "os_desktop_window_lifecycle",
+      "flow_ids": ["os.desktop.window_resize_and_chrome"],
+      "assertion_ids": [
+        "os.desktop.window_resize_viewport_live",
+        "os.desktop.window_zero_errors",
+        "os.desktop.window_process_alive"
+      ]
+    },
+    {
+      "category": "os_clipboard_and_drop",
+      "flow_ids": ["os.clipboard.roundtrip_and_reverse_image_route"],
+      "assertion_ids": [
+        "os.clipboard.copy_read_roundtrip",
+        "os.clipboard.reverse_image_route_open",
+        "os.clipboard.zero_errors"
+      ]
+    },
+    {
+      "category": "os_cold_restart_persistence",
+      "flow_ids": ["os.cold_restart.session_persistence"],
+      "assertion_ids": [
+        "os.cold_restart.account_survives_restart",
+        "os.cold_restart.preferences_file_survives",
+        "os.cold_restart.zero_errors"
+      ]
+    },
+    {
+      "category": "os_external_links_and_oauth_callback",
+      "flow_ids": ["os.oauth.callback_and_external_link_boundary"],
+      "assertion_ids": [
+        "os.oauth.callback_recovers_to_home",
+        "os.oauth.callback_zero_errors",
+        "os.oauth.callback_process_alive"
+      ]
+    }
+  ]
+}
