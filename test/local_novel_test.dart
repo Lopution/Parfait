@@ -9,8 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/novel_txt_formatter.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
@@ -616,6 +618,153 @@ void main() {
               .exportNovelTxt(novel),
           NovelTxtExportOutcome.androidFolderRequired,
         );
+      },
+    );
+
+    test(
+      'NovelTxtDownloadExecutor cold-restart never fetches series or local URLs via fetchNovelDetail',
+      () async {
+        // Reliability P0 d72f135c: empty in-memory payload cache after cold
+        // restart must dispatch by URL shape, never feeding seriesId/localId
+        // into fetchNovelDetail.
+        final fetchedSingleIds = <int>[];
+        final executor = NovelTxtDownloadExecutor(
+          payloads: NovelTxtPayloadStore(),
+          fetchNovelDetail: (id) async {
+            fetchedSingleIds.add(id);
+            return NovelEntity(
+              id: id,
+              title: 'Wrong Novel $id',
+              caption: '',
+              user: const UserEntity(id: 1, name: 'u', account: 'u'),
+              tags: const [],
+              textLength: 5,
+              contentVersion: 'v1',
+              contentAvailable: true,
+              paragraphs: NovelContentMapper.parse(
+                'WRONG_CONTENT',
+                images: false,
+              ).paragraphs,
+            );
+          },
+        );
+
+        Future<void> runCold(Uri url, int illustId) async {
+          final sinks = MemorySinkFactory();
+          final req = DownloadRequest(
+            illustId: illustId,
+            pageIndex: 0,
+            url: url,
+            target: DownloadTarget.novelTxt,
+          );
+          final sink = await sinks.begin(
+            req,
+            'out.txt',
+            destination: DownloadDestination.builtin,
+          );
+          await executor.execute(
+            request: req,
+            snapshot: DownloadSubmissionSnapshot(
+              snapshotId: 's',
+              jobId: 'j',
+              groupId: null,
+              request: req,
+              accountId: 'acc',
+              submittedAt: DateTime.utc(2026, 11, 27),
+              destination: DownloadDestination.builtin,
+            ),
+            sink: sink,
+            cancelToken: DownloadCancelToken(),
+            checkOwner: () {},
+            onProgress: ({receivedBytes, totalBytes}) {},
+          );
+        }
+
+        await expectLater(
+          () => runCold(
+            Uri.parse('https://i.pximg.net/novel/series_900.txt'),
+            900,
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        await expectLater(
+          () => runCold(Uri.parse('https://i.pximg.net/novel/local_7.txt'), 7),
+          throwsA(isA<FormatException>()),
+        );
+        expect(fetchedSingleIds, isEmpty);
+
+        // With all three callbacks wired, cold restart rebuilds each URL kind
+        // from its exact source without cross-calling fetchNovelDetail.
+        final wired = NovelTxtDownloadExecutor(
+          payloads: NovelTxtPayloadStore(),
+          fetchNovelDetail: (id) async {
+            fetchedSingleIds.add(id);
+            return NovelEntity(
+              id: id,
+              title: 'Single $id',
+              caption: '',
+              user: const UserEntity(id: 1, name: 'u', account: 'u'),
+              tags: const [],
+              textLength: 6,
+              contentVersion: 'v1',
+              contentAvailable: true,
+              paragraphs: NovelContentMapper.parse(
+                'SINGLE_BODY',
+                images: false,
+              ).paragraphs,
+            );
+          },
+          fetchSeriesTxt: (seriesId) async => 'SERIES_$seriesId',
+          readLocalNovelTxt: (localId) async => 'LOCAL_$localId',
+        );
+        Future<String> runWired(Uri url, int illustId) async {
+          final sinks = MemorySinkFactory();
+          final req = DownloadRequest(
+            illustId: illustId,
+            pageIndex: 0,
+            url: url,
+            target: DownloadTarget.novelTxt,
+          );
+          final sink = await sinks.begin(
+            req,
+            'out.txt',
+            destination: DownloadDestination.builtin,
+          );
+          await wired.execute(
+            request: req,
+            snapshot: DownloadSubmissionSnapshot(
+              snapshotId: 's',
+              jobId: 'j',
+              groupId: null,
+              request: req,
+              accountId: 'acc',
+              submittedAt: DateTime.utc(2026, 11, 27),
+              destination: DownloadDestination.builtin,
+            ),
+            sink: sink,
+            cancelToken: DownloadCancelToken(),
+            checkOwner: () {},
+            onProgress: ({receivedBytes, totalBytes}) {},
+          );
+          return utf8.decode(sinks.sinks.single.bytes);
+        }
+
+        expect(
+          await runWired(
+            Uri.parse('https://i.pximg.net/novel/series_900.txt'),
+            900,
+          ),
+          'SERIES_900',
+        );
+        expect(
+          await runWired(Uri.parse('https://i.pximg.net/novel/local_7.txt'), 7),
+          'LOCAL_7',
+        );
+        expect(
+          await runWired(Uri.parse('https://i.pximg.net/novel/42.txt'), 42),
+          contains('SINGLE_BODY'),
+        );
+        expect(fetchedSingleIds, [42]);
       },
     );
   });

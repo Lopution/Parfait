@@ -3,7 +3,7 @@ prefix: DL
 applies_to:
   - lib/core/download/**
   - lib/features/settings/pages/download_*.dart
-reviewed: 2026-11-25
+reviewed: 2026-11-27
 ---
 
 # Downloads and recovery
@@ -71,13 +71,22 @@ reviewed: 2026-11-25
 - **Rule:** On Android a caption sidecar or UTF-8 `.txt` novel export is
   written only to a folder (SAF) destination (`captionFits`): an album is a
   MediaStore image collection, which refuses a text file and keeps non-media
-  files out of `Pictures/`. While an album is the destination the caption
+  files out of `Pictures/`. On iOS `PHPhotoLibrary` accepts only `image/*` or
+  `video/*` outputs (`captionFits(..., isIOS: true)` returns `false`,
+  `IosPhotoLibraryMediaStoreSession` throws `UnsupportedError` on non-media
+  MIME types, and novel `.txt` export stages into temp storage and shares via
+  `SharePlus`). While an album or iOS Photos is the destination the caption
   switch is greyed out and says why, and Android novel `.txt` export prompts
-  for a folder; on iOS novel `.txt` export stages into temp storage and shares
-  via `SharePlus`. `CaptionExporter` covers `illust`, `manga`, and `ugoira`.
-- **Why:** With an album, every text export failed and reported an error.
-- **Check:** `test/caption_exporter_test.dart` "on Android only a folder takes the caption", `test/download_settings_page_test.dart` "on Android an album greys the caption switch out", `test/local_novel_test.dart` "NovelDownloadCoordinator saves offline with chapters and exports TXT per platform"
-- **Code:** `lib/core/download/caption_exporter.dart`, `lib/core/novel/novel_download_coordinator.dart`, `lib/features/settings/pages/download_settings_page.dart`
+  for a folder. `NovelTxtDownloadExecutor` dispatches cold-restart retries
+  strictly by URL shape (`/novel/<id>.txt`, `/novel/series_<id>.txt`,
+  `/novel/local_<id>.txt`), never calling `fetchNovelDetail` on series or
+  local novel URLs. `CaptionExporter` covers `illust`, `manga`, and `ugoira`.
+- **Why:** With an Android album or iOS Photo Library, caption text exports
+  failed and cancelled the whole download batch; falling back to
+  `fetchNovelDetail(request.illustId)` on cold restart overwrote series or
+  local novel exports with unrelated single novels.
+- **Check:** `test/caption_exporter_test.dart` "on Android only a folder takes the caption" "iOS Photo Library skips caption sidecar instead of cancelling the download batch", `test/download_settings_page_test.dart` "on Android an album greys the caption switch out", `test/local_novel_test.dart` "NovelDownloadCoordinator saves offline with chapters and exports TXT per platform" "NovelTxtDownloadExecutor cold-restart never fetches series or local URLs via fetchNovelDetail"
+- **Code:** `lib/core/download/caption_exporter.dart`, `lib/core/download/novel_txt_formatter.dart`, `lib/core/platform/ios_photo_library.dart`, `lib/core/novel/novel_download_coordinator.dart`, `lib/features/settings/pages/download_settings_page.dart`
 
 ### DL-04 Job and group ids are unique across launches
 - **Rule:** Job and group ids carry a random per-launch token next to the

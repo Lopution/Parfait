@@ -8,10 +8,17 @@ import 'download_recovery.dart';
 import 'download_sink.dart';
 
 /// Whether a caption file can go to [destination]. On Android an album is
-/// a MediaStore image collection, which refuses a text file; a folder, and
-/// any destination on the desktop, takes one.
-bool captionFits(DownloadDestination destination, {required bool isAndroid}) =>
-    !isAndroid || destination.kind == DownloadDestinationKind.safFolder;
+/// a MediaStore image collection, which refuses a text file; on iOS
+/// `PHPhotoLibrary` only stores image/video assets and refuses text sidecars.
+/// An Android SAF folder, and any destination on desktop, takes one.
+bool captionFits(
+  DownloadDestination destination, {
+  required bool isAndroid,
+  bool isIOS = false,
+}) {
+  if (isIOS) return false;
+  return !isAndroid || destination.kind == DownloadDestinationKind.safFolder;
+}
 
 /// Writes the work caption next to the downloaded image as `<stem>.txt`:
 /// an info header followed by the caption with `<br>` turned into newlines.
@@ -23,13 +30,16 @@ class CaptionExporter {
     required RawDownloadSinkFactory sinkFactory,
     required SharedPreferencesAsync preferences,
     required bool isAndroid,
+    bool isIOS = false,
   }) : _sinkFactory = sinkFactory,
        _preferences = preferences,
-       _isAndroid = isAndroid;
+       _isAndroid = isAndroid,
+       _isIOS = isIOS;
 
   final RawDownloadSinkFactory _sinkFactory;
   final SharedPreferencesAsync _preferences;
   final bool _isAndroid;
+  final bool _isIOS;
 
   /// Illust, manga, and ugoira works carry downloadable caption sidecars.
   static const _supportedTypes = {
@@ -61,7 +71,13 @@ class CaptionExporter {
   }) async {
     if (!_supportedTypes.contains(illust.type)) return;
     if (!submission.isOwned) return;
-    if (!captionFits(submission.destination, isAndroid: _isAndroid)) return;
+    if (!captionFits(
+      submission.destination,
+      isAndroid: _isAndroid,
+      isIOS: _isIOS,
+    )) {
+      return;
+    }
     final key = _dedupeKey(submission, illust.id);
     if (await _preferences.getBool(key) ?? false) return;
 

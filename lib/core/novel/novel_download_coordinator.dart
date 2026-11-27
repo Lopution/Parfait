@@ -13,7 +13,6 @@ import '../download/download_subfolders.dart';
 import '../download/novel_txt_formatter.dart';
 import '../localnovel/local_novel_repository.dart';
 import '../localnovel/local_novel_store.dart';
-import '../network/api_error.dart';
 import '../network/pixiv_http_client.dart';
 import '../platform/app_storage_paths.dart';
 import '../platform/desktop_file_sink.dart' show sanitizeDesktopFileName;
@@ -387,62 +386,13 @@ class NovelDownloadCoordinator {
       int skipped,
     })
   >
-  _fetchSeriesChapters(int seriesId, {CancelToken? cancelToken}) async {
+  _fetchSeriesChapters(int seriesId, {CancelToken? cancelToken}) {
     final repo = _ref.read(novelRepositoryProvider);
-    String? seriesTitle;
-    NovelSeriesDetail? detail;
-    final entries = <NovelSeriesEntry>[];
-    String? cursor;
-    var pages = 0;
-    const maxPages = 50;
-    do {
-      final page = await repo.fetchSeries(
-        seriesId,
-        cursor: cursor,
-        cancelToken: cancelToken,
-      );
-      if (seriesTitle == null && (page.title?.isNotEmpty ?? false)) {
-        seriesTitle = page.title;
-      }
-      detail ??= page.detail;
-      entries.addAll(page.entries);
-      cursor = page.nextUrl;
-      pages++;
-    } while (cursor != null && pages < maxPages);
-
-    final chapters = <NovelEntity>[];
-    var skipped = 0;
-    for (final entry in entries) {
-      if (cancelToken?.isCancelled ?? false) {
-        throw const ApiCancelled();
-      }
-      if (!entry.viewable) {
-        skipped++;
-        continue;
-      }
-      try {
-        final full = await repo.fetchDetail(entry.id, cancelToken: cancelToken);
-        if (full.isRestricted || !full.contentAvailable) {
-          skipped++;
-        } else {
-          chapters.add(full);
-        }
-      } on ApiHttpError catch (error) {
-        // Only genuinely unavailable chapters (forbidden/deleted) count as
-        // skipped; cancellation, network, auth, rate-limit, and parse failures
-        // propagate so the user never receives a silently truncated export.
-        if (error.statusCode == 403 || error.statusCode == 404) {
-          skipped++;
-        } else {
-          rethrow;
-        }
-      }
-    }
-    return (
-      seriesTitle: seriesTitle,
-      detail: detail,
-      chapters: chapters,
-      skipped: skipped,
+    return fetchPixivNovelSeriesChapters(
+      seriesId: seriesId,
+      fetchSeries: repo.fetchSeries,
+      fetchDetail: repo.fetchDetail,
+      cancelToken: cancelToken,
     );
   }
 }

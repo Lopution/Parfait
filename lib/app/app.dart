@@ -599,6 +599,7 @@ class _AppChromeState extends ConsumerState<AppChrome> {
                         explicitChildNodes: true,
                         child: DesktopWorkspaceTabHost(
                           controller: _workspaceTabs,
+                          router: widget.router,
                           rootChild: Builder(
                             builder: (contentContext) =>
                                 _buildRoutedDesktopContent(

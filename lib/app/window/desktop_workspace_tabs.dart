@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart'
     show PointerScrollEvent, PointerSignalEvent, kMiddleMouseButton;
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/entity/illust_entity.dart';
@@ -352,41 +353,43 @@ class _DesktopWorkspaceTabStripState extends State<DesktopWorkspaceTabStrip> {
     final l10n = context.l10n;
     final controller = widget.controller;
     final secondary = controller.secondaryTabs;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: tokens.divider)),
-      ),
-      child: Listener(
-        onPointerSignal: _onPointerSignal,
-        child: ListView.separated(
-          controller: _scrollController,
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(
-            horizontal: FuncSpacing.sm,
-            vertical: FuncSpacing.xs,
+    return Material(
+      color: colors.surfaceContainerLow,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: tokens.divider)),
+        ),
+        child: Listener(
+          onPointerSignal: _onPointerSignal,
+          child: ListView.separated(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(
+              horizontal: FuncSpacing.sm,
+              vertical: FuncSpacing.xs,
+            ),
+            itemCount: 1 + secondary.length,
+            separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.xs),
+            itemBuilder: (context, index) {
+              final isRoot = index == 0;
+              final tab = isRoot ? null : secondary[index - 1];
+              final active = controller.activeIndex == index;
+              return _WorkspaceTabPill(
+                key: Key(
+                  isRoot
+                      ? 'desktop-workspace-tab-root'
+                      : 'desktop-workspace-tab-${tab!.id}',
+                ),
+                title: isRoot ? l10n.workspaceRootTab : tab!.title,
+                icon: isRoot ? AppIcons.home : tab!.icon,
+                active: active,
+                closable: !isRoot,
+                closeTooltip: l10n.closeTabTooltip,
+                onSelect: () => controller.selectTab(index),
+                onClose: isRoot ? null : () => controller.closeTabAt(index),
+              );
+            },
           ),
-          itemCount: 1 + secondary.length,
-          separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.xs),
-          itemBuilder: (context, index) {
-            final isRoot = index == 0;
-            final tab = isRoot ? null : secondary[index - 1];
-            final active = controller.activeIndex == index;
-            return _WorkspaceTabPill(
-              key: Key(
-                isRoot
-                    ? 'desktop-workspace-tab-root'
-                    : 'desktop-workspace-tab-${tab!.id}',
-              ),
-              title: isRoot ? l10n.workspaceRootTab : tab!.title,
-              icon: isRoot ? AppIcons.home : tab!.icon,
-              active: active,
-              closable: !isRoot,
-              closeTooltip: l10n.closeTabTooltip,
-              onSelect: () => controller.selectTab(index),
-              onClose: isRoot ? null : () => controller.closeTabAt(index),
-            );
-          },
         ),
       ),
     );
@@ -518,13 +521,16 @@ class DesktopWorkspaceTabHost extends StatelessWidget {
     super.key,
     required this.controller,
     required this.rootChild,
+    this.router,
   });
 
   final DesktopWorkspaceTabsController controller;
   final Widget rootChild;
+  final GoRouter? router;
 
   @override
   Widget build(BuildContext context) {
+    final boundRouter = router;
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -538,10 +544,13 @@ class DesktopWorkspaceTabHost extends StatelessWidget {
               _FrozenTabSlot(
                 key: ValueKey('ws-slot-${secondary[i].id}'),
                 active: activeIndex == i + 1,
-                child: Navigator(
-                  key: secondary[i].navigatorKey,
-                  onGenerateRoute: (_) =>
-                      MaterialPageRoute<void>(builder: secondary[i].builder),
+                child: _wrapRouter(
+                  boundRouter,
+                  Navigator(
+                    key: secondary[i].navigatorKey,
+                    onGenerateRoute: (_) =>
+                        MaterialPageRoute<void>(builder: secondary[i].builder),
+                  ),
                 ),
               ),
           ],
@@ -549,6 +558,10 @@ class DesktopWorkspaceTabHost extends StatelessWidget {
       },
     );
   }
+
+  Widget _wrapRouter(GoRouter? boundRouter, Widget child) => boundRouter == null
+      ? child
+      : InheritedGoRouter(goRouter: boundRouter, child: child);
 }
 
 class _FrozenTabSlot extends StatelessWidget {
