@@ -305,6 +305,37 @@ def _run_linux_flows(
     return results
 
 
+def _ensure_android_app_focus(serial: str) -> str:
+    """Dismiss keyguard/system dialogs (e.g., ANR from heavy build) and focus MainActivity."""
+    _adb(["shell", "svc", "power", "stayon", "true"], serial=serial, check=False)
+    _adb(["shell", "input", "keyevent", "224"], serial=serial, check=False)
+    _adb(["shell", "wm", "dismiss-keyguard"], serial=serial, check=False)
+    _adb(["shell", "cmd", "statusbar", "collapse"], serial=serial, check=False)
+    _adb(
+        ["shell", "am", "broadcast", "-a", "android.intent.action.CLOSE_SYSTEM_DIALOGS"],
+        serial=serial,
+        check=False,
+    )
+    focus_line = ""
+    for _ in range(4):
+        out = _adb(["shell", "dumpsys", "window"], serial=serial, check=False).stdout
+        matches = [ln.strip() for ln in out.splitlines() if "mCurrentFocus=" in ln]
+        focus_line = matches[-1] if matches else ""
+        if ANDROID_PKG in focus_line:
+            return focus_line
+        if "Application Not Responding" in focus_line or "Not Responding" in focus_line:
+            # Dismiss ANR dialog ("Wait" / "Close app") and re-focus activity.
+            _adb(["shell", "input", "keyevent", "4"], serial=serial, check=False)
+            time.sleep(0.3)
+        elif "NotificationShade" in focus_line or "Keyguard" in focus_line:
+            _adb(["shell", "wm", "dismiss-keyguard"], serial=serial, check=False)
+            _adb(["shell", "input", "keyevent", "82"], serial=serial, check=False)
+            time.sleep(0.3)
+        _adb(["shell", "am", "start", "-n", ANDROID_ACTIVITY], serial=serial, check=False)
+        time.sleep(0.5)
+    return focus_line
+
+
 def _run_android_flows(
     flows: list[dict[str, Any]],
     *,
@@ -315,13 +346,6 @@ def _run_android_flows(
     with ManagedWorkbenchServer(allow_emulator_host=True) as srv:
         wb = srv.client()
         serial = ensure_emulator_running(avd_name)
-        # Ensure screen is awake and keyguard is dismissed even when reusing a
-        # pre-booted CI emulator; Android 10+ denies ClipboardManager reads while
-        # keyguard holds window focus.
-        _adb(["shell", "svc", "power", "stayon", "true"], serial=serial, check=False)
-        _adb(["shell", "input", "keyevent", "224"], serial=serial, check=False)
-        _adb(["shell", "wm", "dismiss-keyguard"], serial=serial, check=False)
-        _adb(["shell", "cmd", "statusbar", "collapse"], serial=serial, check=False)
         _adb(["reverse", f"tcp:{srv.bound_port}", f"tcp:{srv.bound_port}"], serial=serial, check=False)
         build_and_install_dev_apk(
             serial,
@@ -330,6 +354,8 @@ def _run_android_flows(
             rebuild=rebuild_apk,
         )
         client_id = _launch_app(wb, serial, clear_data=True)
+        focus_info = _ensure_android_app_focus(serial)
+        print(f"Android AVD focus after launch: {focus_info}")
         wb.send_command(client_id, "loopbackSignIn", {}, timeout=15.0)
         time.sleep(0.7)
 
@@ -348,13 +374,14 @@ def _run_android_flows(
                 for step in flow.get("steps", []):
                     stype = step["type"]
                     if stype == "write_clipboard":
+                        _ensure_android_app_focus(serial)
                         wb.send_command(
                             client_id,
                             "writeClipboard",
                             {"text": str(step.get("text") or "")},
                             timeout=10.0,
                         )
-                        time.sleep(0.2)
+                        time.sleep(0.25)
                     elif stype == "adb_intent":
                         cmd = ["shell", "am", "start", "-a", str(step["action"])]
                         if step.get("data"):
