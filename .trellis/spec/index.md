@@ -54,7 +54,7 @@ Decide in this order, for new rules and for existing ones under review:
 ### NAV-03 Back at a branch root returns to Recommended
 - **Rule:** One or two sentences, stated as an observable outcome.
 - **Why:** The bug or decision behind it, in one or two sentences.
-- **Check:** `test/home_page_test.dart` "test name", or `manual`.
+- **Check:** `test/navigation_router_test.dart` "test name", or `manual`.
 - **Code:** `lib/features/home/home_page.dart`
 ```
 
