@@ -136,12 +136,12 @@ jobs:
           profile: pixel_6
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          script: |
-            if [ "$IS_PR" = "true" ]; then
-              python3 tool/dev_workbench/run_os_e2e.py --platform android_avd --smoke --json-out build/os-e2e-android.json
+          script: >-
+            sh -c 'if [ "$IS_PR" = "true" ]; then
+            exec python3 tool/dev_workbench/run_os_e2e.py --platform android_avd --smoke --json-out build/os-e2e-android.json;
             else
-              python3 tool/dev_workbench/run_os_e2e.py --platform android_avd --json-out build/os-e2e-android.json
-            fi
+            exec python3 tool/dev_workbench/run_os_e2e.py --platform android_avd --json-out build/os-e2e-android.json;
+            fi'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
