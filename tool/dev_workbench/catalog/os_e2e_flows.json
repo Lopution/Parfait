@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "os_boundary_categories": [
+    "os_intent_and_share",
+    "os_real_storage_and_downloads",
+    "os_desktop_window_lifecycle",
+    "os_clipboard_and_drop",
+    "os_cold_restart_persistence",
+    "os_external_links_and_oauth_callback"
+  ],
+  "flows": [
+    {
+      "id": "os.android.intent_and_share",
+      "category": "os_intent_and_share",
+      "smoke": true,
+      "route": "/recommended",
+      "description": "Real Android VIEW deep link and ACTION_SEND share intent delivered via adb am start into ExternalIntentBridge.",
+      "platforms": {
+        "android_avd": "required",
+        "linux": "not_applicable:android_intent_channel_is_android_only",
+        "windows": "not_applicable:android_intent_channel_is_android_only",
+        "macos": "not_applicable:android_intent_channel_is_android_only",
+        "iphone": "not_applicable:android_intent_channel_is_android_only",
+        "ipad": "not_applicable:android_intent_channel_is_android_only"
+      },
+      "steps": [
+        {
+          "type": "adb_intent",
+          "action": "android.intent.action.VIEW",
+          "data": "https://www.pixiv.net/users/99"
+        },
+        {"type": "wait_ms", "ms": 700}
+      ],
+      "assertions": [
+        {
+          "id": "os.android.intent_deep_link_route",
+          "type": "route_prefix",
+          "prefix": "/recommended/user/99"
+        },
+        {
+          "id": "os.android.intent_deep_link_zero_errors",
+          "type": "zero_uncaught_errors"
+        },
+        {
+          "id": "os.android.intent_process_alive",
+          "type": "process_alive",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "id": "os.storage.dev_isolated_persistence",
+      "category": "os_real_storage_and_downloads",
+      "smoke": true,
+      "route": "/settings/download",
+      "description": "Real OS dev-isolated storage root persists preferences and download settings without touching production paths.",
+      "platforms": {
+        "linux": "required",
+        "android_avd": "required",
+        "windows": "required",
+        "macos": "required",
+        "iphone": "not_applicable:ios_uses_widget_tester_simulation_without_host_fs",
+        "ipad": "not_applicable:ipad_uses_widget_tester_simulation_without_host_fs"
+      },
+      "steps": [
+        {"type": "navigate", "path": "/settings/download"},
+        {"type": "wait_ms", "ms": 400}
+      ],
+      "assertions": [
+        {
+          "id": "os.storage.isolated_dev_root",
+          "type": "snapshot_field",
+          "field": "isDevIsolated",
+          "equals": true
+        },
+        {
+          "id": "os.storage.preferences_persisted_on_disk",
+          "type": "file_exists",
+          "rel_path": "shared_preferences.json",
+          "min_bytes": 2
+        },
+        {
+          "id": "os.storage.download_settings_zero_errors",
+          "type": "zero_uncaught_errors"
+        }
+      ]
+    },
+    {
+      "id": "os.desktop.window_resize_and_chrome",
+      "category": "os_desktop_window_lifecycle",
+      "smoke": true,
+      "route": "/recommended",
+      "description": "Real desktop GTK/Win32/AppKit window resizes cleanly, reports live viewport geometry, and keeps zero uncaught exceptions.",
+      "platforms": {
+        "linux": "required",
+        "windows": "required",
+        "macos": "required",
+        "android_avd": "not_applicable:mobile_has_no_resizable_desktop_window_frame",
+        "iphone": "not_applicable:mobile_has_no_resizable_desktop_window_frame",
+        "ipad": "not_applicable:tablet_sim_has_no_desktop_window_manager"
+      },
+      "steps": [
+        {"type": "resize_window", "width": 1024, "height": 680},
+        {"type": "wait_ms", "ms": 400},
+        {"type": "resize_window", "width": 1280, "height": 760},
+        {"type": "wait_ms", "ms": 400}
+      ],
+      "assertions": [
+        {
+          "id": "os.desktop.window_resize_viewport_live",
+          "type": "snapshot_field",
+          "field": "viewport.width",
+          "gte": 1000
+        },
+        {
+          "id": "os.desktop.window_zero_errors",
+          "type": "zero_uncaught_errors"
+        },
+        {
+          "id": "os.desktop.window_process_alive",
+          "type": "process_alive",
+          "expected": true
+        }
+      ]
+    },
+    {
+      "id": "os.clipboard.roundtrip_and_reverse_image_route",
+      "category": "os_clipboard_and_drop",
+      "smoke": true,
+      "route": "/reverse-image",
+      "description": "Real OS clipboard write/read round-trip through Flutter platform channel plus reverse-image drop surface alive.",
+      "platforms": {
+        "linux": "required",
+        "windows": "required",
+        "macos": "required",
+        "android_avd": "required",
+        "iphone": "not_applicable:ios_sim_clipboard_is_host_bound",
+        "ipad": "not_applicable:ipad_sim_clipboard_is_host_bound"
+      },
+      "steps": [
+        {"type": "write_clipboard", "text": "parfait-os-e2e-clipboard-check"},
+        {"type": "navigate", "path": "/reverse-image"},
+        {"type": "wait_ms", "ms": 350}
+      ],
+      "assertions": [
+        {
+          "id": "os.clipboard.copy_read_roundtrip",
+          "type": "clipboard_equals",
+          "expected": "parfait-os-e2e-clipboard-check"
+        },
+        {
+          "id": "os.clipboard.reverse_image_route_open",
+          "type": "route_equals",
+          "expected": "/reverse-image"
+        },
+        {
+          "id": "os.clipboard.zero_errors",
+          "type": "zero_uncaught_errors"
+        }
+      ]
+    },
+    {
+      "id": "os.cold_restart.session_persistence",
+      "category": "os_cold_restart_persistence",
+      "smoke": true,
+      "route": "/recommended",
+      "description": "Terminate real OS app process and relaunch against the same isolated profile directory, asserting signed-in account and preferences survive cold restart.",
+      "platforms": {
+        "linux": "required",
+        "android_avd": "required",
+        "windows": "required",
+        "macos": "required",
+        "iphone": "not_applicable:widget_tester_sim_has_no_os_process_restart",
+        "ipad": "not_applicable:widget_tester_sim_has_no_os_process_restart"
+      },
+      "steps": [
+        {"type": "navigate", "path": "/recommended"},
+        {"type": "wait_ms", "ms": 400},
+        {"type": "cold_restart"},
+        {"type": "wait_ms", "ms": 600}
+      ],
+      "assertions": [
+        {
+          "id": "os.cold_restart.account_survives_restart",
+          "type": "snapshot_field",
+          "field": "hasUsableAccount",
+          "equals": true
+        },
+        {
+          "id": "os.cold_restart.preferences_file_survives",
+          "type": "file_exists",
+          "rel_path": "shared_preferences.json",
+          "min_bytes": 2
+        },
+        {
+          "id": "os.cold_restart.zero_errors",
+          "type": "zero_uncaught_errors"
+        }
+      ]
+    },
+    {
+      "id": "os.oauth.callback_and_external_link_boundary",
+      "category": "os_external_links_and_oauth_callback",
+      "smoke": true,
+      "route": "/login/callback",
+      "description": "External OAuth callback route lands cleanly inside the real process without stacking crashes or leaving unhandled errors.",
+      "platforms": {
+        "linux": "required",
+        "android_avd": "required",
+        "windows": "required",
+        "macos": "required",
+        "iphone": "not_applicable:ios_sim_covered_by_widget_tester_login_test",
+        "ipad": "not_applicable:ipad_sim_covered_by_widget_tester_login_test"
+      },
+      "steps": [
+        {"type": "navigate", "path": "/login/callback"},
+        {"type": "wait_ms", "ms": 450},
+        {"type": "navigate", "path": "/recommended"},
+        {"type": "wait_ms", "ms": 350}
+      ],
+      "assertions": [
+        {
+          "id": "os.oauth.callback_recovers_to_home",
+          "type": "route_equals",
+          "expected": "/recommended"
+        },
+        {
+          "id": "os.oauth.callback_zero_errors",
+          "type": "zero_uncaught_errors"
+        },
+        {
+          "id": "os.oauth.callback_process_alive",
+          "type": "process_alive",
+          "expected": true
+        }
+      ]
+    }
+  ]
+}

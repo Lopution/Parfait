@@ -24,6 +24,12 @@ Future<void> copyToClipboard(
   if (context.mounted) showAppSnackBar(context, message);
 }
 
+/// Raw OS clipboard write for the isolated `main_dev.dart` workbench harness
+/// (no UI snackbar or haptic), keeping all `Clipboard.setData` calls inside
+/// `lib/app/clipboard.dart` (FB-14).
+Future<void> writeClipboardForDevHarness(String text) =>
+    Clipboard.setData(ClipboardData(text: text));
+
 /// Fetches page [pageIndex] of [entity] at original quality and copies its image
 /// payload to the desktop OS clipboard, showing toast + haptic feedback.
 Future<void> copyIllustOriginalImageToClipboard(

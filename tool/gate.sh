@@ -202,6 +202,8 @@ run_tests() {
 step "git diff --check" diff_check
 step "check_spec" python3 tool/check_spec.py
 step "spec/test deletion audit" python3 tool/check_spec.py --audit-diff "$base"
+step "verify_catalog (3D matrix)" python3 tool/dev_workbench/verify_catalog.py
+step "dev_workbench unit tests" python3 -m unittest discover -s tool/dev_workbench -p "test_*.py"
 step "affected_tests self-test" python3 tool/affected_tests.py --self-test
 step "test budget" python3 tool/test_budget.py --base "$base"
 

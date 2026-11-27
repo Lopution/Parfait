@@ -43,7 +43,7 @@ DURATIONS = REPO / 'tool/test_durations.json'
 REVIEW_DIR = 'test/review/'
 UNCOUNTED = (REVIEW_DIR, 'test/fixtures/')
 UNIT_CASE = re.compile(r'(?<![\w.])test\(')
-WIDGET_CASE = re.compile(r'(?<![\w.])testWidgets\(')
+WIDGET_CASE = re.compile(r'(?<![\w.])(?:testWidgets|testE2e)\(')
 # `flutter gen-l10n` output: app_localizations.dart and one
 # app_localizations_<language>.dart per language, generated from the ARB
 # files. Hand-written files beside them (the delegates) still count.

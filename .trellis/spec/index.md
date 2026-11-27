@@ -61,7 +61,9 @@ Decide in this order, for new rules and for existing ones under review:
 - IDs are `<PREFIX>-<NN>`; the prefix is the file's `prefix`. An ID is
   never reused: a deleted rule leaves a gap.
 - **Check** names test files followed by quoted test names for every Dart
-  `*_test.dart` file, or `manual` with a short reason.
+  `*_test.dart` file, quoted assertion IDs for
+  `tool/dev_workbench/catalog/os_e2e_flows.json`, or `manual` with a short
+  reason.
 - **Code** names files or directories (globs allowed) that implement it.
 - Extra lines may follow the four fields: a table, a short list. No copied
   code. A code example of at most 10 lines is allowed only when the code

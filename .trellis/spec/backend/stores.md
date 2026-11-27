@@ -13,7 +13,7 @@ applies_to:
   - lib/core/paging/**
   - lib/core/series/**
   - lib/core/novel/**
-reviewed: 2026-11-25
+reviewed: 2026-11-27
 ---
 
 # Stores, mutations and the account boundary
@@ -286,5 +286,5 @@ reviewed: 2026-11-25
   brought A back after it was removed. A re-added account replayed the
   offline actions it had queued before its removal. Leaving WebView cookies
   across switches, re-auth or logout bled account A's web session into B.
-- **Check:** `test/account_store_test.dart` "removeAccount reselects, deletes the secret, the outbox, queued actions" "a cleanup that fails leaves the others done and is surfaced" "metadata cut short at any write still loads" "a refresh saved mid-way neither revives nor reselects" "switchAccount, markReauthRequired, and removeAccount clear WebView session; saveRefreshed keeps it", `test/pixiv_http_client_test.dart` "a request keeps its account through a switch, its refresh too"
+- **Check:** `test/account_store_test.dart` "removeAccount reselects, deletes the secret, the outbox, queued actions" "a cleanup that fails leaves the others done and is surfaced" "metadata cut short at any write still loads" "a refresh saved mid-way neither revives nor reselects" "switchAccount, markReauthRequired, and removeAccount clear WebView session; saveRefreshed keeps it", `test/pixiv_http_client_test.dart` "a request keeps its account through a switch, its refresh too", `tool/dev_workbench/catalog/os_e2e_flows.json` "os.cold_restart.account_survives_restart" "os.cold_restart.preferences_file_survives"
 - **Code:** `lib/core/auth/account_repository.dart`, `lib/core/auth/account_store.dart`, `lib/core/profile/web_profile_session.dart`

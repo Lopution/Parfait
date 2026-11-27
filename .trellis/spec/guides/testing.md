@@ -7,7 +7,7 @@ applies_to:
   - tool/test_budget.py
   - tool/test_budget.json
   - dart_test.yaml
-reviewed: 2026-11-21
+reviewed: 2026-11-27
 ---
 
 # Tests
@@ -79,10 +79,10 @@ reviewed: 2026-11-21
 ## Test environment traps
 
 ### TEST-06 CI shards whole files; two-tier PR vs Nightly matrix; local gate resolves the Dart import graph
-- **Rule:** CI shards whole PR-tier `*_test.dart` files (excluding file-level `@Tags(['matrix'])`) via `tool/test_shards.py` and runs `-x matrix`, keeping core `ru/compact` layout checks, core `zh/regular` route smokes, and router coverage on every PR. Full `matrix` runs in `.github/workflows/nightly-matrix.yml` nightly, on demand, and on PRs touching `lib/l10n/**`, `lib/app/navigation/route*.dart`, `lib/app/theme/**`, `test/locale_layout/**`, `test/helpers/locale_layout.dart`, `test/helpers/route_smoke.dart`, `test/review/**`, `dart_test.yaml`, or `.github/workflows/nightly-matrix.yml`. `tool/test_shards.py --check` warns above 10 unrecorded files in `tool/test_durations.json` and fails above 20. `dev` pushes run fast affected tests; `main` relies on the strict PR gate. Locally `tool/gate.sh` uses `tool/affected_tests.py` (tracing `import`, `export`, `part`/`part of`, subdirectory `flutter_test_config.dart`, `.arb`, `assets/icon.ttf`, and `test/fixtures/**`, skipping Dart on pure docs/tooling diffs) under `GATE_TEST_CONCURRENCY` (default 4 under 4G, 6 under 8G); `--fast` skips fan-out, `--full` runs `-x matrix`, `--matrix` runs `-t matrix`.
+- **Rule:** CI shards whole PR-tier `*_test.dart` files (excluding file-level `@Tags(['matrix'])`) via `tool/test_shards.py` and runs `-x matrix`, keeping core `ru/compact` layout checks, core `zh/regular` route smokes, and router coverage on every PR. Full `matrix` runs in `.github/workflows/nightly-matrix.yml` nightly, on demand, and on PRs touching `lib/l10n/**`, `lib/app/navigation/route*.dart`, `lib/app/theme/**`, `test/locale_layout/**`, `test/helpers/locale_layout.dart`, `test/helpers/route_smoke.dart`, `test/review/**`, `dart_test.yaml`, or `.github/workflows/nightly-matrix.yml`. Real-process OS E2E runs Linux Xvfb smoke in `.github/workflows/linux.yml` and path-filtered Android KVM AVD smoke plus nightly full OS E2E in `.github/workflows/os-e2e.yml`, while `tool/dev_workbench/verify_catalog.py` checks the 3D coverage matrix in `analyze` and `tool/gate.sh`. `tool/test_shards.py --check` warns above 10 unrecorded files in `tool/test_durations.json` and fails above 20. `dev` pushes run fast affected tests; `main` relies on the strict PR gate. Locally `tool/gate.sh` uses `tool/affected_tests.py` (tracing `import`, `export`, `part`/`part of`, subdirectory `flutter_test_config.dart`, `.arb`, `assets/icon.ttf`, and `test/fixtures/**`, skipping Dart on pure docs/tooling diffs) under `GATE_TEST_CONCURRENCY` (default 4 under 4G, 6 under 8G); `--fast` skips fan-out, `--full` runs `-x matrix`, `--matrix` runs `-t matrix`.
 - **Why:** `--total-shards` recompiled the whole suite per shard; naive grep missed `part of`/helper edges; running 700+ matrix cells on unrelated PRs wasted CI; uncapped `-j` caused silent `frontend_server` OOMs.
-- **Check:** `tool/test_shards.py`, `tool/affected_tests.py`
-- **Code:** `tool/test_shards.py`, `tool/affected_tests.py`, `tool/gate.sh`, `.github/workflows/ci.yml`, `.github/workflows/nightly-matrix.yml`, `dart_test.yaml`
+- **Check:** `tool/test_shards.py`, `tool/affected_tests.py`, `tool/dev_workbench/verify_catalog.py`
+- **Code:** `tool/test_shards.py`, `tool/affected_tests.py`, `tool/dev_workbench/verify_catalog.py`, `tool/gate.sh`, `.github/workflows/ci.yml`, `.github/workflows/nightly-matrix.yml`, `.github/workflows/os-e2e.yml`, `dart_test.yaml`
 
 ### TEST-07 Loopback sockets retry; databases get their own path
 - **Rule:** Tests binding/connecting `127.0.0.1` wrap bodies in three-attempt `tolerant()` with raised timeout and file-level `@Tags(['socket'])`. Under `flutter test`, default app databases use `databaseFactoryFfiNoIsolate` with isolated `:memory:` (`singleInstance: false`); disk-persistence tests inject a unique per-test `databasePath` and close databases before teardown.
