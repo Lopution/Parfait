@@ -6,9 +6,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/auth/account.dart';
@@ -18,6 +20,8 @@ import '../../core/debug/dev_redaction.dart';
 import '../../core/debug/dev_telemetry.dart';
 import '../../core/debug/dev_workbench_agent.dart';
 import '../../core/debug/frame_probe.dart';
+import '../../core/download/download_providers.dart';
+import '../../core/download/download_task.dart';
 import '../../core/image/image_worker_providers.dart';
 import '../../core/log.dart';
 import '../../core/network/compat/network_providers.dart';
@@ -26,6 +30,7 @@ import '../../core/platform/app_storage_paths.dart';
 import '../../core/platform/desktop_window_channel.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/settings/settings_controller.dart';
+import '../clipboard.dart';
 import '../navigation/forward_history.dart';
 
 const String _defineProfile = String.fromEnvironment(
@@ -411,9 +416,44 @@ class DevWorkbenchHostState extends ConsumerState<DevWorkbenchHost> {
         for (final event in policy.diagnostics.events.reversed.take(20))
           event.toMap(),
       ],
+      'errors': {
+        'count': DevTelemetry.instance.errorCount,
+        'recent': [
+          for (final e in DevTelemetry.instance.recentErrors(limit: 10))
+            e.toJson(),
+        ],
+      },
+      'storage': _storageSummary(paths, account?.id),
+      'downloads': _downloadSummary(),
       'latestLogSeq': DevTelemetry.instance.latestSeq,
       if (afterSeq != null) 'logs': [for (final e in logs) e.toJson()],
     });
+  }
+
+  Map<String, Object?> _storageSummary(
+    AppStoragePaths paths,
+    String? accountId,
+  ) {
+    final prefs = paths.preferencesFile;
+    final prefsExists = prefs?.existsSync() ?? false;
+    return {
+      'isDev': paths.isDev,
+      'hasRootDir': paths.rootDir != null,
+      'preferencesExists': prefsExists,
+      'preferencesBytes': prefsExists ? prefs!.lengthSync() : 0,
+      'accountId': accountId,
+    };
+  }
+
+  Map<String, Object?> _downloadSummary() {
+    final tasks = ref.read(downloadManagerProvider).tasks;
+    return {
+      'total': tasks.length,
+      'succeeded': tasks
+          .where((t) => t.status == DownloadStatus.succeeded)
+          .length,
+      'failed': tasks.where((t) => t.status == DownloadStatus.failed).length,
+    };
   }
 
   @visibleForTesting
@@ -516,9 +556,47 @@ class DevWorkbenchHostState extends ConsumerState<DevWorkbenchHost> {
         return _performLoopbackSignIn();
       case 'captureScreenshot':
         return _captureScreenshot();
+      case 'readClipboard':
+        final data = await Clipboard.getData(Clipboard.kTextPlain);
+        return {'ok': true, 'text': data?.text};
+      case 'writeClipboard':
+        final text = args['text']?.toString() ?? '';
+        await writeClipboardForDevHarness(text);
+        return {'ok': true, 'length': text.length};
+      case 'checkFile':
+        return _checkIsolatedFile(args['relPath']?.toString() ?? '');
       default:
         throw UnsupportedError('unknown command: $type');
     }
+  }
+
+  Map<String, Object?> _checkIsolatedFile(String relPath) {
+    final root = ref.read(appStoragePathsProvider).rootDir;
+    if (root == null) {
+      throw StateError('checkFile requires isolated dev storage root');
+    }
+    final normalized = p.normalize(relPath.trim());
+    if (normalized.isEmpty ||
+        p.isAbsolute(normalized) ||
+        normalized == '..' ||
+        normalized.startsWith('..${p.separator}') ||
+        normalized.startsWith('../')) {
+      throw ArgumentError.value(
+        relPath,
+        'relPath',
+        'must stay inside dev root',
+      );
+    }
+    final candidate = File(p.normalize(p.join(root.path, normalized)));
+    if (!p.isWithin(root.path, candidate.path)) {
+      throw ArgumentError.value(relPath, 'relPath', 'escapes dev root');
+    }
+    final exists = candidate.existsSync();
+    return {
+      'ok': true,
+      'exists': exists,
+      'bytes': exists ? candidate.lengthSync() : 0,
+    };
   }
 
   static bool _isValidRoutePath(String path) {
@@ -636,6 +714,9 @@ class DevWorkbenchHostState extends ConsumerState<DevWorkbenchHost> {
       'frameProbe',
       'loopbackSignIn',
       'captureScreenshot',
+      'readClipboard',
+      'writeClipboard',
+      'checkFile',
     ];
     for (final name in names) {
       developer.registerExtension('ext.parfait.$name', (method, params) async {

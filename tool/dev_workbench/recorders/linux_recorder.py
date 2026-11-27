@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ..assertions import evaluate_assertions
 from .common import (
     CommandTimeoutError,
     REPO_ROOT,
@@ -412,6 +413,10 @@ def run_linux_recording(
                         hard_error = ""
                         blind_spots: list[str] = []
                         frames: list[bytes] = []
+                        assertion_results: list[dict[str, Any]] = []
+                        assertions_passed = True
+                        baseline_error_count = 0
+                        snap_after: dict[str, Any] = {}
                         capturer = _X11FrameCapturer(sess.env, sess.wid, fps=10)
                         cap_t0 = 0.0
                         cap_t1 = 0.0
@@ -435,6 +440,7 @@ def run_linux_recording(
                                 wb.navigate(client_id, str(it["route"]), settle_sec=0.55)
                             snap = wb.snapshot(client_id)
                             route_before = str(snap.get("route") or "")
+                            baseline_error_count = int(((snap.get("errors") or {}).get("count")) or 0)
                             cap_t0 = time.monotonic()
                             capturer.start()
                             time.sleep(0.15)
@@ -486,6 +492,27 @@ def run_linux_recording(
                                             pass
                                 except Exception:
                                     route_after = route_before
+
+                        item_assertions = it.get("assertions")
+                        if isinstance(item_assertions, list) and item_assertions:
+                            ok_a, res_a = evaluate_assertions(
+                                item_assertions,
+                                snapshot=snap_after or snap,
+                                baseline_error_count=baseline_error_count,
+                                process_alive=sess.is_alive(),
+                                process_exit_code=sess.proc.poll() if sess.proc is not None else None,
+                                find_bounds=lambda k, q: wb.send_command(
+                                    client_id, "findBounds", {"kind": k, "query": q}, timeout=8.0
+                                ),
+                                read_clipboard=lambda: wb.send_command(
+                                    client_id, "readClipboard", {}, timeout=8.0
+                                ).get("text"),
+                                check_file=lambda rel: wb.send_command(
+                                    client_id, "checkFile", {"relPath": rel}, timeout=8.0
+                                ),
+                            )
+                            assertions_passed = ok_a
+                            assertion_results = [r.to_dict() for r in res_a]
 
                         if not frames:
                             # No X11 frames captured; record failed item without aborting batch.
@@ -546,7 +573,7 @@ def run_linux_recording(
                             })
                             continue
                         st = "ok"
-                        if not art.decode_verified:
+                        if not art.decode_verified or not assertions_passed:
                             st = "failed"
                         elif anomaly_reason:
                             st = "recorded_with_anomaly"
@@ -573,6 +600,7 @@ def run_linux_recording(
                             "diagnostics": {
                                 **({"anomaly": anomaly_reason} if anomaly_reason else {}),
                                 **({"decode_error": art.decode_error} if art.decode_error else {}),
+                                **({"assertions": assertion_results} if assertion_results else {}),
                                 "frame_count": len(frames),
                             },
                             "known_blind_spots": blind_spots,

@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ..assertions import evaluate_assertions
 from .common import (
     CommandTimeoutError,
     REPO_ROOT,
@@ -115,18 +116,19 @@ def build_and_install_dev_apk(
     rebuild: bool = True,
 ) -> Path:
     if rebuild:
-        flutter = os.environ.get("FLUTTER_BIN", "/opt/flutter-3.47.9/bin/flutter")
+        flutter = os.environ.get("FLUTTER_BIN") or shutil.which("flutter") or "/opt/flutter-3.47.9/bin/flutter"
         env = os.environ.copy()
-        env["PATH"] = f"/opt/flutter-3.47.9/bin:/opt/android-sdk/platform-tools:{env.get('PATH', '')}"
+        extra_paths = [p for p in ("/opt/flutter-3.47.9/bin", "/opt/android-sdk/platform-tools") if Path(p).is_dir()]
+        if extra_paths:
+            env["PATH"] = f"{':'.join(extra_paths)}:{env.get('PATH', '')}"
         origin = f"http://10.0.2.2:{workbench_port}"
-        cmd = [
-            "systemd-run",
-            "--scope",
-            "--quiet",
-            "-p",
-            "MemoryMax=6G",
-            "-p",
-            "MemorySwapMax=0",
+        abi = _adb(["shell", "getprop", "ro.product.cpu.abi"], serial=serial, check=False).stdout.strip()
+        target_platform = {
+            "x86_64": "android-x64",
+            "arm64-v8a": "android-arm64",
+            "armeabi-v7a": "android-arm",
+        }.get(abi)
+        flutter_cmd = [
             flutter,
             "build",
             "apk",
@@ -135,6 +137,7 @@ def build_and_install_dev_apk(
             "github",
             "-t",
             "lib/main_dev.dart",
+            *(["--target-platform", target_platform] if target_platform else []),
             "--dart-define=PARFAIT_DEV_APP_ID=true",
             "--dart-define=PARFAIT_DEV_SHELL=false",
             "--dart-define=PARFAIT_DEV_FRESH_ONBOARDING=true",
@@ -144,6 +147,19 @@ def build_and_install_dev_apk(
             f"--dart-define=PARFAIT_WORKBENCH_URL={origin}",
             f"--dart-define=PARFAIT_WORKBENCH_TOKEN={token}",
         ]
+        use_scope = False
+        if shutil.which("systemd-run") and os.environ.get("CI") != "true":
+            probe = subprocess.run(
+                ["systemd-run", "--scope", "--quiet", "-p", "MemoryMax=6G", "true"],
+                capture_output=True,
+                check=False,
+            )
+            use_scope = probe.returncode == 0
+        cmd = (
+            ["systemd-run", "--scope", "--quiet", "-p", "MemoryMax=6G", "-p", "MemorySwapMax=0", *flutter_cmd]
+            if use_scope
+            else flutter_cmd
+        )
         res = subprocess.run(cmd, cwd=str(REPO_ROOT), env=env, capture_output=True, text=True, timeout=600.0)
         if res.returncode != 0:
             raise RuntimeError(f"Android dev APK build failed:\n{res.stdout[-1500:]}\n{res.stderr[-1500:]}")
@@ -328,6 +344,11 @@ def run_android_recording(
                 route_before = ""
                 route_after = ""
                 anomaly_reason = ""
+                assertion_results: list[dict[str, Any]] = []
+                assertions_passed = True
+                baseline_error_count = 0
+                snap: dict[str, Any] = {}
+                snap_after: dict[str, Any] = {}
                 try:
                     if not (clear_data and rt == "/splash"):
                         wb.navigate(client_id, str(it["route"]), settle_sec=0.65)
@@ -346,6 +367,7 @@ def run_android_recording(
                 try:
                     snap = wb.snapshot(client_id)
                     route_before = str(snap.get("route") or "")
+                    baseline_error_count = int(((snap.get("errors") or {}).get("count")) or 0)
                     for step in it.get("actions", []):
                         if time.monotonic() - t0 > 15.0:
                             anomaly_reason = "item action sequence exceeded 15s cap"
@@ -373,6 +395,27 @@ def run_android_recording(
                         route_after = str(snap_after.get("route") or "")
                     except Exception:
                         route_after = route_before
+
+                item_assertions = it.get("assertions")
+                if isinstance(item_assertions, list) and item_assertions:
+                    pid_out = _adb(["shell", "pidof", ANDROID_PKG], serial=serial, check=False).stdout.strip()
+                    ok_a, res_a = evaluate_assertions(
+                        item_assertions,
+                        snapshot=snap_after or snap,
+                        baseline_error_count=baseline_error_count,
+                        process_alive=bool(pid_out),
+                        find_bounds=lambda k, q: wb.send_command(
+                            client_id, "findBounds", {"kind": k, "query": q}, timeout=8.0
+                        ),
+                        read_clipboard=lambda: wb.send_command(
+                            client_id, "readClipboard", {}, timeout=8.0
+                        ).get("text"),
+                        check_file=lambda rel: wb.send_command(
+                            client_id, "checkFile", {"relPath": rel}, timeout=8.0
+                        ),
+                    )
+                    assertions_passed = ok_a
+                    assertion_results = [r.to_dict() for r in res_a]
 
                 local_raw = tmp_root / f"{cid}.raw.mp4"
                 pull = _adb(["pull", remote_mp4, str(local_raw)], serial=serial, check=False)
@@ -434,7 +477,7 @@ def run_android_recording(
                     })
                     continue
                 st = "ok"
-                if not art.decode_verified:
+                if not art.decode_verified or not assertions_passed:
                     st = "failed"
                 elif anomaly_reason:
                     st = "recorded_with_anomaly"
@@ -461,6 +504,7 @@ def run_android_recording(
                     "diagnostics": {
                         **({"anomaly": anomaly_reason} if anomaly_reason else {}),
                         **({"decode_error": art.decode_error} if art.decode_error else {}),
+                        **({"assertions": assertion_results} if assertion_results else {}),
                     },
                     "known_blind_spots": [],
                     **storyboard_record_fields(art.sheet_paths, art.motion_metrics, run_dir),

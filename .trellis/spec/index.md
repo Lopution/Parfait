@@ -54,14 +54,16 @@ Decide in this order, for new rules and for existing ones under review:
 ### NAV-03 Back at a branch root returns to Recommended
 - **Rule:** One or two sentences, stated as an observable outcome.
 - **Why:** The bug or decision behind it, in one or two sentences.
-- **Check:** `test/home_page_test.dart` "test name", or `manual`.
+- **Check:** `test/navigation_router_test.dart` "test name", or `manual`.
 - **Code:** `lib/features/home/home_page.dart`
 ```
 
 - IDs are `<PREFIX>-<NN>`; the prefix is the file's `prefix`. An ID is
   never reused: a deleted rule leaves a gap.
 - **Check** names test files followed by quoted test names for every Dart
-  `*_test.dart` file, or `manual` with a short reason.
+  `*_test.dart` file, quoted assertion IDs for
+  `tool/dev_workbench/catalog/os_e2e_flows.json`, or `manual` with a short
+  reason.
 - **Code** names files or directories (globs allowed) that implement it.
 - Extra lines may follow the four fields: a table, a short list. No copied
   code. A code example of at most 10 lines is allowed only when the code

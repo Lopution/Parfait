@@ -42,8 +42,9 @@ PREFIX_RE = re.compile(r'^[A-Z]{2,6}$')
 RULE_HEADING_RE = re.compile(r'^### ([A-Z]{2,6})-(\d{2}) (\S.*)$')
 RULE_REF_RE = re.compile(r'\b([A-Z]{2,6})-(\d{2})\b')
 DART_TEST_CASE_RE = re.compile(
-    r'''\b(?:test|testWidgets|testGoldens)\s*\(\s*(?:'([^'\n]+)'|"([^"\n]+)")'''
+    r'''\b(?:test|testWidgets|testE2e|testGoldens)\s*\(\s*(?:'([^'\n]+)'|"([^"\n]+)")'''
 )
+OS_E2E_FLOWS_PATH = 'tool/dev_workbench/catalog/os_e2e_flows.json'
 FIELD_RE = re.compile(r'^- \*\*(\w+):\*\*')
 BACKTICK_RE = re.compile(r'`([^`\n]+)`')
 CHECK_ITEM_RE = re.compile(r'`([^`\n]+)`((?:\s*"[^"\n]+")*)')
@@ -89,6 +90,27 @@ def normalize_dart_strings(text: str) -> str:
     joined = ADJ_SINGLE_STR_RE.sub('', text)
     joined = ADJ_DOUBLE_STR_RE.sub('', joined)
     return joined.replace("\\'", "'").replace('\\"', '"')
+
+
+def extract_os_e2e_assertion_ids(text: str) -> list[str]:
+    """Extracts declarative assertion IDs from `os_e2e_flows.json` in order."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    seen: set[str] = set()
+    ids: list[str] = []
+    for flow in data.get('flows') or []:
+        if not isinstance(flow, dict):
+            continue
+        for spec in flow.get('assertions') or []:
+            if not isinstance(spec, dict):
+                continue
+            aid = spec.get('id')
+            if isinstance(aid, str) and aid.strip() and aid not in seen:
+                seen.add(aid)
+                ids.append(aid)
+    return ids
 
 
 @dataclass
@@ -410,6 +432,22 @@ def check_rule_fields(at: str, rule_id: str, body: list[tuple[int, str]],
             report.error(at, f'{rule_id} Check names a missing file: {path}')
             continue
         quoted = QUOTED_RE.findall(names)
+        if path == OS_E2E_FLOWS_PATH:
+            if not quoted:
+                report.error(
+                    at,
+                    f'{rule_id} Check names {path} without a quoted assertion ID',
+                )
+                continue
+            raw_json = repo.read(path) if path in repo.files else ''
+            known_ids = set(extract_os_e2e_assertion_ids(raw_json))
+            for aid in quoted:
+                if aid not in known_ids:
+                    report.error(
+                        at,
+                        f'{rule_id} Check names an assertion ID that is not in {path}: "{aid}"',
+                    )
+            continue
         if path.endswith('_test.dart') and not quoted:
             report.error(
                 at,
@@ -512,7 +550,8 @@ def check_all(repo: Repo, today: dt.date) -> tuple[Report, dict[str, int]]:
         stats['rules'] += check_rules(spec, repo, report, seen_ids)
         stats['tested'] += sum(
             1 for line in spec.lines
-            if line.startswith('- **Check:**') and '`test/' in line)
+            if line.startswith('- **Check:**')
+            and ('`test/' in line or f'`{OS_E2E_FLOWS_PATH}`' in line))
     check_rule_refs(specs, prefixes, seen_ids, report)
     check_indexes(specs, report)
     return report, stats
@@ -604,6 +643,7 @@ def is_audited_test_file(path: str) -> bool:
     return (
         (path.startswith('test/') and path.endswith('_test.dart'))
         or (path.startswith('android/app/src/test/') and path.endswith('.kt'))
+        or path == OS_E2E_FLOWS_PATH
     )
 
 
@@ -677,13 +717,16 @@ def audit_deletions(
 
     deleted_test_cases: list[tuple[str, list[str]]] = []
     for path in sorted(base_files):
-        if (not (path.startswith('test/') and path.endswith('_test.dart'))
-                or path not in current_files):
+        if path not in current_files or base_files[path] == current_files[path]:
             continue
-        if base_files[path] == current_files[path]:
+        if path.startswith('test/') and path.endswith('_test.dart'):
+            base_cases = extract_dart_test_cases(base_files[path])
+            cur_cases = set(extract_dart_test_cases(current_files[path]))
+        elif path == OS_E2E_FLOWS_PATH:
+            base_cases = extract_os_e2e_assertion_ids(base_files[path])
+            cur_cases = set(extract_os_e2e_assertion_ids(current_files[path]))
+        else:
             continue
-        base_cases = extract_dart_test_cases(base_files[path])
-        cur_cases = set(extract_dart_test_cases(current_files[path]))
         removed = [c for c in base_cases if c not in cur_cases]
         if removed:
             deleted_test_cases.append((path, removed))
@@ -1074,6 +1117,37 @@ def self_test() -> int:
         ), 'unknown rule reference: OTH-99'),
         ('non-spec uppercase dash token is ignored',
          append('\nEncodes UTF-16 and SHA-256 cleanly.\n'), None),
+        ('valid os_e2e_flows.json assertion ID anchor', lambda files: files.update({
+            OS_E2E_FLOWS_PATH: json.dumps({
+                'flows': [{
+                    'id': 'os.demo',
+                    'assertions': [{'id': 'os.demo.ok', 'type': 'zero_uncaught_errors'}],
+                }]
+            }),
+            nav: files[nav].replace(
+                '`test/nav_test.dart` "back goes home"',
+                f'`{OS_E2E_FLOWS_PATH}` "os.demo.ok"',
+            ),
+        }), None),
+        ('os_e2e_flows.json Check without quoted assertion ID fails', lambda files: files.update({
+            OS_E2E_FLOWS_PATH: json.dumps({'flows': []}),
+            nav: files[nav].replace(
+                '`test/nav_test.dart` "back goes home"',
+                f'`{OS_E2E_FLOWS_PATH}`',
+            ),
+        }), 'without a quoted assertion ID'),
+        ('os_e2e_flows.json Check with unknown assertion ID fails', lambda files: files.update({
+            OS_E2E_FLOWS_PATH: json.dumps({
+                'flows': [{
+                    'id': 'os.demo',
+                    'assertions': [{'id': 'os.demo.ok', 'type': 'zero_uncaught_errors'}],
+                }]
+            }),
+            nav: files[nav].replace(
+                '`test/nav_test.dart` "back goes home"',
+                f'`{OS_E2E_FLOWS_PATH}` "os.demo.missing"',
+            ),
+        }), 'assertion ID that is not in'),
     ]
     failures = 0
     for name, edit, expected in cases:
@@ -1127,20 +1201,39 @@ def self_test() -> int:
             'test/nav_test.dart': (
                 "test('back goes home', () {});\n"
                 "testWidgets('keeps tab', (t) async {});\n"
+                "testE2e('real shell journey', (t) async {});\n"
             ),
+            OS_E2E_FLOWS_PATH: json.dumps({
+                'flows': [{
+                    'id': 'os.demo',
+                    'assertions': [
+                        {'id': 'os.demo.keep', 'type': 'zero_uncaught_errors'},
+                        {'id': 'os.demo.drop', 'type': 'process_alive'},
+                    ],
+                }]
+            }),
             nav: base_nav,
         },
         current_files={
             'test/nav_test.dart': "test('back goes home', () {});\n",
+            OS_E2E_FLOWS_PATH: json.dumps({
+                'flows': [{
+                    'id': 'os.demo',
+                    'assertions': [
+                        {'id': 'os.demo.keep', 'type': 'zero_uncaught_errors'},
+                    ],
+                }]
+            }),
             nav: empty_nav,
         },
         current_specs=[empty_spec],
         base_specs=[base_spec],
     )
     extra_checks.extend([
-        ('audit detects deleted test case in modified file',
+        ('audit detects deleted testWidgets and testE2e cases and OS assertion IDs',
          audit_removed['deleted_test_cases'] == [
-             ('test/nav_test.dart', ['keeps tab'])
+             ('test/nav_test.dart', ['keeps tab', 'real shell journey']),
+             (OS_E2E_FLOWS_PATH, ['os.demo.drop']),
          ]),
         ('audit detects deleted spec rule',
          audit_removed['deleted_spec_rules'] == [

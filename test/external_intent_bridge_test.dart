@@ -9,7 +9,9 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
+import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/login/login_page.dart';
+import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 
 import 'helpers/fake_account.dart';
@@ -76,6 +78,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(result.router.state.uri.path, '/recommended/illust/456');
+    expect(find.byType(IllustDetailPage), findsOneWidget);
+    expect(
+      tester.widget<IllustDetailPage>(find.byType(IllustDetailPage)).illustId,
+      456,
+    );
   });
 
   testWidgets(
@@ -96,6 +103,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(result.router.state.uri.path, '/recommended/user/789');
+      expect(find.byType(UserPage), findsOneWidget);
+      expect(tester.widget<UserPage>(find.byType(UserPage)).userId, 789);
     },
   );
 
@@ -209,6 +218,8 @@ void main() {
         ),
         ['/recommended/illust/111', '/recommended/user/222'],
       );
+      expect(find.byType(UserPage), findsOneWidget);
+      expect(tester.widget<UserPage>(find.byType(UserPage)).userId, 222);
     },
   );
 }

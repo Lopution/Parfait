@@ -45,19 +45,19 @@ bool canDismissDesktopOverlayOrTab(
   bool checkFocusRoute = true,
 }) {
   final tabs = DesktopWorkspaceTabsController.active;
-  if (tabs != null && tabs.hasSecondaryModalOverlay) return true;
+  if (tabs != null && tabs.isOnSecondaryTab) return true;
   if (hasModalOrRootOverlay(router, checkFocusRoute: checkFocusRoute)) {
     return true;
   }
   if (DesktopInspectorDismissRegistry.hasActive) return true;
-  if (tabs != null && tabs.isOnSecondaryTab) return true;
   return false;
 }
 
 /// Layered desktop close dispatcher for `Cmd+W` (macOS) and `Ctrl+W`
 /// (Windows/Linux):
-/// 1. Active modal/popup/viewer/detail overlay on the active navigator or root
-///    router.
+/// 1. Active modal/popup/viewer/detail overlay on the visible navigator (active
+///    secondary tab's navigator when on a secondary tab, or root router when on
+///    tab 0 — never pops an offstage root overlay behind a secondary tab).
 /// 2. Active desktop side inspector (`DesktopInspectableGallery`).
 /// 3. Active secondary workspace tab (returns to previous/root tab).
 /// 4. On macOS only, invokes [onCloseWindow]. On Windows/Linux, no-op on the
@@ -68,18 +68,23 @@ bool dispatchLayeredDesktopClose({
   VoidCallback? onCloseWindow,
 }) {
   final tabs = DesktopWorkspaceTabsController.active;
-  if (tabs != null && tabs.hasSecondaryModalOverlay) {
-    unawaited(tabs.popActiveSecondary());
-    return true;
+  if (tabs != null && tabs.isOnSecondaryTab) {
+    if (tabs.hasSecondaryModalOverlay) {
+      unawaited(tabs.popActiveSecondary());
+      return true;
+    }
+    if (DesktopInspectorDismissRegistry.dismissActive()) {
+      return true;
+    }
+    if (tabs.closeActiveSecondaryTab()) {
+      return true;
+    }
   }
   if (hasModalOrRootOverlay(router)) {
     unawaited(router.routerDelegate.popRoute());
     return true;
   }
   if (DesktopInspectorDismissRegistry.dismissActive()) {
-    return true;
-  }
-  if (tabs != null && tabs.closeActiveSecondaryTab()) {
     return true;
   }
   if (isMacOS && onCloseWindow != null) {

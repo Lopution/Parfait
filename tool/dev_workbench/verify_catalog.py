@@ -26,6 +26,35 @@ DEFAULT_CATALOG_DIR = REPO_ROOT / "tool" / "dev_workbench" / "catalog"
 PLATFORMS = ("windows", "android_avd", "linux", "iphone", "ipad", "macos")
 SHELL_LAYERS = ("DesktopWindowFrame", "DesktopCommandBar", "DesktopMenuBar", "HomeBranchStack")
 AUDIT_CANDIDATES = ("SC-W1", "SC-W2", "SC-W3", "SC-W4", "SC-W5")
+REQUIRED_OS_BOUNDARY_CATEGORIES = (
+    "os_intent_and_share",
+    "os_real_storage_and_downloads",
+    "os_desktop_window_lifecycle",
+    "os_clipboard_and_drop",
+    "os_cold_restart_persistence",
+    "os_external_links_and_oauth_callback",
+)
+VALID_OS_STEP_TYPES = frozenset({
+    "adb_intent",
+    "write_clipboard",
+    "cold_restart",
+})
+VALID_ASSERTION_TYPES = frozenset({
+    "zero_uncaught_errors",
+    "process_alive",
+    "route_equals",
+    "route_prefix",
+    "element_visible",
+    "element_absent",
+    "snapshot_field",
+    "clipboard_equals",
+    "file_exists",
+})
+_ADJ_SINGLE_STR_RE = re.compile(r"(?<!\\)'(?:\s*//[^\n]*)*\s*'")
+_ADJ_DOUBLE_STR_RE = re.compile(r'(?<!\\)"(?:\s*//[^\n]*)*\s*"')
+_DART_TEST_DECL_RE = re.compile(
+    r"""\b(?:test|testWidgets|testE2e|testGoldens)\s*\(\s*(?:'([^'\n]+)'|"([^"\n]+)")"""
+)
 EXCLUDED_CATEGORIES = frozenset({
     "external_auth_captcha",
     "os_native_picker_or_share",
@@ -481,11 +510,208 @@ def extract_all_routes(
     return syntactic_goroute_count, extracted
 
 
+def _extract_dart_test_names(path: Path) -> set[str]:
+    raw = path.read_text(encoding="utf-8")
+    joined = _ADJ_SINGLE_STR_RE.sub("", raw)
+    joined = _ADJ_DOUBLE_STR_RE.sub("", joined)
+    joined = joined.replace("\\'", "'").replace('\\"', '"')
+    return {
+        m.group(1) if m.group(1) is not None else m.group(2)
+        for m in _DART_TEST_DECL_RE.finditer(joined)
+    }
+
+
+def _verify_os_e2e_and_completeness_matrix(
+    catalog_dir: Path,
+    repo_root: Path,
+    errors: list[str],
+) -> dict[str, Any]:
+    """Verify `os_e2e_flows.json` and 3D `completeness_matrix.json` when present."""
+    stats: dict[str, Any] = {
+        "os_e2e_flows": 0,
+        "os_e2e_assertions": 0,
+        "in_app_journeys": 0,
+        "seam_invariants": 0,
+        "os_boundary_categories": [],
+    }
+    os_file = catalog_dir / "os_e2e_flows.json"
+    matrix_file = catalog_dir / "completeness_matrix.json"
+    if not os_file.is_file():
+        errors.append(f"Missing OS E2E flows file: {os_file}")
+        return stats
+    if not matrix_file.is_file():
+        errors.append(f"Missing 3D completeness matrix file: {matrix_file}")
+        return stats
+
+    os_data = json.loads(os_file.read_text(encoding="utf-8"))
+    flows = os_data.get("flows")
+    if not isinstance(flows, list) or not flows:
+        errors.append("os_e2e_flows.json must contain a non-empty 'flows' list")
+        flows = []
+
+    flow_ids: set[str] = set()
+    assertion_ids: set[str] = set()
+    flow_categories: dict[str, set[str]] = {}
+    flow_assertions_by_cat: dict[str, set[str]] = {}
+    all_step_types = VALID_ACTION_TYPES | VALID_OS_STEP_TYPES
+
+    for idx, flow in enumerate(flows):
+        if not isinstance(flow, dict):
+            errors.append(f"os_e2e_flows.flows[{idx}] must be an object")
+            continue
+        fid = flow.get("id")
+        if not isinstance(fid, str) or not fid.strip():
+            errors.append(f"os_e2e_flows.flows[{idx}] missing non-empty string 'id'")
+            continue
+        if fid in flow_ids:
+            errors.append(f"Duplicate OS E2E flow id: {fid}")
+            continue
+        flow_ids.add(fid)
+
+        cat = flow.get("category")
+        if cat not in REQUIRED_OS_BOUNDARY_CATEGORIES:
+            errors.append(f"{fid}: invalid OS boundary category {cat!r}")
+        else:
+            flow_categories.setdefault(cat, set()).add(fid)
+
+        plats = flow.get("platforms")
+        if not isinstance(plats, dict) or set(plats.keys()) != set(PLATFORMS):
+            errors.append(f"{fid}: platforms must define exactly {list(PLATFORMS)}")
+        else:
+            has_required = False
+            for p_name, p_val in plats.items():
+                if p_val == "required":
+                    has_required = True
+                elif isinstance(p_val, str) and p_val.startswith("not_applicable:") and p_val.split(":", 1)[1].strip():
+                    continue
+                else:
+                    errors.append(f"{fid}: invalid platform rule {p_name}={p_val!r}")
+            if not has_required:
+                errors.append(f"{fid}: must have at least one 'required' platform")
+
+        steps = flow.get("steps")
+        if not isinstance(steps, list) or not steps:
+            errors.append(f"{fid}: steps must be a non-empty list")
+        else:
+            for s_idx, step in enumerate(steps):
+                if not isinstance(step, dict) or step.get("type") not in all_step_types:
+                    errors.append(f"{fid}: invalid step at index {s_idx}: {step!r}")
+
+        assertions = flow.get("assertions")
+        if not isinstance(assertions, list) or not assertions:
+            errors.append(f"{fid}: assertions must be a non-empty list")
+        else:
+            for a_idx, spec in enumerate(assertions):
+                if not isinstance(spec, dict):
+                    errors.append(f"{fid}: assertion[{a_idx}] must be an object")
+                    continue
+                aid = spec.get("id")
+                atype = spec.get("type")
+                if not isinstance(aid, str) or not aid.strip():
+                    errors.append(f"{fid}: assertion[{a_idx}] missing non-empty 'id'")
+                    continue
+                if aid in assertion_ids:
+                    errors.append(f"Duplicate OS E2E assertion id: {aid}")
+                    continue
+                if atype not in VALID_ASSERTION_TYPES:
+                    errors.append(f"{fid}: assertion {aid!r} has unknown type {atype!r}")
+                    continue
+                assertion_ids.add(aid)
+                if isinstance(cat, str):
+                    flow_assertions_by_cat.setdefault(cat, set()).add(aid)
+
+    for req_cat in REQUIRED_OS_BOUNDARY_CATEGORIES:
+        if req_cat not in flow_categories:
+            errors.append(f"os_e2e_flows.json missing required OS boundary category: {req_cat}")
+
+    # Validate 3D completeness_matrix.json
+    matrix = json.loads(matrix_file.read_text(encoding="utf-8"))
+    dart_cache: dict[str, set[str]] = {}
+
+    def _check_dart_entries(section: str, min_count: int) -> int:
+        entries = matrix.get(section)
+        if not isinstance(entries, list) or len(entries) < min_count:
+            errors.append(f"completeness_matrix.{section} must have at least {min_count} entries")
+            return 0
+        seen_ids: set[str] = set()
+        for idx, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                errors.append(f"completeness_matrix.{section}[{idx}] must be an object")
+                continue
+            eid = entry.get("id")
+            if not isinstance(eid, str) or not eid.strip() or eid in seen_ids:
+                errors.append(f"completeness_matrix.{section}[{idx}] invalid or duplicate id {eid!r}")
+                continue
+            seen_ids.add(eid)
+            rel_file = entry.get("file")
+            test_name = entry.get("test_name")
+            if not isinstance(rel_file, str) or not isinstance(test_name, str) or not test_name.strip():
+                errors.append(f"completeness_matrix.{section}.{eid}: missing file or test_name")
+                continue
+            target_file = repo_root / rel_file
+            if not target_file.is_file():
+                errors.append(f"completeness_matrix.{section}.{eid}: missing test file {rel_file!r}")
+                continue
+            if rel_file not in dart_cache:
+                dart_cache[rel_file] = _extract_dart_test_names(target_file)
+            if test_name not in dart_cache[rel_file]:
+                errors.append(
+                    f"completeness_matrix.{section}.{eid}: test {test_name!r} not declared in {rel_file!r}"
+                )
+        return len(seen_ids)
+
+    journeys_count = _check_dart_entries("in_app_journeys", 9)
+    seams_count = _check_dart_entries("seam_invariants", 4)
+
+    os_cats = matrix.get("os_boundary_categories")
+    seen_matrix_cats: set[str] = set()
+    if not isinstance(os_cats, list) or not os_cats:
+        errors.append("completeness_matrix.os_boundary_categories must be a non-empty list")
+    else:
+        for idx, entry in enumerate(os_cats):
+            if not isinstance(entry, dict):
+                errors.append(f"completeness_matrix.os_boundary_categories[{idx}] must be an object")
+                continue
+            cat = entry.get("category")
+            if cat not in REQUIRED_OS_BOUNDARY_CATEGORIES:
+                errors.append(f"completeness_matrix.os_boundary_categories[{idx}]: unknown category {cat!r}")
+                continue
+            seen_matrix_cats.add(cat)
+            fids = entry.get("flow_ids") or []
+            aids = entry.get("assertion_ids") or []
+            if not fids or not aids:
+                errors.append(f"completeness_matrix.os_boundary_categories.{cat}: needs flow_ids and assertion_ids")
+                continue
+            for fid in fids:
+                if fid not in flow_categories.get(cat, set()):
+                    errors.append(
+                        f"completeness_matrix.os_boundary_categories.{cat}: flow {fid!r} not in os_e2e_flows.json"
+                    )
+            for aid in aids:
+                if aid not in flow_assertions_by_cat.get(cat, set()):
+                    errors.append(
+                        f"completeness_matrix.os_boundary_categories.{cat}: assertion {aid!r} not in os_e2e_flows.json"
+                    )
+    for req_cat in REQUIRED_OS_BOUNDARY_CATEGORIES:
+        if req_cat not in seen_matrix_cats:
+            errors.append(f"completeness_matrix.os_boundary_categories missing required category: {req_cat}")
+
+    stats.update({
+        "os_e2e_flows": len(flow_ids),
+        "os_e2e_assertions": len(assertion_ids),
+        "in_app_journeys": journeys_count,
+        "seam_invariants": seams_count,
+        "os_boundary_categories": sorted(seen_matrix_cats),
+    })
+    return stats
+
+
 def verify_catalog(
     catalog_dir: Path = DEFAULT_CATALOG_DIR,
     *,
     routes_path: Path = ROUTES_DART,
     branches_path: Path = BRANCHES_DART,
+    repo_root: Path = REPO_ROOT,
 ) -> tuple[bool, list[str], dict[str, Any]]:
     errors: list[str] = []
     catalog_file = catalog_dir / "catalog.json"
@@ -683,6 +909,8 @@ def verify_catalog(
             if req_cat not in seen_cats:
                 errors.append(f"excluded_surfaces missing required boundary category: {req_cat}")
 
+    matrix_stats = _verify_os_e2e_and_completeness_matrix(catalog_dir, repo_root, errors)
+
     summary = {
         "syntactic_goroutes": syntactic_count,
         "canonical_routes": len(source_set),
@@ -691,6 +919,7 @@ def verify_catalog(
         "covered_audit_candidates": sorted(covered_audits),
         "excluded_routes": [k for k, v in canonical_map.items() if isinstance(v, dict) and "excluded" in v],
         "excluded_surfaces_count": len(excluded_surfaces) if isinstance(excluded_surfaces, list) else 0,
+        **matrix_stats,
     }
     return len(errors) == 0, errors, summary
 
@@ -720,7 +949,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"{summary['canonical_routes']} canonical templates mapped cleanly to "
                 f"{summary['catalog_items']} catalog items "
                 f"(shells={summary['covered_shells']}, audits={summary['covered_audit_candidates']}, "
-                f"excluded_routes={summary['excluded_routes']}, excluded_surfaces={summary['excluded_surfaces_count']})."
+                f"excluded_routes={summary['excluded_routes']}, excluded_surfaces={summary['excluded_surfaces_count']}); "
+                f"3D matrix: {summary['in_app_journeys']} journeys, {summary['seam_invariants']} seams, "
+                f"{len(summary['os_boundary_categories'])} OS categories "
+                f"({summary['os_e2e_flows']} flows / {summary['os_e2e_assertions']} assertions)."
             )
         else:
             print("FAILED catalog verification:", file=sys.stderr)

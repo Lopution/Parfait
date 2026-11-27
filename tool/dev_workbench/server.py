@@ -51,6 +51,9 @@ ALLOWED_COMMANDS = frozenset({
     "frameProbe",
     "loopbackSignIn",
     "captureScreenshot",
+    "readClipboard",
+    "writeClipboard",
+    "checkFile",
 })
 
 _WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -180,10 +183,33 @@ def validate_command_payload(payload: Any) -> tuple[str, str, dict[str, Any]]:
             clean_snap["afterSeq"] = seq
         return client_id.strip(), cmd_type, clean_snap
 
-    if cmd_type in ("loopbackSignIn", "captureScreenshot"):
+    if cmd_type in ("loopbackSignIn", "captureScreenshot", "readClipboard"):
         if args:
             raise ValueError(f"{cmd_type} accepts no arguments")
         return client_id.strip(), cmd_type, {}
+
+    if cmd_type == "writeClipboard":
+        if set(args.keys()) - {"text"}:
+            raise ValueError("writeClipboard allows only 'text'")
+        text = args.get("text")
+        if not isinstance(text, str) or len(text) > 4096:
+            raise ValueError("writeClipboard.text must be a string <= 4096 chars")
+        return client_id.strip(), cmd_type, {"text": text}
+
+    if cmd_type == "checkFile":
+        if set(args.keys()) - {"relPath"}:
+            raise ValueError("checkFile allows only 'relPath'")
+        rel_path = args.get("relPath")
+        if (
+            not isinstance(rel_path, str)
+            or not rel_path.strip()
+            or len(rel_path) > 256
+            or rel_path.startswith("/")
+            or "\\" in rel_path
+            or ".." in [seg for seg in rel_path.split("/") if seg]
+        ):
+            raise ValueError("checkFile.relPath must be a safe relative path")
+        return client_id.strip(), cmd_type, {"relPath": rel_path.strip()}
 
 
 def validate_fault_payload(payload: Any) -> dict[str, Any]:
