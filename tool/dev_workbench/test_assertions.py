@@ -31,6 +31,16 @@ class AssertionEngineTest(unittest.TestCase):
         self.assertFalse(res_bad.passed)
         self.assertIn("increased by 1", res_bad.detail)
 
+        # Pre-restart errors must still fail even after a clean post-restart process resets count to 0.
+        res_pre = evaluate_assertion(
+            {"id": "err.pre_restart", "type": "zero_uncaught_errors"},
+            snapshot={"errors": {"count": 0, "recent": []}},
+            baseline_error_count=0,
+            prior_error_delta=1,
+        )
+        self.assertFalse(res_pre.passed)
+        self.assertIn("pre_restart=1", res_pre.detail)
+
     def test_process_alive_and_clean_exit(self) -> None:
         r1 = evaluate_assertion(
             {"id": "proc.up", "type": "process_alive", "expected": True},

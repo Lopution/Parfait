@@ -14,6 +14,7 @@ on:
       - 'plugins/**'
       - 'tool/dev_workbench/**'
       - 'lib/core/platform/**'
+      - 'lib/app/clipboard.dart'
       - 'lib/app/external_intent_bridge.dart'
       - 'lib/app/haptics/haptics_driver.dart'
       - 'lib/app/navigation/keyboard_back.dart'

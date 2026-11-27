@@ -77,7 +77,7 @@
           "id": "os.storage.preferences_persisted_on_disk",
           "type": "file_exists",
           "rel_path": "shared_preferences.json",
-          "min_bytes": 2
+          "min_bytes": 100
         },
         {
           "id": "os.storage.download_settings_zero_errors",
@@ -110,7 +110,7 @@
           "id": "os.desktop.window_resize_viewport_live",
           "type": "snapshot_field",
           "field": "viewport.width",
-          "gte": 1000
+          "gte": 1200
         },
         {
           "id": "os.desktop.window_zero_errors",
@@ -190,7 +190,7 @@
           "id": "os.cold_restart.preferences_file_survives",
           "type": "file_exists",
           "rel_path": "shared_preferences.json",
-          "min_bytes": 2
+          "min_bytes": 100
         },
         {
           "id": "os.cold_restart.zero_errors",

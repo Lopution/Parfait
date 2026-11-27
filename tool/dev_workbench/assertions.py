@@ -50,6 +50,7 @@ def evaluate_assertion(
     *,
     snapshot: dict[str, Any],
     baseline_error_count: int = 0,
+    prior_error_delta: int = 0,
     process_alive: bool = True,
     process_exit_code: int | None = None,
     find_bounds: Callable[[str, str], dict[str, Any]] | None = None,
@@ -67,7 +68,8 @@ def evaluate_assertion(
     if atype == "zero_uncaught_errors":
         err_block = snapshot.get("errors") if isinstance(snapshot.get("errors"), dict) else {}
         cur_count = int(err_block.get("count", 0) or 0)
-        delta = cur_count - baseline_error_count
+        cur_delta = max(0, cur_count - baseline_error_count)
+        delta = cur_delta + max(0, prior_error_delta)
         if delta <= 0:
             return AssertionResult(aid, atype, True, f"errors={cur_count} (delta={delta})")
         recent = err_block.get("recent") or []
@@ -75,7 +77,8 @@ def evaluate_assertion(
             aid,
             atype,
             False,
-            f"uncaught errors increased by {delta} (total={cur_count}, recent={recent[-3:]})",
+            f"uncaught errors increased by {delta} "
+            f"(pre_restart={prior_error_delta}, current_total={cur_count}, recent={recent[-3:]})",
         )
 
     if atype == "process_alive":

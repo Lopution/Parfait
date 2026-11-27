@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dev_workbench.assertions import AssertionResult, evaluate_assertions
 from dev_workbench.recorders.android_recorder import (
+    ANDROID_ACTIVITY,
     ANDROID_PKG,
     DEFAULT_AVD,
     _adb,
@@ -77,6 +78,7 @@ def _start_linux_pid_session(
     token: str,
     dev_root: Path,
     profile_name: str,
+    fresh_onboarding: bool = False,
 ) -> tuple[_LinuxDevSession, str]:
     sess = _LinuxDevSession(
         exe_path=exe_path,
@@ -85,7 +87,7 @@ def _start_linux_pid_session(
         token=token,
         dev_root=dev_root,
         profile_name=profile_name,
-        fresh_onboarding=False,
+        fresh_onboarding=fresh_onboarding,
     )
     sess.dev_root.mkdir(parents=True, exist_ok=True)
     args = [
@@ -196,6 +198,7 @@ def _run_linux_flows(
                             time.sleep(0.5)
 
                         baseline_errors = 0
+                        prior_error_delta = 0
                         snap: dict[str, Any] = {}
                         try:
                             wb.reset_faults()
@@ -213,8 +216,13 @@ def _run_linux_flows(
                                     )
                                     time.sleep(0.15)
                                 elif stype == "cold_restart":
+                                    pre_snap = wb.snapshot(client_id, timeout=10.0)
+                                    pre_count = int(((pre_snap.get("errors") or {}).get("count")) or 0)
+                                    prior_error_delta += max(0, pre_count - baseline_errors)
                                     sess.stop()
                                     time.sleep(0.4)
+                                    # Relaunch with fresh_onboarding=True so DevWorkbenchHost will NOT
+                                    # auto-bootstrap a synthetic loopback account if disk persistence failed.
                                     sess, client_id = _start_linux_pid_session(
                                         wb,
                                         exe_path=linux_exe,
@@ -223,8 +231,10 @@ def _run_linux_flows(
                                         token=srv.token,
                                         dev_root=dev_root,
                                         profile_name=profile_name,
+                                        fresh_onboarding=True,
                                     )
-                                    # New process starts with fresh error counter.
+                                    # New process starts with fresh in-memory error counter; pre-restart
+                                    # errors stay tracked in prior_error_delta.
                                     baseline_errors = 0
                                     time.sleep(0.5)
                                     snap = wb.snapshot(client_id, timeout=10.0)
@@ -260,6 +270,7 @@ def _run_linux_flows(
                                 flow.get("assertions", []),
                                 snapshot=snap,
                                 baseline_error_count=baseline_errors,
+                                prior_error_delta=prior_error_delta,
                                 process_alive=sess.is_alive(),
                                 process_exit_code=sess.proc.poll() if sess.proc is not None else None,
                                 find_bounds=lambda k, q: wb.send_command(
@@ -320,6 +331,7 @@ def _run_android_flows(
             fid = flow["id"]
             flow_error = ""
             baseline_errors = 0
+            prior_error_delta = 0
             snap: dict[str, Any] = {}
             try:
                 wb.reset_faults()
@@ -344,10 +356,13 @@ def _run_android_flows(
                             cmd.extend(["-t", str(step["mime_type"])])
                         if step.get("extra_text"):
                             cmd.extend(["--es", "android.intent.extra.TEXT", str(step["extra_text"])])
-                        cmd.append(ANDROID_PKG)
+                        cmd.extend(["-n", ANDROID_ACTIVITY])
                         _adb(cmd, serial=serial, check=True)
                         time.sleep(0.45)
                     elif stype == "cold_restart":
+                        pre_snap = wb.snapshot(client_id, timeout=10.0)
+                        pre_count = int(((pre_snap.get("errors") or {}).get("count")) or 0)
+                        prior_error_delta += max(0, pre_count - baseline_errors)
                         client_id = _launch_app(wb, serial, clear_data=False)
                         baseline_errors = 0
                         time.sleep(0.6)
@@ -384,6 +399,7 @@ def _run_android_flows(
                     flow.get("assertions", []),
                     snapshot=snap,
                     baseline_error_count=baseline_errors,
+                    prior_error_delta=prior_error_delta,
                     process_alive=bool(pid_out),
                     find_bounds=lambda k, q: wb.send_command(
                         client_id, "findBounds", {"kind": k, "query": q}, timeout=8.0
