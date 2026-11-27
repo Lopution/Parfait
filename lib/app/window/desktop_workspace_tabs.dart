@@ -544,12 +544,15 @@ class DesktopWorkspaceTabHost extends StatelessWidget {
               _FrozenTabSlot(
                 key: ValueKey('ws-slot-${secondary[i].id}'),
                 active: activeIndex == i + 1,
-                child: _wrapRouter(
-                  boundRouter,
-                  Navigator(
-                    key: secondary[i].navigatorKey,
-                    onGenerateRoute: (_) =>
-                        MaterialPageRoute<void>(builder: secondary[i].builder),
+                child: HeroControllerScope.none(
+                  child: _wrapRouter(
+                    boundRouter,
+                    Navigator(
+                      key: secondary[i].navigatorKey,
+                      onGenerateRoute: (_) => MaterialPageRoute<void>(
+                        builder: secondary[i].builder,
+                      ),
+                    ),
                   ),
                 ),
               ),

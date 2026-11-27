@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -512,6 +513,113 @@ void main() {
       await sub.cancel();
       await manager.dispose();
     });
+
+    test(
+      'fixed-seed interleaved submit, cancel, fail, retry, dismiss, restore, and cap changes hold invariants',
+      () async {
+        final rng = math.Random(0x5EED1127);
+        final transport = FakeTransport();
+        final gates = List.generate(120, (_) => Completer<void>());
+        for (var i = 0; i < gates.length; i++) {
+          transport.responses.add(
+            ScriptedResponse(
+              contentLength: 2,
+              chunks: [
+                [i & 0xFF, 1],
+              ],
+              completers: [gates[i]],
+              error: rng.nextInt(4) == 0 ? Exception('seeded-$i') : null,
+            ),
+          );
+        }
+        final manager = _manager(transport);
+        final counts = <String, int>{};
+        final sub = manager.events.listen(
+          (e) => counts[e.snapshot.id] = (counts[e.snapshot.id] ?? 0) + 1,
+        );
+        addTearDown(sub.cancel);
+        final removals = <DownloadRemoval>[];
+        var nextGate = 0;
+
+        void check(String step) {
+          expect(
+            manager.tasks
+                .where((t) => t.status == DownloadStatus.running)
+                .length,
+            lessThanOrEqualTo(manager.maxConcurrent),
+            reason: step,
+          );
+          final liveKeys = <String>{};
+          final byId = {for (final t in manager.tasks) t.id: t};
+          for (final t in manager.tasks.where((t) => !isTerminal(t.status))) {
+            expect(
+              liveKeys.add('${t.illustId}:${t.pageIndex}:${t.target}'),
+              isTrue,
+              reason: 'dup live @ $step',
+            );
+          }
+          for (final g in manager.groups) {
+            expect(g.jobIds, isNotEmpty, reason: 'empty group @ $step');
+            for (final id in g.jobIds) {
+              expect(byId[id]?.groupId, g.id, reason: 'group ref @ $step');
+            }
+          }
+        }
+
+        for (var step = 0; step < 60; step++) {
+          String? pick(bool Function(DownloadTaskSnapshot) pred) {
+            final xs = manager.tasks.where(pred).toList();
+            return xs.isEmpty ? null : xs[rng.nextInt(xs.length)].id;
+          }
+
+          switch (rng.nextInt(7)) {
+            case 0:
+              manager.submit(
+                request(
+                  illustId: 10 + rng.nextInt(6),
+                  pageIndex: rng.nextInt(3),
+                ),
+              );
+            case 1:
+              final id = 20 + rng.nextInt(4);
+              manager.submitGroup([
+                request(illustId: id, pageIndex: 0),
+                request(illustId: id, pageIndex: 1),
+              ]);
+            case 2:
+              if (pick((t) => !isTerminal(t.status)) case final id?) {
+                await manager.cancel(id);
+              }
+            case 3:
+              if (pick((t) => t.status == DownloadStatus.failed)
+                  case final id?) {
+                manager.retry(id);
+              }
+            case 4:
+              if (pick((t) => isTerminal(t.status)) case final id?) {
+                final r = manager.dismissAll([id]);
+                if (r.count > 0) removals.add(r);
+              }
+            case 5:
+              if (removals.isNotEmpty) manager.restore(removals.removeLast());
+            case 6:
+              manager.maxConcurrent = 1 + rng.nextInt(4);
+          }
+          if (nextGate < gates.length && rng.nextBool()) {
+            gates[nextGate++].complete();
+          }
+          await Future<void>.delayed(Duration.zero);
+          check('step $step');
+        }
+        for (var i = nextGate; i < gates.length; i++) {
+          gates[i].complete();
+        }
+        await _untilAllEnded(manager);
+        await Future<void>.delayed(Duration.zero);
+        check('settled');
+        expect(counts.values.every((n) => n == 1), isTrue);
+      },
+    );
   });
 
   group('dismissAll / restore (D2)', () {
