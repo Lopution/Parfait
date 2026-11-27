@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:parfait/core/download/caption_exporter.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_recovery.dart';
 import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_sink.dart';
@@ -14,8 +16,11 @@ import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/illust_download_coordinator.dart';
 import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/platform/ios_photo_library.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/series/series_models.dart';
 import 'package:parfait/core/series/series_repository.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_enums.dart';
 
 import 'helpers/illust_fixtures.dart';
@@ -442,7 +447,73 @@ void main() {
         expect(reqs.single.subdirectories, ['Maker', 'Chronicle']);
       },
     );
+
+    test(
+      'iOS Photo Library skips caption sidecar instead of cancelling the download batch',
+      () async {
+        // Reliability P1 45dffd1c: PHPhotoLibrary rejects text/plain sidecars;
+        // captionExporterProvider on iOS must never attempt a raw .txt export.
+        final rejectingRaw = _FailingRawFactory();
+        final container = ProviderContainer.test(
+          overrides: [
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isIOS: true),
+            ),
+            downloadCaptionProvider.overrideWithValue(true),
+            downloadSinkFactoryProvider.overrideWithValue(
+              _MediaOnlySinkFactory(rejectingRaw),
+            ),
+          ],
+        );
+        final exporter = container.read(captionExporterProvider);
+        final work = parseIllust(illustJson(91, caption: 'iOS caption'));
+        await exporter?.export(
+          illust: work,
+          submission: _submission(destination: DownloadDestination.builtin),
+          pageZeroName: '91_p0.jpg',
+        );
+        expect(rejectingRaw.sink.aborted, isFalse);
+        expect(
+          captionFits(
+            DownloadDestination.builtin,
+            isAndroid: false,
+            isIOS: true,
+          ),
+          isFalse,
+        );
+        expect(
+          captionFits(DownloadDestination.builtin, isAndroid: false),
+          isTrue,
+        );
+        const iosSession = IosPhotoLibraryMediaStoreSession();
+        await expectLater(
+          () => iosSession.begin(displayName: '91.txt', mimeType: 'text/plain'),
+          throwsUnsupportedError,
+        );
+      },
+    );
   });
+}
+
+class _MediaOnlySinkFactory extends MemorySinkFactory
+    implements RawDownloadSinkFactory {
+  _MediaOnlySinkFactory(this._raw);
+  final RawDownloadSinkFactory _raw;
+
+  @override
+  Future<DownloadSink> beginRaw({
+    required String displayName,
+    required String mimeType,
+    required DownloadDestination destination,
+    DownloadOutputOwner? owner,
+    List<String> subdirectories = const [],
+  }) => _raw.beginRaw(
+    displayName: displayName,
+    mimeType: mimeType,
+    destination: destination,
+    owner: owner,
+    subdirectories: subdirectories,
+  );
 }
 
 class _NoopDownloadTransport implements DownloadTransport {

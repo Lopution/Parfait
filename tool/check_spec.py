@@ -2,11 +2,13 @@
 """Checks .trellis/spec against the format rules in .trellis/spec/index.md.
 
 Usage:
-  python3 tool/check_spec.py               check every spec file (CI)
-  python3 tool/check_spec.py --for PATH..  list the spec files covering PATHs
-  python3 tool/check_spec.py --diff [BASE] spec files for this branch's changes
-  python3 tool/check_spec.py --tasks       task context files name real paths
-  python3 tool/check_spec.py --self-test   run the checker's own tests
+  python3 tool/check_spec.py                  check every spec file (CI)
+  python3 tool/check_spec.py --for PATH..     list the spec files covering PATHs
+  python3 tool/check_spec.py --by-test PATH.. list spec rules anchored on test PATHs
+  python3 tool/check_spec.py --diff [BASE]    spec files for this branch's changes
+  python3 tool/check_spec.py --audit-diff [B] audit deleted tests/rules since BASE
+  python3 tool/check_spec.py --tasks          task context files name real paths
+  python3 tool/check_spec.py --self-test      run the checker's own tests
 
 Exit status is 1 when an error is reported; warnings never fail.
 """
@@ -37,7 +39,11 @@ RULE_FILE_KEYS = {'prefix', 'applies_to', 'reviewed'}
 INDEX_KEYS = {'reviewed'}
 
 PREFIX_RE = re.compile(r'^[A-Z]{2,6}$')
-RULE_HEADING_RE = re.compile(r'^### ([A-Z]{2,6})-(\d{2}) \S')
+RULE_HEADING_RE = re.compile(r'^### ([A-Z]{2,6})-(\d{2}) (\S.*)$')
+RULE_REF_RE = re.compile(r'\b([A-Z]{2,6})-(\d{2})\b')
+DART_TEST_CASE_RE = re.compile(
+    r'''\b(?:test|testWidgets|testGoldens)\s*\(\s*(?:'([^'\n]+)'|"([^"\n]+)")'''
+)
 FIELD_RE = re.compile(r'^- \*\*(\w+):\*\*')
 BACKTICK_RE = re.compile(r'`([^`\n]+)`')
 CHECK_ITEM_RE = re.compile(r'`([^`\n]+)`((?:\s*"[^"\n]+")*)')
@@ -465,6 +471,25 @@ def check_indexes(specs: list[SpecFile], report: Report) -> None:
                              f'lists {f.path.name} without a summary')
 
 
+def check_rule_refs(specs: list[SpecFile], prefixes: dict[str, str],
+                    seen_ids: dict[str, str], report: Report) -> None:
+    """Reject inline references to non-existent rule IDs of known prefixes."""
+    known_prefixes = set(prefixes)
+    for spec in specs:
+        where = str(spec.path)
+        for number, line, fenced in body_lines(spec):
+            if fenced or line.startswith('### '):
+                continue
+            for match in RULE_REF_RE.finditer(line):
+                prefix, num = match.group(1), match.group(2)
+                if prefix not in known_prefixes:
+                    continue
+                rule_id = f'{prefix}-{num}'
+                if rule_id not in seen_ids:
+                    report.error(f'{where}:{number}',
+                                 f'unknown rule reference: {rule_id}')
+
+
 def check_all(repo: Repo, today: dt.date) -> tuple[Report, dict[str, int]]:
     report = Report()
     specs = load_spec(repo, report)
@@ -488,8 +513,202 @@ def check_all(repo: Repo, today: dt.date) -> tuple[Report, dict[str, int]]:
         stats['tested'] += sum(
             1 for line in spec.lines
             if line.startswith('- **Check:**') and '`test/' in line)
+    check_rule_refs(specs, prefixes, seen_ids, report)
     check_indexes(specs, report)
     return report, stats
+
+
+def parse_rule_checks(
+    spec: SpecFile,
+) -> list[tuple[str, str, list[tuple[str, list[str]]]]]:
+    """Extracts (rule_id, title, [(check_path, [quoted_names])]) from a spec."""
+    entries: list[tuple[str, str, list[tuple[str, list[str]]]]] = []
+    cur_id = ''
+    cur_title = ''
+    check_text_buf = ''
+    in_check = False
+
+    def flush() -> None:
+        nonlocal cur_id, cur_title, check_text_buf, in_check
+        if not cur_id:
+            return
+        items = [
+            (path.lstrip('./').rstrip('/'), QUOTED_RE.findall(names))
+            for path, names in CHECK_ITEM_RE.findall(check_text_buf)
+        ]
+        entries.append((cur_id, cur_title, items))
+        cur_id = ''
+        cur_title = ''
+        check_text_buf = ''
+        in_check = False
+
+    for _, line, fenced in body_lines(spec):
+        if fenced:
+            continue
+        if line.startswith('### '):
+            flush()
+            match = RULE_HEADING_RE.match(line)
+            if match:
+                cur_id = f'{match.group(1)}-{match.group(2)}'
+                cur_title = match.group(3).strip()
+            continue
+        if line.startswith('## '):
+            flush()
+            continue
+        if not cur_id:
+            continue
+        field_match = FIELD_RE.match(line)
+        if field_match:
+            if field_match.group(1) == 'Check':
+                in_check = True
+                check_text_buf = line[field_match.end():].strip()
+            else:
+                in_check = False
+        elif in_check and line.startswith('  '):
+            check_text_buf += ' ' + line.strip()
+        else:
+            in_check = False
+    flush()
+    return entries
+
+
+def rules_by_test(
+    specs: list[SpecFile], test_paths: list[str]
+) -> dict[str, list[tuple[str, str, str, list[str]]]]:
+    """Reverse-maps each test path (or directory) to rules referencing it."""
+    normalized = [p.lstrip('./').rstrip('/') for p in test_paths]
+    hits: dict[str, list[tuple[str, str, str, list[str]]]] = {
+        p: [] for p in normalized
+    }
+    for spec in specs:
+        if spec.is_index:
+            continue
+        spec_path = str(spec.path)
+        for rule_id, title, items in parse_rule_checks(spec):
+            for target in normalized:
+                matched_names: list[str] = []
+                matched = False
+                for check_path, quoted in items:
+                    if (check_path == target
+                            or check_path.startswith(f'{target}/')):
+                        matched = True
+                        matched_names.extend(quoted)
+                if matched:
+                    hits[target].append(
+                        (rule_id, spec_path, title, matched_names)
+                    )
+    return hits
+
+
+def is_audited_test_file(path: str) -> bool:
+    return (
+        (path.startswith('test/') and path.endswith('_test.dart'))
+        or (path.startswith('android/app/src/test/') and path.endswith('.kt'))
+    )
+
+
+def extract_dart_test_cases(text: str) -> list[str]:
+    """Extracts declared test/testWidgets/testGoldens case names in order."""
+    norm = normalize_dart_strings(text)
+    seen: set[str] = set()
+    names: list[str] = []
+    for match in DART_TEST_CASE_RE.finditer(norm):
+        name = match.group(1) if match.group(1) is not None else match.group(2)
+        if name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
+def extract_rule_headings(spec: SpecFile) -> dict[str, str]:
+    headings: dict[str, str] = {}
+    for _, line, fenced in body_lines(spec):
+        if fenced or not line.startswith('### '):
+            continue
+        match = RULE_HEADING_RE.match(line)
+        if match:
+            rule_id = f'{match.group(1)}-{match.group(2)}'
+            headings[rule_id] = match.group(3).strip()
+    return headings
+
+
+def parse_spec_from_text(path: str, text: str) -> SpecFile | None:
+    lines = text.splitlines()
+    try:
+        meta, start = parse_frontmatter(lines)
+    except ValueError:
+        return None
+    return SpecFile(Path(path), lines, meta, start)
+
+
+def audit_deletions(
+    base_files: dict[str, str],
+    current_files: dict[str, str],
+    current_specs: list[SpecFile],
+    base_specs: list[SpecFile],
+) -> dict[str, object]:
+    """Computes deleted test files, removed test cases, and removed rules."""
+    current_rule_checks: dict[str, tuple[str, set[str]]] = {}
+    for spec in current_specs:
+        if spec.is_index:
+            continue
+        for rule_id, _, items in parse_rule_checks(spec):
+            current_rule_checks[rule_id] = (
+                str(spec.path), {path for path, _ in items}
+            )
+
+    deleted_test_paths = sorted(
+        p for p in base_files
+        if is_audited_test_file(p) and p not in current_files
+    )
+    base_anchors = rules_by_test(base_specs, deleted_test_paths)
+    deleted_test_files: list[tuple[str, list[tuple[str, str, str]]]] = []
+    for test_path in deleted_test_paths:
+        rule_statuses: list[tuple[str, str, str]] = []
+        for rule_id, spec_path, _, _ in base_anchors.get(test_path, []):
+            if rule_id not in current_rule_checks:
+                status = 'RULE DELETED'
+            elif test_path in current_rule_checks[rule_id][1]:
+                status = 'STILL REFERENCED'
+            else:
+                status = 'migrated'
+            rule_statuses.append((rule_id, spec_path, status))
+        deleted_test_files.append((test_path, rule_statuses))
+
+    deleted_test_cases: list[tuple[str, list[str]]] = []
+    for path in sorted(base_files):
+        if (not (path.startswith('test/') and path.endswith('_test.dart'))
+                or path not in current_files):
+            continue
+        if base_files[path] == current_files[path]:
+            continue
+        base_cases = extract_dart_test_cases(base_files[path])
+        cur_cases = set(extract_dart_test_cases(current_files[path]))
+        removed = [c for c in base_cases if c not in cur_cases]
+        if removed:
+            deleted_test_cases.append((path, removed))
+
+    deleted_spec_rules: list[tuple[str, str, str]] = []
+    cur_rules_by_path: dict[str, dict[str, str]] = {
+        str(s.path): extract_rule_headings(s)
+        for s in current_specs if not s.is_index
+    }
+    for spec in base_specs:
+        if spec.is_index:
+            continue
+        spec_path = str(spec.path)
+        if spec_path not in base_files:
+            continue
+        cur_rules = cur_rules_by_path.get(spec_path, {})
+        for rule_id, title in extract_rule_headings(spec).items():
+            if rule_id not in cur_rules:
+                deleted_spec_rules.append((rule_id, spec_path, title))
+
+    return {
+        'deleted_test_files': deleted_test_files,
+        'deleted_test_cases': deleted_test_cases,
+        'deleted_spec_rules': deleted_spec_rules,
+    }
 
 
 def specs_for(repo: Repo, paths: list[str]) -> list[tuple[str, str]]:
@@ -590,6 +809,112 @@ def main_for(paths: list[str]) -> int:
     repo = Repo(REPO, git_files(REPO))
     for path, summary in specs_for(repo, paths):
         print(f'{path}  {summary}')
+    return 0
+
+
+def main_by_test(paths: list[str]) -> int:
+    repo = Repo(REPO, git_files(REPO))
+    specs = load_spec(repo, Report())
+    hits = rules_by_test(specs, paths)
+    for target, rules in hits.items():
+        if not rules:
+            print(f'{target}: (no spec Check: references)')
+            continue
+        print(f'{target}: {len(rules)} spec rule(s)')
+        for rule_id, spec_path, title, quoted in rules:
+            detail = (
+                ' — ' + ', '.join(f'"{q}"' for q in quoted)
+                if quoted else ''
+            )
+            print(f'  {rule_id} ({spec_path}) {title}{detail}')
+    return 0
+
+
+def git_show_optional(rev: str, path: str) -> str | None:
+    result = subprocess.run(
+        ['git', 'show', f'{rev}:{path}'],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
+def main_audit_diff(base: str) -> int:
+    merge_base = run_git('merge-base', base, 'HEAD').strip()
+    diff_lines = run_git(
+        'diff', '--name-status', '--no-renames', merge_base,
+    ).splitlines()
+    touched_tests: list[tuple[str, str]] = []
+    touched_specs: list[tuple[str, str]] = []
+    for line in diff_lines:
+        if not line.strip():
+            continue
+        status, path = line.split('\t', 1)
+        if is_audited_test_file(path):
+            touched_tests.append((status, path))
+        elif path.startswith(f'{SPEC_DIR}/') and path.endswith('.md'):
+            touched_specs.append((status, path))
+
+    base_files: dict[str, str] = {}
+    current_files: dict[str, str] = {}
+    for status, path in touched_tests + touched_specs:
+        if status != 'A':
+            old_text = git_show_optional(merge_base, path)
+            if old_text is not None:
+                base_files[path] = old_text
+        cur_path = REPO / path
+        if status != 'D' and cur_path.is_file():
+            current_files[path] = cur_path.read_text(encoding='utf-8')
+
+    repo = Repo(REPO, git_files(REPO))
+    current_specs = load_spec(repo, Report())
+    # Reconstruct base-side specs only when needed (deleted tests or edited specs).
+    base_specs: list[SpecFile] = []
+    if any(st == 'D' for st, _ in touched_tests) or touched_specs:
+        base_spec_paths = run_git(
+            'ls-tree', '-r', '--name-only', merge_base, str(SPEC_DIR),
+        ).splitlines()
+        for sp in sorted(p for p in base_spec_paths if p.endswith('.md')):
+            txt = base_files.get(sp)
+            if txt is None:
+                txt = git_show_optional(merge_base, sp)
+            if txt is not None:
+                parsed = parse_spec_from_text(sp, txt)
+                if parsed is not None:
+                    base_specs.append(parsed)
+
+    audit = audit_deletions(base_files, current_files, current_specs, base_specs)
+    del_files = audit['deleted_test_files']
+    del_cases = audit['deleted_test_cases']
+    del_rules = audit['deleted_spec_rules']
+    case_total = sum(len(cases) for _, cases in del_cases)
+    print(
+        f'{len(del_files)} deleted test files, {case_total} deleted test cases, '
+        f'{len(del_rules)} deleted spec rules'
+    )
+    if del_files:
+        print('Deleted test files (--by-test impact vs base):')
+        for path, rules in del_files:
+            if not rules:
+                print(f'  {path} (0 base spec anchors)')
+            else:
+                print(f'  {path} ({len(rules)} base spec anchor(s)):')
+                for rule_id, spec_path, st in rules:
+                    print(f'    {rule_id} ({spec_path}) [{st}]')
+    if del_cases:
+        print('Deleted test cases in modified Dart test files:')
+        for path, cases in del_cases:
+            print(f'  {path} (-{len(cases)}):')
+            for name in cases[:20]:
+                print(f'    - "{name}"')
+            if len(cases) > 20:
+                print(f'    ... +{len(cases) - 20} more')
+    if del_rules:
+        print('Deleted spec rules:')
+        for rule_id, spec_path, title in del_rules:
+            print(f'  {rule_id} ({spec_path}) {title}')
+    if del_files or del_cases or del_rules:
+        print('note: document replacement coverage or removed behaviour for '
+              'each deletion (TEST-04 / TEST-13)')
     return 0
 
 
@@ -735,6 +1060,20 @@ def self_test() -> int:
         ('multiline Dart test name matches', lambda files: files.update({
             'test/nav_test.dart': "test('back '\n  'goes home', () {});",
         }), None),
+        ('unknown cross-rule reference (same prefix)',
+         append('\nSee also NAV-99.\n'), 'unknown rule reference: NAV-99'),
+        ('unknown cross-rule reference (other known prefix)', lambda files: (
+            files.update({
+                f'{SPEC_DIR}/frontend/other.md': files[nav].replace(
+                    'prefix: NAV', 'prefix: OTH').replace('NAV-01', 'OTH-01'),
+                f'{SPEC_DIR}/frontend/index.md':
+                    files[f'{SPEC_DIR}/frontend/index.md']
+                    + '- [other.md](./other.md) — read when testing other.\n',
+                nav: files[nav] + '\nSee also OTH-99.\n',
+            })
+        ), 'unknown rule reference: OTH-99'),
+        ('non-spec uppercase dash token is ignored',
+         append('\nEncodes UTF-16 and SHA-256 cleanly.\n'), None),
     ]
     failures = 0
     for name, edit, expected in cases:
@@ -748,7 +1087,73 @@ def self_test() -> int:
             print(f'FAIL {name}: expected {expected or "no errors"}, got:')
             for line in report.errors or ['(no errors)']:
                 print(f'  {line}')
-    print(f'{len(cases) - failures}/{len(cases)} self-test cases passed')
+
+    # Unit-test --by-test reverse index and --audit-diff deletion logic.
+    today = dt.date(2026, 1, 31)
+    base_nav = GOOD_RULE_FILE.format(today=today)
+    base_spec = parse_spec_from_text(nav, base_nav)
+    assert base_spec is not None
+    by_test = rules_by_test([base_spec], ['test/nav_test.dart', 'test/none.dart'])
+    extra_checks = [
+        ('by-test finds anchored rule',
+         len(by_test['test/nav_test.dart']) == 1
+         and by_test['test/nav_test.dart'][0][0] == 'NAV-01'),
+        ('by-test returns empty for unreferenced file',
+         by_test['test/none.dart'] == []),
+    ]
+    migrated_nav = base_nav.replace('test/nav_test.dart', 'test/e2e_test.dart')
+    migrated_spec = parse_spec_from_text(nav, migrated_nav)
+    assert migrated_spec is not None
+    audit_migrated = audit_deletions(
+        base_files={
+            'test/nav_test.dart': "test('back goes home', () {});\ntest('extra', () {});",
+            nav: base_nav,
+        },
+        current_files={nav: migrated_nav},
+        current_specs=[migrated_spec],
+        base_specs=[base_spec],
+    )
+    extra_checks.append((
+        'audit detects deleted test file and migrated anchor',
+        audit_migrated['deleted_test_files'] == [
+            ('test/nav_test.dart', [('NAV-01', nav, 'migrated')])
+        ],
+    ))
+    empty_nav = base_nav.split('### NAV-01')[0]
+    empty_spec = parse_spec_from_text(nav, empty_nav)
+    assert empty_spec is not None
+    audit_removed = audit_deletions(
+        base_files={
+            'test/nav_test.dart': (
+                "test('back goes home', () {});\n"
+                "testWidgets('keeps tab', (t) async {});\n"
+            ),
+            nav: base_nav,
+        },
+        current_files={
+            'test/nav_test.dart': "test('back goes home', () {});\n",
+            nav: empty_nav,
+        },
+        current_specs=[empty_spec],
+        base_specs=[base_spec],
+    )
+    extra_checks.extend([
+        ('audit detects deleted test case in modified file',
+         audit_removed['deleted_test_cases'] == [
+             ('test/nav_test.dart', ['keeps tab'])
+         ]),
+        ('audit detects deleted spec rule',
+         audit_removed['deleted_spec_rules'] == [
+             ('NAV-01', nav, 'Back goes home')
+         ]),
+    ])
+    for name, ok in extra_checks:
+        if not ok:
+            failures += 1
+            print(f'FAIL {name}')
+
+    total = len(cases) + len(extra_checks)
+    print(f'{total - failures}/{total} self-test cases passed')
     return 1 if failures else 0
 
 
@@ -756,7 +1161,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--for', dest='paths', nargs='+', metavar='PATH')
+    group.add_argument('--by-test', dest='test_paths', nargs='+',
+                       metavar='PATH')
     group.add_argument('--diff', nargs='?', const='main', metavar='BASE')
+    group.add_argument('--audit-diff', dest='audit_base', nargs='?',
+                       const='main', metavar='BASE')
     group.add_argument('--tasks', action='store_true')
     group.add_argument('--self-test', action='store_true')
     args = parser.parse_args()
@@ -764,8 +1173,12 @@ def main() -> int:
         return self_test()
     if args.paths:
         return main_for(args.paths)
+    if args.test_paths:
+        return main_by_test(args.test_paths)
     if args.diff:
         return main_diff(args.diff)
+    if args.audit_base:
+        return main_audit_diff(args.audit_base)
     if args.tasks:
         return print_report(check_tasks())
     return main_check()

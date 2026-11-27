@@ -116,9 +116,11 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     }
     final destination = settings.downloadDestination;
     final platform = Theme.of(context).platform;
+    final caps = ref.watch(platformCapsProvider);
     final captionFitsHere = captionFits(
       destination,
-      isAndroid: ref.watch(platformCapsProvider).supportsMediaStore,
+      isAndroid: caps.supportsMediaStore,
+      isIOS: caps.supportsPhotoLibrary,
     );
     final showSubfolders =
         Setting.downloadSubfolderMode.available &&

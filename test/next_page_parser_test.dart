@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/network/next_page_parser.dart';
+import 'package:parfait/core/search/search_models.dart';
 
 void main() {
   group('NextPageParser', () {
@@ -92,5 +93,70 @@ void main() {
         throwsA(isA<NextPageParseError>()),
       );
     });
+
+    test(
+      'every IllustSearchFilters and NovelSearchFilters query key is admitted by firstPage',
+      () {
+        // Reliability P1 c7d43c86: paired producer <-> allowlist contract.
+        final illustQuery = IllustSearchFilters(
+          target: SearchTarget.exactMatchForTags,
+          sort: SearchSort.dateAsc,
+          duration: SearchDuration.week,
+          startDate: DateTime.utc(2026, 1, 1),
+          endDate: DateTime.utc(2026, 2, 1),
+          aiFilter: SearchAiFilter.exclude,
+          bookmarkMin: 100,
+          bookmarkMax: 5000,
+          ratio: SearchRatioPattern.landscape,
+          contentType: SearchContentType.manga,
+          widthMin: 800,
+          widthMax: 4000,
+          heightMin: 600,
+          heightMax: 3000,
+        ).toQuery(word: 'landscape');
+        final novelQuery = NovelSearchFilters(
+          target: SearchTarget.text,
+          sort: SearchSort.dateDesc,
+          duration: SearchDuration.month,
+          startDate: DateTime.utc(2026, 1, 1),
+          endDate: DateTime.utc(2026, 2, 1),
+          aiFilter: SearchAiFilter.exclude,
+          bookmarkMin: 50,
+          bookmarkMax: 1000,
+          textLengthMin: 1000,
+          textLengthMax: 20000,
+          originalOnly: true,
+        ).toQuery(word: 'fantasy');
+        final previewIllust = Map<String, String>.from(illustQuery)
+          ..remove('sort')
+          ..remove('duration');
+        final previewNovel = Map<String, String>.from(novelQuery)
+          ..remove('sort')
+          ..remove('duration');
+
+        expect(
+          NextPageParser.firstPage('/v1/search/illust', illustQuery).query,
+          illustQuery,
+        );
+        expect(
+          NextPageParser.firstPage(
+            '/v1/search/popular-preview/illust',
+            previewIllust,
+          ).query,
+          previewIllust,
+        );
+        expect(
+          NextPageParser.firstPage('/v1/search/novel', novelQuery).query,
+          novelQuery,
+        );
+        expect(
+          NextPageParser.firstPage(
+            '/v1/search/popular-preview/novel',
+            previewNovel,
+          ).query,
+          previewNovel,
+        );
+      },
+    );
   });
 }
