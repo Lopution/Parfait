@@ -1,5 +1,5 @@
 ---
-reviewed: 2026-11-21
+reviewed: 2026-11-27
 ---
 
 # Spec
@@ -96,12 +96,14 @@ reviewed: 2026-10-12
   how to fix the code.
 - Machine checks count against the test budget; keep them small.
 - `tool/check_spec.py` checks the spec itself: line limits, frontmatter,
-  `applies_to` globs, rule IDs and fields, referenced paths and test names,
-  forbidden process records, index coverage, contents lists. CI runs it in
-  the `analyze` job.
-- Local modes: `--for <path>...` (which files to read), `--diff [base]`
-  (spec files for the current branch's changes), `--tasks` (task context
-  files point at existing paths).
+  `applies_to` globs, rule IDs and fields, referenced paths, test names and
+  cross-rule IDs, forbidden process records, index coverage, contents lists.
+  CI runs it in the `analyze` job.
+- Local modes: `--for <path>...` (which files to read), `--by-test <path>...`
+  (which rules anchor on a test file), `--diff [base]` (spec files for the
+  current branch's changes), `--audit-diff [base]` (deleted tests and spec
+  rules against `base`, run by `tool/gate.sh`), `--tasks` (task context files
+  point at existing paths).
 
 ## Writing back
 

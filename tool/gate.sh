@@ -201,6 +201,7 @@ run_tests() {
 
 step "git diff --check" diff_check
 step "check_spec" python3 tool/check_spec.py
+step "spec/test deletion audit" python3 tool/check_spec.py --audit-diff "$base"
 step "affected_tests self-test" python3 tool/affected_tests.py --self-test
 step "test budget" python3 tool/test_budget.py --base "$base"
 
