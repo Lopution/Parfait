@@ -20,6 +20,7 @@ import 'download_manager.dart';
 import 'download_sink.dart';
 import 'download_task.dart';
 import 'download_transport.dart';
+import '../localnovel/local_novel_repository.dart';
 import '../novel/novel_repository.dart';
 import '../ugoira/ugoira_gif_download_executor.dart';
 import '../ugoira/ugoira_providers.dart';
@@ -74,10 +75,12 @@ final captionExporterProvider = Provider<CaptionExporter?>((ref) {
   if (!ref.watch(downloadCaptionProvider)) return null;
   final factory = ref.watch(downloadSinkFactoryProvider);
   if (factory is! RawDownloadSinkFactory) return null;
+  final caps = ref.watch(platformCapsProvider);
   return CaptionExporter(
     sinkFactory: factory as RawDownloadSinkFactory,
     preferences: ref.watch(sharedPreferencesProvider),
-    isAndroid: ref.watch(platformCapsProvider).supportsMediaStore,
+    isAndroid: caps.supportsMediaStore,
+    isIOS: caps.supportsPhotoLibrary,
   );
 });
 
@@ -100,6 +103,19 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
     payloads: ref.read(novelTxtPayloadStoreProvider),
     fetchNovelDetail: (novelId) =>
         ref.read(novelRepositoryProvider).fetchDetail(novelId),
+    fetchSeriesTxt: (seriesId) {
+      final repo = ref.read(novelRepositoryProvider);
+      return buildPixivNovelSeriesTxt(
+        seriesId: seriesId,
+        fetchSeries: repo.fetchSeries,
+        fetchDetail: repo.fetchDetail,
+      );
+    },
+    readLocalNovelTxt: (localId) async {
+      final local = await ref.read(localNovelRepositoryProvider).get(localId);
+      if (local == null || !await local.file.exists()) return null;
+      return local.file.readAsString();
+    },
   );
   final manager = DownloadManager(
     transport: ref.watch(pixivMediaTransportProvider),

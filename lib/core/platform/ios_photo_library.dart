@@ -81,6 +81,11 @@ class IosPhotoLibraryMediaStoreSession
     required String mimeType,
     String? relativePath,
   }) async {
+    if (!mimeType.startsWith('image/') && !mimeType.startsWith('video/')) {
+      throw UnsupportedError(
+        'iOS Photo Library only accepts image or video outputs, got $mimeType',
+      );
+    }
     final root = await _root();
     final album = _albumOf(relativePath);
     final id = ++_nextId;

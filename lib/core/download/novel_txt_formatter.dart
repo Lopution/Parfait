@@ -3,7 +3,10 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../network/api_error.dart';
+import '../network/pixiv_http_client.dart';
 import '../novel/novel_entity.dart';
+import '../novel/novel_repository.dart';
 import 'download_custom_executor.dart';
 import 'download_recovery.dart';
 import 'download_request.dart';
@@ -113,6 +116,127 @@ class NovelTxtPayloadStore {
   void remove(Uri url) => _payloads.remove(url.toString());
 }
 
+/// Paginates all chapters of [seriesId], skipping restricted or unavailable
+/// episodes while propagating cancellation, network, auth, and rate-limit errors.
+Future<
+  ({
+    String? seriesTitle,
+    NovelSeriesDetail? detail,
+    List<NovelEntity> chapters,
+    int skipped,
+  })
+>
+fetchPixivNovelSeriesChapters({
+  required int seriesId,
+  required Future<NovelSeriesPage> Function(
+    int seriesId, {
+    String? cursor,
+    CancelToken? cancelToken,
+  })
+  fetchSeries,
+  required Future<NovelEntity> Function(int novelId, {CancelToken? cancelToken})
+  fetchDetail,
+  CancelToken? cancelToken,
+}) async {
+  String? seriesTitle;
+  NovelSeriesDetail? detail;
+  final entries = <NovelSeriesEntry>[];
+  String? cursor;
+  var pages = 0;
+  const maxPages = 50;
+  do {
+    final page = await fetchSeries(
+      seriesId,
+      cursor: cursor,
+      cancelToken: cancelToken,
+    );
+    if (seriesTitle == null && (page.title?.isNotEmpty ?? false)) {
+      seriesTitle = page.title;
+    }
+    detail ??= page.detail;
+    entries.addAll(page.entries);
+    cursor = page.nextUrl;
+    pages++;
+  } while (cursor != null && pages < maxPages);
+
+  final chapters = <NovelEntity>[];
+  var skipped = 0;
+  for (final entry in entries) {
+    if (cancelToken?.isCancelled ?? false) {
+      throw const ApiCancelled();
+    }
+    if (!entry.viewable) {
+      skipped++;
+      continue;
+    }
+    try {
+      final full = await fetchDetail(entry.id, cancelToken: cancelToken);
+      if (full.isRestricted || !full.contentAvailable) {
+        skipped++;
+      } else {
+        chapters.add(full);
+      }
+    } on ApiHttpError catch (error) {
+      // Only genuinely unavailable chapters (forbidden/deleted) count as
+      // skipped; cancellation, network, auth, rate-limit, and parse failures
+      // propagate so the user never receives a silently truncated export.
+      if (error.statusCode == 403 || error.statusCode == 404) {
+        skipped++;
+      } else {
+        rethrow;
+      }
+    }
+  }
+  return (
+    seriesTitle: seriesTitle,
+    detail: detail,
+    chapters: chapters,
+    skipped: skipped,
+  );
+}
+
+/// Fetches and formats a merged Pixiv novel series TXT payload for cold-restart
+/// download retries.
+Future<String> buildPixivNovelSeriesTxt({
+  required int seriesId,
+  required Future<NovelSeriesPage> Function(
+    int seriesId, {
+    String? cursor,
+    CancelToken? cancelToken,
+  })
+  fetchSeries,
+  required Future<NovelEntity> Function(int novelId, {CancelToken? cancelToken})
+  fetchDetail,
+  CancelToken? cancelToken,
+}) async {
+  final fetched = await fetchPixivNovelSeriesChapters(
+    seriesId: seriesId,
+    fetchSeries: fetchSeries,
+    fetchDetail: fetchDetail,
+    cancelToken: cancelToken,
+  );
+  if (fetched.chapters.isEmpty) {
+    throw const FormatException('novel series content is unavailable');
+  }
+  final detail = fetched.detail;
+  final first = fetched.chapters.first;
+  final seriesTitle = (fetched.seriesTitle?.isNotEmpty ?? false)
+      ? fetched.seriesTitle!
+      : (first.seriesTitle ?? first.title);
+  final detailUser = detail?.user;
+  final authorName = (detailUser != null && detailUser.name.isNotEmpty)
+      ? detailUser.name
+      : first.user.name;
+  return formatPixivNovelSeriesTxt(
+    seriesTitle: seriesTitle,
+    authorName: authorName,
+    authorId: detailUser?.id ?? first.user.id,
+    seriesId: seriesId,
+    chapters: fetched.chapters,
+    caption: detail?.caption,
+  );
+}
+
 final novelTxtPayloadStoreProvider = Provider<NovelTxtPayloadStore>(
   (ref) => NovelTxtPayloadStore(),
 );
@@ -123,11 +247,58 @@ class NovelTxtDownloadExecutor {
   NovelTxtDownloadExecutor({
     required NovelTxtPayloadStore payloads,
     Future<NovelEntity> Function(int novelId)? fetchNovelDetail,
+    Future<String> Function(int seriesId)? fetchSeriesTxt,
+    Future<String?> Function(int localId)? readLocalNovelTxt,
   }) : _payloads = payloads,
-       _fetchNovelDetail = fetchNovelDetail;
+       _fetchNovelDetail = fetchNovelDetail,
+       _fetchSeriesTxt = fetchSeriesTxt,
+       _readLocalNovelTxt = readLocalNovelTxt;
+
+  static final _seriesUrlPattern = RegExp(r'^/novel/series_(\d+)\.txt$');
+  static final _localUrlPattern = RegExp(r'^/novel/local_(\d+)\.txt$');
+  static final _singleUrlPattern = RegExp(r'^/novel/(\d+)\.txt$');
 
   final NovelTxtPayloadStore _payloads;
   final Future<NovelEntity> Function(int novelId)? _fetchNovelDetail;
+  final Future<String> Function(int seriesId)? _fetchSeriesTxt;
+  final Future<String?> Function(int localId)? _readLocalNovelTxt;
+
+  Future<String> _rebuildPayload(DownloadRequest request) async {
+    final path = request.url.path;
+    final seriesMatch = _seriesUrlPattern.firstMatch(path);
+    if (seriesMatch != null) {
+      final fetcher = _fetchSeriesTxt;
+      if (fetcher == null) {
+        throw const FormatException('novel series TXT payload unavailable');
+      }
+      return fetcher(int.parse(seriesMatch.group(1)!));
+    }
+    final localMatch = _localUrlPattern.firstMatch(path);
+    if (localMatch != null) {
+      final reader = _readLocalNovelTxt;
+      if (reader == null) {
+        throw const FormatException('local novel TXT payload unavailable');
+      }
+      final content = await reader(int.parse(localMatch.group(1)!));
+      if (content == null) {
+        throw const FormatException('local novel file is unavailable');
+      }
+      return content;
+    }
+    final singleMatch = _singleUrlPattern.firstMatch(path);
+    if (singleMatch != null) {
+      final fetcher = _fetchNovelDetail;
+      if (fetcher == null) {
+        throw const FormatException('novel TXT payload unavailable');
+      }
+      final novel = await fetcher(int.parse(singleMatch.group(1)!));
+      if (!novel.contentAvailable) {
+        throw const FormatException('novel content is unavailable');
+      }
+      return formatPixivNovelTxt(novel);
+    }
+    throw FormatException('unsupported novel TXT URL: $path');
+  }
 
   Future<void> execute({
     required DownloadRequest request,
@@ -140,18 +311,7 @@ class NovelTxtDownloadExecutor {
     checkOwner();
     if (cancelToken.isCancelled) throw const DownloadCancelledException();
 
-    var text = _payloads.get(request.url);
-    if (text == null) {
-      final fetcher = _fetchNovelDetail;
-      if (fetcher == null) {
-        throw const FormatException('novel TXT payload unavailable');
-      }
-      final novel = await fetcher(request.illustId);
-      if (!novel.contentAvailable) {
-        throw const FormatException('novel content is unavailable');
-      }
-      text = formatPixivNovelTxt(novel);
-    }
+    final text = _payloads.get(request.url) ?? await _rebuildPayload(request);
 
     checkOwner();
     if (cancelToken.isCancelled) throw const DownloadCancelledException();
