@@ -6,7 +6,7 @@ applies_to:
   - lib/core/network/next_page_parser.dart
   - lib/core/*/*_feed*.dart
   - lib/core/*/*_repository.dart
-reviewed: 2026-11-25
+reviewed: 2026-11-28
 ---
 
 # Paged feeds, commits and the data worker
@@ -75,7 +75,7 @@ reviewed: 2026-11-25
   whenever an R-18 illust shared its id, R-18G passed the R-18 block, and
   related works and New showed blocked works (user decision). A
   block switched on rebuilt the feed from a snapshot written without it.
-- **Check:** `test/paged_feed_refill_test.dart` "hide mode drops mute hits, blur keeps them; novels read novels"; `test/mute_store_test.dart` "C9 local block: R-18 (and R-18G) and AI switches, illusts and "; `test/novel_entry_test.dart` "a muted novel shows the reason until a tap reveals it"; `test/new_content_feed_test.dart` "the local block filters New works and novels (R7)"; `test/illust_detail_page_test.dart` "requests related works only once the section is on screen; "; `test/feed_snapshot_cold_start_test.dart` "a restored snapshot passes the filters switched on since"
+- **Check:** `test/paged_feed_refill_test.dart` "hide mode drops mute hits, blur keeps them; novels read novels"; `test/mute_store_test.dart` "C9 local block: R-18 (and R-18G) and AI switches, illusts and novels alike"; `test/novel_entry_test.dart` "a muted novel shows the reason until a tap reveals it"; `test/new_content_feed_test.dart` "the local block filters New works and novels (R7)"; `test/illust_detail_page_test.dart` "requests related works only once the section is on screen; the local block filters them (R7)"; `test/feed_snapshot_cold_start_test.dart` "a restored snapshot passes the filters switched on since"
 - **Code:** `lib/core/paging/paged_feed_controller.dart`, `lib/core/settings/local_block_filter.dart`, `lib/core/mute/mute_predicate.dart`, `lib/app/widgets/novel_entry.dart`
 
 ## Commit gate
@@ -92,7 +92,7 @@ reviewed: 2026-11-25
   works kept the default key, the class name, so one user's page showed
   another user's novels from the snapshot; a bookmark tag named "null"
   and the untagged list shared one key.
-- **Check:** `test/feed_generation_commit_test.dart` "refresh wins over a late append and drops its entity/cursor commit" "account switch fences a late response and rebuilds the feed" "dispose fences a response without reading the disposed ref", `test/feed_snapshot_cold_start_test.dart` "a user's novel works never restore another user's", `test/bookmark_tags_test.dart` "the untagged list and a tag spelled null keep apart snapshots"
+- **Check:** `test/feed_generation_commit_test.dart` "refresh wins over a late append and drops its entity/cursor commit" "account switch fences a late response and rebuilds the feed" "dispose fences a response without reading the disposed ref, after a rebuild too", `test/feed_snapshot_cold_start_test.dart` "a user's novel works never restore another user's", `test/bookmark_tags_test.dart` "the untagged list and a tag spelled null keep apart snapshots"
 - **Code:** `lib/core/paging/feed_request_context.dart`, `lib/core/profile/profile_models.dart`
 
 ### PAGING-06 Refresh starts a new generation
@@ -107,7 +107,7 @@ reviewed: 2026-11-25
 - **Why:** Late appends mixed generations and left ghost ids. A page that
   landed on the list it read at its start brought back a history record
   deleted while it loaded.
-- **Check:** `test/feed_generation_commit_test.dart` "active append commits same-ID updates and keeps server order"; `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)"
+- **Check:** `test/feed_generation_commit_test.dart` "active append commits same-ID updates and keeps server order"; `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)${overlapping ? ', nor comes back with that page' : ''}"
 - **Code:** `lib/core/paging/paged_feed_controller.dart`
 
 ## Paging pace

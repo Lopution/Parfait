@@ -16,7 +16,7 @@ applies_to:
   - rust-toolchain.toml
   - CHANGELOG.md
   - .github/pull_request_template.md
-reviewed: 2026-11-22
+reviewed: 2026-11-28
 ---
 
 # Release artifacts, updater and toolchain
@@ -99,7 +99,7 @@ reviewed: 2026-11-22
   `invalid` with `abi_unsupported`. Versions compare by semver, then by
   `versionCode` against the installed code modulo 1000.
 - **Why:** An unsupported device was told it was up to date.
-- **Check:** `test/updater_manifest_test.dart` "a failed check reports its status and code and offers no" "ABI selection picks the first supported ABI present in assets" "installed 2001 is up to date against manifest base 1"
+- **Check:** `test/updater_manifest_test.dart` "a failed check reports its status and code and offers no release" "ABI selection picks the first supported ABI present in assets" "installed 2001 is up to date against manifest base 1"
 - **Code:** `lib/core/updater`
 
 ### REL-07 Updates install only after confirmation and full verification
@@ -117,7 +117,7 @@ reviewed: 2026-11-22
   swapped APK. A resumed download ignored Cancel and opened the installer,
   hung when it ended while its state was being saved, or lost its progress
   and cancel UI when About was reopened mid-download.
-- **Check:** `test/updater_download_test.dart` "apply requires explicit confirmation and never silently installs" "hash or exact-size mismatch fails closed and cleans the APK" "cancel stops a recovered updater download too" "a recovered download that ends before its state is saved", `test/updater_manifest_test.dart` "F-Droid capability never fetches a manifest or signature", `test/updater_about_test.dart` "in-flight update download keeps progress and cancel button across About re-entry"
+- **Check:** `test/updater_download_test.dart` "apply requires explicit confirmation and never silently installs; confirmed, it reuses a verified recovery before any download" "hash or exact-size mismatch fails closed and cleans the APK" "cancel stops a recovered updater download too" "a recovered download that ends before its state is saved", `test/updater_manifest_test.dart` "F-Droid capability never fetches a manifest or signature", `test/updater_about_test.dart` "in-flight update download keeps progress and cancel button across About re-entry"
 - **Code:** `lib/core/updater`, `lib/core/download/download_request.dart`
 
 ## CI

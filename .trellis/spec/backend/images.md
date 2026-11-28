@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-11-25
+reviewed: 2026-11-28
 ---
 
 # Image pipeline and animated media
@@ -135,7 +135,7 @@ reviewed: 2026-11-25
   it would cost the next one a new connection, unless it has stalled: a
   stalled one held its slot until the idle budget, and a widget that came
   back joined it stalled.
-- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel" "an original nobody wants stops; one still shared runs on" "a streaming transfer that " "a stall that moved on again lets the transfer run on", `test/hedged_image_fetch_test.dart` "a stalled image nobody wants is given up", `test/image_worker_host_test.dart` "an original nobody wants stops, and asking again starts afresh", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
+- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel" "an original nobody wants stops; one still shared runs on" "a streaming transfer that $name stops and admits the next waiter" "a stall that moved on again lets the transfer run on", `test/hedged_image_fetch_test.dart` "a stalled image nobody wants is given up", `test/image_worker_host_test.dart` "an original nobody wants stops, and asking again starts afresh", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
 - **Code:** `lib/core/image/image_demand.dart`, `lib/core/image/image_fetch_scheduler.dart`, `lib/core/image/image_worker_host.dart`
 
 ### IMG-07 Two lanes: foreground 8, background 2
@@ -165,7 +165,7 @@ reviewed: 2026-11-25
   learnt from those loads, but the image that hit the stall waited 15 s
   for its idle budget and a retry. A healthy route sends headers within
   about 2 s (p90) and leaves at most 1.3 s between chunks (p99).
-- **Check:** `test/hedged_image_fetch_test.dart` "a send stalled after its first bytes is sent again elsewhere at " "the first send finishing stops the hedge" "a fourth image stalled at once is not sent again" "a prefetch is sent again only once a visible request joins it" "a hedge that " "both sends failing fail with the first one's error" "progress follows the further of the two sends" "lazy monotonic timer resets across chunk bursts and stalls on time", `test/restricted_compat_image_test.dart` "a second send goes to a candidate the first did not use, and "
+- **Check:** `test/hedged_image_fetch_test.dart` "a send stalled after its first bytes is sent again elsewhere at 2 s; the second whole body is stored once" "the first send finishing stops the hedge" "a fourth image stalled at once is not sent again" "a prefetch is sent again only once a visible request joins it" "a hedge that $name ends alone" "both sends failing fail with the first one's error" "progress follows the further of the two sends" "lazy monotonic timer resets across chunk bursts and stalls on time", `test/restricted_compat_image_test.dart` "a second send goes to a candidate the first did not use, and finds none once every one was"
 - **Code:** `lib/core/image/hedged_image_fetch.dart`, `lib/core/image/image_worker_host.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ### IMG-08 Retry belongs to the visible image
@@ -190,7 +190,7 @@ reviewed: 2026-11-25
   stall that the first retry fixed flashed a broken icon first, and
   images that failed while the device was offline stayed broken after it
   came back. A network switch failed every image in flight at once.
-- **Check:** `test/pixiv_image_retry_test.dart` "a transient failure retries after 1 s and 3 s, looking" "three failed retries end in a manual retry button" "a missing image is asked for once; the button asks again" "bytes that do not decode are downloaded again" "a regained network reloads a failed image", `test/pixiv_image_preload_test.dart` "a failed preload stays out of the crash log and is not recorded as decoded" "a warm-up nobody wants any more ends as dropped, without a log line or a request", `test/image_worker_host_test.dart` "a fetch the network changed under is sent once more" "a fetch failing on the same network fails at once"
+- **Check:** `test/pixiv_image_retry_test.dart` "a transient failure retries after 1 s and 3 s, looking like it loads, then shows the image" "three failed retries end in a manual retry button" "a missing image is asked for once; the button asks again" "bytes that do not decode are downloaded again" "a regained network reloads a failed image: ${outcome.name}", `test/pixiv_image_preload_test.dart` "a failed preload stays out of the crash log and is not recorded as decoded" "a warm-up nobody wants any more ends as dropped, without a log line or a request", `test/image_worker_host_test.dart` "a fetch the network changed under is sent once more" "a fetch failing on the same network fails at once"
 - **Code:** `lib/app/pixiv_image.dart`, `lib/core/image/worker_image_provider.dart`, `lib/core/image/image_worker_host.dart`
 
 ## Tests

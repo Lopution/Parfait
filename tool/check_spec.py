@@ -30,6 +30,7 @@ SPEC_DIR = Path('.trellis/spec')
 
 SOFT_LINE_LIMIT = 300
 HARD_LINE_LIMIT = 400
+SOFT_RULE_WORD_LIMIT = 300
 CONTENTS_THRESHOLD = 100
 MAX_EXAMPLE_LINES = 10
 REVIEW_MAX_AGE_DAYS = 90
@@ -41,14 +42,24 @@ INDEX_KEYS = {'reviewed'}
 PREFIX_RE = re.compile(r'^[A-Z]{2,6}$')
 RULE_HEADING_RE = re.compile(r'^### ([A-Z]{2,6})-(\d{2}) (\S.*)$')
 RULE_REF_RE = re.compile(r'\b([A-Z]{2,6})-(\d{2})\b')
-DART_TEST_CASE_RE = re.compile(
-    r'''\b(?:test|testWidgets|testE2e|testGoldens)\s*\(\s*(?:'([^'\n]+)'|"([^"\n]+)")'''
+# Declared Dart test entry points plus explicit repo test-helper whitelist.
+DART_TEST_DECL_CALLS = (
+    'test',
+    'testWidgets',
+    'testE2e',
+    'testGoldens',
+    'group',
+    'localeLayoutMatrix',
 )
+DART_TEST_DECL_START_RE = re.compile(
+    r'\b(?:' + '|'.join(DART_TEST_DECL_CALLS) + r')\s*\('
+)
+DART_FOR_HEAD_RE = re.compile(r'\bfor\s*\(')
 OS_E2E_FLOWS_PATH = 'tool/dev_workbench/catalog/os_e2e_flows.json'
 FIELD_RE = re.compile(r'^- \*\*(\w+):\*\*')
 BACKTICK_RE = re.compile(r'`([^`\n]+)`')
-CHECK_ITEM_RE = re.compile(r'`([^`\n]+)`((?:\s*"[^"\n]+")*)')
-QUOTED_RE = re.compile(r'"([^"\n]+)"')
+CHECK_ITEM_RE = re.compile(r'`([^`\n]+)`((?:\s*"(?:[^"\\\n]|\\.)+")*)')
+QUOTED_RE = re.compile(r'"((?:[^"\\\n]|\\.)+)"')
 LINK_RE = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
 INDEX_ENTRY_RE = re.compile(r'\[[^\]]+\]\(\./([^)#\s]+\.md)\)(.*)')
 
@@ -90,6 +101,339 @@ def normalize_dart_strings(text: str) -> str:
     joined = ADJ_SINGLE_STR_RE.sub('', text)
     joined = ADJ_DOUBLE_STR_RE.sub('', joined)
     return joined.replace("\\'", "'").replace('\\"', '"')
+
+
+def _mask_dart_comments_and_strings(src: str) -> tuple[str, str]:
+    """Returns (no_comments, code_only) with identical character offsets.
+
+    `no_comments` blanks // and /* ... */ comments and triple-quoted string
+    interiors while preserving single/double-quoted string literals for
+    argument parsing. `code_only` blanks all comments and all string literal
+    interiors so test declaration calls inside strings can never match.
+    """
+    no_comments: list[str] = []
+    code_only: list[str] = []
+    i = 0
+    n = len(src)
+
+    def emit(ch: str, *, blank_nc: bool = False, blank_co: bool = False) -> None:
+        if ch == '\n':
+            no_comments.append('\n')
+            code_only.append('\n')
+        else:
+            no_comments.append(' ' if blank_nc else ch)
+            code_only.append(' ' if blank_co else ch)
+
+    while i < n:
+        ch = src[i]
+        if src.startswith('//', i):
+            while i < n and src[i] != '\n':
+                emit(src[i], blank_nc=True, blank_co=True)
+                i += 1
+            continue
+        if src.startswith('/*', i):
+            emit('/', blank_nc=True, blank_co=True)
+            emit('*', blank_nc=True, blank_co=True)
+            i += 2
+            while i < n and not src.startswith('*/', i):
+                emit(src[i], blank_nc=True, blank_co=True)
+                i += 1
+            if i < n:
+                emit('*', blank_nc=True, blank_co=True)
+                emit('/', blank_nc=True, blank_co=True)
+                i += 2
+            continue
+        raw = False
+        if ch == 'r' and i + 1 < n and src[i + 1] in ("'", '"'):
+            raw = True
+            emit(ch, blank_nc=False, blank_co=False)
+            i += 1
+            ch = src[i]
+        if ch in ("'", '"'):
+            if src.startswith(ch * 3, i):
+                delim = ch * 3
+                for c in delim:
+                    emit(c, blank_nc=False, blank_co=False)
+                i += 3
+                while i < n and not src.startswith(delim, i):
+                    if not raw and src[i] == '\\' and i + 1 < n:
+                        emit(src[i], blank_nc=True, blank_co=True)
+                        emit(src[i + 1], blank_nc=True, blank_co=True)
+                        i += 2
+                        continue
+                    emit(src[i], blank_nc=True, blank_co=True)
+                    i += 1
+                if i < n:
+                    for c in delim:
+                        emit(c, blank_nc=False, blank_co=False)
+                    i += 3
+                continue
+            q = ch
+            emit(q, blank_nc=False, blank_co=False)
+            i += 1
+            while i < n:
+                c = src[i]
+                if not raw and c == '\\' and i + 1 < n:
+                    emit(c, blank_nc=False, blank_co=True)
+                    emit(src[i + 1], blank_nc=False, blank_co=True)
+                    i += 2
+                    continue
+                if not raw and c == '$' and i + 1 < n and src[i + 1] == '{':
+                    emit('$', blank_nc=False, blank_co=True)
+                    emit('{', blank_nc=False, blank_co=True)
+                    i += 2
+                    depth = 1
+                    in_sub: str | None = None
+                    while i < n and depth > 0:
+                        c2 = src[i]
+                        if in_sub is not None:
+                            if c2 == '\\' and i + 1 < n:
+                                emit(c2, blank_nc=False, blank_co=True)
+                                emit(src[i + 1], blank_nc=False, blank_co=True)
+                                i += 2
+                                continue
+                            if c2 == in_sub:
+                                in_sub = None
+                            emit(c2, blank_nc=False, blank_co=True)
+                            i += 1
+                        elif c2 in ("'", '"'):
+                            in_sub = c2
+                            emit(c2, blank_nc=False, blank_co=True)
+                            i += 1
+                        elif c2 == '{':
+                            depth += 1
+                            emit(c2, blank_nc=False, blank_co=True)
+                            i += 1
+                        elif c2 == '}':
+                            depth -= 1
+                            emit(c2, blank_nc=False, blank_co=True)
+                            i += 1
+                        else:
+                            emit(c2, blank_nc=False, blank_co=True)
+                            i += 1
+                    continue
+                if c == q:
+                    emit(c, blank_nc=False, blank_co=False)
+                    i += 1
+                    break
+                emit(c, blank_nc=False, blank_co=True)
+                i += 1
+            continue
+        emit(ch)
+        i += 1
+    return ''.join(no_comments), ''.join(code_only)
+
+
+def _parse_dart_string_expr(src: str, pos: int) -> tuple[str, bool, int] | None:
+    """Parses one or more adjacent Dart string literals at pos.
+
+    Returns (decoded_value, has_interpolation, next_pos) or None.
+    """
+    n = len(src)
+    while pos < n and src[pos].isspace():
+        pos += 1
+    if pos >= n:
+        return None
+    parts: list[str] = []
+    has_interp = False
+    while pos < n:
+        raw = False
+        if pos + 1 < n and src[pos] == 'r' and src[pos + 1] in ("'", '"'):
+            raw = True
+            pos += 1
+        if pos >= n or src[pos] not in ("'", '"'):
+            break
+        q = src[pos]
+        pos += 1
+        buf: list[str] = []
+        while pos < n:
+            ch = src[pos]
+            if not raw and ch == '\\' and pos + 1 < n:
+                nxt = src[pos + 1]
+                if nxt in ("'", '"', '\\', '$'):
+                    buf.append(nxt)
+                elif nxt == 'n':
+                    buf.append('\n')
+                else:
+                    buf.append('\\' + nxt)
+                pos += 2
+                continue
+            if not raw and ch == '$' and pos + 1 < n and src[pos + 1] == '{':
+                has_interp = True
+                buf.append('${')
+                pos += 2
+                depth = 1
+                in_sub: str | None = None
+                while pos < n and depth > 0:
+                    c2 = src[pos]
+                    if in_sub is not None:
+                        buf.append(c2)
+                        if c2 == '\\' and pos + 1 < n:
+                            buf.append(src[pos + 1])
+                            pos += 2
+                            continue
+                        if c2 == in_sub:
+                            in_sub = None
+                        pos += 1
+                    elif c2 in ("'", '"'):
+                        in_sub = c2
+                        buf.append(c2)
+                        pos += 1
+                    elif c2 == '{':
+                        depth += 1
+                        buf.append(c2)
+                        pos += 1
+                    elif c2 == '}':
+                        depth -= 1
+                        buf.append(c2)
+                        pos += 1
+                    else:
+                        buf.append(c2)
+                        pos += 1
+                continue
+            if not raw and ch == '$':
+                has_interp = True
+            if ch == q:
+                pos += 1
+                break
+            buf.append(ch)
+            pos += 1
+        parts.append(''.join(buf))
+        while pos < n and src[pos].isspace():
+            pos += 1
+    if not parts:
+        return None
+    return ''.join(parts), has_interp, pos
+
+
+def extract_dart_test_declarations(text: str) -> tuple[list[str], list[str]]:
+    """Extracts declared Dart test names as (static_names, interp_templates)."""
+    clean, code_only = _mask_dart_comments_and_strings(text)
+    static: list[str] = []
+    interp: list[str] = []
+    seen_static: set[str] = set()
+    seen_interp: set[str] = set()
+
+    def add_static(name: str) -> None:
+        if name not in seen_static:
+            seen_static.add(name)
+            static.append(name)
+
+    def add_interp(tpl: str) -> None:
+        if tpl not in seen_interp:
+            seen_interp.add(tpl)
+            interp.append(tpl)
+
+    n = len(clean)
+    for match in DART_TEST_DECL_START_RE.finditer(code_only):
+        pos = match.end()
+        while pos < n and clean[pos].isspace():
+            pos += 1
+        parsed = _parse_dart_string_expr(clean, pos)
+        if parsed is not None:
+            val, has_i, _ = parsed
+            (add_interp if has_i else add_static)(val)
+            continue
+        # Scan first argument expression up to top-level ',' or ')'.
+        j = pos
+        dp = db = dc = 0
+        in_s: str | None = None
+        while j < n:
+            c = clean[j]
+            if in_s is not None:
+                if c == '\\' and j + 1 < n:
+                    j += 2
+                    continue
+                if c == in_s:
+                    in_s = None
+            elif c in ("'", '"'):
+                in_s = c
+            elif c == '(':
+                dp += 1
+            elif c == ')':
+                if dp == 0:
+                    break
+                dp -= 1
+            elif c == '[':
+                db += 1
+            elif c == ']':
+                db -= 1
+            elif c == '{':
+                dc += 1
+            elif c == '}':
+                dc -= 1
+            elif c == ',' and dp == 0 and db == 0 and dc == 0:
+                break
+            j += 1
+        expr = clean[pos:j].strip()
+        if '?' in expr and ':' in expr:
+            q_idx = expr.find('?')
+            c_idx = expr.find(':', q_idx)
+            for seg in (expr[q_idx + 1:c_idx], expr[c_idx + 1:]):
+                branch = _parse_dart_string_expr(seg, 0)
+                if branch is not None:
+                    (add_interp if branch[1] else add_static)(branch[0])
+        elif re.fullmatch(r'[A-Za-z_]\w*', expr):
+            window = clean[max(0, match.start() - 1200):match.start()]
+            arr_start = -1
+            for fm in DART_FOR_HEAD_RE.finditer(window):
+                # Linear paren-balanced scan of the `for (...)` header.
+                p_idx = fm.end() - 1
+                p_depth = 0
+                in_q: str | None = None
+                while p_idx < len(window):
+                    ch = window[p_idx]
+                    if in_q is not None:
+                        if ch == '\\' and p_idx + 1 < len(window):
+                            p_idx += 2
+                            continue
+                        if ch == in_q:
+                            in_q = None
+                    elif ch in ("'", '"'):
+                        in_q = ch
+                    elif ch == '(':
+                        p_depth += 1
+                    elif ch == ')':
+                        p_depth -= 1
+                        if p_depth == 0:
+                            break
+                    p_idx += 1
+                header = window[fm.end():p_idx]
+                in_m = re.search(r'\bin\s*\[', header)
+                if in_m is not None:
+                    arr_start = fm.end() + in_m.end() - 1
+            if arr_start >= 0:
+                k = arr_start
+                depth = 0
+                ins: str | None = None
+                while k < len(window):
+                    ck = window[k]
+                    if ins is not None:
+                        if ck == '\\' and k + 1 < len(window):
+                            k += 2
+                            continue
+                        if ck == ins:
+                            ins = None
+                    elif ck in ("'", '"'):
+                        ins = ck
+                    elif ck == '[':
+                        depth += 1
+                    elif ck == ']':
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    k += 1
+                arr_body = window[arr_start + 1:k]
+                idx = 0
+                while idx < len(arr_body):
+                    if arr_body[idx] in ("'", '"'):
+                        lit = _parse_dart_string_expr(arr_body, idx)
+                        if lit is not None:
+                            (add_interp if lit[1] else add_static)(lit[0])
+                            idx = lit[2]
+                            continue
+                    idx += 1
+    return static, interp
 
 
 def extract_os_e2e_assertion_ids(text: str) -> list[str]:
@@ -423,6 +767,13 @@ def check_rule_fields(at: str, rule_id: str, body: list[tuple[int, str]],
     for name in RULE_FIELDS:
         if not fields[name].strip():
             report.error(at, f'{rule_id} has an empty {name}')
+    prose_words = len((fields['Rule'] + ' ' + fields['Why']).split())
+    if prose_words > SOFT_RULE_WORD_LIMIT:
+        report.warn(
+            at,
+            f'{rule_id} is {prose_words} words '
+            f'(aim for <= {SOFT_RULE_WORD_LIMIT}; consider splitting)',
+        )
     check_field = fields['Check'].strip()
     items = CHECK_ITEM_RE.findall(check_field)
     if not items and not check_field.startswith('manual'):
@@ -431,7 +782,7 @@ def check_rule_fields(at: str, rule_id: str, body: list[tuple[int, str]],
         if not repo.exists(path):
             report.error(at, f'{rule_id} Check names a missing file: {path}')
             continue
-        quoted = QUOTED_RE.findall(names)
+        quoted = [q.replace('\\"', '"') for q in QUOTED_RE.findall(names)]
         if path == OS_E2E_FLOWS_PATH:
             if not quoted:
                 report.error(
@@ -448,11 +799,24 @@ def check_rule_fields(at: str, rule_id: str, body: list[tuple[int, str]],
                         f'{rule_id} Check names an assertion ID that is not in {path}: "{aid}"',
                     )
             continue
-        if path.endswith('_test.dart') and not quoted:
-            report.error(
-                at,
-                f'{rule_id} Check names {path} without a quoted test name',
-            )
+        if path.endswith('_test.dart'):
+            if not quoted:
+                report.error(
+                    at,
+                    f'{rule_id} Check names {path} without a quoted test name',
+                )
+                continue
+            raw_dart = repo.read(path) if path in repo.files else ''
+            static_names, interp_templates = extract_dart_test_declarations(raw_dart)
+            declared_set = set(static_names) | set(interp_templates)
+            for name in quoted:
+                if name in declared_set:
+                    continue
+                report.error(
+                    at,
+                    f'{rule_id} Check names a test that is not declared '
+                    f'in {path}: "{name}"',
+                )
             continue
         text = (
             normalize_dart_strings(repo.read(path))
@@ -572,7 +936,10 @@ def parse_rule_checks(
         if not cur_id:
             return
         items = [
-            (path.lstrip('./').rstrip('/'), QUOTED_RE.findall(names))
+            (
+                path.lstrip('./').rstrip('/'),
+                [q.replace('\\"', '"') for q in QUOTED_RE.findall(names)],
+            )
             for path, names in CHECK_ITEM_RE.findall(check_text_buf)
         ]
         entries.append((cur_id, cur_title, items))
@@ -648,16 +1015,9 @@ def is_audited_test_file(path: str) -> bool:
 
 
 def extract_dart_test_cases(text: str) -> list[str]:
-    """Extracts declared test/testWidgets/testGoldens case names in order."""
-    norm = normalize_dart_strings(text)
-    seen: set[str] = set()
-    names: list[str] = []
-    for match in DART_TEST_CASE_RE.finditer(norm):
-        name = match.group(1) if match.group(1) is not None else match.group(2)
-        if name not in seen:
-            seen.add(name)
-            names.append(name)
-    return names
+    """Extracts declared Dart test case names in order."""
+    static_names, interp_templates = extract_dart_test_declarations(text)
+    return static_names + [t for t in interp_templates if t not in set(static_names)]
 
 
 def extract_rule_headings(spec: SpecFile) -> dict[str, str]:
@@ -702,8 +1062,14 @@ def audit_deletions(
         if is_audited_test_file(p) and p not in current_files
     )
     base_anchors = rules_by_test(base_specs, deleted_test_paths)
-    deleted_test_files: list[tuple[str, list[tuple[str, str, str]]]] = []
+    deleted_test_files: list[tuple[str, int, list[tuple[str, str, str]]]] = []
     for test_path in deleted_test_paths:
+        if test_path.startswith('test/') and test_path.endswith('_test.dart'):
+            base_case_count = len(extract_dart_test_cases(base_files[test_path]))
+        elif test_path == OS_E2E_FLOWS_PATH:
+            base_case_count = len(extract_os_e2e_assertion_ids(base_files[test_path]))
+        else:
+            base_case_count = 0
         rule_statuses: list[tuple[str, str, str]] = []
         for rule_id, spec_path, _, _ in base_anchors.get(test_path, []):
             if rule_id not in current_rule_checks:
@@ -713,7 +1079,7 @@ def audit_deletions(
             else:
                 status = 'migrated'
             rule_statuses.append((rule_id, spec_path, status))
-        deleted_test_files.append((test_path, rule_statuses))
+        deleted_test_files.append((test_path, base_case_count, rule_statuses))
 
     deleted_test_cases: list[tuple[str, list[str]]] = []
     for path in sorted(base_files):
@@ -936,11 +1302,12 @@ def main_audit_diff(base: str) -> int:
     )
     if del_files:
         print('Deleted test files (--by-test impact vs base):')
-        for path, rules in del_files:
+        for path, case_count, rules in del_files:
+            cases_note = f'{case_count} base case(s), ' if case_count else ''
             if not rules:
-                print(f'  {path} (0 base spec anchors)')
+                print(f'  {path} ({cases_note}0 base spec anchors)')
             else:
-                print(f'  {path} ({len(rules)} base spec anchor(s)):')
+                print(f'  {path} ({cases_note}{len(rules)} base spec anchor(s)):')
                 for rule_id, spec_path, st in rules:
                     print(f'    {rule_id} ({spec_path}) [{st}]')
     if del_cases:
@@ -1084,7 +1451,33 @@ def self_test() -> int:
         ('a missing field', replace('- **Why:** Users lost their place.\n',
                                     ''), 'needs the fields'),
         ('a missing test name', replace('"back goes home"', '"other"'),
-         'not in test/nav_test.dart'),
+         'not declared in test/nav_test.dart'),
+        ('a truncated static test prefix is rejected',
+         replace('"back goes home"', '"back goes"'),
+         'not declared in test/nav_test.dart'),
+        ('a comment containing quoted text does not satisfy Check', lambda files: files.update({
+            'test/nav_test.dart': "// back goes home\ntest('real case', () {});",
+        }), 'not declared in test/nav_test.dart'),
+        ('a fake declaration inside a triple-quoted string is rejected', lambda files: files.update({
+            'test/nav_test.dart': "const s = '''\ntest('back goes home', () {});\n''';\ntest('real case', () {});",
+        }), 'not declared in test/nav_test.dart'),
+        ('a fake declaration inside a normal string literal is rejected', lambda files: files.update({
+            'test/nav_test.dart': 'const s = "test(\'back goes home\', () {});";\ntest(\'real case\', () {});',
+        }), 'not declared in test/nav_test.dart'),
+        ('escaped apostrophe in static test name matches', lambda files: files.update({
+            'test/nav_test.dart': r"test('user\'s back goes home', () {});",
+            nav: files[nav].replace('"back goes home"', '"user\'s back goes home"'),
+        }), None),
+        ('whitelisted localeLayoutMatrix helper declaration matches', lambda files: files.update({
+            'test/nav_test.dart': "localeLayoutMatrix('back goes home', () {});",
+        }), None),
+        ('interpolated test declaration rejects partial substring', lambda files: files.update({
+            'test/nav_test.dart': "test('back goes home ($mode)', () {});",
+        }), 'not declared in test/nav_test.dart'),
+        ('interpolated test declaration matches exact template string', lambda files: files.update({
+            'test/nav_test.dart': "test('back goes home ($mode)', () {});",
+            nav: files[nav].replace('"back goes home"', '"back goes home ($mode)"'),
+        }), None),
         ('a missing code path', replace('lib/app/nav.dart', 'lib/app/x.dart'),
          'missing path'),
         ('a dead glob', replace('lib/app/**', 'lib/none/**'),
@@ -1188,9 +1581,9 @@ def self_test() -> int:
         base_specs=[base_spec],
     )
     extra_checks.append((
-        'audit detects deleted test file and migrated anchor',
+        'audit detects deleted test file, base case count, and migrated anchor',
         audit_migrated['deleted_test_files'] == [
-            ('test/nav_test.dart', [('NAV-01', nav, 'migrated')])
+            ('test/nav_test.dart', 2, [('NAV-01', nav, 'migrated')])
         ],
     ))
     empty_nav = base_nav.split('### NAV-01')[0]
@@ -1239,6 +1632,16 @@ def self_test() -> int:
          audit_removed['deleted_spec_rules'] == [
              ('NAV-01', nav, 'Back goes home')
          ]),
+        ('oversized rule emits soft word-count warning',
+         any(
+             'aim for <= ' in w
+             for w in self_test_case(
+                 replace(
+                     'Back at a branch root returns to the first branch.',
+                     ' '.join(['word'] * (SOFT_RULE_WORD_LIMIT + 10)),
+                 )
+             ).warnings
+         )),
     ])
     for name, ok in extra_checks:
         if not ok:

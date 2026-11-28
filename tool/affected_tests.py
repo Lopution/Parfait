@@ -57,6 +57,101 @@ ICON_FONT_TESTS = (
     "test/icon_font_test.dart",
     "test/architecture/ui_conventions_test.dart",
 )
+SPEC_BACKTICK_RE = re.compile(r"`([^`\n]+)`")
+
+
+def _glob_to_regex(glob: str) -> re.Pattern[str]:
+    out = ""
+    i = 0
+    while i < len(glob):
+        if glob.startswith("**/", i):
+            out += "(?:.*/)?"
+            i += 3
+        elif glob.startswith("**", i):
+            out += ".*"
+            i += 2
+        elif glob[i] == "*":
+            out += "[^/]*"
+            i += 1
+        elif glob[i] == "?":
+            out += "[^/]"
+            i += 1
+        else:
+            out += re.escape(glob[i])
+            i += 1
+    return re.compile(out)
+
+
+def _code_token_matches(token: str, path: str) -> bool:
+    clean = token.lstrip("./").rstrip("/")
+    if not clean:
+        return False
+    if "*" in clean or "?" in clean:
+        return bool(_glob_to_regex(clean).fullmatch(path))
+    return path == clean or path.startswith(clean + "/")
+
+
+def spec_check_tests_for(repo: Path, changed_paths: list[str], existing: set[str]) -> set[str]:
+    """Return `test/**/*_test.dart` files anchored on spec rules whose Code: covers changed_paths."""
+    lib_changed = [p for p in changed_paths if p.startswith("lib/")]
+    if not lib_changed:
+        return set()
+    spec_root = repo / ".trellis" / "spec"
+    if not spec_root.is_dir():
+        return set()
+
+    selected: set[str] = set()
+    for md in sorted(spec_root.rglob("*.md")):
+        if md.name == "index.md":
+            continue
+        lines = md.read_text(encoding="utf-8", errors="ignore").splitlines()
+        cur_check = ""
+        cur_code = ""
+        active: str | None = None
+        fenced = False
+
+        def flush_rule() -> None:
+            nonlocal cur_check, cur_code, active
+            if cur_check and cur_code:
+                code_tokens = SPEC_BACKTICK_RE.findall(cur_code)
+                if any(
+                    _code_token_matches(tok, ch)
+                    for tok in code_tokens
+                    for ch in lib_changed
+                ):
+                    for tok in SPEC_BACKTICK_RE.findall(cur_check):
+                        t = tok.lstrip("./").rstrip("/")
+                        if t.startswith("test/") and t.endswith("_test.dart") and t in existing:
+                            selected.add(t)
+            cur_check = ""
+            cur_code = ""
+            active = None
+
+        for line in lines:
+            if line.lstrip().startswith("```"):
+                fenced = not fenced
+                continue
+            if fenced:
+                continue
+            if line.startswith("### ") or line.startswith("## "):
+                flush_rule()
+                continue
+            if line.startswith("- **Check:**"):
+                active = "Check"
+                cur_check = line[len("- **Check:**"):].strip()
+            elif line.startswith("- **Code:**"):
+                active = "Code"
+                cur_code = line[len("- **Code:**"):].strip()
+            elif line.startswith("- **"):
+                active = None
+            elif active == "Check" and line.startswith("  "):
+                cur_check += " " + line.strip()
+            elif active == "Code" and line.startswith("  "):
+                cur_code += " " + line.strip()
+            else:
+                active = None
+        flush_rule()
+    return selected
 
 
 def read_package_name(repo: Path) -> str:
@@ -225,6 +320,7 @@ def select_affected(
         if f.startswith("test/") and f.endswith("_test.dart") and f in existing
     }
     selected.update(t for t in direct_tests if t in existing)
+    selected.update(spec_check_tests_for(repo, clean_changed, existing))
     if include_architecture:
         selected.update(arch_tests)
 
@@ -347,7 +443,25 @@ def self_test() -> int:
             "test/unrelated_test.dart",
         }, res
 
-    print("affected_tests self-test passed (8/8 scenarios)")
+        # 9. Spec rule Code: -> Check: selects indirect spec-anchored test files
+        _write(root, "test/spec_e2e_test.dart", "// no direct import of unrelated.dart\n")
+        _write(
+            root,
+            ".trellis/spec/frontend/demo.md",
+            "---\nprefix: DEMO\napplies_to:\n  - lib/**\nreviewed: 2026-11-28\n---\n"
+            "### DEMO-01 Indirect contract\n"
+            "- **Rule:** Demo.\n"
+            "- **Why:** Demo.\n"
+            "- **Check:** `test/spec_e2e_test.dart` \"indirect\"\n"
+            "- **Code:** `lib/unrelated.dart`\n",
+        )
+        res = select_affected(root, ["lib/unrelated.dart"])
+        assert set(res["tests"]) == {
+            "test/unrelated_test.dart",
+            "test/spec_e2e_test.dart",
+        }, res
+
+    print("affected_tests self-test passed (9/9 scenarios)")
     return 0
 
 
