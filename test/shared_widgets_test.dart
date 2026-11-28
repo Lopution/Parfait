@@ -6,6 +6,7 @@ import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/icons/ui_icons.dart';
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/motion/removal.dart';
@@ -19,23 +20,51 @@ import 'package:parfait/app/widgets/app_snack_bar.dart';
 import 'package:parfait/app/widgets/app_spinner.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/master_detail_workspace.dart';
+import 'package:parfait/app/widgets/person_card.dart';
 import 'package:parfait/app/widgets/scroll_edge_fade.dart';
 import 'package:parfait/app/widgets/settings/settings_anchor.dart';
 import 'package:parfait/app/widgets/settings/settings_group.dart';
 import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
+import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/features/login/login_webview_error_card.dart';
 import 'package:parfait/features/settings/settings_catalog.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/pixiv_router.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
+
+Future<GoRouter> _pumpAuthorOnRouter(WidgetTester tester, Widget row) async {
+  final router = pixivRouter('/recommended');
+  await tester.pumpWidget(
+    localizedRouterApp(
+      router,
+      overrides: await signedInAccountOverrides(
+        const Account(id: '100', userId: 100, name: 't'),
+      ),
+    ),
+  );
+  await tester.pump();
+  router.routerDelegate.navigatorKey.currentState!.push(
+    PageRouteBuilder<void>(
+      pageBuilder: (context, _, _) => Scaffold(
+        body: Center(child: SizedBox(width: 300, child: row)),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+  return router;
+}
 
 void main() {
   group('retry on network restore (HCI 9)', () {
@@ -816,6 +845,87 @@ void main() {
         },
       );
     }
+  });
+
+  group('AuthorRow and PersonCard', () {
+    testWidgets('the whole row is one 48dp target that opens the profile', (
+      tester,
+    ) async {
+      final router = await _pumpAuthorOnRouter(
+        tester,
+        const AuthorRow(userId: 42, name: 'author'),
+      );
+
+      final target = find.byType(InkWell);
+      expect(target, findsOneWidget);
+      expect(
+        tester.getSize(target).height,
+        greaterThanOrEqualTo(AuthorRow.minHeight),
+      );
+      expect(tester.getSize(target).width, 300);
+      final chevron = find.descendant(
+        of: target,
+        matching: find.byIcon(UiIcons.chevronRight),
+      );
+      expect(
+        tester.getTopLeft(chevron).dx,
+        moreOrLessEquals(tester.getTopRight(find.text('author')).dx),
+      );
+
+      await tester.tapAt(
+        tester.getRect(target).centerRight - const Offset(8, 0),
+      );
+      await tester.pump();
+      expect(router.state.uri.path, '/recommended/user/42');
+    });
+
+    testWidgets('a person card is one target; its trailing button is its own', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      var opened = 0;
+      var followed = 0;
+      await tester.pumpWidget(
+        localizedApp(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: PersonCard(
+                onTap: () => opened++,
+                tapHint: 'open',
+                trailing: TextButton(
+                  onPressed: () => followed++,
+                  child: const Text('follow'),
+                ),
+                child: const Text('name'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final card = find.byType(PersonCard);
+      expect(
+        tester.getSize(card).height,
+        greaterThanOrEqualTo(kMinInteractiveDimension),
+      );
+      expect(
+        tester.getSemantics(
+          find.descendant(of: card, matching: find.byType(InkWell)).first,
+        ),
+        isSemantics(
+          label: 'name',
+          isButton: true,
+          hasTapAction: true,
+          onTapHint: 'open',
+        ),
+      );
+
+      await tester.tapAt(tester.getRect(card).centerLeft + const Offset(8, 0));
+      await tester.tap(find.text('follow'));
+      expect((opened, followed), (1, 1));
+      semantics.dispose();
+    });
   });
 }
 

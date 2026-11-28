@@ -26,7 +26,7 @@ applies_to:
   - lib/app/layout/content_widths.dart
   - lib/app/widgets/scrollable_form_shell.dart
   - lib/features/illust/detail/author_works_section.dart
-reviewed: 2026-11-23
+reviewed: 2026-11-28
 ---
 
 # Page-specific rules
@@ -44,13 +44,13 @@ reviewed: 2026-11-23
 ### PAGE-01 Profile tabs list only the work types a user has
 - **Rule:** Profiles expose one bare-named tab per non-zero work type (illust, manga, novel, illust series; preview snapshots keep all four; vanished tabs fall back to first), displaying each list's live total only while works are visible. Artist `illust`, `manga`, and `novel` tabs pair their live total with `ProfileWorkTagHeader` (top-10 loaded App-API work tags + adaptive searchable tag picker) scoped per tab, driving local work filtering with bounded 3-hop refill (`ProfileFilterRefillRunner`) and explicit load-more/clear empty states (`ProfileFilteredEmptyState`). At `>= 840x480` content (`HomeShellChrome.contentSizeOf`), `UserPage` uses the two-band panoramic header (164dp banner, 88dp avatar on 16dp margin, right-anchored actions, `ContentWidths.management`-capped stats/bio, pinned `maxEqualSlotWidth: 76` tabs + gallery controls, `ValueKey('profile-wide-split')`), mirrored by `ProfileSkeleton` without duplicate desktop back buttons.
 - **Why:** Counts inside tab labels forced scrolling, stale totals over empty lists looked broken, full-width panoramic headers avoid L-shaped whitespace on wide screens, and artist portfolios need App-API tag filtering without web cookies.
-- **Check:** `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its" "a profile without works opens on its first other tab" "a tab that disappears on refresh falls back to the first"; `test/user_profile_wide_test.dart` "wide profile aligns two-band header margins with right actions and bio cap" "wide profile skeleton avoids duplicate back button and empty works hide total"; `test/profile_bookmarks_test.dart` "artist work tabs expose progressive tag filter with searchable picker and clear/load-more empty state"
+- **Check:** `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its total" "a profile without works opens on its first other tab" "a tab that disappears on refresh falls back to the first"; `test/user_profile_wide_test.dart` "wide profile aligns two-band header margins with right actions and bio cap" "wide profile skeleton avoids duplicate back button and empty works hide total"; `test/profile_bookmarks_test.dart` "artist work tabs expose progressive tag filter with searchable picker and clear/load-more empty state"
 - **Code:** `lib/features/profile/user_page.dart`, `lib/features/profile/profile_work_tag_filter.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/features/profile/profile_skeleton.dart`, `lib/features/profile/profile_illust_feed.dart`, `lib/features/profile/profile_novel_feed.dart`
 
 ### PAGE-22 Bookmarks list illustrations or novels by a kind menu
 - **Rule:** Profile bookmarks open with a kind menu (illusts/novels; followed by visibility and per-kind tags on own profile); novel bookmarks read `/v1/user/bookmarks/novel` unfiltered via `ProfileNovelFeed`, carry `kind=novel` in tag routes (defaulting to illusts), preserve list tails when text filters match nothing, and `BookmarkTagsPage` wires its `scrollController` into `PullToRefresh` with `AlwaysScrollableScrollPhysics` so short and empty tag lists remain pull-refreshable.
 - **Why:** User request for full novel bookmark and tag parity, plus reliable pull-to-refresh on sparse or empty bookmark tag lists.
-- **Check:** `test/profile_bookmarks_test.dart` "your bookmarks switch to novels with their own tags"; `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its"; `test/bookmark_tags_test.dart` "a bookmarks cursor pins the tag alongside restrict, for illusts and " "bookmark tag filter only changes loaded works locally" "a novel filter that matches nothing keeps the list tail" "BookmarkTagsPage wires scrollController to PullToRefresh and keeps short & empty lists pull-refreshable"; `test/navigation_router_test.dart` "bookmark tag route restores and writes its kind and restrict "
+- **Check:** `test/profile_bookmarks_test.dart` "your bookmarks switch to novels with their own tags"; `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its total"; `test/bookmark_tags_test.dart` "a bookmarks cursor pins the tag alongside restrict, for illusts and novels" "bookmark tag filter only changes loaded works locally" "a novel filter that matches nothing keeps the list tail" "BookmarkTagsPage wires scrollController to PullToRefresh and keeps short & empty lists pull-refreshable"; `test/navigation_router_test.dart` "bookmark tag route restores and writes its kind and restrict query"
 - **Code:** `lib/features/profile/profile_filter_bar.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_novel_feed.dart`, `lib/features/profile/bookmark_tag_feed_page.dart`, `lib/features/bookmark/bookmark_tags_page.dart`, `lib/core/novel/novel_feed_controller.dart`
 
 ### PAGE-02 Header controls stay mounted through the collapse
@@ -82,7 +82,7 @@ reviewed: 2026-11-23
 ### PAGE-05 Work strips omit hidden works
 - **Rule:** `UserPreviewRow` (up to 3 works) and detail author strips omit blocked/muted works completely (never blurred; empty strips hide); malformed preview payloads fail loudly.
 - **Why:** Blurred previews leaked hidden content and silent drops hid parser bugs.
-- **Check:** `test/recommended_home_test.dart` "shows previews, skipping blocked and muted works"; `test/search_catalog_test.dart` "a malformed preview fails the user search page"; `test/illust_detail_actions_test.dart` "the author strip leaves this work and muted ones out and "
+- **Check:** `test/recommended_home_test.dart` "shows previews, skipping blocked and muted works ($page)"; `test/search_catalog_test.dart` "a malformed preview fails the user search page (PAGE-05)"; `test/illust_detail_actions_test.dart` "the author strip leaves this work and muted ones out and opens the others"
 - **Code:** `lib/app/widgets/user_preview_row.dart`, `lib/features/illust/detail/author_works_section.dart`
 
 ### PAGE-06 The Spotlight cover comes from the list entry
@@ -102,7 +102,7 @@ reviewed: 2026-11-23
 ### PAGE-07 An author link is the whole row or the whole card
 - **Rule:** Header bylines use `AuthorRow` (avatar + name + chevron, >= 48dp single button); standalone author blocks use `PersonCard` (whole card tappable, trailing button independent, next surface tier on sheets); accounts always format `@account`.
 - **Why:** Name-only links were too small and borderless rows looked non-interactive.
-- **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile" "a person card is one target; its trailing button is its own"
+- **Check:** `test/shared_widgets_test.dart` "the whole row is one 48dp target that opens the profile" "a person card is one target; its trailing button is its own"
 - **Code:** `lib/app/widgets/author_row.dart`, `lib/app/widgets/person_card.dart`
 
 ### PAGE-20 Pages carry no explanatory notes
@@ -114,13 +114,13 @@ reviewed: 2026-11-23
 ### PAGE-08 Long user text uses ExpandableText
 - **Rule:** Captions/descriptions use `ExpandableText`: short text shows no toggle; collapsed links stay tappable, "Show more" aligns at the full measured width with a text-mask fade, and tapping anywhere expands; "Show less" sits underneath when expanded.
 - **Why:** User decision: avoids extra toggle lines, broken links, and overlaid buttons on short-line captions.
-- **Check:** `test/expandable_text_test.dart` "long text collapses to maxLines and expands on demand" "short lines in a loose column keep the label at the end of " "a link stays tappable while collapsed"
+- **Check:** `test/expandable_text_test.dart` "long text collapses to maxLines and expands on demand" "short lines in a loose column keep the label at the end of the width" "a link stays tappable while collapsed"
 - **Code:** `lib/app/widgets/expandable_text.dart`
 
 ### PAGE-09 Translations are transient and share one entry
 - **Rule:** Every translate entry uses `InlineTranslation` / `TranslationPanel`: unconfigured/off states show a neutral notice with a settings link; failed entries stay labelled "translate" to retry; translations never persist or overwrite originals.
 - **Why:** User decision: keeps translation entry points consistent and non-destructive.
-- **Check:** `test/illust_detail_actions_test.dart` "translate answers inside the menu, or points to settings", `test/comment_item_test.dart` "translate is disabled while a translation runs"
+- **Check:** `test/illust_detail_actions_test.dart` "translate answers inside the menu, or points to settings while translation is off", `test/comment_item_test.dart` "translate is disabled while a translation runs"
 - **Code:** `lib/app/widgets/inline_translation.dart`
 
 ### PAGE-10 Comment actions are pills; only delete hides behind ⋮

@@ -10,12 +10,14 @@ import 'package:http/testing.dart';
 
 import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/layout/two_pane.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/app/navigation/route_extras.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/illust_pager_source.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_repository.dart';
@@ -24,6 +26,7 @@ import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_overlay_frame.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -1041,5 +1044,100 @@ void main() {
         await tester.pump();
       },
     );
+  });
+
+  testWidgets('the pager image flies back only to a card on screen', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeWorld();
+    final source = IllustPagerSource();
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        body: IllustPagerScope(
+          source: source,
+          child: ListView(
+            children: [
+              for (final id in [1, 2, 3])
+                SizedBox(
+                  height: 400,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 150,
+                      child: IllustCard(entity: parseIllust(illustJson(id))),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    bool flies(int id) => tester
+        .widget<HeroMode>(
+          find
+              .ancestor(
+                of: find.byWidgetPredicate(
+                  (w) => w is Hero && w.tag == illustHeroTag('feed', id),
+                  skipOffstage: false,
+                ),
+                matching: find.byType(HeroMode, skipOffstage: false),
+              )
+              .first,
+        )
+        .enabled;
+
+    for (final (id, onScreen) in [(1, true), (3, false), (2, true)]) {
+      source.aimHomeFlight(id);
+      await tester.pump();
+      expect(flies(id), onScreen, reason: 'card $id');
+    }
+    source
+      ..aimHomeFlight(3)
+      ..clearHomeFlight();
+    await tester.pump();
+    expect(flies(3), isTrue);
+  });
+
+  testWidgets('stays hidden until the entry transition completes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      localizedApp(
+        home: Builder(
+          builder: (context) => Center(
+            child: TextButton(
+              onPressed: () => unawaited(
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const Scaffold(
+                      body: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Positioned.fill(
+                            child: DetailPageCounter(page: 0, count: 3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('1 / 3'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 3'), findsOneWidget);
   });
 }
