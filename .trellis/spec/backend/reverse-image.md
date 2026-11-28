@@ -3,7 +3,7 @@ prefix: REV
 applies_to:
   - lib/core/reverse_image/**
   - lib/features/search/reverse_image*.dart
-reviewed: 2026-11-22
+reviewed: 2026-11-28
 ---
 
 # Reverse image search
@@ -24,7 +24,7 @@ reviewed: 2026-11-22
   temp files piled up. EXIF, XMP or ICC data pushed a photo's frame header
   past the 64 KiB header read, so it could be neither searched nor made
   an avatar.
-- **Check:** `test/reverse_image_search_test.dart` "reads the format and size; EXIF cannot push a JPEG frame out of " "rejects a pixel bomb before any full image decode" "rejects a MIME declaration that does not match the file bytes" "picker and SEND references share preparation and terminal cleanup"; `test/reverse_image_search_page_test.dart` "desktop Ctrl+V pastes clipboard image, reports empty clipboard, and handles file drop"
+- **Check:** `test/reverse_image_search_test.dart` "reads the format and size; EXIF cannot push a JPEG frame out of reach" "rejects a pixel bomb before any full image decode" "rejects a MIME declaration that does not match the file bytes" "picker and SEND references share preparation and terminal cleanup"; `test/reverse_image_search_page_test.dart` "desktop Ctrl+V pastes clipboard image, reports empty clipboard, and handles file drop"
 - **Code:** `lib/core/reverse_image`, `lib/features/search/reverse_image_search_page.dart`
 
 ### REV-02 Large images are scaled, not refused

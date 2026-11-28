@@ -10,7 +10,7 @@ applies_to:
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
   - lib/app/startup_gate.dart
-reviewed: 2026-11-23
+reviewed: 2026-11-28
 ---
 
 # Motion, press feedback and the rebuild budget
@@ -26,7 +26,7 @@ reviewed: 2026-11-23
 ### MOTION-01 UI durations come from MotionTokens.resolve
 - **Rule:** Every UI animation duration comes from `MotionTokens.resolve(context, token)` (`resolveWith` above `MotionScope`), applying speed settings and returning zero under reduced motion. Data timings (debounces/throttles) are not tokens; tokens name semantic movements (`stateFade`, `chrome`, `spatial`, `scrollToTop`, `themeChange`, `sheetExit`, `pageTransition`, etc.).
 - **Why:** Hard-coded durations ignored speed and reduced-motion preferences and mismatched movement scale.
-- **Check:** `test/architecture/ui_conventions_test.dart` "duration tokens are read through MotionTokens.resolve" "motion durations live only in MotionTokens (pinned census)", `test/home_branch_stack_test.dart` "a re-tap from"
+- **Check:** `test/architecture/ui_conventions_test.dart` "duration tokens are read through MotionTokens.resolve" "motion durations live only in MotionTokens (pinned census)", `test/home_branch_stack_test.dart` "a re-tap from $from scrolls home in $ms ms"
 - **Code:** `lib/app/motion/motion_tokens.dart`
 
 ### MOTION-02 Reduced motion removes the flight, not the state
@@ -70,13 +70,13 @@ reviewed: 2026-11-23
 ### MOTION-18 Drags take the device's slop; sideways pagers judge the angle
 - **Rule:** Custom drag recognizers read `MediaQuery.maybeGestureSettingsOf(context)` and `computeHitSlop` (never hard-coded `kTouchSlop`). Viewer pagers use `PagingSlop` / `PagingSlopPage` (`minFlingDistance` stays device slop); detail pagers inside `SelectionArea` judge angle at 1x device slop (excluding mouse) so `SelectableRegion`'s 18px recognizer cannot steal touch swipes; tab/branch swipes (`SwipePagingRecognizer`) require `<= swipePagingMaxDegrees` (40 deg) off horizontal.
 - **Why:** Hard-coded 18px slop caused pagers, dismiss drags, and `SelectionArea` to fight touch gestures on 8dp-slop Android screens.
-- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "scrolls the detail" "a panorama scrolls first and hands the swipe on at its edge", `test/tab_swipe_switcher_test.dart` "moves the tabs" "leaves the tabs", `test/hero_transition_test.dart` "only the entry page flies back"
+- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "a swipe ${degrees.round()}° off horizontal ${pages ? 'turns the page' : 'scrolls the detail'}" "a panorama scrolls first and hands the swipe on at its edge", `test/tab_swipe_switcher_test.dart` "a swipe ${degrees.round()}° off horizontal ${switches ? 'moves the tabs' : 'leaves the tabs'}", `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page slides away, back leaves like any page"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/motion/swipe_paging.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`
 
 ### MOTION-20 A released swipe lands from the finger's speed
 - **Rule:** Sideways swipes land on velocity-preserving springs (`SwipePaging` uses `MotionSpring.spatialDefault`, changing index once on landing unless dragged a full page, with `BouncingScrollPhysics` at ends and semantics held mid-motion; `PageView` uses `PageSnapPhysics` for ~300 ms snap while keeping list overscroll physics).
 - **Why:** Fixed-duration curves stalled flings and framework 0.7 s snaps delayed neighbour builds.
-- **Check:** `test/tab_swipe_switcher_test.dart` "from the finger's speed" "a slow drag" "the index waits for the landing" "past the first tab the body pulls on a rubber band", `test/scroll_behavior_test.dart` "ends its page snap in about 300 ms"
+- **Check:** `test/tab_swipe_switcher_test.dart` "$name from the finger's speed" "a slow drag $name" "the index waits for the landing" "past the first tab the body pulls on a rubber band", `test/scroll_behavior_test.dart` "$name ends its page snap in about 300 ms"
 - **Code:** `lib/app/motion/swipe_paging.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/scroll_behavior.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### MOTION-07 Feed cards land in place
@@ -138,13 +138,13 @@ reviewed: 2026-11-23
 ### MOTION-19 Touch moves reach the app once per frame, resampled
 - **Rule:** The app binding routes pointer events through `TouchResampler`, emitting interpolated moves at `vsync - 10 ms` (using `handleBeginFrame` minus one refresh period, never extrapolating past the latest sample) tagged `synthesized`; velocity trackers ignore synthesized moves.
 - **Why:** Eliminated uneven per-frame touch steps and Android prediction artefacts during slow drags and pinches.
-- **Check:** `test/touch_resampler_test.dart` "a frame shows where the finger was 10 ms before its vsync" "a frame between two samples moves on without a new one" "leaves at the speed of its real samples"
+- **Check:** `test/touch_resampler_test.dart` "a frame shows where the finger was 10 ms before its vsync, $hz Hz" "a frame between two samples moves on without a new one" "$name leaves at the speed of its real samples"
 - **Code:** `lib/core/platform/touch_resampler.dart`, `lib/main.dart`, `lib/core/debug/trace_marks.dart`
 
 ### MOTION-15 Width-dependent slivers rebuild only on a width change
 - **Rule:** Use `SliverWidthBuilder` instead of `SliverLayoutBuilder`; cache repeated formatters, spring curves, and label widths (`AppFormat`, `MotionTokens.springCurve`, `LabelFit.measureLabel`).
 - **Why:** `SliverLayoutBuilder` rebuilt every visible row on every scroll offset, costing up to 6 ms/frame with accessibility on.
-- **Check:** `test/responsive_layout_test.dart` "a width-built sliver takes taps after a scroll and follows a"
+- **Check:** `test/responsive_layout_test.dart` "a width-built sliver takes taps after a scroll and follows a width change"
 - **Code:** `lib/app/layout/sliver_width_builder.dart`, `lib/app/format/app_format.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/fit_label.dart`
 
 ### MOTION-16 Repeated parts of a page get their own ticker notifier
@@ -156,7 +156,7 @@ reviewed: 2026-11-23
 ### MOTION-21 Work ahead of the user waits for a still screen
 - **Rule:** Pre-building neighbour tabs, branches, and detail pages goes through `StillWork` (one piece per still frame with no active touch, scroll, foreground image load, or animation—capped at 60 frames per run); direct navigation builds immediately; off-screen branches sit under `ExcludeFocus` and never persist settings.
 - **Why:** Building ahead mid-swipe caused 29–38 ms frames and off-screen navigators stole focus.
-- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once", `test/motion_test.dart` "work ahead waits for a running animation to end" "work ahead behind a looping indicator waits once a run"
+- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting on leaving" "a switch before its turn builds the branch at once", `test/motion_test.dart` "work ahead waits for a running animation to end" "work ahead behind a looping indicator waits once a run, not once a piece"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`
 
 ### MOTION-23 Pointer input removes touch press delay, eases wheel reversal and shortens branch travel

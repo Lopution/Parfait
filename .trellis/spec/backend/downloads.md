@@ -3,7 +3,7 @@ prefix: DL
 applies_to:
   - lib/core/download/**
   - lib/features/settings/pages/download_*.dart
-reviewed: 2026-11-27
+reviewed: 2026-11-28
 ---
 
 # Downloads and recovery
@@ -147,7 +147,7 @@ reviewed: 2026-11-27
   task stays retryable with its bytes.
 - **Why:** Appending to a mismatched file produced corrupt images. A
   cancel racing a pause kept the bytes and left the task stuck.
-- **Check:** `test/download_resume_test.dart` "retry sends Range and appends on 206" "416 discards the anchor and reopens without Range" "mismatched platform byte count discards anchor, no Range sent" "still deletes output on a resumable sink" "a cancel while a pause keeps the bytes still deletes them" "a cancel during a network failure still deletes the bytes" "a paused task outlives its manager" "cancelling a paused task deletes its kept bytes"
+- **Check:** `test/download_resume_test.dart` "retry sends Range and appends on 206" "416 discards the anchor and reopens without Range" "mismatched platform byte count discards anchor, no Range sent" "cancel$when still deletes output on a resumable sink" "a cancel while a pause keeps the bytes still deletes them" "a cancel during a network failure still deletes the bytes" "a paused task outlives its manager" "cancelling a paused task deletes its kept bytes"
 - **Code:** `lib/core/download/download_manager.dart`
 
 ### DL-09 Kept output keeps its first owner marker
@@ -162,7 +162,7 @@ reviewed: 2026-11-27
   every resumed download restarted from zero. Taking over across accounts
   would write into the old account's album. A desktop `.part` file is
   named after the download, so a late drop deleted the new attempt's file.
-- **Check:** `test/download_resume_test.dart` "retry sends Range and appends on 206" "network failure preserves bytes; retry resumes" "a retry under another account starts a new file" "a new manager waits for the old one"
+- **Check:** `test/download_resume_test.dart` "retry sends Range and appends on 206" "network failure preserves bytes; retry resumes ($failure)" "a retry under another account starts a new file$named" "a new manager waits for the old one's deletions"
 - **Code:** `lib/core/download/download_manager.dart`
 
 ### DL-12 Desktop download filenames strip Windows/POSIX hazards

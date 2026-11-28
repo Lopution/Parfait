@@ -5,7 +5,7 @@ applies_to:
   - lib/app/format/**
   - lib/features/**
   - lib/l10n/**
-reviewed: 2026-11-23
+reviewed: 2026-11-28
 ---
 
 # Layout across locales, text sizes and keyboards
@@ -240,5 +240,5 @@ reviewed: 2026-11-23
   bounds by a transform, the outer part of the target stopped taking taps.
   The series pages' and the novel info sheet's text buttons started 12dp
   inside it.
-- **Check:** `test/user_profile_test.dart` "profile social links open, report failures, and copy"; `test/novel_series_test.dart` "a series page: its facts, numbered novels past the first "
+- **Check:** `test/user_profile_test.dart` "profile social links open, report failures, and copy"; `test/novel_series_test.dart` "a series page: its facts, numbered novels past the first page, a restricted one, and reading on from where you left"
 - **Code:** `lib/app/widgets/edge_icon_buttons.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_about_tab.dart`, `lib/features/novel/novel_series_page.dart`, `lib/features/series/illust_series_page.dart`, `lib/features/novel/novel_page.dart`

@@ -10,7 +10,7 @@ applies_to:
   - lib/features/login/**
   - windows/runner/**
   - macos/Runner/**
-reviewed: 2026-11-14
+reviewed: 2026-11-28
 ---
 
 # Android channels and platform boundaries
@@ -131,7 +131,7 @@ reviewed: 2026-11-14
   files. Captions parsed links themselves and sent `pixiv://` links to
   Android, which failed; unvalidated Spotlight links bypassed
   `OutboundUrlOpener` and could invoke arbitrary schemes.
-- **Check:** `test/android_platform_boundary_test.dart` "rejects SEND without the exact stream extra and read grant" "rejects foreign, file and oversized shared payloads", `test/intent_router_test.dart` "malformed pixiv links are UnknownRoute, never crash", `test/illust_detail_page_test.dart` "U6: caption renders as rich clickable text", `test/spotlight_article_test.dart` "openInBrowser routes valid articleUrl via OutboundUrlOpener and disables invalid ones" "paragraph links reject non-http(s) and malformed hrefs before routing"
+- **Check:** `test/android_platform_boundary_test.dart` "rejects SEND without the exact stream extra and read grant" "rejects foreign, file and oversized shared payloads", `test/intent_router_test.dart` "malformed pixiv links are UnknownRoute, never crash", `test/illust_detail_page_test.dart` "U6: caption renders as rich clickable text, not literal HTML ($href)", `test/spotlight_article_test.dart` "openInBrowser routes valid articleUrl via OutboundUrlOpener and disables invalid ones" "paragraph links reject non-http(s) and malformed hrefs before routing"
 - **Code:** `lib/core/platform/intent_router.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/AndroidIntentChannel.kt`, `lib/features/spotlight/spotlight_article_page.dart`
 
 ### DROID-08 The login WebView does not police navigation

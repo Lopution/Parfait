@@ -1,5 +1,5 @@
 ---
-reviewed: 2026-11-27
+reviewed: 2026-11-28
 ---
 
 # Spec
@@ -60,10 +60,15 @@ Decide in this order, for new rules and for existing ones under review:
 
 - IDs are `<PREFIX>-<NN>`; the prefix is the file's `prefix`. An ID is
   never reused: a deleted rule leaves a gap.
-- **Check** names test files followed by quoted test names for every Dart
-  `*_test.dart` file, quoted assertion IDs for
+- **Check** names test files followed by exact declared test names for every
+  Dart `*_test.dart` file (static `test`/`testWidgets`/`testE2e`/`testGoldens`/
+  `group`/`localeLayoutMatrix` declarations or the exact declared interpolated
+  template string; truncated prefixes, partial substrings, and text inside
+  comments or string literals are rejected), quoted assertion IDs for
   `tool/dev_workbench/catalog/os_e2e_flows.json`, or `manual` with a short
   reason.
+- Keep each rule's `Rule` + `Why` body at or below 300 words (`check_spec.py`
+  warns above 300 words; split multi-concern rules).
 - **Code** names files or directories (globs allowed) that implement it.
 - Extra lines may follow the four fields: a table, a short list. No copied
   code. A code example of at most 10 lines is allowed only when the code

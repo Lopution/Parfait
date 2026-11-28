@@ -16,7 +16,7 @@ applies_to:
   - lib/app/widgets/watchlist_toggle.dart
   - lib/app/widgets/comment_composer.dart
   - lib/app/widgets/feed/desktop_gallery_controls.dart
-reviewed: 2026-11-23
+reviewed: 2026-11-28
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -123,7 +123,7 @@ reviewed: 2026-11-23
 - **Why:** Prompts died with their page; action prompts stayed forever for
   users of always-on accessibility services. The dwell runs past the
   entrance and the platform timeout, so it cannot time a window.
-- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits"
+- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another, on timeout or swipe" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits; interruptions reset the hint"
 - **Code:** `lib/app/widgets/prompt_host.dart`, `lib/app/widgets/prompt_anchor.dart`
 
 ## Undo
@@ -138,7 +138,7 @@ reviewed: 2026-11-23
   detail page and a profile do not change otherwise.
 - **Why:** User decision, following Shaft. A mute from the detail page
   or a profile gave no sign it had landed.
-- **Check:** `test/undo_flows_test.dart` "a removed bookmark offers no Undo; the heart brings it back"
+- **Check:** `test/undo_flows_test.dart` "a removed bookmark offers no Undo; the heart brings it back private with its tags"
 - **Code:** `lib/app/widgets/undo_snack_bar.dart`
 
 ### FB-07 Undo restores exactly or not at all
@@ -175,7 +175,7 @@ reviewed: 2026-11-23
   bookmark played `success` for the same kind of moment. The buttons'
   error listeners said nothing once a scroll or a refresh had taken the
   button, and the bookmark sheet's failure showed twice.
-- **Check:** `test/follow_switch_button_test.dart` "a follow pops the button with success" "the sheet offers direct actions for each follow state", `test/bookmark_switch_button_test.dart` "a failed add says why, also once its heart is gone" "failed confirm keeps the sheet open and preserves the draft"
+- **Check:** `test/follow_switch_button_test.dart` "a follow pops the button with success; an unfollow is quiet; a failure adds an error" "the sheet offers direct actions for each follow state", `test/bookmark_switch_button_test.dart` "a failed add says why, also once its heart is gone" "failed confirm keeps the sheet open and preserves the draft"
 - **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/follow_switch_button.dart`
 
 ## Haptics
@@ -283,7 +283,7 @@ reviewed: 2026-11-23
   save with its card. One failed cleanup skipped the next. A card action
   picked after a refresh had taken the card threw on the card's context
   and did nothing; a follow pick was dropped with its button.
-- **Check:** `test/login_navigation_test.dart` "leaving during the token exchange drops its outcome", `test/download_tasks_page_test.dart` "a batch cancel ending after the page left is quiet", `test/bookmark_switch_button_test.dart` "a submit outlives its sheet but not its account", `test/comments_replies_test.dart` "a send ending after the detail composer left still lands", `test/account_settings_page_test.dart` "a removal that fails after its page closed is reported", `test/error_details_test.dart` "a settings write that fails after its page closed is reported", `test/card_action_test.dart` "a watch-later save that fails after its card is gone says so", `test/follow_switch_button_test.dart` "the sheet offers direct actions for each follow state", `test/watchlater_page_test.dart` "a removal that fails brings the works back and says so"
+- **Check:** `test/login_navigation_test.dart` "leaving during the token exchange drops its outcome", `test/download_tasks_page_test.dart` "a batch cancel ending after the page left is quiet", `test/bookmark_switch_button_test.dart` "a submit outlives its sheet but not its account", `test/comments_replies_test.dart` "a send ending after the detail composer left still lands", `test/account_settings_page_test.dart` "a removal that fails after its page closed is reported", `test/error_details_test.dart` "a settings write that fails after its page closed is reported", `test/card_action_test.dart` "a watch-later save that fails after its card is gone says so${underSheet ? ', gone under the open sheet' : ''}", `test/follow_switch_button_test.dart` "the sheet offers direct actions for each follow state", `test/watchlater_page_test.dart` "a removal that fails brings the works back and says so"
 - **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/comment_composer.dart`, `lib/features/settings/pages/account_settings_page.dart`, `lib/app/widgets/settings/persist_settings.dart`, `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/follow_switch_button.dart`, `lib/features/watchlater/watchlater_page.dart`
 
 ### FB-17 iOS Taptic Engine probing and frosted preview card context menu

@@ -8,7 +8,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/core/bookmark/bookmark_actions.dart
-reviewed: 2026-11-23
+reviewed: 2026-11-28
 ---
 
 # Feeds: states, grid, pull to refresh, skeletons
@@ -38,7 +38,7 @@ reviewed: 2026-11-23
 ### FEED-22 A list its filters emptied says so and loads on
 - **Rule:** When local filters hide all loaded items while more exist (`PagedFeedState.isAllHidden`), show `FeedAllHidden` with an explicit manual "continue loading" button (no "no results", no auto-walking); detail related-works uses the same row and skips bottom-scroll paging while all-hidden.
 - **Why:** User decision: filtered-out first pages must not masquerade as "no results" or stall paging.
-- **Check:** `test/search_result_page_test.dart` "loaded pages all filtered: a note offers loading more (B9)"; `test/illust_detail_page_test.dart` "related works all filtered: the section offers loading on"
+- **Check:** `test/search_result_page_test.dart` "loaded pages all filtered: a note offers loading more (B9)"; `test/illust_detail_page_test.dart` "related works all filtered: the section offers loading on, reaching the bottom does not load (FEED-22)"
 - **Code:** `lib/app/widgets/feed/feed_states.dart`, `lib/features/illust/detail/related_illusts_section.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### FEED-03 Failures retry once when the network returns
@@ -114,7 +114,7 @@ reviewed: 2026-11-23
 ### FEED-09 The framework decides the threshold
 - **Rule:** `PullToRefresh` reads scroll metrics only to render the indicator and never tracks duplicate drag distance or vetoes framework triggers.
 - **Why:** A parallel state machine disagreed with EasyRefresh and caused stuck indicators.
-- **Check:** `test/pull_to_refresh_test.dart` "reversing an armed pull retracts the indicator before the list"
+- **Check:** `test/pull_to_refresh_test.dart` "reversing an armed pull retracts the indicator before the list scrolls"
 - **Code:** `lib/app/pull_to_refresh.dart`
 
 ### FEED-10 Pull tests pull past the arm threshold
@@ -134,7 +134,7 @@ reviewed: 2026-11-23
 ### FEED-11 Per-platform scroll physics and drag devices; flings stop at the edge
 - **Rule:** `FuncScrollBehavior` and `PullToRefresh` (`NotLoadFooter(hitOver: false)`) keep `textScrollPhysics` inside `EditableText` and adapt per platform: Android uses `AndroidDragPhysics` over `FuncScrollPhysics` (zero dead zone, no carried flick momentum, mouse drag + `mouseScrollbar`); iOS uses `FuncScrollPhysics` directly (native bouncing carry and 3.5px threshold); Desktop removes `PointerDeviceKind.mouse` from global `dragDevices` so mouse drags select text (only media pagers like `ImageViewerPage` locally mount `MousePageDragSurface` inside `InteractiveViewer` so unzoomed mouse drag turns pages while zoomed drag pans and touch/trackpad pinch stays intact), using `ClampingScrollPhysics` on Windows/Linux and bouncing `FuncScrollPhysics` on macOS. Flings stop at edges everywhere.
 - **Why:** Matches each OS's scroll feel, enables desktop text selection without blocking desktop viewer mouse-drag paging, and avoids bouncing off loading tails.
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop" "a flick while the list coasts starts at its own speed" "iOS restores bouncing momentum carry and 3.5px drag threshold" "desktop removes mouse drag and splits Windows/Linux clamping from macOS bouncing", `test/illust_detail_viewer_test.dart` "desktop mouse drag pages unzoomed ImageViewerPage and pans while zoomed", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
+- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself${inRefreshList ? ' (refresh list)' : ''}" "the list follows the finger from the move past the slop${inRefreshList ? ' (refresh list)' : ''}" "a flick while the list coasts starts at its own speed${inRefreshList ? ' (refresh list)' : ''}" "iOS restores bouncing momentum carry and 3.5px drag threshold" "desktop removes mouse drag and splits Windows/Linux clamping from macOS bouncing", `test/illust_detail_viewer_test.dart` "desktop mouse drag pages unzoomed ImageViewerPage and pans while zoomed", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab
