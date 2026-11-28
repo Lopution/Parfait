@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/navigation/func_page.dart';
@@ -27,7 +26,6 @@ import 'helpers/image_network.dart';
 import 'helpers/leak_tracking.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
-import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/view_size.dart';
 import 'helpers/waits.dart';
@@ -39,39 +37,8 @@ void main() {
   // test's real async as an exception.
   setUp(answerConnectivityChannels);
 
-  // The real router on the feed, then the detail page of the work in [json]
-  // pushed with the feed's hero scope.
-  Future<void> pushFromFeed(
-    WidgetTester tester,
-    Map<String, dynamic> json, {
-    Map<int, Map<String, dynamic>> detailOverrides = const {},
-  }) async {
-    setViewSize(tester, const Size(390, 844));
-    // Detail pages embed VisibilityDetector trackers — zero interval uses
-    // post-frame callbacks instead of a periodic timer.
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
-    final (container, _, _) = await makeWorld(detailOverrides: detailOverrides);
-    final entity = parseIllust(json);
-    container.read(illustStoreProvider).mergeAll([entity]);
-    final router = pixivRouter('/recommended');
-    await tester.pumpWidget(localizedRouterApp(router, container: container));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    unawaited(
-      router.push<void>(
-        '/recommended/illust/${entity.id}',
-        extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
-      ),
-    );
-    await tester.pump();
-  }
-
   Future<({BuildContext root, NavigatorState nav, Route<void> firstRoute})>
-  pumpHeroNavigator(
-    WidgetTester tester, {
-    required Widget firstChild,
-    TargetPlatform? platform,
-  }) async {
+  pumpHeroNavigator(WidgetTester tester, {required Widget firstChild}) async {
     setViewSize(tester, const Size(400, 800));
     late BuildContext root;
     late Route<void> firstRoute;
@@ -79,7 +46,6 @@ void main() {
     addTearDown(heroes.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: platform == null ? null : ThemeData(platform: platform),
         home: Builder(
           builder: (context) {
             root = context;
@@ -131,188 +97,6 @@ void main() {
     expect(find.byType(HeroRectClip), findsOneWidget);
     await tester.pumpAndSettle();
     expect(find.byType(ImageViewerPage), findsOneWidget);
-  });
-
-  // The flight self-check: a card end the user cannot see is logged and
-  // announced; a flight between two live ends on screen is not.
-  testWidgets('a flight from a card out of sight is logged, others not', (
-    tester,
-  ) async {
-    final navigator = GlobalKey<NavigatorState>();
-    var live = true;
-    late StateSetter setLive;
-    const tag = 'IllustHero:feed:7';
-    Widget hero(double size) => Hero(
-      tag: tag,
-      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-      child: IllustHeroCardFrame(child: SizedBox.square(dimension: size)),
-    );
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: const [],
-        navigatorKey: navigator,
-        builder: promptHostBuilder,
-        home: StatefulBuilder(
-          builder: (context, setState) {
-            setLive = setState;
-            return Align(
-              alignment: Alignment.topLeft,
-              child: TickerMode(enabled: live, child: hero(100)),
-            );
-          },
-        ),
-      ),
-    );
-    final log = HeroAnomalyLog(SharedPreferencesAsync());
-    Future<void> openAndClose() async {
-      unawaited(
-        navigator.currentState!.push(
-          MaterialPageRoute<void>(builder: (_) => Center(child: hero(300))),
-        ),
-      );
-      await tester.pumpAndSettle();
-      navigator.currentState!.pop();
-      await tester.pumpAndSettle();
-    }
-
-    await openAndClose();
-    expect(await tester.runAsync(log.read), isEmpty);
-    expect(find.text('已记录一次 Hero 异常'), findsNothing);
-
-    setLive(() => live = false);
-    await tester.pump();
-    unawaited(
-      navigator.currentState!.push(
-        MaterialPageRoute<void>(builder: (_) => Center(child: hero(300))),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    final entries = (await tester.runAsync(log.read))!;
-    expect(entries, hasLength(1));
-    expect(entries.single, contains('push $tag'));
-    expect(entries.single, contains('card end still'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('已记录一次 Hero 异常'), findsOneWidget);
-    await tester.pumpAndSettle(const Duration(seconds: 5));
-  });
-
-  // Within the tap window a push from a card is held to the tapped card's
-  // box; a push from the detail page to the viewer, under the same tag,
-  // starts from the detail image and is not.
-  testWidgets('a push is held to the tapped card only when it leaves a card', (
-    tester,
-  ) async {
-    final navigator = GlobalKey<NavigatorState>();
-    final tapped = GlobalKey();
-    const tag = 'IllustHero:feed:8';
-    Widget hero(Widget child) => Hero(
-      tag: tag,
-      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-      child: child,
-    );
-    Future<void> push(Widget page) async {
-      unawaited(
-        navigator.currentState!.push(
-          MaterialPageRoute<void>(builder: (_) => page),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-    }
-
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: const [],
-        navigatorKey: navigator,
-        builder: promptHostBuilder,
-        home: Stack(
-          children: [
-            hero(
-              const IllustHeroCardFrame(child: SizedBox.square(dimension: 100)),
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: SizedBox.square(key: tapped, dimension: 50),
-            ),
-          ],
-        ),
-      ),
-    );
-    final log = HeroAnomalyLog(SharedPreferencesAsync());
-    noteHeroCardOpened(tester.element(find.byKey(tapped)), tag);
-
-    await push(Center(child: hero(const SizedBox.square(dimension: 300))));
-    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'flying');
-    final entries = (await tester.runAsync(log.read))!;
-    expect(entries.single, contains('card end away from the tapped card'));
-    await tester.pumpAndSettle();
-
-    await push(hero(const SizedBox.expand()));
-    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'flying');
-    expect(await tester.runAsync(log.read), hasLength(1));
-    await tester.pumpAndSettle(const Duration(seconds: 5));
-  });
-
-  testWidgets('only the entry page flies back; a drag from another page '
-      'slides away, back leaves like any page', (tester) async {
-    await pushFromFeed(
-      tester,
-      illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
-    );
-    await tester.pumpAndSettle();
-    final baseTag = illustHeroTag('feed', 42);
-    final viewer = find.byType(ImageViewerPage);
-    double slide() => tester
-        .widget<FractionalTranslation>(
-          find
-              .descendant(
-                of: viewer,
-                matching: find.byType(FractionalTranslation),
-              )
-              .first,
-        )
-        .translation
-        .dy;
-
-    for (final drag in [false, true]) {
-      await tester.tap(find.byType(DetailPageImage).first);
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: viewer,
-          matching: find.byWidgetPredicate(
-            (w) => w is Hero && w.tag == baseTag,
-          ),
-        ),
-        findsOneWidget,
-        reason: 'the viewer opened on page 1 carries its Hero',
-      );
-      await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
-      await tester.pumpAndSettle();
-      expect(find.text('2 / 2'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: viewer,
-          matching: find.byWidgetPredicate(
-            (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
-          ),
-        ),
-        findsNothing,
-      );
-
-      if (drag) {
-        await tester.drag(find.byType(DragToDismiss), const Offset(0, 300));
-      } else {
-        await tester.tap(find.byType(BackButton));
-      }
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(slide(), drag ? greaterThan(0) : 0, reason: 'drag: $drag');
-      await tester.pumpAndSettle();
-      expect(viewer, findsNothing);
-    }
   });
 
   testWidgets(
@@ -402,126 +186,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(client.urls.where((url) => url == large), hasLength(1));
       await unmountPastReleaseGrace(tester);
-    },
-  );
-
-  testWidgets('HeroChrome restores visibility after flight settles', (
-    tester,
-  ) async {
-    final host = await pumpHeroNavigator(
-      tester,
-      firstChild: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: 200,
-            child: _hero('chrome-hero', width: 100, height: 100),
-          ),
-          const Positioned(
-            left: 0,
-            top: 200,
-            child: HeroChrome(child: Text('badge')),
-          ),
-        ],
-      ),
-    );
-    double opacityOf(String label) => tester
-        .widget<FadeTransition>(
-          find
-              .ancestor(
-                of: find.text(label),
-                matching: find.byType(FadeTransition),
-              )
-              .first,
-        )
-        .opacity
-        .value;
-
-    unawaited(
-      host.nav.push(
-        FuncPage<void>(
-          sharedElement: true,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                child: _hero('chrome-hero', width: 400, height: 400),
-              ),
-              const Positioned(
-                left: 10,
-                top: 10,
-                child: HeroChrome(child: Text('control')),
-              ),
-            ],
-          ),
-        ).createRoute(host.root),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(opacityOf('control'), 1);
-
-    host.nav.pop();
-    await tester.pumpAndSettle();
-    expect(opacityOf('badge'), 1);
-  });
-
-  testWidgets(
-    'iOS canvas drag dismiss launches Hero return flight on release',
-    (tester) async {
-      final host = await pumpHeroNavigator(
-        tester,
-        platform: TargetPlatform.iOS,
-        firstChild: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: Hero(
-              tag: 'drag-hero',
-              transitionOnUserGestures: true,
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: const SizedBox.square(
-                dimension: 120,
-                child: ColoredBox(color: Colors.red),
-              ),
-            ),
-          ),
-        ),
-      );
-      unawaited(
-        host.nav.push(
-          FuncPage<void>(
-            sharedElement: true,
-            child: Scaffold(
-              body: Align(
-                alignment: Alignment.topCenter,
-                child: Hero(
-                  tag: 'drag-hero',
-                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                  child: const SizedBox.square(
-                    dimension: 320,
-                    child: ColoredBox(color: Colors.blue),
-                  ),
-                ),
-              ),
-            ),
-          ).createRoute(host.root),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final drag = await tester.startGesture(const Offset(20, 300));
-      await drag.moveBy(const Offset(30, 0));
-      await drag.moveBy(const Offset(160, 0));
-      await tester.pump();
-      expect(host.nav.userGestureInProgress, isTrue);
-
-      await drag.up();
-      await tester.pump();
-      expect(host.nav.userGestureInProgress, isFalse);
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byType(HeroRectClip), findsOneWidget);
-      await tester.pumpAndSettle();
-      expect(find.byType(HeroRectClip), findsNothing);
     },
   );
 

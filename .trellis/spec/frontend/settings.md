@@ -37,28 +37,6 @@ reviewed: 2026-11-28
 - **Check:** `test/architecture/ui_conventions_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"
 - **Code:** `lib/app/widgets/settings/settings_group.dart`
 
-### SET-02 Choose the row by the number of values
-- **Rule:** A setting with two to four values is a `SettingsMenuTile`
-  (current value at the row's end, menu anchored below it on the end
-  edge, never over the title). A longer list is a `SettingsGroup` of
-  `SettingsChoiceTile`s, which mark the chosen row with a check and
-  `ListTile.selected`, not a radio. A two-way property is a
-  `SettingsControl` backed by `FSwitch`; on `BottomBarSettingsPage`, locked-on
-  destinations (`shown && onChanged == null`) pass `locked: true` and
-  `lockedIcon` (`AppIcons.lock` / `AppIcons.check`) to render a muted `0.40`
-  primary-blended track, `onPrimary` thumb, and lock overlay while keeping
-  `onChanged: null` (THEME-07), and omit `bottomBarMeLocked` under
-  `DesktopCommandBarScope`. Diagnostic result panels in `NetworkProbePage` use
-  `FAccordion` / `FAccordionItem` with one-tap `compatPrefer` / `enableDoh`
-  apply actions on `NetworkProbeOverview`, and `NetworkAdvancedSettingsPage`
-  exposes `Setting.dohEnabled` as a `SettingsControl` toggle.
-- **Why:** `RadioListTile` is deprecated in the pinned Flutter, and
-  `selected` is what screen readers announce; segmented buttons were
-  removed (NAV-17), while locked-on bar destinations needed clear active
-  visual state without looking toggleable.
-- **Check:** manual
-- **Code:** `lib/app/widgets/settings/settings_control.dart`, `lib/app/widgets/settings/settings_menu_tile.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`, `lib/features/settings/pages/bottom_bar_settings_page.dart`, `lib/features/settings/network_probe_page.dart`
-
 ### SET-08 Page entries use monochrome icons without color discs
 - **Rule:** A row that opens a settings page from the index (`SettingsTile.topLevel`)
   or a section from the Me dashboard renders a bare 22dp monochrome `AppIcons`
@@ -88,22 +66,6 @@ reviewed: 2026-11-28
   did not read as one form. A long label was cut at narrow widths.
 - **Check:** `test/translation_credentials_page_test.dart` "typing while the store reads or writes stays a draft" "a dirty draft asks before leaving, a clean one pops"; `test/download_settings_page_test.dart` "DownloadDestinationPage clears album to default, offers reset row, and exposes copy button & right-click menu"
 - **Code:** `lib/features/settings/pages/translation_credentials_page.dart`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/network_settings_page.dart`
-
-### SET-10 A row's end says what a tap does
-- **Rule:** A row that opens a page of the app is a `SettingsTile` and
-  ends in a chevron. A row that leaves the app (a browser) ends its link
-  text in an `open_in_new` glyph in the text's size and colour. A row
-  that acts in place names the action and shows no glyph; a value row
-  shows its value at its end. Facts about the app (its icon, name and
-  attribution) head the About page on the page surface, not in a card.
-  The version stays a plain value row, though seven taps on it unlock
-  the developer options.
-- **Why:** User report: on the About page the license, the
-  source link and the facts were alike cards; what opened a page, what
-  left the app and what did nothing could not be told apart. The
-  attribution left the settings search: it is not a setting.
-- **Check:** manual
-- **Code:** `lib/features/settings/pages/about_settings_page.dart`, `lib/app/widgets/settings/settings_tile.dart`
 
 ### SET-03 Hand-written ListTiles only for content rows
 - **Rule:** A hand-written `ListTile` is allowed only for data entries

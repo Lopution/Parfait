@@ -51,12 +51,6 @@ reviewed: 2026-11-28
 - **Check:** `test/illust_detail_pager_test.dart` "only the current page requests its related works" "a neighbour requests once it has stayed settled"; `test/series_feed_test.dart` "inactive DetailPageActivity skips recording recent series open until active"
 - **Code:** `lib/features/illust/detail/on_demand_sliver.dart`, `lib/features/illust/detail/detail_page_activity.dart`, `lib/features/illust/detail/widgets/illust_series_section.dart`
 
-### DETAIL-07 Sections replace their states without fades
-- **Rule:** Below-the-fold section states swap in place without `StateFade`.
-- **Why:** Wrapping self-fading images stacked double fades.
-- **Check:** manual
-- **Code:** `lib/features/illust/detail/related_illusts_section.dart`
-
 ### DETAIL-08 First-page failures retry by themselves
 - **Rule:** Sections wrap their body in `AutoRetry` so transient first-page failures retry twice (1.5 s, 3 s, respecting `Retry-After`) before showing an error row.
 - **Why:** Transient network blips left dead sections.

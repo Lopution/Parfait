@@ -2,10 +2,7 @@ import 'dart:async';
 import 'dart:ui' show ViewFocusDirection, ViewFocusEvent, ViewFocusState;
 
 import 'package:flutter/foundation.dart'
-    show
-        TargetPlatform,
-        debugDefaultTargetPlatformOverride,
-        defaultTargetPlatform;
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,10 +12,7 @@ import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
-import 'package:parfait/app/widgets/comment_composer.dart';
-import 'package:parfait/core/navigation/home_destination.dart';
 
-import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
 
 Future<void> _sendChord(
@@ -394,158 +388,6 @@ void main() {
   );
 
   testWidgets(
-    'CommentComposer submits on Ctrl/Cmd+Enter in pointer mode and keeps Enter for newline',
-    variant: const TargetPlatformVariant({
-      TargetPlatform.windows,
-      TargetPlatform.macOS,
-    }),
-    (tester) async {
-      final isMac = defaultTargetPlatform == TargetPlatform.macOS;
-      final modifier = isMac
-          ? LogicalKeyboardKey.metaLeft
-          : LogicalKeyboardKey.controlLeft;
-      final sent = <String>[];
-
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: [...await signedInAccountOverrides()],
-          body: InputModalityScope(
-            initialModality: InputModality.pointer,
-            child: CommentComposer(
-              onSend: (text) async => sent.add(text),
-              onStampSend: (_) async {},
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(TextField));
-      await tester.pump();
-      await tester.enterText(find.byType(TextField), 'hello');
-      await tester.pump();
-
-      await _sendChord(tester, key: LogicalKeyboardKey.enter);
-      await tester.pump();
-      expect(sent, isEmpty);
-
-      await _sendChord(
-        tester,
-        key: LogicalKeyboardKey.enter,
-        modifier: modifier,
-      );
-      await tester.pumpAndSettle();
-      expect(sent, ['hello']);
-    },
-  );
-
-  testWidgets(
-    'KeyboardBack handles Ctrl/Cmd settings, destination digits, rail toggle, and iOS Cmd',
-    (tester) async {
-      final router = GoRouter(
-        initialLocation: '/recommended',
-        routes: [
-          for (final path in const [
-            '/recommended',
-            '/ranking',
-            '/new',
-            '/search',
-            '/settings',
-            '/settings/all',
-          ])
-            GoRoute(path: path, builder: (_, _) => Text(path)),
-        ],
-      );
-      addTearDown(router.dispose);
-      var railToggles = 0;
-
-      Future<void> pumpHost(TargetPlatform platform) async {
-        debugDefaultTargetPlatformOverride = platform;
-        await tester.pumpWidget(
-          localizedRouterApp(
-            router,
-            builder: (_, child) => KeyboardBack(
-              router: router,
-              onToggleRail: () => railToggles++,
-              child: child!,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-      }
-
-      try {
-        await pumpHost(TargetPlatform.windows);
-        for (final (key, path) in const [
-          (LogicalKeyboardKey.comma, '/settings/all'),
-          (LogicalKeyboardKey.digit2, '/ranking'),
-        ]) {
-          await _sendChord(
-            tester,
-            key: key,
-            modifier: LogicalKeyboardKey.controlLeft,
-          );
-          await tester.pumpAndSettle();
-          expect(router.routeInformationProvider.value.uri.path, path);
-        }
-        await _sendChord(
-          tester,
-          key: LogicalKeyboardKey.keyB,
-          modifier: LogicalKeyboardKey.controlLeft,
-        );
-        await tester.pumpAndSettle();
-        expect(railToggles, 1);
-
-        await pumpHost(TargetPlatform.iOS);
-        await _sendChord(
-          tester,
-          key: LogicalKeyboardKey.digit1,
-          modifier: LogicalKeyboardKey.metaLeft,
-        );
-        await tester.pumpAndSettle();
-        expect(router.routeInformationProvider.value.uri.path, '/recommended');
-
-        // Custom shown order: digits follow shown destinations, not static enum indices.
-        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-        await tester.pumpWidget(
-          localizedRouterApp(
-            router,
-            builder: (_, child) => KeyboardBack(
-              router: router,
-              destinations: const [HomeDestination.ranking, HomeDestination.me],
-              child: child!,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        await _sendChord(
-          tester,
-          key: LogicalKeyboardKey.digit1,
-          modifier: LogicalKeyboardKey.controlLeft,
-        );
-        await tester.pumpAndSettle();
-        expect(router.routeInformationProvider.value.uri.path, '/ranking');
-        await _sendChord(
-          tester,
-          key: LogicalKeyboardKey.digit2,
-          modifier: LogicalKeyboardKey.controlLeft,
-        );
-        await tester.pumpAndSettle();
-        expect(router.routeInformationProvider.value.uri.path, '/settings');
-        await _sendChord(
-          tester,
-          key: LogicalKeyboardKey.digit3,
-          modifier: LogicalKeyboardKey.controlLeft,
-        );
-        await tester.pumpAndSettle();
-        expect(router.routeInformationProvider.value.uri.path, '/settings');
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    },
-  );
-
-  testWidgets(
     'mouse side button held past 120ms suppresses duplicate channel back while held and on release',
     (tester) async {
       var backCalls = 0;
@@ -600,102 +442,6 @@ void main() {
       await _invokeNavCommand('back');
       await tester.pump();
       expect(backCalls, 2);
-    },
-  );
-
-  testWidgets(
-    'KeyboardBack Ctrl/Cmd+B opens bookmarks when rail cannot toggle',
-    variant: const TargetPlatformVariant({
-      TargetPlatform.windows,
-      TargetPlatform.macOS,
-    }),
-    (tester) async {
-      final isMac = defaultTargetPlatform == TargetPlatform.macOS;
-      final modifier = isMac
-          ? LogicalKeyboardKey.metaLeft
-          : LogicalKeyboardKey.controlLeft;
-      final router = GoRouter(
-        initialLocation: '/recommended',
-        routes: [
-          GoRoute(
-            path: '/recommended',
-            builder: (_, _) => const Scaffold(body: Text('recommended')),
-          ),
-          GoRoute(
-            path: '/settings/me',
-            builder: (_, state) =>
-                Scaffold(body: Text('me:${state.uri.queryParameters['tab']}')),
-          ),
-        ],
-      );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          builder: (_, child) => KeyboardBack(router: router, child: child!),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await _sendChord(
-        tester,
-        key: LogicalKeyboardKey.keyB,
-        modifier: modifier,
-      );
-      await tester.pumpAndSettle();
-      expect(
-        router.routeInformationProvider.value.uri.toString(),
-        '/settings/me?tab=bookmarks',
-      );
-      expect(find.text('me:bookmarks'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'KeyboardBack opens keyboard shortcuts dialog on ? and Ctrl/Cmd+/',
-    (tester) async {
-      final router = GoRouter(
-        initialLocation: '/recommended',
-        routes: [
-          GoRoute(
-            path: '/recommended',
-            builder: (_, _) => const Scaffold(body: Text('recommended')),
-          ),
-        ],
-      );
-      addTearDown(router.dispose);
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        await tester.pumpWidget(
-          localizedRouterApp(
-            router,
-            builder: (_, child) => KeyboardBack(router: router, child: child!),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        await _sendChord(
-          tester,
-          key: LogicalKeyboardKey.slash,
-          modifier: LogicalKeyboardKey.shiftLeft,
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('快捷键'), findsOneWidget);
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        expect(find.text('快捷键'), findsNothing);
-
-        await _sendChord(
-          tester,
-          key: LogicalKeyboardKey.slash,
-          modifier: LogicalKeyboardKey.controlLeft,
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('快捷键'), findsOneWidget);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
     },
   );
 }

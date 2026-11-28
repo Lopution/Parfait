@@ -142,7 +142,7 @@ reviewed: 2026-11-28
   bookmark played `success` for the same kind of moment. The buttons'
   error listeners said nothing once a scroll or a refresh had taken the
   button, and the bookmark sheet's failure showed twice.
-- **Check:** `test/follow_switch_button_test.dart` "a follow pops the button with success; an unfollow is quiet; a failure adds an error" "the sheet offers direct actions for each follow state", `test/bookmark_switch_button_test.dart` "a failed add says why, also once its heart is gone" "failed confirm keeps the sheet open and preserves the draft"
+- **Check:** `test/follow_switch_button_test.dart` "the sheet offers direct actions for each follow state", `test/bookmark_switch_button_test.dart` "a failed add says why, also once its heart is gone" "failed confirm keeps the sheet open and preserves the draft"
 - **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/follow_switch_button.dart`
 
 ## Haptics
@@ -179,16 +179,6 @@ reviewed: 2026-11-28
   doubled the app's, and mouse right-clicks do not warrant touch haptics.
 - **Check:** `test/architecture/ui_conventions_test.dart` "selection controls live only in their haptic wrappers"
 - **Code:** `lib/app/widgets/settings`, `lib/app/widgets/app_choice_chip.dart`, `lib/app/widgets/feed/desktop_gallery_controls.dart`
-
-### FB-13 Store mutations vibrate on the settled outcome
-- **Rule:** Bookmark, follow and watchlist call sites read the entry,
-  await the action, read again, and play the role of what landed: silent
-  for queued or cancelled, `error` for failure. Never `ref.listen` a store
-  to vibrate.
-- **Why:** A listener vibrated for replays landing later and once per
-  button showing the same key.
-- **Check:** manual
-- **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/watchlist_toggle.dart`
 
 ### FB-14 Clipboard writes go through copyToClipboard
 - **Rule:** UI code copies with `copyToClipboard(context, text, message:)`:

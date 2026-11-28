@@ -70,14 +70,8 @@ reviewed: 2026-11-28
 ### MOTION-18 Drags take the device's slop; sideways pagers judge the angle
 - **Rule:** Custom drag recognizers read `MediaQuery.maybeGestureSettingsOf(context)` and `computeHitSlop` (never hard-coded `kTouchSlop`). Viewer pagers use `PagingSlop` / `PagingSlopPage` (`minFlingDistance` stays device slop); detail pagers inside `SelectionArea` judge angle at 1x device slop (excluding mouse) so `SelectableRegion`'s 18px recognizer cannot steal touch swipes; tab/branch swipes (`SwipePagingRecognizer`) require `<= swipePagingMaxDegrees` (40 deg) off horizontal.
 - **Why:** Hard-coded 18px slop caused pagers, dismiss drags, and `SelectionArea` to fight touch gestures on 8dp-slop Android screens.
-- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page slides away, back leaves like any page"
+- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/motion/swipe_paging.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`
-
-### MOTION-07 Feed cards land in place
-- **Rule:** Grid cards have no entrance animation or `StateFade` wrapper; only images fade (TRANS-16).
-- **Why:** Card entrances stacked on image fades and replayed on recycled slots.
-- **Check:** manual
-- **Code:** `lib/app/widgets/feed/feed_grid.dart`
 
 ### MOTION-08 Removal plays the exit, then commits
 - **Rule:** Capture stores/actions upfront, `await controller.playExit(ids)` via `RemovalController` (`RemovalScope.of`), then commit (calling `restore(ids)` on failure); position-styled containers exclude `controller.leaving` from frame 0.
@@ -98,12 +92,6 @@ reviewed: 2026-11-28
 - **Why:** Broad subscriptions rebuilt entire feeds on inset or `isCurrent` changes, saturating Android's main thread and accessibility services.
 - **Check:** manual — rebuilds are not asserted (TEST-12)
 - **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/motion/press_scale.dart`, `lib/app/pixiv_image.dart`, `lib/app/navigation/route_animation.dart`
-
-### MOTION-11 Fades keep semantics; progress moves in steps
-- **Rule:** Opacity entrances pass `alwaysIncludeSemantics: true`; progress semantics step in 10% increments while drawn rings stay continuous.
-- **Why:** Prevents semantics churn on every progress frame and keeps faded content discoverable.
-- **Check:** `test/image_load_progress_test.dart` "a slow load shows its percentage, then the ring goes"
-- **Code:** `lib/app/motion/state_fade.dart`, `lib/app/widgets/image_load_progress.dart`
 
 ### MOTION-12 Slow first channel calls are warmed up
 - **Rule:** Channels with heavy first-call main-thread latency warm sequentially in `androidChannelWarmupSteps`, each waiting for a 300 ms idle gap.

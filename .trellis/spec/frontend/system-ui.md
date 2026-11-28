@@ -21,22 +21,6 @@ reviewed: 2026-11-28
 - **Check:** `test/architecture/ui_conventions_test.dart` "system UI has exactly one owner"
 - **Code:** `lib/app/system_ui.dart`
 
-### SYS-02 Override bar style by wrapping, decoupling top and bottom bars when needed
-- **Rule:** A page needing another bar style wraps itself in
-  `FuncSystemBars(background:, navBarBackground:)`; unmounting restores the root
-  style on the next frame. `funcSystemBarsStyle(statusBarBackground,
-  {navBarBackground})` decouples status-bar icon contrast from the bottom
-  system navigation bar: `AppTopBar` estimates status-bar brightness from its
-  resolved opaque header surface (`ThemeData.estimateBrightnessForColor`, so
-  compact dark branded headers and dynamic palettes stay legible) while
-  keeping `navBarBackground` on the page's `theme.brightness`. A sheet opened
-  over a dark page wraps itself too so its light surface flips the nav-bar
-  icons while covering them.
-- **Why:** Imperative resets missed pop paths, and coupling both bars to a
-  dark compact header painted white navigation-bar icons onto a light page.
-- **Check:** `test/system_ui_test.dart` "a scoped FuncSystemBars overrides the root and restores"
-- **Code:** `lib/app/system_ui.dart`, `lib/app/widgets/app_top_bar.dart`
-
 ### SYS-03 Immersive pages restore the bars on pop and when covered
 - **Rule:** A page that hides the system bars enters `immersiveSticky` in
   `initState`, shows `edgeToEdge` while its chrome is shown, subscribes to

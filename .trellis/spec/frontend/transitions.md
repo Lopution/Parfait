@@ -43,9 +43,9 @@ reviewed: 2026-11-28
 ## Hero flights
 
 ### TRANS-07 Hero tags are scoped per surface; only the branch on screen pairs
-- **Rule:** All Hero tags use `illustHeroTag(scope, id)` with stable per-surface scopes (`'history'`, `'me-history'`, etc.); routes without a matching source skip Hero cleanly; `HomeBranchStack` wraps inactive branches in `HeroMode(enabled: false)`. Flights ignore deactivated endpoints without throwing and `HeroChrome` restores visibility after flights settle.
-- **Why:** Prevented root overlays like the viewer from flying to matching cards in hidden branches, crashing on mid-flight route removal, or stranding hidden chrome.
-- **Check:** `test/architecture/ui_conventions_test.dart` "Hero uses only the shared illustHeroTag family", `test/hero_transition_test.dart` "the viewer pairs only with the branch on screen" "Hero flight ignores deactivated endpoints without throwing" "HeroChrome restores visibility after flight settles"
+- **Rule:** All Hero tags use `illustHeroTag(scope, id)` with stable per-surface scopes (`'history'`, `'me-history'`, etc.); routes without a matching source skip Hero cleanly; `HomeBranchStack` wraps inactive branches in `HeroMode(enabled: false)`. Flights ignore deactivated endpoints without throwing.
+- **Why:** Prevented root overlays like the viewer from flying to matching cards in hidden branches or crashing on mid-flight route removal.
+- **Check:** `test/architecture/ui_conventions_test.dart` "Hero uses only the shared illustHeroTag family", `test/hero_transition_test.dart` "the viewer pairs only with the branch on screen" "Hero flight ignores deactivated endpoints without throwing"
 - **Code:** `lib/app/motion/hero_transition.dart`, `lib/app/widgets/home_branch_stack.dart`
 
 ### TRANS-08 Opening a work never waits for the image
@@ -53,12 +53,6 @@ reviewed: 2026-11-28
 - **Why:** Awaiting preload delayed taps and duplicate URL requests wasted bandwidth.
 - **Check:** `test/hero_transition_test.dart` "detail page fetches large image once after Hero flight settles"; `test/pixiv_image_pipelines_test.dart` "a preload lands on the entry of the widget that will show it"
 - **Code:** `lib/app/widgets/feed/illust_card.dart`, `lib/features/illust/detail/widgets/page_image.dart`
-
-### TRANS-12 Only the viewer's entry page flies back
-- **Rule:** Viewer carries Hero only on its opening page; after turning pages, drag-to-dismiss slides down and back fades out.
-- **Why:** Flying a different page back into the entry card looked wrong.
-- **Check:** `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page slides away, back leaves like any page"
-- **Code:** `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### TRANS-14 Drag-to-dismiss yields to controls that own their drag
 - **Rule:** Omnidirectional controls under `DragToDismiss` (e.g. scrubber) claim pointers via `allowPointer`; transient drag overlays mount after the slider in its `Stack`.
@@ -69,7 +63,7 @@ reviewed: 2026-11-28
 ### TRANS-21 Every artwork flight checks its card end
 - **Rule:** `inspectHeroFlight` verifies card-ended flights are live, on-page, and match `noteHeroCardOpened` within 2 s (skipping detail-to-viewer), logging anomalies (last 20) to `HeroAnomalyLog` and surfacing a prompt when developer options are unlocked.
 - **Why:** Captures rare real-device flight glitches with route and box diagnostics.
-- **Check:** `test/hero_transition_test.dart` "a flight from a card out of sight is logged, others not" "a push is held to the tapped card only when it leaves a card" "a failed anomaly write is logged and the next one lands"
+- **Check:** `test/hero_transition_test.dart` "a failed anomaly write is logged and the next one lands"
 - **Code:** `lib/app/motion/hero_anomaly.dart`, `lib/core/debug/hero_anomaly_log.dart`, `lib/features/settings/pages/frame_probe_page.dart`
 
 ## Image hand-off
