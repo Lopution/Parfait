@@ -163,8 +163,8 @@ reviewed: 2026-11-28
 - **Check:** `test/illust_detail_download_test.dart` "a PC right-click offers the selection mode, then toggles"
 - **Code:** `lib/app/widgets/display_actions.dart`, `lib/app/motion/app_overlays.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/tag_actions_sheet.dart`, `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/entity_row.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/features/illust/detail/widgets/detail_page_actions.dart`, `lib/features/illust/detail/widgets/page_image.dart`
 
-### PAGE-25 Five-scenario responsive and input-modality verification matrix
-- **Rule:** Responsive breakpoints, foldable hinge/tabletop splits, multi-monitor DPR changes, and pointer affordances must pass the golden scenarios (`compact_phone`, `foldable_book`, `foldable_tabletop`, `tablet_expanded`, `desktop_multimonitor_pointer`).
+### PAGE-25 Cross-form-factor responsive, hinge, and DPR behavior
+- **Rule:** Responsive breakpoints, compact phone navigation retention, foldable book and tabletop hinge splits (across `AdaptiveTwoPane`, `IllustFeedGrid`, `SliverCardList`, and `IllustDetailPage`), and desktop multi-monitor 1x↔2x DPR pointer transitions must preserve layout geometry and stay exception-free.
 - **Why:** Prevents platform-specific changes from silently breaking sibling form factors.
 - **Check:** `test/home_branch_stack_test.dart` "a turned phone keeps the bottom bar"; `test/layout_breakpoints_test.dart` "AdaptiveTwoPane avoids vertical book hinge including rail" "AdaptiveTwoPane splits vertically on tabletop hinge"; `test/responsive_layout_test.dart` "FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds"; `test/illust_detail_actions_test.dart` "tabletop hinge splits artwork above inspector action bar"; `test/desktop_window_test.dart` "desktop pointer layout handles 1x<->2x DPR transitions without throwing"
 - **Code:** `lib/app/layout/app_breakpoints.dart`, `lib/app/layout/window_layout_spec.dart`, `lib/features/home/home_page.dart`, `lib/app/navigation/func_page.dart`
