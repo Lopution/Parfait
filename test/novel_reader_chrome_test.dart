@@ -19,8 +19,6 @@ import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_page.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/app/widgets/feed/feed_states.dart';
@@ -31,6 +29,7 @@ import 'helpers/illust_fixtures.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/novel_reader_harness.dart';
 import 'helpers/waits.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
@@ -668,11 +667,9 @@ void main() {
         for (final scale in [1.0, 2.0]) (pageTurn, scale),
     ]) {
       final container = await _apiContainer(
-        platform: memoryPreferences({
-          'parfait.novel.reader_settings.v1': jsonEncode(
-            NovelReaderSettings(pageTurn: pageTurn).toJson(),
-          ),
-        }),
+        platform: novelReaderSettingsPrefs(
+          NovelReaderSettings(pageTurn: pageTurn),
+        ),
       );
       await tester.pumpWidget(
         localizedApp(
@@ -747,27 +744,20 @@ void main() {
     // R2: the stage's FuncSystemBars is a scoped override — unmounting the
     // route returns the bars to the app-level default without a reset.
     final container = await _apiContainer(
-      platform: memoryPreferences({
-        'parfait.novel.reader_settings.v1': jsonEncode(
-          const NovelReaderSettings(theme: NovelReaderTheme.night).toJson(),
-        ),
-      }),
+      platform: novelReaderSettingsPrefs(
+        const NovelReaderSettings(theme: NovelReaderTheme.night),
+      ),
     );
     await tester.pumpWidget(
-      UncontrolledProviderScope(
+      localizedApp(
         container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          theme: replicaTheme(Brightness.light),
-          // The same root default app.dart's builder installs.
-          builder: (context, routeChild) => FuncSystemBars(
-            background: Theme.of(context).brightness,
-            child: routeChild ?? const SizedBox.shrink(),
-          ),
-          home: const _Host(),
+        theme: replicaTheme(Brightness.light),
+        // The same root default app.dart's builder installs.
+        builder: (context, routeChild) => FuncSystemBars(
+          background: Theme.of(context).brightness,
+          child: routeChild ?? const SizedBox.shrink(),
         ),
+        home: const _Host(),
       ),
     );
     // Two pumps: mount, then RenderView publishes latestStyle.
@@ -959,24 +949,17 @@ void main() {
       ]) {
         final container = await _apiContainer(
           withSeries: true,
-          platform: memoryPreferences({
-            'parfait.novel.reader_settings.v1': jsonEncode(
-              NovelReaderSettings(theme: readerTheme).toJson(),
-            ),
-          }),
+          platform: novelReaderSettingsPrefs(
+            NovelReaderSettings(theme: readerTheme),
+          ),
           seriesHandler: (_) async =>
               _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
         );
         await tester.pumpWidget(
-          UncontrolledProviderScope(
+          localizedApp(
             container: container,
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              theme: replicaTheme(appBrightness),
-              home: const NovelPage(novelId: 1),
-            ),
+            theme: replicaTheme(appBrightness),
+            home: const NovelPage(novelId: 1),
           ),
         );
         await tester.pump();
@@ -1075,11 +1058,7 @@ void main() {
     tester,
   ) async {
     final container = await _apiContainer(
-      platform: memoryPreferences({
-        'parfait.novel.reader_settings.v1': jsonEncode(
-          const NovelReaderSettings(pageTurn: NovelPageTurn.pages).toJson(),
-        ),
-      }),
+      platform: novelReaderSettingsPrefs(novelPageModeSettings),
     );
     await _openReader(tester, container);
     expect(tester.widget<Text>(_progressSuffix()).data, contains('· 1/'));

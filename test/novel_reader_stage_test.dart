@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart'
@@ -19,7 +18,6 @@ import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
-import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
@@ -29,6 +27,7 @@ import 'package:parfait/features/novel/novel_reader_stage.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/novel_reader_harness.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/localized_app.dart';
@@ -45,8 +44,7 @@ void main() {
   ) async {
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     // First-layout echo and the restore jump do not persist anything.
     expect(binding.saves, isEmpty);
@@ -80,8 +78,7 @@ void main() {
     await tester.pumpWidget(
       _stageApp(binding, text: text, pageTurn: NovelPageTurn.scroll),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     expect(find.byType(PageView), findsNothing);
     expect(binding.saves, isEmpty);
 
@@ -119,8 +116,7 @@ void main() {
       restore: const NovelAnchor(paragraphId: 'p60', offset: 0),
     );
     await tester.pumpWidget(_stageApp(binding, text: text));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     // The restore jump reports the position as a layout echo — the store
     // keeps the record untouched until the user actually turns a page.
@@ -133,8 +129,7 @@ void main() {
     (tester) async {
       final binding = _RecordingBinding();
       await tester.pumpWidget(_stageApp(binding));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
 
       await tester.tapAt(const Offset(400, 300));
       await tester.pumpAndSettle();
@@ -169,8 +164,7 @@ void main() {
     setViewSize(tester, const Size(896, 411));
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding, chapters: true));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     await tester.tapAt(const Offset(448, 200));
     await tester.pumpAndSettle();
 
@@ -208,8 +202,7 @@ void main() {
   ) async {
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
@@ -230,8 +223,7 @@ void main() {
       'view; a chapter tap goes there', (tester) async {
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding, chapters: true));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     Future<void> openSheet() async {
       if (find.bySemanticsLabel('阅读进度').evaluate().isEmpty) {
         await tester.tapAt(const Offset(400, 300));
@@ -270,8 +262,7 @@ void main() {
   testWidgets('arrow keys turn pages with user-turn semantics', (tester) async {
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
@@ -297,8 +288,7 @@ void main() {
       await tester.pumpWidget(
         _stageApp(binding, chapters: true, container: container),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
 
       // End jumps to the last page, Home returns to page 1.
       await tester.sendKeyEvent(LogicalKeyboardKey.end);
@@ -325,8 +315,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_stageApp(_RecordingBinding()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     NovelReader reader() => tester.widget(find.byType(NovelReader));
     Widget firstLine() => tester.widget(
       find
@@ -368,8 +357,7 @@ void main() {
   ) async {
     setViewSize(tester, const Size(1200, 800));
     await tester.pumpWidget(_stageApp(_RecordingBinding()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     final hint = tester.getRect(progressHint());
     const columnLeft = (1200 - ContentWidths.article) / 2;
@@ -416,8 +404,7 @@ void main() {
   ) async {
     final binding = _RecordingBinding()..loadError = StateError('prefs gone');
     await tester.pumpWidget(_stageApp(binding));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     // Error surface instead of an endless loading spinner.
     expect(find.text('读取设置失败'), findsOneWidget);
@@ -426,8 +413,7 @@ void main() {
     // Retry recovers once the store is healthy again.
     binding.loadError = null;
     await tester.tap(find.text('重试'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     expect(find.byType(PageView), findsOneWidget);
   });
 
@@ -435,14 +421,12 @@ void main() {
     await tester.pumpWidget(
       _stageApp(_RecordingBinding(), preferences: _FailingPreferences()),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(AppIcons.textDecrease));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     expect(shownPrompt, findsOneWidget);
     // The copy must say the change applied for this session only — the
@@ -471,8 +455,7 @@ void main() {
           translation: engine,
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
 
       await tester.tapAt(const Offset(400, 300));
       await tester.pumpAndSettle();
@@ -506,8 +489,7 @@ void main() {
       await tester.pumpWidget(
         _stageApp(binding, novel: _novelOfParagraphs(160)),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
 
       Future<void> pressShiftSpace() async {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -540,8 +522,7 @@ void main() {
           pageTurn: NovelPageTurn.scroll,
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
 
       double offset() => tester
           .state<ScrollableState>(find.byType(Scrollable))
@@ -579,8 +560,7 @@ void main() {
       await tester.pumpWidget(
         _stageApp(_RecordingBinding(), novel: _novelWithChapters(4)),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
 
       await tester.tapAt(const Offset(550, 400), kind: PointerDeviceKind.mouse);
       await tester.pump(kDoubleTapTimeout);
@@ -694,8 +674,7 @@ void main() {
         await tester.pumpWidget(
           _stageApp(_RecordingBinding(), inputModality: InputModality.pointer),
         );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
+        await pumpNovelLayout(tester);
 
         final cue = find.byKey(const ValueKey('novel-pointer-cue'));
         expect(cue, findsOneWidget);
@@ -748,8 +727,7 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
       await tester.pumpAndSettle();
       expect(find.textContaining('2/4 · 50%'), findsOneWidget);
 
@@ -788,8 +766,7 @@ void main() {
           spreadMode: NovelSpreadMode.off,
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
 
       // KeyRepeatEvent jumps immediately without resetting a 300ms animation.
       await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
@@ -849,8 +826,7 @@ void main() {
           spreadMode: NovelSpreadMode.auto,
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
       await tester.tapAt(const Offset(550, 350));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('翻译本页'));
@@ -871,8 +847,7 @@ void main() {
           pageTurn: NovelPageTurn.scroll,
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
       final list = tester.widget<ListView>(find.byType(ListView));
       list.controller!.jumpTo(260);
       await tester.pumpAndSettle();
@@ -950,26 +925,24 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
-  testWidgets(
-    'accessibleNavigation pins reader chrome open with canPop, F toggles chrome, ruby excludes reading, and 1.5x chapters/series/pointer-cue keep >=48dp without overflow',
-    (tester) async {
-      // 1. accessibleNavigation pins chrome open and keeps PopScope canPop true.
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(accessibleNavigation: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
-      final binding = _RecordingBinding();
-      await tester.pumpWidget(_stageApp(binding, chapters: true));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('info'), findsOneWidget);
-      final popScope = tester.widget<PopScope<dynamic>>(
-        find.byWidgetPredicate((w) => w is PopScope),
-      );
-      expect(popScope.canPop, isTrue);
+  testWidgets('accessibleNavigation pins reader chrome open with canPop', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpWidget(_stageApp(_RecordingBinding(), chapters: true));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('info'), findsOneWidget);
+    final popScope = tester.widget<PopScope<dynamic>>(
+      find.byWidgetPredicate((w) => w is PopScope),
+    );
+    expect(popScope.canPop, isTrue);
+  });
 
-      // 2. F toggles chrome open and closed in standard mode; pointer cue >= 48dp.
-      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+  testWidgets(
+    'F toggles chrome, pointer cue keeps >=48dp, ruby excludes reading, and 1.5x adjacent bar avoids overflow',
+    (tester) async {
       await tester.pumpWidget(
         _stageApp(
           _RecordingBinding(),
@@ -1000,7 +973,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byTooltip('info'), findsNothing);
 
-      // 3. Large text scale (1.5x) renders NovelAdjacentBar with zero overflow.
+      // Large text scale (1.5x) renders NovelAdjacentBar with zero overflow.
       await tester.pumpWidget(
         localizedApp(
           home: MediaQuery(
@@ -1100,57 +1073,24 @@ Widget _stageApp(
   InputModality? inputModality,
   NovelMarkerBinding? marker,
   ProviderContainer? container,
-}) {
-  installPreferencesForTest(
-    memoryPreferences({
-      'parfait.novel.reader_settings.v1': jsonEncode(
-        NovelReaderSettings(
-          pageTurn: pageTurn,
-          spreadMode: spreadMode,
-        ).toJson(),
-      ),
-    }),
-  );
-  final stage = NovelReaderStage(
-    spec: NovelReaderStageSpec(
-      novel:
-          novel ??
-          (chapters ? _novelWithChapters() : _novel(text ?? 'reader ' * 400)),
-      infoTooltip: 'info',
-      infoSheet: (context) => const Text('info sheet'),
-      progress: binding,
-      marker: marker,
-    ),
-  );
-  return localizedApp(
-    container: container,
-    overrides: container != null
-        ? null
-        : [
-            if (preferences != null)
-              sharedPreferencesProvider.overrideWithValue(preferences),
-            if (translation != null)
-              translationServiceProvider.overrideWithValue(translation),
-          ],
-    builder: promptHostBuilder,
-    theme: theme,
-    body: inputModality == null
-        ? stage
-        : InputModalityScope(initialModality: inputModality, child: stage),
-  );
-}
-
-NovelEntity _novel(String text) => NovelEntity(
-  id: 77,
-  title: 'A novel',
-  caption: '',
-  user: const UserEntity(id: 8, name: 'author', account: 'author'),
-  tags: const [],
-  textLength: text.length,
-  contentVersion: text,
-  paragraphs: NovelContentMapper.fromText(text),
-  contentAvailable: true,
+}) => buildNovelStageApp(
+  binding,
+  novel:
+      novel ??
+      (chapters
+          ? _novelWithChapters()
+          : testNovel(text ?? 'reader ' * 400, caption: '')),
+  preferences: preferences,
+  theme: theme,
+  translation: translation,
+  pageTurn: pageTurn,
+  spreadMode: spreadMode,
+  inputModality: inputModality,
+  marker: marker,
+  container: container,
 );
+
+NovelEntity _novel(String text) => testNovel(text, caption: '');
 
 NovelEntity _novelOfParagraphs(int count) => NovelEntity(
   id: 79,

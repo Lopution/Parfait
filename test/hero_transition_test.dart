@@ -51,13 +51,19 @@ void main() {
   // pushed with the feed's hero scope.
   Future<void> pushFromFeed(
     WidgetTester tester,
-    Map<String, dynamic> json,
-  ) async {
+    Map<String, dynamic> json, {
+    Map<int, Map<String, dynamic>> detailOverrides = const {},
+    FakeViewPadding? viewPadding,
+  }) async {
     setViewSize(tester, const Size(390, 844));
+    if (viewPadding != null) {
+      tester.view.padding = viewPadding;
+      tester.view.viewPadding = viewPadding;
+    }
     // Detail pages embed VisibilityDetector trackers — zero interval uses
     // post-frame callbacks instead of a periodic timer.
     VisibilityDetectorController.instance.updateInterval = Duration.zero;
-    final (container, _, _) = await makeWorld();
+    final (container, _, _) = await makeWorld(detailOverrides: detailOverrides);
     final entity = parseIllust(json);
     container.read(illustStoreProvider).mergeAll([entity]);
     final router = pixivRouter('/recommended');
@@ -71,6 +77,37 @@ void main() {
       ),
     );
     await tester.pump();
+  }
+
+  Future<({BuildContext root, NavigatorState nav, Route<void> firstRoute})>
+  pumpHeroNavigator(
+    WidgetTester tester, {
+    required Widget firstChild,
+    TargetPlatform? platform,
+  }) async {
+    setViewSize(tester, const Size(400, 800));
+    late BuildContext root;
+    late Route<void> firstRoute;
+    final heroes = HeroController();
+    addTearDown(heroes.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: platform == null ? null : ThemeData(platform: platform),
+        home: Builder(
+          builder: (context) {
+            root = context;
+            return Navigator(
+              observers: [heroes],
+              onGenerateRoute: (_) => firstRoute = FuncPage<void>(
+                child: firstChild,
+              ).createRoute(root),
+            );
+          },
+        ),
+      ),
+    );
+    final nav = tester.state<NavigatorState>(find.byType(Navigator).last);
+    return (root: root, nav: nav, firstRoute: firstRoute);
   }
 
   // A root page (the viewer) pairs its Hero with the top page of every
@@ -1024,25 +1061,13 @@ void main() {
   for (final (scroll, top) in [(0.0, 24.0), (1850.0, 24.0 + kToolbarHeight)]) {
     testWidgets('detail and viewer: the clip runs between the work page\'s top '
         'chrome and the top of the screen (scroll $scroll)', (tester) async {
-      setViewSize(tester, const Size(390, 844));
-      tester.view.padding = const FakeViewPadding(top: 24);
-      tester.view.viewPadding = const FakeViewPadding(top: 24);
-      VisibilityDetectorController.instance.updateInterval = Duration.zero;
       final json = illustJson(42, width: 800, height: 4000);
-      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
-      final entity = parseIllust(json);
-      container.read(illustStoreProvider).mergeAll([entity]);
-      final router = pixivRouter('/recommended');
-      await tester.pumpWidget(localizedRouterApp(router, container: container));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      unawaited(
-        router.push<void>(
-          '/recommended/illust/42',
-          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
-        ),
+      await pushFromFeed(
+        tester,
+        json,
+        detailOverrides: {42: json},
+        viewPadding: const FakeViewPadding(top: 24),
       );
-      await tester.pump();
       await tester.pumpAndSettle();
       if (scroll > 0) {
         tester
@@ -1252,43 +1277,26 @@ void main() {
   testWidgets(
     'iOS canvas drag dismiss launches Hero return flight on release',
     (tester) async {
-      setViewSize(tester, const Size(400, 800));
-      late BuildContext root;
-      late NavigatorState nav;
-      final heroes = HeroController();
-      addTearDown(heroes.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData(platform: TargetPlatform.iOS),
-          home: Builder(
-            builder: (context) {
-              root = context;
-              return Navigator(
-                observers: [heroes],
-                onGenerateRoute: (_) => FuncPage<void>(
-                  child: Scaffold(
-                    body: Align(
-                      alignment: Alignment.topLeft,
-                      child: Hero(
-                        tag: 'drag-hero',
-                        transitionOnUserGestures: true,
-                        flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                        child: const SizedBox.square(
-                          dimension: 120,
-                          child: ColoredBox(color: Colors.red),
-                        ),
-                      ),
-                    ),
-                  ),
-                ).createRoute(root),
-              );
-            },
+      final host = await pumpHeroNavigator(
+        tester,
+        platform: TargetPlatform.iOS,
+        firstChild: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: Hero(
+              tag: 'drag-hero',
+              transitionOnUserGestures: true,
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              child: const SizedBox.square(
+                dimension: 120,
+                child: ColoredBox(color: Colors.red),
+              ),
+            ),
           ),
         ),
       );
-      nav = tester.state<NavigatorState>(find.byType(Navigator).last);
       unawaited(
-        nav.push(
+        host.nav.push(
           FuncPage<void>(
             sharedElement: true,
             child: Scaffold(
@@ -1304,7 +1312,7 @@ void main() {
                 ),
               ),
             ),
-          ).createRoute(root),
+          ).createRoute(host.root),
         ),
       );
       await tester.pumpAndSettle();
@@ -1313,11 +1321,11 @@ void main() {
       await drag.moveBy(const Offset(30, 0));
       await drag.moveBy(const Offset(160, 0));
       await tester.pump();
-      expect(nav.userGestureInProgress, isTrue);
+      expect(host.nav.userGestureInProgress, isTrue);
 
       await drag.up();
       await tester.pump();
-      expect(nav.userGestureInProgress, isFalse);
+      expect(host.nav.userGestureInProgress, isFalse);
       await tester.pump(const Duration(milliseconds: 50));
       expect(find.byType(HeroRectClip), findsOneWidget);
       await tester.pumpAndSettle();
@@ -1328,34 +1336,17 @@ void main() {
   testWidgets('Hero flight ignores deactivated endpoints without throwing', (
     tester,
   ) async {
-    setViewSize(tester, const Size(400, 800));
-    late BuildContext root;
-    final heroes = HeroController();
-    addTearDown(heroes.dispose);
-    late Route<void> firstRoute;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            root = context;
-            return Navigator(
-              observers: [heroes],
-              onGenerateRoute: (_) => firstRoute = FuncPage<void>(
-                child: Scaffold(
-                  body: Align(
-                    alignment: Alignment.topLeft,
-                    child: _hero('deactivated-hero', width: 120, height: 120),
-                  ),
-                ),
-              ).createRoute(root),
-            );
-          },
+    final host = await pumpHeroNavigator(
+      tester,
+      firstChild: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: _hero('deactivated-hero', width: 120, height: 120),
         ),
       ),
     );
-    final nav = tester.state<NavigatorState>(find.byType(Navigator).last);
     unawaited(
-      nav.push(
+      host.nav.push(
         FuncPage<void>(
           sharedElement: true,
           child: Scaffold(
@@ -1364,7 +1355,7 @@ void main() {
               child: _hero('deactivated-hero', width: 320, height: 320),
             ),
           ),
-        ).createRoute(root),
+        ).createRoute(host.root),
       ),
     );
     await tester.pump();
@@ -1372,7 +1363,7 @@ void main() {
     expect(find.byType(HeroRectClip), findsOneWidget);
 
     // Deactivate the source route mid-flight so _LiftedEndpoints sees !mounted.
-    nav.removeRoute(firstRoute);
+    host.nav.removeRoute(host.firstRoute);
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpAndSettle();
 
