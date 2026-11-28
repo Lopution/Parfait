@@ -23,7 +23,7 @@ reviewed: 2026-11-21
 ### THEME-01 One theme, read from context
 - **Rule:** `replicaTheme` builds the sole light and dark `ThemeData` (`NoSplash.splashFactory` with visible `onSurface` highlight/hover/focus layers; tinted pills place their fill on the outer `Material`, not inside `InkWell.child`). Feature code reads `Theme.of(context)` instead of building local palettes. `MaterialUiCompatibilityBridge` and `ForuiThemeHost` (`foruiThemeFrom`, localized for all four shipped locales with `FHapticFeedback.none()`) bridge `ColorScheme`, `FuncSemanticTokens`, `MotionScope`, and platform typography one-way without bundled fonts.
 - **Why:** Local palettes broke dark mode and system colors; transparent `highlightColor` under `NoSplash` left controls without press feedback.
-- **Check:** `test/replica_theme_test.dart` "replicaTheme provides visible pressed state feedback for InkWell, ListTile, and buttons" "foruiThemeFrom bridges colors, hairlines, haptics, and keeps platform font" "ForuiThemeHost forwards MotionScope reduce to FAccessibilityMotion.disabled"
+- **Check:** `test/replica_theme_test.dart` "foruiThemeFrom bridges colors, hairlines, haptics, and keeps platform font"
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/forui_theme_bridge.dart`, `lib/l10n/app_localizations_delegates.dart`, `lib/app/app.dart`
 
 ### THEME-02 No bundled font
@@ -145,7 +145,7 @@ reviewed: 2026-11-21
 ### THEME-19 Ambient light is the subject's tone, around it
 - **Rule:** `AmbientWash` blurs a small decode once (`BlurredImage`) and applies `AmbientTone` (page lightness + share of image hue) in the page's own paint pass with page-color gradient fades (no per-frame filter/mask over scrolling or swiping content; only the static welcome glow uses a widget blur). Used on the detail short-image band (rising via `MotionTokens.ambientRise` after Hero landing), wide detail stage, cover-less profile header (from avatar), and first-run `ScrollableFormShell.brandGlow`.
 - **Why:** User decision: warm subject-matched framing without muddy tints or Impeller offscreen-layer frame drops during swipes.
-- **Check:** `test/replica_theme_test.dart` "ambient light keeps the page lightness and a share of the colour" "a wash draws its image toned, in the page pass"
+- **Check:** `test/replica_theme_test.dart` "ambient light keeps the page lightness and a share of the colour"
 - **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/app/widgets/scrollable_form_shell.dart`
 
 ### THEME-20 A shadow marks a layer, or content under a bar

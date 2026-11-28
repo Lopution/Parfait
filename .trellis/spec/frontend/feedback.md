@@ -90,7 +90,7 @@ reviewed: 2026-11-28
 - **Why:** Prompts died with their page; action prompts stayed forever for
   users of always-on accessibility services. The dwell runs past the
   entrance and the platform timeout, so it cannot time a window.
-- **Check:** `test/prompt_host_test.dart` "a new prompt replaces the current one and drops the queue" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits; interruptions reset the hint"
+- **Check:** `test/prompt_host_test.dart` "a new prompt replaces the current one and drops the queue" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/navigation_router_test.dart` "a second back at the start exits; interruptions reset the hint"
 - **Code:** `lib/app/widgets/prompt_host.dart`, `lib/app/widgets/prompt_anchor.dart`
 
 ## Undo

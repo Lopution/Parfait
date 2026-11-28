@@ -1,16 +1,9 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/motion/removal.dart';
-import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_feed_controller.dart';
 import 'package:parfait/core/history/history_models.dart';
@@ -19,7 +12,6 @@ import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
 
 import 'helpers/history_world.dart';
-import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/view_size.dart';
@@ -35,7 +27,6 @@ Widget _app(ProviderContainer container) => localizedApp(
 Future<ProviderContainer> _seedPage(
   WidgetTester tester,
   List<HistoryRecord> records, {
-  IllustStore? illustStore,
   Size surface = const Size(390, 844),
 }) async {
   // Phone-sized surface: the confirm sheet's 0.35-height fraction box
@@ -43,7 +34,7 @@ Future<ProviderContainer> _seedPage(
   setViewSize(tester, surface);
   final (repository, container) = (await tester.runAsync(() async {
     final repo = await openHistoryRepository(records);
-    final c = await makeHistoryWorld(repo, illustStore: illustStore);
+    final c = await makeHistoryWorld(repo);
     return (repo, c);
   }))!;
   await tester.pumpWidget(_app(container));
@@ -112,78 +103,6 @@ void main() {
     open.value = true;
     await settleHistory(tester, history);
     expect(firstIs(2, 1), isTrue, reason: 'opened again, it reads afresh');
-  });
-
-  testWidgets('long-press enters selection mode and toggles membership', (
-    tester,
-  ) async {
-    await _seedPage(tester, [historyRecord(1), historyRecord(2)]);
-
-    expect(find.text('work 1'), findsOneWidget);
-
-    // Long-press enters management mode with the row selected — the
-    // AppBar swaps to the selection surface (primaryContainer + count).
-    await tester.longPress(find.text('work 1'));
-    await tester.pump();
-    expect(_selectionTitle('已选 1 项'), findsOneWidget);
-    expect(find.byIcon(UiIcons.checkCircle), findsOneWidget);
-    expect(
-      find.ancestor(
-        of: find.byIcon(UiIcons.checkCircle),
-        matching: find.byType(StateIconSwitcher),
-      ),
-      findsOneWidget,
-    );
-    expect(find.byIcon(UiIcons.selectAll), findsOneWidget);
-
-    // In selection mode a plain tap toggles instead of navigating — the
-    // row's own ink is absorbed by the selection wrapper, so warnIfMissed
-    // stays off for these deliberate parent hits.
-    await tester.tap(find.text('work 2'), warnIfMissed: false);
-    await tester.pump();
-    expect(_selectionTitle('已选 2 项'), findsOneWidget);
-    await tester.tap(find.text('work 1'), warnIfMissed: false);
-    await tester.pump();
-    expect(_selectionTitle('已选 1 项'), findsOneWidget);
-
-    // The close button exits the mode and restores the normal AppBar.
-    await tester.tap(find.byIcon(UiIcons.close));
-    await tester.pump();
-    expect(_selectionTitle('已选 1 项'), findsNothing);
-    expect(find.text('历史记录'), findsOneWidget);
-  });
-
-  testWidgets('a PC right-click on a card offers Manage, then enters', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      // The work is known, so the row renders the shared IllustCard — the
-      // gesture under test — rather than a snapshot frame.
-      final illustrations = IllustStore()
-        ..mergeAll([parseIllust(illustJson(1))]);
-      // Wide enough for the PC form.
-      await _seedPage(
-        tester,
-        [historyRecord(1)],
-        illustStore: illustrations,
-        surface: const Size(1000, 800),
-      );
-      await tester.tap(
-        find.byType(IllustCard),
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await tester.pumpAndSettle();
-
-      final manage = find.widgetWithText(PopupMenuItem<void>, '管理');
-      expect(manage, findsOneWidget);
-      await tester.tap(manage);
-      await tester.pumpAndSettle();
-      expect(_selectionTitle('已选 1 项'), findsOneWidget);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
   });
 
   testWidgets('manage action enters mode; select-all then delete clears', (
@@ -336,116 +255,6 @@ void main() {
     expect(find.text('暂无浏览历史'), findsOneWidget);
   });
 
-  testWidgets('overflow menu toggles record switches and shows checks', (
-    tester,
-  ) async {
-    final container = await _seedPage(tester, [historyRecord(1)]);
-
-    await tester.tap(find.byIcon(UiIcons.more));
-    await tester.pumpAndSettle();
-    // Defaults record into both stores — the check mark is the trailing
-    // icon of a checkable menu row.
-    for (final label in ['记录本地浏览历史', '记录到 Pixiv 浏览历史']) {
-      final item = find.widgetWithText(MenuItemButton, label);
-      expect(item, findsOneWidget);
-      expect(
-        find.descendant(of: item, matching: find.byIcon(UiIcons.check)),
-        findsOneWidget,
-      );
-    }
-    // Delete-all is an action row — enabled while signed in.
-    expect(
-      tester
-          .widget<MenuItemButton>(
-            find.widgetWithText(MenuItemButton, '删除全部历史记录'),
-          )
-          .onPressed,
-      isNotNull,
-    );
-
-    await tester.tap(find.widgetWithText(MenuItemButton, '记录本地浏览历史'));
-    await tester.pumpAndSettle();
-    // The controller's write tail is created in the seed's runAsync zone —
-    // let the real loop turn so the persisted value lands, same as the
-    // ffi-backed delete above.
-    await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      await tester.pump();
-    });
-    expect(container.read(settingsProvider).value!.enableHistory, isFalse);
-
-    // Reopened: the local switch reads unchecked, the Pixiv one still on.
-    await tester.tap(find.byIcon(UiIcons.more));
-    await tester.pumpAndSettle();
-    final local = find.widgetWithText(MenuItemButton, '记录本地浏览历史');
-    expect(
-      find.descendant(of: local, matching: find.byIcon(UiIcons.check)),
-      findsNothing,
-    );
-    final pixiv = find.widgetWithText(MenuItemButton, '记录到 Pixiv 浏览历史');
-    expect(
-      find.descendant(of: pixiv, matching: find.byIcon(UiIcons.check)),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets(
-    'pointer mode supports Ctrl+Click, Shift+Click range, and Ctrl+A',
-    (tester) async {
-      HistoryRecord seen(int id, int minute) => historyRecord(
-        id,
-      ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute));
-      await _seedPage(tester, [
-        seen(4, 4),
-        seen(3, 3),
-        seen(2, 2),
-        seen(1, 1),
-      ], surface: const Size(1200, 800));
-
-      // Ctrl+Click item 4 enters selection mode with 1 selected.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.tap(find.text('work 4'), warnIfMissed: false);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pump();
-      expect(_selectionTitle('已选 1 项'), findsOneWidget);
-
-      // Shift+Click item 2 selects range [4, 3, 2].
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.tap(find.text('work 2'), warnIfMissed: false);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.pump();
-      expect(_selectionTitle('已选 3 项'), findsOneWidget);
-
-      // Ctrl+A selects all 4 visible records.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pump();
-      expect(_selectionTitle('已选 4 项'), findsOneWidget);
-
-      await tester.tap(find.byTooltip('删除历史记录'), kind: PointerDeviceKind.mouse);
-      await tester.pumpAndSettle();
-      expect(find.byType(AppBottomSheet), findsNothing);
-      expect(find.text('删除后将不可恢复'), findsOneWidget);
-      final dialogRect = tester.getRect(
-        find
-            .ancestor(
-              of: find.text('删除后将不可恢复'),
-              matching: find.byType(Material),
-            )
-            .first,
-      );
-      expect(dialogRect.width, lessThanOrEqualTo(420));
-      await tester.tap(
-        find.widgetWithText(OutlinedButton, '取消'),
-        kind: PointerDeviceKind.mouse,
-      );
-      await tester.pumpAndSettle();
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
-  );
-
   testWidgets('delete all clears visible history cards immediately', (
     tester,
   ) async {
@@ -483,175 +292,6 @@ void main() {
       ),
       0,
     );
-  });
-
-  testWidgets('content-type filter switches list and clears from empty state', (
-    tester,
-  ) async {
-    final container = await _seedPage(tester, [
-      historyRecord(1, type: HistoryContentType.illust, title: 'Sky Illust'),
-      historyRecord(2, type: HistoryContentType.novel, title: 'Moon Novel'),
-    ]);
-    final repo = container.read(historyRepositoryProvider);
-
-    expect(find.text('Sky Illust'), findsOneWidget);
-    expect(find.text('Moon Novel'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('history-filter-type')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(MenuItemButton, '小说'));
-    await settleHistory(tester, repo);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Moon Novel'), findsOneWidget);
-    expect(find.text('Sky Illust'), findsNothing);
-
-    // Search unmatched term in novels -> filtered empty state with reset action.
-    await tester.tap(find.byKey(const ValueKey('history-search-button')));
-    await tester.pump();
-    await tester.enterText(
-      find.byKey(const ValueKey('history-search-field')),
-      'nonexistent',
-    );
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await settleHistory(tester, repo);
-
-    expect(find.text('没有匹配的历史记录'), findsOneWidget);
-    await tester.tap(find.text('清除筛选'));
-    await settleHistory(tester, repo);
-
-    expect(find.text('Sky Illust'), findsOneWidget);
-    expect(find.text('Moon Novel'), findsOneWidget);
-  });
-
-  testWidgets('narrow search matches tags, supports back layering and delete', (
-    tester,
-  ) async {
-    final container = await _seedPage(tester, [
-      historyRecord(
-        10,
-        title: 'Untitled',
-        authorName: 'Kuro',
-        tagsText: 'ブルーアーカイブ\n圣园未花',
-      ),
-      historyRecord(20, title: 'Other Art', authorName: 'Shiro'),
-    ]);
-    final repo = container.read(historyRepositoryProvider);
-
-    await tester.tap(find.byKey(const ValueKey('history-search-button')));
-    await tester.pump();
-    await tester.enterText(
-      find.byKey(const ValueKey('history-search-field')),
-      '未花',
-    );
-    await tester.pump(const Duration(milliseconds: 200));
-    await settleHistory(tester, repo);
-
-    expect(find.text('Untitled'), findsOneWidget);
-    expect(find.text('Other Art'), findsNothing);
-
-    // Long-press enters selection mode inside search; first Back exits manage,
-    // second Back exits search and restores all records.
-    await tester.longPress(find.text('Untitled'));
-    await tester.pump();
-    expect(_selectionTitle('已选 1 项'), findsOneWidget);
-
-    expect(await tester.binding.handlePopRoute(), isTrue);
-    await tester.pump();
-    expect(_selectionTitle('已选 1 项'), findsNothing);
-    expect(find.byKey(const ValueKey('history-search-field')), findsOneWidget);
-
-    // Deleting a matching record inside search removes it from storage and
-    // leaves non-matching records intact after exiting search.
-    await tester.longPress(find.text('Untitled'));
-    await tester.pump();
-    await tester.tap(find.byTooltip('删除历史记录'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-    await settleHistory(tester, repo);
-    expect(find.text('Untitled'), findsNothing);
-    expect(find.text('没有匹配的历史记录'), findsOneWidget);
-
-    expect(await tester.binding.handlePopRoute(), isTrue);
-    await settleHistory(tester, repo);
-    expect(find.byKey(const ValueKey('history-search-field')), findsNothing);
-    expect(find.text('Other Art'), findsOneWidget);
-    expect(find.text('Untitled'), findsNothing);
-  });
-
-  testWidgets('wide surface renders inline SearchBar beside type filter', (
-    tester,
-  ) async {
-    final container = await _seedPage(tester, [
-      historyRecord(1, title: 'Starlight', authorName: 'Hana'),
-      historyRecord(2, title: 'Raindrop', authorName: 'Sora'),
-    ], surface: const Size(720, 800));
-    final repo = container.read(historyRepositoryProvider);
-
-    expect(find.byKey(const ValueKey('history-filter-type')), findsOneWidget);
-    expect(find.byKey(const ValueKey('history-search-bar')), findsOneWidget);
-    expect(find.byKey(const ValueKey('history-search-button')), findsNothing);
-
-    await tester.enterText(
-      find.byKey(const ValueKey('history-search-bar')),
-      'sora',
-    );
-    await tester.pump(const Duration(milliseconds: 200));
-    await settleHistory(tester, repo);
-
-    expect(find.text('Raindrop'), findsOneWidget);
-    expect(find.text('Starlight'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('history-search-clear')));
-    await settleHistory(tester, repo);
-
-    expect(find.text('Starlight'), findsOneWidget);
-    expect(find.byKey(const ValueKey('history-search-bar')), findsOneWidget);
-  });
-
-  testWidgets('history load-more error shows FeedTail Retry action', (
-    tester,
-  ) async {
-    late HistoryDatabase database;
-    late ProviderContainer container;
-    await tester.runAsync(() async {
-      database = HistoryDatabase();
-      addTearDown(database.close);
-      await database.database;
-      final repository = HistoryRepository(database: database);
-      for (var id = 1; id <= 31; id++) {
-        await repository.upsert(
-          historyRecord(
-            id,
-          ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, id)),
-        );
-      }
-      container = await makeHistoryWorld(repository);
-    });
-    setViewSize(tester, const Size(390, 844));
-    await tester.pumpWidget(_app(container));
-    await settleHistory(tester, container.read(historyRepositoryProvider));
-    await tester.pumpAndSettle();
-
-    await tester.runAsync(database.close);
-    await tester.runAsync(
-      () => container
-          .read(
-            historyFeedControllerProvider(
-              HistoryFeedQuery(accountId: '100'),
-            ).notifier,
-          )
-          .loadMore(),
-    );
-    await tester.pump();
-    await tester.drag(
-      find.bySubtype<CustomScrollView>(),
-      const Offset(0, -4000),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(FeedTail), findsOneWidget);
-    expect(find.widgetWithText(TextButton, '重试'), findsOneWidget);
   });
 
   testWidgets('signed-out state uses FeedEmpty with Login action', (

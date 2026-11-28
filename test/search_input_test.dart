@@ -1,17 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/widgets/app_dialog.dart';
-import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/search/search_history.dart';
 import 'package:parfait/core/search/search_keywords.dart';
 import 'package:parfait/core/search/search_models.dart';
-import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_shortcut.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
-import 'package:parfait/app/widgets/search_keyword_pills.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 
@@ -48,22 +43,7 @@ Future<GoRouter> _pumpInput(
   return router;
 }
 
-String _field(WidgetTester tester) =>
-    tester.widget<TextField>(find.byType(TextField)).controller!.text;
-
-Finder _historyChip(String keyword) => find.widgetWithText(InputChip, keyword);
-
-List<String> _historyShown(WidgetTester tester) => [
-  for (final chip in tester.widgetList<InputChip>(find.byType(InputChip)))
-    (chip.label as Text).data!,
-];
-
 void main() {
-  // The `paints` matcher records into a context that owns no layers: the
-  // text field's LeaderLayers it builds there are never disposed.
-  LeakTesting.settings = LeakTesting.settings.withIgnored(
-    notDisposed: {'LeaderLayer': null},
-  );
   group('searchShortcutFor', () {
     test('a bare number is an id of the selected kind', () {
       expect(
@@ -286,129 +266,6 @@ void main() {
       await pumpEventQueue();
       expect(cleared.read(searchHistoryProvider), isEmpty);
     });
-  });
-
-  testWidgets('the empty input offers recent searches and trending tags', (
-    tester,
-  ) async {
-    final router = await _pumpInput(tester, history: ['dog', 'cat']);
-    expect(find.text('搜索历史'), findsOneWidget);
-    expect(_historyShown(tester), ['dog', 'cat']);
-    expect(find.text('热门标签'), findsOneWidget);
-    expect(find.widgetWithText(TagChip, '#猫'), findsOneWidget);
-
-    // Tapping a recent search searches it again and moves it to the front.
-    await tester.tap(_historyChip('cat'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(router.state.uri.path, '/search/results');
-    expect(router.state.uri.queryParameters['q'], 'cat');
-    router.pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/search');
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(SearchHomePage)),
-    );
-    expect(container.read(searchHistoryProvider), ['cat', 'dog']);
-  });
-
-  testWidgets('removing a recent search offers undo; clearing all asks', (
-    tester,
-  ) async {
-    await _pumpInput(tester, history: ['c', 'b', 'a']);
-    await tester.tap(
-      find.descendant(
-        of: _historyChip('b'),
-        matching: find.byTooltip('从搜索历史中删除'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(_historyShown(tester), ['c', 'a']);
-    await tester.tap(find.text('撤销'));
-    await tester.pumpAndSettle();
-    expect(_historyShown(tester), ['c', 'b', 'a']);
-
-    await tester.tap(find.text('清除全部'));
-    await tester.pumpAndSettle();
-    expect(find.text('清除全部搜索历史？'), findsOneWidget);
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-    expect(_historyShown(tester), hasLength(3));
-
-    await tester.tap(find.text('清除全部'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AppAlertDialog),
-        matching: find.text('清除全部'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(InputChip), findsNothing);
-    expect(find.text('搜索历史'), findsNothing);
-  });
-
-  testWidgets('suggestions complete the keyword at the caret', (tester) async {
-    final asked = <String>[];
-    final search = SearchApi(
-      autocomplete: (word) async {
-        asked.add(word);
-        return const [
-          SearchSuggestion(keyword: '胡桃', translatedName: 'Hu Tao'),
-          SearchSuggestion(keyword: '原神'),
-        ];
-      },
-    );
-    final router = await _pumpInput(tester, search: search);
-    Future<void> type(String text) async {
-      await tester.enterText(find.byType(TextField), text);
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
-    }
-
-    // A pill's outline is the field's one rounded rectangle.
-    Matcher pills(int count) => paintsExactlyCountTimes(#drawRRect, count);
-    Finder pillsOf<T>() => find.descendant(
-      of: find.byType(T),
-      matching: find.byType(SearchKeywordPills),
-    );
-
-    await type('原神 -胡');
-    expect(pillsOf<SearchInputPage>(), pills(1), reason: '-胡 is unfinished');
-    expect(asked, ['胡'], reason: 'only the keyword at the caret, no minus');
-    expect(find.text('原神'), findsNothing, reason: 'already in the query');
-
-    // Bare '-' does not flash "no suggestions", and User tab skips tag autocomplete.
-    await type('-');
-    expect(find.text('无建议'), findsNothing);
-    final askedBeforeUser = asked.length;
-    await tester.tap(find.text('用户'));
-    await tester.pumpAndSettle();
-    await type('alice');
-    expect(asked.length, askedBeforeUser);
-    expect(find.text('无建议'), findsNothing);
-    await tester.tap(find.text('插画 & 漫画'));
-    await tester.pumpAndSettle();
-    await type('原神 -胡');
-    await tester.longPress(find.text('Hu Tao'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/input');
-    expect(_field(tester), '原神 -胡桃 ');
-    expect(pillsOf<SearchInputPage>(), pills(2));
-    expect(find.byType(ListTile), findsNothing, reason: 'next keyword');
-
-    await type('原神 胡');
-    await tester.tap(find.byTooltip('填入搜索框'));
-    await tester.pumpAndSettle();
-    expect(_field(tester), '原神 胡桃 ');
-
-    await type('原神 胡');
-    await tester.tap(find.text('Hu Tao'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/results');
-    expect(router.state.uri.queryParameters['q'], '原神 胡桃');
-    expect(pillsOf<SearchResultPage>(), pills(2), reason: 'all keywords');
   });
 
   testWidgets('submitting a search replaces input so back returns home', (

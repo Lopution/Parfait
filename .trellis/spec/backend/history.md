@@ -78,7 +78,7 @@ reviewed: 2026-11-28
   that channel and keeps existing rows. Both switches live in the history
   page's overflow menu, reachable signed out.
 - **Why:** Users lost history by toggling a switch.
-- **Check:** `test/history_page_test.dart` "overflow menu toggles record switches and shows checks"
+- **Check:** `test/history_page_test.dart` "an empty history with recording off offers to turn it on"
 - **Code:** `lib/features/history`
 
 ### HIST-06 Tests use their own database path

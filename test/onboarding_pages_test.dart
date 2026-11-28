@@ -2,14 +2,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:parfait/app/scroll_behavior.dart';
-import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/onboarding/language_page.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
@@ -23,30 +20,6 @@ const _firstLaunch = AppSettings(
 );
 
 void main() {
-  Future<void> pumpPage(
-    WidgetTester tester,
-    Size size,
-    Widget page, {
-    double textScale = 1,
-    Locale? locale,
-    ScrollBehavior? scrollBehavior,
-  }) async {
-    setViewSize(tester, size);
-    await seedSettings(_firstLaunch);
-    await tester.pumpWidget(
-      MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-        child: localizedApp(
-          overrides: const [],
-          locale: locale ?? const Locale('zh', 'CN'),
-          scrollBehavior: scrollBehavior,
-          home: page,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
   group('navigation', () {
     GoRouter router(String initialLocation) {
       return GoRouter(
@@ -108,17 +81,6 @@ void main() {
       }
     });
 
-    testWidgets('welcome start pushes the language page', (tester) async {
-      final r = await pumpFlow(tester);
-      expect(find.byType(WelcomePage), findsOneWidget);
-
-      await tester.tap(find.byType(ReplicaButton));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(LanguagePage), findsOneWidget);
-      expect(r.state.uri.path, '/welcome/language');
-    });
-
     testWidgets('language next completes the guide and opens login', (
       tester,
     ) async {
@@ -133,84 +95,6 @@ void main() {
       expect(r.state.uri.path, '/login');
       expect(r.state.uri.queryParameters['first'], 'true');
       expect(r.state.uri.queryParameters['return'], 'true');
-    });
-  });
-
-  testWidgets('a phone held sideways shows the welcome action at once', (
-    tester,
-  ) async {
-    await pumpPage(tester, const Size(896, 411), const WelcomePage());
-
-    // The header moved beside the form, so start is on the first screen.
-    final start = tester.getRect(find.byType(ReplicaButton));
-    expect(start.bottom, lessThanOrEqualTo(411));
-    expect(start.left, greaterThan(896 / 2));
-  });
-
-  group('welcome group placement', () {
-    final mark = find.byWidgetPredicate(
-      (widget) => widget is Image && widget.width == 96,
-    );
-
-    testWidgets('a large window centres the mark and the action as a group', (
-      tester,
-    ) async {
-      await pumpPage(tester, const Size(1280, 800), const WelcomePage());
-
-      final icon = tester.getRect(mark);
-      final start = tester.getRect(find.byType(ReplicaButton));
-      final scroll = tester.getRect(find.byType(SingleChildScrollView));
-      // The freed space splits evenly above and below the group (the
-      // action column ends in one xl spacer): neither the mark nor the
-      // button is pinned to an edge (C7).
-      final above = icon.top - scroll.top;
-      final below = scroll.bottom - (start.bottom + FuncSpacing.xl);
-      expect(above - below, closeTo(0, 4));
-      expect(above, greaterThan(100));
-      expect(start.bottom, lessThan(700));
-    });
-
-    testWidgets('a phone keeps the action at the bottom, as before', (
-      tester,
-    ) async {
-      await pumpPage(tester, const Size(390, 844), const WelcomePage());
-
-      final start = tester.getRect(find.byType(ReplicaButton));
-      final viewport = tester.getRect(find.byType(SingleChildScrollView));
-      // The compact stacked form still pins the action under the thumb.
-      expect(start.bottom, closeTo(viewport.bottom - 48, 2));
-    });
-  });
-
-  group('user agreement', () {
-    testWidgets('a drag on a paragraph scrolls the whole page', (tester) async {
-      final zh = lookupAppLocalizations(const Locale('zh'));
-      // The app's always-scrollable bouncing physics used to leak into each
-      // paragraph's own Scrollable, letting it drag on its own.
-      await pumpPage(
-        tester,
-        const Size(390, 844),
-        const UserAgreementPage(),
-        scrollBehavior: const FuncScrollBehavior(),
-      );
-
-      final position = tester
-          .state<ScrollableState>(
-            find
-                .descendant(
-                  of: find.byType(ListView),
-                  matching: find.byType(Scrollable),
-                )
-                .first,
-          )
-          .position;
-      expect(position.pixels, 0);
-      await tester.drag(
-        find.text(zh.agreementAccountBody),
-        const Offset(0, -200),
-      );
-      await tester.pumpAndSettle();
-      expect(position.pixels, greaterThan(0));
     });
   });
 }

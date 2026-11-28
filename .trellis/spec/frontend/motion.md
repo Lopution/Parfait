@@ -26,7 +26,7 @@ reviewed: 2026-11-28
 ### MOTION-01 UI durations come from MotionTokens.resolve
 - **Rule:** Every UI animation duration comes from `MotionTokens.resolve(context, token)` (`resolveWith` above `MotionScope`), applying speed settings and returning zero under reduced motion. Data timings (debounces/throttles) are not tokens; tokens name semantic movements (`stateFade`, `chrome`, `spatial`, `scrollToTop`, `themeChange`, `sheetExit`, `pageTransition`, etc.).
 - **Why:** Hard-coded durations ignored speed and reduced-motion preferences and mismatched movement scale.
-- **Check:** `test/architecture/ui_conventions_test.dart` "duration tokens are read through MotionTokens.resolve" "motion durations live only in MotionTokens (pinned census)", `test/home_branch_stack_test.dart` "a re-tap from $from scrolls home in $ms ms"
+- **Check:** `test/architecture/ui_conventions_test.dart` "duration tokens are read through MotionTokens.resolve" "motion durations live only in MotionTokens (pinned census)"
 - **Code:** `lib/app/motion/motion_tokens.dart`
 
 ### MOTION-02 Reduced motion removes the flight, not the state

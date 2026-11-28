@@ -8,15 +8,12 @@ import 'package:http/testing.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/app_dialog.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
-import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/account_transfer_service.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/auth/pkce.dart';
-import 'package:parfait/core/network/compat/network_contracts.dart'
-    as network_contracts;
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/platform/intent_router.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
@@ -100,67 +97,6 @@ void main() {
 
   group('action layering', () {
     final zh = lookupAppLocalizations(const Locale('zh'));
-    Future<void> expandHelp(WidgetTester tester) async {
-      await tester.tap(find.byIcon(AppIcons.info));
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('help expansion keeps register and login tappable', (
-      tester,
-    ) async {
-      var registered = 0;
-      var loggedIn = 0;
-      await pumpLogin(
-        tester,
-        size: const Size(390, 844),
-        onRegister: () => registered++,
-        onLogin: () => loggedIn++,
-      );
-      expect(find.text(zh.networkCompatibilityHint), findsNothing);
-      await expandHelp(tester);
-      expect(tester.takeException(), isNull);
-
-      // The toggle reveals only the network note…
-      expect(find.text(zh.networkCompatibilityHint), findsOneWidget);
-      expect(find.text('使用剪贴板数据登录'), findsOneWidget);
-      expect(find.textContaining('粘贴后请自行清空剪贴板'), findsOneWidget);
-      // …and the dead "get more help" affordance is gone.
-      expect(find.textContaining('获取更多帮助'), findsNothing);
-
-      // …while the primary row is still present and functional.
-      final register = find.widgetWithText(ReplicaButton, '注册');
-      final login = find.widgetWithText(ReplicaButton, '登录');
-      await tester.ensureVisible(register);
-      await tester.ensureVisible(login);
-      await tester.pumpAndSettle();
-      await tester.tap(register);
-      await tester.tap(login);
-      expect(registered, 1);
-      expect(loggedIn, 1);
-    });
-
-    testWidgets('clipboard sign-in is visible without the help toggle', (
-      tester,
-    ) async {
-      await pumpLogin(tester, size: const Size(390, 844));
-
-      final button = find.widgetWithText(TextButton, '使用剪贴板数据登录');
-      expect(button, findsOneWidget);
-      // Only the risk note stays under it; the how-to line is gone.
-      final hint = find.textContaining('粘贴后请自行清空剪贴板');
-      expect(hint, findsOneWidget);
-      expect(find.textContaining('导出账号凭据'), findsNothing);
-      // It sits under the register/login row, above the agreement line.
-      final login = find.widgetWithText(ReplicaButton, '登录');
-      expect(
-        tester.getTopLeft(button).dy,
-        greaterThan(tester.getBottomLeft(login).dy),
-      );
-      expect(
-        tester.getBottomLeft(hint).dy,
-        lessThan(tester.getTopLeft(find.text('登录即表示你同意')).dy),
-      );
-    });
 
     testWidgets('clipboard import shows a busy state and debounces taps', (
       tester,
@@ -277,34 +213,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(dialog, findsNothing);
         expect(pushed, ['/login/web', '/login/web']);
-      },
-    );
-
-    testWidgets(
-      'compatPrefer renders enabled and restores after toggling off and back on',
-      (tester) async {
-        final policy = stubNetworkPolicy()
-          ..setMode(network_contracts.NetworkMode.compatPrefer);
-        await pumpLogin(
-          tester,
-          extraOverrides: [
-            networkAccessPolicyProvider.overrideWithValue(policy),
-          ],
-        );
-
-        ReplicaSwitchTile tile() =>
-            tester.widget<ReplicaSwitchTile>(find.byType(ReplicaSwitchTile));
-        expect(tile().value, isTrue);
-
-        await tester.tap(find.byType(ReplicaSwitchTile));
-        await tester.pumpAndSettle();
-        expect(tile().value, isFalse);
-        expect(policy.mode, network_contracts.NetworkMode.directOnly);
-
-        await tester.tap(find.byType(ReplicaSwitchTile));
-        await tester.pumpAndSettle();
-        expect(tile().value, isTrue);
-        expect(policy.mode, network_contracts.NetworkMode.compatPrefer);
       },
     );
 

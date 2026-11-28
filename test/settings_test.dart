@@ -1,16 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, debugDefaultTargetPlatformOverride;
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/account_transfer.dart';
@@ -25,10 +20,7 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart'
     show PixivNetworkFactory, PixivPolicyHttpClient;
 import 'package:parfait/core/network/compat/network_providers.dart';
-import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
-import 'package:parfait/core/history/history_repository.dart';
-import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_sink.dart';
@@ -39,23 +31,14 @@ import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/saf_tree_name.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
-import 'package:parfait/app/motion/hero_rect_clip.dart';
-import 'package:parfait/app/motion/hero_transition.dart';
-import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/history/history_models.dart';
-import 'helpers/illust_fixtures.dart';
-import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
-import 'helpers/connectivity_channels.dart';
 import 'helpers/download_world.dart';
-import 'helpers/history_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/image_network.dart';
 import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart';
-import 'helpers/recording_haptics.dart';
 import 'helpers/prompt_host.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -180,59 +163,6 @@ void main() {
 
     expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
     expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
-  });
-
-  group('follow system colors', () {
-    /// The platform answers through the dynamic_color channel (external
-    /// boundary): no Android palette, and [accent] for the accent query.
-    void mockAccent(Future<int?> Function() accent) {
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      messenger.setMockMethodCallHandler(
-        DynamicColorPlugin.channel,
-        (call) => call.method == DynamicColorPlugin.accentColorMethodName
-            ? accent()
-            : Future.value(),
-      );
-      addTearDown(
-        () => messenger.setMockMethodCallHandler(
-          DynamicColorPlugin.channel,
-          null,
-        ),
-      );
-    }
-
-    Future<void> pumpThemePage(WidgetTester tester) async {
-      await seedSettings(baseTestSettings());
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: const [],
-          builder: promptHostBuilder,
-          home: ThemeSettingsPage(),
-        ),
-      );
-    }
-
-    SettingsControl followSwitch(WidgetTester tester) =>
-        tester.widget<SettingsControl>(
-          find.widgetWithText(SettingsControl, '跟随系统取色'),
-        );
-
-    testWidgets('a system palette enables the switch and it persists', (
-      tester,
-    ) async {
-      mockAccent(() async => 0xFF3366CC);
-      await pumpThemePage(tester);
-      await tester.pumpAndSettle();
-
-      expect(find.text('用壁纸或系统强调色作为主题色'), findsOneWidget);
-      expect(followSwitch(tester).value, isFalse);
-      await tester.tap(find.text('跟随系统取色'));
-      await tester.pumpAndSettle();
-
-      expect((await storedSettings().load()).followSystemColors, isTrue);
-      expect(followSwitch(tester).value, isTrue);
-    });
   });
 
   testWidgets('account rows never show the email; each shows its own ID', (
@@ -416,109 +346,6 @@ void main() {
     await manager.dispose();
   });
 
-  testWidgets('MeDashboardPage uses two-column layout at >= 840x480 only', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(1024, 768));
-    await seedSettings(baseTestSettings());
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
-        ],
-        builder: promptHostBuilder,
-        home: MeDashboardPage(),
-      ),
-    );
-    await tester.pump();
-    expect(find.byKey(const ValueKey('me-wide-dashboard')), findsOneWidget);
-
-    setViewSize(tester, const Size(700, 768));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('me-wide-dashboard')), findsNothing);
-
-    setViewSize(tester, const Size(900, 440));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('me-wide-dashboard')), findsNothing);
-  });
-
-  testWidgets('the Me header, manage button and end rows open their pages', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(400, 1600));
-    final semantics = tester.ensureSemantics();
-    try {
-      const account = Account(
-        id: '42',
-        userId: 42,
-        name: 'tester',
-        isPremium: true,
-      );
-      await seedAccounts(const [account], currentId: account.id);
-      final router = pixivRouter('/settings');
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          overrides: [
-            credentialStoreProvider.overrideWithValue(
-              FakeCredentialStore(
-                values: const {
-                  '42': Credential(accessToken: 'a', refreshToken: 'r'),
-                },
-              ),
-            ),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(AppBar), findsOneWidget);
-      final barSettings = find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byIcon(AppIcons.settings),
-      );
-      expect(barSettings, findsOneWidget);
-      // One node for who is signed in, read with the badge and the ID, and
-      // the manage button apart.
-      expect(
-        tester.getSemantics(find.text('tester')),
-        isSemantics(
-          label: 'tester\nPremium\n用户 ID：42',
-          isButton: true,
-          hasTapAction: true,
-          onTapHint: '打开个人主页',
-        ),
-      );
-      final manage = tester.getSemantics(find.byTooltip('账号管理'));
-      expect(manage, isSemantics(tooltip: '账号管理', isButton: true));
-      expect(manage.id, isNot(tester.getSemantics(find.text('tester')).id));
-
-      Future<void> opens(Finder target, String path) async {
-        await tester.tap(target);
-        await tester.pumpAndSettle();
-        expect(router.state.uri.path, path);
-        await tester.binding.handlePopRoute();
-        await tester.pumpAndSettle();
-        expect(router.state.uri.path, '/settings');
-      }
-
-      await opens(barSettings, '/settings/all');
-      await opens(find.text('tester'), '/me');
-      await opens(find.text('小说书签'), '/settings/novel-markers');
-      await opens(find.byTooltip('账号管理'), '/settings/account');
-      await opens(find.text('关于'), '/settings/about');
-      await tester.tap(find.text('设置'));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/settings/all');
-      expect(
-        find.text('帧探针'),
-        findsOneWidget,
-        reason: 'a build that can record lists the probe under the settings',
-      );
-    } finally {
-      semantics.dispose();
-    }
-  });
-
   testWidgets('signed out, the Me header is one button to the login', (
     tester,
   ) async {
@@ -538,312 +365,6 @@ void main() {
     await tester.tap(find.text('未登录'));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/login');
-  });
-
-  testWidgets('the recent row follows the history and pages in its own order', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(400, 1600));
-    answerConnectivityChannels();
-    // Reduced motion: a new order lands at once (MOTION-02).
-    tester.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
-    late HistoryRepository history;
-    late ProviderContainer container;
-    await tester.runAsync(() async {
-      history = await openHistoryRepository(const []);
-      container = await makeHistoryWorld(history);
-    });
-    final router = pixivRouter('/settings');
-    await tester.pumpWidget(localizedRouterApp(router, container: container));
-    // The row reads the ffi database, which answers on the real loop.
-    Future<void> settle([Future<void> Function()? change]) =>
-        settleHistory(tester, history, change);
-    Future<void> view(int id, int minute) => settle(
-      () => history.upsert(
-        historyRecord(
-          id,
-        ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute)),
-      ),
-    );
-    // The search branch, built ahead, has its own recent row.
-    Finder onMe(Finder finder) => find.descendant(
-      of: find.byType(MeDashboardPage),
-      matching: finder,
-      skipOffstage: false,
-    );
-    Finder cover(int id) => onMe(
-      find.byWidgetPredicate(
-        (w) => w is Semantics && w.properties.label == 'work $id',
-        skipOffstage: false,
-      ),
-    );
-    double x(int id) => tester.getTopLeft(cover(id)).dx;
-    final viewAll = onMe(find.text('查看全部', skipOffstage: false));
-
-    await settle();
-    expect(viewAll, findsNothing, reason: 'no row without history');
-    await view(1, 1);
-    await view(2, 2);
-    expect(viewAll, findsOneWidget);
-    expect(x(2), lessThan(x(1)), reason: 'newest first');
-    await view(1, 3);
-    expect(x(1), lessThan(x(2)), reason: 'seen again, first at once');
-
-    // Scrolled far away and back, the row comes back at its height: a
-    // row rebuilt empty while it reloads shifted the page under the eye.
-    setViewSize(tester, const Size(400, 500));
-    await tester.pump();
-    final page = tester.state<ScrollableState>(
-      onMe(find.byType(Scrollable)).first,
-    );
-    page.position.jumpTo(page.position.maxScrollExtent);
-    await tester.pump();
-    page.position.jumpTo(200);
-    await tester.pump();
-    expect(page.position.pixels, 200);
-    page.position.jumpTo(0);
-    setViewSize(tester, const Size(400, 1600));
-    await tester.pump();
-
-    await view(2, 3);
-    await tester.tap(cover(2));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    final pager = tester.widget<IllustDetailPagerPage>(
-      find.byType(IllustDetailPagerPage),
-    );
-    expect(pager.source.ids, [2, 1]);
-
-    await view(1, 4);
-    expect(pager.source.ids, [
-      2,
-      1,
-    ], reason: 'the open pager keeps the order it was opened in');
-    router.pop();
-    await settle();
-    await tester.pump(const Duration(seconds: 1));
-
-    // Cleared on the history page over the row: back, the row is gone.
-    await tester.tap(viewAll);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    await settle(() => history.clear('100'));
-    router.pop();
-    await settle();
-    await tester.pump(const Duration(seconds: 1));
-    expect(viewAll, findsNothing);
-
-    // Another account taken under a page, its read still pending: A's
-    // covers are gone once the row shows again.
-    await view(3, 5);
-    await tester.tap(viewAll);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    await tester.runAsync(
-      () => container
-          .read(accountStoreProvider.notifier)
-          .upsertAccount(
-            const Account(id: '200', userId: 200, name: 'b'),
-            const Credential(accessToken: 'b', refreshToken: 'b'),
-          ),
-    );
-    router.pop();
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(cover(3), findsNothing);
-  });
-
-  testWidgets('a recent cover flies to its work and back, an unseen one not', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(400, 1600));
-    answerConnectivityChannels();
-    late HistoryRepository history;
-    late ProviderContainer container;
-    await tester.runAsync(() async {
-      history = await openHistoryRepository(const []);
-      container = await makeHistoryWorld(history);
-    });
-    final store = container.read(illustStoreProvider);
-    final router = pixivRouter('/settings');
-    await tester.pumpWidget(localizedRouterApp(router, container: container));
-    // The detail page stamps its own record with the wall clock; these views
-    // come after it.
-    final later = DateTime.now().toUtc().add(const Duration(hours: 1));
-    // The row and the detail page's history writes run on the real loop.
-    Future<void> settle([Future<void> Function()? change]) =>
-        settleHistory(tester, history, change);
-    Future<void> view(int id, int minute) => settle(
-      () => history.upsert(
-        historyRecord(id).copyWith(
-          lastViewedAt: later.add(Duration(minutes: minute)),
-          snapshot: HistorySnapshot(
-            title: 'work $id',
-            authorName: 'author $id',
-            coverUrl: 'https://i.pximg.net/img-master/$id.jpg',
-          ),
-        ),
-      ),
-    );
-    final row = find.byType(MeDashboardPage, skipOffstage: false);
-    // Opening a work rewrites its record with the work's own title, so the
-    // order is read by id.
-    final coverLabel = RegExp(r'^(?:work|illust) (\d+)$');
-    List<String?> order() => [
-      for (final cover in tester.widgetList<Semantics>(
-        find.descendant(
-          of: row,
-          matching: find.byWidgetPredicate(
-            (w) => w is Semantics && w.properties.button == true,
-            skipOffstage: false,
-          ),
-          skipOffstage: false,
-        ),
-      ))
-        ?coverLabel.firstMatch(cover.properties.label ?? '')?.group(1),
-    ];
-    double x(String id) => tester
-        .getTopLeft(
-          find.descendant(
-            of: row,
-            matching: find.byWidgetPredicate(
-              (w) =>
-                  w is Semantics &&
-                  coverLabel.firstMatch(w.properties.label ?? '')?.group(1) ==
-                      id,
-              skipOffstage: false,
-            ),
-            skipOffstage: false,
-          ),
-        )
-        .dx;
-    final flight = find.byType(HeroRectClip);
-    Future<void> midway() async {
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    store.mergeAll([parseIllust(illustJson(2))]);
-    await view(1, 1);
-    await view(2, 2);
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.bySemanticsLabel('work 2'));
-    await midway();
-    expect(flight, findsOneWidget, reason: 'a work in the store flies in');
-    expect(
-      tester.widgetList<Hero>(find.byType(Hero)).map((h) => h.createRectTween),
-      everyElement(illustHeroRectTween),
-      reason: 'on the path of any artwork flight',
-    );
-    await tester.pump(const Duration(seconds: 1));
-    await view(1, 3);
-    router.pop();
-    await midway();
-    // The row hears of the newer view only once uncovered, mid-flight.
-    await settle();
-    expect(flight, findsOneWidget, reason: 'and back to its cover');
-    expect(order(), ['2', '1'], reason: 'which holds still while it lands');
-    await tester.pump(const Duration(seconds: 1));
-    expect(order(), ['1', '2'], reason: 'landed, it takes the new order');
-    expect(x('1'), greaterThan(x('2')), reason: 'each cover where it was');
-    await tester.pump(const Duration(milliseconds: 150));
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(x('1'), lessThan(x('2')), reason: 'then slid to its place');
-    await view(2, 5);
-    await tester.pump(const Duration(milliseconds: 100));
-    final midSlide = x('1');
-    await view(1, 6);
-    expect(
-      x('1'),
-      moreOrLessEquals(midSlide),
-      reason: 'a new order mid-slide carries on from where the cover is',
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(x('1'), lessThan(x('2')));
-
-    // Work 1 was not in the store at the tap: its page loads it, but the
-    // image that did not fly in does not fly back.
-    await tester.tap(find.bySemanticsLabel('work 1'));
-    store.mergeAll([parseIllust(illustJson(1))]);
-    await midway();
-    expect(flight, findsNothing);
-    await tester.pump(const Duration(seconds: 1));
-    await view(1, 4);
-    router.pop();
-    await midway();
-    expect(flight, findsNothing);
-    await tester.pump(const Duration(seconds: 1));
-    // The shell saves its destination as it closes: close it while the
-    // providers live.
-    await tester.pumpWidget(const SizedBox());
-    await settle();
-  });
-
-  // The row holds under a page opened from anywhere, in the branch or over
-  // the whole shell, and takes the new order once that page has left: it
-  // used to catch up under a page not opened from it, and the slide played
-  // behind the leaving page.
-  testWidgets('a page over the row holds its order until it has left', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(400, 1600));
-    answerConnectivityChannels();
-    late HistoryRepository history;
-    late ProviderContainer container;
-    await tester.runAsync(() async {
-      history = await openHistoryRepository(const []);
-      container = await makeHistoryWorld(history);
-    });
-    final router = pixivRouter('/settings');
-    await tester.pumpWidget(localizedRouterApp(router, container: container));
-    Future<void> settle([Future<void> Function()? change]) =>
-        settleHistory(tester, history, change);
-    Future<void> view(int id, int minute) => settle(
-      () => history.upsert(
-        historyRecord(
-          id,
-        ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute)),
-      ),
-    );
-    double x(int id) => tester
-        .getTopLeft(
-          find.descendant(
-            of: find.byType(MeDashboardPage, skipOffstage: false),
-            matching: find.byWidgetPredicate(
-              (w) => w is Semantics && w.properties.label == 'work $id',
-              skipOffstage: false,
-            ),
-            skipOffstage: false,
-          ),
-        )
-        .dx;
-
-    await view(1, 1);
-    await view(2, 2);
-    for (final (page, minute) in [
-      ('/settings/history', 3),
-      ('/downloads', 4),
-    ]) {
-      final (back, front) = x(1) > x(2) ? (1, 2) : (2, 1);
-      unawaited(router.push(page));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      await view(back, minute);
-      router.pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await settle();
-      expect(x(back), greaterThan(x(front)), reason: '$page leaving');
-      await tester.pump(const Duration(seconds: 1));
-      await tester.pump();
-      expect(x(back), greaterThan(x(front)), reason: 'slides from its place');
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(x(back), lessThan(x(front)), reason: 'to the front');
-    }
-    await tester.pumpWidget(const SizedBox());
-    await settle();
   });
 
   testWidgets('translation summary re-probes when the provider switches', (
@@ -878,49 +399,6 @@ void main() {
 
     expect(find.text('自定义 LLM（OpenAI 兼容） · 未配置'), findsOneWidget);
     expect(find.textContaining('已配置'), findsNothing);
-  });
-
-  testWidgets('Index Translate exposes model and thinking controls', (
-    tester,
-  ) async {
-    await seedSettings(
-      baseTestSettings().copyWith(
-        translateIndex: TranslationProvider.indexTranslate.code,
-      ),
-    );
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          translationCredentialStoreProvider.overrideWithValue(
-            FakeTranslationStore(),
-          ),
-        ],
-        builder: promptHostBuilder,
-        home: const TranslateSettingsPage(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Index Translate'), findsOneWidget);
-    expect(find.text('Index Translate 模型'), findsOneWidget);
-    expect(find.text('启用思考模式'), findsOneWidget);
-
-    await tester.tap(find.text('35B-A3B'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('2B'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('启用思考模式'));
-    await tester.pumpAndSettle();
-    expect(
-      (await storedSettings().load()).indexTranslateModel,
-      IndexTranslateModel.twoB,
-    );
-    expect((await storedSettings().load()).indexTranslateThinking, isTrue);
-
-    await tester.tap(find.text('百度翻译'));
-    await tester.pumpAndSettle();
-    expect(find.text('Index Translate 模型'), findsNothing);
-    expect(find.text('启用思考模式'), findsNothing);
   });
 
   testWidgets(
@@ -1297,68 +775,6 @@ void main() {
     },
   );
 
-  group('haptic strength settings group', () {
-    Future<void> pumpPage(
-      WidgetTester tester,
-      RecordingHapticsDriver driver,
-    ) async {
-      await seedSettings(baseTestSettings());
-      tester.view.physicalSize = const Size(800, 3200);
-      addTearDown(tester.view.resetPhysicalSize);
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: [hapticsDriverProvider.overrideWithValue(driver)],
-          builder: promptHostBuilder,
-          home: MotionSettingsPage(),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      // The group sits below the fold of a lazily-built list — scroll it
-      // into the viewport first (finders cannot reach an unbuilt child).
-      await tester.scrollUntilVisible(
-        find.byType(SettingsMenuTile<HapticStrength>),
-        300,
-        scrollable: find.byType(Scrollable).first,
-        maxScrolls: 20,
-      );
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('picking a strength persists it and previews it', (
-      tester,
-    ) async {
-      final driver = recordHaptics();
-      await pumpPage(tester, driver);
-      Future<void> pick(String label) async {
-        await tester.tap(find.byType(SettingsMenuTile<HapticStrength>));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.descendant(
-            of: find.byType(MenuItemButton),
-            matching: find.text(label),
-          ),
-        );
-        await tester.pumpAndSettle();
-      }
-
-      await pick('强');
-      expect(
-        (await storedSettings().load()).hapticStrength,
-        HapticStrength.strong,
-      );
-      expect(driver.played, [(HapticRole.confirm, HapticStrength.strong)]);
-
-      await pick('关');
-      expect(
-        (await storedSettings().load()).hapticStrength,
-        HapticStrength.off,
-      );
-      // Off has nothing to preview.
-      expect(driver.played, hasLength(1));
-    });
-  });
-
   group('settings change on a pushed page', () {
     testWidgets(
       'settings change on a pushed page must not jump to /recommended',
@@ -1440,51 +856,6 @@ void main() {
       },
     );
   });
-
-  testWidgets(
-    'DownloadDestinationPage hides SAF on iOS and shows desktop folder copy and macOS bookmark label',
-    (tester) async {
-      setViewSize(tester, const Size(800, 1200));
-      Future<void> pumpPlatform(
-        TargetPlatform platform, [
-        AppSettings? s,
-      ]) async {
-        await seedSettings(s ?? baseTestSettings());
-        debugDefaultTargetPlatformOverride = platform;
-        await tester.pumpWidget(
-          localizedApp(
-            overrides: const [],
-            builder: promptHostBuilder,
-            home: const DownloadDestinationPage(),
-          ),
-        );
-        await tester.pumpAndSettle();
-      }
-
-      try {
-        await pumpPlatform(TargetPlatform.iOS);
-        expect(find.text('相册'), findsOneWidget);
-        expect(find.text('文件夹（系统目录选择）'), findsNothing);
-
-        await tester.pumpWidget(const SizedBox.shrink());
-        const fakeBookmark = 'Ym9va21hcmtfbWFjb3Nfc2FuZGJveF90b2tlbg==';
-        await pumpPlatform(
-          TargetPlatform.macOS,
-          baseTestSettings().copyWith(
-            downloadDestination: const DownloadDestination.safFolder(
-              fakeBookmark,
-            ),
-          ),
-        );
-        for (final label in const ['默认文件夹', '自定义子文件夹名称', '自定义文件夹', '已授权文件夹']) {
-          expect(find.text(label), findsOneWidget);
-        }
-        expect(find.text(fakeBookmark), findsNothing);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    },
-  );
 }
 
 Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {

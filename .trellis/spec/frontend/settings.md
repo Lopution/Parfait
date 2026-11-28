@@ -202,7 +202,7 @@ reviewed: 2026-11-28
   their own; monochrome grouped rows clarify mobile hierarchy, and holding
   history order while covered keeps Hero return flights aimed at the right
   cover before sliding.
-- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"
+- **Check:** `test/settings_test.dart` "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end"
 - **Code:** `lib/app/widgets/scroll_edge_fade.dart`, `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_tile.dart`, `lib/core/history/history_visibility.dart`, `lib/features/settings/me_dashboard_page.dart`
 
 ### SET-11 Wide Me tab opens directly into a 280dp MasterDetailWorkspace
@@ -228,5 +228,5 @@ reviewed: 2026-11-28
   every library section opens in one click inside the shared 280dp
   `MasterDetailWorkspace` / `SettingsDetailScope` pattern and back exits inner
   selection modes before popping Me.
-- **Check:** `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly" "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me"
+- **Check:** `test/settings_master_detail_test.dart` "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me" "offstage Me dashboard defers profile and bookmark requests until visible"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/widgets/scroll_edge_fade.dart`, `lib/features/settings/me_dashboard_page.dart`

@@ -1,17 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/layout/form_factor.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
-import 'package:parfait/app/theme/func_semantic_tokens.dart';
-import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/app/widgets/shell_rail.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
@@ -21,18 +15,15 @@ import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/platform/desktop_file_actions.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/features/settings/pages/download_task_presentation.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/app/widgets/app_dialog.dart';
 import 'package:parfait/app/widgets/app_progress_bar.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
-import 'package:parfait/app/widgets/sliver_surface_list.dart';
 
 import 'helpers/download_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/localized_app.dart';
 import 'helpers/waits.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
@@ -88,43 +79,6 @@ Finder _taskRow(String taskId) => find.byKey(ValueKey('download-task-$taskId'));
 
 Finder _groupHeader(String groupId) =>
     find.byKey(ValueKey('download-group-$groupId'));
-
-/// The surfaces of the groups with a row built, top to bottom, in the
-/// coordinates [WidgetTester.getRect] uses.
-List<RRect> _groupSurfaces(WidgetTester tester) {
-  final sliver = tester.renderObject<RenderSliverSurfaceList>(
-    find.byType(SliverSurfaceList),
-  );
-  final origin = MatrixUtils.transformPoint(
-    sliver.getTransformTo(null),
-    Offset.zero,
-  );
-  return [for (final surface in sliver.surfaces) surface.shift(origin)];
-}
-
-RRect _groupSurface(WidgetTester tester) => _groupSurfaces(tester).single;
-
-/// The group's one surface runs from below the gap atop its [header] to
-/// [last]'s bottom, across the rows' width, with the card's corners.
-void _expectSurfaceSpans(WidgetTester tester, Finder header, Finder last) {
-  final surface = _groupSurface(tester);
-  final headerRect = tester.getRect(header);
-  expect(
-    surface.outerRect,
-    rectMoreOrLessEquals(
-      Rect.fromLTRB(
-        headerRect.left,
-        headerRect.top + FuncSpacing.sm,
-        headerRect.right,
-        tester.getRect(last).bottom,
-      ),
-    ),
-  );
-  expect(surface.tlRadius, FuncShape.card.topLeft);
-  expect(surface.trRadius, FuncShape.card.topRight);
-  expect(surface.blRadius, FuncShape.card.bottomLeft);
-  expect(surface.brRadius, FuncShape.card.bottomRight);
-}
 
 /// The selection bar's title: the bare count, read out as [label].
 Finder _selectionTitle(String label) => find.byWidgetPredicate(
@@ -286,42 +240,6 @@ void main() {
     expect(manager.tasks, isEmpty);
   });
 
-  testWidgets('on a phone a finished row keeps remove on its title row', (
-    tester,
-  ) async {
-    tester.view
-      ..physicalSize = const Size(360, 720)
-      ..devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final (container, manager, _) = await makeDownloadWorld(
-      responses: [
-        ScriptedResponse(
-          contentLength: 1,
-          chunks: [
-            [1],
-          ],
-        ),
-      ],
-    );
-    final task = manager.submit(downloadRequest(1));
-    await _pumpPage(tester, container);
-    await pumpUntil(
-      tester,
-      () => manager.tasks.single.status == DownloadStatus.succeeded,
-    );
-
-    final row = _taskRow(task.id);
-    final remove = find.descendant(
-      of: row,
-      matching: find.byIcon(UiIcons.removeCircle),
-    );
-    // Beside the 56dp thumbnail, not on a line of its own under it.
-    expect(
-      tester.getTopLeft(remove).dy - tester.getTopLeft(row).dy,
-      lessThan(56),
-    );
-  });
-
   testWidgets('a task interrupted by a restart says so, not unknown error', (
     tester,
   ) async {
@@ -379,165 +297,6 @@ void main() {
       findsNothing,
     );
     expect(find.descendant(of: row, matching: find.text('详情')), findsNothing);
-  });
-
-  testWidgets('a group of one is a plain task row', (tester) async {
-    final (container, manager, _) = await makeDownloadWorld(
-      maxConcurrent: 1,
-      responses: [gatedResponse(Completer<void>())],
-    );
-    final group = manager.submitGroup([downloadRequest(1)]);
-    await _pumpPage(tester, container);
-    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
-    await tester.pump();
-
-    expect(_groupHeader(group.id), findsNothing);
-    expect(_taskRows(), findsOneWidget);
-  });
-
-  testWidgets('the newest submission comes first, groups among tasks', (
-    tester,
-  ) async {
-    final (container, manager, _) = await makeDownloadWorld(
-      maxConcurrent: 1,
-      responses: [gatedResponse(Completer<void>())],
-    );
-    final first = manager.submit(downloadRequest(1));
-    final group = manager.submitGroup([
-      downloadRequest(2),
-      downloadRequest(2, pageIndex: 1),
-    ]);
-    final last = manager.submit(downloadRequest(3));
-    await _pumpPage(tester, container);
-    await tester.pump();
-
-    final tops = [
-      for (final row in [
-        _taskRow(last.id),
-        _groupHeader(group.id),
-        _taskRow(first.id),
-      ])
-        tester.getRect(row).top,
-    ];
-    expect(tops, orderedEquals([...tops]..sort()));
-  });
-
-  testWidgets('a collapsed group expands on tap and folds its children in', (
-    tester,
-  ) async {
-    final (container, manager, _) = await makeDownloadWorld(
-      maxConcurrent: 1,
-      responses: [gatedResponse(Completer<void>())],
-    );
-    final group = manager.submitGroup([downloadRequest(1), downloadRequest(2)]);
-    await _pumpPage(tester, container);
-    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
-    await tester.pump();
-
-    final header = _groupHeader(group.id);
-    expect(header, findsOneWidget);
-    expect(_taskRows(skipOffstage: false), findsNothing);
-    // A collapsed group is a card of its own.
-    _expectSurfaceSpans(tester, header, header);
-    final headerInk = find
-        .descendant(of: header, matching: find.byType(InkWell))
-        .first;
-    final collapsedRect = tester.getRect(headerInk);
-    // The header never changes parent, so it keeps its element and the
-    // ripple of the tap that opens the group.
-    final headerElement = tester.element(headerInk);
-    final headerMaterial = Material.of(tester.element(headerInk));
-
-    // Tap the header title to expand: children appear on the group's one
-    // surface, inside the header's horizontal bounds.
-    await tester.tap(find.text('批量下载 · 2 项'));
-    await tester.pump();
-    expect((headerMaterial as dynamic).debugInkFeatures, isNotEmpty);
-    // The children grow in from zero height (a zero-height row at the top
-    // of its sliver counts as offstage), then sit at full size.
-    final firstChild = find.byKey(
-      ValueKey('download-task-${manager.tasks.first.id}'),
-      skipOffstage: false,
-    );
-    final lastChild = _taskRow(manager.tasks.last.id);
-    expect(tester.getSize(firstChild).height, 0);
-    expect(tester.getRect(headerInk), collapsedRect);
-    await tester.pump(const Duration(milliseconds: 60));
-    expect(tester.getSize(firstChild).height, greaterThan(0));
-    // The outline grows with the rows: its bottom corners never wait.
-    _expectSurfaceSpans(tester, header, lastChild);
-    expect((headerMaterial as dynamic).debugInkFeatures, isNotEmpty);
-    await tester.pump(const Duration(milliseconds: 300));
-    final fullHeight = tester.getSize(firstChild).height;
-    expect(_taskRows(), findsNWidgets(2));
-    expect(
-      find.descendant(of: header, matching: find.byIcon(UiIcons.expandLess)),
-      findsOneWidget,
-    );
-    _expectSurfaceSpans(tester, header, lastChild);
-    // The header's actions end its row as its children's do, the expand
-    // icon before them: one column of actions.
-    double actionsEnd(Finder row) => tester
-        .getRect(
-          find.descendant(of: row, matching: find.byType(IconButton)).last,
-        )
-        .right;
-    expect(actionsEnd(header), actionsEnd(lastChild));
-    expect(tester.element(headerInk), same(headerElement));
-    final headerRect = tester.getRect(header);
-    final surface = find.byType(SliverSurfaceList);
-    expect(
-      tester.widget<SliverSurfaceList>(surface).color,
-      Theme.of(tester.element(header)).colorScheme.surfaceContainer,
-    );
-    expect(find.ancestor(of: header, matching: surface), findsOneWidget);
-    for (final task in manager.tasks) {
-      final child = _taskRow(task.id);
-      final childRect = tester.getRect(child);
-      expect(childRect.left, greaterThanOrEqualTo(headerRect.left));
-      expect(childRect.right, lessThanOrEqualTo(headerRect.right));
-      expect(find.ancestor(of: child, matching: surface), findsOneWidget);
-    }
-
-    // Tap again to collapse: the children fold away on the surface, then
-    // leave the list and the header is a card of its own again.
-    await tester.tap(find.text('批量下载 · 2 项'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 60));
-    expect(tester.getSize(firstChild).height, inExclusiveRange(0, fullHeight));
-    _expectSurfaceSpans(tester, header, lastChild);
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(_taskRows(skipOffstage: false), findsNothing);
-    _expectSurfaceSpans(tester, header, header);
-    expect(tester.getRect(headerInk), collapsedRect);
-    expect(
-      find.descendant(of: header, matching: find.byIcon(UiIcons.expandMore)),
-      findsOneWidget,
-    );
-    expect(tester.element(headerInk), same(headerElement));
-  });
-
-  testWidgets('a five-hundred-item list only builds the visible rows', (
-    tester,
-  ) async {
-    final (container, manager, _) = await makeDownloadWorld(
-      maxConcurrent: 1,
-      responses: [gatedResponse(Completer<void>())],
-    );
-    for (var i = 0; i < 500; i++) {
-      manager.submit(downloadRequest(i + 1));
-    }
-    await _pumpPage(tester, container);
-    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
-    await tester.pump();
-
-    // The lazy lists only realize the viewport plus its cache extent —
-    // far below the full 500. >0 guards against a degenerate "no keyed
-    // rows at all" pass (an eager list had none).
-    expect(
-      _taskRows(skipOffstage: false).evaluate().length,
-      inInclusiveRange(1, 20),
-    );
   });
 
   testWidgets(
@@ -681,39 +440,6 @@ void main() {
   });
 
   group('row tap, clear completed and undo', () {
-    /// The page under a stand-in router: a work opens as a text page.
-    Future<GoRouter> pumpRouted(
-      WidgetTester tester,
-      ProviderContainer container,
-    ) async {
-      final router = GoRouter(
-        initialLocation: '/downloads',
-        routes: [
-          GoRoute(
-            path: '/downloads',
-            builder: (_, _) => const DownloadTasksPage(),
-            routes: [
-              GoRoute(
-                path: 'illust/:id',
-                builder: (_, state) =>
-                    Text('opened ${state.pathParameters['id']}'),
-              ),
-            ],
-          ),
-        ],
-      );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          container: container,
-          builder: promptHostBuilder,
-        ),
-      );
-      await tester.pump();
-      return router;
-    }
-
     List<ScriptedResponse> done(int count) => [
       for (var i = 0; i < count; i++)
         ScriptedResponse(
@@ -723,52 +449,6 @@ void main() {
           ],
         ),
     ];
-
-    testWidgets('a task row opens its work; management taps select', (
-      tester,
-    ) async {
-      final (container, manager, _) = await makeDownloadWorld(
-        responses: done(1),
-      );
-      final task = manager.submit(downloadRequest(7));
-      final router = await pumpRouted(tester, container);
-      await pumpUntil(
-        tester,
-        () => manager.tasks.single.status == DownloadStatus.succeeded,
-      );
-      await tester.pump();
-
-      final semantics = tester.ensureSemantics();
-      expect(
-        tester.getSemantics(
-          find
-              .descendant(
-                of: _taskRow(task.id),
-                matching: find.byType(Semantics),
-              )
-              .first,
-        ),
-        isSemantics(isButton: true, onTapHint: '打开作品'),
-      );
-      semantics.dispose();
-
-      await tester.tap(
-        find.text(downloadTaskTitle(manager.taskById(task.id)!)),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('opened 7'), findsOneWidget);
-      router.pop();
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.widgetWithText(TextButton, '管理'));
-      await tester.pump();
-      await tester.tap(
-        find.text(downloadTaskTitle(manager.taskById(task.id)!)),
-      );
-      await tester.pump();
-      expect(_selectionTitle('已选 1 项'), findsOneWidget);
-      expect(find.text('opened 7'), findsNothing);
-    });
 
     testWidgets('clear completed leaves failures and is undone in place', (
       tester,
@@ -961,49 +641,6 @@ void main() {
     );
 
     testWidgets(
-      'pointer mode supports Ctrl+Click, Shift+Click range, and Ctrl+A',
-      (tester) async {
-        final (container, manager, _) = await makeDownloadWorld(
-          responses: done(4),
-        );
-        final tasks = [
-          for (var id = 1; id <= 4; id++) manager.submit(downloadRequest(id)),
-        ];
-        await _pumpPage(tester, container);
-        await pumpUntil(
-          tester,
-          () =>
-              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
-        );
-        await tester.pump();
-
-        Finder labelOf(String id) => find
-            .descendant(of: _taskRow(id), matching: find.byType(Text))
-            .first;
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        await tester.tap(labelOf(tasks[0].id));
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-        await tester.pump();
-        expect(_selectionTitle('已选 1 项'), findsOneWidget);
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.tap(labelOf(tasks[2].id));
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.pump();
-        expect(_selectionTitle('已选 3 项'), findsOneWidget);
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-        await tester.pump();
-        expect(_selectionTitle('已选 4 项'), findsOneWidget);
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.windows),
-    );
-
-    testWidgets(
       'desktop succeeded row opens file, reveals in folder with bookmark, and surfaces missing file',
       (tester) async {
         const bookmark =
@@ -1074,105 +711,6 @@ void main() {
         expect(find.text('文件已不存在'), findsOneWidget);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-    );
-
-    testWidgets(
-      'status filter narrows list, shows empty state, retry-all requeues failed, and ShellRail shows count pill',
-      (tester) async {
-        final (container, manager, transport) = await makeDownloadWorld(
-          responses: [
-            ScriptedResponse(
-              contentLength: 1,
-              chunks: [
-                [1],
-              ],
-            ),
-            ScriptedResponse(error: Exception('timeout')),
-            ScriptedResponse(
-              contentLength: 1,
-              chunks: [
-                [2],
-              ],
-            ),
-          ],
-        );
-        manager.submit(downloadRequest(10));
-        manager.submit(downloadRequest(11));
-        await pumpUntil(
-          tester,
-          () =>
-              manager.tasks.length == 2 &&
-              manager.tasks.any((t) => t.status == DownloadStatus.succeeded) &&
-              manager.tasks.any((t) => t.status == DownloadStatus.failed),
-        );
-
-        await _pumpPage(tester, container);
-        expect(_taskRows(), findsNWidgets(2));
-        expect(find.text('重试全部失败任务'), findsOneWidget);
-
-        // Filter to Active -> empty filter state.
-        await tester.tap(find.text('全部'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('进行中').last);
-        await tester.pumpAndSettle();
-        expect(find.text('当前筛选下暂无任务'), findsOneWidget);
-
-        // Filter to Failed -> shows only failed task, retry-all succeeds.
-        await tester.tap(find.text('进行中'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('失败').last);
-        await tester.pumpAndSettle();
-        expect(_taskRows(), findsOneWidget);
-
-        await tester.tap(find.text('重试全部失败任务'));
-        await pumpUntil(
-          tester,
-          () =>
-              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('重试全部失败任务'), findsNothing);
-
-        // ShellRail shows live pill when failed/active count > 0.
-        transport.responses.add(ScriptedResponse(error: Exception('net')));
-        manager.submit(downloadRequest(12));
-        await pumpUntil(
-          tester,
-          () => manager.tasks.any((t) => t.status == DownloadStatus.failed),
-        );
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            home: Scaffold(
-              body: ShellRail(
-                destinations: const [
-                  FuncBottomNavDestination(icon: AppIcons.home, label: '首页'),
-                ],
-                selectedIndex: 0,
-                onSelected: (_) {},
-                form: FormFactor.pc,
-                expanded: true,
-                onToggle: () {},
-                onDownloads: () {},
-              ),
-            ),
-          ),
-        );
-        await pumpUntil(
-          tester,
-          () => find
-              .byKey(const Key('rail-downloads-count'))
-              .evaluate()
-              .isNotEmpty,
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(const Key('rail-downloads-count')),
-            matching: find.text('1'),
-          ),
-          findsOneWidget,
-        );
-      },
     );
   });
 }

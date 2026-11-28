@@ -75,7 +75,7 @@ reviewed: 2026-11-28
   whenever an R-18 illust shared its id, R-18G passed the R-18 block, and
   related works and New showed blocked works (user decision). A
   block switched on rebuilt the feed from a snapshot written without it.
-- **Check:** `test/paged_feed_refill_test.dart` "hide mode drops mute hits, blur keeps them; novels read novels"; `test/mute_store_test.dart` "C9 local block: R-18 (and R-18G) and AI switches, illusts and novels alike"; `test/novel_entry_test.dart` "a muted novel shows the reason until a tap reveals it"; `test/new_content_feed_test.dart` "the local block filters New works and novels (R7)"; `test/illust_detail_page_test.dart` "requests related works only once the section is on screen; the local block filters them (R7)"; `test/feed_snapshot_cold_start_test.dart` "a restored snapshot passes the filters switched on since"
+- **Check:** `test/paged_feed_refill_test.dart` "hide mode drops mute hits, blur keeps them; novels read novels"; `test/mute_store_test.dart` "C9 local block: R-18 (and R-18G) and AI switches, illusts and novels alike"; `test/novel_entry_test.dart` "R-18, R-18G and AI marks appear in meta and semantics until muted"; `test/new_content_feed_test.dart` "the local block filters New works and novels (R7)"; `test/illust_detail_page_test.dart` "requests related works only once the section is on screen; the local block filters them (R7)"; `test/feed_snapshot_cold_start_test.dart` "a restored snapshot passes the filters switched on since"
 - **Code:** `lib/core/paging/paged_feed_controller.dart`, `lib/core/settings/local_block_filter.dart`, `lib/core/mute/mute_predicate.dart`, `lib/app/widgets/novel_entry.dart`
 
 ## Commit gate
