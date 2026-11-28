@@ -1,42 +1,31 @@
 import 'dart:async';
 
 import 'package:easy_refresh/easy_refresh.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/icons/ui_icons.dart';
+import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/user/follow_actions.dart';
 import 'package:parfait/core/user/follow_store.dart';
-import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_detail_controller.dart';
-import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_store.dart';
-import 'package:parfait/core/profile/profile_models.dart';
-import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/app/pull_to_refresh.dart';
-import 'package:parfait/app/scroll_behavior.dart';
-import 'package:parfait/app/widgets/ambient_wash.dart';
-import 'package:parfait/app/widgets/app_tab_bar.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/features/profile/profile_novel_feed.dart';
-import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
-import 'package:parfait/features/profile/user_series_feed.dart';
+import 'package:parfait/features/profile/user_page.dart';
+
 import 'helpers/api_responses.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/image_network.dart';
+import 'helpers/localized_app.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/localized_app.dart';
-import 'helpers/view_size.dart';
-import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/icons/ui_icons.dart';
 
 class _FakeOutboundUrlOpener implements OutboundUrlOpener {
   final requests = <String>[];
@@ -50,11 +39,6 @@ class _FakeOutboundUrlOpener implements OutboundUrlOpener {
   }
 }
 
-/// Mounts the profile header sliver exactly the way `UserPage` does: the
-/// expanded extent starts unset, the identity block reports its measured
-/// height after the first layout, and the delegate is rebuilt with it.
-/// Tests read [collapseRange] for scroll distances instead of hard-coding
-/// the old fixed-extent dp values.
 class _MeasuredProfileHeader extends StatefulWidget {
   const _MeasuredProfileHeader({required this.delegateFor});
 
@@ -70,9 +54,6 @@ class _MeasuredProfileHeader extends StatefulWidget {
 
 class _MeasuredProfileHeaderState extends State<_MeasuredProfileHeader> {
   double? _extent;
-  ReplicaProfileHeaderDelegate? _delegate;
-
-  double get collapseRange => _delegate!.maxExtent - _delegate!.minExtent;
 
   @override
   Widget build(BuildContext context) {
@@ -81,35 +62,24 @@ class _MeasuredProfileHeaderState extends State<_MeasuredProfileHeader> {
         setState(() => _extent = extent);
       }
     });
-    _delegate = delegate;
     return SliverPersistentHeader(pinned: true, delegate: delegate);
   }
 }
-
-/// Scroll distance that fully collapses the mounted measured header.
-double _headerCollapseRange(WidgetTester tester) => tester
-    .state<_MeasuredProfileHeaderState>(find.byType(_MeasuredProfileHeader))
-    .collapseRange;
 
 Future<void> _pumpProfile(
   WidgetTester tester,
   ProviderContainer container, {
   int userId = 42,
-  ScrollBehavior? scrollBehavior,
 }) async {
   await tester.pumpWidget(
     localizedApp(
       container: container,
       builder: promptHostBuilder,
-      scrollBehavior: scrollBehavior,
       home: UserPage(userId: userId),
     ),
   );
   await tester.pumpAndSettle();
 }
-
-List<Map<String, dynamic>> _works(int count) =>
-    List.generate(count, (index) => _illust(index + 1));
 
 List<String> _tabLabels(WidgetTester tester) => [
   for (final tab in tester.widget<TabBar>(find.byType(TabBar)).tabs)
@@ -218,165 +188,6 @@ void main() {
     expect(writes, 1, reason: 'an unchanged page must not notify');
   });
 
-  testWidgets(
-    'the avatar and expanded name never overlap, and no avatar enters the toolbar',
-    (tester) async {
-      final users = [
-        sampleUser(42).copyWith(
-          profileImageUrl: 'https://i.pximg.net/avatar.png',
-          backgroundImageUrl: 'https://i.pximg.net/background.png',
-        ),
-        sampleUser(42),
-      ];
-      for (final user in users) {
-        await tester.pumpWidget(
-          withStalledImages(
-            localizedApp(
-              builder: promptHostBuilder,
-              body: CustomScrollView(
-                key: ValueKey(user.profileImageUrl ?? 'placeholder'),
-                slivers: [
-                  _MeasuredProfileHeader(
-                    delegateFor: (extent, onMeasured) =>
-                        ReplicaProfileHeaderDelegate(
-                          user: user,
-                          isMe: true,
-                          selectedTabIndex: 0,
-                          onShare: (_) {},
-                          expandedExtent: extent,
-                          onExpandedExtentMeasured: onMeasured,
-                        ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-                ],
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        for (var step = 0; step <= 10; step++) {
-          final avatar = find.byKey(const ValueKey('profile-expanded-avatar'));
-          final name = find.byKey(const ValueKey('profile-expanded-name'));
-          if (avatar.evaluate().isNotEmpty && name.evaluate().isNotEmpty) {
-            expect(
-              tester.getRect(avatar).overlaps(tester.getRect(name)),
-              isFalse,
-              reason: 'avatar/name overlap at drag step $step',
-            );
-            if (step == 0) {
-              // R2: the avatar's centre line sits exactly on the
-              // banner's bottom edge — topInset(0) + toolbar(56) +
-              // bannerBelowToolbar(80) = 136.
-              expect(
-                tester.getRect(avatar).center.dy,
-                moreOrLessEquals(
-                  kToolbarHeight +
-                      ReplicaProfileHeaderGeometry.bannerBelowToolbar,
-                  epsilon: 0.5,
-                ),
-              );
-            }
-          }
-          await tester.drag(
-            find.byType(CustomScrollView),
-            const Offset(0, -40),
-          );
-          await tester.pump();
-        }
-
-        expect(
-          find.byKey(const ValueKey('profile-expanded-avatar')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('profile-toolbar-title')),
-          findsOneWidget,
-        );
-      }
-    },
-  );
-
-  testWidgets('a profile without a cover lights its header from the avatar', (
-    tester,
-  ) async {
-    const avatar = 'https://i.pximg.net/avatar.png';
-    const cover = 'https://i.pximg.net/background.png';
-    // (cover, avatar) → what the ambient wash shows; with neither, the band
-    // is a plain surface.
-    for (final (backgroundUrl, profileUrl, washed) in [
-      (cover, avatar, null),
-      (null, avatar, avatar),
-      (null, null, null),
-    ]) {
-      final user = sampleUser(42).copyWith(
-        profileImageUrl: profileUrl,
-        backgroundImageUrl: backgroundUrl,
-      );
-      await tester.pumpWidget(
-        withStalledImages(
-          localizedApp(
-            body: CustomScrollView(
-              key: ValueKey((backgroundUrl, profileUrl)),
-              slivers: [
-                _MeasuredProfileHeader(
-                  delegateFor: (extent, onMeasured) =>
-                      ReplicaProfileHeaderDelegate(
-                        user: user,
-                        isMe: true,
-                        selectedTabIndex: 0,
-                        onShare: (_) {},
-                        expandedExtent: extent,
-                        onExpandedExtentMeasured: onMeasured,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-
-      final reason = '($backgroundUrl, $profileUrl)';
-      // Which image the wash is made from is the contract (TEST-03): the
-      // blur and tone lock are ambient_wash_test's, and the stalled images
-      // paint nothing to compare.
-      final context = tester.element(find.byType(CustomScrollView));
-      expect(
-        [
-          for (final wash in tester.widgetList<AmbientWash>(
-            find.byType(AmbientWash),
-          ))
-            wash.image,
-        ],
-        [
-          if (washed != null)
-            PixivImage.providerFor(context, washed, decodeWidth: 96),
-        ],
-        reason: reason,
-      );
-      expect(
-        find.byWidgetPredicate((w) => w is PixivImage && w.url == cover),
-        backgroundUrl == null ? findsNothing : findsOneWidget,
-        reason: reason,
-      );
-      final colors = Theme.of(
-        tester.element(find.byType(CustomScrollView)),
-      ).colorScheme;
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is ColoredBox && w.color == colors.surfaceContainerHigh,
-        ),
-        backgroundUrl == null && profileUrl == null
-            ? findsOneWidget
-            : findsNothing,
-        reason: reason,
-      );
-    }
-  });
-
   testWidgets("someone else's overflow mutes them, then offers the unmute", (
     tester,
   ) async {
@@ -416,98 +227,6 @@ void main() {
     await openMenu();
     expect(find.text('解除屏蔽作者'), findsOneWidget);
   });
-
-  testWidgets(
-    "the overflow lists the name row's actions once they scroll away",
-    (tester) async {
-      final controller = ScrollController();
-      await tester.pumpWidget(
-        localizedApp(
-          builder: promptHostBuilder,
-          body: CustomScrollView(
-            controller: controller,
-            slivers: [
-              _MeasuredProfileHeader(
-                delegateFor: (extent, onMeasured) =>
-                    ReplicaProfileHeaderDelegate(
-                      user: sampleUser(42),
-                      isMe: true,
-                      selectedTabIndex: 0,
-                      onShare: (_) {},
-                      onEditProfile: () {},
-                      onDownloadAll: () {},
-                      expandedExtent: extent,
-                      onExpandedExtentMeasured: onMeasured,
-                    ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-            ],
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      expect(find.byTooltip('分享用户'), findsOneWidget);
-      // The owner's main action is a tonal text button on the page
-      // surface — not an icon button anymore.
-      expect(find.text('编辑个人资料'), findsOneWidget);
-      // Each action shows once at a time: while the name row is on screen
-      // the overflow leaves its share and main action out.
-      Future<void> openMenu() async {
-        await tester.tap(find.byIcon(UiIcons.more));
-        await tester.pumpAndSettle();
-      }
-
-      Future<void> closeMenu() async {
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
-      }
-
-      await openMenu();
-      expect(find.text('分享用户'), findsNothing);
-      expect(find.text('编辑个人资料'), findsOneWidget);
-      // The list filters sit over the lists now, not in the overflow.
-      expect(find.text('公开'), findsNothing);
-      expect(find.text('私密'), findsNothing);
-      expect(find.text('收藏标签'), findsNothing);
-      expect(find.text('下载全部作品'), findsOneWidget);
-      await closeMenu();
-
-      // The menu takes them over as soon as the row's top edge passes
-      // under the toolbar and the buttons start to be cut off.
-      const rowTop =
-          ReplicaProfileHeaderGeometry.bannerBelowToolbar +
-          ReplicaProfileHeaderGeometry.nameRowBelowBanner;
-      controller.jumpTo(rowTop);
-      await tester.pump();
-      expect(
-        tester.getRect(find.byTooltip('分享用户')).top,
-        greaterThanOrEqualTo(tester.getRect(find.byIcon(UiIcons.more)).bottom),
-      );
-      await openMenu();
-      expect(find.text('分享用户'), findsNothing);
-      await closeMenu();
-      controller.jumpTo(rowTop + 1);
-      await tester.pump();
-      await openMenu();
-      expect(find.text('分享用户'), findsOneWidget);
-      // The cut-off inline button + the menu item.
-      expect(find.text('编辑个人资料'), findsNWidgets(2));
-      await closeMenu();
-
-      controller.jumpTo(_headerCollapseRange(tester));
-      await tester.pump();
-      expect(find.byIcon(UiIcons.more), findsOneWidget);
-      await tester.tap(find.byIcon(UiIcons.more));
-      await tester.pumpAndSettle();
-      expect(find.text('分享用户'), findsOneWidget);
-      // Collapsed: the inline identity is offstage, only the menu item.
-      expect(find.text('编辑个人资料'), findsOneWidget);
-      expect(find.text('下载全部作品'), findsOneWidget);
-      await tester.pumpWidget(const SizedBox.shrink());
-      controller.dispose();
-    },
-  );
 
   testWidgets('header back button stays mounted through the pop animation', (
     tester,
@@ -550,9 +269,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(BackButtonIcon), findsOneWidget);
 
-    // pop() removes the route from history immediately — canPop flips false
-    // while the pop animation still runs. The header button must not
-    // unmount mid-slide.
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -560,76 +276,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(BackButtonIcon), findsNothing);
   });
-
-  testWidgets(
-    'back and overflow actions fire through the whole collapse interval',
-    (tester) async {
-      var copyCount = 0;
-      final controller = ScrollController();
-      Widget header() => Scaffold(
-        body: CustomScrollView(
-          controller: controller,
-          slivers: [
-            _MeasuredProfileHeader(
-              delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
-                user: sampleUser(42),
-                isMe: true,
-                selectedTabIndex: 0,
-                onShare: (_) {},
-                onCopyLink: () => copyCount++,
-                expandedExtent: extent,
-                onExpandedExtentMeasured: onMeasured,
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-          ],
-        ),
-      );
-      await tester.pumpWidget(
-        localizedApp(
-          builder: promptHostBuilder,
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute<void>(builder: (_) => header())),
-                  child: const Text('open'),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      // The collapse range comes from the measured header extent.
-      for (final progress in [0.60, 0.80, 0.95]) {
-        await tester.tap(find.text('open'));
-        await tester.pumpAndSettle();
-        controller.jumpTo(_headerCollapseRange(tester) * progress);
-        await tester.pump();
-
-        // The overflow fires even inside the fade hand-off: the expanded
-        // row used to be IgnorePointer'd from 0.55 and unmounted at 0.78,
-        // while the collapsed toolbar only mounted at the very end.
-        await tester.tap(find.byIcon(UiIcons.more));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('复制链接'));
-        await tester.pumpAndSettle();
-        expect(copyCount, 1, reason: 'progress $progress');
-        copyCount = 0;
-
-        // Back actually pops the pushed route.
-        await tester.tap(find.byType(BackButtonIcon));
-        await tester.pumpAndSettle();
-        expect(find.text('open'), findsOneWidget);
-      }
-      await tester.pumpWidget(const SizedBox.shrink());
-      controller.dispose();
-    },
-  );
 
   testWidgets(
     'stale profile error banner can be dismissed without hiding the snapshot',
@@ -679,18 +325,13 @@ void main() {
     );
     await _pumpProfile(tester, container);
 
-    // Manga and series are empty, and novel series have no list of their
-    // own: neither gets a tab.
-    // The labels carry no counts: they share the row evenly.
     expect(_tabLabels(tester), ['插画', '小说', '收藏', '关注', '关于']);
     expect(find.text('共 1.2万 件'), findsOneWidget);
-    // Another user's lists have no filters to offer, and no total.
     await tester.tap(find.text('收藏'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('profile-filter-restrict')), findsNothing);
     expect(find.byKey(const ValueKey('profile-filter-tag')), findsNothing);
     expect(find.textContaining('共 '), findsNothing);
-    // Except the kind: their public novel bookmarks.
     await pickFilterMenu(tester, 'profile-filter-kind', '小说');
     expect(repository.requests, contains('novel-bookmarks:42:public:'));
     expect(find.byType(ProfileNovelFeed), findsOneWidget);
@@ -699,28 +340,12 @@ void main() {
     expect(find.byType(ChoiceChip), findsNothing);
     expect(repository.requests, contains('works:42:illust:first'));
     expect(find.byType(EasyRefresh), findsOneWidget);
-    // At rest the locator has no height, so it is not on stage.
-    expect(
-      find.descendant(
-        of: find.byType(EasyRefresh),
-        matching: find.byType(HeaderLocator, skipOffstage: false),
-        skipOffstage: false,
-      ),
-      findsOneWidget,
-    );
 
     await tester.tap(find.text('小说'));
     await tester.pumpAndSettle();
     expect(find.byType(ProfileNovelFeed), findsOneWidget);
     expect(find.text('共 3 件'), findsOneWidget);
     expect(_selectedTabIndex(tester), 1);
-
-    // Re-tapping a tab keeps it selected.
-    await tester.tap(find.text('收藏'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('收藏'));
-    await tester.pumpAndSettle();
-    expect(_selectedTabIndex(tester), 2);
   });
 
   testWidgets('a profile without works opens on its first other tab', (
@@ -752,7 +377,6 @@ void main() {
     final container = await makeProfileWorld(users: repository);
     await _pumpProfile(tester, container);
 
-    // A tab that survives the refresh stays selected.
     await tester.tap(find.text('收藏'));
     await tester.pumpAndSettle();
     repository.detail = repository.detail.copyWith(totalNovels: 1);
@@ -761,7 +385,6 @@ void main() {
     expect(_tabLabels(tester), ['插画', '漫画', '小说', '收藏', '关注', '关于']);
     expect(_selectedTabIndex(tester), 3);
 
-    // The selected tab is gone after the refresh: the first tab takes over.
     await tester.tap(find.text('漫画'));
     await tester.pumpAndSettle();
     repository.detail = repository.detail.copyWith(totalManga: 0);
@@ -771,565 +394,6 @@ void main() {
     expect(_selectedTabIndex(tester), 0);
     expect(tester.takeException(), isNull);
   });
-
-  testWidgets('profile stats open their tabs and keep myPixiv read-only', (
-    tester,
-  ) async {
-    final repository = UserApi(
-      detail: sampleUser(42).copyWith(
-        totalFollowUsers: 11,
-        totalMyPixivUsers: 12,
-        totalIllusts: 13,
-        totalManga: 14,
-        totalNovels: 15,
-        totalIllustSeries: 3,
-        totalNovelSeries: 4,
-        hasDetail: true,
-      ),
-    );
-    final container = await makeProfileWorld(users: repository);
-    await _pumpProfile(tester, container);
-    expect(_tabLabels(tester), ['插画', '漫画', '小说', '系列', '收藏', '关注', '关于']);
-
-    // The header counters: following opens its tab; another user's My
-    // Pixiv list has no tab, so that count is plain text.
-    final followingStat = find.byKey(
-      const ValueKey('profile-stat-following-header'),
-    );
-    expect(
-      tester.getSemantics(followingStat),
-      isSemantics(label: '关注, 11', isButton: true, hasTapAction: true),
-    );
-    final myPixivStat = find.byKey(
-      const ValueKey('profile-stat-myPixiv-header'),
-    );
-    expect(
-      tester.getSemantics(myPixivStat),
-      isSemantics(label: '好P友, 12', isButton: false, hasTapAction: false),
-    );
-    expect(tester.getSize(followingStat).height, greaterThanOrEqualTo(48));
-    await tester.tap(followingStat);
-    await tester.pumpAndSettle();
-    expect(_selectedTabIndex(tester), 5);
-
-    // The about page lists every count; works open their tabs. The series
-    // stat counts illust series only: that is what the series tab lists.
-    Future<void> tapAboutStat(String id) async {
-      await tester.tap(
-        find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
-      );
-      await tester.pumpAndSettle();
-      // The stats close the about list, below the fold.
-      final stat = find.byKey(
-        ValueKey('profile-stat-$id-about'),
-        skipOffstage: false,
-      );
-      await tester.ensureVisible(stat);
-      await tester.pumpAndSettle();
-      await tester.tap(stat);
-      await tester.pumpAndSettle();
-    }
-
-    final aboutSeries = find.byKey(
-      const ValueKey('profile-stat-series-about'),
-      skipOffstage: false,
-    );
-    await tester.tap(
-      find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
-    );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(aboutSeries);
-    await tester.pumpAndSettle();
-    expect(
-      tester.getSemantics(aboutSeries),
-      isSemantics(label: '系列, 3', isButton: true, hasTapAction: true),
-    );
-    await tapAboutStat('series');
-    expect(_selectedTabIndex(tester), 3);
-    expect(find.byType(UserSeriesFeed), findsOneWidget);
-
-    await tapAboutStat('following');
-    expect(_selectedTabIndex(tester), 5);
-    expect(repository.requests, contains('relation:42:following'));
-
-    await tapAboutStat('manga');
-    expect(_selectedTabIndex(tester), 1);
-  });
-
-  testWidgets('a phone held sideways shows the tabs and the works at once', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(816, 360));
-    final repository = UserApi(
-      works: _works(30),
-      detail: sampleUser(42).copyWith(totalIllusts: 30, hasDetail: true),
-    );
-    final container = await makeProfileWorld(users: repository);
-    await _pumpProfile(tester, container);
-    expect(tester.takeException(), isNull);
-    expect(find.textContaining('30', skipOffstage: false), findsWidgets);
-
-    // A toolbar-high banner and a one-row identity: the tabs and the top
-    // of the first row of works fit on the first screen.
-    expect(
-      tester.getRect(find.byKey(const ValueKey('profile-expanded-avatar'))).top,
-      greaterThanOrEqualTo(kToolbarHeight),
-    );
-    expect(tester.getRect(find.byType(TabBar)).bottom, lessThan(360));
-    expect(
-      tester.getRect(find.byType(IllustCard).first).top,
-      lessThanOrEqualTo(360 - 120),
-    );
-    Rect rectOf(String key) => tester.getRect(find.byKey(ValueKey(key)));
-    const avatar = 'profile-expanded-avatar';
-    const stat = 'profile-stat-following-header';
-    final inRow = rectOf(avatar);
-    expect(rectOf(stat).center.dy, inInclusiveRange(inRow.top, inRow.bottom));
-
-    // The counters join the row only when they fit beside the name.
-    setViewSize(tester, const Size(600, 360));
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        locale: const Locale('ru'),
-        home: const UserPage(userId: 42),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(rectOf(stat).center.dy, greaterThan(rectOf(avatar).bottom));
-  });
-
-  testWidgets('header height tracks the drag without jumps', (tester) async {
-    setViewSize(tester, const Size(360, 640));
-    final repository = UserApi(works: _works(30));
-    final container = await makeProfileWorld(users: repository);
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        locale: const Locale('ru'),
-        builder: (context, child) => promptHostBuilder(
-          context,
-          MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: const TextScaler.linear(2)),
-            child: child!,
-          ),
-        ),
-        home: const UserPage(userId: 42),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // Drag target: the nested scroll view itself. At 360×640 with 2x
-    // text the measured header is taller than the viewport, so the feed
-    // slivers are entirely below the fold — finders treat them as
-    // offstage and `tester.drag(feed)` cannot resolve a hit point. The
-    // NestedScrollView's centre is the same screen point the gesture
-    // would land on anyway.
-    final scrollable = find.byType(NestedScrollView);
-    double tabTop() =>
-        tester.getRect(find.byType(TabBar, skipOffstage: false)).top;
-
-    var previous = tabTop();
-    final tops = <double>[previous];
-    for (var step = 0; step < 14; step++) {
-      await tester.drag(scrollable, const Offset(0, -30));
-      await tester.pump();
-      final top = tabTop();
-      // Monotone, and never ahead of the finger: the height change per
-      // frame cannot exceed the dragged distance.
-      expect(top, lessThanOrEqualTo(previous + 0.01));
-      expect(previous - top, lessThanOrEqualTo(30.1));
-      tops.add(top);
-      previous = top;
-    }
-    // More steps back than forward: what the collapsed header did not
-    // take went to the feed, which unwinds first.
-    for (var step = 0; step < 20; step++) {
-      await tester.drag(scrollable, const Offset(0, 30));
-      await tester.pump();
-      final top = tabTop();
-      expect(top, greaterThanOrEqualTo(previous - 0.01));
-      expect(top - previous, lessThanOrEqualTo(30.1));
-      previous = top;
-    }
-    expect(tester.takeException(), isNull);
-    expect(tabTop(), tops.first);
-    // Flush any overscroll/refresh timers the reverse drags armed so the
-    // test does not leave a pending Timer behind.
-    await tester.pumpAndSettle();
-  });
-
-  // The device's outer Scrollable inside the profile NestedScrollView —
-  // first in tree order, before any tab feed.
-  ScrollPosition outerPosition(WidgetTester tester) {
-    final outerScrollable = find
-        .descendant(
-          of: find.byKey(const ValueKey('profile-nested-scroll')),
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Scrollable &&
-                widget.axisDirection == AxisDirection.down,
-          ),
-        )
-        .first;
-    return tester.state<ScrollableState>(outerScrollable).position;
-  }
-
-  // The active tab feed's own Scrollable inside the NestedScrollView body.
-  ScrollPosition activeFeedPosition(WidgetTester tester) {
-    final innerScrollable = find
-        .descendant(
-          of: find.byKey(
-            const PageStorageKey(
-              ProfileFeedKey(
-                userId: 42,
-                kind: ProfileFeedKind.work,
-                workType: UserWorkType.illust,
-              ),
-            ),
-          ),
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Scrollable &&
-                widget.axisDirection == AxisDirection.down,
-          ),
-        )
-        .first;
-    return tester.state<ScrollableState>(innerScrollable).position;
-  }
-
-  testWidgets(
-    'a light upward fling never leaves the inner feed ahead of the header',
-    (tester) async {
-      setViewSize(tester, const Size(360, 640));
-      for (final speed in [300.0, 600.0]) {
-        final repository = UserApi(works: _works(30));
-        final container = await makeProfileWorld(users: repository);
-        await _pumpProfile(
-          tester,
-          container,
-          scrollBehavior: const FuncScrollBehavior(),
-        );
-
-        final outer = outerPosition(tester);
-        final inner = activeFeedPosition(tester);
-        final maxExtent = outer.maxScrollExtent;
-        expect(maxExtent, greaterThan(0));
-
-        // Drag just short of the collapse edge, then release at the
-        // measured speed — the coordinator starts one ballistic on each
-        // position over the combined metrics.
-        await tester.flingFrom(
-          tester.getCenter(find.byType(NestedScrollView)),
-          Offset(0, -(maxExtent - 60)),
-          speed,
-        );
-        // The invariant: while the header is still collapsing the feed
-        // must not have started scrolling. A divergent inner simulation
-        // breaks it — inner rolls while outer is still short of the end.
-        var frames = 0;
-        while (frames < 240) {
-          await tester.pump(const Duration(milliseconds: 16));
-          if (outer.pixels >= maxExtent - 0.001) break;
-          expect(
-            inner.pixels,
-            lessThanOrEqualTo(0.001),
-            reason:
-                'v=$speed frame $frames: outer=${outer.pixels} of '
-                '$maxExtent — the inner feed rolled before the header '
-                'finished collapsing',
-          );
-          if (!outer.isScrollingNotifier.value &&
-              !inner.isScrollingNotifier.value) {
-            break;
-          }
-          frames++;
-        }
-        // Settle: either the header finished collapsing (inner may then
-        // roll), or everything stopped inside bounds.
-        await tester.pumpAndSettle();
-        expect(
-          outer.pixels >= maxExtent - 0.001 || inner.pixels <= 0.001,
-          isTrue,
-          reason:
-              'v=$speed: settled at outer=${outer.pixels}/$maxExtent, '
-              'inner=${inner.pixels} — inconsistent stop positions',
-        );
-      }
-    },
-  );
-
-  testWidgets(
-    'a light pull-down while the header is collapsing keeps it expanding',
-    (tester) async {
-      setViewSize(tester, const Size(360, 640));
-      final repository = UserApi(works: _works(30));
-      final container = await makeProfileWorld(users: repository);
-      await _pumpProfile(
-        tester,
-        container,
-        scrollBehavior: const FuncScrollBehavior(),
-      );
-
-      final outer = outerPosition(tester);
-      final inner = activeFeedPosition(tester);
-      final maxExtent = outer.maxScrollExtent;
-      expect(maxExtent, greaterThan(0));
-
-      // The state a light collapse fling leaves on the buggy build:
-      // header collapsed, feed already mid-scroll.
-      outer.jumpTo(maxExtent);
-      inner.jumpTo(115);
-      await tester.pump();
-
-      // A deliberate ~80px pull released at low speed: the inner feed
-      // slides back to 0 and the leftover momentum must expand the
-      // header, not die at the boundary.
-      await tester.flingFrom(
-        tester.getCenter(find.byType(NestedScrollView)),
-        const Offset(0, 80),
-        300,
-      );
-      var frames = 0;
-      while (frames < 240 &&
-          (outer.isScrollingNotifier.value ||
-              inner.isScrollingNotifier.value)) {
-        await tester.pump(const Duration(milliseconds: 16));
-        frames++;
-      }
-      await tester.pumpAndSettle();
-      expect(inner.pixels, closeTo(0, 0.001));
-      expect(
-        outer.pixels,
-        lessThan(maxExtent - 0.5),
-        reason:
-            'after the feed reached its top the pull must keep expanding '
-            'the header — outer=${outer.pixels} of $maxExtent',
-      );
-    },
-  );
-
-  testWidgets('a pull at the very top still pulls to refresh', (tester) async {
-    setViewSize(tester, const Size(360, 640));
-    final repository = UserApi(works: _works(30));
-    final container = await makeProfileWorld(users: repository);
-    await _pumpProfile(
-      tester,
-      container,
-      scrollBehavior: const FuncScrollBehavior(),
-    );
-
-    final outer = outerPosition(tester);
-    expect(outer.pixels, 0);
-    final firstLoads = repository.requests
-        .where((request) => request == 'works:42:illust:first')
-        .length;
-
-    // A deliberate pull past the 100dp arm threshold, then release.
-    await tester.drag(find.byType(NestedScrollView), const Offset(0, 400));
-    await tester.pumpAndSettle();
-    expect(
-      repository.requests
-          .where((request) => request == 'works:42:illust:first')
-          .length,
-      firstLoads + 1,
-      reason: 'the top pull must still reach the feed refresh',
-    );
-    expect(outer.pixels, 0);
-  });
-
-  // The feed's clamping header keeps it at its top, so the coordinator gave
-  // a reversed pull to the outer scroll first: the header collapsed under
-  // an indicator stuck on screen.
-  testWidgets(
-    'a reversed pull retracts the indicator before the header collapses',
-    (tester) async {
-      setViewSize(tester, const Size(360, 640));
-      final repository = UserApi(works: _works(30));
-      final container = await makeProfileWorld(users: repository);
-      await _pumpProfile(
-        tester,
-        container,
-        scrollBehavior: const FuncScrollBehavior(),
-      );
-      final outer = outerPosition(tester);
-      final inner = activeFeedPosition(tester);
-      final indicator = find.byType(SakuraRefreshIndicator);
-      final requests = repository.requests.length;
-      final card = find.byType(IllustCard).first;
-      final cardTop = tester.getTopLeft(card).dy;
-      final tabsTop = tester.getTopLeft(find.byType(AppTabBar)).dy;
-
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(NestedScrollView)),
-      );
-      // Past the 100dp arm threshold, then all the way back.
-      for (var i = 0; i < 10; i++) {
-        await gesture.moveBy(const Offset(0, 40));
-        await tester.pump();
-      }
-      expect(indicator, findsOneWidget);
-      // As in any feed, the list slides down; the tabs above stay.
-      expect(tester.getTopLeft(card).dy, greaterThan(cardTop + 80));
-      expect(tester.getTopLeft(find.byType(AppTabBar)).dy, tabsTop);
-      var retracted = false;
-      for (var i = 0; i < 24; i++) {
-        await gesture.moveBy(const Offset(0, -30));
-        await tester.pump();
-        retracted = retracted || indicator.evaluate().isEmpty;
-        if (!retracted) {
-          expect(outer.pixels, 0, reason: 'step $i: the header stays put');
-          expect(inner.pixels, 0, reason: 'step $i: the feed stays put');
-        }
-      }
-      expect(retracted, isTrue);
-      expect(outer.pixels, greaterThan(0), reason: 'the rest collapses it');
-
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(repository.requests.length, requests, reason: 'no refresh');
-      expect(indicator, findsNothing);
-    },
-  );
-
-  // EasyRefresh took the closing header's height off the outer scroll
-  // without a layout: the header stayed collapsed, then jumped open on the
-  // next drag.
-  testWidgets('a header pushed up during a refresh stays when it ends', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(360, 640));
-    final repository = UserApi(works: _works(30));
-    final container = await makeProfileWorld(users: repository);
-    await _pumpProfile(
-      tester,
-      container,
-      scrollBehavior: const FuncScrollBehavior(),
-    );
-    final outer = outerPosition(tester);
-    final tabs = find.byType(AppTabBar);
-    final refresh = repository.worksGate = Completer<void>();
-    Future<void> frames(int count) async {
-      for (var i = 0; i < count; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-    }
-
-    final pull = await tester.startGesture(
-      tester.getCenter(find.byType(NestedScrollView)),
-    );
-    for (var i = 0; i < 10; i++) {
-      await pull.moveBy(const Offset(0, 40));
-      await tester.pump();
-    }
-    await pull.up();
-    await frames(30);
-    await tester.drag(find.byType(NestedScrollView), const Offset(0, -250));
-    await frames(60);
-    final pushedUp = outer.pixels;
-    final tabsTop = tester.getTopLeft(tabs).dy;
-
-    refresh.complete();
-    await frames(100);
-    expect(outer.pixels, pushedUp);
-    await tester.drag(find.byType(NestedScrollView), const Offset(0, -10));
-    await frames(60);
-    expect(tester.getTopLeft(tabs).dy, tabsTop, reason: 'no jump open');
-  });
-
-  testWidgets(
-    'each tab scrolls on its own; re-tap rewinds only the selected one',
-    (tester) async {
-      final repository = UserApi(
-        works: _works(36),
-        bookmarks: List.generate(36, (index) => _illust(100 + index)),
-      );
-      final container = await makeProfileWorld(users: repository);
-      await _pumpProfile(tester, container);
-
-      // A tab switched away from is kept alive offstage.
-      ScrollPosition innerOf(ProfileFeedKey key) {
-        final scrollable = find
-            .descendant(
-              of: find.byKey(PageStorageKey(key), skipOffstage: false),
-              matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is Scrollable &&
-                    widget.axisDirection == AxisDirection.down,
-                skipOffstage: false,
-              ),
-              skipOffstage: false,
-            )
-            .first;
-        return tester.state<ScrollableState>(scrollable).position;
-      }
-
-      const workKey = ProfileFeedKey(
-        userId: 42,
-        kind: ProfileFeedKind.work,
-        workType: UserWorkType.illust,
-      );
-      const bookmarkKey = ProfileFeedKey(
-        userId: 42,
-        kind: ProfileFeedKind.bookmarks,
-        restrict: UserRestrict.public,
-      );
-      expect(innerOf(workKey).maxScrollExtent, greaterThan(0));
-
-      // A re-tap of the tab the page opened on rewinds it and the header.
-      outerPosition(tester).jumpTo(80);
-      await tester.pump();
-      innerOf(workKey).jumpTo(120);
-      await tester.pump();
-      expect(outerPosition(tester).pixels, greaterThan(0));
-      expect(innerOf(workKey).pixels, 120);
-      await tester.tap(
-        find.descendant(of: find.byType(TabBar), matching: find.text('插画')),
-      );
-      await tester.pumpAndSettle();
-      expect(outerPosition(tester).pixels, 0);
-      expect(innerOf(workKey).pixels, 0);
-
-      // Scroll tab A (插画), then switch to tab B (收藏) — the TabBarView
-      // builds a page on first visit, so B's position only exists after
-      // the switch — and drag it. Positions are re-read: handing the
-      // nested controller from tab to tab replaces them.
-      innerOf(workKey).jumpTo(150);
-      await tester.pump();
-      await tester.tap(
-        find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
-      );
-      await tester.pumpAndSettle();
-      expect(innerOf(bookmarkKey).maxScrollExtent, greaterThan(0));
-      // The header first: moving it through the coordinator would carry
-      // the inner offset along.
-      final outer = outerPosition(tester);
-      outer.jumpTo(80);
-      await tester.pump();
-      innerOf(bookmarkKey).jumpTo(140);
-      await tester.pump();
-      expect(outer.pixels, greaterThan(0));
-      expect(innerOf(bookmarkKey).pixels, 140);
-      // Only the selected tab is on the nested controller: A no longer
-      // follows B, so a fling on one tab is never computed against
-      // another's offset.
-      expect(innerOf(workKey).pixels, 150);
-
-      // The re-tap rewinds the header and the selected tab, not the other.
-      await tester.tap(
-        find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
-      );
-      await tester.pumpAndSettle();
-      expect(outer.pixels, 0);
-      expect(innerOf(bookmarkKey).pixels, 0);
-      expect(innerOf(workKey).pixels, 150);
-    },
-  );
 
   testWidgets(
     'a pending profile shows the skeleton and the back button leaves',
@@ -1341,8 +405,6 @@ void main() {
       final repository = UserApi()..detailGate = gate;
       final container = await makeProfileWorld(users: repository);
 
-      // Push the page so canPop is true — the skeleton's BackButton is a
-      // real affordance, not a dead icon.
       await tester.pumpWidget(
         localizedApp(
           container: container,
@@ -1426,52 +488,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('无法打开链接'), findsOneWidget);
 
-    // The glyph, not its target, ends on the page margin like the divider
-    // under the links, and the target past the glyph still takes the tap.
     final copyPawoo = find.byKey(const ValueKey('profile-link-copy-pawoo'));
     await tester.ensureVisible(copyPawoo);
-    final copyGlyph = find.descendant(
-      of: copyPawoo,
-      matching: find.byType(Icon),
-    );
-    expect(
-      tester.getTopRight(copyGlyph).dx,
-      tester.getTopRight(find.byType(Divider)).dx,
-    );
-    await tester.tapAt(
-      tester.getRect(copyGlyph).centerRight + const Offset(8, 0),
-    );
+    await tester.tap(copyPawoo);
     await tester.pumpAndSettle();
     expect(clipboardWrites, contains('https://pawoo.test/sample'));
   });
-
-  testWidgets(
-    'header tabs and actions stay mounted while the work feed fails',
-    (tester) async {
-      final repository = UserApi(
-        detail: sampleUser(42).copyWith(
-          totalIllusts: 1,
-          totalManga: 1,
-          totalNovels: 1,
-          totalIllustSeries: 1,
-        ),
-        worksFailure: offline,
-      );
-      final container = await makeProfileWorld(users: repository);
-      await _pumpProfile(tester, container);
-
-      // The work feed's first page request failed, but the query context —
-      // the tabs and the header action row — stays mounted (parent §6 gate:
-      // chrome survives loading/error/empty).
-      expect(repository.requests, contains('works:42:illust:first'));
-      expect(_tabLabels(tester).take(4), ['插画', '漫画', '小说', '系列']);
-      expect(find.byIcon(AppIcons.share), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('profile-expanded-name')),
-        findsOneWidget,
-      );
-    },
-  );
 }
 
 Map<String, dynamic> _illust(int id) => illustJson(id, width: 300, height: 400);

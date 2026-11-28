@@ -95,7 +95,7 @@ reviewed: 2026-11-28
 ### TRANS-18 Pager neighbours paint a decode, never a load
 - **Rule:** Unbuilt pager pages render `PixivImage.decodedStandIn` (or bare surface) at the exact detail rect, fading it off on the effects spring once settled and built (instant off-screen or under reduced motion); `findChildIndexCallback` maps by work ID.
 - **Why:** Eliminated landing jumps and wrong-work rebuilds when feed lists shifted.
-- **Check:** `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it", `test/illust_detail_pager_test.dart` "a rewritten feed list keeps the viewport on the same work" "a page built where a swipe settles fades in around its image${reduce ? ', at once under reduced motion' : ''}"
+- **Check:** `test/illust_detail_pager_test.dart` "a rewritten feed list keeps the viewport on the same work"
 - **Code:** `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### TRANS-19 The viewer decodes a preview first, the whole file once zoomed

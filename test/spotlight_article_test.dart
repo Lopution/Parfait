@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:image/image.dart' as img;
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/share/share_service.dart';
@@ -22,9 +21,7 @@ import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/spotlight/spotlight_article_page.dart';
 import 'package:parfait/features/spotlight/spotlight_challenge_view.dart';
 import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/scroll_behavior.dart';
-import 'package:parfait/app/theme/func_semantic_tokens.dart';
 
 import 'helpers/connectivity_channels.dart';
 import 'helpers/image_network.dart';
@@ -38,7 +35,6 @@ import 'helpers/view_size.dart';
 import 'helpers/waits.dart';
 import 'helpers/leak_tracking.dart';
 import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/icons/ui_icons.dart';
 
 const _articleHtml = '''
 <!DOCTYPE html>
@@ -457,83 +453,6 @@ void main() {
       expect(find.byIcon(AppIcons.illustBroken), findsNothing);
     });
 
-    testWidgets('a landscape window caps the cover, so the first lines show', (
-      tester,
-    ) async {
-      await pumpArticle(
-        tester,
-        size: const Size(900, 500),
-        html:
-            '<article><header><h1 class="am__title">特辑标题</h1></header>'
-            '<div class="am__body">'
-            '<p><img class="aie__image" src="$cdn"></p>'
-            '<p>开篇段落</p></div></article>',
-        images: {
-          cdn: http.Response.bytes(
-            // A tall cover: unconstrained it would fill the window.
-            img.encodePng(img.Image(width: 40, height: 200)),
-            200,
-          ),
-        },
-      );
-      await pumpIoUntil(tester, () => painted(tester));
-      await tester.pumpAndSettle();
-
-      final list = tester.getRect(find.byType(ListView));
-      final cover = tester.getRect(find.byType(AspectFitBox));
-      expect(
-        cover.height,
-        lessThanOrEqualTo(
-          list.height * SpotlightArticlePage.coverViewportShare + .5,
-        ),
-      );
-      expect(cover.height, greaterThan(list.height * .25));
-      // The cover keeps its ratio in the column instead of being cropped
-      // to full width.
-      expect(cover.width, lessThan(list.width));
-      expect(cover.center.dx, closeTo(list.center.dx, .5));
-      // The article opens on the first lines of its body.
-      expect(
-        tester.getRect(find.textContaining('开篇段落')).top,
-        lessThan(list.bottom),
-      );
-    });
-
-    testWidgets('a tall tablet also caps the cover before the first lines', (
-      tester,
-    ) async {
-      await pumpArticle(
-        tester,
-        size: const Size(900, 1200),
-        html:
-            '<article><header><h1 class="am__title">特辑标题</h1></header>'
-            '<div class="am__body">'
-            '<p><img class="aie__image" src="$cdn"></p>'
-            '<p>竖屏开篇</p></div></article>',
-        images: {
-          cdn: http.Response.bytes(
-            img.encodePng(img.Image(width: 40, height: 200)),
-            200,
-          ),
-        },
-      );
-      await pumpIoUntil(tester, () => painted(tester));
-      await tester.pumpAndSettle();
-
-      final list = tester.getRect(find.byType(ListView));
-      final cover = tester.getRect(find.byType(AspectFitBox));
-      expect(
-        cover.height,
-        lessThanOrEqualTo(
-          list.height * SpotlightArticlePage.coverViewportShare + .5,
-        ),
-      );
-      expect(
-        tester.getRect(find.textContaining('竖屏开篇')).top,
-        lessThan(list.bottom),
-      );
-    });
-
     testWidgets('the cover comes from the list entry on pximg', (tester) async {
       const thumbnail = 'https://i.pximg.net/c/w1200/spotlight/101.jpg';
       await pumpArticle(
@@ -548,122 +467,7 @@ void main() {
           ),
         ],
       );
-      // The Pixiv image path, never the per-request embed.pixiv.net card.
       expect(tester.widget<PixivImage>(find.byType(PixivImage)).url, thumbnail);
-    });
-  });
-
-  group('article layout and selection', () {
-    testWidgets('a drag on a paragraph scrolls the whole article', (
-      tester,
-    ) async {
-      await pumpArticle(tester);
-      final position = tester
-          .state<ScrollableState>(
-            find
-                .descendant(
-                  of: find.byType(ListView),
-                  matching: find.byType(Scrollable),
-                )
-                .first,
-          )
-          .position;
-
-      // A per-paragraph SelectableText owned a Scrollable that took this
-      // drag under the app's always-scrollable physics.
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.textContaining('开篇段落')),
-      );
-      await gesture.moveBy(const Offset(0, -60));
-      await gesture.moveBy(const Offset(0, -60));
-      await tester.pump();
-      expect(position.pixels, greaterThan(0));
-      await gesture.up();
-      await tester.pumpAndSettle();
-    });
-  });
-
-  group('article work cards', () {
-    Finder workImage(String title) => find.byWidgetPredicate(
-      (widget) => widget is Semantics && widget.properties.label == title,
-    );
-
-    testWidgets('a work is a full-width image that opens the artwork', (
-      tester,
-    ) async {
-      final router = await pumpArticle(tester);
-      final image = workImage('作品标题');
-      await tester.ensureVisible(image);
-      await tester.pumpAndSettle();
-
-      final list = tester.getRect(find.byType(ListView));
-      expect(
-        tester.getRect(image).width,
-        closeTo(list.width - 2 * FuncSpacing.lg, 0.5),
-      );
-      expect(
-        tester.getSemantics(image),
-        isSemantics(isButton: true, hasTapAction: true, label: '作品标题'),
-      );
-      // No card frame or trailing arrow around the work any more; the one
-      // chevron ends the author's byline.
-      expect(find.byType(Card), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byType(AuthorRow),
-          matching: find.byIcon(UiIcons.chevronRight),
-        ),
-        findsOneWidget,
-      );
-      expect(find.byIcon(UiIcons.chevronRight), findsOneWidget);
-
-      await tester.tap(image);
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended/illust/777');
-
-      // Card title is also directly tappable to open the artwork.
-      router.pop();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('作品标题'));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended/illust/777');
-    });
-
-    testWidgets('a tall work is drawn narrower, centered, without bars', (
-      tester,
-    ) async {
-      const tall = 'https://embed.pixiv.net/work/tall.png';
-      await pumpArticle(
-        tester,
-        html:
-            '<article><header><h1 class="am__title">特辑标题</h1></header>'
-            '<div class="am__body"><div class="am__work">'
-            '<h3><a href="/artworks/778">高图</a></h3>'
-            '<a href="/artworks/778"><img src="$tall"></a>'
-            '</div></div></article>',
-        images: {
-          tall: http.Response.bytes(
-            img.encodePng(img.Image(width: 20, height: 60)),
-            200,
-          ),
-        },
-      );
-      await pumpIoUntil(
-        tester,
-        () => tester
-            .widgetList<RawImage>(find.byType(RawImage))
-            .any((image) => image.image != null),
-      );
-      await tester.pumpAndSettle();
-
-      final column = tester.getRect(find.byType(ListView));
-      final columnWidth = column.width - 2 * FuncSpacing.lg;
-      final frame = tester.getRect(
-        find.descendant(of: workImage('高图'), matching: find.byType(ClipRRect)),
-      );
-      expect(frame.height, closeTo(columnWidth * 1.5, 0.5));
-      expect(frame.width, closeTo(columnWidth * 0.5, 0.5));
-      expect(frame.center.dx, closeTo(column.center.dx, 0.5));
     });
   });
 

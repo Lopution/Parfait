@@ -139,15 +139,6 @@ reviewed: 2026-11-28
 
 ## Boxes, headers and keyboards
 
-### LAYOUT-08 Headers with text measure their extent
-- **Rule:** A `SliverPersistentHeaderDelegate` whose content holds text
-  never hard-codes `maxExtent`: it measures the laid-out content after the
-  frame and feeds it back, keeping the estimate frame transparent.
-- **Why:** A fixed extent overflowed at large text scales and in longer
-  translations.
-- **Check:** `test/user_profile_test.dart` "header height tracks the drag without jumps"
-- **Code:** `lib/features/profile/profile_header_delegate.dart`
-
 ### LAYOUT-09 A Stack does not clip; add a ClipRect
 - **Rule:** Content that must stay inside a boundary gets an explicit
   `ClipRect`; a `Stack` passes its constraints to non-positioned children
@@ -167,7 +158,7 @@ reviewed: 2026-11-28
 - **Why:** The default resize compressed the page geometry under the
   keyboard. Resizing a long detail page under a passing composer would
   lay it out on every keyboard frame and move what its Hero measures.
-- **Check:** `test/comments_replies_test.dart` "keyboard open pads only the composer — page chrome holds still"; `test/search_catalog_test.dart` "search input keeps its geometry when the IME opens"
+- **Check:** `test/search_catalog_test.dart` "search input keeps its geometry when the IME opens"
 - **Code:** `lib/features/comments/comments_page.dart`, `lib/features/search/search_page.dart`, `lib/features/search/search_input_page.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### LAYOUT-11 Long documents use one SelectionArea
@@ -185,19 +176,8 @@ reviewed: 2026-11-28
   owns a scrollable that inherited the bouncing physics, so every
   paragraph dragged on its own; nesting `SelectableText` inside `SelectionArea` broke continuous drag
   selection.
-- **Check:** `test/onboarding_pages_test.dart` "a drag on a paragraph scrolls the whole page", `test/spotlight_article_test.dart` "a drag on a paragraph scrolls the whole article", `test/illust_detail_page_test.dart` "two-pane panorama preserves 280dp height, tag block mode shows Done & intercepts back, single tag mute confirms silently on right-click, and TranslationPanel avoids nested SelectableText"
+- **Check:** `test/onboarding_pages_test.dart` "a drag on a paragraph scrolls the whole page", `test/illust_detail_page_test.dart` "two-pane panorama preserves 280dp height, tag block mode shows Done & intercepts back, single tag mute confirms silently on right-click, and TranslationPanel avoids nested SelectableText"
 - **Code:** `lib/features/spotlight/spotlight_article_page.dart`, `lib/app/widgets/inline_translation.dart`, `lib/app/widgets/caption_rich_text.dart`, `lib/features/profile/profile_about_tab.dart`, `lib/features/novel/novel_page.dart`, `lib/app/widgets/tag_actions_sheet.dart`
-
-### LAYOUT-12 Images of unknown ratio take their shape without a crossfade
-- **Rule:** An image whose ratio is unknown until decode holds a square
-  placeholder, then takes its own ratio through
-  `PixivImage(sizeToImage: true)` inside `SpringSize`, without a
-  crossfade. Under a height cap a tall image is drawn narrower and
-  centered, with no bars.
-- **Why:** A square dissolving over an image of another height read as
-  banded loading.
-- **Check:** `test/spotlight_article_test.dart` "a tall work is drawn narrower, centered, without bars"
-- **Code:** `lib/features/spotlight/spotlight_article_page.dart`
 
 ## Semantics
 

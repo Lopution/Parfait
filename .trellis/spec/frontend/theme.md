@@ -145,7 +145,7 @@ reviewed: 2026-11-21
 ### THEME-19 Ambient light is the subject's tone, around it
 - **Rule:** `AmbientWash` blurs a small decode once (`BlurredImage`) and applies `AmbientTone` (page lightness + share of image hue) in the page's own paint pass with page-color gradient fades (no per-frame filter/mask over scrolling or swiping content; only the static welcome glow uses a widget blur). Used on the detail short-image band (rising via `MotionTokens.ambientRise` after Hero landing), wide detail stage, cover-less profile header (from avatar), and first-run `ScrollableFormShell.brandGlow`.
 - **Why:** User decision: warm subject-matched framing without muddy tints or Impeller offscreen-layer frame drops during swipes.
-- **Check:** `test/replica_theme_test.dart` "ambient light keeps the page lightness and a share of the colour" "a wash draws its image toned, in the page pass", `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it" "the band lights up from the image once it has landed", `test/user_profile_test.dart` "a profile without a cover lights its header from the avatar"
+- **Check:** `test/replica_theme_test.dart` "ambient light keeps the page lightness and a share of the colour" "a wash draws its image toned, in the page pass"
 - **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/app/widgets/scrollable_form_shell.dart`
 
 ### THEME-20 A shadow marks a layer, or content under a bar

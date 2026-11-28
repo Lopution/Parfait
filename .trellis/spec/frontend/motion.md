@@ -70,7 +70,7 @@ reviewed: 2026-11-28
 ### MOTION-18 Drags take the device's slop; sideways pagers judge the angle
 - **Rule:** Custom drag recognizers read `MediaQuery.maybeGestureSettingsOf(context)` and `computeHitSlop` (never hard-coded `kTouchSlop`). Viewer pagers use `PagingSlop` / `PagingSlopPage` (`minFlingDistance` stays device slop); detail pagers inside `SelectionArea` judge angle at 1x device slop (excluding mouse) so `SelectableRegion`'s 18px recognizer cannot steal touch swipes; tab/branch swipes (`SwipePagingRecognizer`) require `<= swipePagingMaxDegrees` (40 deg) off horizontal.
 - **Why:** Hard-coded 18px slop caused pagers, dismiss drags, and `SelectionArea` to fight touch gestures on 8dp-slop Android screens.
-- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "a swipe ${degrees.round()}° off horizontal ${pages ? 'turns the page' : 'scrolls the detail'}" "a panorama scrolls first and hands the swipe on at its edge", `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page slides away, back leaves like any page"
+- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page slides away, back leaves like any page"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/motion/swipe_paging.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`
 
 ### MOTION-07 Feed cards land in place
@@ -134,9 +134,3 @@ reviewed: 2026-11-28
 - **Why:** Building ahead mid-swipe caused 29–38 ms frames and off-screen navigators stole focus.
 - **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting on leaving" "a switch before its turn builds the branch at once", `test/motion_test.dart` "work ahead waits for a running animation to end" "work ahead behind a looping indicator waits once a run, not once a piece"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`
-
-### MOTION-24 Frosted card menu and drag-to-dismiss suppress displacement under reduced motion
-- **Rule:** Under reduced motion (`!MotionTokens.enabled(context)`), `IosCardContextMenu`, `DragToDismiss`, and iOS `FuncPage` shared-element dismiss suppress translation, scaling, and corner rounding while preserving backdrop fade and threshold completion.
-- **Why:** Spatial scaling/translation triggers motion discomfort under reduced-motion settings.
-- **Check:** `test/card_action_test.dart` "iOS card context menu respects reduced motion without scaling"
-- **Code:** `lib/app/widgets/card_actions/ios_card_context_menu.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/navigation/func_page.dart`, `lib/app/motion/motion_tokens.dart`

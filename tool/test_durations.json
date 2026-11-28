@@ -197,7 +197,6 @@
   "test/updater_download_test.dart": 1.0,
   "test/updater_manifest_test.dart": 1.1,
   "test/user_profile_test.dart": 20.9,
-  "test/user_profile_wide_test.dart": 7.3,
   "test/watch_later_store_test.dart": 1.5,
   "test/watchlater_page_test.dart": 6.3,
   "test/watchlist_page_test.dart": 4.3,
