@@ -347,6 +347,7 @@ void main() {
 
       final semantics = tester.ensureSemantics();
       try {
+        expect(find.bySemanticsLabel(RegExp('漢字')), findsWidgets);
         expect(find.bySemanticsLabel(RegExp('かんじ')), findsNothing);
       } finally {
         semantics.dispose();
