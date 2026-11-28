@@ -305,7 +305,7 @@ def _run_linux_flows(
     return results
 
 
-def _ensure_android_app_focus(serial: str) -> str:
+def _ensure_android_app_focus(serial: str, *, max_attempts: int = 12) -> str:
     """Dismiss keyguard/system dialogs (e.g., ANR from heavy build) and focus MainActivity."""
     _adb(["shell", "svc", "power", "stayon", "true"], serial=serial, check=False)
     _adb(["shell", "input", "keyevent", "224"], serial=serial, check=False)
@@ -317,7 +317,7 @@ def _ensure_android_app_focus(serial: str) -> str:
         check=False,
     )
     focus_line = ""
-    for _ in range(4):
+    for _ in range(max_attempts):
         out = _adb(["shell", "dumpsys", "window"], serial=serial, check=False).stdout
         matches = [ln.strip() for ln in out.splitlines() if "mCurrentFocus=" in ln]
         focus_line = matches[-1] if matches else ""
@@ -326,14 +326,29 @@ def _ensure_android_app_focus(serial: str) -> str:
         if "Application Not Responding" in focus_line or "Not Responding" in focus_line:
             # Dismiss ANR dialog ("Wait" / "Close app") and re-focus activity.
             _adb(["shell", "input", "keyevent", "4"], serial=serial, check=False)
-            time.sleep(0.3)
+            time.sleep(0.4)
         elif "NotificationShade" in focus_line or "Keyguard" in focus_line:
             _adb(["shell", "wm", "dismiss-keyguard"], serial=serial, check=False)
             _adb(["shell", "input", "keyevent", "82"], serial=serial, check=False)
-            time.sleep(0.3)
-        _adb(["shell", "am", "start", "-n", ANDROID_ACTIVITY], serial=serial, check=False)
-        time.sleep(0.5)
+            time.sleep(0.4)
+        _adb(["shell", "am", "start", "-W", "-n", ANDROID_ACTIVITY], serial=serial, timeout=20.0, check=False)
+        time.sleep(0.8)
     return focus_line
+
+
+def _dump_android_diagnostics(serial: str) -> None:
+    """Print concise process/window/logcat state when an AVD startup command fails."""
+    pid = _adb(["shell", "pidof", ANDROID_PKG], serial=serial, check=False).stdout.strip()
+    win = _adb(["shell", "dumpsys", "window"], serial=serial, check=False).stdout
+    focus = [ln.strip() for ln in win.splitlines() if "mCurrentFocus=" in ln or "mFocusedApp=" in ln][-4:]
+    logcat = _adb(
+        ["logcat", "-d", "-t", "40", "-s", "flutter:V", "AndroidRuntime:E", "ActivityManager:W"],
+        serial=serial,
+        check=False,
+    ).stdout
+    print(f"Android AVD diagnostics: pid={pid!r} focus={focus}", flush=True)
+    if logcat.strip():
+        print(f"--- Android logcat (tail) ---\n{logcat[-2000:]}", flush=True)
 
 
 def _run_android_flows(
@@ -355,8 +370,12 @@ def _run_android_flows(
         )
         client_id = _launch_app(wb, serial, clear_data=True)
         focus_info = _ensure_android_app_focus(serial)
-        print(f"Android AVD focus after launch: {focus_info}")
-        wb.send_command(client_id, "loopbackSignIn", {}, timeout=15.0)
+        print(f"Android AVD focus after launch: {focus_info}", flush=True)
+        try:
+            wb.send_command(client_id, "loopbackSignIn", {}, timeout=30.0)
+        except Exception:
+            _dump_android_diagnostics(serial)
+            raise
         time.sleep(0.7)
 
         for flow in flows:
