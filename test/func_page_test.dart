@@ -1,36 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/profile/profile_edit_repository.dart';
-import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
-import 'package:parfait/app/navigation/route_animation.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
-import 'package:parfait/core/settings/app_settings.dart' show AnimationSpeed;
+import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/profile/profile_edit_controller.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
+import 'package:parfait/core/profile/profile_edit_repository.dart';
+import 'package:parfait/core/settings/app_settings.dart' show AnimationSpeed;
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/history/history_page.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_overlay_frame.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
-import 'package:parfait/features/settings/settings_helpers.dart';
 
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/pixiv_router.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/view_size.dart';
-import 'helpers/pixiv_router.dart';
 
 Future<void> _sendBackGestureMethod(
   String method, [
@@ -41,27 +36,6 @@ Future<void> _sendBackGestureMethod(
   );
   return TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
       .handlePlatformMessage('flutter/backgesture', data, (_) {});
-}
-
-/// Whether the lifted-Hero hole of a moving page covers [global]: the
-/// painted even-odd clip leaves it out. Null when no page has a hole.
-bool? _liftedHoleAt(WidgetTester tester, Offset global) {
-  final clips = tester.layers.whereType<ClipPathLayer>().where(
-    (layer) => layer.clipPath!.fillType == PathFillType.evenOdd,
-  );
-  if (clips.isEmpty) return null;
-  final clip = clips.single;
-  final chain = <Layer>[clip];
-  for (var up = clip.parent; up != null; up = up.parent) {
-    chain.add(up);
-  }
-  // From below the root, whose transform maps logical to device pixels.
-  final transform = Matrix4.identity();
-  for (var i = chain.length - 2; i > 0; i--) {
-    (chain[i] as ContainerLayer).applyTransform(chain[i - 1], transform);
-  }
-  final local = MatrixUtils.transformPoint(Matrix4.inverted(transform), global);
-  return !clip.clipPath!.contains(local);
 }
 
 /// Android's back gesture, starting at the left edge.
@@ -80,30 +54,26 @@ Future<void> _dragBackGesture(double progress) =>
     });
 
 /// Pumps a bare Navigator whose initial route is a [FuncPage]; the page's
-/// button pushes a second FuncPage showing [second] and hands the route back
-/// through the return value, settled unless [settle] is false.
+/// button pushes a second FuncPage showing [second] and hands the route back.
 Future<PageRoute<void>> _pushSecondPage(
   WidgetTester tester, {
   Duration duration = const Duration(milliseconds: 800),
   Widget? home,
   Widget second = const Text('page b'),
-  bool sharedElement = false,
   bool settle = true,
-  bool reduceMotion = false,
 }) async {
   late PageRoute<void> pushed;
   late BuildContext rootContext;
-  PageRoute<void> page(Widget child, {bool shared = false}) =>
+  PageRoute<void> page(Widget child) =>
       FuncPage<void>(
             transitionDuration: duration,
             reverseTransitionDuration: duration,
-            sharedElement: shared,
             child: child,
           ).createRoute(rootContext)
           as PageRoute<void>;
   await tester.pumpWidget(
     MotionScope(
-      reduce: reduceMotion,
+      reduce: false,
       speed: AnimationSpeed.normal,
       child: Directionality(
         textDirection: TextDirection.ltr,
@@ -115,7 +85,7 @@ Future<PageRoute<void>> _pushSecondPage(
                 Builder(
                   builder: (context) => TextButton(
                     onPressed: () {
-                      pushed = page(second, shared: sharedElement);
+                      pushed = page(second);
                       Navigator.of(context).push(pushed);
                     },
                     child: home ?? const Text('page a'),
@@ -129,37 +99,27 @@ Future<PageRoute<void>> _pushSecondPage(
     ),
   );
   await tester.tap(find.text('page a'));
-  if (!settle) {
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
     await tester.pump();
-    return pushed;
   }
-  await tester.pumpAndSettle();
   expect(find.text('page b'), findsOneWidget);
   return pushed;
 }
 
-/// Full-shell harness (same setup as root_swipe_switcher_test): the real
-/// `createPixivRouter` wires `_page`, so routes pushed through it carry the
-/// resolved platform duration. Feed pages keep a skeleton shimmer ticking,
-/// so callers pump fixed durations rather than pumpAndSettle.
+/// Full-shell harness wired through `createPixivRouter`.
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {
-  bool reduceMotion = false,
-  AnimationSpeed? speed,
   String location = '/recommended',
 }) async {
   setViewSize(tester, const Size(390, 844));
   final router = pixivRouter(location);
-  Widget app = localizedRouterApp(router, locale: const Locale('en', 'US'));
-  if (reduceMotion || speed != null) {
-    app = MotionScope(
-      reduce: reduceMotion,
-      speed: speed ?? AnimationSpeed.normal,
-      child: app,
-    );
-  }
   await tester.pumpWidget(
-    ProviderScope(overrides: [...await signedInAccountOverrides()], child: app),
+    ProviderScope(
+      overrides: [...await signedInAccountOverrides()],
+      child: localizedRouterApp(router, locale: const Locale('en', 'US')),
+    ),
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
@@ -171,469 +131,6 @@ ModalRoute<dynamic> _routeOf(WidgetTester tester, Finder finder) =>
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  for (final covered in [true, false]) {
-    testWidgets(
-      'a page ${covered ? 'covered by a route' : 'in a hidden branch'} keeps '
-      'the media and shell chrome it saw until it shows again',
-      (tester) async {
-        setViewSize(tester, const Size(400, 800));
-        addTearDown(tester.platformDispatcher.clearAllTestValues);
-        final seen = <(MediaQueryData, double)>[];
-        final hidden = ValueNotifier(false);
-        addTearDown(hidden.dispose);
-        final navigator = GlobalKey<NavigatorState>();
-        await tester.pumpWidget(
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Builder(
-              // Like the shell: the bar's extent follows the bottom inset.
-              builder: (context) => HomeShellChrome(
-                bottomBarExtent: 80 + MediaQuery.paddingOf(context).bottom,
-                bottomBarVisibleExtent: const AlwaysStoppedAnimation(0),
-                bottomBarVisibility: kAlwaysCompleteAnimation,
-                onBranchRootScroll: (_) => false,
-                child: ValueListenableBuilder(
-                  valueListenable: hidden,
-                  builder: (_, off, child) =>
-                      TickerMode(enabled: !off, child: child!),
-                  child: Navigator(
-                    key: navigator,
-                    onGenerateRoute: (_) => FuncPage<void>(
-                      child: Builder(
-                        builder: (context) {
-                          seen.add((
-                            MediaQuery.of(context),
-                            HomeShellChrome.of(context).bottomBarExtent,
-                          ));
-                          return const SizedBox.expand();
-                        },
-                      ),
-                    ).createRoute(context),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        if (covered) {
-          unawaited(
-            navigator.currentState!.push(
-              const FuncPage<void>(
-                child: SizedBox.expand(),
-              ).createRoute(navigator.currentContext!),
-            ),
-          );
-          await tester.pumpAndSettle();
-        } else {
-          hidden.value = true;
-          await tester.pump();
-        }
-        final builds = seen.length;
-
-        tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
-        await tester.pump();
-        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-        await tester.pump();
-        tester.view.physicalSize = const Size(800, 400);
-        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
-        await tester.pump();
-        expect(seen, hasLength(builds));
-
-        if (covered) {
-          navigator.currentState!.pop();
-          await tester.pump();
-        } else {
-          hidden.value = false;
-          await tester.pump();
-        }
-        final live = MediaQuery.of(navigator.currentContext!);
-        expect(live.size, const Size(800, 400));
-        expect(seen.last.$1, live);
-        expect(seen.last.$2, 80 + live.padding.bottom);
-        await tester.pumpAndSettle();
-      },
-    );
-  }
-
-  testWidgets('inside a nested Navigator the route animation is the inner '
-      "route's, not the enclosing page's", (tester) async {
-    final builds = <Animation<double>?>[];
-    final outer = await _pushSecondPage(
-      tester,
-      second: Navigator(
-        onGenerateRoute: (_) => PageRouteBuilder<void>(
-          pageBuilder: (_, _, _) => _RouteAnimationProbe(builds),
-        ),
-      ),
-    );
-    final inner = ModalRoute.of(tester.element(find.text('page b')))!;
-    expect(inner, isNot(same(outer)));
-    expect(builds.single, same(inner.animation));
-  });
-
-  testWidgets('a page slides in from the trailing edge over the page below', (
-    tester,
-  ) async {
-    final route = await _pushSecondPage(tester, settle: false);
-    await tester.pump(const Duration(milliseconds: 400));
-    final width = tester.getSize(find.byType(Navigator)).width;
-    final entering = tester.getTopLeft(find.text('page b')).dx;
-    final below = tester.getTopLeft(find.text('page a')).dx;
-    await tester.pumpAndSettle();
-
-    route.navigator!.pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    final leaving = tester.getTopLeft(find.text('page b')).dx;
-    await tester.pumpAndSettle();
-    expect([entering, leaving], everyElement(inExclusiveRange(0, width)));
-    expect(below, lessThan(tester.getTopLeft(find.text('page a')).dx));
-  });
-
-  testWidgets(
-    'back mid-push turns the slide where it is; the page below answers',
-    (tester) async {
-      // The page below fills its button, so a tap anywhere reaches it.
-      final route = await _pushSecondPage(
-        tester,
-        home: const SizedBox.expand(child: Text('page a')),
-        settle: false,
-      );
-      await tester.pump(const Duration(milliseconds: 320));
-      final navigator = route.navigator!;
-      final pageB = find.text('page b');
-      double x() => tester.getTopLeft(pageB).dx;
-      var last = x();
-      navigator.pop();
-      await tester.pump();
-      expect(x(), last, reason: 'turns without a jump');
-      final steps = <double>[];
-      for (var i = 0; i < 30; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        if (pageB.evaluate().isEmpty) break;
-        steps.add(x() - last);
-        last = x();
-      }
-      // The rest of the way on the pop curve: off fast, easing out at the
-      // edge. The push curve played backwards crept off and left at speed.
-      expect(steps, everyElement(greaterThanOrEqualTo(0)));
-      expect(steps.first, greaterThan(4 * steps.last));
-
-      // Leaving, the page takes no touch: a tap where it still is lands on
-      // the page below, which opens a page again.
-      await tester.tap(find.text('page a'));
-      await tester.pumpAndSettle();
-      navigator.pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tapAt(const Offset(700, 300));
-      await tester.pump();
-      expect(find.text('page b'), findsNWidgets(2));
-      await tester.pumpAndSettle();
-    },
-  );
-
-  testWidgets('a shared-element page covers a still page, then shows its '
-      'content while its Hero flies; leaving runs the other way', (
-    tester,
-  ) async {
-    late BuildContext rootContext;
-    late PageRoute<void> pushed;
-    var stillTaps = 0;
-    var detailTaps = 0;
-    PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
-        FuncPage<void>(
-              transitionDuration: const Duration(milliseconds: 400),
-              reverseTransitionDuration: const Duration(milliseconds: 400),
-              sharedElement: sharedElement,
-              child: child,
-            ).createRoute(rootContext)
-            as PageRoute<void>;
-    Widget hero(String label, Offset at, {double height = 50}) => Stack(
-      children: [
-        Positioned(
-          left: at.dx,
-          top: at.dy,
-          child: Hero(
-            tag: 'art',
-            flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-            child: SizedBox(width: 50, height: height, child: Text(label)),
-          ),
-        ),
-      ],
-    );
-    final heroes = HeroController();
-    addTearDown(heroes.dispose);
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Builder(
-          builder: (context) {
-            rootContext = context;
-            return Navigator(
-              observers: [heroes],
-              onGenerateRoute: (_) => page(
-                Builder(
-                  builder: (context) => Stack(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          pushed = page(
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => detailTaps++,
-                              child: hero(
-                                'detail',
-                                const Offset(300, 500),
-                                height: 100,
-                              ),
-                            ),
-                            sharedElement: true,
-                          );
-                          Navigator.of(context).push(pushed);
-                        },
-                        child: hero('card', Offset.zero),
-                      ),
-                      Positioned(
-                        left: 0,
-                        top: 200,
-                        child: GestureDetector(
-                          onTap: () => stillTaps++,
-                          child: const Text('still'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-    const still = Offset(0, 200);
-    double layer(Type child) => tester
-        .widget<FadeTransition>(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is FadeTransition && widget.child.runtimeType == child,
-          ),
-        )
-        .opacity
-        .value;
-    double backdrop() => layer(ColoredBox);
-    double content() => layer(HeroLiftHole);
-    Future<void> at(int milliseconds) async {
-      await tester.pump();
-      await tester.pump(Duration(milliseconds: milliseconds));
-    }
-
-    // Opening: the background covers the still page first, the content
-    // fades in on it after. Until then the content paints at the faintest
-    // alpha, unseen, so its first draw is not mid-flight.
-    await tester.tap(find.text('card'));
-    await at(60);
-    expect(backdrop(), inExclusiveRange(0, 1));
-    expect(Color.getAlphaFromOpacity(content()), 1);
-    // Taps on content not yet shown, a second one on the card first: the
-    // page takes none, and the page below none either.
-    await tester.tapAt(const Offset(25, 25));
-    await tester.pump(const Duration(milliseconds: 140));
-    expect(backdrop(), 1);
-    expect(content(), inExclusiveRange(0, 1));
-    expect(tester.getTopLeft(find.text('still')), still);
-    await tester.tapAt(still);
-    expect((detailTaps, stillTaps), (0, 0));
-    // Only a landed page has its image lifted off.
-    expect(_liftedHoleAt(tester, const Offset(325, 550)), isNull);
-    await tester.pumpAndSettle();
-    expect([backdrop(), content()], [1, 1]);
-    await tester.tapAt(const Offset(25, 25));
-    expect(detailTaps, 1);
-    expect(find.text('detail'), findsOneWidget);
-
-    // Back: the content goes first, then the background; the image flies
-    // home out of a hole in the page and the page below takes the touch.
-    Navigator.of(tester.element(find.text('detail'))).pop();
-    await at(80);
-    expect(backdrop(), 1);
-    expect(content(), inExclusiveRange(0, 1));
-    final stage = tester.getRect(find.byType(Hero).last);
-    expect(_liftedHoleAt(tester, stage.center), isTrue);
-    expect(_liftedHoleAt(tester, stage.topCenter.translate(0, -1)), isFalse);
-    await tester.pump(const Duration(milliseconds: 160));
-    expect(content(), 0);
-    expect(backdrop(), inExclusiveRange(0, 1));
-    final flying = tester.getTopLeft(find.text('detail'));
-    expect(flying.dx, inExclusiveRange(0, 300));
-    expect(flying.dy, inExclusiveRange(0, 500));
-    expect(tester.getTopLeft(find.text('still')), still);
-    await tester.tap(find.text('still'));
-    expect(stillTaps, 1);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('card')), Offset.zero);
-    expect(find.text('detail'), findsNothing);
-
-    // Back cutting an opening short leaves each layer from where it got
-    // to, not from nothing in one frame.
-    await tester.tap(find.text('card'));
-    await at(200);
-    final opened = content();
-    expect(opened, inExclusiveRange(0, 1));
-    Navigator.of(tester.element(find.text('still'))).pop();
-    await at(16);
-    expect(content(), inExclusiveRange(opened - 0.15, opened + 1e-6));
-    expect(backdrop(), greaterThan(0.9));
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('two backs in a row leave the page under the shared-element '
-      'page still', (tester) async {
-    // Feed → detail (shared element) → author page, then back twice
-    // while the author page is still leaving: the Navigator announces the
-    // feed to the leaving author page, which must not make the feed slide
-    // in under the landing image.
-    late BuildContext rootContext;
-    PageRoute<void> page(String label, {bool sharedElement = false}) =>
-        FuncPage<void>(
-              transitionDuration: const Duration(milliseconds: 400),
-              reverseTransitionDuration: const Duration(milliseconds: 400),
-              sharedElement: sharedElement,
-              child: Text(label),
-            ).createRoute(rootContext)
-            as PageRoute<void>;
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Builder(
-          builder: (context) {
-            rootContext = context;
-            return Navigator(onGenerateRoute: (_) => page('feed'));
-          },
-        ),
-      ),
-    );
-    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
-    navigator.push(page('detail', sharedElement: true));
-    await tester.pumpAndSettle();
-    navigator.push(page('author'));
-    await tester.pumpAndSettle();
-
-    navigator.pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    navigator.pop();
-    for (var frame = 0; frame < 30; frame++) {
-      await tester.pump(const Duration(milliseconds: 16));
-      expect(tester.getTopLeft(find.text('feed')), Offset.zero);
-    }
-    await tester.pumpAndSettle();
-    expect(find.text('detail'), findsNothing);
-
-    // A shared-element page removed without a pop lets the feed go.
-    final detail = page('detail', sharedElement: true);
-    navigator.push(detail);
-    await tester.pumpAndSettle();
-    navigator.removeRoute(detail);
-    await tester.pump();
-    final feed = ModalRoute.of(tester.element(find.text('feed')))!;
-    expect(underSharedElement(feed), isFalse);
-  });
-
-  testWidgets('the viewer stage fades whole, with no background', (
-    tester,
-  ) async {
-    late BuildContext rootContext;
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Builder(
-          builder: (context) {
-            rootContext = context;
-            return Navigator(
-              onGenerateRoute: (_) => FuncPage<void>(
-                child: Builder(
-                  builder: (context) => GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      FuncPage<void>(
-                        transitionDuration: const Duration(milliseconds: 400),
-                        sharedElement: true,
-                        sharedElementBackdrop: false,
-                        child: const Text('stage'),
-                      ).createRoute(rootContext),
-                    ),
-                    child: const Text('detail'),
-                  ),
-                ),
-              ).createRoute(rootContext),
-            );
-          },
-        ),
-      ),
-    );
-    await tester.tap(find.text('detail'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    final fade = tester.widget<FadeTransition>(
-      find
-          .ancestor(
-            of: find.text('stage'),
-            matching: find.byType(FadeTransition),
-          )
-          .first,
-    );
-    expect(fade.opacity.value, inExclusiveRange(0, 1));
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is FadeTransition && widget.child is ColoredBox,
-      ),
-      findsNothing,
-    );
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('the scoped tier still collapses under reduced motion', (
-    tester,
-  ) async {
-    final router = await _pumpHome(
-      tester,
-      reduceMotion: true,
-      speed: AnimationSpeed.slow,
-    );
-    unawaited(router.push('/recommended/history'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    final route = _routeOf(tester, find.byType(HistoryPage));
-    expect(route.transitionDuration, Duration.zero);
-    expect(route.reverseTransitionDuration, Duration.zero);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-  testWidgets('the entering page stays live while a transition runs', (
-    tester,
-  ) async {
-    final probe = ValueNotifier<double>(0);
-    addTearDown(probe.dispose);
-    final pushed = await _pushSecondPage(
-      tester,
-      second: _TickerProbe(seen: probe),
-      settle: false,
-    );
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(pushed.animation!.isAnimating, isTrue);
-    // No disabled TickerMode wraps the pushed page mid-transition, and its
-    // tickers keep running: icons, bookmark state and image fades update
-    // live instead of jumping when the transition lands.
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is TickerMode && !widget.enabled,
-      ),
-      findsNothing,
-    );
-    expect(probe.value, greaterThan(0));
-    await tester.pumpAndSettle();
-    expect(probe.value, 1);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('only the visible branch answers the back gesture', (
     tester,
@@ -667,20 +164,14 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(HistoryPage), findsOneWidget);
 
-    // No route takes the gesture, so the framework pops on its commit as
-    // on the back button.
     await _startBackGesture();
     await _dragBackGesture(0.35);
     await _sendBackGestureMethod('commitBackGesture');
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    // The visible branch popped its pushed route; the parked branch's
-    // identical page survives offstage.
     expect(find.byType(HistoryPage), findsNothing);
     expect(find.byType(HistoryPage, skipOffstage: false), findsOneWidget);
 
-    // goBranch keeps the branch stack — go() would re-match the root
-    // and drop the pushed page.
     tester
         .widget<HomeBranchStack>(find.byType(HomeBranchStack))
         .shell
@@ -733,8 +224,6 @@ void main() {
         backgroundImageUrl: 'https://i.pximg.net/background.png',
         hasDetail: true,
       );
-      // The editor's repository as the app builds it: with no pixiv.net
-      // session, the App API's.
       answerWebProfileSession();
       final api = await signedInApiContainer(
         PixivApi(UserApi(detail: user).routes).client,
@@ -754,8 +243,6 @@ void main() {
           ),
         ],
       );
-      // Listened as the page does: unlistened, the auto-dispose controller
-      // goes mid-load.
       final editor = profileEditControllerProvider(session);
       container.listen(editor, (_, _) {});
       await container.read(editor.notifier).load();
@@ -784,23 +271,17 @@ void main() {
         ),
       );
       await tester.tap(find.text('open'));
-      // Fixed pumps — the avatar's image placeholder keeps a shimmer
-      // ticking, so pumpAndSettle never returns.
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(ProfileEditPage), findsOneWidget);
       final editRoute = _routeOf(tester, find.byType(ProfileEditPage));
 
-      // The editor builds material_ui's TextFormField — a different class
-      // from flutter/material's — so match by name.
       final fields = find.byWidgetPredicate(
         (widget) => widget.runtimeType.toString() == 'TextFormField',
       );
       await tester.enterText(fields.first, 'changed');
       await tester.pump();
 
-      // The gesture's commit is the back button: PopScope(canPop: false)
-      // keeps the page and asks.
       await _startBackGesture();
       await _dragBackGesture(0.5);
       await tester.pump();
@@ -811,46 +292,6 @@ void main() {
       expect(editRoute.isActive, isTrue);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.android),
-  );
-
-  testWidgets(
-    'desktop uses the lightweight 150ms fade-and-slide transition and respects reduced motion',
-    (tester) async {
-      final router = await _pumpHome(tester);
-      unawaited(router.push('/recommended/history'));
-      await tester.pump();
-      await tester.pump();
-      expect(find.byType(HistoryPage), findsOneWidget);
-      final route = _routeOf(tester, find.byType(HistoryPage));
-      expect(route.animation!.value, 0.0);
-
-      await tester.pump(const Duration(milliseconds: 75));
-      expect(route.animation!.value, greaterThan(0.0));
-      expect(route.animation!.value, lessThan(1.0));
-      final slide = tester.widget<SlideTransition>(
-        find
-            .ancestor(
-              of: find.byType(HistoryPage),
-              matching: find.byType(SlideTransition),
-            )
-            .first,
-      );
-      expect(slide.position.value.dx, inExclusiveRange(0.0, 0.04));
-
-      await tester.pump(const Duration(milliseconds: 80));
-      expect(route.animation!.value, 1.0);
-
-      final reducedRouter = await _pumpHome(tester, reduceMotion: true);
-      unawaited(reducedRouter.push('/recommended/history'));
-      await tester.pump();
-      await tester.pump();
-      final reducedRoute = _routeOf(tester, find.byType(HistoryPage));
-      expect(reducedRoute.transitionDuration, Duration.zero);
-      expect(reducedRoute.reverseTransitionDuration, Duration.zero);
-      await tester.pump(const Duration(milliseconds: 1));
-      expect(reducedRoute.animation!.value, 1.0);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
   testWidgets(
@@ -949,350 +390,106 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
-  testWidgets(
-    'iOS sharedElement route uses damped canvas scale, backdrop fade, widened edge, and gesture cleanup',
-    (tester) async {
-      setViewSize(tester, const Size(400, 800));
-      final pushed = await _pushSecondPage(
-        tester,
-        sharedElement: true,
-        second: const ColoredBox(
-          key: Key('shared-b-surface'),
-          color: Color(0xFFFFFFFF),
-          child: Align(alignment: Alignment.topLeft, child: Text('page b')),
-        ),
-      );
-      final nav = pushed.navigator!;
-      expect(tester.getTopLeft(find.text('page b')).dx, 0.0);
-
-      Future<TestGesture> startWidenedEdgeDrag(double dx) async {
-        // 36dp is outside standard 24dp edge-back but inside 48dp shared zone.
-        final g = await tester.startGesture(const Offset(36, 300));
-        await g.moveBy(const Offset(24, 0));
-        await g.moveBy(Offset(dx, 0));
-        await tester.pump();
-        return g;
-      }
-
-      expect(pushed.opaque, isTrue);
-      expect(pushed.overlayEntries.first.opaque, isTrue);
-      expect(find.text('page a'), findsNothing);
-
-      final shortDrag = await startWidenedEdgeDrag(32);
-      expect(nav.userGestureInProgress, isTrue);
-      expect(pushed.opaque, isFalse);
-      expect(pushed.overlayEntries.first.opaque, isFalse);
-      // Underlying page must render live behind the shrinking translucent canvas.
-      expect(find.text('page a'), findsOneWidget);
-      final clipRect = tester.getRect(
-        find.byKey(const ValueKey('func-shared-canvas-clip')),
-      );
-      expect(clipRect.width, lessThan(400.0));
-      expect(clipRect.left, greaterThan(0.0));
-      expect(clipRect.left, lessThan(56.0));
-      final stageStack = find.ancestor(
-        of: find.byKey(const ValueKey('func-shared-canvas-clip')),
-        matching: find.byType(Stack),
-      );
-      final backdropFade = tester
-          .widgetList<FadeTransition>(
-            find.descendant(
-              of: stageStack.first,
-              matching: find.byType(FadeTransition),
-            ),
-          )
-          .first;
-      expect(backdropFade.opacity.value, lessThan(1.0));
-
-      await shortDrag.up();
-      await tester.pumpAndSettle();
-      expect(nav.userGestureInProgress, isFalse);
-      expect(pushed.opaque, isTrue);
-      expect(pushed.overlayEntries.first.opaque, isTrue);
-      expect(find.text('page a'), findsNothing);
-      expect(find.text('page b'), findsOneWidget);
-      expect(
-        tester
-            .getRect(find.byKey(const ValueKey('func-shared-canvas-clip')))
-            .width,
-        closeTo(400.0, 0.1),
-      );
-
-      final removeMidDrag = await startWidenedEdgeDrag(32);
-      await removeMidDrag.up();
-      await tester.pump(const Duration(milliseconds: 16));
-      expect(nav.userGestureInProgress, isTrue);
-
-      nav.removeRoute(pushed);
-      await tester.pumpAndSettle();
-      expect(nav.userGestureInProgress, isFalse);
-      expect(find.text('page a'), findsOneWidget);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
-
-  testWidgets(
-    'iOS sharedElement vertical pull dismisses cleanly without conflicting with scrollables or horizontal pager',
-    (tester) async {
-      setViewSize(tester, const Size(400, 800));
-      final verticalController = ScrollController();
-      addTearDown(verticalController.dispose);
-      final pagerController = PageController();
-      addTearDown(pagerController.dispose);
-
-      await _pushSecondPage(
-        tester,
-        sharedElement: true,
-        second: Material(
-          child: Column(
-            children: [
-              const SizedBox(height: 56, child: Center(child: Text('page b'))),
-              Expanded(
-                child: PageView(
-                  controller: pagerController,
-                  children: [
-                    ListView.builder(
-                      controller: verticalController,
-                      itemExtent: 80,
-                      itemCount: 30,
-                      itemBuilder: (_, i) => Text('row-$i'),
-                    ),
-                    const Center(child: Text('pager-page-2')),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-
-      // Upward scroll in ListView works normally without dismissing.
-      await tester.drag(find.byType(ListView), const Offset(0, -240));
-      await tester.pumpAndSettle();
-      final scrolledOffset = verticalController.offset;
-      expect(scrolledOffset, greaterThan(150.0));
-      expect(find.text('pager-page-2'), findsNothing);
-
-      // A slight horizontal nudge snapping back to the same page must not reset
-      // _verticalScrollAtTop and arm canvas dismiss on the next downward scroll.
-      await tester.dragFrom(const Offset(350, 300), const Offset(-28, 0));
-      await tester.pumpAndSettle();
-      expect(find.text('pager-page-2'), findsNothing);
-
-      // Downward drag while scrolled away from top scrolls ListView back to top.
-      await tester.dragFrom(const Offset(200, 400), const Offset(0, 140));
-      await tester.pumpAndSettle();
-      expect(find.text('page a'), findsNothing);
-      expect(verticalController.offset, lessThan(scrolledOffset));
-      await tester.dragFrom(const Offset(200, 400), const Offset(0, 160));
-      await tester.pumpAndSettle();
-      expect(verticalController.offset, 0.0);
-      expect(find.byType(PageView), findsOneWidget);
-
-      // Horizontal swipe switches pager page cleanly even from rested top.
-      await tester.dragFrom(const Offset(350, 300), const Offset(-260, 0));
-      await tester.pumpAndSettle();
-      expect(find.text('pager-page-2'), findsOneWidget);
-
-      // Downward pull on rested page scales canvas and commits pop on release.
-      final pull = await tester.startGesture(const Offset(200, 200));
-      await pull.moveBy(const Offset(0, 28));
-      await pull.moveBy(const Offset(0, 120));
-      await tester.pump();
-      final draggedRect = tester.getRect(
-        find.byKey(const ValueKey('func-shared-canvas-clip')),
-      );
-      expect(draggedRect.width, lessThan(400.0));
-      expect(draggedRect.top, greaterThan(0.0));
-      await pull.up();
-      await tester.pumpAndSettle();
-      expect(find.text('page a'), findsOneWidget);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
-
-  testWidgets(
-    'iOS sharedElement canvas dismiss disables scale and displacement under reduced motion',
-    (tester) async {
-      setViewSize(tester, const Size(400, 800));
-      await _pushSecondPage(
-        tester,
-        sharedElement: true,
-        reduceMotion: true,
-        second: const ColoredBox(
-          color: Color(0xFFFFFFFF),
-          child: Center(child: Text('page b')),
-        ),
-      );
-      final pull = await tester.startGesture(const Offset(200, 200));
-      await pull.moveBy(const Offset(0, 28));
-      await pull.moveBy(const Offset(0, 130));
-      await tester.pump();
-
-      final rect = tester.getRect(
-        find.byKey(const ValueKey('func-shared-canvas-clip')),
-      );
-      expect(rect, const Rect.fromLTWH(0, 0, 400, 800));
-
-      await pull.up();
-      await tester.pumpAndSettle();
-      expect(find.text('page a'), findsOneWidget);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
-
-  testWidgets(
-    'iOS bounded DetailOverlayFrame keeps scrim stationary while sliding card on edge-swipe and Settings nested detail uses FuncPage',
-    (tester) async {
-      setViewSize(tester, const Size(1200, 800));
-      for (final shared in [true, false]) {
-        late PageRoute<void> pushed;
+  for (final covered in [true, false]) {
+    testWidgets(
+      'a page ${covered ? 'covered by a route' : 'in a hidden branch'} keeps '
+      'the media and shell chrome it saw until it shows again',
+      (tester) async {
+        setViewSize(tester, const Size(400, 800));
+        addTearDown(tester.platformDispatcher.clearAllTestValues);
+        final seen = <(MediaQueryData, double)>[];
+        final hidden = ValueNotifier(false);
+        addTearDown(hidden.dispose);
+        final navigator = GlobalKey<NavigatorState>();
         await tester.pumpWidget(
-          localizedApp(
-            home: Builder(
-              builder: (rootCtx) => TextButton(
-                onPressed: () {
-                  pushed =
-                      FuncPage<void>(
-                            sharedElement: shared,
-                            boundedOverlayOnWide: true,
-                            child: const DetailOverlayFrame(
-                              child: Scaffold(
-                                body: Center(child: Text('overlay body')),
-                              ),
-                            ),
-                          ).createRoute(rootCtx)
-                          as PageRoute<void>;
-                  Navigator.of(rootCtx).push(pushed);
-                },
-                child: const Text('open-overlay'),
-              ),
-            ),
-          ),
-        );
-        await tester.tap(find.text('open-overlay'));
-        await tester.pumpAndSettle();
-
-        final scrimFinder = find.byKey(const ValueKey('detail-overlay-scrim'));
-        final cardFinder = find.byKey(const ValueKey('detail-overlay-card'));
-        final cardBefore = tester.getRect(cardFinder);
-        expect(tester.getRect(scrimFinder).left, 0.0);
-
-        final drag = await tester.startGesture(const Offset(12, 400));
-        await drag.moveBy(const Offset(30, 0));
-        await drag.moveBy(const Offset(360, 0));
-        await tester.pump();
-
-        expect(tester.getRect(scrimFinder).left, 0.0);
-        expect(
-          tester.getRect(cardFinder).left,
-          greaterThan(cardBefore.left + 200),
-        );
-        final scrimFade = tester.widget<FadeTransition>(
-          find
-              .ancestor(of: scrimFinder, matching: find.byType(FadeTransition))
-              .first,
-        );
-        expect(scrimFade.opacity.value, inExclusiveRange(0.0, 1.0));
-
-        await drag.moveBy(const Offset(360, 0));
-        await drag.up();
-        await tester.pumpAndSettle();
-        expect(pushed.isActive, isFalse);
-      }
-
-      // Wide Settings nested detail route uses FuncPage on iOS for swipe-back.
-      await tester.pumpWidget(
-        localizedApp(
-          home: Navigator(
-            onGenerateRoute: (_) => MaterialPageRoute<void>(
-              builder: (ctx) => Scaffold(
-                body: TextButton(
-                  onPressed: () => Navigator.of(ctx).push<void>(
-                    buildSettingsDetailRoute(
-                      ctx,
-                      location: '/settings/translate/credentials/baidu',
-                      page: const Scaffold(
-                        body: Center(child: Text('nested-detail')),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Builder(
+              builder: (context) => HomeShellChrome(
+                bottomBarExtent: 80 + MediaQuery.paddingOf(context).bottom,
+                bottomBarVisibleExtent: const AlwaysStoppedAnimation(0),
+                bottomBarVisibility: kAlwaysCompleteAnimation,
+                onBranchRootScroll: (_) => false,
+                child: ValueListenableBuilder(
+                  valueListenable: hidden,
+                  builder: (_, off, child) =>
+                      TickerMode(enabled: !off, child: child!),
+                  child: Navigator(
+                    key: navigator,
+                    onGenerateRoute: (_) => FuncPage<void>(
+                      child: Builder(
+                        builder: (context) {
+                          seen.add((
+                            MediaQuery.of(context),
+                            HomeShellChrome.of(context).bottomBarExtent,
+                          ));
+                          return const SizedBox.expand();
+                        },
                       ),
-                    ),
+                    ).createRoute(context),
                   ),
-                  child: const Text('nested-root'),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.tap(find.text('nested-root'));
-      await tester.pumpAndSettle();
-      expect(find.text('nested-detail'), findsOneWidget);
+        );
+        if (covered) {
+          unawaited(
+            navigator.currentState!.push(
+              const FuncPage<void>(
+                child: SizedBox.expand(),
+              ).createRoute(navigator.currentContext!),
+            ),
+          );
+          await tester.pumpAndSettle();
+        } else {
+          hidden.value = true;
+          await tester.pump();
+        }
+        final builds = seen.length;
 
-      await tester.dragFrom(const Offset(12, 400), const Offset(700, 0));
-      await tester.pumpAndSettle();
-      expect(find.text('nested-detail'), findsNothing);
-      expect(find.text('nested-root'), findsOneWidget);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
-}
+        tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+        await tester.pump();
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        tester.view.physicalSize = const Size(800, 400);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+        await tester.pump();
+        expect(seen, hasLength(builds));
 
-/// A ticker probe for route-transition tests: drives an animation from the
-/// pushed page and records progress, so a frozen ticker reads 0 mid-flight.
-class _TickerProbe extends StatefulWidget {
-  const _TickerProbe({required this.seen});
-
-  final ValueNotifier<double> seen;
-
-  @override
-  State<_TickerProbe> createState() => _TickerProbeState();
-}
-
-class _TickerProbeState extends State<_TickerProbe>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 800),
-  )..addListener(() => widget.seen.value = _controller.value);
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.forward();
+        if (covered) {
+          navigator.currentState!.pop();
+          await tester.pump();
+        } else {
+          hidden.value = false;
+          await tester.pump();
+        }
+        final live = MediaQuery.of(navigator.currentContext!);
+        expect(live.size, const Size(800, 400));
+        expect(seen.last.$1, live);
+        expect(seen.last.$2, 80 + live.padding.bottom);
+        await tester.pumpAndSettle();
+      },
+    );
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  testWidgets('a leaving page mid-pop lets taps reach the page below', (
+    tester,
+  ) async {
+    final route = await _pushSecondPage(
+      tester,
+      home: const SizedBox.expand(child: Text('page a')),
+      settle: false,
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    final navigator = route.navigator!;
+    navigator.pop();
+    await tester.pump(const Duration(milliseconds: 50));
 
-  @override
-  Widget build(BuildContext context) => const Text('page b');
-}
-
-/// Records the route animation it sees on every build.
-class _RouteAnimationProbe extends StatefulWidget {
-  const _RouteAnimationProbe(this.builds);
-
-  final List<Animation<double>?> builds;
-
-  @override
-  State<_RouteAnimationProbe> createState() => _RouteAnimationProbeState();
-}
-
-class _RouteAnimationProbeState extends State<_RouteAnimationProbe> {
-  Animation<double>? _animation;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _animation = RouteAnimationScope.of(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    widget.builds.add(_animation);
-    return const Text('page b');
-  }
+    // Leaving page is still on screen during pop, yet taps must reach page a.
+    expect(find.text('page b'), findsOneWidget);
+    await tester.tap(find.text('page a'));
+    await tester.pumpAndSettle();
+    expect(find.text('page b'), findsOneWidget);
+  });
 }

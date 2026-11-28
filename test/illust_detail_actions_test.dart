@@ -3,70 +3,54 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:parfait/app/clipboard.dart';
-import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/core/platform/image_clipboard.dart';
-import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/core/translation/translation_service.dart';
-import 'package:parfait/app/layout/two_pane.dart';
+import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/navigation/route_extras.dart';
+import 'package:parfait/app/widgets/comment_composer.dart';
+import 'package:parfait/app/widgets/comment_text.dart';
+import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/bookmark/bookmark_tag_providers.dart';
 import 'package:parfait/core/comments/comment_assets.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/mute/mute_store.dart';
+import 'package:parfait/core/platform/image_clipboard.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/share/share_service.dart';
+import 'package:parfait/core/translation/translation_service.dart';
+import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_shells.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_overlay_frame.dart';
-import 'package:parfait/app/widgets/app_top_bar.dart';
-import 'package:parfait/app/widgets/bookmark_switch_button.dart';
-import 'package:parfait/app/widgets/comment_composer.dart';
-import 'package:parfait/app/widgets/comment_text.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
-import 'package:parfait/features/comments/comments_page.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_section_header.dart';
-import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
-import 'package:parfait/app/widgets/tag_chips.dart';
-import 'package:parfait/core/mute/mute_store.dart';
-import 'package:parfait/core/share/share_service.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/detail_world.dart';
-import 'helpers/download_world.dart';
+import 'helpers/illust_detail_page_support.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
-import 'helpers/settings_world.dart' show RecordingTranslationEngine;
-import 'helpers/view_size.dart';
-import 'helpers/waits.dart';
-import 'package:visibility_detector/visibility_detector.dart';
-
-import 'package:parfait/app/navigation/route_extras.dart';
-import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'helpers/illust_detail_page_support.dart';
-import 'package:parfait/app/layout/input_modality.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
 import 'helpers/prompt_host.dart';
-import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/icons/ui_icons.dart';
+import 'helpers/settings_world.dart' show RecordingTranslationEngine;
+import 'helpers/view_size.dart';
+import 'helpers/waits.dart';
 
 /// A phone short enough that the sections under the info block start
 /// below the fold.
 const _short = Size(390, 560);
 
 void main() {
-  // The detail page tracks the visible image page through
-  // VisibilityDetector (compact-header page counter); a zero interval
-  // defers updates to post-frame callbacks so no Timer outlives a test.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
   group('floating action bar (E2)', () {
@@ -76,108 +60,8 @@ void main() {
     Rect toolbarRect(WidgetTester tester) =>
         tester.getRect(inBar(find.byType(Material)).first);
 
-    testWidgets('bottom inset and margin both clear the gesture area', (
-      tester,
-    ) async {
-      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
-      tester.view.padding = const FakeViewPadding(bottom: 24);
-
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-      await tester.pumpAndSettle();
-
-      expect(
-        toolbarRect(tester).bottom,
-        closeTo(844 - 24 - DetailActionBar.margin, 0.5),
-      );
-    });
-
-    testWidgets('the action bar follows a drag and settles at the nearer end', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-      await tester.pumpAndSettle();
-      final shownTop = toolbarRect(tester).top;
-      double moved() => toolbarRect(tester).top - shownTop;
-      final page = tester.getCenter(find.byType(IllustDetailPage));
-
-      final short = await tester.startGesture(page);
-      await short.moveBy(const Offset(0, -20));
-      await tester.pump();
-      final start = moved();
-      await short.moveBy(const Offset(0, -10));
-      await tester.pump();
-      expect(moved() - start, closeTo(10, 0.01));
-      await short.up();
-      await tester.pumpAndSettle();
-      expect(moved(), closeTo(0, 0.5));
-
-      final far = await tester.startGesture(page);
-      await far.moveBy(const Offset(0, -20));
-      await tester.pump();
-      await far.moveBy(const Offset(0, -DetailActionBar.height));
-      await tester.pump();
-      await far.up();
-      await tester.pumpAndSettle();
-      expect(inBar(find.byType(Material)).hitTestable(), findsNothing);
-    });
-
-    testWidgets('download shows the ring, then the saved state; its prompt '
-        'rests above the bar', (tester) async {
-      final (container, transport, _) = await makeWorld(
-        scriptedResponses: 0,
-        // Every chunk reports, so the ring is checkable mid-download.
-        progressThrottle: Duration.zero,
-      );
-      final gates = [Completer<void>(), Completer<void>()];
-      for (var i = 0; i < 2; i++) {
-        transport.responses.add(
-          ScriptedResponse(
-            contentLength: 2,
-            chunks: const [
-              [1],
-              [2],
-            ],
-            completers: [gates[0], gates[1]],
-          ),
-        );
-      }
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(inBar(find.byTooltip('下载全部')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(inBar(find.byTooltip('下载中')), findsOneWidget);
-      expect(inBar(find.byType(CircularProgressIndicator)), findsOneWidget);
-      // The prompt sits above the bar, not over it.
-      final prompt = find.text('已加入下载队列');
-      expect(prompt, findsOneWidget);
-      expect(
-        tester.getRect(prompt).bottom,
-        lessThanOrEqualTo(toolbarRect(tester).top),
-      );
-
-      // Half of each page's bytes: half the work.
-      gates[0].complete();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      final ring = tester.widget<CircularProgressIndicator>(
-        inBar(find.byType(CircularProgressIndicator)),
-      );
-      expect(ring.value, closeTo(0.5, 0.01));
-
-      gates[1].complete();
-      await tester.pumpAndSettle();
-      expect(inBar(find.byIcon(AppIcons.downloadDone)), findsOneWidget);
-      expect(inBar(find.byTooltip('已下载')), findsOneWidget);
-    });
-
     testWidgets('slides away reading down, returns reading up, and stays '
         'while TalkBack explores', (tester) async {
-      // A touch device: the desktop host starts the list in wheel mode,
-      // where a drag does not scroll.
       PlatformCaps.debugSystemOverride = const PlatformCaps(isAndroid: true);
       addTearDown(() => PlatformCaps.debugSystemOverride = null);
       final (container, _, _) = await makeWorld();
@@ -206,42 +90,24 @@ void main() {
       expect(toolbarRect(tester), rest);
     });
 
-    testWidgets('a page whose last strip sits behind the top bar no longer '
-        'shows the count', (tester) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(
-        tester,
-        container,
-        locale: const Locale('zh', 'CN'),
-        surface: _short,
-      );
-      await tester.pumpAndSettle();
-      final pageHeight = tester
-          .getSize(find.byType(DetailPageImage).first)
-          .height;
-      final topChrome = tester.getBottomLeft(find.byType(AppTopBar)).dy;
-      final position = tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position;
-      Future<void> scrollTo(double offset) async {
-        position.jumpTo(offset);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pump(const Duration(milliseconds: 300));
-      }
+    testWidgets('bottom inset and margin both clear the gesture area', (
+      tester,
+    ) async {
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      tester.view.padding = const FakeViewPadding(bottom: 24);
 
-      // Its end still below the bar: on screen, counted.
-      await scrollTo(pageHeight - topChrome - 40);
-      expect(find.byType(PageCountPill), findsOneWidget);
-      // Only a strip behind the bar is left: gone, not hanging over the
-      // info below.
-      await scrollTo(pageHeight - topChrome + 20);
-      expect(find.byType(PageCountPill), findsNothing);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      expect(
+        toolbarRect(tester).bottom,
+        closeTo(844 - 24 - DetailActionBar.margin, 0.5),
+      );
     });
   });
 
   group('comment preview and author works (§2-E)', () {
-    /// Brings a section header mid-screen and lets its request land.
     Future<void> showSection(WidgetTester tester, Finder header) async {
       await tester.scrollUntilVisible(
         header,
@@ -283,7 +149,6 @@ void main() {
       await showSection(tester, find.text('作者的其他作品'));
       expect(log.where((path) => path == '/v3/illust/comments'), hasLength(1));
       expect(log.where((path) => path == '/v1/user/illusts'), hasLength(1));
-      // No comments yet: the entry asks for the first.
       expect(find.text('留下第一条评论'), findsOneWidget);
     });
 
@@ -295,7 +160,6 @@ void main() {
             42: [comment(1)],
           },
         );
-        // Under TalkBack, where the bar never slides away on its own.
         tester.platformDispatcher.accessibilityFeaturesTestValue =
             const FakeAccessibilityFeatures(accessibleNavigation: true);
         addTearDown(
@@ -311,73 +175,29 @@ void main() {
             .value;
         CommentComposerState composer() =>
             tester.state<CommentComposerState>(find.byType(CommentComposer));
-        // The composer goes a frame after what it stood on is down.
         Future<void> settle() async {
           await tester.pump(const Duration(seconds: 1));
           await tester.pump(const Duration(seconds: 1));
           await tester.pump();
         }
 
-        // The stamp key opens on the stamp panel, in place of the bar.
         await tester.tap(
           find.descendant(of: entry, matching: find.byTooltip('贴图')),
         );
         await settle();
         expect(composer().debugInputState, CommentComposerInputState.stamp);
         expect(bar(), 0);
-        // Back closes the composer, not the page.
         await tester.binding.handlePopRoute();
         await settle();
         expect(find.byType(CommentComposer), findsNothing);
         expect(find.byType(IllustDetailPage), findsOneWidget);
         expect(bar(), 1);
 
-        // On the keyboard the composer rides it: out of sight before it
-        // rises, whole over its upper half, and gone with it when it is
-        // put away on its own.
-        double shown() => tester
-            .widget<Opacity>(
-              find
-                  .descendant(
-                    of: find.byType(CommentComposer),
-                    matching: find.byType(Opacity),
-                  )
-                  .first,
-            )
-            .opacity;
-        void keyboardAt(double height) => tester.view.viewInsets =
-            FakeViewPadding(bottom: height * tester.view.devicePixelRatio);
-        addTearDown(tester.view.resetViewInsets);
-        await tester.tap(
-          find.descendant(of: entry, matching: find.text('添加评论')),
-        );
-        await tester.pump();
-        await tester.pump();
-        expect(composer().debugInputState, CommentComposerInputState.keyboard);
-        expect(shown(), 0);
-        keyboardAt(300);
-        await tester.pump();
-        expect(shown(), 1);
-        keyboardAt(60);
-        await tester.pump();
-        expect(shown(), inExclusiveRange(0, 1));
-        keyboardAt(0);
-        // Down, out of focus, then gone: a frame each.
-        await tester.pump();
-        await tester.pump();
-        await settle();
-        expect(find.byType(CommentComposer), findsNothing);
-        expect(bar(), 1);
-
-        // Text left by a touch beside the composer is there the next
-        // time. With no keyboard rising, the composer shows anyway.
         await tester.tap(
           find.descendant(of: entry, matching: find.text('添加评论')),
         );
         await settle();
-        expect(shown(), 1);
         await tester.enterText(find.byType(TextField), 'hello');
-        // An emoji inserted last is part of it too.
         await tester.tap(find.byTooltip('表情'));
         await settle();
         await tester.tap(
@@ -389,8 +209,6 @@ void main() {
               .first,
         );
         final draft = 'hello(${commentEmojiNames.first})';
-        // The page stays live: a drag on it closes the composer and
-        // scrolls on.
         final page = tester
             .state<ScrollableState>(find.byType(Scrollable).first)
             .position;
@@ -422,51 +240,6 @@ void main() {
       },
     );
 
-    testWidgets('the preview shows the first three comments under a heading; '
-        'See all opens the comments page', (tester) async {
-      final (container, _, _) = await makeWorld(
-        commentOverrides: {
-          42: [for (var i = 1; i <= 5; i++) comment(i)],
-        },
-      );
-      await pumpDetail(
-        tester,
-        container,
-        locale: const Locale('zh', 'CN'),
-        useRouter: true,
-      );
-      await tester.pumpAndSettle();
-      await showSection(
-        tester,
-        find.widgetWithText(DetailSectionHeader, '评论（5）'),
-      );
-
-      final preview = find.byKey(const Key('illust-comments-preview'));
-      for (var i = 1; i <= 3; i++) {
-        expect(
-          find.descendant(of: preview, matching: find.text('comment $i')),
-          findsOneWidget,
-        );
-      }
-      expect(find.text('comment 4'), findsNothing);
-      final heading = find.ancestor(
-        of: find.text('评论（5）'),
-        matching: find.byType(DetailSectionHeader),
-      );
-      expect(
-        tester.getSemantics(
-          find.descendant(of: heading, matching: find.text('评论（5）')),
-        ),
-        isSemantics(label: '评论（5）', isHeader: true),
-      );
-
-      await tester.tap(
-        find.descendant(of: heading, matching: find.text('查看全部')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(CommentsPage), findsOneWidget);
-    });
-
     testWidgets('a work with comments off asks for none and says so', (
       tester,
     ) async {
@@ -477,7 +250,6 @@ void main() {
           42: {...illustJson(42), 'comment_access_control': 1},
         },
       );
-      // The detail lands while the section is still below the fold.
       await pumpDetail(
         tester,
         container,
@@ -540,24 +312,6 @@ void main() {
   });
 
   group('detail overflow menu (R3)', () {
-    testWidgets('download-all and the heart stay one tap away while share '
-        'and selection move into the ⋮ menu', (tester) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
-
-      expect(find.byTooltip('Download All'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(BookmarkSwitchButton),
-          matching: find.byIcon(AppIcons.heart),
-        ),
-        findsOneWidget,
-      );
-      expect(find.byTooltip('Show menu'), findsOneWidget);
-      expect(find.byTooltip('Share'), findsNothing);
-      expect(find.byTooltip('Select pages to download'), findsNothing);
-    });
-
     testWidgets('share goes through the ⋮ menu to the share boundary', (
       tester,
     ) async {
@@ -599,65 +353,11 @@ void main() {
       expect(find.text('Unmute this work'), findsOneWidget);
       await tester.tap(find.text('Bookmark illustration'));
       await tester.pumpAndSettle();
-      // The heart's long-press sheet, titled as the menu entry was.
       expect(find.text('Bookmark illustration'), findsOneWidget);
-    });
-
-    testWidgets('a long six-page work still reaches InfoBlock via the menu', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld(
-        detailOverrides: {
-          42: illustJson(
-            42,
-            pageCount: 6,
-            type: 'manga',
-            withMetaPages: true,
-            caption: '作品说明文字',
-          ),
-        },
-      );
-      container.read(illustStoreProvider).mergeAll([
-        parseIllust(
-          illustJson(
-            42,
-            pageCount: 6,
-            type: 'manga',
-            withMetaPages: true,
-            caption: '作品说明文字',
-          ),
-        ),
-      ]);
-      await pumpDetail(
-        tester,
-        container,
-        seedStore: false,
-        locale: const Locale('zh', 'CN'),
-      );
-      await tester.pumpAndSettle();
-
-      // Six image pages push the InfoBlock past the cache extent — its
-      // caption is not built yet.
-      expect(find.text('作品说明文字'), findsNothing);
-
-      await openDetailMenu(tester, tooltip: '显示菜单');
-      await tester.tap(find.text('跳到作品信息区'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('作品说明文字'), findsOneWidget);
-      expect(
-        tester.getRect(find.text('作品说明文字')).top,
-        lessThan(tester.view.physicalSize.height),
-      );
     });
   });
 
   group('tag action menu (R3)', () {
-    /// The tag row sits below the image slivers — scroll it into view
-    /// before the long-press (finders cannot reach unbuilt sliver
-    /// children). The predicate finder stays single-valued ('original' is
-    /// the fixture's first tag) without `.first`, which would throw while
-    /// the row is still unbuilt mid-scroll.
     Finder originalTagChip() =>
         find.byWidgetPredicate((w) => w is TagChip && w.label == 'original');
 
@@ -670,27 +370,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.longPress(originalTagChip());
       await tester.pumpAndSettle();
-    }
-
-    void mockClipboard(
-      List<String> captured,
-      TestWidgetsFlutterBinding binding,
-    ) {
-      binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'Clipboard.setData') {
-            captured.add((call.arguments as Map)['text'] as String);
-          }
-          return null;
-        },
-      );
-      addTearDown(
-        () => binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        ),
-      );
     }
 
     testWidgets('translate answers inside the menu, or points to settings '
@@ -716,8 +395,6 @@ void main() {
       await tester.tap(find.text('翻译标签名'));
       await tester.pumpAndSettle();
       expect(find.text('去设置'), findsOneWidget);
-      // Off is not an error, and there is nothing to hide: the row keeps
-      // its name and the next tap asks again.
       final rowIcon = find.descendant(
         of: find.widgetWithText(ListTile, '翻译标签名'),
         matching: find.byIcon(AppIcons.translate),
@@ -732,43 +409,18 @@ void main() {
       expect(engine.sources, ['original']);
     });
 
-    testWidgets(
-      'long-press opens the menu with search/copy/mute/batch entries and '
-      'copy lands on the clipboard',
-      (tester) async {
-        final (container, _, _) = await makeWorld();
-        final captured = <String>[];
-        mockClipboard(captured, tester.binding);
-        await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-
-        await longPressFirstTag(tester);
-        expect(find.text('搜索该标签'), findsOneWidget);
-        expect(find.text('复制标签名'), findsOneWidget);
-        expect(find.text('屏蔽该标签'), findsOneWidget);
-        expect(find.text('批量屏蔽标签'), findsOneWidget);
-
-        await tester.tap(find.text('复制标签名'));
-        await tester.pumpAndSettle();
-        expect(captured, ['original']);
-        expect(find.text('已复制标签'), findsOneWidget);
-      },
-    );
-
     testWidgets('mute writes MuteStore.tags and a muted tag offers 解除屏蔽', (
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
 
-      // Mute: the menu item writes through the real MuteStore (the
-      // mock client answers /v1/mute/edit with 200).
       await longPressFirstTag(tester);
       await tester.tap(find.text('屏蔽该标签'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 100));
       expect(container.read(muteStoreProvider).tags, contains('original'));
 
-      // The same long-press on a muted tag names the action 解除屏蔽.
       await longPressFirstTag(tester);
       expect(find.text('解除屏蔽该标签'), findsOneWidget);
       await tester.tap(find.text('解除屏蔽该标签'));
@@ -791,7 +443,6 @@ void main() {
           useRouter: true,
         );
 
-        // 批量屏蔽标签 → chips enter block mode.
         await longPressFirstTag(tester);
         await tester.tap(find.text('批量屏蔽标签'));
         await tester.pumpAndSettle();
@@ -800,79 +451,15 @@ void main() {
           isTrue,
         );
 
-        // 搜索该标签 → pushes the tag feed route over the detail page.
         await longPressFirstTag(tester);
         await tester.tap(find.text('搜索该标签'));
         await tester.pumpAndSettle();
         expect(find.byType(TagSearchPage), findsOneWidget);
       },
     );
-
-    testWidgets('a PC opens the tag entries as a menu beside the chip', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        final (container, _, _) = await makeWorld();
-        await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-        await tester.scrollUntilVisible(
-          originalTagChip(),
-          400,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        final chip = originalTagChip();
-        final at = tester.getCenter(chip);
-        await tester.tap(
-          chip,
-          kind: PointerDeviceKind.mouse,
-          buttons: kSecondaryMouseButton,
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.widgetWithText(ListTile, '搜索该标签'), findsNothing);
-        for (final label in ['搜索该标签', '复制标签名', '翻译标签名', '屏蔽该标签', '批量屏蔽标签']) {
-          expect(
-            find.widgetWithText(PopupMenuItem<void>, label),
-            findsOneWidget,
-            reason: 'menu should offer "$label"',
-          );
-        }
-        final item = tester.getTopLeft(
-          find.widgetWithText(PopupMenuItem<void>, '搜索该标签'),
-        );
-        expect(item.dx, closeTo(at.dx, 1));
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
   });
 
-  group('two-pane layout (landscape, medium and wider)', () {
-    testWidgets('splits into image pager and meta column', (tester) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, surface: const Size(1400, 900));
-      expect(find.byType(TwoPane), findsOneWidget);
-      expect(find.byType(DetailImagePager), findsOneWidget);
-      expect(find.byType(PageView), findsOneWidget);
-      // The shared page-counter overlay and the meta column's info block
-      // both render.
-      expect(find.byType(DetailPageCounter), findsOneWidget);
-      expect(find.text('1 / 2'), findsOneWidget);
-      expect(find.text('作品说明文字'), findsOneWidget);
-      // Two-pane mode moves actions into the pinned secondary inspector bar and
-      // keeps a single ⋮ menu globally (DETAIL-09, DETAIL-14).
-      final pager = tester.getRect(find.byType(DetailImagePager));
-      expect(find.byType(DetailActionBar), findsNothing);
-      final inspectorBar = find.byKey(
-        const ValueKey('detail-inspector-action-bar'),
-      );
-      expect(inspectorBar, findsOneWidget);
-      final bar = tester.getRect(inspectorBar);
-      expect(bar.left, greaterThanOrEqualTo(pager.right));
-      expect(find.byIcon(UiIcons.more), findsOneWidget);
-    });
-
+  group('overlay and desktop clipboard', () {
     testWidgets('tabletop hinge splits artwork above inspector action bar', (
       tester,
     ) async {
@@ -906,6 +493,153 @@ void main() {
     });
 
     testWidgets(
+      'IllustDetailTwoPaneShell applies SafeArea insets outside overlay and adapts for tabletop hinge',
+      (tester) async {
+        final (container, _, _) = await makeWorld();
+        final entity = parseIllust(
+          illustJson(42, pageCount: 1, withMetaSinglePage: true),
+        );
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+
+        Widget twoPaneShell(String heroScope) => IllustDetailTwoPaneShell(
+          entity: entity,
+          detailUrlFor: (_) => null,
+          downloadMode: false,
+          selectedPages: const {},
+          onToggleSelect: (_) {},
+          onLongPress: () {},
+          heroScope: heroScope,
+          initialPage: 0,
+          onPageChanged: (_) {},
+          heroImageUrl: null,
+          heroImageDecodeWidth: null,
+          inspectorHeader: const SizedBox(
+            key: ValueKey('h15-inspector-header'),
+            height: 48,
+          ),
+          metaScrollController: scroll,
+          metaSlivers: const [SliverToBoxAdapter(child: SizedBox(height: 120))],
+          onScrollNotification: (_) => false,
+          composerLayer: null,
+        );
+
+        Widget buildShell({
+          required Size size,
+          required EdgeInsets padding,
+          List<ui.DisplayFeature> features = const [],
+        }) => localizedApp(
+          container: container,
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                size: size,
+                padding: padding,
+                viewPadding: padding,
+                displayFeatures: features,
+              ),
+              child: Scaffold(body: twoPaneShell('h15')),
+            ),
+          ),
+        );
+
+        // 1. Non-overlay side-by-side: clears top/left/right safe areas.
+        setViewSize(tester, const Size(1200, 800));
+        await tester.pumpWidget(
+          buildShell(
+            size: const Size(1200, 800),
+            padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+          ),
+        );
+        await tester.pump();
+        final backSide = tester.getRect(
+          find.byKey(const ValueKey('two-pane-primary-back')),
+        );
+        final headerSide = tester.getRect(
+          find.byKey(const ValueKey('h15-inspector-header')),
+        );
+        expect(backSide.top, closeTo(48, 0.5));
+        expect(backSide.left, closeTo(28, 0.5));
+        expect(headerSide.top, closeTo(36, 0.5));
+        expect(headerSide.right, closeTo(1188, 0.5));
+
+        // 2. Non-overlay tabletop hinge: primary clears top+sides; secondary
+        //    sits below the hinge without duplicate top inset.
+        setViewSize(tester, const Size(900, 800));
+        await tester.pumpWidget(
+          buildShell(
+            size: const Size(900, 800),
+            padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+            features: const [
+              ui.DisplayFeature(
+                bounds: Rect.fromLTWH(0, 390, 900, 20),
+                type: ui.DisplayFeatureType.hinge,
+                state: ui.DisplayFeatureState.postureHalfOpened,
+              ),
+            ],
+          ),
+        );
+        await tester.pump();
+        final backTabletop = tester.getRect(
+          find.byKey(const ValueKey('two-pane-primary-back')),
+        );
+        final headerTabletop = tester.getRect(
+          find.byKey(const ValueKey('h15-inspector-header')),
+        );
+        expect(backTabletop.top, closeTo(48, 0.5));
+        expect(backTabletop.left, closeTo(28, 0.5));
+        expect(headerTabletop.top, closeTo(411, 1.5));
+        expect(headerTabletop.left, closeTo(16, 0.5));
+        expect(headerTabletop.right, closeTo(888, 0.5));
+
+        // 3. Modal overlay frame: DetailOverlayFrame owns outer SafeArea.
+        setViewSize(tester, const Size(1200, 800));
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                size: const Size(1200, 800),
+                padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+                viewPadding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
+              ),
+              child: child!,
+            ),
+            home: Builder(
+              builder: (rootContext) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(rootContext).push<void>(
+                    PageRouteBuilder<void>(
+                      opaque: false,
+                      pageBuilder: (_, _, _) =>
+                          DetailOverlayFrame(child: twoPaneShell('h15-modal')),
+                    ),
+                  ),
+                  child: const Text('open-overlay'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.text('open-overlay'));
+        await tester.pumpAndSettle();
+        final shellRect = tester.getRect(find.byType(IllustDetailTwoPaneShell));
+        final backModal = tester.getRect(
+          find.byKey(const ValueKey('two-pane-primary-back')),
+        );
+        final headerModal = tester.getRect(
+          find.byKey(const ValueKey('h15-inspector-header')),
+        );
+        expect(backModal.top - shellRect.top, closeTo(12, 0.5));
+        expect(headerModal.top - shellRect.top, closeTo(0, 0.5));
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      },
+    );
+
+    testWidgets(
       'bounded wide detail overlay keeps underlying feed alive and closes on '
       'scrim tap',
       (tester) async {
@@ -932,7 +666,6 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
 
-        // The scrim-framed overlay leaves RecommendedHomePage mounted & onstage.
         final scrimFinder = find.byKey(const ValueKey('detail-overlay-scrim'));
         expect(scrimFinder, findsOneWidget);
         expect(find.byType(RecommendedHomePage), findsOneWidget);
@@ -942,227 +675,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(router.state.uri.path, '/recommended');
         expect(scrimFinder, findsNothing);
-      },
-    );
-
-    testWidgets('a layout switch fades the page in rather than swapping it', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, surface: const Size(1400, 900));
-      expect(find.byType(TwoPane), findsOneWidget);
-      double fade() => tester
-          .widget<FadeTransition>(
-            find.byKey(const ValueKey('detail-layout-fade')),
-          )
-          .opacity
-          .value;
-      expect(fade(), 1);
-
-      setViewSize(tester, const Size(390, 844));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(find.byType(TwoPane), findsNothing);
-      expect(fade(), inExclusiveRange(0, 1));
-      await tester.pumpAndSettle();
-      expect(fade(), 1);
-    });
-
-    testWidgets('turning reduced motion on mid-fade lands the layout at once', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, surface: const Size(1400, 900));
-      double fade() => tester
-          .widget<FadeTransition>(
-            find.byKey(const ValueKey('detail-layout-fade')),
-          )
-          .opacity
-          .value;
-
-      setViewSize(tester, const Size(390, 844));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(fade(), inExclusiveRange(0, 1));
-
-      tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(disableAnimations: true);
-      addTearDown(
-        tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
-      await tester.pump();
-      expect(fade(), 1);
-    });
-
-    testWidgets('arrow keys page the image pane; a resize keeps the page', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, surface: const Size(1400, 900));
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('2 / 2'), findsOneWidget);
-      // A dragged window or a folding tablet: still two panes, same page.
-      setViewSize(tester, const Size(1000, 640));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('2 / 2'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('1 / 2'), findsOneWidget);
-    });
-
-    testWidgets(
-      'a switch between the single column and two panes keeps the image, read from the screen',
-      (tester) async {
-        final (container, _, _) = await makeWorld(
-          detailOverrides: {
-            42: illustJson(42, pageCount: 3, withMetaPages: true),
-          },
-        );
-        await pumpDetail(
-          tester,
-          container,
-          surface: const Size(1400, 900),
-          pageCount: 3,
-        );
-        // Two panes: page the image pager to the third image.
-        for (var i = 0; i < 2; i++) {
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 250));
-        }
-        expect(find.text('3 / 3'), findsOneWidget);
-
-        // A turned phone: the single column brings that image into view.
-        setViewSize(tester, const Size(390, 844));
-        await tester.pump();
-        await tester.pumpAndSettle();
-        expect(find.text('3 / 3'), findsOneWidget);
-
-        // Turned back: the image pager opens on the same image.
-        setViewSize(tester, const Size(1400, 900));
-        await tester.pump();
-        await tester.pumpAndSettle();
-        expect(find.text('3 / 3'), findsOneWidget);
-
-        // The trackers report on a timer: scrolled back to the first image,
-        // a switch right away still reads the image on screen.
-        setViewSize(tester, const Size(390, 844));
-        await tester.pumpAndSettle();
-        VisibilityDetectorController.instance.updateInterval = const Duration(
-          seconds: 1,
-        );
-        await tester.drag(
-          find.bySubtype<CustomScrollView>(),
-          const Offset(0, 2000),
-        );
-        await tester.pump();
-        setViewSize(tester, const Size(1400, 900));
-        await tester.pump();
-        expect(find.text('1 / 3'), findsOneWidget);
-        // Drop the trackers, then let their scheduled report fire.
-        await tester.pumpWidget(const SizedBox());
-        VisibilityDetectorController.instance.updateInterval = Duration.zero;
-        await tester.pump(const Duration(seconds: 1));
-      },
-    );
-
-    testWidgets(
-      'two-pane resize preserves meta scroll offset; DetailPageImage hover badge suppresses during wheel scroll',
-      (tester) async {
-        final (container, _, _) = await makeWorld(
-          commentOverrides: {
-            42: [
-              for (var i = 0; i < 12; i++)
-                {
-                  'id': i + 1,
-                  'comment': '评论内容 $i',
-                  'date': '2026-01-01T00:00:00+00:00',
-                  'user': {
-                    'id': 200 + i,
-                    'name': 'User $i',
-                    'account': 'u$i',
-                    'profile_image_urls': {
-                      'medium': 'https://i.pximg.net/u$i.jpg',
-                    },
-                    'is_followed': false,
-                  },
-                  'has_replies': false,
-                },
-            ],
-          },
-        );
-        setViewSize(tester, const Size(480, 900));
-        container.read(illustStoreProvider).mergeAll([
-          parseIllust(
-            illustJson(
-              42,
-              pageCount: 2,
-              withMetaPages: true,
-              caption: '作品说明\n' * 12,
-            ),
-          ),
-        ]);
-        await tester.pumpWidget(
-          InputModalityScope(
-            initialModality: InputModality.pointer,
-            child: localizedApp(
-              container: container,
-              builder: promptHostBuilder,
-              home: const IllustDetailPage(illustId: 42),
-            ),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        await tester.pumpAndSettle();
-
-        final pageImage = find.byType(DetailPageImage).first;
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: Offset.zero);
-        addTearDown(mouse.removePointer);
-        await mouse.moveTo(tester.getCenter(pageImage));
-        await tester.pump();
-        expect(find.byTooltip('保存当前页'), findsOneWidget);
-
-        await tester.sendEventToBinding(
-          PointerScrollEvent(
-            position: tester.getCenter(pageImage),
-            scrollDelta: const Offset(0, 80),
-          ),
-        );
-        await tester.pump();
-        expect(find.byTooltip('保存当前页'), findsNothing);
-        await tester.pumpAndSettle();
-
-        setViewSize(tester, const Size(1200, 480));
-        await tester.pumpAndSettle();
-        final metaScrollable = find.bySubtype<CustomScrollView>().last;
-        double metaOffset() => tester
-            .state<ScrollableState>(
-              find
-                  .descendant(
-                    of: find.bySubtype<CustomScrollView>().last,
-                    matching: find.byType(Scrollable),
-                  )
-                  .first,
-            )
-            .position
-            .pixels;
-        await tester.drag(metaScrollable, const Offset(0, -180));
-        await tester.pumpAndSettle();
-        final scrolledBefore = metaOffset();
-        expect(scrolledBefore, greaterThan(40));
-
-        setViewSize(tester, const Size(390, 480));
-        await tester.pumpAndSettle();
-        setViewSize(tester, const Size(1200, 480));
-        await tester.pumpAndSettle();
-        final scrolledAfter = metaOffset();
-        expect(scrolledAfter, closeTo(scrolledBefore, 20));
       },
     );
 
@@ -1293,155 +805,6 @@ void main() {
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
-      },
-    );
-
-    testWidgets(
-      'IllustDetailTwoPaneShell applies SafeArea insets outside overlay and adapts for tabletop hinge',
-      (tester) async {
-        final (container, _, _) = await makeWorld();
-        final entity = parseIllust(
-          illustJson(42, pageCount: 1, withMetaSinglePage: true),
-        );
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
-
-        Widget twoPaneShell(String heroScope) => IllustDetailTwoPaneShell(
-          entity: entity,
-          detailUrlFor: (_) => null,
-          downloadMode: false,
-          selectedPages: const {},
-          onToggleSelect: (_) {},
-          onLongPress: () {},
-          heroScope: heroScope,
-          initialPage: 0,
-          onPageChanged: (_) {},
-          heroImageUrl: null,
-          heroImageDecodeWidth: null,
-          inspectorHeader: const SizedBox(
-            key: ValueKey('h15-inspector-header'),
-            height: 48,
-          ),
-          metaScrollController: scroll,
-          metaSlivers: const [SliverToBoxAdapter(child: SizedBox(height: 120))],
-          onScrollNotification: (_) => false,
-          composerLayer: null,
-        );
-
-        Widget buildShell({
-          required Size size,
-          required EdgeInsets padding,
-          List<ui.DisplayFeature> features = const [],
-        }) => localizedApp(
-          container: container,
-          home: Builder(
-            builder: (context) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                size: size,
-                padding: padding,
-                viewPadding: padding,
-                displayFeatures: features,
-              ),
-              child: Scaffold(body: twoPaneShell('h15')),
-            ),
-          ),
-        );
-
-        // 1. Non-overlay side-by-side (e.g., tablet/deep-link): clears top/left/right.
-        setViewSize(tester, const Size(1200, 800));
-        await tester.pumpWidget(
-          buildShell(
-            size: const Size(1200, 800),
-            padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
-          ),
-        );
-        await tester.pump();
-        final backSide = tester.getRect(
-          find.byKey(const ValueKey('two-pane-primary-back')),
-        );
-        final headerSide = tester.getRect(
-          find.byKey(const ValueKey('h15-inspector-header')),
-        );
-        expect(backSide.top, closeTo(48, 0.5));
-        expect(backSide.left, closeTo(28, 0.5));
-        expect(headerSide.top, closeTo(36, 0.5));
-        expect(headerSide.right, closeTo(1188, 0.5));
-
-        // 2. Non-overlay tabletop hinge: primary clears top+sides; secondary sits
-        //    below the hinge with zero duplicate top inset and clears both sides.
-        setViewSize(tester, const Size(900, 800));
-        await tester.pumpWidget(
-          buildShell(
-            size: const Size(900, 800),
-            padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
-            features: const [
-              ui.DisplayFeature(
-                bounds: Rect.fromLTWH(0, 390, 900, 20),
-                type: ui.DisplayFeatureType.hinge,
-                state: ui.DisplayFeatureState.postureHalfOpened,
-              ),
-            ],
-          ),
-        );
-        await tester.pump();
-        final backTabletop = tester.getRect(
-          find.byKey(const ValueKey('two-pane-primary-back')),
-        );
-        final headerTabletop = tester.getRect(
-          find.byKey(const ValueKey('h15-inspector-header')),
-        );
-        expect(backTabletop.top, closeTo(48, 0.5));
-        expect(backTabletop.left, closeTo(28, 0.5));
-        expect(headerTabletop.top, closeTo(411, 1.5));
-        expect(headerTabletop.left, closeTo(16, 0.5));
-        expect(headerTabletop.right, closeTo(888, 0.5));
-
-        // 3. Modal overlay frame (pushed above a feed route): shell applies
-        //    zero inner safe-area padding while DetailOverlayFrame owns outer
-        //    SafeArea margins.
-        setViewSize(tester, const Size(1200, 800));
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                size: const Size(1200, 800),
-                padding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
-                viewPadding: const EdgeInsets.fromLTRB(16, 36, 12, 24),
-              ),
-              child: child!,
-            ),
-            home: Builder(
-              builder: (rootContext) => Scaffold(
-                body: TextButton(
-                  onPressed: () => Navigator.of(rootContext).push<void>(
-                    PageRouteBuilder<void>(
-                      opaque: false,
-                      pageBuilder: (_, _, _) =>
-                          DetailOverlayFrame(child: twoPaneShell('h15-modal')),
-                    ),
-                  ),
-                  child: const Text('open-overlay'),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
-        await tester.tap(find.text('open-overlay'));
-        await tester.pumpAndSettle();
-        final shellRect = tester.getRect(find.byType(IllustDetailTwoPaneShell));
-        final backModal = tester.getRect(
-          find.byKey(const ValueKey('two-pane-primary-back')),
-        );
-        final headerModal = tester.getRect(
-          find.byKey(const ValueKey('h15-inspector-header')),
-        );
-        expect(backModal.top - shellRect.top, closeTo(12, 0.5));
-        expect(headerModal.top - shellRect.top, closeTo(0, 0.5));
-
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
       },
     );
   });

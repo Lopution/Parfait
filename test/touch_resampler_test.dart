@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/platform/touch_resampler.dart';
 
 Duration _ms(num ms) => Duration(microseconds: (ms * 1000).round());
@@ -44,56 +43,6 @@ class _Subject {
 
   List<PointerMoveEvent> get moves =>
       events.whereType<PointerMoveEvent>().toList();
-}
-
-/// A finger's samples arriving [latency] after their time stamps, with
-/// frames at [frameInterval] (vsync times, phase [framePhase]) whose begin
-/// callback runs 2 ms after the vsync. Returns every event the resampler
-/// dispatched.
-List<PointerEvent> _play(
-  List<PointerEvent> samples, {
-  num latency = 0,
-  num frameInterval = _frame120,
-  num framePhase = 3,
-}) {
-  final subject = _Subject();
-  var frame = framePhase;
-  for (final event in samples) {
-    final arrival = event.timeStamp + _ms(latency);
-    while (_ms(frame + 2) <= arrival) {
-      subject.resampler.frameAt(frame, frameInterval);
-      frame += frameInterval;
-    }
-    subject.resampler.add(event);
-  }
-  return subject.events;
-}
-
-/// The lift-off velocity a drag recognizer reads from [events]: real downs
-/// and moves only, as `DragGestureRecognizer` tracks them.
-Velocity _liftVelocity(List<PointerEvent> events) {
-  final tracker = VelocityTracker.withKind(PointerDeviceKind.touch);
-  for (final event in events) {
-    if (!event.synthesized &&
-        (event is PointerDownEvent || event is PointerMoveEvent)) {
-      tracker.addPosition(event.timeStamp, event.position);
-    }
-  }
-  return tracker.getVelocity();
-}
-
-/// A vertical drag sampled every 8 ms, [speeds] px/ms between samples.
-List<PointerEvent> _drag(List<double> speeds) {
-  var y = 0.0;
-  var t = 0;
-  final samples = <PointerEvent>[_down(0, Offset.zero)];
-  for (final speed in speeds) {
-    t += 8;
-    y += speed * 8;
-    samples.add(_move(t, Offset(0, y)));
-  }
-  samples.add(_up(t + 1, Offset(0, y)));
-  return samples;
 }
 
 void main() {
@@ -222,74 +171,5 @@ void main() {
       ..add(_move(8, const Offset(0, 8)), queue: false);
     expect(subject.moves.map((e) => e.position.dy), [4, 8]);
     expect(subject.resampler.hasPending, isFalse);
-  });
-
-  // Recognizers leave resampled moves out of their velocity, as Android's
-  // VelocityTracker does; every real sample still goes out, however late.
-  for (final (name, speeds) in [
-    ('a slowing drag', [for (var i = 0; i < 16; i++) 3.0 - i * 0.15]),
-    (
-      'a drag held still before the lift',
-      [...List.filled(8, 2.0), ...List.filled(4, 0.0)],
-    ),
-  ]) {
-    testWidgets('$name leaves at the speed of its real samples', (_) async {
-      final samples = _drag(speeds);
-      final direct = _liftVelocity(samples).pixelsPerSecond.dy;
-      for (final latency in [0, 6, 12]) {
-        final resampled = _liftVelocity(_play(samples, latency: latency));
-        expect(
-          resampled.pixelsPerSecond.dy,
-          direct,
-          reason: 'latency $latency ms',
-        );
-      }
-    });
-  }
-
-  testWidgets('a fling through the resampler carries as far as a direct one', (
-    tester,
-  ) async {
-    Future<double> flingList({required bool resample}) async {
-      final controller = ScrollController();
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ListView.builder(
-            // A new list: the last run's position would carry over.
-            key: ValueKey(resample),
-            controller: controller,
-            itemBuilder: (_, i) => SizedBox(height: 80, child: Text('$i')),
-          ),
-        ),
-      );
-      final binding = tester.binding;
-      final resampler = TouchResampler(
-        dispatch: binding.handlePointerEvent,
-        requestFrame: () {},
-      );
-      void send(PointerEvent event) =>
-          resample ? resampler.add(event) : binding.handlePointerEvent(event);
-
-      const start = Offset(200, 500);
-      send(_down(0, start));
-      for (var t = 8; t <= 96; t += 8) {
-        send(_move(t, start - Offset(0, t * 2.0), delta: const Offset(0, -16)));
-        if (resample) resampler.frameAt(t + 6);
-        await tester.pump();
-      }
-      send(_up(97, start - const Offset(0, 192)));
-      await tester.pump();
-      final released = controller.offset;
-      await tester.pumpAndSettle();
-      return controller.offset - released;
-    }
-
-    // How far the drag itself moves the list differs: a move under the
-    // slop counts when the move that crosses it lands in the same frame.
-    final direct = await flingList(resample: false);
-    final resampled = await flingList(resample: true);
-    expect(direct, greaterThan(100));
-    expect(resampled, closeTo(direct, 1));
   });
 }

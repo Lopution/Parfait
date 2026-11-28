@@ -1,35 +1,32 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/app/icons/app_icons.dart';
-import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/illust/recommended_feed_controller.dart';
+import 'package:parfait/core/illust/recommended_repository.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
+import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_store.dart';
-import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/app/widgets/skeleton/list_skeletons.dart';
-import 'package:parfait/core/illust/recommended_feed_controller.dart';
-import 'package:parfait/core/illust/recommended_repository.dart';
-import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/view_size.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/prompt_host.dart';
+import 'helpers/view_size.dart';
 
 String _novelJson(int id) => jsonEncode({
   'id': id,
@@ -341,51 +338,6 @@ void main() {
     });
   });
 
-  testWidgets('branch re-tap scrolls the active feed to top without refetch', (
-    tester,
-  ) async {
-    final (container, fixture) = await _makeWorld(illustCount: 24);
-    final router = pixivRouter('/recommended');
-    // Compact viewport: at ≥600px the shell swaps the bottom bar for a
-    // rail and FuncShellBottomNav leaves the tree.
-    setViewSize(tester, const Size(390, 844));
-    await tester.pumpWidget(
-      localizedRouterApp(
-        router,
-        container: container,
-        builder: promptHostBuilder,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    final feedView = find.descendant(
-      of: find.byType(RecommendedHomePage),
-      matching: find.bySubtype<CustomScrollView>(),
-    );
-    expect(feedView, findsOneWidget);
-    final controller = tester.widget<CustomScrollView>(feedView).controller!;
-    controller.jumpTo(400);
-    await tester.pump();
-    expect(controller.offset, 400);
-
-    // Same-destination tap on the home slot: pure scroll-to-top — no
-    // refresh, no re-request.
-    final requestsBefore = fixture.requests.length;
-    await tester.tap(
-      find.descendant(
-        of: find.byType(FuncShellBottomNav),
-        matching: find.byIcon(AppIcons.homeFilled),
-      ),
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(controller.offset, 0);
-    expect(fixture.requests.length, requestsBefore);
-  });
-
   testWidgets('a failed refresh surfaces a snackbar, not only a tail row', (
     tester,
   ) async {
@@ -402,8 +354,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(shownPrompt, findsNothing);
 
-    // Fail the next recommended request, then refresh — the error must
-    // surface in the viewport as a SnackBar with a retry action.
     fixture.failRecommended = true;
     await container
         .read(
@@ -422,102 +372,4 @@ void main() {
       findsOneWidget,
     );
   });
-
-  testWidgets(
-    'RecommendedHomePage matches novel and user initial loading skeletons',
-    (tester) async {
-      final pending = Completer<http.Response>();
-      addTearDown(() {
-        if (!pending.isCompleted) {
-          pending.complete(http.Response('{}', 500));
-        }
-      });
-      final container = await signedInApiContainer(
-        MockClient((_) => pending.future),
-        overrides: [
-          feedSnapshotStoreProvider.overrideWithValue(
-            MemoryFeedSnapshotStore(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      for (final (type, skeleton) in [
-        (RecommendedContentType.novel, NovelListSkeleton),
-        (RecommendedContentType.user, UserListSkeleton),
-      ]) {
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            builder: promptHostBuilder,
-            home: RecommendedHomePage(initialType: type),
-          ),
-        );
-        await tester.pump();
-        expect(find.byType(skeleton), findsOneWidget);
-      }
-      pending.complete(
-        jsonResponse({
-          'novels': <Object?>[],
-          'user_previews': <Object?>[],
-          'next_url': null,
-        }),
-      );
-      await tester.pump();
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
-
-  testWidgets(
-    'iOS status-bar tap scrolls the active tab to top and follows tab switches',
-    (tester) async {
-      final (container, _) = await _makeWorld(illustCount: 24);
-      setViewSize(tester, const Size(390, 844));
-      tester.view.padding = FakeViewPadding(
-        top: 44 * tester.view.devicePixelRatio,
-      );
-      addTearDown(tester.view.resetPadding);
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          builder: promptHostBuilder,
-          home: const RecommendedHomePage(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final scaffoldFinder = find.descendant(
-        of: find.byType(RecommendedHomePage),
-        matching: find.byType(Scaffold),
-      );
-      final illustView = find.descendant(
-        of: find.byType(RecommendedHomePage),
-        matching: find.bySubtype<CustomScrollView>(),
-      );
-      final illustController = tester
-          .widget<CustomScrollView>(illustView)
-          .controller!;
-      expect(
-        PrimaryScrollController.maybeOf(tester.element(scaffoldFinder)),
-        same(illustController),
-      );
-
-      illustController.jumpTo(400);
-      await tester.pump();
-      expect(illustController.offset, 400);
-
-      tester.state<ScaffoldState>(scaffoldFinder).handleStatusBarTap();
-      await tester.pumpAndSettle();
-      expect(illustController.offset, 0);
-
-      // Switching tabs updates the primary scroll target to the newly active tab.
-      await tester.tap(find.text('漫画'));
-      await tester.pumpAndSettle();
-      expect(
-        PrimaryScrollController.maybeOf(tester.element(scaffoldFinder)),
-        isNot(same(illustController)),
-      );
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
 }

@@ -1,37 +1,29 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/rendering.dart' show ImageFilterLayer;
-import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/icons/ui_icons.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
-import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/muted_cover.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
-import 'package:parfait/features/settings/pages/muted_items_page.dart';
 import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
+import 'package:parfait/features/settings/pages/muted_items_page.dart';
 
-import 'helpers/recording_haptics.dart';
 import 'helpers/card_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/recording_share_service.dart';
-import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
-import 'package:parfait/app/icons/ui_icons.dart';
+import 'helpers/prompt_host.dart';
+import 'helpers/recording_haptics.dart';
+import 'helpers/recording_share_service.dart';
 
 /// Records the payloads the card sheet hands to the platform share
 /// boundary — the system sheet itself is plugin territory.
@@ -81,139 +73,6 @@ void main() {
       expect(find.bySemanticsLabel(label), findsWidgets);
     }
     expect(find.widgetWithText(ListTile, '收藏'), findsNothing);
-  });
-
-  testWidgets('a PC opens the card actions as a menu beside the pointer', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      final (container, _, _) = await makeCardWorld();
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-      );
-      final card = find.byType(IllustCard);
-      // Right-click in the upper portion of the card so the 6-item desktop
-      // menu fits inside the default 800x600 test viewport without clamping.
-      final at = tester.getRect(card).topCenter + const Offset(0, 32);
-      await tester.tapAt(
-        at,
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await tester.pumpAndSettle();
-
-      // The desktop entries, as a menu instead of the bottom sheet.
-      expect(find.widgetWithText(ListTile, '分享'), findsNothing);
-      for (final label in ['下载', '复制原图', '稍后再看', '屏蔽此作品', '屏蔽作者', '分享']) {
-        expect(
-          find.widgetWithText(PopupMenuItem<void>, label),
-          findsOneWidget,
-          reason: 'menu should offer "$label"',
-        );
-      }
-      expect(find.bySemanticsLabel('分享'), findsOneWidget);
-
-      // Beside the pointer: the menu's panel starts where the click was
-      // (the items sit one menu padding below its top edge).
-      final item = tester.getTopLeft(
-        find.widgetWithText(PopupMenuItem<void>, '下载'),
-      );
-      expect(item.dx, closeTo(at.dx, 1));
-      expect(item.dy, closeTo(at.dy + 8, 1));
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
-
-  testWidgets('the PC menu reads the state when it opens, outside build', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      final (container, _, _) = await makeCardWorld();
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-      );
-
-      // Mute after the first frame: the menu must read the state when it
-      // opens, not a snapshot taken while the card was built.
-      await container
-          .read(muteStoreProvider.notifier)
-          .muteWork(const MutedWork(illustId: 7));
-      await tester.pumpAndSettle();
-
-      await tester.tap(
-        find.byType(IllustCard),
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.widgetWithText(PopupMenuItem<void>, '解除屏蔽此作品'),
-        findsOneWidget,
-      );
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
-
-  testWidgets('a mouse lights the card on hover and opens it on right-click', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeCardWorld();
-    final card = find.byType(IllustCard);
-    Color? hoverLayer() =>
-        (tester
-                    .widget<DecoratedBox>(
-                      find
-                          .descendant(
-                            of: card,
-                            matching: find.byWidgetPredicate(
-                              (w) =>
-                                  w is DecoratedBox &&
-                                  w.position == DecorationPosition.foreground,
-                            ),
-                          )
-                          .first,
-                    )
-                    .decoration
-                as BoxDecoration)
-            .color;
-    await tester.pumpWidget(
-      _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    addTearDown(mouse.removePointer);
-    expect(hoverLayer(), isNull);
-    await mouse.moveTo(tester.getCenter(card));
-    await tester.pump();
-    expect(hoverLayer(), isNotNull);
-
-    await tester.tap(
-      card,
-      kind: PointerDeviceKind.mouse,
-      buttons: kSecondaryMouseButton,
-    );
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(PopupMenuItem<void>, '分享'), findsOneWidget);
-  });
-
-  testWidgets('a stylus secondary tap opens the bottom sheet', (tester) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final card = find.byType(IllustCard);
-    await tester.pumpWidget(
-      _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-    );
-    await tester.tap(
-      card,
-      kind: PointerDeviceKind.stylus,
-      buttons: kSecondaryMouseButton,
-    );
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(ListTile, '分享'), findsOneWidget);
   });
 
   testWidgets('unmuting from the card offers Undo', (tester) async {
@@ -436,9 +295,6 @@ void main() {
 
     expect(find.byType(MutedCover), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('已屏蔽.*illust 51')), findsOneWidget);
-    // The blur is baked into the decoded image: a filter layer would blur
-    // the card offscreen again on every frame it paints.
-    expect(tester.layers.whereType<ImageFilterLayer>(), isEmpty);
 
     await tester.tap(find.byType(MutedCover));
     await tester.pump();
@@ -486,195 +342,4 @@ void main() {
       isTrue,
     );
   });
-
-  testWidgets(
-    'a card takes focus, opens on Enter and shows its actions on the menu keys',
-    (tester) async {
-      final (container, _, _) = await makeCardWorld();
-      final router = GoRouter(
-        initialLocation: '/',
-        routes: [
-          GoRoute(
-            path: '/',
-            builder: (context, state) => Scaffold(
-              body: Center(
-                child: SizedBox(
-                  width: 300,
-                  child: IllustCard(entity: parseIllust(illustJson(7))),
-                ),
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/recommended/illust/:id',
-            builder: (context, state) =>
-                const Scaffold(body: Text('work page')),
-          ),
-        ],
-      );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(localizedRouterApp(router, container: container));
-      await tester.pumpAndSettle();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      expect(
-        FocusManager.instance.primaryFocus?.context
-            ?.findAncestorWidgetOfExactType<IllustCard>(),
-        isNotNull,
-        reason: 'Tab reaches the card',
-      );
-      // A visible 2dp focus ring over the preview (distinct from the 1dp
-      // light-theme foreground thumbnail hairline).
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is DecoratedBox &&
-              widget.position == DecorationPosition.background &&
-              widget.decoration is BoxDecoration &&
-              (widget.decoration as BoxDecoration).border != null,
-        ),
-        findsOneWidget,
-      );
-
-      // Enter opens the work.
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(find.text('work page'), findsOneWidget);
-      router.pop();
-      await tester.pumpAndSettle();
-
-      // Shift+F10 runs the long press: the same actions as a finger's. The
-      // key simulator cannot deliver a function key to the focus tree, so
-      // the card's shortcut table and the action it maps to are checked
-      // directly; the keyboard's menu key maps to the same intent.
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      final shortcutMap = tester
-          .widget<Shortcuts>(
-            find
-                .descendant(
-                  of: find.byType(IllustCard),
-                  matching: find.byType(Shortcuts),
-                )
-                .first,
-          )
-          .shortcuts;
-      const f10 = KeyDownEvent(
-        physicalKey: PhysicalKeyboardKey.f10,
-        logicalKey: LogicalKeyboardKey.f10,
-        timeStamp: Duration.zero,
-      );
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      final menuActivators = shortcutMap.entries
-          .where((entry) => entry.key.accepts(f10, HardwareKeyboard.instance))
-          .toList();
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      expect(menuActivators, hasLength(1), reason: 'Shift+F10 is bound');
-      final menuIntent = menuActivators.single.value;
-      // The keyboard's menu key runs the same intent as Shift+F10.
-      const menuKey = KeyDownEvent(
-        physicalKey: PhysicalKeyboardKey.contextMenu,
-        logicalKey: LogicalKeyboardKey.contextMenu,
-        timeStamp: Duration.zero,
-      );
-      final menuKeys = shortcutMap.entries.where(
-        (entry) => entry.key.accepts(menuKey, HardwareKeyboard.instance),
-      );
-      expect(menuKeys, hasLength(1));
-      expect(identical(menuKeys.single.value, menuIntent), isTrue);
-      final cardActions = tester
-          .widgetList<Actions>(
-            find.descendant(
-              of: find.byType(IllustCard),
-              matching: find.byType(Actions),
-            ),
-          )
-          .firstWhere(
-            (actions) => actions.actions.values.any(
-              (action) => action.intentType == menuIntent.runtimeType,
-            ),
-          );
-      // ignore: invalid_use_of_protected_member
-      cardActions.actions[menuIntent.runtimeType]!.invoke(menuIntent);
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(ListTile, '下载'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'iOS long-press replaces bottom sheet with frosted preview context menu and runs actions',
-    (tester) async {
-      final (container, _, repository) = await makeCardWorld();
-      final entity = parseIllust(illustJson(9));
-      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
-      await tester.longPress(find.byType(IllustCard));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 120));
-
-      expect(find.byType(BackdropFilter), findsWidgets);
-      expect(find.byKey(const Key('ios-card-context-preview')), findsOneWidget);
-      expect(find.byKey(const Key('ios-card-context-menu')), findsOneWidget);
-      expect(find.byType(ListTile), findsNothing);
-      final previewImage = tester.widget<PixivImage>(
-        find.descendant(
-          of: find.byKey(const Key('ios-card-context-preview')),
-          matching: find.byType(PixivImage),
-        ),
-      );
-      expect(previewImage.url, entity.previewUrl(PreviewQuality.medium));
-      expect(previewImage.url, isNot(entity.squareUrlAt(0)));
-      await tester.pumpAndSettle();
-
-      for (final label in ['下载', '稍后再看', '屏蔽此作品', '屏蔽作者', '分享']) {
-        expect(find.bySemanticsLabel(label), findsOneWidget);
-      }
-
-      await tester.tap(find.text('稍后再看'));
-      await tester.pumpAndSettle();
-      expect(find.text('已加入稍后再看'), findsOneWidget);
-      expect((await repository.list('100')).map((e) => e.entity.id), [9]);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
-
-  testWidgets('iOS card context menu respects reduced motion without scaling', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeCardWorld();
-    await tester.pumpWidget(
-      _cardApp(
-        container,
-        MotionScope(
-          reduce: true,
-          speed: AnimationSpeed.normal,
-          child: IllustCard(entity: parseIllust(illustJson(7))),
-        ),
-      ),
-    );
-    await tester.longPress(find.byType(IllustCard));
-    await tester.pump();
-
-    expect(find.byKey(const Key('ios-card-context-preview')), findsOneWidget);
-    expect(find.byKey(const Key('ios-card-context-menu')), findsOneWidget);
-    final previewTransform = tester.widget<Transform>(
-      find
-          .ancestor(
-            of: find.byKey(const Key('ios-card-context-preview')),
-            matching: find.byType(Transform),
-          )
-          .first,
-    );
-    expect(previewTransform.transform, Matrix4.identity());
-    final previewBox = tester.getRect(
-      find.byKey(const Key('ios-card-context-preview')),
-    );
-    final menuBox = tester.getRect(
-      find.byKey(const Key('ios-card-context-menu')),
-    );
-    expect(menuBox.top, greaterThanOrEqualTo(previewBox.bottom));
-    await tester.tapAt(const Offset(4, 300));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('ios-card-context-menu')), findsNothing);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }

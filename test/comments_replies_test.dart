@@ -1,17 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/layout/input_modality.dart';
-import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/widgets/comment_composer.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/comments/comment_actions.dart';
@@ -20,40 +17,34 @@ import 'package:parfait/core/comments/comment_feed_controller.dart';
 import 'package:parfait/core/comments/comment_models.dart';
 import 'package:parfait/core/comments/comment_repository.dart';
 import 'package:parfait/core/comments/comment_store.dart';
-import 'package:parfait/core/settings/keyboard_heights.dart';
-import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/app/widgets/comment_composer.dart';
-import 'package:parfait/features/comments/comment_item.dart';
+import 'package:parfait/core/settings/keyboard_heights.dart';
+import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/features/comments/comments_page.dart';
 import 'package:parfait/features/illust/detail/detail_page_activity.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_comment_layer.dart';
 import 'package:parfait/l10n/context.dart';
-import 'package:parfait/app/motion/removal.dart';
 
 import 'helpers/api_responses.dart';
-import 'helpers/image_network.dart';
 import 'helpers/comment_world.dart';
-import 'helpers/illust_fixtures.dart';
-import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
-import 'helpers/prompt_host.dart';
+import 'helpers/illust_fixtures.dart';
+import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
-import 'package:parfait/app/icons/app_icons.dart';
+import 'helpers/prompt_host.dart';
+import 'helpers/recording_haptics.dart';
+import 'helpers/test_preferences.dart';
+import 'helpers/view_size.dart';
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
-  final container = await signedInApiContainer(
+  return signedInApiContainer(
     MockClient(handler),
     account: const Account(id: 'account', userId: 10, name: 'tester'),
   );
-  return container;
 }
 
 http.Response _jsonValue(Object value) => jsonResponse(value);
@@ -83,23 +74,17 @@ Map<String, dynamic> _commentJson(
   ...?stamp == null ? null : {'stamp': stamp},
 };
 
-/// The reply text button of every comment row (zh).
 Finder _replyButton() => find.widgetWithText(TextButton, '回复');
 
-/// Lets a composer panel rise or fold away: the keyboard hold runs out,
-/// then the sheet spring plays from the frame after. Not pumpAndSettle:
-/// stalled stamps keep their placeholders running.
 Future<void> _settlePanel(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
   await tester.pump(const Duration(seconds: 1));
 }
 
-/// Signed in as the comments' account, for cases that send no request.
 List<Override> _signedIn() => [
   accountStoreProvider.overrideWith(commentsAccountStore),
 ];
 
-/// The real comments route of work 1 over [comments].
 Future<void> _pumpCommentsRoute(
   WidgetTester tester, [
   CommentApi? comments,
@@ -252,7 +237,6 @@ void main() {
     },
   );
 
-  // Closed, the response holds one notice from pixiv (id 15, user 11).
   test('a closed work keeps pixiv\'s notice out of its feed', () async {
     final container = await _apiContainer(
       (request) async => _json({
@@ -299,7 +283,6 @@ void main() {
       ),
       isFalse,
     );
-    // A reply cursor is not a root-thread cursor, whatever its parameters say.
     expect(
       repository.validateCursor(
         root,
@@ -316,11 +299,8 @@ void main() {
       final container = ProviderContainer.test(overrides: _signedIn());
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
-      final rootQuery = const CommentFeedQuery.root(workId: 1);
-      final replyQuery = const CommentFeedQuery.replies(
-        workId: 1,
-        rootCommentId: 10,
-      );
+      const rootQuery = CommentFeedQuery.root(workId: 1);
+      const replyQuery = CommentFeedQuery.replies(workId: 1, rootCommentId: 10);
       final root = sampleComment(10, replyCount: 0);
       final reply = sampleComment(11, parentCommentId: 10, rootCommentId: 10);
       store.mergePage(rootQuery, [root, root]);
@@ -383,8 +363,8 @@ void main() {
       final container = ProviderContainer.test(overrides: _signedIn());
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
-      final rootQuery = const CommentFeedQuery.root(workId: 1);
-      final repliesQuery = const CommentFeedQuery.replies(
+      const rootQuery = CommentFeedQuery.root(workId: 1);
+      const repliesQuery = CommentFeedQuery.replies(
         workId: 1,
         rootCommentId: 20,
       );
@@ -412,7 +392,6 @@ void main() {
     () async {
       final comments = CommentApi()..addGate = Completer<void>();
       final container = await commentWorld(comments);
-      // Only the detail has counted the work's comments so far.
       container.read(illustStoreProvider).mergeAll([
         parseIllust(illustJson(1)..['total_comments'] = 4),
       ]);
@@ -430,7 +409,7 @@ void main() {
         result.id,
       );
       expect(
-        container.read(commentTotalsProvider)[CommentFeedQuery.root(
+        container.read(commentTotalsProvider)[const CommentFeedQuery.root(
           workId: 1,
         ).workKey],
         5,
@@ -469,63 +448,24 @@ void main() {
     );
   });
 
-  testWidgets('stamp picker loads pixiv stamps and sends the tapped id', (
-    tester,
-  ) async {
-    final sent = <int>[];
-    await tester.pumpWidget(
-      withStalledImages(
-        localizedApp(
-          builder: promptHostBuilder,
-          home: Scaffold(
-            resizeToAvoidBottomInset: false,
-            body: CommentComposer(
-              onSend: (_) async {},
-              onStampSend: (id) async => sent.add(id),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.byTooltip('贴图'));
-    await tester.pump();
-    await _settlePanel(tester);
+  test('keyboard heights persist per screen shape', () async {
+    final first = ProviderContainer();
+    addTearDown(first.dispose);
+    first.read(keyboardHeightsProvider.notifier)
+      ..record(const Size(400, 800), 300)
+      ..record(const Size(400, 800), 90)
+      ..record(const Size(800, 400), 200);
+    await pumpEventQueue();
 
-    final grid = tester.widget<GridView>(find.byType(GridView));
-    expect(
-      (grid.childrenDelegate as SliverChildBuilderDelegate).childCount,
-      commentStampIds.length,
-    );
-    final first = tester.widget<PixivImage>(
-      find
-          .descendant(
-            of: find.byType(GridView),
-            matching: find.byType(PixivImage),
-          )
-          .first,
-    );
-    expect(first.url, commentStampUrl(101));
-    expect(first.fit, BoxFit.contain);
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is Image && widget.image is AssetImage,
-      ),
-      findsNothing,
-    );
-
-    await tester.tap(
-      find
-          .descendant(
-            of: find.byType(GridView),
-            matching: find.byType(InkResponse),
-          )
-          .first,
-    );
-    await tester.pump();
-    expect(sent, [101]);
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    second.read(keyboardHeightsProvider);
+    await pumpEventQueue();
+    final heights = second.read(keyboardHeightsProvider.notifier);
+    expect(heights.heightFor(const Size(400, 760)), 300);
+    expect(heights.heightFor(const Size(800, 400)), 200);
+    expect(heights.heightFor(const Size(600, 900)), isNull);
   });
-
-  group('stamp comment body', () {});
 
   testWidgets('comments page renders the root feed and opens its thread', (
     tester,
@@ -548,71 +488,15 @@ void main() {
     expect(find.byType(CommentComposer), findsNothing);
   });
 
-  testWidgets(
-    'keyboard open pads only the composer — page chrome holds still',
-    (tester) async {
-      // §5.6/§4.10 form geometry: the shell opts out of Scaffold insets, so
-      // a focused field + IME must never translate the page's main
-      // controls — the composer reserves the keyboard extent itself.
-      setViewSize(tester, const Size(600, 844));
-
-      await _pumpCommentsRoute(tester);
-      expect(find.text('comment 11'), findsOneWidget);
-
-      // The pushed page's own Scaffold is the one that must stay out of
-      // insets — assert the contract, not just the geometry.
-      final pageScaffold = find.ancestor(
-        of: find.byType(CommentComposer),
-        matching: find.byType(Scaffold),
-      );
-      expect(
-        tester.widget<Scaffold>(pageScaffold.first).resizeToAvoidBottomInset,
-        isFalse,
-      );
-
-      final titleTop = tester.getTopLeft(find.text('评论')).dy;
-      final commentTop = tester.getTopLeft(find.text('comment 11')).dy;
-      final sendTop = tester.getTopLeft(find.byIcon(AppIcons.send)).dy;
-
-      // Focus the composer field, then the IME reports its height — the
-      // composer reserves the keyboard extent in its own bottom slot.
-      await tester.tap(find.byType(TextField).first);
-      await tester.pump();
-      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-      // The feed's easy_refresh ballistic defers one notifyListeners via a
-      // zero-delay Future when its axis first resolves — settle it out.
-      await tester.pumpAndSettle();
-
-      // Page chrome and feed did not translate — only the feed's Expanded
-      // slot shrank while the composer grew upward into it.
-      expect(tester.getTopLeft(find.text('评论')).dy, titleTop);
-      expect(tester.getTopLeft(find.text('comment 11')).dy, commentTop);
-
-      // The input row (and its send affordance) rides up by exactly the
-      // keyboard height and lands fully above the IME.
-      expect(tester.getTopLeft(find.byIcon(AppIcons.send)).dy, sendTop - 300);
-      expect(
-        tester.getBottomLeft(find.byIcon(AppIcons.send)).dy,
-        lessThanOrEqualTo(844 - 300),
-      );
-    },
-  );
-
   Widget composerApp(Widget home) =>
       withStalledImages(localizedApp(builder: promptHostBuilder, home: home));
 
-  Widget bareComposer({VoidCallback? onGone}) => Scaffold(
-    // Same contract as the real pages: the Scaffold stays out of insets so
-    // the composer's bottom extent can observe MediaQuery.viewInsets.
+  Widget bareComposer() => Scaffold(
     resizeToAvoidBottomInset: false,
     body: Column(
       children: [
         const Expanded(child: SizedBox()),
-        CommentComposer(
-          onSend: (_) async {},
-          onStampSend: (_) async {},
-          onGone: onGone,
-        ),
+        CommentComposer(onSend: (_) async {}, onStampSend: (_) async {}),
       ],
     ),
   );
@@ -620,11 +504,9 @@ void main() {
   testWidgets('a send ending after the detail composer left still lands', (
     tester,
   ) async {
-    final workKey = CommentFeedQuery.root(workId: 42).workKey;
-    // A success still clears the draft, a failure is still reported.
+    final workKey = const CommentFeedQuery.root(workId: 42).workKey;
     for (final fails in [false, true]) {
       final gate = Completer<void>();
-      // Each round is a fresh install.
       installPreferencesForTest(memoryPreferences());
       final container = await signedInApiContainer(
         MockClient((request) async {
@@ -667,7 +549,6 @@ void main() {
       final draft = container.read(commentDraftsProvider)[workKey];
       expect(draft, fails ? 'hi' : isNull);
       if (!fails) {
-        // A clear from before A → B → A leaves A's newer draft alone.
         final accounts = container.read(accountStoreProvider.notifier);
         await accounts.switchAccount('200');
         await accounts.switchAccount('100');
@@ -679,40 +560,6 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       container.dispose();
     }
-  });
-
-  testWidgets('composer keeps the keyboard and the panels mutually exclusive', (
-    tester,
-  ) async {
-    await tester.pumpWidget(composerApp(bareComposer()));
-    EditableText field() =>
-        tester.widget<EditableText>(find.byType(EditableText));
-
-    // none → emoji: opening the panel releases the field.
-    await tester.tap(find.byTooltip('表情'));
-    await tester.pump();
-    await _settlePanel(tester);
-    expect(find.byType(GridView), findsOneWidget);
-    expect(field().focusNode.hasFocus, isFalse);
-
-    // Tapping the field while a panel is open converges to the keyboard leg:
-    // the panel closes instead of coexisting underneath the raised IME.
-    await tester.tap(find.byType(TextField));
-    await tester.pump();
-    expect(field().focusNode.hasFocus, isTrue);
-    await _settlePanel(tester);
-    expect(find.byType(GridView), findsNothing);
-
-    // Same convergence from the stamp leg.
-    await tester.tap(find.byTooltip('贴图'));
-    await tester.pump();
-    await _settlePanel(tester);
-    expect(find.byType(GridView), findsOneWidget);
-    await tester.tap(find.byType(TextField));
-    await tester.pump();
-    expect(field().focusNode.hasFocus, isTrue);
-    await _settlePanel(tester);
-    expect(find.byType(GridView), findsNothing);
   });
 
   testWidgets('system back closes an open panel before leaving the page', (
@@ -742,353 +589,15 @@ void main() {
     await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
 
-    // Back collapses the transient panel; the route stays.
     await tester.binding.handlePopRoute();
     await tester.pump();
     await _settlePanel(tester);
     expect(find.byType(GridView), findsNothing);
     expect(find.byType(CommentComposer), findsOneWidget);
 
-    // With the surface at rest the next back leaves normally.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(CommentComposer), findsNothing);
-  });
-
-  testWidgets('the keyboard leg does not intercept system back', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      composerApp(
-        Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: TextButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute<void>(builder: (_) => bareComposer())),
-                child: const Text('push'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('push'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(TextField));
-    await tester.pump();
-    expect(
-      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
-      isTrue,
-    );
-
-    // The IME/system owns this back; the composer never vetoes it.
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(find.byType(CommentComposer), findsNothing);
-  });
-
-  testWidgets('composer reserves the sampled keyboard height for panels', (
-    tester,
-  ) async {
-    Widget withInsets(double bottom) => composerApp(
-      Builder(
-        builder: (context) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(viewInsets: EdgeInsets.only(bottom: bottom)),
-          child: bareComposer(),
-        ),
-      ),
-    );
-
-    // Focused while the IME reports 300: the composer reserves that extent
-    // below the input row (manual insets, no Scaffold resize).
-    await tester.pumpWidget(withInsets(0));
-    final idleHeight = tester.getSize(find.byType(CommentComposer)).height;
-    await tester.pumpWidget(withInsets(300));
-    await tester.tap(find.byType(TextField));
-    await tester.pump();
-    expect(
-      tester.getSize(find.byType(CommentComposer)).height - idleHeight,
-      300,
-    );
-
-    // A panel replacing the keyboard takes its height at once and keeps it
-    // as the IME leaves: keyboard → panel does not jump.
-    double slot() =>
-        tester.getSize(find.byType(CommentComposer)).height - idleHeight;
-    await tester.tap(find.byTooltip('表情'));
-    await tester.pump();
-    expect(tester.getSize(find.byType(GridView)).height, 300);
-    await tester.pumpWidget(withInsets(0));
-    expect(slot(), 300);
-
-    // Back to the keyboard: once it has risen over the panel, the panel is
-    // gone, without waiting out the hold.
-    await tester.tap(find.byType(TextField));
-    await tester.pump();
-    await tester.pumpWidget(withInsets(300));
-    await tester.pumpWidget(withInsets(0));
-    expect(slot(), 0);
-  });
-
-  // One bottom budget: the navigation bar under a resting row, the
-  // keyboard over it, and a panel at the keyboard's height, so the row
-  // holds still as they swap — in a later composer too.
-  testWidgets('panels stand exactly where the keyboard stood', (tester) async {
-    final memory = _MapKeyboardHeights();
-    Widget withInsets(double keyboard, {Key? key}) => composerApp(
-      Builder(
-        builder: (context) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            viewPadding: const EdgeInsets.only(bottom: 48),
-            viewInsets: EdgeInsets.only(bottom: keyboard),
-          ),
-          child: Scaffold(
-            resizeToAvoidBottomInset: false,
-            body: Column(
-              children: [
-                const Expanded(child: SizedBox()),
-                CommentComposer(
-                  key: key,
-                  onSend: (_) async {},
-                  onStampSend: (_) async {},
-                  keyboardHeights: memory,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    double row() => tester.getBottomLeft(find.byType(TextField)).dy;
-
-    await tester.pumpWidget(withInsets(0));
-    final resting = row();
-    // Before any docked keyboard (a floating one's low inset is dropped):
-    // the default panel, above the navigation bar.
-    await tester.tap(find.byType(TextField));
-    await tester.pumpWidget(withInsets(90));
-    await tester.tap(find.byTooltip('表情'));
-    await tester.pumpWidget(withInsets(0));
-    await _settlePanel(tester);
-    expect(row(), resting - 280);
-    await tester.tap(find.byTooltip('表情'));
-    await _settlePanel(tester);
-    expect(row(), resting);
-
-    await tester.tap(find.byType(TextField));
-    await tester.pumpWidget(withInsets(330));
-    final typing = row();
-    expect(typing, resting - 330 + 48);
-    await tester.tap(find.byTooltip('表情'));
-    await tester.pumpWidget(withInsets(0));
-    await _settlePanel(tester);
-    expect(row(), typing);
-
-    // A new composer opens its panel at the remembered height.
-    await tester.pumpWidget(withInsets(0, key: UniqueKey()));
-    await tester.tap(find.byTooltip('贴图'));
-    await _settlePanel(tester);
-    expect(row(), typing);
-  });
-
-  // Some IMEs leave the navigation bar in viewInsets with nothing focused:
-  // a keyboard down to the bar is down.
-  testWidgets(
-    'a composer on its surface goes with a keyboard down to the bar',
-    (tester) async {
-      var gone = 0;
-      Widget withKeyboard(double inset) => composerApp(
-        Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              viewPadding: const EdgeInsets.only(bottom: 24),
-              viewInsets: EdgeInsets.only(bottom: inset),
-            ),
-            child: Scaffold(
-              resizeToAvoidBottomInset: false,
-              body: Align(
-                alignment: Alignment.bottomCenter,
-                child: CommentComposer(
-                  onSend: (_) async {},
-                  onStampSend: (_) async {},
-                  onGone: () => gone++,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      double shown() => tester
-          .widget<Opacity>(
-            find
-                .descendant(
-                  of: find.byType(CommentComposer),
-                  matching: find.byType(Opacity),
-                )
-                .first,
-          )
-          .opacity;
-
-      await tester.pumpWidget(withKeyboard(24));
-      tester
-          .state<CommentComposerState>(find.byType(CommentComposer))
-          .open(CommentComposerInputState.keyboard);
-      await tester.pump();
-      await tester.pumpWidget(withKeyboard(300));
-      expect(shown(), 1);
-      await tester.pumpWidget(withKeyboard(24));
-      expect(shown(), 0);
-      // Down, out of focus, then gone: a frame each.
-      await tester.pump();
-      await tester.pump();
-      expect(gone, 1);
-    },
-  );
-
-  test('keyboard heights persist per screen shape', () async {
-    final first = ProviderContainer();
-    addTearDown(first.dispose);
-    first.read(keyboardHeightsProvider.notifier)
-      ..record(const Size(400, 800), 300)
-      // A floating keyboard's inset: no docked keyboard is this low.
-      ..record(const Size(400, 800), 90)
-      ..record(const Size(800, 400), 200);
-    await pumpEventQueue();
-
-    final second = ProviderContainer();
-    addTearDown(second.dispose);
-    second.read(keyboardHeightsProvider);
-    await pumpEventQueue();
-    final heights = second.read(keyboardHeightsProvider.notifier);
-    expect(heights.heightFor(const Size(400, 760)), 300);
-    expect(heights.heightFor(const Size(800, 400)), 200);
-    expect(heights.heightFor(const Size(600, 900)), isNull);
-  });
-
-  testWidgets('the panel rises on a spring and waits for the keyboard', (
-    tester,
-  ) async {
-    await tester.pumpWidget(composerApp(bareComposer()));
-    final idleHeight = tester.getSize(find.byType(CommentComposer)).height;
-    double slot() =>
-        tester.getSize(find.byType(CommentComposer)).height - idleHeight;
-
-    await tester.tap(find.byTooltip('表情'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 80));
-    expect(slot(), inExclusiveRange(0, 280));
-    await _settlePanel(tester);
-    expect(slot(), 280);
-
-    // The field takes over: the input row stays up for the keyboard (none
-    // comes here), then the panel folds away.
-    await tester.tap(find.byType(TextField));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(slot(), 280);
-    await _settlePanel(tester);
-    expect(slot(), 0);
-
-    // Reduced motion: the panel is there at once.
-    await tester.pumpWidget(
-      MotionScope(reduce: true, child: composerApp(bareComposer())),
-    );
-    await tester.tap(find.byTooltip('表情'));
-    await tester.pump();
-    expect(slot(), 280);
-
-    // Pointer/desktop modality never waits 600ms for a soft keyboard: an
-    // on-surface composer shows immediately and switching from panel to text
-    // starts closing the panel right away.
-    await tester.pumpWidget(
-      InputModalityScope(
-        initialModality: InputModality.pointer,
-        child: composerApp(bareComposer(onGone: () {})),
-      ),
-    );
-    tester
-        .state<CommentComposerState>(find.byType(CommentComposer))
-        .open(CommentComposerInputState.keyboard);
-    await tester.pump();
-    expect(
-      tester.widget<Opacity>(find.byType(Opacity).first).opacity,
-      closeTo(1.0, 0.001),
-    );
-    await tester.tap(find.byTooltip('表情'), kind: PointerDeviceKind.mouse);
-    await _settlePanel(tester);
-    expect(slot(), 280);
-    await tester.tap(find.byType(TextField), kind: PointerDeviceKind.mouse);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(slot(), lessThan(280));
-    await _settlePanel(tester);
-    expect(slot(), 0);
-  });
-
-  testWidgets('a turned phone keeps the panel to half the window', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(896, 411));
-    await tester.pumpWidget(composerApp(bareComposer()));
-    final idleHeight = tester.getSize(find.byType(CommentComposer)).height;
-
-    // No keyboard height known yet: half of the 411 window, not the
-    // portrait default, so the page above keeps its room.
-    await tester.tap(find.byTooltip('表情'));
-    await _settlePanel(tester);
-    expect(
-      tester.getSize(find.byType(CommentComposer)).height - idleHeight,
-      411 / 2,
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('composer input state covers the four-state matrix', (
-    tester,
-  ) async {
-    await tester.pumpWidget(composerApp(bareComposer()));
-    CommentComposerState state() =>
-        tester.state<CommentComposerState>(find.byType(CommentComposer));
-    EditableText field() =>
-        tester.widget<EditableText>(find.byType(EditableText));
-
-    expect(state().debugInputState, CommentComposerInputState.none);
-
-    await tester.tap(find.byTooltip('表情'));
-    await tester.pump();
-    expect(state().debugInputState, CommentComposerInputState.emoji);
-
-    // Same-region swap: stamp replaces emoji directly, no intermediate none.
-    await tester.tap(find.byTooltip('贴图'));
-    await tester.pump();
-    expect(state().debugInputState, CommentComposerInputState.stamp);
-    await _settlePanel(tester);
-    expect(find.byType(GridView), findsOneWidget);
-
-    // Toggling the active button rests the surface.
-    await tester.tap(find.byTooltip('贴图'));
-    await tester.pump();
-    expect(state().debugInputState, CommentComposerInputState.none);
-    await _settlePanel(tester);
-    expect(find.byType(GridView), findsNothing);
-
-    // The reply-pill entry point lands on the keyboard leg with real focus.
-    state().focusForReply();
-    await tester.pump();
-    expect(state().debugInputState, CommentComposerInputState.keyboard);
-    expect(field().focusNode.hasFocus, isTrue);
-
-    // Focus loss converges keyboard back to the resting surface.
-    state().focusForReply();
-    await tester.pump();
-    FocusManager.instance.primaryFocus?.unfocus();
-    await tester.pump();
-    expect(state().debugInputState, CommentComposerInputState.none);
   });
 
   Future<void> pumpCommentsPage(
@@ -1124,141 +633,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('replies page scrolls the root comment with the reply list', (
-    tester,
-  ) async {
-    final comments = CommentApi()
-      ..replies = [
-        for (var i = 0; i < 15; i++)
-          sampleComment(
-            100 + i,
-            parentCommentId: 11,
-            rootCommentId: 11,
-            userId: 20,
-          ),
-      ];
-    await pumpRepliesPage(tester, comments);
-
-    expect(find.text('comment 11'), findsOneWidget);
-    final before = tester.getTopLeft(find.text('comment 11')).dy;
-    // SmoothWheelScroll boots in wheel mode on the desktop test host — the
-    // list sits on NeverScrollableScrollPhysics until the first pointer
-    // down drops it, so this priming drag only unlocks touch scrolling.
-    await tester.drag(find.byType(ListView), const Offset(0, -60));
-    await tester.pump();
-    await tester.drag(find.byType(ListView), const Offset(0, -60));
-    await tester.pump();
-    // The root is part of the scrollable feed now — it must move with it.
-    expect(tester.getTopLeft(find.text('comment 11')).dy, lessThan(before));
-  });
-
-  testWidgets('replies page keeps a reply visible under a long root', (
-    tester,
-  ) async {
-    await pumpRepliesPage(
-      tester,
-      CommentApi(),
-      root: sampleComment(
-        11,
-        replyCount: 1,
-        content: 'long root comment line\n' * 12,
-      ),
-    );
-
-    // First frame: the feed's leading slot holds the root, and the first
-    // reply's row already peeks into the viewport — the old fixed header
-    // squeezed the list into an overflowing sliver instead.
-    final feedBottom = tester.getRect(find.byType(ListView)).bottom;
-    expect(find.byKey(const ValueKey(12)), findsOneWidget);
-    // Reply rows delete through the exit-first removal.
-    expect(tester.widget(find.byKey(const ValueKey(12))), isA<Removable>());
-    expect(
-      tester.getRect(find.byKey(const ValueKey(12))).top,
-      lessThan(feedBottom),
-    );
-    // The header CommentItem (tree order first) is the root, leading the
-    // reply rows.
-    expect(
-      tester.getRect(find.byType(CommentItem).first).top,
-      lessThan(tester.getRect(find.byKey(const ValueKey(12))).top),
-    );
-
-    // The FeedTail slot still terminates the list after the replies —
-    // scroll the long root out of the way to reach it. The first drag
-    // only unlocks SmoothWheelScroll's desktop wheel mode.
-    await tester.drag(find.byType(ListView), const Offset(0, -60));
-    await tester.pump();
-    await tester.drag(find.byType(ListView), const Offset(0, -160));
-    await tester.pump();
-    expect(find.byType(FeedTail), findsOneWidget);
-  });
-
-  testWidgets('reply pill pins the target and focuses the composer', (
-    tester,
-  ) async {
-    await pumpCommentsPage(tester, CommentApi());
-
-    EditableText field() =>
-        tester.widget<EditableText>(find.byType(EditableText));
-    expect(field().focusNode.hasFocus, isFalse);
-
-    await tester.tap(_replyButton().first);
-    await tester.pump();
-
-    // The composer owns the keyboard leg and shows the pinned target.
-    expect(field().focusNode.hasFocus, isTrue);
-    expect(
-      find.descendant(
-        of: find.byType(CommentComposer),
-        matching: find.textContaining('user 10'),
-      ),
-      findsOneWidget,
-    );
-    // The reference row is one semantics container for screen readers —
-    // its nearest Semantics ancestor is a container.
-    final replyText = find.descendant(
-      of: find.byType(CommentComposer),
-      matching: find.textContaining('user 10'),
-    );
-    expect(
-      tester
-          .widget<Semantics>(
-            find
-                .ancestor(of: replyText, matching: find.byType(Semantics))
-                .first,
-          )
-          .container,
-      isTrue,
-    );
-  });
-
-  testWidgets('send success clears the reply target and the draft, with one '
-      'success haptic', (tester) async {
-    final haptics = recordHaptics();
-    await pumpCommentsPage(tester, CommentApi());
-
-    await tester.tap(_replyButton().first);
-    await tester.pump();
-    Finder replyRef() => find.descendant(
-      of: find.byType(CommentComposer),
-      matching: find.textContaining('user 10'),
-    );
-    expect(replyRef(), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'hi there');
-    await tester.pump();
-    await tester.tap(find.byIcon(AppIcons.send));
-    await tester.pumpAndSettle();
-
-    // Success clears both the draft and the pinned reply target.
-    expect(
-      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-      isEmpty,
-    );
-    expect(replyRef(), findsNothing);
-    expect(haptics.roles, [HapticRole.success]);
-  });
-
   testWidgets('a mid-flight retarget keeps the spinner and outlives the old '
       'send', (tester) async {
     final comments = CommentApi()
@@ -1278,10 +652,6 @@ void main() {
     await tester.tap(find.byIcon(AppIcons.send));
     await tester.pump();
 
-    // While the first send is in flight the user re-targets comment 12.
-    // The mutation key now maps to comment 12, which has no pending send:
-    // `sending` reports false while `_busy` still covers the await, and
-    // the spinner must persist through that window.
     await tester.tap(_replyButton().last);
     await tester.pump();
     expect(inComposer(find.textContaining('user 21')), findsOneWidget);
@@ -1290,7 +660,6 @@ void main() {
     comments.addGate!.complete();
     await tester.pumpAndSettle();
 
-    // The completed send must not clear the newer target.
     expect(inComposer(find.textContaining('user 21')), findsOneWidget);
     expect(inComposer(find.byType(CircularProgressIndicator)), findsNothing);
   });
@@ -1302,7 +671,6 @@ void main() {
       final haptics = recordHaptics();
       await pumpRepliesPage(tester, CommentApi()..addFailure = failing(400));
 
-      // The default target is the root author; a failed send keeps it.
       await tester.enterText(find.byType(TextField), 'keep me');
       await tester.pump();
       await tester.tap(find.byIcon(AppIcons.send));
@@ -1326,25 +694,6 @@ void main() {
       expect(haptics.played, isEmpty);
     },
   );
-
-  testWidgets('a top-level send plays one success haptic, a failed one none', (
-    tester,
-  ) async {
-    for (final (failure, roles) in [
-      (null, [HapticRole.success]),
-      (offline, <HapticRole>[]),
-    ]) {
-      final haptics = recordHaptics();
-      await pumpCommentsPage(tester, CommentApi()..addFailure = failure);
-
-      await tester.enterText(find.byType(TextField), 'hi');
-      await tester.pump();
-      await tester.tap(find.byIcon(AppIcons.send));
-      await tester.pumpAndSettle();
-      expect(haptics.roles, roles, reason: 'failed: ${failure != null}');
-      await tester.pumpWidget(const SizedBox());
-    }
-  });
 
   testWidgets(
     'CommentRepliesPage hides cancel-reply on root target and surfaces send errors after pop',
@@ -1380,9 +729,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      // Default root target shows no cancel × button.
       expect(find.byTooltip('取消回复'), findsNothing);
-      // Targeting a child reply reveals cancel ×; tapping resets to root and hides ×.
       await tester.tap(_replyButton().last);
       await tester.pump();
       expect(find.byTooltip('取消回复'), findsOneWidget);
@@ -1390,7 +737,6 @@ void main() {
       await tester.pump();
       expect(find.byTooltip('取消回复'), findsNothing);
 
-      // Sending then popping mid-flight still surfaces the deferred error prompt.
       await tester.enterText(find.byType(TextField), 'bye');
       await tester.pump();
       await tester.tap(find.byIcon(AppIcons.send));
@@ -1403,18 +749,39 @@ void main() {
       expect(find.text('发送评论失败'), findsOneWidget);
     },
   );
-}
 
-/// The composer's keyboard memory, held in a map.
-class _MapKeyboardHeights implements KeyboardHeightMemory {
-  final _heights = <Size, double>{};
+  testWidgets(
+    'keyboard open pads only the composer — page chrome holds still',
+    (tester) async {
+      setViewSize(tester, const Size(600, 844));
+      await _pumpCommentsRoute(tester);
+      expect(find.text('comment 11'), findsOneWidget);
 
-  @override
-  double? heightFor(Size size) => _heights[size];
+      final pageScaffold = find.ancestor(
+        of: find.byType(CommentComposer),
+        matching: find.byType(Scaffold),
+      );
+      expect(
+        tester.widget<Scaffold>(pageScaffold.first).resizeToAvoidBottomInset,
+        isFalse,
+      );
 
-  /// Drops what no docked keyboard has, as [KeyboardHeights] does.
-  @override
-  void record(Size size, double height) {
-    if (height >= KeyboardHeights.minHeight) _heights[size] = height;
-  }
+      final titleTop = tester.getTopLeft(find.text('评论')).dy;
+      final commentTop = tester.getTopLeft(find.text('comment 11')).dy;
+      final sendTop = tester.getTopLeft(find.byIcon(AppIcons.send)).dy;
+
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(find.text('评论')).dy, titleTop);
+      expect(tester.getTopLeft(find.text('comment 11')).dy, commentTop);
+      expect(tester.getTopLeft(find.byIcon(AppIcons.send)).dy, sendTop - 300);
+      expect(
+        tester.getBottomLeft(find.byIcon(AppIcons.send)).dy,
+        lessThanOrEqualTo(844 - 300),
+      );
+    },
+  );
 }

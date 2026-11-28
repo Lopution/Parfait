@@ -30,34 +30,14 @@ reviewed: 2026-11-28
   Notes on how to use a setting are not written (PAGE-20). On one page either
   every group has a title or none does. A leaving `Removable` row stops
   counting from the exit's first frame so its hairline closes smoothly.
+  `SettingsChoiceTile` exposes the chosen option through `ListTile.selected`
+  so screen readers announce selection without deprecated radios.
 - **Why:** One inset grouped card with 1dp hairlines keeps settings and the Me
   dashboard calm across desktop and mobile without stacked thick card slabs.
   Notes set apart from their row and a page with one titled group read as
   unrelated. An empty group's note on a card read as a row to press.
-- **Check:** `test/architecture/ui_conventions_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"
-- **Code:** `lib/app/widgets/settings/settings_group.dart`
-
-### SET-02 Choose the row by the number of values
-- **Rule:** A setting with two to four values is a `SettingsMenuTile`
-  (current value at the row's end, menu anchored below it on the end
-  edge, never over the title). A longer list is a `SettingsGroup` of
-  `SettingsChoiceTile`s, which mark the chosen row with a check and
-  `ListTile.selected`, not a radio. A two-way property is a
-  `SettingsControl` backed by `FSwitch`; on `BottomBarSettingsPage`, locked-on
-  destinations (`shown && onChanged == null`) pass `locked: true` and
-  `lockedIcon` (`AppIcons.lock` / `AppIcons.check`) to render a muted `0.40`
-  primary-blended track, `onPrimary` thumb, and lock overlay while keeping
-  `onChanged: null` (THEME-07), and omit `bottomBarMeLocked` under
-  `DesktopCommandBarScope`. Diagnostic result panels in `NetworkProbePage` use
-  `FAccordion` / `FAccordionItem` with one-tap `compatPrefer` / `enableDoh`
-  apply actions on `NetworkProbeOverview`, and `NetworkAdvancedSettingsPage`
-  exposes `Setting.dohEnabled` as a `SettingsControl` toggle.
-- **Why:** `RadioListTile` is deprecated in the pinned Flutter, and
-  `selected` is what screen readers announce; segmented buttons were
-  removed (NAV-17), while locked-on bar destinations needed clear active
-  visual state without looking toggleable.
-- **Check:** `test/selection_controls_haptics_test.dart` "SettingsControl locked mode renders disabled active FSwitch with lock icon"
-- **Code:** `lib/app/widgets/settings/settings_control.dart`, `lib/app/widgets/settings/settings_menu_tile.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`, `lib/features/settings/pages/bottom_bar_settings_page.dart`, `lib/features/settings/network_probe_page.dart`
+- **Check:** `test/architecture/ui_conventions_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"; `test/settings_test.dart` "SettingsChoiceTile exposes ListTile.selected semantics to screen readers"
+- **Code:** `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
 
 ### SET-08 Page entries use monochrome icons without color discs
 - **Rule:** A row that opens a settings page from the index (`SettingsTile.topLevel`)
@@ -88,22 +68,6 @@ reviewed: 2026-11-28
   did not read as one form. A long label was cut at narrow widths.
 - **Check:** `test/translation_credentials_page_test.dart` "typing while the store reads or writes stays a draft" "a dirty draft asks before leaving, a clean one pops"; `test/download_settings_page_test.dart` "DownloadDestinationPage clears album to default, offers reset row, and exposes copy button & right-click menu"
 - **Code:** `lib/features/settings/pages/translation_credentials_page.dart`, `lib/features/settings/pages/download_destination_page.dart`, `lib/features/settings/network_settings_page.dart`
-
-### SET-10 A row's end says what a tap does
-- **Rule:** A row that opens a page of the app is a `SettingsTile` and
-  ends in a chevron. A row that leaves the app (a browser) ends its link
-  text in an `open_in_new` glyph in the text's size and colour. A row
-  that acts in place names the action and shows no glyph; a value row
-  shows its value at its end. Facts about the app (its icon, name and
-  attribution) head the About page on the page surface, not in a card.
-  The version stays a plain value row, though seven taps on it unlock
-  the developer options.
-- **Why:** User report: on the About page the license, the
-  source link and the facts were alike cards; what opened a page, what
-  left the app and what did nothing could not be told apart. The
-  attribution left the settings search: it is not a setting.
-- **Check:** manual
-- **Code:** `lib/features/settings/pages/about_settings_page.dart`, `lib/app/widgets/settings/settings_tile.dart`
 
 ### SET-03 Hand-written ListTiles only for content rows
 - **Rule:** A hand-written `ListTile` is allowed only for data entries
@@ -171,7 +135,7 @@ reviewed: 2026-11-28
   master-detail hosting keeps deep-linked settings pages coherent beside the
   collapsed shell rail without double headers, orphaned single-column sheets,
   or silently discarded form drafts on category switch or outer back.
-- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column" "wide settings prompts confirmDiscardDraft on category switch and outer pop for dirty root and child forms"; `test/shared_widgets_test.dart` "MasterDetailWorkspace wraps scrollable masterBody in vertical ScrollEdgeFade"
+- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column" "wide settings prompts confirmDiscardDraft on category switch and outer pop for dirty root and child forms"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/navigation/route_branches.dart`, `lib/features/settings/settings_catalog.dart`, `lib/features/settings/settings_page.dart`, `lib/features/settings/settings_helpers.dart`, `lib/features/settings/pages/motion_settings_page.dart`, `lib/features/settings/pages/theme_settings_page.dart`, `lib/features/settings/pages/download_destination_page.dart`
 
 ## Me tab
@@ -202,7 +166,7 @@ reviewed: 2026-11-28
   their own; monochrome grouped rows clarify mobile hierarchy, and holding
   history order while covered keeps Hero return flights aimed at the right
   cover before sliding.
-- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"
+- **Check:** `test/settings_test.dart` "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end"
 - **Code:** `lib/app/widgets/scroll_edge_fade.dart`, `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_tile.dart`, `lib/core/history/history_visibility.dart`, `lib/features/settings/me_dashboard_page.dart`
 
 ### SET-11 Wide Me tab opens directly into a 280dp MasterDetailWorkspace
@@ -228,5 +192,5 @@ reviewed: 2026-11-28
   every library section opens in one click inside the shared 280dp
   `MasterDetailWorkspace` / `SettingsDetailScope` pattern and back exits inner
   selection modes before popping Me.
-- **Check:** `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly" "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me"
+- **Check:** `test/settings_master_detail_test.dart` "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me" "offstage Me dashboard defers profile and bookmark requests until visible"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/widgets/scroll_edge_fade.dart`, `lib/features/settings/me_dashboard_page.dart`

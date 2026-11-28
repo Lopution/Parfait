@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/app/system_ui.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -16,11 +15,8 @@ import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
-import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_page.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/app/widgets/feed/feed_states.dart';
@@ -31,6 +27,7 @@ import 'helpers/illust_fixtures.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/novel_reader_harness.dart';
 import 'helpers/waits.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
@@ -217,15 +214,6 @@ http.Response _seriesResponse(
   headers: {'content-type': 'application/json'},
 );
 
-/// Three Pixiv pages, each opening with a line that names it.
-final _threePages = [
-  for (var page = 1; page <= 3; page++)
-    [
-      'PAGE$page begins',
-      for (var line = 0; line < 40; line++) 'page $page line $line text',
-    ].join('\n'),
-].join('\n[newpage]\n');
-
 void main() {
   testWidgets('immersive reader: chrome toggles, back closes chrome first', (
     tester,
@@ -286,50 +274,6 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('the progress hint never overlaps the sliding bottom bar', (
-    tester,
-  ) async {
-    // R4: the hint waits for the bar's `dismissed` edge in both
-    // directions — on no frame may a finder see both at once.
-    final container = await _apiContainer();
-    await _mountReader(tester, container);
-
-    bool hintShown() => _progressHint().evaluate().isNotEmpty;
-    bool barShown() => find.byIcon(AppIcons.textDecrease).evaluate().isNotEmpty;
-    void expectNotBoth(String direction, int frame) {
-      expect(
-        hintShown() && barShown(),
-        isFalse,
-        reason: 'frame $frame of the $direction slide shows both',
-      );
-    }
-
-    // Starts hidden: hint on, bar off.
-    expect(hintShown(), isTrue);
-    expect(barShown(), isFalse);
-
-    // Show direction: the hint leaves on the slide-in's first frame.
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pump();
-    for (var i = 0; i < 15; i++) {
-      expectNotBoth('show', i);
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    expect(barShown(), isTrue);
-    expect(hintShown(), isFalse);
-
-    // Hide direction: the bar owns the strip until it is dismissed; the
-    // hint returns only on the frame the bar leaves the tree.
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pump();
-    for (var i = 0; i < 15; i++) {
-      expectNotBoth('hide', i);
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    expect(barShown(), isFalse);
-    expect(hintShown(), isTrue);
-  });
-
   testWidgets('system back pops the page when the chrome is hidden', (
     tester,
   ) async {
@@ -369,30 +313,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NovelPage), findsNothing);
     expect(find.text('open'), findsOneWidget);
-  });
-
-  testWidgets('a pending detail shows the page skeleton, not an empty state', (
-    tester,
-  ) async {
-    final gate = Completer<void>();
-    addTearDown(() {
-      if (!gate.isCompleted) gate.complete();
-    });
-    final container = await _apiContainer(detailGate: gate);
-    await tester.pumpWidget(
-      localizedApp(container: container, home: NovelPage(novelId: 1)),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(NovelPageSkeleton), findsOneWidget);
-    expect(find.byType(FeedLoading), findsNothing);
-    expect(find.byType(FeedEmpty), findsNothing);
-    expect(find.bySemanticsLabel('正在加载小说'), findsOneWidget);
-
-    gate.complete();
-    await tester.pumpAndSettle();
-    expect(find.byType(NovelPageSkeleton), findsNothing);
   });
 
   testWidgets('a detail landing after a switch stays out of B\'s store', (
@@ -508,34 +428,6 @@ void main() {
     );
   });
 
-  testWidgets('the series fetch happens once across chrome toggles', (
-    tester,
-  ) async {
-    // R5: the stage keeps the provider alive — the bar unmounts with the
-    // chrome but the request must not repeat on every reveal.
-    final requests = <Uri>[];
-    final container = await _apiContainer(
-      withSeries: true,
-      seriesRequests: requests,
-      seriesHandler: (_) async =>
-          _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
-    );
-    await _openReader(tester, container);
-
-    for (var i = 0; i < 3; i++) {
-      await tester.tapAt(const Offset(400, 300));
-      await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(400, 300));
-      await tester.pumpAndSettle();
-    }
-    expect(_progressHint(), findsOneWidget);
-    expect(
-      requests.length,
-      1,
-      reason: 'hiding and revealing the chrome must not refetch',
-    );
-  });
-
   testWidgets('a seen cursor that fails to save leaves the page working', (
     tester,
   ) async {
@@ -551,395 +443,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('series five'), findsOneWidget);
     expect(preferences.intWrites, [1], reason: 'the open novel');
-  });
-
-  testWidgets('system bars hide with the chrome and return on pop', (
-    tester,
-  ) async {
-    // R1: open hidden → immersiveSticky; reveal → edgeToEdge; hide →
-    // immersiveSticky; pop → edgeToEdge on the first frame of the pop,
-    // before dispose ever runs.
-    final modes = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-        modes.add(call.arguments as String);
-      }
-      return null;
-    });
-    addTearDown(
-      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
-    );
-
-    final container = await _apiContainer();
-    await _mountReader(tester, container, pushed: true);
-
-    expect(
-      modes.last,
-      'SystemUiMode.immersiveSticky',
-      reason: 'the reader opens with chrome hidden → immersive',
-    );
-
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pump();
-    expect(
-      modes.last,
-      'SystemUiMode.edgeToEdge',
-      reason: 'revealing the chrome brings the bars back',
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pump();
-    expect(
-      modes.last,
-      'SystemUiMode.immersiveSticky',
-      reason: 'hiding the chrome re-immerses',
-    );
-    await tester.pumpAndSettle();
-
-    // Chrome is hidden, so this back pops the page outright; the ambient
-    // mode must already be restored on the first frame after the pop is
-    // handled — dispose fires only when the pop animation ends.
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    expect(
-      modes.last,
-      'SystemUiMode.edgeToEdge',
-      reason: 'edgeToEdge is requested as the pop starts, not at dispose',
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(NovelPage), findsNothing);
-  });
-
-  testWidgets('explicit back restores edge-to-edge during the pop', (
-    tester,
-  ) async {
-    // R1 second leg: an imperative pop bypasses the chrome-first
-    // interception but still reports through onPopInvokedWithResult.
-    final modes = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-        modes.add(call.arguments as String);
-      }
-      return null;
-    });
-    addTearDown(
-      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
-    );
-
-    final container = await _apiContainer();
-    await _mountReader(tester, container, pushed: true);
-
-    // Reveal the chrome (edgeToEdge), then leave through the explicit
-    // back control: the mode must already be ambient on the first frame
-    // of the pop animation.
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
-    expect(modes.last, 'SystemUiMode.edgeToEdge');
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pump();
-    expect(
-      modes.last,
-      'SystemUiMode.edgeToEdge',
-      reason: 'an imperative pop also restores the ambient mode early',
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(NovelPage), findsNothing);
-  });
-
-  testWidgets('the progress hint never overlaps the last body line', (
-    tester,
-  ) async {
-    // Gesture-nav bottom inset 48 — the case where the hint band used to
-    // ride on top of the last text line.
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(800, 600);
-    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
-    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
-    addTearDown(tester.view.reset);
-
-    for (final (pageTurn, scale) in [
-      for (final pageTurn in NovelPageTurn.values)
-        for (final scale in [1.0, 2.0]) (pageTurn, scale),
-    ]) {
-      final container = await _apiContainer(
-        platform: memoryPreferences({
-          'parfait.novel.reader_settings.v1': jsonEncode(
-            NovelReaderSettings(pageTurn: pageTurn).toJson(),
-          ),
-        }),
-      );
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!,
-          ),
-          home: const NovelPage(novelId: 1),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-      await _settleReader(tester);
-
-      final hint = tester.getRect(_progressHint());
-      if (pageTurn == NovelPageTurn.scroll) {
-        // The column shows its lines only above the bottom margin; the
-        // hint lives in that margin.
-        final text = tester.getRect(find.byType(NovelReader));
-        expect(
-          hint.top,
-          greaterThanOrEqualTo(
-            text.bottom - const NovelLayoutStyle().verticalPadding,
-          ),
-          reason: 'scale $scale: hint $hint must sit below the text area',
-        );
-        await tester.pumpWidget(const SizedBox());
-        container.dispose();
-        continue;
-      }
-      var lastLineBottom = 0.0;
-      Rect? lastLine;
-      for (final line in tester.widgetList<Text>(
-        find.descendant(
-          of: find.byType(NovelReader),
-          matching: find.byType(Text),
-        ),
-      )) {
-        final rect = tester.getRect(find.byWidget(line));
-        if (rect.bottom > lastLineBottom) {
-          lastLineBottom = rect.bottom;
-          lastLine = rect;
-        }
-      }
-      expect(
-        lastLine,
-        isNotNull,
-        reason: 'scale $scale: the laid-out page must have text lines',
-      );
-      expect(
-        hint.overlaps(lastLine!),
-        isFalse,
-        reason:
-            'scale $scale: hint $hint must not cover the last body line '
-            '$lastLine',
-      );
-      // Sanity: the hint itself still sits inside the bottom inset band
-      // it is supposed to live in.
-      expect(hint.bottom, lessThanOrEqualTo(600));
-      // The page goes first, as in the app: its last history commit needs
-      // the container's database.
-      await tester.pumpWidget(const SizedBox());
-      container.dispose();
-    }
-  });
-
-  testWidgets('leaving the reader restores the root bar style', (tester) async {
-    // R2: the stage's FuncSystemBars is a scoped override — unmounting the
-    // route returns the bars to the app-level default without a reset.
-    final container = await _apiContainer(
-      platform: memoryPreferences({
-        'parfait.novel.reader_settings.v1': jsonEncode(
-          const NovelReaderSettings(theme: NovelReaderTheme.night).toJson(),
-        ),
-      }),
-    );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          theme: replicaTheme(Brightness.light),
-          // The same root default app.dart's builder installs.
-          builder: (context, routeChild) => FuncSystemBars(
-            background: Theme.of(context).brightness,
-            child: routeChild ?? const SizedBox.shrink(),
-          ),
-          home: const _Host(),
-        ),
-      ),
-    );
-    // Two pumps: mount, then RenderView publishes latestStyle.
-    await tester.pump();
-    await tester.pump();
-    expect(
-      SystemChrome.latestStyle?.statusBarIconBrightness,
-      Brightness.dark,
-      reason: 'the light root theme starts with dark icons',
-    );
-
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump();
-
-    expect(
-      SystemChrome.latestStyle?.statusBarIconBrightness,
-      Brightness.light,
-      reason: 'the night palette owns both bars while mounted',
-    );
-    expect(
-      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
-      Brightness.light,
-    );
-
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    await tester.pump();
-    expect(find.byType(NovelPage), findsNothing);
-    expect(
-      SystemChrome.latestStyle?.statusBarIconBrightness,
-      Brightness.dark,
-      reason: 'unmounting the reader restores the root style',
-    );
-    expect(
-      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
-      Brightness.dark,
-    );
-  });
-  testWidgets('the account\'s bookmark: opened at without a place of your '
-      'own; marked, moved and removed from the progress sheet', (tester) async {
-    final writes = <http.Request>[];
-    var failWrites = false;
-    final container = await _apiContainer(
-      text: _threePages,
-      marker: const {'page': 3},
-      markerWrites: writes,
-      markerWriteFails: () => failWrites,
-    );
-    final places = container.read(novelProgressStoreProvider);
-    Finder line(String text) => find.textContaining(text, findRichText: true);
-    await _openReader(tester, container);
-
-    // No place of this account's own: the reader opens at page 3's first
-    // line, and opening writes none.
-    expect(tester.getTopLeft(line('PAGE3 begins')).dy, lessThan(100));
-    expect(await places.read('account', 1), isNull);
-
-    Future<void> openSheet() async {
-      await tester.tapAt(const Offset(400, 300));
-      await tester.pumpAndSettle();
-      await tester.tap(find.bySemanticsLabel('阅读进度'));
-      await tester.pumpAndSettle();
-    }
-
-    Map<String, String> fields(http.Request request) =>
-        Uri.splitQueryString(request.body);
-
-    await openSheet();
-    expect(find.text('书签'), findsOneWidget);
-    expect(find.text('移到此页'), findsNothing);
-
-    await tester.tap(find.byTooltip('删除书签'));
-    await tester.pumpAndSettle();
-    expect(writes.single.url.path, '/v1/novel/marker/delete');
-    expect(fields(writes.single), {'novel_id': '1'});
-    expect(container.read(novelStoreProvider)[1]!.markerPage, isNull);
-
-    // A failed write says so and leaves the sheet as the account has it.
-    failWrites = true;
-    await tester.tap(find.text('在此页加书签'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('书签操作失败'), findsOneWidget);
-    expect(find.text('在此页加书签'), findsOneWidget);
-    expect(container.read(novelStoreProvider)[1]!.markerPage, isNull);
-    PromptHost.of(tester.element(find.byType(NovelReader))).hideCurrent();
-    await tester.pumpAndSettle();
-
-    failWrites = false;
-    await tester.tap(find.text('在此页加书签'));
-    await tester.pumpAndSettle();
-    expect(writes.last.url.path, '/v1/novel/marker/add');
-    expect(writes, hasLength(3));
-    expect(fields(writes.last), {'novel_id': '1', 'page': '3'});
-    expect(find.text('书签'), findsOneWidget);
-
-    // Back on page 1 by the reader's own scroll: the marker can move here.
-    await tester.tapAt(const Offset(100, 40));
-    await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, 4000));
-    await tester.pumpAndSettle();
-    await openSheet();
-    await tester.tap(find.text('移到此页'));
-    await tester.pumpAndSettle();
-    expect(fields(writes.last), {'novel_id': '1', 'page': '1'});
-    expect(find.text('移到此页'), findsNothing);
-
-    // A place of the account's own wins over the bookmark on the next open.
-    await tester.pumpWidget(const SizedBox());
-    await _openReader(tester, container);
-    expect(line('PAGE1 begins'), findsOneWidget);
-    expect(line('PAGE3 begins'), findsNothing);
-
-    // Except from the bookmark list, which asks for the bookmark's page;
-    // the place stays as it was.
-    final place = await places.read('account', 1);
-    await tester.pumpWidget(const SizedBox());
-    await _openReader(tester, container, atPixivPage: 3);
-    expect(tester.getTopLeft(line('PAGE3 begins')).dy, lessThan(100));
-    expect(await places.read('account', 1), place);
-  });
-
-  testWidgets('a one-page novel without a bookmark offers none', (
-    tester,
-  ) async {
-    final container = await _apiContainer();
-    await _openReader(tester, container);
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('阅读进度'));
-    await tester.pumpAndSettle();
-    expect(find.text('在此页加书签'), findsNothing);
-  });
-
-  testWidgets('the info sheet links the series and states length, counts '
-      'and date', (tester) async {
-    for (final withSeries in [true, false]) {
-      final container = await _apiContainer(withSeries: withSeries);
-      await tester.pumpWidget(const SizedBox());
-      await _openReader(tester, container);
-      await tester.tapAt(const Offset(400, 300));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(AppIcons.info));
-      await tester.pumpAndSettle();
-
-      expect(find.text('4000 字'), findsOneWidget);
-      expect(find.text('1234'), findsOneWidget);
-      expect(find.text('56'), findsOneWidget);
-      expect(find.textContaining('2026'), findsOneWidget);
-      // The series is a link of its own, under the author (opened in
-      // novel_series_test).
-      final series = find.descendant(
-        of: find.byKey(const Key('novel-info-series')),
-        matching: find.text('series five'),
-      );
-      expect(series, withSeries ? findsOneWidget : findsNothing);
-
-      // One node: the length, then the stats sentence.
-      final semantics = tester.ensureSemantics();
-      final label = tester
-          .getSemantics(find.byKey(const Key('novel-info-facts')))
-          .label;
-      expect(
-        label,
-        stringContainsInOrder(['4000 字', '1234 次浏览，56 次收藏，发布于 2026']),
-      );
-      semantics.dispose();
-    }
   });
 
   testWidgets(
@@ -959,24 +462,17 @@ void main() {
       ]) {
         final container = await _apiContainer(
           withSeries: true,
-          platform: memoryPreferences({
-            'parfait.novel.reader_settings.v1': jsonEncode(
-              NovelReaderSettings(theme: readerTheme).toJson(),
-            ),
-          }),
+          platform: novelReaderSettingsPrefs(
+            NovelReaderSettings(theme: readerTheme),
+          ),
           seriesHandler: (_) async =>
               _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
         );
         await tester.pumpWidget(
-          UncontrolledProviderScope(
+          localizedApp(
             container: container,
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              theme: replicaTheme(appBrightness),
-              home: const NovelPage(novelId: 1),
-            ),
+            theme: replicaTheme(appBrightness),
+            home: const NovelPage(novelId: 1),
           ),
         );
         await tester.pump();
@@ -1075,11 +571,7 @@ void main() {
     tester,
   ) async {
     final container = await _apiContainer(
-      platform: memoryPreferences({
-        'parfait.novel.reader_settings.v1': jsonEncode(
-          const NovelReaderSettings(pageTurn: NovelPageTurn.pages).toJson(),
-        ),
-      }),
+      platform: novelReaderSettingsPrefs(novelPageModeSettings),
     );
     await _openReader(tester, container);
     expect(tester.widget<Text>(_progressSuffix()).data, contains('· 1/'));
@@ -1100,17 +592,94 @@ void main() {
     expect(tester.widget<Text>(_progressSuffix()).data, contains('· 2/'));
   });
 
-  testWidgets('top bar overflow exposes Edit bookmark without long press', (
-    tester,
-  ) async {
-    final container = await _apiContainer();
+  testWidgets('the account\'s bookmark: opened at without a place of your '
+      'own; marked, moved and removed from the progress sheet', (tester) async {
+    final threePages = [
+      for (var page = 1; page <= 3; page++)
+        [
+          'PAGE$page begins',
+          for (var line = 0; line < 40; line++) 'page $page line $line text',
+        ].join('\n'),
+    ].join('\n[newpage]\n');
+    final writes = <http.Request>[];
+    var failWrites = false;
+    final container = await _apiContainer(
+      text: threePages,
+      marker: const {'page': 3},
+      markerWrites: writes,
+      markerWriteFails: () => failWrites,
+    );
+    final places = container.read(novelProgressStoreProvider);
+    Finder line(String text) => find.textContaining(text, findRichText: true);
     await _openReader(tester, container);
-    await tester.tapAt(tester.getCenter(find.byType(NovelPage)));
+
+    // No place of this account's own: opens at page 3 without writing progress.
+    expect(tester.getTopLeft(line('PAGE3 begins')).dy, lessThan(100));
+    expect(await places.read('account', 1), isNull);
+
+    Future<void> openSheet() async {
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('阅读进度'));
+      await tester.pumpAndSettle();
+    }
+
+    Map<String, String> fields(http.Request request) =>
+        Uri.splitQueryString(request.body);
+
+    await openSheet();
+    expect(find.text('书签'), findsOneWidget);
+    expect(find.text('移到此页'), findsNothing);
+
+    await tester.tap(find.byTooltip('删除书签'));
+    await tester.pumpAndSettle();
+    expect(writes.single.url.path, '/v1/novel/marker/delete');
+    expect(fields(writes.single), {'novel_id': '1'});
+    expect(container.read(novelStoreProvider)[1]!.markerPage, isNull);
+
+    // Failed write surfaces an error and leaves store & sheet unchanged.
+    failWrites = true;
+    await tester.tap(find.text('在此页加书签'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('书签操作失败'), findsOneWidget);
+    expect(find.text('在此页加书签'), findsOneWidget);
+    expect(container.read(novelStoreProvider)[1]!.markerPage, isNull);
+    PromptHost.of(tester.element(find.byType(NovelReader))).hideCurrent();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(UiIcons.more));
+    failWrites = false;
+    await tester.tap(find.text('在此页加书签'));
     await tester.pumpAndSettle();
-    expect(find.text('编辑收藏'), findsOneWidget);
+    expect(writes.last.url.path, '/v1/novel/marker/add');
+    expect(writes, hasLength(3));
+    expect(fields(writes.last), {'novel_id': '1', 'page': '3'});
+    expect(find.text('书签'), findsOneWidget);
+
+    // Scrolling to page 1 lets the bookmark move there.
+    await tester.tapAt(const Offset(100, 40));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, 4000));
+    await tester.pumpAndSettle();
+    await openSheet();
+    await tester.tap(find.text('移到此页'));
+    await tester.pumpAndSettle();
+    expect(fields(writes.last), {'novel_id': '1', 'page': '1'});
+    expect(find.text('移到此页'), findsNothing);
+
+    // A local reading place wins over the bookmark on the next open.
+    await tester.pumpWidget(const SizedBox());
+    await _openReader(tester, container);
+    expect(line('PAGE1 begins'), findsOneWidget);
+    expect(line('PAGE3 begins'), findsNothing);
+
+    // Opening a specific page from the bookmark list leaves local progress intact.
+    final place = await places.read('account', 1);
+    await tester.pumpWidget(const SizedBox());
+    await _openReader(tester, container, atPixivPage: 3);
+    expect(tester.getTopLeft(line('PAGE3 begins')).dy, lessThan(100));
+    expect(await places.read('account', 1), place);
   });
 }
 

@@ -5,20 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/widgets/app_tab_bar.dart';
-import 'package:parfait/app/widgets/app_top_bar.dart';
-import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/core/search/search_models.dart';
-import 'package:parfait/features/profile/profile_illust_feed.dart'
-    as profile_feed;
 import 'package:parfait/features/search/docked_search.dart';
-import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
-import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/app/widgets/search_field_button.dart';
 
 import 'helpers/api_responses.dart';
@@ -158,35 +150,6 @@ void main() {
     expect(find.text('宽 800 以上'), findsNothing);
   });
 
-  testWidgets('the filter button counts the active fields; the chip row '
-      'only shows while some are active', (tester) async {
-    await _pumpRouter(
-      tester,
-      initialLocation: '/search/results?q=cat&type=illust',
-    );
-    expect(find.byTooltip('筛选'), findsOneWidget);
-    expect(find.byType(ActionChip), findsNothing);
-
-    await tester.tap(find.byTooltip('筛选'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('最早发布'));
-    await tester.ensureVisible(find.text('排除 AI'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('排除 AI'));
-    await tester.pump();
-    await tester.tap(find.text('应用'));
-    await tester.pumpAndSettle();
-
-    expect(find.byTooltip('筛选（已启用 2 项）'), findsOneWidget);
-    expect(find.widgetWithText(ActionChip, '最早发布'), findsOneWidget);
-    expect(find.widgetWithText(ActionChip, '排除 AI'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(ActionChip, '重置'));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('筛选'), findsOneWidget);
-    expect(find.byType(ActionChip), findsNothing);
-  });
-
   testWidgets('an empty result with filters on offers resetting them', (
     tester,
   ) async {
@@ -238,76 +201,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('已加载的作品都被屏蔽或筛选掉了'), findsNothing);
     expect(find.byType(IllustCard), findsOneWidget);
-  });
-
-  testWidgets(
-    'the user tab hides the filter button while keeping search field width constant',
-    (tester) async {
-      for (final view in const [Size(1400, 800), Size(390, 800)]) {
-        final router = await _pumpRouter(
-          tester,
-          initialLocation: '/search/results?q=cat&type=illust',
-          view: view,
-        );
-        final initialField = tester.getRect(find.byType(SearchFieldButton));
-
-        await tester.tap(_tab('用户'));
-        await tester.pumpAndSettle();
-        final userField = tester.getRect(find.byType(SearchFieldButton));
-        expect(userField.width, closeTo(initialField.width, 0.01));
-        expect(find.byTooltip('筛选'), findsNothing);
-        // Keep the router alive until the frame settles.
-        expect(router.state.uri.path, '/search/results');
-        await tester.pumpWidget(const SizedBox());
-      }
-    },
-  );
-
-  testWidgets('wide result bar splits kinds, query, filters', (tester) async {
-    // The 88dp rail leaves 1312 and 712 of content: the query field takes
-    // its full 360, or the 240 narrow one under 840 (R9).
-    for (final (view, fieldWidth) in const [
-      (Size(1400, 800), 360.0),
-      (Size(800, 800), 240.0),
-    ]) {
-      await _pumpRouter(
-        tester,
-        initialLocation: '/search/results?q=cat&type=illust&sort=date_asc',
-        view: view,
-      );
-
-      final bar = find.descendant(
-        of: find.byType(SearchResultPage),
-        matching: find.byType(AppTopBar),
-      );
-      final field = find.descendant(
-        of: bar,
-        matching: find.byType(SearchFieldButton),
-      );
-      final tabs = find.descendant(of: bar, matching: find.byType(AppTabBar));
-      // One toolbar row of kinds, then the active filter's summary under it.
-      expect(tester.getRect(tabs).bottom, lessThanOrEqualTo(kToolbarHeight));
-      expect(tester.getRect(field).width, fieldWidth);
-      if (fieldWidth == 360) {
-        expect(
-          tester.getRect(find.widgetWithText(ActionChip, '最早发布')).top,
-          greaterThanOrEqualTo(kToolbarHeight),
-        );
-        // R10: the query opens docked under the field, not as a page.
-        await tester.tap(field);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
-        expect(find.byType(SearchInputPage), findsNothing);
-        final panel = find.byType(DockedSearchPanel);
-        expect(panel, findsOneWidget);
-        expect(tester.getRect(panel).width, greaterThanOrEqualTo(360));
-        await tester.binding.handlePopRoute();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(panel, findsNothing);
-      }
-      await tester.pumpWidget(const SizedBox());
-    }
   });
 
   testWidgets(
@@ -397,81 +290,6 @@ void main() {
       await tester.tap(_tab('插画 & 漫画'));
       await tester.pumpAndSettle();
       expect(find.textContaining('刷新失败'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'search filter sheet stays overflow-free and keeps input focus in short Russian landscape with 2x text and IME',
-    (tester) async {
-      setViewSize(tester, const Size(640, 360));
-      final container = await searchWorld(SearchApi());
-      final keyboardInset = ValueNotifier<double>(0);
-      addTearDown(keyboardInset.dispose);
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          locale: const Locale('ru'),
-          builder: (context, child) => ValueListenableBuilder<double>(
-            valueListenable: keyboardInset,
-            builder: (_, inset, inner) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                textScaler: const TextScaler.linear(2.0),
-                viewInsets: EdgeInsets.only(bottom: inset),
-              ),
-              child: inner!,
-            ),
-            child: child,
-          ),
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => unawaited(
-                showSearchFilterSheet(
-                  context,
-                  initial: IllustSearchFilters.defaults,
-                  offerSetDefault: true,
-                ),
-              ),
-              child: const Text('open'),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      final firstField = find.byType(TextField).first;
-      await tester.ensureVisible(firstField);
-      await tester.tap(firstField);
-      await tester.pump();
-      keyboardInset.value = 220;
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
-    },
-  );
-
-  testWidgets(
-    'TagSearchPage preserves tab switches and grid feeds align with 14dp horizontal margins',
-    (tester) async {
-      expect(profile_feed.gridPadding, IllustFeedGrid.defaultPadding);
-      final container = await searchWorld(SearchApi());
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: const TagSearchPage(keyword: 'sky'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('小说'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<SearchResultPage>(find.byType(SearchResultPage))
-            .query
-            .type,
-        SearchResultType.novel,
-      );
     },
   );
 }

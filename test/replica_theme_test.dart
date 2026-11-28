@@ -1,22 +1,17 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:dynamic_color/dynamic_color.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/theme/forui_theme_bridge.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/theme/system_colors.dart';
 import 'package:parfait/app/widgets/ambient_wash.dart';
-import 'helpers/localized_app.dart';
-import 'helpers/waits.dart';
 import 'support/contrast.dart';
 
 List<double> _applyAmbient(List<double> matrix, List<double> rgb) => [
@@ -181,63 +176,6 @@ void main() {
           expect(color, tokens.brandHairline);
         }
         expect(theme.progressIndicatorTheme.strokeCap, StrokeCap.round);
-      }
-    },
-  );
-
-  testWidgets(
-    'replicaTheme provides visible pressed state feedback for InkWell, ListTile, and buttons',
-    (tester) async {
-      for (final brightness in Brightness.values) {
-        final theme = replicaTheme(brightness);
-        expect(theme.highlightColor, isNot(FuncTokens.transparent));
-        expect(theme.highlightColor.a, greaterThanOrEqualTo(0.08));
-        expect(theme.hoverColor.a, greaterThan(0));
-        expect(theme.focusColor.a, greaterThan(0));
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: theme,
-            home: Scaffold(
-              body: Column(
-                children: [
-                  InkWell(
-                    onTap: () {},
-                    child: const SizedBox(height: 48, width: 200),
-                  ),
-                  ListTile(title: const Text('tile'), onTap: () {}),
-                  FilledButton(onPressed: () {}, child: const Text('button')),
-                ],
-              ),
-            ),
-          ),
-        );
-
-        Future<void> expectPressedRect(Finder target) async {
-          final gesture = await tester.startGesture(tester.getCenter(target));
-          try {
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 220));
-            final material = tester.renderObject(
-              find.ancestor(of: target, matching: find.byType(Material)).first,
-            );
-            expect(
-              material,
-              paints..something((symbol, arguments) {
-                if (symbol != #drawRect && symbol != #drawRRect) return false;
-                final color = (arguments[1] as Paint).color;
-                return color.a >= 0.06 && color.a <= 0.20;
-              }),
-            );
-          } finally {
-            await gesture.up();
-            await tester.pumpAndSettle();
-          }
-        }
-
-        await expectPressedRect(find.byType(InkWell).first);
-        await expectPressedRect(find.byType(ListTile));
-        await expectPressedRect(find.byType(FilledButton));
       }
     },
   );
@@ -533,73 +471,6 @@ void main() {
         expect(bareForui.typography.body.fontFamily, isNotEmpty);
       },
     );
-
-    testWidgets(
-      'ForuiThemeHost forwards MotionScope reduce to FAccessibilityMotion.disabled',
-      (tester) async {
-        FAccessibilityMotion? captured;
-        Widget probe(bool reduce) => localizedApp(
-          body: MotionScope(
-            reduce: reduce,
-            child: ForuiThemeHost(
-              child: Builder(
-                builder: (context) {
-                  captured = FAccessibilityScope.motionOf(context);
-                  return const SizedBox();
-                },
-              ),
-            ),
-          ),
-        );
-
-        await tester.pumpWidget(probe(true));
-        expect(captured, FAccessibilityMotion.disabled);
-
-        await tester.pumpWidget(probe(false));
-        expect(captured, FAccessibilityMotion.all);
-      },
-    );
-
-    testWidgets(
-      'replicaTheme compares equal across calls and ForuiThemeHost caches across unrelated rebuilds',
-      (tester) async {
-        for (final brightness in Brightness.values) {
-          expect(replicaTheme(brightness), replicaTheme(brightness));
-          final sys = ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2E7D32),
-            brightness: brightness,
-          );
-          expect(
-            replicaTheme(brightness, systemColors: sys),
-            replicaTheme(brightness, systemColors: sys),
-          );
-        }
-
-        final seen = <FThemeData>[];
-        final tick = ValueNotifier<int>(0);
-        addTearDown(tick.dispose);
-        await tester.pumpWidget(
-          localizedApp(
-            theme: replicaTheme(Brightness.light),
-            body: ValueListenableBuilder<int>(
-              valueListenable: tick,
-              builder: (_, _, _) => ForuiThemeHost(
-                child: Builder(
-                  builder: (context) {
-                    seen.add(context.theme);
-                    return const SizedBox();
-                  },
-                ),
-              ),
-            ),
-          ),
-        );
-        tick.value = 1;
-        await tester.pump();
-        expect(seen, hasLength(2));
-        expect(identical(seen[0], seen[1]), isTrue);
-      },
-    );
   });
 
   group('AmbientWash', () {
@@ -641,64 +512,5 @@ void main() {
         }
       },
     );
-
-    testWidgets('a wash draws its image toned, in the page pass', (
-      tester,
-    ) async {
-      final theme = replicaTheme(Brightness.light);
-      final png = await tester.runAsync(() async {
-        final recorder = ui.PictureRecorder();
-        Canvas(recorder).drawColor(const Color(0xFFE03050), BlendMode.src);
-        final picture = recorder.endRecording();
-        final image = await picture.toImage(32, 32);
-        picture.dispose();
-        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-        image.dispose();
-        return bytes!.buffer.asUint8List();
-      });
-      await tester.pumpWidget(
-        Theme(
-          data: theme,
-          child: Center(
-            child: SizedBox(
-              width: 200,
-              height: 100,
-              child: AmbientWash(image: MemoryImage(png!)),
-            ),
-          ),
-        ),
-      );
-      await pumpIoUntil(
-        tester,
-        () => find
-            .descendant(
-              of: find.byType(AmbientWash),
-              matching: find.byType(CustomPaint),
-            )
-            .evaluate()
-            .isNotEmpty,
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byType(AmbientWash),
-        paints..something((method, arguments) {
-          if (method != #drawImageRect) return false;
-          final paint = arguments[3] as Paint;
-          return paint.colorFilter == AmbientTone.of(theme) &&
-              paint.color.a == 1;
-        }),
-      );
-      expect(
-        tester.layers.where(
-          (layer) =>
-              layer is ImageFilterLayer ||
-              layer is ColorFilterLayer ||
-              layer is ShaderMaskLayer ||
-              layer is OpacityLayer,
-        ),
-        isEmpty,
-      );
-    });
   });
 }

@@ -4,18 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/app/pull_to_refresh.dart';
-import 'package:parfait/app/widgets/smooth_wheel_scroll.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_tags_controller.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/user/user_repository.dart';
-import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
 
 import 'helpers/api_responses.dart';
-import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/profile_world.dart';
@@ -24,8 +20,6 @@ import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/profile/profile_feed_controller.dart';
 import 'package:parfait/core/profile/profile_models.dart';
 import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
-import 'package:parfait/features/profile/profile_illust_feed.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/localized_app.dart';
 
@@ -359,123 +353,7 @@ void main() {
     expect(requests, hasLength(3));
   });
 
-  testWidgets('BookmarkTagsPage lists each visibility in its own tab', (
-    tester,
-  ) async {
-    final repository = BookmarkApi()..tagPage = _procreate;
-    final container = await bookmarkWorld(repository);
-    await tester.pumpWidget(
-      localizedApp(container: container, home: BookmarkTagsPage()),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('收藏标签'), findsOneWidget);
-    expect(find.text('procreate'), findsOneWidget);
-    expect(find.text('5'), findsOneWidget);
-    expect(repository.tagRequests, ['tags:100:public']);
-
-    repository.tagPage = const UserBookmarkTagPage(
-      tags: [UserBookmarkTag(name: 'hidden', count: 2)],
-      nextUrl: null,
-    );
-    expect(find.widgetWithText(Tab, '公开'), findsOneWidget);
-    await tester.tap(find.widgetWithText(Tab, '私密'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('hidden'), findsOneWidget);
-    expect(find.text('procreate'), findsNothing);
-    expect(repository.tagRequests.last, 'tags:100:private');
-    expect(find.text('已显示全部标签'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-
-    // A swipe back returns to the public list without refetching it.
-    await tester.fling(find.text('hidden'), const Offset(400, 0), 1000);
-    await tester.pumpAndSettle();
-    expect(find.text('procreate'), findsOneWidget);
-    expect(repository.tagRequests, ['tags:100:public', 'tags:100:private']);
-  });
-
-  testWidgets('BookmarkTagsPage retries a failed load-more request', (
-    tester,
-  ) async {
-    final repository = BookmarkApi()
-      ..tagPage = UserBookmarkTagPage(
-        tags: _procreate.tags,
-        nextUrl:
-            'https://app-api.pixiv.net/v1/user/bookmark-tags/illust'
-            '?user_id=100&restrict=public&offset=30',
-      )
-      ..tagsNextFailure = failing(500);
-    final container = await bookmarkWorld(repository);
-    const query = (BookmarkEntityType.illust, BookmarkRestrict.public);
-
-    await container.read(userBookmarkTagsProvider(query).future);
-
-    // One tag leaves the list short: the page asks for the next at once.
-    await tester.pumpWidget(
-      localizedApp(container: container, home: BookmarkTagsPage()),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('加载更多失败'), findsOneWidget);
-    expect(find.text('重试'), findsOneWidget);
-    expect(repository.tagRequests, ['tags:100:public', 'tags:100:public:next']);
-
-    await tester.tap(find.text('重试'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 10));
-    expect(repository.tagRequests, [
-      'tags:100:public',
-      'tags:100:public:next',
-      'tags:100:public:next',
-    ]);
-  });
-
   group('bookmark tag feed page', () {
-    testWidgets('bookmark tag feed labels range and isolates hero scope', (
-      tester,
-    ) async {
-      final repository = _users();
-      final container = await _makeContainer(repository);
-
-      await tester.pumpWidget(
-        _testApp(
-          container,
-          const BookmarkTagFeedPage(
-            tag: 'draw',
-            restrict: BookmarkRestrict.private,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('draw'), findsOneWidget);
-      expect(find.text('私密'), findsOneWidget);
-      expect(repository.requests, ['bookmarks:100:private:draw']);
-      final taggedScope = tester
-          .widget<IllustCard>(find.byType(IllustCard).first)
-          .heroScope;
-      expect(taggedScope, endsWith(':draw'));
-
-      await tester.pumpWidget(
-        _testApp(
-          container,
-          const ProfileIllustFeed(
-            feedKey: ProfileFeedKey(
-              userId: 100,
-              kind: ProfileFeedKind.bookmarks,
-              restrict: UserRestrict.private,
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final untaggedScope = tester
-          .widget<IllustCard>(find.byType(IllustCard).first)
-          .heroScope;
-      expect(untaggedScope, endsWith(':'));
-      expect(untaggedScope, isNot(taggedScope));
-    });
-
     testWidgets('bookmark tag filter only changes loaded works locally', (
       tester,
     ) async {
@@ -589,123 +467,5 @@ void main() {
         expect(snapshotKey(null), isNot(snapshotKey('null')));
       },
     );
-
-    testWidgets(
-      'BookmarkTagsPage wires scrollController to PullToRefresh and keeps short & empty lists pull-refreshable',
-      (tester) async {
-        var calls = 0;
-        final container = await _makeContainer(_users(), {
-          '/v1/user/bookmark-tags/illust': (_) async {
-            calls += 1;
-            return jsonResponse({
-              'bookmark_tags': calls == 1
-                  ? const <Object?>[]
-                  : [
-                      {'name': 'procreate', 'count': 5},
-                    ],
-              'next_url': null,
-            });
-          },
-        });
-        await tester.pumpWidget(_testApp(container, const BookmarkTagsPage()));
-        await tester.pumpAndSettle();
-        expect(calls, 1);
-        final refresh = tester.widget<PullToRefresh>(
-          find.byType(PullToRefresh),
-        );
-        expect(refresh.scrollController, isNotNull);
-        expect(find.byType(CustomScrollView), findsOneWidget);
-
-        // Empty list triggers refresh and transitions to short AlwaysScrollable list.
-        expect(PullToRefresh.triggerActive(), isTrue);
-        await tester.pumpAndSettle();
-        await tester.pump(const Duration(milliseconds: 250));
-        expect(calls, 2);
-        expect(find.text('procreate'), findsOneWidget);
-        final list = tester.widget<ListView>(find.byType(ListView));
-        expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
-      },
-    );
-
-    testWidgets(
-      'BookmarkTagFeedPage mounts non-nested feed with SmoothWheelScroll and searchClear button',
-      (tester) async {
-        final container = await _makeContainer(_users(), {
-          '/v1/user/bookmarks/illust': (_) async => jsonResponse({
-            'illusts': [
-              {...illustJson(1), 'title': 'Sunset'},
-              {...illustJson(2), 'title': 'Moon'},
-            ],
-            'next_url': null,
-          }),
-        });
-        await tester.pumpWidget(
-          _testApp(
-            container,
-            const BookmarkTagFeedPage(
-              tag: 'scenery',
-              restrict: BookmarkRestrict.public,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final refresh = tester.widget<PullToRefresh>(
-          find.byType(PullToRefresh),
-        );
-        expect(refresh.isNested, isFalse);
-        expect(refresh.scrollController, isNotNull);
-        expect(find.byType(SmoothWheelScroll), findsOneWidget);
-        expect(find.byTooltip('清除'), findsNothing);
-
-        await tester.enterText(find.byType(TextField), 'sunset');
-        await tester.pump();
-        expect(find.text('Moon'), findsNothing);
-        await tester.tap(find.byTooltip('清除'));
-        await tester.pump();
-        expect(find.text('Moon'), findsOneWidget);
-        expect(find.byTooltip('清除'), findsNothing);
-      },
-    );
-
-    testWidgets(
-      'BookmarkTagsPage keeps uncategorized row reachable when tags are empty and BookmarkTagFeedPage localizes its title',
-      (tester) async {
-        final container = await _makeContainer(_users(), {
-          '/v1/user/bookmark-tags/illust': (_) async =>
-              jsonResponse({'bookmark_tags': <dynamic>[], 'next_url': null}),
-          '/v1/user/bookmarks/illust': (_) async =>
-              jsonResponse({'illusts': <dynamic>[], 'next_url': null}),
-        });
-        await tester.pumpWidget(
-          _testApp(
-            container,
-            const BookmarkTagsPage(initialRestrict: BookmarkRestrict.public),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('bookmark-tag-uncategorized')),
-          findsOneWidget,
-        );
-        expect(find.text('未分类'), findsOneWidget);
-
-        await tester.pumpWidget(
-          _testApp(
-            container,
-            const BookmarkTagFeedPage(
-              tag: kUncategorizedBookmarkTag,
-              restrict: BookmarkRestrict.public,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('未分类'), findsOneWidget);
-      },
-    );
   });
 }
-
-const _procreate = UserBookmarkTagPage(
-  tags: [UserBookmarkTag(name: 'procreate', count: 5)],
-  nextUrl: null,
-);

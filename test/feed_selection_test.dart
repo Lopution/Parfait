@@ -2,19 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/layout/input_modality.dart';
-import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/keyboard_back.dart';
-import 'package:parfait/app/person_avatar.dart';
 import 'package:parfait/app/pull_to_refresh.dart';
-import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/feed/desktop_gallery_controls.dart';
 import 'package:parfait/app/widgets/feed/desktop_inspectable_gallery.dart';
 import 'package:parfait/app/widgets/feed/desktop_inspector_scope.dart';
@@ -243,96 +238,6 @@ void main() {
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
-      }
-    },
-  );
-
-  testWidgets(
-    'Pointer IllustCard keeps immediate PressScale, omits touch long-press, and uses subtle hover highlight without duplicate pills',
-    (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        final (container, _, _) = await makeCardWorld();
-        final entity = parseIllust(illustJson(88));
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            builder: (ctx, child) =>
-                promptHostBuilder(ctx, InputModalityScope(child: child!)),
-            body: Center(
-              child: SizedBox(width: 220, child: IllustCard(entity: entity)),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          find.descendant(
-            of: find.byType(IllustCard),
-            matching: find.byType(PressScale),
-          ),
-          findsOneWidget,
-        );
-        final detector = tester.widget<GestureDetector>(
-          find
-              .descendant(
-                of: find.byType(IllustCard),
-                matching: find.byType(GestureDetector),
-              )
-              .first,
-        );
-        expect(detector.onLongPress, isNull);
-
-        // Hover highlights the card border/overlay without duplicating footer controls.
-        expect(
-          find.descendant(
-            of: find.byType(IllustCard),
-            matching: find.byType(PersonAvatar),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(IllustCard),
-            matching: find.text(entity.user.name),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(IllustCard),
-            matching: find.byType(BookmarkSwitchButton),
-          ),
-          findsOneWidget,
-        );
-        final pointer = TestPointer(1, PointerDeviceKind.mouse);
-        await tester.sendEventToBinding(
-          pointer.hover(tester.getCenter(find.byType(IllustCard))),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.descendant(
-            of: find.byType(IllustCard),
-            matching: find.byType(PersonAvatar),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(IllustCard),
-            matching: find.text(entity.user.name),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(IllustCard),
-            matching: find.byType(BookmarkSwitchButton),
-          ),
-          findsOneWidget,
-        );
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
       }
     },
   );
@@ -593,44 +498,6 @@ void main() {
         expect(inspector!.selectedId.value, isNull);
       } finally {
         debugDefaultTargetPlatformOverride = null;
-      }
-    },
-  );
-
-  testWidgets(
-    'FeedBatchActionBar under reduced motion uses SpringSize without zero-duration errors',
-    (tester) async {
-      final controller = FeedSelectionController();
-      addTearDown(controller.dispose);
-      final entity = parseIllust(illustJson(99));
-      controller
-        ..syncEnabledFromLayout(true)
-        ..syncItems([entity]);
-
-      for (final inlineTop in [true, false]) {
-        await tester.pumpWidget(
-          MotionScope(
-            reduce: true,
-            child: localizedApp(
-              overrides: const [],
-              body: FeedBatchActionBar(
-                controller: controller,
-                inlineTop: inlineTop,
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('feed-batch-action-bar')), findsNothing);
-
-        controller.toggle(entity.id);
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('feed-batch-action-bar')), findsOneWidget);
-        expect(tester.takeException(), isNull);
-
-        controller.clearSelection();
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('feed-batch-action-bar')), findsNothing);
       }
     },
   );

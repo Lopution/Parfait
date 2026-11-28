@@ -72,11 +72,6 @@ void main() {
   testWidgets('a page with no AppBar keeps bar icons inverted to the theme', (
     tester,
   ) async {
-    // Control first: a bare MaterialApp publishes the framework default —
-    // light nav-bar icons over an opaque black bar. Without the root
-    // FuncSystemBars wrap (the app.dart wiring this harness mirrors) the
-    // assertions below degenerate to exactly this, so the contrast makes
-    // the test non-vacuous.
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: SizedBox.expand())),
     );
@@ -91,13 +86,8 @@ void main() {
       const Color(0xFF000000),
     );
 
-    // RenderView applies the AnnotatedRegion during compositing and
-    // latestStyle updates in the following microtask — pump twice before
-    // reading so the write lands.
     for (final brightness in Brightness.values) {
       await tester.pumpWidget(_app(theme: replicaTheme(brightness)));
-      // AnimatedTheme lerps on the second iteration — let it land before
-      // reading the brightness-driven style.
       await tester.pumpAndSettle();
       await tester.pump();
 
@@ -115,8 +105,6 @@ void main() {
         icons,
         reason: '$brightness theme must paint $icons nav-bar icons',
       );
-      // Both bars stay transparent — the framework default paints an
-      // opaque black navigation bar.
       expect(style?.statusBarColor, const Color(0x00000000));
       expect(style?.systemNavigationBarColor, const Color(0x00000000));
     }
@@ -182,8 +170,6 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    // The black stage overrides the light theme's dark icons; without the
-    // override the clock is invisible after immersive mode exits.
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.light);
     expect(
       SystemChrome.latestStyle?.systemNavigationBarIconBrightness,

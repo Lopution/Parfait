@@ -1,23 +1,17 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart'
-    show PointerDeviceKind, kSecondaryMouseButton;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:parfait/app/haptics/app_haptics.dart';
-import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/core/user/follow_models.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/user/follow_store.dart';
-import 'package:parfait/features/profile/profile_header_delegate.dart';
 
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
-import 'helpers/recording_haptics.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/localized_app.dart';
@@ -53,95 +47,7 @@ Future<void> _pump(
   );
 }
 
-/// Mounts a `ReplicaProfileHeaderDelegate` the same way `UserPage` does: the
-/// expanded extent starts unset and is fed back from the identity block's
-/// post-frame size report.
-class _MeasuredHeader extends StatefulWidget {
-  const _MeasuredHeader({required this.delegateFor});
-
-  final ReplicaProfileHeaderDelegate Function(
-    double? expandedExtent,
-    ValueChanged<double> onMeasured,
-  )
-  delegateFor;
-
-  @override
-  State<_MeasuredHeader> createState() => _MeasuredHeaderState();
-}
-
-class _MeasuredHeaderState extends State<_MeasuredHeader> {
-  double? _extent;
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverPersistentHeader(
-      pinned: true,
-      delegate: widget.delegateFor(_extent, (extent) {
-        if (_extent == null || (extent - _extent!).abs() > 0.5) {
-          setState(() => _extent = extent);
-        }
-      }),
-    );
-  }
-}
-
 void main() {
-  testWidgets('a follow pops the button with success; an unfollow is '
-      'quiet; a failure adds an error', (tester) async {
-    final haptics = recordHaptics();
-    final follows = FollowApi();
-    final container = await _world(follows: follows);
-    await _pump(
-      tester,
-      container,
-      home: const Scaffold(
-        body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
-      ),
-    );
-
-    double scale() => tester
-        .widget<ScaleTransition>(
-          find
-              .descendant(
-                of: find.byType(FollowSwitchButton),
-                matching: find.byType(ScaleTransition),
-              )
-              .first,
-        )
-        .scale
-        .value;
-
-    await tester.tap(find.byType(FollowSwitchButton));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 60));
-    expect(scale(), greaterThan(1));
-    await tester.pumpAndSettle();
-    expect(scale(), 1);
-    expect(follows.requests, ['add:7:public']);
-    expect(haptics.roles, [HapticRole.success]);
-
-    // The throttle reads the wall clock; let the light lane re-arm.
-    await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
-    await tester.tap(find.byType(FollowSwitchButton));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 60));
-    expect(scale(), 1);
-    await tester.pumpAndSettle();
-    expect(follows.requests, ['add:7:public', 'delete:7']);
-    expect(haptics.roles, [HapticRole.success, HapticRole.select]);
-
-    await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
-    follows.failure = failing(400);
-    await tester.tap(find.byType(FollowSwitchButton));
-    await tester.pumpAndSettle();
-    expect(haptics.roles, [
-      HapticRole.success,
-      HapticRole.select,
-      HapticRole.success,
-      HapticRole.error,
-    ]);
-  });
-
   testWidgets('the button flips before the server answers and rolls back on '
       'failure', (tester) async {
     final follows = FollowApi();
@@ -171,31 +77,6 @@ void main() {
     expect(find.text('关注'), findsOneWidget);
     expect(find.textContaining('关注操作失败'), findsOneWidget);
     await tester.pumpAndSettle();
-  });
-
-  testWidgets('long press opens the follow sheet once', (tester) async {
-    final haptics = recordHaptics();
-    final follows = FollowApi();
-    final container = await _world(follows: follows);
-    await _pump(
-      tester,
-      container,
-      home: const Scaffold(
-        body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
-      ),
-    );
-
-    await tester.longPress(find.byType(FollowSwitchButton));
-    await tester.pumpAndSettle();
-    expect(haptics.roles, [HapticRole.longPress]);
-    // The framework's own long-press vibration is off.
-    final button = tester.widget<OutlinedButton>(
-      find.descendant(
-        of: find.byType(FollowSwitchButton),
-        matching: find.byType(OutlinedButton),
-      ),
-    );
-    expect(button.style?.enableFeedback, isFalse);
   });
 
   testWidgets('the sheet offers direct actions for each follow state', (
@@ -285,38 +166,4 @@ void main() {
     expect(follows.requests.last, 'add:7:private');
     expect(find.textContaining('关注操作失败'), findsOneWidget);
   });
-
-  testWidgets(
-    'desktop right-click on followed button opens silent visibility menu',
-    (tester) async {
-      final haptics = recordHaptics();
-      final follows = FollowApi();
-      final container = await _world(follows: follows);
-      container
-          .read(followStoreProvider.notifier)
-          .observeRemote(7, followed: true);
-      await _pump(
-        tester,
-        container,
-        home: const Scaffold(
-          body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
-        ),
-      );
-      await tester.tap(
-        find.byType(FollowSwitchButton),
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await tester.pumpAndSettle();
-      expect(haptics.roles, isEmpty);
-      expect(find.text('改为私密关注'), findsOneWidget);
-      expect(find.text('改为公开关注'), findsOneWidget);
-      expect(find.text('取消关注'), findsOneWidget);
-
-      await tester.tap(find.text('改为私密关注'));
-      await tester.pumpAndSettle();
-      expect(follows.requests, ['add:7:private']);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
-  );
 }

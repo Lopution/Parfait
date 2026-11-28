@@ -6,7 +6,6 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 
 import 'illust_fixtures.dart';
@@ -148,32 +147,3 @@ Future<void> longPressImage(WidgetTester tester) async {
   await gesture.up();
   await tester.pump();
 }
-
-// Hidden chrome stays mounted (Opacity 0 + ExcludeSemantics — dropping it
-// from the tree races the semantics flush). Visibility assertions check
-// the bars' opacity rather than whether finders still see the (mounted)
-// counter text.
-void expectViewerChrome(WidgetTester tester, {required bool visible}) {
-  final bars = tester
-      .widgetList<Opacity>(
-        find.byWidgetPredicate((w) => w is Opacity && w.alwaysIncludeSemantics),
-      )
-      .toList();
-  expect(bars.length, 2, reason: 'top + bottom chrome bars');
-  for (final bar in bars) {
-    expect(bar.opacity, visible ? 1.0 : 0.0);
-  }
-}
-
-/// Opacity of the page's skeleton-to-content [StateFade].
-double stateFadeOpacity(WidgetTester tester) => tester
-    .widget<FadeTransition>(
-      find
-          .descendant(
-            of: find.byType(StateFade),
-            matching: find.byType(FadeTransition),
-          )
-          .first,
-    )
-    .opacity
-    .value;

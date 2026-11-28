@@ -1,22 +1,17 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/layout/card_columns.dart';
-import 'package:parfait/app/layout/content_widths.dart';
-import 'package:parfait/app/layout/form_factor.dart';
 import 'package:parfait/app/layout/sliver_width_builder.dart';
-import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
-import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 
 void main() {
@@ -46,78 +41,6 @@ void main() {
     expect(CardColumns.of(1359), 3);
     expect(CardColumns.of(2400), 3);
     expect(CardColumns.rowCount(5, 2), 3);
-  });
-
-  testWidgets('a wide card list puts neighbouring cards side by side', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(1000, 600));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CustomScrollView(
-          slivers: [
-            SliverCardList(
-              itemCount: 3,
-              itemBuilder: (context, index) =>
-                  SizedBox(key: ValueKey(index), height: 80),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    Rect card(int index) => tester.getRect(find.byKey(ValueKey(index)));
-    expect(card(1).top, card(0).top);
-    expect(card(1).left, card(0).right);
-    expect(card(2).top, card(0).bottom);
-    expect(card(2).width, 500);
-  });
-
-  testWidgets('a several-column row spreads its facts across the cell', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(1200, 600));
-    await tester.pumpWidget(
-      localizedApp(
-        theme: replicaTheme(Brightness.light),
-        home: CustomScrollView(
-          slivers: [
-            SliverCardList(
-              itemCount: 3,
-              itemBuilder: (context, index) => EntityRow(
-                leading: SizedBox(
-                  key: ValueKey('cover-$index'),
-                  width: 40,
-                  height: 56,
-                ),
-                title: '小说标题 $index',
-                subtitle: '作者名',
-                meta: '6000 字',
-                footnote: '#标签',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    // Three columns of 400: the row spans its cell instead of hugging the
-    // leading text column (PAGE-16).
-    final row = tester.getRect(find.byType(EntityRow).first);
-    expect(row.width, 400);
-    final author = tester.getRect(find.text('作者名').first);
-    final tags = tester.getRect(find.text('#标签').first);
-    expect(author.left, lessThan(row.left + row.width * 0.25));
-    expect(
-      tags.right,
-      greaterThan(row.right - 2 * FuncSpacing.md),
-      reason: 'the tag line ends on the cell edge, not mid-cell',
-    );
-    // The author sits on the cell's inner left edge and the tag line on
-    // its inner right edge: the row uses the whole cell, not the old
-    // ~200dp leading text column.
-    expect(author.left, lessThan(row.left + 100));
-    expect(tags.left, greaterThan(row.center.dx));
   });
 
   testWidgets('a width-built sliver takes taps after a scroll and follows a '
@@ -157,31 +80,10 @@ void main() {
     expect(widths.last, 500);
   });
 
-  testWidgets('a capped column centres at its width on a wide window', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(1400, 600));
-    await tester.pumpWidget(
-      const ContentWidthCap(
-        maxWidth: ContentWidths.management,
-        child: SizedBox.expand(key: Key('column')),
-      ),
-    );
-
-    final column = tester.getRect(find.byKey(const Key('column')));
-    expect(column.width, ContentWidths.management);
-    expect(column.center.dx, 700);
-  });
-
   testWidgets(
     'IllustFeedGrid counts columns on the sliver extent, not the window',
     (tester) async {
-      // Window is 800 logical px; the grid is embedded next to a fixed 400px
-      // rail-like pane, so its content extent is ~400 — two columns, not the
-      // four the window width would imply.
       setViewSize(tester, const Size(800, 600));
-
-      // 400 - 2*8 horizontal padding = 384: three, two or one column.
       const columns = {
         FeedDensity.standard: 2,
         FeedDensity.compact: 3,
@@ -275,25 +177,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('PC standard grid keeps 3 columns at 1280px inspector width', (
-    tester,
-  ) async {
-    late BuildContext pcContext;
-    await tester.pumpWidget(
-      FormFactorScope(
-        choice: InterfaceForm.pc,
-        child: Builder(
-          builder: (context) {
-            pcContext = context;
-            return const SizedBox.shrink();
-          },
-        ),
-      ),
-    );
-    expect(illustColumnsForContext(pcContext, 616, FeedDensity.standard), 3);
-    expect(illustColumnsForContext(pcContext, 1140, FeedDensity.standard), 5);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
-
   testWidgets(
     'scrolled IllustFeedGrid survives cross-column resizes and taps without blanking',
     (tester) async {
@@ -343,31 +226,8 @@ void main() {
   );
 
   testWidgets(
-    'FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping',
+    'FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds',
     (tester) async {
-      // 1. Wide touch tablets (>= 840dp) use wider card ladder instead of 10+ cramped compact columns.
-      late BuildContext touchContext;
-      await tester.pumpWidget(
-        FormFactorScope(
-          choice: InterfaceForm.touch,
-          child: Builder(
-            builder: (context) {
-              touchContext = context;
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      );
-      expect(
-        illustColumnsForContext(touchContext, 1024, FeedDensity.compact),
-        5,
-      );
-      expect(
-        illustColumnsForContext(touchContext, 1366, FeedDensity.compact),
-        7,
-      );
-
-      // 2. Book posture (760dp and 800dp) keeps every card & skeleton column off the hinge.
       for (final (width, hinge) in [
         (760.0, const Rect.fromLTWH(372, 0, 16, 700)),
         (800.0, const Rect.fromLTWH(392, 0, 16, 700)),

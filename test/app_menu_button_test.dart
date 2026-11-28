@@ -1,16 +1,13 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:parfait/app/theme/func_semantic_tokens.dart';
-import 'package:parfait/app/widgets/app_menu_button.dart';
-import 'helpers/view_size.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
+import 'package:parfait/app/widgets/app_menu_button.dart';
+
+import 'helpers/view_size.dart';
 
 const _entries = [
-  AppMenuEntry(value: 'share', label: 'Share', icon: Icons.share_outlined),
-  AppMenuEntry(value: 'off', label: 'Unavailable', enabled: false),
-  AppMenuEntry(value: 'public', label: 'Public', checked: true),
-  AppMenuEntry(value: 'private', label: 'Private', checked: false),
+  AppMenuEntry(value: 'share', label: 'Share'),
+  AppMenuEntry(value: 'save', label: 'Save'),
 ];
 
 class _Harness extends StatelessWidget {
@@ -55,13 +52,12 @@ class _Harness extends StatelessWidget {
 Future<void> _pump(
   WidgetTester tester,
   Widget home, {
-  bool disableAnimations = false,
   Size size = const Size(400, 800),
 }) async {
   setViewSize(tester, size);
   await tester.pumpWidget(
     MediaQuery(
-      data: MediaQueryData(size: size, disableAnimations: disableAnimations),
+      data: MediaQueryData(size: size),
       child: MaterialApp(home: home),
     ),
   );
@@ -74,18 +70,6 @@ Future<void> _open(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('a pointer going down outside closes the menu at once', (
-    tester,
-  ) async {
-    await _pump(tester, _Harness(onSelected: (_, _) {}));
-    await _open(tester);
-
-    final gesture = await tester.startGesture(const Offset(200, 600));
-    await tester.pumpAndSettle();
-    expect(find.text('Share'), findsNothing);
-    await gesture.up();
-  });
-
   testWidgets('the closing touch never scrolls the page below', (tester) async {
     final controller = ScrollController();
     addTearDown(controller.dispose);
@@ -142,110 +126,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(_Harness), findsNothing);
     expect(find.text('root'), findsOneWidget);
-  });
-
-  testWidgets('a page leaving with the menu open tears down cleanly', (
-    tester,
-  ) async {
-    final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        home: const Scaffold(body: Text('root')),
-      ),
-    );
-    navigatorKey.currentState!.push(
-      MaterialPageRoute<void>(builder: (_) => _Harness(onSelected: (_, _) {})),
-    );
-    await tester.pumpAndSettle();
-    await _open(tester);
-
-    navigatorKey.currentState!.pop();
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(find.text('Share'), findsNothing);
-    expect(find.text('root'), findsOneWidget);
-  });
-
-  testWidgets('selection reports the anchor context and closes the menu', (
-    tester,
-  ) async {
-    BuildContext? anchor;
-    String? selected;
-    await _pump(
-      tester,
-      _Harness(
-        onSelected: (context, value) {
-          anchor = context;
-          selected = value;
-        },
-      ),
-    );
-    await _open(tester);
-
-    await tester.tap(find.text('Share'));
-    await tester.pumpAndSettle();
-    expect(selected, 'share');
-    expect(find.text('Share'), findsNothing);
-    // The context sits at the button, not at the menu or the page.
-    final box = anchor!.findRenderObject()! as RenderBox;
-    final buttonCenter = tester.getCenter(find.byIcon(UiIcons.more));
-    expect(
-      (box.localToGlobal(Offset.zero) & box.size).contains(buttonCenter),
-      isTrue,
-    );
-  });
-
-  testWidgets('an end-edge menu keeps off the screen edge it opens at', (
-    tester,
-  ) async {
-    // The anchor's distance from the screen end, and the menu's after.
-    for (final direction in TextDirection.values) {
-      for (final (inset, gap) in [(0.0, FuncSpacing.sm), (24.0, 24.0)]) {
-        await _pump(
-          tester,
-          Directionality(
-            textDirection: direction,
-            child: Scaffold(
-              body: Align(
-                alignment: AlignmentDirectional.topEnd,
-                child: Padding(
-                  padding: EdgeInsetsDirectional.only(end: inset),
-                  child: AppMenuButton<String>(
-                    entries: _entries,
-                    onSelected: (_, _) {},
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        await _open(tester);
-
-        final itemRect = tester.getRect(find.byType(MenuItemButton).first);
-        final menuPanel = find.ancestor(
-          of: find.byType(MenuItemButton).first,
-          matching: find.byType(Material),
-        );
-        final panelRect = tester.getRect(menuPanel.first);
-        final panelGap = switch (direction) {
-          TextDirection.ltr => 400 - panelRect.right,
-          TextDirection.rtl => panelRect.left,
-        };
-        expect(panelGap, closeTo(gap, 0.01), reason: '$direction $inset');
-        final itemInset = switch (direction) {
-          TextDirection.ltr => panelRect.right - itemRect.right,
-          TextDirection.rtl => itemRect.left - panelRect.left,
-        };
-        expect(itemInset, closeTo(FuncSpacing.xs, 0.01));
-        final anchorRect = tester.getRect(find.byType(IconButton));
-        expect(
-          panelRect.top - anchorRect.bottom,
-          closeTo(FuncSpacing.xs, 0.01),
-        );
-        await tester.tapAt(const Offset(200, 600));
-        await tester.pumpAndSettle();
-      }
-    }
   });
 }

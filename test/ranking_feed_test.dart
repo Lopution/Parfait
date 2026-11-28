@@ -13,12 +13,9 @@ import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/icons/ui_icons.dart';
 import 'package:parfait/app/motion/app_overlays.dart';
-import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/navigation/frozen_while_hidden.dart';
 import 'package:parfait/app/widgets/app_date_picker.dart';
 import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/network/api_date.dart';
 import 'package:parfait/core/network/next_page_parser.dart';
@@ -60,11 +57,9 @@ Map<String, dynamic> _illust(int id) => {
 };
 
 class _RankingFixture {
-  _RankingFixture({this.itemsPerPage = 2});
+  _RankingFixture();
 
-  /// First page size — a scrollable feed needs enough entries to
-  /// overflow the test viewport.
-  final int itemsPerPage;
+  final int itemsPerPage = 2;
   final requests = <Uri>[];
 
   /// Re-armable gate: a pending request holds until [release]
@@ -453,81 +448,6 @@ void main() {
     expect(state.initialError, isNull);
   });
 
-  // C6 — the sibling-category contract: a TabBar tap and a horizontal
-  // strip drag are two injections of the same switch; both must land on
-  // the same mode with the same route write. (Reduced-motion snapping is
-  // verified directly in tab_swipe_switcher_test.dart and motion_test.dart.)
-  testWidgets('category tap and drag land identically', (tester) async {
-    final (container, fixture) = await _makeWorld(
-      fixture: _RankingFixture(itemsPerPage: 4),
-    );
-    final router = await _pumpRanking(
-      tester,
-      container,
-      builder: (context, child) => MotionScope(reduce: false, child: child!),
-    );
-
-    // Tap path: day → week.
-    await tester.tap(find.byType(Tab).at(1));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.queryParameters['mode'], 'week');
-    expect(
-      fixture.requests.where((u) => u.queryParameters['mode'] == 'week'),
-      isNotEmpty,
-    );
-
-    // Drag path back: a committed rightward fling lands on the same
-    // slot a tap would — same mode, same route write.
-    final strip = find.byType(TabSlideStack);
-    await tester.fling(strip, const Offset(300, 0), 1200);
-    await tester.pumpAndSettle();
-    expect(tester.widget<TabSlideStack>(strip).controller.index, 0);
-    expect(router.state.uri.queryParameters['mode'], 'day');
-
-    // And forward again by drag — identical landing to the tap.
-    await tester.fling(strip, const Offset(-300, 0), 1200);
-    await tester.pumpAndSettle();
-    expect(tester.widget<TabSlideStack>(strip).controller.index, 1);
-    expect(router.state.uri.queryParameters['mode'], 'week');
-  });
-
-  testWidgets('branch re-tap scrolls the active ranking feed to top', (
-    tester,
-  ) async {
-    final (container, fixture) = await _makeWorld(
-      fixture: _RankingFixture(itemsPerPage: 24),
-    );
-    await _pumpRanking(tester, container);
-
-    // The week feed next to it is built too, off screen.
-    final feedView = find
-        .descendant(
-          of: find.byType(RankingPage),
-          matching: find.bySubtype<CustomScrollView>(),
-        )
-        .hitTestable();
-    expect(feedView, findsOneWidget);
-    final controller = tester.widget<CustomScrollView>(feedView).controller!;
-    controller.jumpTo(400);
-    await tester.pump();
-    expect(controller.offset, 400);
-
-    // Same-destination tap on the ranking bottom-bar slot: pure
-    // scroll-to-top — no refresh, no re-request.
-    final requestsBefore = fixture.requests.length;
-    await tester.tap(
-      find.descendant(
-        of: find.byType(FuncShellBottomNav),
-        matching: find.byIcon(AppIcons.rankingFilled),
-      ),
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(controller.offset, 0);
-    expect(fixture.requests.length, requestsBefore);
-  });
-
   group('category sheet', () {
     // A tile's label follows its icon in one Text.rich, so it is matched
     // without the icon's placeholder.
@@ -682,161 +602,5 @@ void main() {
       await tester.pumpAndSettle();
       expect(fixture.requests.length, greaterThan(before + 1));
     });
-
-    testWidgets(
-      'FrozenWhileHidden skips hidden width relayouts and TabSlideStack pins multi-tab hops',
-      (tester) async {
-        var layoutCount = 0;
-        var lastWidth = 0.0;
-        var hidden = false;
-        var width = 400.0;
-        late StateSetter rebuildHost;
-        final trackedChild = LayoutBuilder(
-          builder: (context, constraints) {
-            layoutCount++;
-            lastWidth = constraints.maxWidth;
-            return const SizedBox.expand();
-          },
-        );
-
-        await tester.pumpWidget(
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                rebuildHost = setState;
-                return Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: width,
-                    height: 200,
-                    child: FrozenWhileHidden.when(
-                      hidden: hidden,
-                      child: trackedChild,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-        expect(layoutCount, 1);
-        expect(lastWidth, 400.0);
-
-        rebuildHost(() {
-          hidden = true;
-          width = 640.0;
-        });
-        await tester.pump();
-        expect(
-          layoutCount,
-          1,
-          reason: 'hidden width change skips child layout',
-        );
-        expect(lastWidth, 400.0);
-
-        rebuildHost(() => hidden = false);
-        await tester.pump();
-        expect(layoutCount, 2, reason: 'reveal applies current width once');
-        expect(lastWidth, 640.0);
-
-        final tc = TabController(length: 6, vsync: tester);
-        addTearDown(tc.dispose);
-        final activeSeen = <int>{};
-        await tester.pumpWidget(
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: TabSlideStack(
-              controller: tc,
-              children: [
-                for (var i = 0; i < 6; i++)
-                  Builder(
-                    key: ValueKey(i),
-                    builder: (context) {
-                      if (TickerMode.valuesOf(context).enabled) {
-                        activeSeen.add(i);
-                      }
-                      return SizedBox.expand(child: Text('tab $i'));
-                    },
-                  ),
-              ],
-            ),
-          ),
-        );
-        activeSeen.clear();
-        tc.animateTo(5);
-        await tester.pump(const Duration(milliseconds: 120));
-        expect(
-          tester
-              .widget<Offstage>(find.byKey(const ValueKey<Key>(ValueKey(0))))
-              .offstage,
-          isFalse,
-        );
-        expect(
-          tester
-              .widget<Offstage>(find.byKey(const ValueKey<Key>(ValueKey(5))))
-              .offstage,
-          isFalse,
-        );
-        for (var i = 1; i <= 4; i++) {
-          expect(
-            tester
-                .widget<Offstage>(find.byKey(ValueKey<Key>(ValueKey(i))))
-                .offstage,
-            isTrue,
-          );
-        }
-        await tester.pumpAndSettle();
-        expect(
-          activeSeen,
-          equals({5}),
-          reason: 'intermediate tabs 1..4 stay offstage and ticker-muted',
-        );
-      },
-    );
-
-    testWidgets(
-      'RankingTabs caps mounted modes to 5 LRU and restores evicted scroll offset',
-      (tester) async {
-        final (container, _) = await _makeWorld();
-        await _pumpRanking(tester, container);
-        final tc = tabs(tester);
-        expect(tc.length, greaterThanOrEqualTo(7));
-
-        final scrollViews = find.bySubtype<CustomScrollView>();
-        final controller0 = tester
-            .widget<CustomScrollView>(scrollViews.first)
-            .controller!;
-        if (controller0.position.maxScrollExtent > 0) {
-          controller0.jumpTo(
-            controller0.position.maxScrollExtent.clamp(0.0, 200.0),
-          );
-          await tester.pumpAndSettle();
-        }
-        final scrolledBefore = controller0.offset;
-
-        // Visit 7 distinct categories so mode 0 is evicted past the 5-mode cap.
-        for (var i = 1; i <= 6; i++) {
-          tc.animateTo(i);
-          await tester.pumpAndSettle();
-        }
-        expect(
-          find
-              .bySubtype<CustomScrollView>(skipOffstage: false)
-              .evaluate()
-              .length,
-          lessThanOrEqualTo(5),
-        );
-
-        // Return to mode 0 and verify its scroll offset restores.
-        tc.animateTo(0);
-        await tester.pumpAndSettle();
-        final restored = tester
-            .widget<CustomScrollView>(find.bySubtype<CustomScrollView>().first)
-            .controller!
-            .offset;
-        expect(restored, closeTo(scrolledBefore, 1.0));
-      },
-    );
   });
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 
@@ -12,17 +11,15 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
-import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/novel_reader_harness.dart';
 
 void main() {
   test(
@@ -58,7 +55,7 @@ void main() {
 
   test('webview text pages and chapters at its single-bracket markers', () {
     // The webview body as pixiv writes it: only ruby takes double brackets.
-    final novel = _novel(
+    final novel = testNovel(
       '',
     ).withWebContent('前文\n[newpage]\n[chapter:第二章　出発]\n本文[[rb:漢字 > かんじ]]');
     final blocks = novel.markup!.blocks;
@@ -75,15 +72,10 @@ void main() {
     'a work preview is found by page, then work; an image fills a page',
     () async {
       const style = NovelLayoutStyle();
-      final novel = _illustrated('前文\n[pixivimage:9-2]\n[pixivimage:9-3]\n後文');
-      final layout = await NovelLayoutEngine().layoutDocumentCancellable(
-        document: novel.markup!,
-        contentVersion: novel.contentVersion,
-        viewport: const Size(360, 640),
-        style: style,
-        textColor: Colors.black,
-        brightness: Brightness.light,
+      final novel = illustratedTestNovel(
+        '前文\n[pixivimage:9-2]\n[pixivimage:9-3]\n後文',
       );
+      final layout = await layoutTestNovel(novel, style: style);
 
       expect(
         [
@@ -110,18 +102,11 @@ void main() {
   test('the scroll column runs pages on, with a rule at a new page and a gap '
       'before a chapter; lines and anchors map both ways', () async {
     const style = NovelLayoutStyle();
-    final novel = _illustrated(
+    final novel = illustratedTestNovel(
       '前文\n[newpage]\n${'本文' * 400}\n[chapter:第二章]\n章文\n'
       '[uploadedimage:5]\n後文',
     );
-    final layout = await NovelLayoutEngine().layoutDocumentCancellable(
-      document: novel.markup!,
-      contentVersion: novel.contentVersion,
-      viewport: const Size(360, 640),
-      style: style,
-      textColor: Colors.black,
-      brightness: Brightness.light,
-    );
+    final layout = await layoutTestNovel(novel, style: style);
     final column = NovelScrollColumn(layout, style);
     final chapter = layout.pages.firstWhere(
       (page) => page.chapterTitle == '第二章',
@@ -180,14 +165,10 @@ void main() {
 
   test('each line lays out as tall as the style of its kind', () async {
     const style = NovelLayoutStyle();
-    final novel = _novel('').withWebContent('前文\n[chapter:第二章　出発]\n本文');
-    final layout = await NovelLayoutEngine().layoutDocumentCancellable(
-      document: novel.markup!,
-      contentVersion: novel.contentVersion,
-      viewport: const Size(360, 640),
+    final novel = testNovel('').withWebContent('前文\n[chapter:第二章　出発]\n本文');
+    final layout = await layoutTestNovel(
+      novel,
       style: style,
-      textColor: Colors.black,
-      brightness: Brightness.light,
       titleBlock: const NovelTitleBlock(title: '旅路', byline: 'author'),
     );
     final lines = [for (final page in layout.pages) ...page.lines];
@@ -223,17 +204,7 @@ void main() {
       '[chapter:第一章]',
       for (var index = 0; index < 60; index++) '第$index段 ${'本文' * 20}',
     ].join('\n');
-    final novel = _novel('').withWebContent(body);
-    Future<NovelLayout> layout(NovelTitleBlock? titleBlock) =>
-        NovelLayoutEngine().layoutDocumentCancellable(
-          document: novel.markup!,
-          contentVersion: novel.contentVersion,
-          viewport: const Size(360, 640),
-          style: const NovelLayoutStyle(),
-          textColor: Colors.black,
-          brightness: Brightness.light,
-          titleBlock: titleBlock,
-        );
+    final novel = testNovel('').withWebContent(body);
     List<(String, int, int)> textLines(NovelLayout layout) => [
       for (final page in layout.pages)
         for (final line in page.lines)
@@ -241,9 +212,13 @@ void main() {
             (line.paragraphId, line.startOffset, line.endOffset),
     ];
 
-    final plain = await layout(null);
-    final titled = await layout(
-      NovelTitleBlock(title: 'とても長い題名' * 6, byline: 'author · series'),
+    final plain = await layoutTestNovel(novel);
+    final titled = await layoutTestNovel(
+      novel,
+      titleBlock: NovelTitleBlock(
+        title: 'とても長い題名' * 6,
+        byline: 'author · series',
+      ),
     );
 
     final first = titled.pages.first;
@@ -410,19 +385,14 @@ void main() {
     var centerTaps = 0;
     final handle = NovelReaderHandle();
     var pages = 0;
-    await tester.pumpWidget(
-      localizedApp(
-        body: NovelReader(
-          novel: _novel('reader ' * 400),
-          settings: _pageMode,
-          handle: handle,
-          onCenterTap: () => centerTaps += 1,
-          onProgressChanged: (page, pageCount) => pages = pageCount,
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      novel: testNovel('reader ' * 400),
+      settings: novelPageModeSettings,
+      handle: handle,
+      onCenterTap: () => centerTaps += 1,
+      onProgressChanged: (page, pageCount) => pages = pageCount,
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byType(PageView), findsOneWidget);
     expect(pages, greaterThan(0));
@@ -448,22 +418,17 @@ void main() {
   ) async {
     final opened = <String>[];
     final handle = NovelReaderHandle();
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          imageWorkerProvider.overrideWithValue(stalledImageWorker()),
-          novelImageQualityProvider.overrideWithValue(DetailQuality.original),
-        ],
-        body: NovelReader(
-          novel: _illustrated('[uploadedimage:5]\n後文'),
-          settings: _pageMode,
-          handle: handle,
-          onImageTap: (image) => opened.add(image.identifier),
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      overrides: [
+        imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+        novelImageQualityProvider.overrideWithValue(DetailQuality.original),
+      ],
+      novel: illustratedTestNovel('[uploadedimage:5]\n後文'),
+      settings: novelPageModeSettings,
+      handle: handle,
+      onImageTap: (image) => opened.add(image.identifier),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.bySemanticsLabel('插图'), findsOneWidget);
     expect(
@@ -495,14 +460,13 @@ void main() {
           body: DefaultTextStyle.merge(
             style: const TextStyle(letterSpacing: 2),
             child: NovelReader(
-              novel: _novel('reader ' * 400),
+              novel: testNovel('reader ' * 400),
               onProgressChanged: (_, count) => pageCounts[scale] = count,
             ),
           ),
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
     }
     // The body really is larger, not only measured as it paints.
     expect(pageCounts[2.0], greaterThan(pageCounts[1.0]!));
@@ -527,17 +491,12 @@ void main() {
     tester,
   ) async {
     final handle = NovelReaderHandle();
-    await tester.pumpWidget(
-      localizedApp(
-        body: NovelReader(
-          novel: _novel('reader ' * 400),
-          settings: _pageMode,
-          handle: handle,
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      novel: testNovel('reader ' * 400),
+      settings: novelPageModeSettings,
+      handle: handle,
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     final pageCount = handle.pageCount!.call();
     expect(pageCount, greaterThan(2));
@@ -565,26 +524,18 @@ void main() {
       (index) => 'paragraph $index body text body text',
     ).join('\n\n');
 
-    Widget app(double fontSize) => MaterialApp(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      home: Scaffold(
-        body: NovelReader(
-          novel: _novel(text),
-          settings: _pageMode.copyWith(fontSize: fontSize),
-          // A deep restore makes the first commit's programmatic jump
-          // observable on PageView.onPageChanged.
-          initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
-          handle: handle,
-          onAnchorChanged: (anchor, cause) => causes.add(cause),
-        ),
-      ),
+    Future<void> pumpWithFont(double fontSize) => pumpNovelReader(
+      tester,
+      novel: testNovel(text),
+      settings: novelPageModeSettings.copyWith(fontSize: fontSize),
+      // A deep restore makes the first commit's programmatic jump
+      // observable on PageView.onPageChanged.
+      initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
+      handle: handle,
+      onAnchorChanged: (anchor, cause) => causes.add(cause),
     );
 
-    await tester.pumpWidget(app(17));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpWithFont(17);
 
     // First layout + restore jump: every notification is a layout echo.
     expect(causes, isNotEmpty);
@@ -601,9 +552,7 @@ void main() {
 
     // A settings-driven relayout re-asserts position as an echo again.
     causes.clear();
-    await tester.pumpWidget(app(20));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpWithFont(20);
     expect(causes, isNotEmpty);
     expect(
       causes.where((cause) => cause == NovelAnchorCause.userTurn),
@@ -615,20 +564,13 @@ void main() {
       'that stops a fling only stops it', (tester) async {
     var centerTaps = 0;
     final opened = <String>[];
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          imageWorkerProvider.overrideWithValue(stalledImageWorker()),
-        ],
-        body: NovelReader(
-          novel: _illustrated('[uploadedimage:5]\n${'本文' * 3000}'),
-          onCenterTap: () => centerTaps += 1,
-          onImageTap: (image) => opened.add(image.identifier),
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      overrides: [imageWorkerProvider.overrideWithValue(stalledImageWorker())],
+      novel: illustratedTestNovel('[uploadedimage:5]\n${'本文' * 3000}'),
+      onCenterTap: () => centerTaps += 1,
+      onImageTap: (image) => opened.add(image.identifier),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(PageView), findsNothing);
 
     // The image takes its tap; the margin beside it shows the chrome
@@ -665,22 +607,20 @@ void main() {
       'TARGET',
       for (var i = 0; i < 60; i++) '後文',
     ].join('\n');
-    for (final settings in [const NovelReaderSettings(), _pageMode]) {
+    for (final settings in [
+      const NovelReaderSettings(),
+      novelPageModeSettings,
+    ]) {
       final opened = <Uri>[];
       final reports = <NovelAnchorCause>[];
-      await tester.pumpWidget(
-        localizedApp(
-          body: NovelReader(
-            key: ValueKey(settings),
-            novel: _novel('').withWebContent(body),
-            settings: settings,
-            onLinkTap: opened.add,
-            onAnchorChanged: (_, cause) => reports.add(cause),
-          ),
-        ),
+      await pumpNovelReader(
+        tester,
+        readerKey: ValueKey(settings),
+        novel: testNovel('').withWebContent(body),
+        settings: settings,
+        onLinkTap: opened.add,
+        onAnchorChanged: (_, cause) => reports.add(cause),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
       final mode = settings.pageTurn.name;
 
       final address = find.textContaining('作品', findRichText: true);
@@ -691,8 +631,7 @@ void main() {
       final jump = find.textContaining('→ 第 3 页', findRichText: true);
       expect(jump, findsWidgets, reason: mode);
       await tester.tapAt(tester.getTopLeft(jump.first) + const Offset(8, 8));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await pumpNovelLayout(tester);
       // At the top, under the page's rule in scroll mode.
       expect(
         tester.getTopLeft(find.text('TARGET')).dy,
@@ -703,11 +642,7 @@ void main() {
     }
 
     // A tap that stops a fling over the jumps only stops it.
-    await tester.pumpWidget(
-      localizedApp(body: NovelReader(novel: _novel('').withWebContent(body))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelReader(tester, novel: testNovel('').withWebContent(body));
     final list = tester.widget<ListView>(find.byType(ListView)).controller!;
     await tester.fling(find.byType(ListView), const Offset(0, -200), 2000);
     await tester.pump();
@@ -729,18 +664,13 @@ void main() {
       80,
       (index) => 'paragraph $index body text body text',
     ).join('\n');
-    Widget app(NovelReaderSettings settings) => MaterialApp(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      home: Scaffold(
-        body: NovelReader(
-          novel: _novel(text),
-          settings: settings,
-          initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
-          handle: handle,
-          onAnchorChanged: (anchor, cause) => reports.add((anchor, cause)),
-        ),
+    Widget app(NovelReaderSettings settings) => localizedApp(
+      body: NovelReader(
+        novel: testNovel(text),
+        settings: settings,
+        initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
+        handle: handle,
+        onAnchorChanged: (anchor, cause) => reports.add((anchor, cause)),
       ),
     );
     double top(String paragraphId) {
@@ -755,8 +685,7 @@ void main() {
     ];
 
     await tester.pumpWidget(app(const NovelReaderSettings()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     expect(top('p60'), verticalPadding);
     expect(turns(), isEmpty);
 
@@ -775,8 +704,7 @@ void main() {
 
     reports.clear();
     await tester.pumpWidget(app(const NovelReaderSettings(fontSize: 20)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     // The restore jumps after the frame that built the new layout.
     await tester.pump();
     expect(turns(), isEmpty);
@@ -808,19 +736,13 @@ void main() {
     tester,
   ) async {
     final engine = _CountingLayoutEngine();
-    await tester.pumpWidget(
-      ProviderScope(
-        child: localizedApp(
-          body: NovelReader(
-            novel: _novel('reader ' * 400),
-            layoutEngine: engine,
-            budget: const NovelLayoutBudget(maxTextUnits: 2),
-          ),
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      novel: testNovel('reader ' * 400),
+      layoutEngine: engine,
+      budget: const NovelLayoutBudget(maxTextUnits: 2),
+      wrapProviderScope: true,
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     // The budget failure lands on the committed error state instead of
     // escaping as an unhandled async exception.
@@ -829,8 +751,7 @@ void main() {
     expect(engine.calls, 1);
 
     await tester.tap(find.text('重试'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
 
     // Retry forces another layout pass; the deterministic failure keeps
     // the error state visible.
@@ -842,19 +763,13 @@ void main() {
     tester,
   ) async {
     final handle = NovelReaderHandle();
-    await tester.pumpWidget(
-      ProviderScope(
-        child: localizedApp(
-          body: NovelReader(
-            novel: _novel('reader ' * 400),
-            handle: handle,
-            budget: const NovelLayoutBudget(maxTextUnits: 2),
-          ),
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      novel: testNovel('reader ' * 400),
+      handle: handle,
+      budget: const NovelLayoutBudget(maxTextUnits: 2),
+      wrapProviderScope: true,
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byType(FeedError), findsOneWidget);
     // The PageView is unmounted in the error state — a jump landing on the
@@ -869,20 +784,18 @@ void main() {
   testWidgets(
     'body uses one SelectionArea without SelectableText and preserves taps',
     (tester) async {
-      for (final settings in [const NovelReaderSettings(), _pageMode]) {
+      for (final settings in [
+        const NovelReaderSettings(),
+        novelPageModeSettings,
+      ]) {
         var centerTaps = 0;
-        await tester.pumpWidget(
-          localizedApp(
-            body: NovelReader(
-              key: ValueKey(('center', settings)),
-              novel: _novel('CENTER_BODY'),
-              settings: settings,
-              onCenterTap: () => centerTaps += 1,
-            ),
-          ),
+        await pumpNovelReader(
+          tester,
+          readerKey: ValueKey(('center', settings)),
+          novel: testNovel('CENTER_BODY'),
+          settings: settings,
+          onCenterTap: () => centerTaps += 1,
         );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byType(SelectionArea), findsOneWidget);
         expect(find.byType(SelectableText), findsNothing);
@@ -893,20 +806,15 @@ void main() {
       }
 
       final links = <Uri>[];
-      await tester.pumpWidget(
-        localizedApp(
-          body: NovelReader(
-            key: const ValueKey('link-tap'),
-            novel: _novel('').withWebContent(
-              '[[jumpuri:作品 > https://www.pixiv.net/artworks/88]]\n本文',
-            ),
-            settings: _pageMode,
-            onLinkTap: links.add,
-          ),
+      await pumpNovelReader(
+        tester,
+        readerKey: const ValueKey('link-tap'),
+        novel: testNovel('').withWebContent(
+          '[[jumpuri:作品 > https://www.pixiv.net/artworks/88]]\n本文',
         ),
+        settings: novelPageModeSettings,
+        onLinkTap: links.add,
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(SelectionArea), findsOneWidget);
       expect(find.byType(SelectableText), findsNothing);
@@ -917,22 +825,17 @@ void main() {
       expect(links, [Uri.parse('https://www.pixiv.net/artworks/88')]);
 
       final images = <String>[];
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: [
-            imageWorkerProvider.overrideWithValue(stalledImageWorker()),
-            novelImageQualityProvider.overrideWithValue(DetailQuality.original),
-          ],
-          body: NovelReader(
-            key: const ValueKey('image-tap'),
-            novel: _illustrated('[uploadedimage:5]\n後文'),
-            settings: _pageMode,
-            onImageTap: (image) => images.add(image.identifier),
-          ),
-        ),
+      await pumpNovelReader(
+        tester,
+        readerKey: const ValueKey('image-tap'),
+        overrides: [
+          imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+          novelImageQualityProvider.overrideWithValue(DetailQuality.original),
+        ],
+        novel: illustratedTestNovel('[uploadedimage:5]\n後文'),
+        settings: novelPageModeSettings,
+        onImageTap: (image) => images.add(image.identifier),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(SelectionArea), findsOneWidget);
       expect(find.byType(SelectableText), findsNothing);
@@ -945,33 +848,23 @@ void main() {
   testWidgets(
     'page mode turns on mouse wheel accumulation and scroll mode uses SmoothWheelScroll',
     (tester) async {
-      await tester.pumpWidget(
-        localizedApp(
-          body: NovelReader(
-            key: const ValueKey('wheel-scroll'),
-            novel: _novel('scroll line\n' * 60),
-          ),
-        ),
+      await pumpNovelReader(
+        tester,
+        readerKey: const ValueKey('wheel-scroll'),
+        novel: testNovel('scroll line\n' * 60),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
       expect(find.byType(SmoothWheelScroll), findsOneWidget);
 
       final handle = NovelReaderHandle();
       final causes = <NovelAnchorCause>[];
-      await tester.pumpWidget(
-        localizedApp(
-          body: NovelReader(
-            key: const ValueKey('wheel-page'),
-            novel: _novel('').withWebContent('PAGE_A\n[newpage]\nPAGE_B'),
-            settings: _pageMode,
-            handle: handle,
-            onAnchorChanged: (_, cause) => causes.add(cause),
-          ),
-        ),
+      await pumpNovelReader(
+        tester,
+        readerKey: const ValueKey('wheel-page'),
+        novel: testNovel('').withWebContent('PAGE_A\n[newpage]\nPAGE_B'),
+        settings: novelPageModeSettings,
+        handle: handle,
+        onAnchorChanged: (_, cause) => causes.add(cause),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
       expect(handle.currentPage?.call(), 0);
       expect(find.text('PAGE_A'), findsOneWidget);
 
@@ -1019,20 +912,15 @@ void main() {
 
     final handle = NovelReaderHandle();
     final causes = <NovelAnchorCause>[];
-    await tester.pumpWidget(
-      localizedApp(
-        body: NovelReader(
-          novel: _novel('').withWebContent(
-            'PAGE_1\n[newpage]\nPAGE_2\n[newpage]\nPAGE_3\n[newpage]\nPAGE_4',
-          ),
-          settings: _pageMode,
-          handle: handle,
-          onAnchorChanged: (_, cause) => causes.add(cause),
-        ),
+    await pumpNovelReader(
+      tester,
+      novel: testNovel('').withWebContent(
+        'PAGE_1\n[newpage]\nPAGE_2\n[newpage]\nPAGE_3\n[newpage]\nPAGE_4',
       ),
+      settings: novelPageModeSettings,
+      handle: handle,
+      onAnchorChanged: (_, cause) => causes.add(cause),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('PAGE_1'), findsOneWidget);
     expect(find.text('PAGE_2'), findsOneWidget);
@@ -1047,8 +935,7 @@ void main() {
     expect(causes.last, NovelAnchorCause.userTurn);
 
     await tester.binding.setSurfaceSize(const Size(400, 800));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelLayout(tester);
     await tester.pumpAndSettle();
     expect(find.text('PAGE_3'), findsOneWidget);
     expect(find.text('PAGE_4'), findsNothing);
@@ -1056,7 +943,7 @@ void main() {
     // Restoring to an odd layout page in wide spread mode normalizes logical
     // page to the spread's left leaf so progress and stepping stay aligned.
     await tester.binding.setSurfaceSize(const Size(1100, 700));
-    final spreadNovel = _novel('').withWebContent(
+    final spreadNovel = testNovel('').withWebContent(
       'PAGE_1\n[newpage]\nPAGE_2\n[newpage]\nPAGE_3\n[newpage]\nPAGE_4',
     );
     final page2Paragraph = spreadNovel.paragraphs.firstWhere(
@@ -1064,20 +951,15 @@ void main() {
     );
     final oddHandle = NovelReaderHandle();
     (int, int)? lastProgress;
-    await tester.pumpWidget(
-      localizedApp(
-        body: NovelReader(
-          key: const ValueKey('odd-spread-restore'),
-          novel: spreadNovel,
-          settings: _pageMode,
-          handle: oddHandle,
-          initialAnchor: NovelAnchor(paragraphId: page2Paragraph.id, offset: 0),
-          onProgressChanged: (page, count) => lastProgress = (page, count),
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      readerKey: const ValueKey('odd-spread-restore'),
+      novel: spreadNovel,
+      settings: novelPageModeSettings,
+      handle: oddHandle,
+      initialAnchor: NovelAnchor(paragraphId: page2Paragraph.id, offset: 0),
+      onProgressChanged: (page, count) => lastProgress = (page, count),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
     expect(oddHandle.currentPage?.call(), 0);
     expect(lastProgress, (0, 4));
@@ -1093,36 +975,27 @@ void main() {
       40,
       (i) => 'paragraph $i ${'content ' * 12}',
     ).join('\n');
-    final novel = _novel(text);
-    Widget build(Map<String, String> translations) => localizedApp(
-      body: NovelReader(
-        novel: novel,
-        scrollTopPadding: 64,
-        translations: translations,
-      ),
+    final novel = testNovel(text);
+    Future<void> pumpWith(Map<String, String> translations) => pumpNovelReader(
+      tester,
+      novel: novel,
+      scrollTopPadding: 64,
+      translations: translations,
     );
-    await tester.pumpWidget(build(const {}));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpWith(const {});
 
     final controller = tester
         .widget<ListView>(find.byType(ListView))
         .controller!;
     controller.jumpTo(20);
     await tester.pump();
-    await tester.pumpWidget(build({'p35': 'translated far below'}));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpWith({'p35': 'translated far below'});
     await tester.pump();
     expect(controller.offset, closeTo(20, 0.5));
 
     controller.jumpTo(315);
     await tester.pump();
-    await tester.pumpWidget(
-      build({'p35': 'translated far below', 'p36': 'another below'}),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpWith({'p35': 'translated far below', 'p36': 'another below'});
     await tester.pump();
     expect(controller.offset, closeTo(315, 0.5));
 
@@ -1131,11 +1004,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 30));
     final beforeRelayout = controller.offset;
     await tester.pumpWidget(
-      build({
-        'p35': 'translated far below',
-        'p36': 'another below',
-        'p37': 'third below',
-      }),
+      localizedApp(
+        body: NovelReader(
+          novel: novel,
+          scrollTopPadding: 64,
+          translations: const {
+            'p35': 'translated far below',
+            'p36': 'another below',
+            'p37': 'third below',
+          },
+        ),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
@@ -1165,16 +1044,11 @@ void main() {
 
     var centerTaps = 0;
     final longPara = 'alpha beta gamma delta epsilon zeta ' * 5;
-    await tester.pumpWidget(
-      localizedApp(
-        body: NovelReader(
-          novel: _novel('$longPara\nsecond paragraph'),
-          onCenterTap: () => centerTaps += 1,
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      novel: testNovel('$longPara\nsecond paragraph'),
+      onCenterTap: () => centerTaps += 1,
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     final paraPos =
         tester.getTopLeft(find.textContaining('alpha')) + const Offset(12, 12);
@@ -1213,11 +1087,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(centerTaps, 1);
 
-    await tester.pumpWidget(
-      localizedApp(body: NovelReader(novel: _novel('彼は[[rb:漢字 > かんじ]]を読んだ'))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelReader(tester, novel: testNovel('彼は[[rb:漢字 > かんじ]]を読んだ'));
     expect(find.text('漢字'), findsOneWidget);
     expect(find.text('かんじ'), findsOneWidget);
     expect(
@@ -1241,11 +1111,7 @@ void main() {
 
     // Very long unbroken paragraphs chunk into viewport-bounded scroll blocks
     // so virtualization and hit-testing keep working past top/bottom bars.
-    await tester.pumpWidget(
-      localizedApp(body: NovelReader(novel: _novel('local novel 0 ' * 200))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await pumpNovelReader(tester, novel: testNovel('local novel 0 ' * 200));
     expect(find.byType(RichText).hitTestable(), findsWidgets);
     expect(find.byType(RichText).evaluate().length, greaterThan(1));
   });
@@ -1253,24 +1119,19 @@ void main() {
   testWidgets(
     'rapid edge taps accumulate target pages instead of dropping turns',
     (tester) async {
-      final novel = _novel('').withWebContent(
+      final novel = testNovel('').withWebContent(
         'PAGE_1\n[newpage]\nPAGE_2\n[newpage]\nPAGE_3\n[newpage]\nPAGE_4',
       );
       final handle = NovelReaderHandle();
-      await tester.pumpWidget(
-        localizedApp(
-          body: NovelReader(
-            novel: novel,
-            settings: const NovelReaderSettings(
-              pageTurn: NovelPageTurn.pages,
-              spreadMode: NovelSpreadMode.off,
-            ),
-            handle: handle,
-          ),
+      await pumpNovelReader(
+        tester,
+        novel: novel,
+        settings: const NovelReaderSettings(
+          pageTurn: NovelPageTurn.pages,
+          spreadMode: NovelSpreadMode.off,
         ),
+        handle: handle,
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
       for (var i = 0; i < 3; i++) {
         await tester.tapAt(const Offset(760, 300));
         await tester.pump(const Duration(milliseconds: 40));
@@ -1286,24 +1147,19 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 600));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final scrollNovel = _novel('').withWebContent(
+      final scrollNovel = testNovel('').withWebContent(
         '${List.generate(35, (i) => 'scroll line $i body text').join('\n')}\n[newpage]\nFINAL_PIXIV_PAGE',
       );
       final scrollHandle = NovelReaderHandle();
       NovelAnchor? lastSavedAnchor;
-      await tester.pumpWidget(
-        localizedApp(
-          body: NovelReader(
-            novel: scrollNovel,
-            handle: scrollHandle,
-            onAnchorChanged: (anchor, cause) {
-              if (cause == NovelAnchorCause.userTurn) lastSavedAnchor = anchor;
-            },
-          ),
-        ),
+      await pumpNovelReader(
+        tester,
+        novel: scrollNovel,
+        handle: scrollHandle,
+        onAnchorChanged: (anchor, cause) {
+          if (cause == NovelAnchorCause.userTurn) lastSavedAnchor = anchor;
+        },
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
       final totalScrollPages = scrollHandle.pageCount!();
       final list = tester.widget<ListView>(find.byType(ListView));
       list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
@@ -1378,15 +1234,11 @@ void main() {
     tester,
   ) async {
     final engine = _CountingLayoutEngine();
-    await tester.pumpWidget(
-      ProviderScope(
-        child: localizedApp(
-          body: NovelReader(
-            novel: _novel('Resume check body.'),
-            layoutEngine: engine,
-          ),
-        ),
-      ),
+    await pumpNovelReader(
+      tester,
+      novel: testNovel('Resume check body.'),
+      layoutEngine: engine,
+      wrapProviderScope: true,
     );
     await tester.pumpAndSettle();
     expect(engine.calls, 1);
@@ -1445,35 +1297,6 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
     );
   }
 }
-
-const _pageMode = NovelReaderSettings(pageTurn: NovelPageTurn.pages);
-
-NovelEntity _novel(String text) => NovelEntity(
-  id: 77,
-  title: 'A novel',
-  caption: 'caption',
-  user: const UserEntity(id: 8, name: 'author', account: 'author'),
-  tags: const [],
-  textLength: text.length,
-  contentVersion: text,
-  paragraphs: NovelContentMapper.fromText(text),
-  contentAvailable: true,
-);
-
-/// A webview body with one uploaded image and one work's pages.
-NovelEntity _illustrated(String text) => _novel('').withWebContent(
-  text,
-  embeddedImages: const {
-    '5': (
-      large: 'https://i.pximg.net/u5.png',
-      original: 'https://i.pximg.net/u5-original.png',
-    ),
-  },
-  embeddedIllustThumbs: const {
-    '9-2': 'https://i.pximg.net/9-2.jpg',
-    '9': 'https://i.pximg.net/9.jpg',
-  },
-);
 
 Map<String, dynamic> _novelJson(String content) => {
   'novel': {
