@@ -84,377 +84,433 @@ Future<Object?> _invokeNavCommand(String method) async {
   return reply == null ? null : codec.decodeEnvelope(reply);
 }
 
+DesktopWindowActions _commandBarActions({
+  void Function(List<DesktopTitleBarRegion>)? onRegionsChanged,
+  void Function(List<DesktopTitleBarRegion>, double)?
+  onRegionsWithHeightChanged,
+  VoidCallback? onRestoreEditMenu,
+}) => DesktopWindowActions(
+  onMinimize: () {},
+  onToggleMaximize: () {},
+  onClose: () {},
+  onToggleFullScreen: () {},
+  onStartDragging: () {},
+  onTitleBarDoubleClick: () {},
+  onRegionsChanged: onRegionsChanged ?? (_) {},
+  onRegionsWithHeightChanged: onRegionsWithHeightChanged,
+  onRestoreEditMenu: onRestoreEditMenu,
+);
+
+List<PlatformMenuItem> _allDesktopMenus(
+  GoRouter router, {
+  required AppLocalizations l10n,
+  bool isFullScreen = false,
+  VoidCallback? onCloseWindow,
+  bool includeSystemQuit = false,
+  List<HomeDestination> destinations = HomeDestination.values,
+}) {
+  final out = <PlatformMenuItem>[];
+  _collectMenuItems(
+    buildDesktopPlatformMenus(
+      l10n: l10n,
+      router: router,
+      isFullScreen: isFullScreen,
+      onCloseWindow: onCloseWindow,
+      includeSystemQuit: includeSystemQuit,
+      destinations: destinations,
+    ),
+    out,
+  );
+  return out;
+}
+
+Future<void> _pumpDesktopChrome(
+  WidgetTester tester,
+  GoRouter router, {
+  Size size = const Size(1280, 800),
+  Size? displaySize,
+  TargetPlatform platform = TargetPlatform.windows,
+  AppSettings? settings,
+  DesktopWindowPlatformMetrics? metrics,
+  DesktopWindowActions? actions,
+  bool wrapWindowEnv = true,
+  bool showSimulatedTrafficLights = false,
+  ProviderContainer? container,
+}) async {
+  final resolved = settings ?? AppSettings.defaults();
+  setViewSize(tester, size);
+  await tester.pumpWidget(
+    localizedRouterApp(
+      router,
+      container: container,
+      overrides: container != null ? null : await signedInAccountOverrides(),
+      builder: (_, child) {
+        final chrome = AppChrome(
+          settings: resolved,
+          router: router,
+          child: child!,
+        );
+        if (!wrapWindowEnv) return chrome;
+        return WindowEnvironmentOverride(
+          displaySize: displaySize,
+          targetPlatform: platform,
+          desktopMetrics:
+              metrics ??
+              const DesktopWindowPlatformMetrics(usesSystemTitleBar: false),
+          desktopActions: actions ?? DesktopWindowActions.noop,
+          showSimulatedTrafficLights: showSimulatedTrafficLights,
+          child: chrome,
+        );
+      },
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets(
     'DesktopCommandBar chrome, drag regions, header deduplication, and popovers',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        setViewSize(tester, const Size(1280, 800));
-        await seedSettings(AppSettings.defaults());
-        const altAccount = Account(id: '200', userId: 200, name: 'alt');
-        await seedAccounts([
-          testerAccount,
-          altAccount,
-        ], currentId: testerAccount.id);
-        final credStore = FakeCredentialStore()
-          ..seed(
-            testerAccount.id,
-            const Credential(accessToken: 'a1', refreshToken: 'r1'),
-          )
-          ..seed(
-            altAccount.id,
-            const Credential(accessToken: 'a2', refreshToken: 'r2'),
-          );
-        final router = GoRouter(
-          initialLocation: '/recommended',
-          routes: [
-            GoRoute(
-              path: '/recommended',
-              builder: (context, _) => BranchRootScope(
-                branchIndex: 0,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: ShellRail.width,
-                      child: ShellRail(
-                        destinations: const [
-                          FuncBottomNavDestination(
-                            icon: Icons.home_outlined,
-                            label: 'Home',
-                          ),
-                        ],
-                        selectedIndex: 0,
-                        onSelected: (_) {},
-                        form: FormFactor.touch,
-                        expanded: false,
-                        onToggle: () {},
-                        onBookmarks: () {},
-                        onDownloads: () {},
-                      ),
+      setViewSize(tester, const Size(1280, 800));
+      await seedSettings(AppSettings.defaults());
+      const altAccount = Account(id: '200', userId: 200, name: 'alt');
+      await seedAccounts([
+        testerAccount,
+        altAccount,
+      ], currentId: testerAccount.id);
+      final credStore = FakeCredentialStore()
+        ..seed(
+          testerAccount.id,
+          const Credential(accessToken: 'a1', refreshToken: 'r1'),
+        )
+        ..seed(
+          altAccount.id,
+          const Credential(accessToken: 'a2', refreshToken: 'r2'),
+        );
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (context, _) => BranchRootScope(
+              branchIndex: 0,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: ShellRail.width,
+                    child: ShellRail(
+                      destinations: const [
+                        FuncBottomNavDestination(
+                          icon: Icons.home_outlined,
+                          label: 'Home',
+                        ),
+                      ],
+                      selectedIndex: 0,
+                      onSelected: (_) {},
+                      form: FormFactor.touch,
+                      expanded: false,
+                      onToggle: () {},
+                      onBookmarks: () {},
+                      onDownloads: () {},
                     ),
-                    const Expanded(
-                      child: Row(
-                        children: [
-                          HeaderSearch(type: SearchResultType.illust),
-                          HeaderRefresh(),
-                        ],
-                      ),
+                  ),
+                  const Expanded(
+                    child: Row(
+                      children: [
+                        HeaderSearch(type: SearchResultType.illust),
+                        HeaderRefresh(),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        );
-        addTearDown(router.dispose);
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
 
-        List<DesktopTitleBarRegion> lastRegions = const [];
-        double? lastHeight;
-        final commandScope = ValueNotifier<bool>(true);
-        addTearDown(commandScope.dispose);
+      List<DesktopTitleBarRegion> lastRegions = const [];
+      double? lastHeight;
+      final commandScope = ValueNotifier<bool>(true);
+      addTearDown(commandScope.dispose);
 
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: accountProviderOverrides(credentialStore: credStore),
-            child: ValueListenableBuilder<bool>(
-              valueListenable: commandScope,
-              builder: (context, active, _) => localizedRouterApp(
-                router,
-                builder: (ctx, child) => promptHostBuilder(
-                  ctx,
-                  DesktopChromeMetrics(
-                    titleBarHeight: kDesktopCommandBarHeight,
-                    usesSystemTitleBar: false,
-                    showCustomButtons: true,
-                    hostMetrics: const DesktopWindowPlatformMetrics(),
-                    actions: DesktopWindowActions(
-                      onMinimize: () {},
-                      onToggleMaximize: () {},
-                      onClose: () {},
-                      onToggleFullScreen: () {},
-                      onStartDragging: () {},
-                      onTitleBarDoubleClick: () {},
-                      onRegionsChanged: (r) => lastRegions = r,
-                      onRegionsWithHeightChanged: (r, h) {
-                        lastRegions = r;
-                        lastHeight = h;
-                      },
-                    ),
-                    child: DesktopCommandBarScope(
-                      active: active,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (active)
-                            DesktopCommandBar(
-                              settings: AppSettings.defaults(),
-                              router: router,
-                            ),
-                          Expanded(child: child!),
-                        ],
-                      ),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: accountProviderOverrides(credentialStore: credStore),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: commandScope,
+            builder: (context, active, _) => localizedRouterApp(
+              router,
+              builder: (ctx, child) => promptHostBuilder(
+                ctx,
+                DesktopChromeMetrics(
+                  titleBarHeight: kDesktopCommandBarHeight,
+                  usesSystemTitleBar: false,
+                  showCustomButtons: true,
+                  hostMetrics: const DesktopWindowPlatformMetrics(),
+                  actions: _commandBarActions(
+                    onRegionsChanged: (r) => lastRegions = r,
+                    onRegionsWithHeightChanged: (r, h) {
+                      lastRegions = r;
+                      lastHeight = h;
+                    },
+                  ),
+                  child: DesktopCommandBarScope(
+                    active: active,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (active)
+                          DesktopCommandBar(
+                            settings: AppSettings.defaults(),
+                            router: router,
+                          ),
+                        Expanded(child: child!),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final bar = find.byKey(const Key('desktop-command-bar'));
-        expect(tester.getSize(bar).height, kDesktopCommandBarHeight);
-        expect(lastHeight, kDesktopCommandBarHeight);
-        expect(lastRegions.where((r) => r.kind == 'caption'), hasLength(2));
-        expect(lastRegions.where((r) => r.kind == 'maximize'), hasLength(1));
+      final bar = find.byKey(const Key('desktop-command-bar'));
+      expect(tester.getSize(bar).height, kDesktopCommandBarHeight);
+      expect(lastHeight, kDesktopCommandBarHeight);
+      expect(lastRegions.where((r) => r.kind == 'caption'), hasLength(2));
+      expect(lastRegions.where((r) => r.kind == 'maximize'), hasLength(1));
 
-        // Header deduplication: ShellRail header + HeaderSearch + HeaderRefresh collapse.
-        expect(
-          find.descendant(
-            of: find.byType(ShellRail),
-            matching: find.byIcon(AppIcons.sidebarExpand),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(HeaderRefresh),
-            matching: find.byType(IconButton),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(HeaderSearch),
-            matching: find.byType(SearchFieldButton),
-          ),
-          findsNothing,
-        );
+      // Header deduplication: ShellRail header + HeaderSearch + HeaderRefresh collapse.
+      expect(
+        find.descendant(
+          of: find.byType(ShellRail),
+          matching: find.byIcon(AppIcons.sidebarExpand),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(HeaderRefresh),
+          matching: find.byType(IconButton),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(HeaderSearch),
+          matching: find.byType(SearchFieldButton),
+        ),
+        findsNothing,
+      );
 
-        // Filter popover toggles R-18 and AI filters.
-        await tester.tap(find.byKey(const Key('desktop-command-filter')));
-        await tester.pumpAndSettle();
-        final r18Switch = find.byKey(const Key('desktop-command-filter-r18'));
-        expect(r18Switch, findsOneWidget);
-        expect(
-          find.byKey(const Key('desktop-command-filter-ai')),
-          findsOneWidget,
-        );
-        await tester.tap(r18Switch);
-        await tester.pumpAndSettle();
-        expect((await storedSettings().load()).enableLocalBlockR18, isTrue);
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+      // Filter popover toggles R-18 and AI filters.
+      await tester.tap(find.byKey(const Key('desktop-command-filter')));
+      await tester.pumpAndSettle();
+      final r18Switch = find.byKey(const Key('desktop-command-filter-r18'));
+      expect(r18Switch, findsOneWidget);
+      expect(
+        find.byKey(const Key('desktop-command-filter-ai')),
+        findsOneWidget,
+      );
+      await tester.tap(r18Switch);
+      await tester.pumpAndSettle();
+      expect((await storedSettings().load()).enableLocalBlockR18, isTrue);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
 
-        // Account popover lists accounts + settings entry.
-        await tester.tap(find.byKey(const Key('desktop-command-account')));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(Key('desktop-command-account-${testerAccount.id}')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(Key('desktop-command-account-${altAccount.id}')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const Key('desktop-command-account-settings')),
-          findsOneWidget,
-        );
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+      // Account popover lists accounts + settings entry.
+      await tester.tap(find.byKey(const Key('desktop-command-account')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(Key('desktop-command-account-${testerAccount.id}')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(Key('desktop-command-account-${altAccount.id}')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('desktop-command-account-settings')),
+        findsOneWidget,
+      );
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
 
-        // Turning off DesktopCommandBarScope restores inline header controls.
-        commandScope.value = false;
-        await tester.pumpAndSettle();
-        expect(
-          find.descendant(
-            of: find.byType(ShellRail),
-            matching: find.byIcon(AppIcons.sidebarExpand),
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(HeaderRefresh),
-            matching: find.byType(IconButton),
-          ),
-          findsOneWidget,
-        );
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      // Turning off DesktopCommandBarScope restores inline header controls.
+      commandScope.value = false;
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(ShellRail),
+          matching: find.byIcon(AppIcons.sidebarExpand),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(HeaderRefresh),
+          matching: find.byType(IconButton),
+        ),
+        findsOneWidget,
+      );
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
   testWidgets(
     'DesktopCommandBar compacts to 40dp toolbar without duplicate branding when usesSystemTitleBar is true',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-      try {
-        setViewSize(tester, const Size(1280, 800));
-        await seedSettings(AppSettings.defaults());
-        final router = GoRouter(
-          initialLocation: '/recommended',
-          routes: [
-            GoRoute(
-              path: '/recommended',
-              builder: (_, _) => const SizedBox.shrink(),
-            ),
-            GoRoute(
-              path: '/welcome',
-              builder: (_, _) => const SizedBox.shrink(),
-            ),
-          ],
-        );
-        addTearDown(router.dispose);
-        List<DesktopTitleBarRegion> lastRegions = const [];
-        double? lastHeight;
+      setViewSize(tester, const Size(1280, 800));
+      await seedSettings(AppSettings.defaults());
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const SizedBox.shrink(),
+          ),
+          GoRoute(path: '/welcome', builder: (_, _) => const SizedBox.shrink()),
+        ],
+      );
+      addTearDown(router.dispose);
+      List<DesktopTitleBarRegion> lastRegions = const [];
+      double? lastHeight;
 
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [...await signedInAccountOverrides()],
-            child: localizedRouterApp(
-              router,
-              builder: (ctx, child) => DesktopChromeMetrics(
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...await signedInAccountOverrides()],
+          child: localizedRouterApp(
+            router,
+            builder: (ctx, child) => DesktopChromeMetrics(
+              usesSystemTitleBar: true,
+              hostMetrics: const DesktopWindowPlatformMetrics(
+                isWayland: true,
                 usesSystemTitleBar: true,
-                hostMetrics: const DesktopWindowPlatformMetrics(
-                  isWayland: true,
-                  usesSystemTitleBar: true,
-                ),
-                actions: DesktopWindowActions(
-                  onMinimize: () {},
-                  onToggleMaximize: () {},
-                  onClose: () {},
-                  onToggleFullScreen: () {},
-                  onStartDragging: () {},
-                  onTitleBarDoubleClick: () {},
-                  onRegionsChanged: (r) => lastRegions = r,
-                  onRegionsWithHeightChanged: (r, h) {
-                    lastRegions = r;
-                    lastHeight = h;
-                  },
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DesktopCommandBar(
-                      settings: AppSettings.defaults(),
-                      router: router,
-                    ),
-                    Expanded(child: child!),
-                  ],
-                ),
+              ),
+              actions: _commandBarActions(
+                onRegionsChanged: (r) => lastRegions = r,
+                onRegionsWithHeightChanged: (r, h) {
+                  lastRegions = r;
+                  lastHeight = h;
+                },
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DesktopCommandBar(
+                    settings: AppSettings.defaults(),
+                    router: router,
+                  ),
+                  Expanded(child: child!),
+                ],
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final bar = find.byKey(const Key('desktop-command-bar'));
-        expect(tester.getSize(bar).height, kDesktopCompactCommandBarHeight);
-        expect(lastHeight, 0.0);
-        expect(lastRegions, isEmpty);
-        expect(find.text('Parfait'), findsNothing);
-        expect(
-          find.byKey(const Key('desktop-command-search-pill')),
-          findsOneWidget,
-        );
+      final bar = find.byKey(const Key('desktop-command-bar'));
+      expect(tester.getSize(bar).height, kDesktopCompactCommandBarHeight);
+      expect(lastHeight, 0.0);
+      expect(lastRegions, isEmpty);
+      expect(find.text('Parfait'), findsNothing);
+      expect(
+        find.byKey(const Key('desktop-command-search-pill')),
+        findsOneWidget,
+      );
 
-        router.go('/welcome');
-        await tester.pumpAndSettle();
-        expect(bar, findsNothing);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      router.go('/welcome');
+      await tester.pumpAndSettle();
+      expect(bar, findsNothing);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets(
     'AppChrome hides DesktopCommandBar for touch form, provides Tooltip Overlay, and ShellRail keeps shortcuts',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        setViewSize(tester, const Size(1280, 800));
-        final accountOverrides = await signedInAccountOverrides();
-        final router = GoRouter(
-          initialLocation: '/recommended',
-          routes: [
-            GoRoute(
-              path: '/recommended',
-              builder: (_, _) => const Scaffold(body: Text('home')),
-            ),
-          ],
-        );
-        addTearDown(router.dispose);
+      setViewSize(tester, const Size(1280, 800));
+      final accountOverrides = await signedInAccountOverrides();
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const Scaffold(body: Text('home')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
 
-        Future<void> pumpWithForm(InterfaceForm form) async {
-          final settings = AppSettings.defaults().copyWith(interfaceForm: form);
-          await seedSettings(settings);
-          await tester.pumpWidget(
-            localizedRouterApp(
-              router,
-              overrides: accountOverrides,
-              builder: (_, child) => WindowEnvironmentOverride(
-                displaySize: const Size(1280, 800),
-                targetPlatform: TargetPlatform.windows,
-                desktopActions: DesktopWindowActions.noop,
-                child: AppChrome(
-                  settings: settings,
-                  router: router,
-                  child: child!,
-                ),
-              ),
-            ),
-          );
-          await tester.pumpAndSettle();
-        }
-
-        await pumpWithForm(InterfaceForm.touch);
-        expect(find.byKey(const Key('desktop-command-bar')), findsNothing);
-
-        await pumpWithForm(InterfaceForm.auto);
-        expect(find.byKey(const Key('desktop-command-bar')), findsOneWidget);
-        final refresh = find.byKey(const Key('desktop-command-refresh'));
-        expect(
-          find.ancestor(of: refresh, matching: find.byType(Overlay)),
-          findsWidgets,
-        );
-        expect(tester.widget<IconButton>(refresh).tooltip, isNotEmpty);
-
+      Future<void> pumpWithForm(InterfaceForm form) async {
+        final settings = AppSettings.defaults().copyWith(interfaceForm: form);
+        await seedSettings(settings);
         await tester.pumpWidget(
-          localizedApp(
-            body: DesktopCommandBarScope(
-              active: true,
-              child: ShellRail(
-                destinations: const [
-                  FuncBottomNavDestination(icon: AppIcons.home, label: '推荐'),
-                ],
-                selectedIndex: 0,
-                form: FormFactor.pc,
-                expanded: false,
-                canToggle: true,
-                onToggle: () {},
-                onSelected: (_) {},
-                onBookmarks: () {},
-                onDownloads: () {},
+          localizedRouterApp(
+            router,
+            overrides: accountOverrides,
+            builder: (_, child) => WindowEnvironmentOverride(
+              displaySize: const Size(1280, 800),
+              targetPlatform: TargetPlatform.windows,
+              desktopActions: DesktopWindowActions.noop,
+              child: AppChrome(
+                settings: settings,
+                router: router,
+                child: child!,
               ),
             ),
           ),
         );
-        for (final icon in const [AppIcons.heart, AppIcons.downloading]) {
-          expect(find.byIcon(icon), findsOneWidget);
-        }
-        expect(find.byIcon(AppIcons.sidebarExpand), findsNothing);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
+        await tester.pumpAndSettle();
       }
+
+      await pumpWithForm(InterfaceForm.touch);
+      expect(find.byKey(const Key('desktop-command-bar')), findsNothing);
+
+      await pumpWithForm(InterfaceForm.auto);
+      expect(find.byKey(const Key('desktop-command-bar')), findsOneWidget);
+      final refresh = find.byKey(const Key('desktop-command-refresh'));
+      expect(
+        find.ancestor(of: refresh, matching: find.byType(Overlay)),
+        findsWidgets,
+      );
+      expect(tester.widget<IconButton>(refresh).tooltip, isNotEmpty);
+
+      await tester.pumpWidget(
+        localizedApp(
+          body: DesktopCommandBarScope(
+            active: true,
+            child: ShellRail(
+              destinations: const [
+                FuncBottomNavDestination(icon: AppIcons.home, label: '推荐'),
+              ],
+              selectedIndex: 0,
+              form: FormFactor.pc,
+              expanded: false,
+              canToggle: true,
+              onToggle: () {},
+              onSelected: (_) {},
+              onBookmarks: () {},
+              onDownloads: () {},
+            ),
+          ),
+        ),
+      );
+      for (final icon in const [AppIcons.heart, AppIcons.downloading]) {
+        expect(find.byIcon(icon), findsOneWidget);
+      }
+      expect(find.byIcon(AppIcons.sidebarExpand), findsNothing);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
   testWidgets(
-    'DesktopMenuBar restricts to macOS and wires View, Navigation, Bookmarks, Downloads, and Search',
+    'DesktopMenuBar gates PlatformMenuBar to macOS and restores Edit menu',
     (tester) async {
       final router = GoRouter(
         initialLocation: '/recommended',
@@ -466,30 +522,24 @@ void main() {
         ],
       );
       addTearDown(router.dispose);
+      final overrides = await signedInAccountOverrides();
 
       var restoredEditMenu = 0;
-      for (final entry in <(TargetPlatform, Matcher)>[
+      for (final (platform, matcher) in const [
         (TargetPlatform.windows, findsNothing),
         (TargetPlatform.linux, findsNothing),
         (TargetPlatform.macOS, findsOneWidget),
       ]) {
-        debugDefaultTargetPlatformOverride = entry.$1;
+        debugDefaultTargetPlatformOverride = platform;
         try {
           await tester.pumpWidget(
             localizedRouterApp(
               router,
-              overrides: [...await signedInAccountOverrides()],
+              overrides: overrides,
               builder: (_, child) => WindowEnvironmentOverride(
                 displaySize: const Size(1280, 800),
-                targetPlatform: entry.$1,
-                desktopActions: DesktopWindowActions(
-                  onMinimize: () {},
-                  onToggleMaximize: () {},
-                  onClose: () {},
-                  onToggleFullScreen: () {},
-                  onStartDragging: () {},
-                  onTitleBarDoubleClick: () {},
-                  onRegionsChanged: (_) {},
+                targetPlatform: platform,
+                desktopActions: _commandBarActions(
                   onRestoreEditMenu: () => restoredEditMenu += 1,
                 ),
                 child: DesktopWindowFrame(
@@ -505,30 +555,41 @@ void main() {
           await tester.pump();
           expect(
             find.byType(PlatformMenuBar),
-            entry.$2,
-            reason: 'PlatformMenuBar gating on ${entry.$1}',
+            matcher,
+            reason: 'PlatformMenuBar gating on $platform',
           );
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
       }
       expect(restoredEditMenu, greaterThanOrEqualTo(1));
+    },
+  );
 
+  test(
+    'buildDesktopPlatformMenus wires macOS menus, provided items, and shortcuts',
+    () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const SizedBox.shrink(),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
       var closed = 0;
       final l10n = lookupAppLocalizations(zhCN);
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      final List<PlatformMenuItem> menus;
-      try {
-        menus = buildDesktopPlatformMenus(
-          l10n: l10n,
-          router: router,
-          isFullScreen: false,
-          onCloseWindow: () => closed += 1,
-          includeSystemQuit: true,
-        );
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      final menus = buildDesktopPlatformMenus(
+        l10n: l10n,
+        router: router,
+        isFullScreen: false,
+        onCloseWindow: () => closed += 1,
+        includeSystemQuit: true,
+      );
       final topLabels = [for (final m in menus.cast<PlatformMenu>()) m.label];
       expect(topLabels, [
         'Parfait',
@@ -579,14 +640,12 @@ void main() {
       );
       closeItem.onSelected!();
       expect(closed, 1);
-      final searchItem = all.firstWhere((e) => e.label == l10n.searchTitle);
       expect(
-        searchItem.shortcut,
+        all.firstWhere((e) => e.label == l10n.searchTitle).shortcut,
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true),
       );
-      final prefsItem = all.firstWhere((e) => e.label == l10n.menuPreferences);
       expect(
-        prefsItem.shortcut,
+        all.firstWhere((e) => e.label == l10n.menuPreferences).shortcut,
         const SingleActivator(LogicalKeyboardKey.comma, meta: true),
       );
       expect(HomeDestination.values, hasLength(5));
@@ -867,428 +926,402 @@ void main() {
   testWidgets(
     'context menus open on the root navigator and offstage branch modals do not lock active branch forward history',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        final router = pixivRouter('/recommended');
-        setViewSize(tester, const Size(1280, 800));
-        await tester.pumpWidget(
-          localizedRouterApp(
-            router,
-            overrides: [...await signedInAccountOverrides()],
-          ),
-        );
-        await tester.pumpAndSettle();
+      final router = pixivRouter('/recommended');
+      setViewSize(tester, const Size(1280, 800));
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          overrides: [...await signedInAccountOverrides()],
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final history = ForwardHistoryStack.ofRouter(router);
-        final branch0Context = tester.element(find.byType(RecommendedHomePage));
+      final history = ForwardHistoryStack.ofRouter(router);
+      final branch0Context = tester.element(find.byType(RecommendedHomePage));
 
-        // 1. Display-action context menu pushes onto root navigator, not branch.
-        unawaited(
-          showDisplayActions(
-            branch0Context,
-            position: const Offset(200, 200),
-            onLongPress: () {},
-            actions: [
-              DisplayAction(
-                icon: AppIcons.copy,
-                label: 'Copy',
-                onSelected: () {},
-              ),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Copy'), findsOneWidget);
-        expect(history.hasOpenModal, isTrue);
-        expect(
-          Navigator.of(branch0Context, rootNavigator: false).canPop(),
-          isFalse,
-        );
-        expect(
-          Navigator.of(branch0Context, rootNavigator: true).canPop(),
-          isTrue,
-        );
-        Navigator.of(branch0Context, rootNavigator: true).pop();
-        await tester.pumpAndSettle();
-        expect(history.hasOpenModal, isFalse);
-
-        // 2. A local branch modal on /recommended must not lock /ranking.
-        unawaited(
-          showDialog<void>(
-            context: branch0Context,
-            useRootNavigator: false,
-            builder: (_) => const AlertDialog(content: Text('local-modal')),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(history.hasOpenModal, isTrue);
-        router.go('/ranking');
-        await tester.pumpAndSettle();
-        expect(history.hasOpenModal, isFalse);
-        router.go('/recommended');
-        await tester.pumpAndSettle();
-        expect(history.hasOpenModal, isTrue);
-        Navigator.of(branch0Context, rootNavigator: false).pop();
-        await tester.pumpAndSettle();
-        expect(history.hasOpenModal, isFalse);
-
-        // 3. macOS menu bar items are disabled while a modal/overlay is open,
-        //    and pre-home paths deactivate DesktopCommandBarScope so pushed
-        //    onboarding/login pages keep a visible back button.
-        final l10n = lookupAppLocalizations(zhCN);
-        unawaited(
-          showDialog<void>(
-            context: branch0Context,
-            useRootNavigator: true,
-            builder: (_) => const AlertDialog(content: Text('root-modal')),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final blockedMenus = buildDesktopPlatformMenus(
-          l10n: l10n,
-          router: router,
-          isFullScreen: false,
-        );
-        final blockedItems = <PlatformMenuItem>[];
-        _collectMenuItems(blockedMenus, blockedItems);
-        for (final label in [
-          l10n.menuPreferences,
-          l10n.searchTitle,
-          l10n.refresh,
-        ]) {
-          expect(
-            blockedItems.firstWhere((e) => e.label == label).onSelected,
-            isNull,
-            reason: '$label must stay disabled while modal is open',
-          );
-        }
-        Navigator.of(branch0Context, rootNavigator: true).pop();
-        await tester.pumpAndSettle();
-
-        expect(isDesktopPreHomePath('/login'), isTrue);
-        expect(isDesktopPreHomePath('/user-agreement'), isTrue);
-        expect(isDesktopPreHomePath('/welcome/language'), isTrue);
-        expect(isDesktopPreHomePath('/recommended'), isFalse);
-
-        // 4. Text-editing focus suppresses macOS menu callbacks, and pushed
-        //    pre-home routes deactivate DesktopCommandBarScope so their back
-        //    button remains visible.
-        final preHomeRouter = GoRouter(
-          initialLocation: '/user-agreement',
-          routes: [
-            GoRoute(
-              path: '/user-agreement',
-              builder: (_, _) => const Scaffold(
-                appBar: AppTopBar(title: Text('agreement')),
-                body: Text('agreement-body'),
-              ),
-            ),
-            GoRoute(
-              path: '/login',
-              builder: (_, _) => const Scaffold(
-                appBar: AppTopBar(title: Text('login')),
-                body: Text('login-body'),
-              ),
-            ),
-            GoRoute(
-              path: '/recommended',
-              builder: (_, _) =>
-                  const Scaffold(body: TextField(key: Key('home-text-field'))),
-            ),
-            GoRoute(
-              path: '/settings/all',
-              builder: (_, _) => const Scaffold(body: Text('settings-body')),
+      // Display-action context menu pushes onto root navigator, not branch.
+      unawaited(
+        showDisplayActions(
+          branch0Context,
+          position: const Offset(200, 200),
+          onLongPress: () {},
+          actions: [
+            DisplayAction(
+              icon: AppIcons.copy,
+              label: 'Copy',
+              onSelected: () {},
             ),
           ],
-        );
-        addTearDown(preHomeRouter.dispose);
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Copy'), findsOneWidget);
+      expect(history.hasOpenModal, isTrue);
+      expect(
+        Navigator.of(branch0Context, rootNavigator: false).canPop(),
+        isFalse,
+      );
+      expect(
+        Navigator.of(branch0Context, rootNavigator: true).canPop(),
+        isTrue,
+      );
+      Navigator.of(branch0Context, rootNavigator: true).pop();
+      await tester.pumpAndSettle();
+      expect(history.hasOpenModal, isFalse);
 
-        await tester.pumpWidget(
-          localizedRouterApp(
-            preHomeRouter,
-            overrides: [...await signedInAccountOverrides()],
-            builder: (_, child) => AppChrome(
-              settings: AppSettings.defaults(),
-              router: preHomeRouter,
-              child: child!,
+      // A local branch modal on /recommended must not lock /ranking.
+      unawaited(
+        showDialog<void>(
+          context: branch0Context,
+          useRootNavigator: false,
+          builder: (_) => const AlertDialog(content: Text('local-modal')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(history.hasOpenModal, isTrue);
+      router.go('/ranking');
+      await tester.pumpAndSettle();
+      expect(history.hasOpenModal, isFalse);
+      router.go('/recommended');
+      await tester.pumpAndSettle();
+      expect(history.hasOpenModal, isTrue);
+      Navigator.of(branch0Context, rootNavigator: false).pop();
+      await tester.pumpAndSettle();
+      expect(history.hasOpenModal, isFalse);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'open root modals and text-editing focus suppress macOS menu actions',
+    (tester) async {
+      setViewSize(tester, const Size(1280, 800));
+      final history = ForwardHistoryStack.detached();
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        observers: [history.rootObserver],
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) =>
+                const Scaffold(body: TextField(key: Key('home-text-field'))),
+          ),
+          GoRoute(
+            path: '/settings/all',
+            builder: (_, _) => const Scaffold(body: Text('settings-body')),
+          ),
+        ],
+      );
+      history.attachRouter(router);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          overrides: [...await signedInAccountOverrides()],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l10n = lookupAppLocalizations(zhCN);
+      final rootCtx = router.routerDelegate.navigatorKey.currentContext!;
+      unawaited(
+        showDialog<void>(
+          context: rootCtx,
+          useRootNavigator: true,
+          builder: (_) => const AlertDialog(content: Text('root-modal')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final blockedItems = _allDesktopMenus(router, l10n: l10n);
+      for (final label in [
+        l10n.menuPreferences,
+        l10n.searchTitle,
+        l10n.refresh,
+      ]) {
+        expect(
+          blockedItems.firstWhere((e) => e.label == label).onSelected,
+          isNull,
+          reason: '$label must stay disabled while modal is open',
+        );
+      }
+      Navigator.of(rootCtx, rootNavigator: true).pop();
+      await tester.pumpAndSettle();
+
+      // Text-editing focus suppresses macOS menu callbacks.
+      await tester.tap(find.byKey(const Key('home-text-field')));
+      await tester.pump();
+      _allDesktopMenus(
+        router,
+        l10n: l10n,
+      ).firstWhere((e) => e.label == l10n.menuPreferences).onSelected!();
+      await tester.pump();
+      expect(liveRouterUri(router).path, '/recommended');
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'pre-home routes deactivate DesktopCommandBarScope so pushed pages keep BackButton',
+    (tester) async {
+      setViewSize(tester, const Size(1280, 800));
+      final preHomeRouter = GoRouter(
+        initialLocation: '/user-agreement',
+        routes: [
+          GoRoute(
+            path: '/user-agreement',
+            builder: (_, _) => const Scaffold(
+              appBar: AppTopBar(title: Text('agreement')),
+              body: Text('agreement-body'),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
+          GoRoute(
+            path: '/login',
+            builder: (_, _) => const Scaffold(
+              appBar: AppTopBar(title: Text('login')),
+              body: Text('login-body'),
+            ),
+          ),
+        ],
+      );
+      addTearDown(preHomeRouter.dispose);
+      await _pumpDesktopChrome(tester, preHomeRouter, wrapWindowEnv: false);
 
-        unawaited(preHomeRouter.push('/login'));
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('desktop-command-back')), findsNothing);
-        expect(find.byType(BackButton), findsOneWidget);
-        await tester.tap(find.byType(BackButton));
-        await tester.pumpAndSettle();
-        expect(find.text('agreement-body'), findsOneWidget);
+      unawaited(preHomeRouter.push('/login'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('desktop-command-back')), findsNothing);
+      expect(find.byType(BackButton), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('agreement-body'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 
-        preHomeRouter.go('/recommended');
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('home-text-field')));
-        await tester.pump();
-        final typingMenus = buildDesktopPlatformMenus(
-          l10n: l10n,
-          router: preHomeRouter,
-          isFullScreen: false,
-        );
-        final typingItems = <PlatformMenuItem>[];
-        _collectMenuItems(typingMenus, typingItems);
-        typingItems
-            .firstWhere((e) => e.label == l10n.menuPreferences)
-            .onSelected!();
-        await tester.pump();
-        expect(liveRouterUri(preHomeRouter).path, '/recommended');
+  test(
+    'isDesktopPreHomePath classifies pre-home routes and buildDesktopPlatformMenus honors custom destination order',
+    () {
+      expect(isDesktopPreHomePath('/login'), isTrue);
+      expect(isDesktopPreHomePath('/user-agreement'), isTrue);
+      expect(isDesktopPreHomePath('/welcome/language'), isTrue);
+      expect(isDesktopPreHomePath('/recommended'), isFalse);
 
-        // 5. Custom destination order flows into macOS Navigate menu shortcuts.
-        final customMenus = buildDesktopPlatformMenus(
-          l10n: l10n,
-          router: router,
-          isFullScreen: false,
-          destinations: const [HomeDestination.ranking, HomeDestination.me],
-        );
-        final navMenu = customMenus.cast<PlatformMenu>().firstWhere(
-          (m) => m.label == l10n.menuNavigate,
-        );
-        final navItems = <PlatformMenuItem>[];
-        _collectMenuItems(navMenu.menus, navItems);
-        final rankItem = navItems.firstWhere(
-          (e) => e.label == l10n.homeRanking,
-        );
-        final meItem = navItems.firstWhere((e) => e.label == l10n.homeMe);
-        final rankShortcut = rankItem.shortcut! as SingleActivator;
-        expect(rankShortcut.trigger, LogicalKeyboardKey.digit1);
-        expect(rankShortcut.meta, isTrue);
-        final meShortcut = meItem.shortcut! as SingleActivator;
-        expect(meShortcut.trigger, LogicalKeyboardKey.digit2);
-        expect(meShortcut.meta, isTrue);
-        expect(navItems.where((e) => e.label == l10n.homeRecommended), isEmpty);
-
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const SizedBox.shrink(),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      final l10n = lookupAppLocalizations(zhCN);
+      final customMenus = buildDesktopPlatformMenus(
+        l10n: l10n,
+        router: router,
+        isFullScreen: false,
+        destinations: const [HomeDestination.ranking, HomeDestination.me],
+      );
+      final navMenu = customMenus.cast<PlatformMenu>().firstWhere(
+        (m) => m.label == l10n.menuNavigate,
+      );
+      final navItems = <PlatformMenuItem>[];
+      _collectMenuItems(navMenu.menus, navItems);
+      final rankShortcut =
+          navItems.firstWhere((e) => e.label == l10n.homeRanking).shortcut!
+              as SingleActivator;
+      final meShortcut =
+          navItems.firstWhere((e) => e.label == l10n.homeMe).shortcut!
+              as SingleActivator;
+      expect(
+        (rankShortcut.trigger, rankShortcut.meta),
+        (LogicalKeyboardKey.digit1, true),
+      );
+      expect(
+        (meShortcut.trigger, meShortcut.meta),
+        (LogicalKeyboardKey.digit2, true),
+      );
+      expect(navItems.where((e) => e.label == l10n.homeRecommended), isEmpty);
     },
   );
 
   testWidgets(
-    'flat AppTopBar occupies exact 52dp, narrow command bar preserves 48dp drag space, and Account settings re-targets wide SettingsPage',
+    'flat AppTopBar occupies exact 52dp and narrow command bar preserves 48dp drag space',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        setViewSize(tester, const Size(600, 800));
-        final router = GoRouter(
-          initialLocation: '/recommended',
-          routes: [
-            GoRoute(
-              path: '/recommended',
-              builder: (_, _) => const Scaffold(
-                appBar: AppTopBar(title: Text('Rec')),
-                body: SizedBox.expand(key: Key('flat-body')),
-              ),
-            ),
-            GoRoute(
-              path: '/settings/account',
-              builder: (_, state) => SettingsAdaptiveHost(
-                location: state.uri.toString(),
-                narrowPage: const AccountSettingsPage(),
-              ),
-            ),
-          ],
-        );
-        addTearDown(router.dispose);
-        final overrides = await signedInAccountOverrides();
-
-        await tester.pumpWidget(
-          localizedRouterApp(
-            router,
-            overrides: overrides,
-            builder: (_, child) => WindowEnvironmentOverride(
-              targetPlatform: TargetPlatform.windows,
-              desktopMetrics: const DesktopWindowPlatformMetrics(
-                usesSystemTitleBar: false,
-              ),
-              desktopActions: DesktopWindowActions.noop,
-              child: AppChrome(
-                settings: AppSettings.defaults(),
-                router: router,
-                child: child!,
-              ),
+      setViewSize(tester, const Size(600, 800));
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const Scaffold(
+              appBar: AppTopBar(title: Text('Rec')),
+              body: SizedBox.expand(key: Key('flat-body')),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
+        ],
+      );
+      addTearDown(router.dispose);
 
-        // M1-9: flat AppTopBar removes the 4dp gap below its 52dp hairline.
-        final barRect = tester.getRect(find.byType(AppTopBar));
-        final bodyRect = tester.getRect(find.byKey(const Key('flat-body')));
-        expect(barRect.height, kDesktopPageHeaderHeight);
-        expect(bodyRect.top, closeTo(barRect.bottom, 0.1));
+      await _pumpDesktopChrome(tester, router, size: const Size(600, 800));
 
-        // M1-11: 600dp Windows command bar keeps >= 48dp combined drag spacers.
-        final spacers = tester.widgetList<DesktopCommandDragSpacer>(
-          find.byType(DesktopCommandDragSpacer),
-        );
-        final totalDragWidth = spacers.fold<double>(
-          0,
-          (sum, w) => sum + tester.getSize(find.byWidget(w)).width,
-        );
-        expect(totalDragWidth, greaterThanOrEqualTo(48.0));
+      // Flat AppTopBar removes the 4dp gap below its 52dp hairline.
+      final barRect = tester.getRect(find.byType(AppTopBar));
+      final bodyRect = tester.getRect(find.byKey(const Key('flat-body')));
+      expect(barRect.height, kDesktopPageHeaderHeight);
+      expect(bodyRect.top, closeTo(barRect.bottom, 0.1));
 
-        // M1-10 (<1044dp): Account settings opens AccountSettingsPage directly.
-        await tester.tap(find.byKey(const Key('desktop-command-account')));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const Key('desktop-command-account-settings')),
-        );
-        await tester.pumpAndSettle();
-        expect(liveRouterUri(router).path, '/settings/account');
-        expect(find.byType(AccountSettingsPage), findsOneWidget);
-
-        // M1-10 (>=1044dp): switching section in wide SettingsPage then clicking
-        // Account settings again re-selects Account despite unchanged route URI.
-        setViewSize(tester, const Size(1280, 800));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('语言').first);
-        await tester.pumpAndSettle();
-        expect(find.byType(LanguageSettingsPage), findsOneWidget);
-
-        await tester.tap(find.byKey(const Key('desktop-command-account')));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const Key('desktop-command-account-settings')),
-        );
-        await tester.pumpAndSettle();
-        expect(find.byType(AccountSettingsPage), findsOneWidget);
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      // 600dp Windows command bar keeps >= 48dp combined drag spacers.
+      final spacers = tester.widgetList<DesktopCommandDragSpacer>(
+        find.byType(DesktopCommandDragSpacer),
+      );
+      final totalDragWidth = spacers.fold<double>(
+        0,
+        (sum, w) => sum + tester.getSize(find.byWidget(w)).width,
+      );
+      expect(totalDragWidth, greaterThanOrEqualTo(48.0));
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'Account settings menu entry opens AccountSettingsPage and re-targets wide SettingsPage',
+    (tester) async {
+      setViewSize(tester, const Size(600, 800));
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const Scaffold(body: SizedBox.expand()),
+          ),
+          GoRoute(
+            path: '/settings/account',
+            builder: (_, state) => SettingsAdaptiveHost(
+              location: state.uri.toString(),
+              narrowPage: const AccountSettingsPage(),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await _pumpDesktopChrome(tester, router, size: const Size(600, 800));
+
+      // <1044dp: Account settings opens AccountSettingsPage directly.
+      await tester.tap(find.byKey(const Key('desktop-command-account')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('desktop-command-account-settings')),
+      );
+      await tester.pumpAndSettle();
+      expect(liveRouterUri(router).path, '/settings/account');
+      expect(find.byType(AccountSettingsPage), findsOneWidget);
+
+      // >=1044dp: switching section in wide SettingsPage then clicking
+      // Account settings again re-selects Account despite unchanged route URI.
+      setViewSize(tester, const Size(1280, 800));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('语言').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(LanguageSettingsPage), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('desktop-command-account')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('desktop-command-account-settings')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AccountSettingsPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
   testWidgets(
     'DesktopCommandBar scrims and disables controls behind blocking modals while layered Cmd+W pops overlays first',
     (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        setViewSize(tester, const Size(1280, 800));
-        await seedSettings(AppSettings.defaults());
-        await seedAccounts([testerAccount], currentId: testerAccount.id);
-        final credStore = FakeCredentialStore(
-          values: {
-            testerAccount.id: const Credential(
-              accessToken: 't',
-              refreshToken: 'r',
-            ),
-          },
-        );
-        final history = ForwardHistoryStack.detached();
-        final router = GoRouter(
-          initialLocation: '/recommended',
-          observers: [history.rootObserver],
-          routes: [
-            GoRoute(
-              path: '/recommended',
-              builder: (_, _) => const Scaffold(body: Text('home body')),
-            ),
-          ],
-        );
-        history.attachRouter(router);
-        addTearDown(router.dispose);
-
-        await tester.pumpWidget(
-          localizedRouterApp(
-            router,
-            overrides: accountProviderOverrides(credentialStore: credStore),
-            builder: (context, child) => AppChrome(
-              settings: AppSettings.defaults(),
-              router: router,
-              child: child!,
-            ),
+      setViewSize(tester, const Size(1280, 800));
+      await seedSettings(AppSettings.defaults());
+      final history = ForwardHistoryStack.detached();
+      final router = GoRouter(
+        initialLocation: '/recommended',
+        observers: [history.rootObserver],
+        routes: [
+          GoRoute(
+            path: '/recommended',
+            builder: (_, _) => const Scaffold(body: Text('home body')),
           ),
-        );
-        await tester.pumpAndSettle();
+        ],
+      );
+      history.attachRouter(router);
+      addTearDown(router.dispose);
 
-        // Transparent filter popover must not trigger the blocking modal scrim.
-        await tester.tap(
-          find.byKey(const Key('desktop-command-filter')),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
-        expect(history.hasBlockingModal, isFalse);
-        expect(
-          find.byKey(const Key('desktop-command-bar-modal-scrim')),
-          findsNothing,
-        );
-        await tester.tap(
-          find.byKey(const Key('desktop-command-filter')),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
+      await _pumpDesktopChrome(tester, router, wrapWindowEnv: false);
 
-        // Blocking dialog triggers scrim, disables toolbar controls, and lets
-        // layered Cmd+W pop the dialog before closing the window.
-        final navContext = router.routerDelegate.navigatorKey.currentContext!;
-        unawaited(
-          showDialog<void>(
-            context: navContext,
-            builder: (_) => const AlertDialog(title: Text('Blocking modal')),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(history.hasBlockingModal, isTrue);
-        expect(
-          find.byKey(const Key('desktop-command-bar-modal-scrim')),
-          findsOneWidget,
-        );
-        final refreshBtn = tester.widget<IconButton>(
-          find.byKey(const Key('desktop-command-refresh')),
-        );
-        expect(refreshBtn.onPressed, isNull);
+      // Transparent filter popover must not trigger the blocking modal scrim.
+      await tester.tap(
+        find.byKey(const Key('desktop-command-filter')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(history.hasBlockingModal, isFalse);
+      expect(
+        find.byKey(const Key('desktop-command-bar-modal-scrim')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const Key('desktop-command-filter')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
 
-        var closeCount = 0;
-        final l10n = AppLocalizations.of(navContext);
-        List<PlatformMenuItem> allMenus() {
-          final collected = <PlatformMenuItem>[];
-          _collectMenuItems(
-            buildDesktopPlatformMenus(
-              l10n: l10n,
-              router: router,
-              isFullScreen: false,
-              onCloseWindow: () => closeCount++,
-            ),
-            collected,
-          );
-          return collected;
-        }
+      // Blocking dialog triggers scrim, disables toolbar controls, and lets
+      // layered Cmd+W pop the dialog before closing the window.
+      final navContext = router.routerDelegate.navigatorKey.currentContext!;
+      unawaited(
+        showDialog<void>(
+          context: navContext,
+          builder: (_) => const AlertDialog(title: Text('Blocking modal')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(history.hasBlockingModal, isTrue);
+      expect(
+        find.byKey(const Key('desktop-command-bar-modal-scrim')),
+        findsOneWidget,
+      );
+      final refreshBtn = tester.widget<IconButton>(
+        find.byKey(const Key('desktop-command-refresh')),
+      );
+      expect(refreshBtn.onPressed, isNull);
 
-        final closeWithModal = allMenus().firstWhere(
-          (item) => item.label == l10n.windowClose,
-        );
-        closeWithModal.onSelected?.call();
-        await tester.pumpAndSettle();
-        expect(closeCount, 0);
-        expect(history.hasBlockingModal, isFalse);
-        expect(
-          find.byKey(const Key('desktop-command-bar-modal-scrim')),
-          findsNothing,
-        );
+      var closeCount = 0;
+      final l10n = AppLocalizations.of(navContext);
+      PlatformMenuItem closeItem() => _allDesktopMenus(
+        router,
+        l10n: l10n,
+        onCloseWindow: () => closeCount++,
+      ).firstWhere((item) => item.label == l10n.windowClose);
 
-        final closeWithoutModal = allMenus().firstWhere(
-          (item) => item.label == l10n.windowClose,
-        );
-        closeWithoutModal.onSelected?.call();
-        expect(closeCount, 1);
+      closeItem().onSelected?.call();
+      await tester.pumpAndSettle();
+      expect(closeCount, 0);
+      expect(history.hasBlockingModal, isFalse);
+      expect(
+        find.byKey(const Key('desktop-command-bar-modal-scrim')),
+        findsNothing,
+      );
 
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      closeItem().onSelected?.call();
+      expect(closeCount, 1);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 }

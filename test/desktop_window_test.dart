@@ -28,6 +28,86 @@ import 'package:window_manager/window_manager.dart';
 
 import 'helpers/fake_settings.dart';
 
+const _defaultTrayLabels = TrayMenuLabels(
+  tooltip: 'Parfait',
+  showWindow: 'Show Window',
+  downloads: 'Downloads',
+  quit: 'Quit',
+);
+
+DesktopWindowActions _windowActions({
+  VoidCallback? onClose,
+  VoidCallback? onToggleFullScreen,
+  VoidCallback? onStartDragging,
+  VoidCallback? onTitleBarDoubleClick,
+  void Function(List<DesktopTitleBarRegion>)? onRegionsChanged,
+  void Function(List<DesktopTitleBarRegion>, double)?
+  onRegionsWithHeightChanged,
+}) => DesktopWindowActions(
+  onMinimize: () {},
+  onToggleMaximize: () {},
+  onClose: onClose ?? () {},
+  onToggleFullScreen: onToggleFullScreen ?? () {},
+  onStartDragging: onStartDragging ?? () {},
+  onTitleBarDoubleClick: onTitleBarDoubleClick ?? () {},
+  onRegionsChanged: onRegionsChanged ?? (_) {},
+  onRegionsWithHeightChanged: onRegionsWithHeightChanged,
+);
+
+DesktopWindowSession _windowSession({
+  _FakeDesktopWindowAdapter? adapter,
+  _FakeDesktopWindowHost? host,
+  TrayPort trayPort = const NoopTrayPort(),
+  bool closeToTray = false,
+  ({double? width, double? height, double? x, double? y}) savedPlace = (
+    width: null,
+    height: null,
+    x: null,
+    y: null,
+  ),
+  Future<void> Function({
+    double? width,
+    double? height,
+    double? x,
+    double? y,
+    required bool maximized,
+  })?
+  saveGeometry,
+  Future<void> Function()? onBeforeDestroy,
+  VoidCallback? onOpenDownloads,
+  TargetPlatform? platformOverride,
+  bool autoDispose = true,
+}) {
+  final session = DesktopWindowSession(
+    adapter: adapter ?? _FakeDesktopWindowAdapter(),
+    host: host ?? _FakeDesktopWindowHost(),
+    trayPort: trayPort,
+    readCloseToTray: () => closeToTray,
+    readSavedPlace: () => savedPlace,
+    saveGeometry:
+        saveGeometry ?? ({width, height, x, y, required maximized}) async {},
+    onBeforeDestroy: onBeforeDestroy,
+    onOpenDownloads: onOpenDownloads,
+    platformOverride: platformOverride,
+  );
+  if (autoDispose) addTearDown(session.dispose);
+  return session;
+}
+
+Widget _desktopMaterialApp({
+  TargetPlatform? platform,
+  ThemeData? theme,
+  Locale locale = const Locale('en', 'US'),
+  Duration? themeAnimationDuration,
+  required Widget home,
+}) => MaterialApp(
+  theme: theme ?? (platform == null ? null : ThemeData(platform: platform)),
+  themeAnimationDuration: themeAnimationDuration ?? kThemeAnimationDuration,
+  localizationsDelegates: appLocalizationsDelegates,
+  supportedLocales: [locale],
+  home: home,
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -84,14 +164,10 @@ void main() {
           maximized: true,
           throwOnGetPosition: true,
         );
-        final host = _FakeDesktopWindowHost();
         final savedRecords = <Map<String, Object?>>[];
-        final session = DesktopWindowSession(
+        final session = _windowSession(
           adapter: adapter,
-          host: host,
-          trayPort: const NoopTrayPort(),
-          readCloseToTray: () => false,
-          readSavedPlace: () => (width: 900, height: 650, x: 80, y: 60),
+          savedPlace: (width: 900, height: 650, x: 80, y: 60),
           saveGeometry: ({width, height, x, y, required maximized}) async {
             savedRecords.add({
               'width': width,
@@ -102,7 +178,6 @@ void main() {
             });
           },
         );
-        addTearDown(session.dispose);
 
         await session.saveNow();
 
@@ -119,24 +194,18 @@ void main() {
       'close flushes geometry save before setPreventClose(false) and destroy',
       () async {
         final adapter = _FakeDesktopWindowAdapter(size: const Size(1180, 780));
-        final host = _FakeDesktopWindowHost();
         final saveCompleter = Completer<void>();
         final events = <String>[];
         adapter.onEvent = events.add;
 
-        final session = DesktopWindowSession(
+        final session = _windowSession(
           adapter: adapter,
-          host: host,
-          trayPort: const NoopTrayPort(),
-          readCloseToTray: () => false,
-          readSavedPlace: () => (width: null, height: null, x: null, y: null),
           saveGeometry: ({width, height, x, y, required maximized}) async {
             events.add('saveStart');
             await saveCompleter.future;
             events.add('saveEnd');
           },
         );
-        addTearDown(session.dispose);
 
         final closing = session.handleWindowClose();
         await pumpEventQueue();
@@ -162,18 +231,13 @@ void main() {
         final adapter = _FakeDesktopWindowAdapter(size: const Size(1180, 780));
         final events = <String>[];
         adapter.onEvent = events.add;
-        final session = DesktopWindowSession(
+        final session = _windowSession(
           adapter: adapter,
-          host: _FakeDesktopWindowHost(),
-          trayPort: const NoopTrayPort(),
-          readCloseToTray: () => false,
-          readSavedPlace: () => (width: null, height: null, x: null, y: null),
           saveGeometry: ({width, height, x, y, required maximized}) async {
             events.add('saveGeometry');
           },
           onBeforeDestroy: () async => events.add('beforeDestroy'),
         );
-        addTearDown(session.dispose);
 
         for (var i = 0; i < 20; i++) {
           session.onWindowResize();
@@ -195,23 +259,22 @@ void main() {
             'destroy',
           ]),
         );
+      },
+    );
 
+    test(
+      'captureOrdinary and saveNow ignore Windows minimized sentinel bounds',
+      () async {
         // Minimizing on Windows reports iconic sentinel coordinates (-32000,
         // 160x28); captureOrdinary and saveNow must keep the ordinary bounds.
-        double? savedW;
-        double? savedH;
-        double? savedX;
-        double? savedY;
+        double? savedW, savedH, savedX, savedY;
         final winAdapter = _FakeDesktopWindowAdapter(
           size: const Size(1240, 820),
           position: const Offset(120, 90),
         );
-        final winSession = DesktopWindowSession(
+        final winSession = _windowSession(
           adapter: winAdapter,
-          host: _FakeDesktopWindowHost(),
-          trayPort: const NoopTrayPort(),
-          readCloseToTray: () => false,
-          readSavedPlace: () => (width: 1240, height: 820, x: 120, y: 90),
+          savedPlace: (width: 1240, height: 820, x: 120, y: 90),
           saveGeometry: ({width, height, x, y, required maximized}) async {
             savedW = width;
             savedH = height;
@@ -219,17 +282,14 @@ void main() {
             savedY = y;
           },
         );
-        addTearDown(winSession.dispose);
         await winSession.captureOrdinary();
-        winAdapter.minimized = true;
-        winAdapter.size = const Size(160, 28);
-        winAdapter.position = const Offset(-32000, -32000);
+        winAdapter
+          ..minimized = true
+          ..size = const Size(160, 28)
+          ..position = const Offset(-32000, -32000);
         await winSession.captureOrdinary();
         await winSession.saveNow();
-        expect(savedW, 1240);
-        expect(savedH, 820);
-        expect(savedX, 120);
-        expect(savedY, 90);
+        expect((savedW, savedH, savedX, savedY), (1240, 820, 120, 90));
       },
     );
 
@@ -237,28 +297,16 @@ void main() {
       'closeToTray hides when tray supported, destroys when unsupported, and quit forces exit',
       () async {
         final adapter = _FakeDesktopWindowAdapter(minimized: true);
-        final host = _FakeDesktopWindowHost();
         final tray = _FakeTrayPort(supported: true);
         var downloadsOpened = 0;
 
-        final session = DesktopWindowSession(
+        final session = _windowSession(
           adapter: adapter,
-          host: host,
           trayPort: tray,
-          readCloseToTray: () => true,
-          readSavedPlace: () => (width: null, height: null, x: null, y: null),
-          saveGeometry: ({width, height, x, y, required maximized}) async {},
+          closeToTray: true,
           onOpenDownloads: () => downloadsOpened += 1,
         );
-        addTearDown(session.dispose);
-        await session.attach(
-          initialLabels: const TrayMenuLabels(
-            tooltip: 'Parfait',
-            showWindow: 'Show Window',
-            downloads: 'Downloads',
-            quit: 'Quit',
-          ),
-        );
+        await session.attach(initialLabels: _defaultTrayLabels);
 
         await session.handleWindowClose();
         expect(adapter.calls, contains('hide'));
@@ -278,16 +326,10 @@ void main() {
 
         // Unsupported tray host must destroy cleanly instead of stranding window hidden.
         final unsupportedAdapter = _FakeDesktopWindowAdapter();
-        final unsupportedSession = DesktopWindowSession(
+        final unsupportedSession = _windowSession(
           adapter: unsupportedAdapter,
-          host: _FakeDesktopWindowHost(),
-          trayPort: const NoopTrayPort(),
-          readCloseToTray: () => true,
-          readSavedPlace: () => (width: null, height: null, x: null, y: null),
-          saveGeometry: ({width, height, x, y, required maximized}) async {},
+          closeToTray: true,
         );
-        addTearDown(unsupportedSession.dispose);
-
         await unsupportedSession.handleWindowClose();
         expect(unsupportedAdapter.calls, contains('destroy'));
         expect(unsupportedAdapter.calls, isNot(contains('hide')));
@@ -316,25 +358,15 @@ void main() {
         );
         final saved = <({double? width, double? height, bool maximized})>[];
 
-        final session = DesktopWindowSession(
+        final session = _windowSession(
           adapter: adapter,
           host: host,
-          trayPort: const NoopTrayPort(),
-          readCloseToTray: () => false,
-          readSavedPlace: () => (width: 1200, height: 760, x: 40, y: 40),
+          savedPlace: (width: 1200, height: 760, x: 40, y: 40),
           saveGeometry: ({width, height, x, y, required maximized}) async {
             saved.add((width: width, height: height, maximized: maximized));
           },
         );
-        addTearDown(session.dispose);
-        await session.attach(
-          initialLabels: const TrayMenuLabels(
-            tooltip: 'Parfait',
-            showWindow: 'Show Window',
-            downloads: 'Downloads',
-            quit: 'Quit',
-          ),
-        );
+        await session.attach(initialLabels: _defaultTrayLabels);
 
         await session.toggleFullScreen();
         expect(host.commands, [DesktopWindowCommand.toggleFullScreen]);
@@ -358,22 +390,8 @@ void main() {
           isSupportedGate: supportGate.future,
           initializeGate: initGate.future,
         );
-        final session = DesktopWindowSession(
-          adapter: _FakeDesktopWindowAdapter(),
-          host: _FakeDesktopWindowHost(),
-          trayPort: tray,
-          readCloseToTray: () => false,
-          readSavedPlace: () => (width: null, height: null, x: null, y: null),
-          saveGeometry: ({width, height, x, y, required maximized}) async {},
-        );
-        addTearDown(session.dispose);
+        final session = _windowSession(trayPort: tray);
 
-        const en = TrayMenuLabels(
-          tooltip: 'Parfait',
-          showWindow: 'Show Window',
-          downloads: 'Downloads',
-          quit: 'Quit',
-        );
         const zh = TrayMenuLabels(
           tooltip: 'Parfait',
           showWindow: '显示窗口',
@@ -387,7 +405,7 @@ void main() {
           quit: '終了',
         );
 
-        final attachFuture = session.attach(initialLabels: en);
+        final attachFuture = session.attach(initialLabels: _defaultTrayLabels);
         await session.updateTrayLabels(zh);
         supportGate.complete();
         await pumpEventQueue();
@@ -397,6 +415,24 @@ void main() {
         initGate.complete();
         await attachFuture;
         expect(tray.updatedLabels, [ja]);
+      },
+    );
+
+    test(
+      'macOS close exits fullscreen and hides to Dock; forceQuit destroys',
+      () async {
+        final adapter = _FakeDesktopWindowAdapter(fullScreen: true);
+        final session = _windowSession(
+          adapter: adapter,
+          trayPort: _FakeTrayPort(supported: false),
+          savedPlace: (width: 1280, height: 800, x: 80, y: 50),
+          platformOverride: TargetPlatform.macOS,
+        );
+        await session.handleWindowClose();
+        expect(adapter.calls, containsAllInOrder(['setFullScreen', 'hide']));
+        expect(adapter.calls, isNot(contains('destroy')));
+        await session.handleWindowClose(forceQuit: true);
+        expect(adapter.calls, contains('destroy'));
       },
     );
   });
@@ -411,22 +447,8 @@ void main() {
         addTearDown(port.dispose);
 
         expect(await port.isSupported(), isFalse);
-        await port.initialize(
-          labels: const TrayMenuLabels(
-            tooltip: 'Parfait',
-            showWindow: 'Show',
-            downloads: 'Downloads',
-            quit: 'Quit',
-          ),
-        );
-        await port.updateLabels(
-          const TrayMenuLabels(
-            tooltip: 'Parfait',
-            showWindow: 'Show',
-            downloads: 'Downloads',
-            quit: 'Quit',
-          ),
-        );
+        await port.initialize(labels: _defaultTrayLabels);
+        await port.updateLabels(_defaultTrayLabels);
       },
     );
 
@@ -479,12 +501,10 @@ void main() {
         addTearDown(showDarkRoute.dispose);
 
         await tester.pumpWidget(
-          MaterialApp(
+          _desktopMaterialApp(
             theme: replicaTheme(
               Brightness.light,
             ).copyWith(platform: TargetPlatform.windows),
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('en', 'US')],
             home: MotionScope(
               reduce: false,
               speed: AnimationSpeed.normal,
@@ -495,13 +515,9 @@ void main() {
                   metricsOverride: const DesktopWindowPlatformMetrics(
                     usesSystemTitleBar: false,
                   ),
-                  actionsOverride: DesktopWindowActions(
-                    onMinimize: () {},
-                    onToggleMaximize: () {},
+                  actionsOverride: _windowActions(
                     onClose: () => closeClicks += 1,
                     onToggleFullScreen: () => fullScreenToggles += 1,
-                    onStartDragging: () {},
-                    onTitleBarDoubleClick: () {},
                     onRegionsChanged: (regions) => lastRegions = regions,
                   ),
                   child: Builder(
@@ -590,10 +606,8 @@ void main() {
         addTearDown(tester.view.reset);
 
         await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.windows),
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('en', 'US')],
+          _desktopMaterialApp(
+            platform: TargetPlatform.windows,
             home: MotionScope(
               reduce: false,
               speed: AnimationSpeed.normal,
@@ -634,10 +648,8 @@ void main() {
       'macOS reserves traffic lights with zero custom buttons, Linux suppresses duplicate chrome',
       (tester) async {
         await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.macOS),
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('en', 'US')],
+          _desktopMaterialApp(
+            platform: TargetPlatform.macOS,
             home: DesktopWindowFrame(
               metricsOverride: const DesktopWindowPlatformMetrics(
                 usesSystemTitleBar: false,
@@ -669,21 +681,13 @@ void main() {
         );
         addTearDown(linuxMetrics.dispose);
         await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.linux),
+          _desktopMaterialApp(
+            platform: TargetPlatform.linux,
             themeAnimationDuration: Duration.zero,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('en', 'US')],
             home: DesktopWindowScope(
               metrics: linuxMetrics,
-              actions: DesktopWindowActions(
-                onMinimize: () {},
-                onToggleMaximize: () {},
-                onClose: () {},
+              actions: _windowActions(
                 onToggleFullScreen: () => linuxFullScreenToggles += 1,
-                onStartDragging: () {},
-                onTitleBarDoubleClick: () {},
-                onRegionsChanged: (_) {},
               ),
               child: DesktopWindowFrame(
                 metricsOverride: const DesktopWindowPlatformMetrics(
@@ -718,20 +722,10 @@ void main() {
         );
         addTearDown(metrics.dispose);
         final published = <List<DesktopTitleBarRegion>>[];
-        final actions = DesktopWindowActions(
-          onMinimize: () {},
-          onToggleMaximize: () {},
-          onClose: () {},
-          onToggleFullScreen: () {},
-          onStartDragging: () {},
-          onTitleBarDoubleClick: () {},
-          onRegionsChanged: published.add,
-        );
+        final actions = _windowActions(onRegionsChanged: published.add);
 
-        Widget buildTree() => MaterialApp(
-          theme: ThemeData(platform: TargetPlatform.windows),
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: const [Locale('en', 'US')],
+        Widget buildTree() => _desktopMaterialApp(
+          platform: TargetPlatform.windows,
           home: ValueListenableBuilder<DesktopWindowPlatformMetrics>(
             valueListenable: metrics,
             builder: (context, value, _) => DesktopWindowFrame(
@@ -767,14 +761,9 @@ void main() {
         final enabled = ValueNotifier<bool>(false);
         addTearDown(enabled.dispose);
 
-        final actions = DesktopWindowActions(
-          onMinimize: () {},
-          onToggleMaximize: () {},
-          onClose: () {},
-          onToggleFullScreen: () {},
+        final actions = _windowActions(
           onStartDragging: () => drags += 1,
           onTitleBarDoubleClick: () => doubleClicks += 1,
-          onRegionsChanged: (_) {},
         );
         final chrome =
             DesktopChromeMetrics.resolveData(
@@ -792,12 +781,10 @@ void main() {
             );
 
         await tester.pumpWidget(
-          MaterialApp(
+          _desktopMaterialApp(
             theme: replicaTheme(
               Brightness.light,
             ).copyWith(platform: TargetPlatform.macOS),
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('en', 'US')],
             home: ValueListenableBuilder<bool>(
               valueListenable: enabled,
               builder: (context, isEnabled, _) => DesktopFallbackWindowChrome(
@@ -1058,23 +1045,16 @@ void main() {
         );
         addTearDown(metrics.dispose);
         await tester.pumpWidget(
-          MaterialApp(
+          _desktopMaterialApp(
             theme: replicaTheme(
               Brightness.light,
             ).copyWith(platform: TargetPlatform.windows),
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('zh', 'CN')],
+            locale: const Locale('zh', 'CN'),
             home: DesktopWindowScope(
               metrics: metrics,
-              actions: DesktopWindowActions(
-                onMinimize: () {},
-                onToggleMaximize: () {},
+              actions: _windowActions(
                 onToggleFullScreen: () => metrics.value = metrics.value
                     .copyWith(isFullScreen: !metrics.value.isFullScreen),
-                onClose: () {},
-                onStartDragging: () {},
-                onTitleBarDoubleClick: () {},
-                onRegionsChanged: (_) {},
               ),
               child: const DesktopWindowFrame(
                 suppressOverlayBar: true,
@@ -1134,32 +1114,25 @@ void main() {
         final tray = _FakeTrayPort(supported: true);
         var savedCount = 0;
         var destroyedCount = 0;
-        final session = DesktopWindowSession(
+        final session = _windowSession(
           adapter: adapter,
           host: host,
           trayPort: tray,
-          readCloseToTray: () => true,
-          readSavedPlace: () => (width: null, height: null, x: null, y: null),
+          closeToTray: true,
           saveGeometry: ({width, height, x, y, required maximized}) async {
             savedCount++;
           },
           onBeforeDestroy: () async {
             destroyedCount++;
           },
+          autoDispose: false,
         );
         // Uninitialized tray must fall back to destroy instead of hiding.
         await session.handleWindowClose();
         expect(adapter.calls, contains('destroy'));
         expect(adapter.calls, isNot(contains('hide')));
         adapter.calls.clear();
-        await session.attach(
-          initialLabels: const TrayMenuLabels(
-            tooltip: 'Parfait',
-            showWindow: 'Show',
-            downloads: 'Downloads',
-            quit: 'Quit',
-          ),
-        );
+        await session.attach(initialLabels: _defaultTrayLabels);
         expect(host.terminateHandler, isNotNull);
         await host.terminateHandler!();
         expect(savedCount, 2);
@@ -1224,45 +1197,19 @@ void main() {
     );
 
     testWidgets(
-      'macOS close exits fullscreen and hides to Dock, and touch DesktopWindowFrame publishes buttons region',
+      'DesktopWindowFrame publishes caption, maximize, and buttons regions with height',
       (tester) async {
-        final adapter = _FakeDesktopWindowAdapter(fullScreen: true);
-        final host = _FakeDesktopWindowHost();
-        final session = DesktopWindowSession(
-          adapter: adapter,
-          host: host,
-          trayPort: _FakeTrayPort(supported: false),
-          readCloseToTray: () => false,
-          readSavedPlace: () => (width: 1280, height: 800, x: 80, y: 50),
-          saveGeometry: ({width, height, x, y, required maximized}) async {},
-          platformOverride: TargetPlatform.macOS,
-        );
-        await session.handleWindowClose();
-        expect(adapter.calls, containsAllInOrder(['setFullScreen', 'hide']));
-        expect(adapter.calls, isNot(contains('destroy')));
-        await session.handleWindowClose(forceQuit: true);
-        expect(adapter.calls, contains('destroy'));
-        session.dispose();
-
         List<DesktopTitleBarRegion> published = const [];
         double publishedHeight = 0;
         await tester.pumpWidget(
-          MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('en')],
-            theme: ThemeData(platform: TargetPlatform.windows),
+          _desktopMaterialApp(
+            platform: TargetPlatform.windows,
+            locale: const Locale('en'),
             home: DesktopWindowFrame(
               metricsOverride: const DesktopWindowPlatformMetrics(
                 usesSystemTitleBar: false,
               ),
-              actionsOverride: DesktopWindowActions(
-                onMinimize: () {},
-                onToggleMaximize: () {},
-                onClose: () {},
-                onToggleFullScreen: () {},
-                onStartDragging: () {},
-                onTitleBarDoubleClick: () {},
-                onRegionsChanged: (_) {},
+              actionsOverride: _windowActions(
                 onRegionsWithHeightChanged: (regions, height) {
                   published = regions;
                   publishedHeight = height;
