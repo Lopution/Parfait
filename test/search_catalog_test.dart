@@ -16,6 +16,7 @@ import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
+import 'package:parfait/features/search/search_input_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 
 import 'helpers/api_responses.dart';
@@ -717,5 +718,20 @@ void main() {
     expect(filters.widthMin, isNull);
     expect((filters.heightMin, filters.heightMax), (600, 900));
     expect(page.query.cacheKey, isNotNull);
+  });
+
+  testWidgets('search input keeps its geometry when the IME opens', (
+    tester,
+  ) async {
+    await pumpSearchRouter(tester, '/search/input');
+
+    expect(find.byType(SearchInputPage), findsOneWidget);
+    final scaffold = tester.widget<Scaffold>(
+      find.descendant(
+        of: find.byType(SearchInputPage),
+        matching: find.byType(Scaffold),
+      ),
+    );
+    expect(scaffold.resizeToAvoidBottomInset, isFalse);
   });
 }

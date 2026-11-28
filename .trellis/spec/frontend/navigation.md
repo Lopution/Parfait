@@ -90,7 +90,7 @@ reviewed: 2026-11-28
 ### NAV-11 The bar does not hide under touch exploration
 - **Rule:** Scrolling never hides the bar while touch exploration is active (and enabling it restores a hidden bar); widgets read `MediaQuery.accessibleNavigationOf` as rewritten by `TouchExplorationScope`.
 - **Why:** Flutter's raw engine flag is true whenever any accessibility service runs, not only TalkBack.
-- **Check:** `test/home_branch_stack_test.dart` "a polluted engine flag does not pin the bar" "starting touch exploration brings a hidden bar back"
+- **Check:** `test/home_branch_stack_test.dart` "the bottom bar stays on screen while scrolling" "a polluted engine flag does not pin the bar" "starting touch exploration brings a hidden bar back"
 - **Code:** `lib/app/touch_exploration_scope.dart`, `lib/app/widgets/home_branch_stack.dart`
 
 ### NAV-19 The user arranges the bar; branches keep their numbers

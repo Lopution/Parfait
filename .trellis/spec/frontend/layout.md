@@ -139,6 +139,19 @@ reviewed: 2026-11-28
 
 ## Boxes, headers and keyboards
 
+### LAYOUT-10 The keyboard pads the scrollable, not the page
+- **Rule:** A page the keyboard passes over without being its form sets
+  `resizeToAvoidBottomInset: false`: a page under a composer raised for a
+  moment (the detail page's, a comment thread's) and the search input,
+  root and result pages. The composer takes the inset in its own bottom
+  slot and a list pads its tail by `viewInsets.bottom`; the page under it
+  keeps its size. A plain form page (settings fields, login) keeps the
+  default resize, which keeps the focused field above the keyboard.
+- **Why:** The default resize compressed the page geometry under the
+  keyboard and moved what Hero measured.
+- **Check:** `test/comments_replies_test.dart` "keyboard open pads only the composer — page chrome holds still"; `test/search_catalog_test.dart` "search input keeps its geometry when the IME opens"
+- **Code:** `lib/features/comments/comments_page.dart`, `lib/features/search/search_page.dart`, `lib/features/search/search_input_page.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+
 ### LAYOUT-11 Long documents use one SelectionArea
 - **Rule:** A long document page wraps its one list in a single
   `SelectionArea` and renders paragraphs as plain `Text`, never

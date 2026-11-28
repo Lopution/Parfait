@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:parfait/app/layout/input_modality.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
@@ -326,6 +327,32 @@ void main() {
     );
     expect(popScope.canPop, isTrue);
   });
+
+  testWidgets(
+    'pointer cue keeps >=48dp hit target and ruby excludes reading from semantics',
+    (tester) async {
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          text: '[[rb:漢字 > かんじ]] text ' * 40,
+          inputModality: InputModality.pointer,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cueSize = tester.getSize(
+        find.byKey(const ValueKey('novel-pointer-cue')),
+      );
+      expect(cueSize.width, greaterThanOrEqualTo(48));
+      expect(cueSize.height, greaterThanOrEqualTo(48));
+
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(find.bySemanticsLabel(RegExp('かんじ')), findsNothing);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
 }
 
 /// setString always fails — the in-memory platform still backs getString
@@ -371,6 +398,7 @@ Widget _stageApp(
   SharedPreferencesAsync? preferences,
   TranslationTransport? translation,
   NovelPageTurn pageTurn = NovelPageTurn.pages,
+  InputModality? inputModality,
 }) => buildNovelStageApp(
   binding,
   novel:
@@ -381,6 +409,7 @@ Widget _stageApp(
   preferences: preferences,
   translation: translation,
   pageTurn: pageTurn,
+  inputModality: inputModality,
 );
 
 NovelEntity _novel(String text) => testNovel(text, caption: '');

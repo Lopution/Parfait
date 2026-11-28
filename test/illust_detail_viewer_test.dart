@@ -331,5 +331,29 @@ void main() {
       await tester.pumpAndSettle();
       expect(log, contains('/v2/illust/bookmark/add'));
     });
+
+    testWidgets('viewer pages announce a per-page image and chrome controls', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpViewer(tester, urls: twoPages);
+        expect(find.bySemanticsLabel('第 1 页，共 2 页'), findsOneWidget);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('第 1 页，共 2 页')),
+          isSemantics(isImage: true),
+        );
+        expect(
+          tester.getSemantics(find.byTooltip('跳转到页码')),
+          isSemantics(isButton: true, hasTapAction: true),
+        );
+        expect(
+          tester.getSemantics(find.byTooltip('适应屏幕')),
+          isSemantics(isButton: true, hasTapAction: true),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
   });
 }

@@ -36,6 +36,7 @@ import 'helpers/pixiv_router.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/view_size.dart';
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
@@ -746,6 +747,41 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
       expect(find.text('发送评论失败'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'keyboard open pads only the composer — page chrome holds still',
+    (tester) async {
+      setViewSize(tester, const Size(600, 844));
+      await _pumpCommentsRoute(tester);
+      expect(find.text('comment 11'), findsOneWidget);
+
+      final pageScaffold = find.ancestor(
+        of: find.byType(CommentComposer),
+        matching: find.byType(Scaffold),
+      );
+      expect(
+        tester.widget<Scaffold>(pageScaffold.first).resizeToAvoidBottomInset,
+        isFalse,
+      );
+
+      final titleTop = tester.getTopLeft(find.text('评论')).dy;
+      final commentTop = tester.getTopLeft(find.text('comment 11')).dy;
+      final sendTop = tester.getTopLeft(find.byIcon(AppIcons.send)).dy;
+
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(find.text('评论')).dy, titleTop);
+      expect(tester.getTopLeft(find.text('comment 11')).dy, commentTop);
+      expect(tester.getTopLeft(find.byIcon(AppIcons.send)).dy, sendTop - 300);
+      expect(
+        tester.getBottomLeft(find.byIcon(AppIcons.send)).dy,
+        lessThanOrEqualTo(844 - 300),
+      );
     },
   );
 }

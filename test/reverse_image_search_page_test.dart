@@ -45,6 +45,41 @@ void main() {
     if (directory.existsSync()) directory.deleteSync(recursive: true);
   });
 
+  testWidgets(
+    'picker shows upload privacy disclosure, ready preview, and keeps image on provider failure',
+    (tester) async {
+      await _pumpPage(
+        tester,
+        platform: platform,
+        providers: {
+          ReverseImageEngine.sauceNao: UnavailableReverseImageProvider(
+            reason: 'structured service is unavailable',
+          ),
+        },
+      );
+      await tester.pumpAndSettle();
+
+      // Upload privacy disclosure is visible before the user picks an image.
+      expect(
+        find.text(lookupAppLocalizations(zhCN).searchReverseIntro),
+        findsOneWidget,
+      );
+      expect(find.text('选择图片'), findsOneWidget);
+      await tester.tap(find.text('选择图片'));
+      await pumpUntilVisible(tester, find.text('图片已准备好'));
+      expect(
+        find.descendant(of: find.byType(Card), matching: find.byType(Image)),
+        findsWidgets,
+      );
+      expect(find.text('开始反向搜图'), findsOneWidget);
+
+      await tester.tap(find.text('开始反向搜图'));
+      await pumpUntilVisible(tester, find.text('SauceNAO 暂时无法使用'));
+      // Failure retains the prepared image so another engine can retry.
+      expect(platform.deletedPaths, isEmpty);
+    },
+  );
+
   testWidgets('ACTION_SEND reference enters the same prepared flow', (
     tester,
   ) async {

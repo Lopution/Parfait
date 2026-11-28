@@ -33,6 +33,7 @@ import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
+import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
 
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
@@ -853,6 +854,43 @@ void main() {
         }
         await tester.pumpAndSettle();
         expect(router.state.uri.path, '/settings/theme');
+      },
+    );
+
+    testWidgets(
+      'SettingsChoiceTile exposes ListTile.selected semantics to screen readers',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            localizedApp(
+              body: Column(
+                children: [
+                  SettingsChoiceTile(
+                    title: const Text('Light'),
+                    selected: true,
+                    onTap: () {},
+                  ),
+                  SettingsChoiceTile(
+                    title: const Text('Dark'),
+                    selected: false,
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+          );
+          expect(
+            tester.getSemantics(find.text('Light')),
+            isSemantics(label: 'Light', isSelected: true),
+          );
+          expect(
+            tester.getSemantics(find.text('Dark')),
+            isSemantics(label: 'Dark', isSelected: false),
+          );
+        } finally {
+          semantics.dispose();
+        }
       },
     );
   });

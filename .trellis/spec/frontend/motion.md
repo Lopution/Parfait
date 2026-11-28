@@ -93,6 +93,18 @@ reviewed: 2026-11-28
 - **Check:** manual — rebuilds are not asserted (TEST-12)
 - **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/motion/press_scale.dart`, `lib/app/pixiv_image.dart`, `lib/app/navigation/route_animation.dart`
 
+### MOTION-11 Fades keep semantics; progress moves in steps
+- **Rule:** Opacity entrances pass `alwaysIncludeSemantics: true`; progress semantics step in 10% increments while drawn rings stay continuous, and transparent rings stay out of semantics.
+- **Why:** Prevents semantics churn on every progress frame and keeps faded content discoverable without announcing hidden spinners.
+- **Check:** `test/image_load_progress_test.dart` "a slow load shows its percentage, then the ring goes"
+- **Code:** `lib/app/motion/state_fade.dart`, `lib/app/widgets/image_load_progress.dart`
+
+### MOTION-13 Semantics reach the platform at most every 100 ms
+- **Rule:** The root pipeline owner throttles semantics flushes to `kSemanticsPushInterval` (100 ms); scrolls (`ScrollSemanticsHold`) hold pushes up to `kSemanticsHoldLimit` (2 s) and release their hold cleanly on unmount.
+- **Why:** Per-frame semantics pushes cost 7–11 ms under active accessibility services during scrolls, and leaked holds freeze semantics updates.
+- **Check:** `test/semantics_push_throttle_test.dart` "a scrolling feed pushes semantics at most once per interval and the last state arrives once it stops" "a list unmounted mid-fling releases its hold"
+- **Code:** `lib/core/platform/app_root_pipeline_owner.dart`, `lib/app/scroll_behavior.dart`, `lib/app/motion/page_transitions.dart`, `lib/app/widgets/home_branch_stack.dart`
+
 ### MOTION-12 Slow first channel calls are warmed up
 - **Rule:** Channels with heavy first-call main-thread latency warm sequentially in `androidChannelWarmupSteps`, each waiting for a 300 ms idle gap.
 - **Why:** Eliminated first-use jank without triggering during active interaction.

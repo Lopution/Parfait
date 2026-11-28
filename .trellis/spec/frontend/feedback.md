@@ -31,6 +31,16 @@ reviewed: 2026-11-28
 
 ## Menus and overlays
 
+### FB-01 Menus are AppMenuButton
+- **Rule:** Overflow and choice menus use `AppMenuButton` / `AppMenuEntry`,
+  never `PopupMenuButton`. A touch outside closes the menu and is consumed
+  (never scrolling or tapping the page below); back closes the menu before
+  the page.
+- **Why:** The closing touch scrolled or tapped the page below, and back
+  bypassed open menus.
+- **Check:** `test/app_menu_button_test.dart` "the closing touch never scrolls the page below" "the closing touch never taps the control below" "back closes the menu before the page"
+- **Code:** `lib/app/widgets/app_menu_button.dart`
+
 ### FB-02 Dialogs and sheets go through app_overlays.dart
 - **Rule:** Dialogs and bottom sheets open through `showAppDialog` /
   `showAppBottomSheet` (`smooth_sheets` `PopupRoute + ModalSheetRouteMixin`
@@ -44,7 +54,7 @@ reviewed: 2026-11-28
   `showAppContextMenu` opens root-navigator pointer menus (PAGE-18).
 - **Why:** Keeps overlay barriers, touch blocking, assistive dismiss actions,
   date clamping, and dialog text-field rendering consistent across platforms.
-- **Check:** `test/architecture/ui_conventions_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "the page below never sees a touch on the scrim" "AppDatePickerDialog clamps out-of-range today and returns a local DateTime" "AppAlertDialog mounts FDialog with inner Material for TextField"
+- **Check:** `test/architecture/ui_conventions_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "a drag outside closes it on release, one layer only" "the page below never sees a touch on the scrim" "AppDatePickerDialog clamps out-of-range today and returns a local DateTime" "AppAlertDialog mounts FDialog with inner Material for TextField" "smooth_sheets handles scroll handoff and reduced motion"
 - **Code:** `lib/app/motion/app_overlays.dart`, `lib/app/widgets/app_dialog.dart`, `lib/app/widgets/app_date_picker.dart`
 
 ### FB-03 Each action appears once at a time
