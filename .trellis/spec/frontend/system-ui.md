@@ -21,6 +21,18 @@ reviewed: 2026-11-28
 - **Check:** `test/architecture/ui_conventions_test.dart` "system UI has exactly one owner"
 - **Code:** `lib/app/system_ui.dart`
 
+### SYS-02 Override bar style by wrapping, decoupling top and bottom bars when needed
+- **Rule:** A page needing another bar style wraps itself in
+  `FuncSystemBars(background:, navBarBackground:)`; unmounting restores the root
+  style on the next frame. `funcSystemBarsStyle(statusBarBackground,
+  {navBarBackground})` decouples status-bar icon contrast from the bottom
+  system navigation bar so top-bar contrast changes never make bottom
+  navigation icons illegible.
+- **Why:** Imperative resets missed pop paths, and coupling both bars to a
+  dark compact header painted white navigation-bar icons onto a light page.
+- **Check:** `test/system_ui_test.dart` "a page with no AppBar keeps bar icons inverted to the theme" "a scoped FuncSystemBars overrides the root and restores" "the image viewer pins light bar icons while mounted"
+- **Code:** `lib/app/system_ui.dart`, `lib/app/widgets/app_top_bar.dart`
+
 ### SYS-03 Immersive pages restore the bars on pop and when covered
 - **Rule:** A page that hides the system bars enters `immersiveSticky` in
   `initState`, shows `edgeToEdge` while its chrome is shown, subscribes to
@@ -67,3 +79,9 @@ reviewed: 2026-11-28
   light icons were unreadable over a white cover.
 - **Check:** `test/banner_sample_test.dart` "the status bar takes the brightness of the cover rows under it"
 - **Code:** `lib/features/profile/profile_header_delegate.dart`, `lib/features/profile/banner_sample.dart`
+
+### SYS-07 Pages out of sight keep the insets and constraints they last saw
+- **Rule:** Every page route and inactive `TabSlideStack` slot wraps its subtree in `FrozenWhileHidden` (or `FrozenWhileHidden.when(hidden: !active)`): while hidden (`TickerMode` off or `hidden: true`), the subtree keeps the `MediaQueryData`, `HomeShellChrome`, and already-sized `BoxConstraints` it last saw, skipping hidden relayouts on window/keyboard resizes and calling `markNeedsLayout` on reveal.
+- **Why:** Covered and hidden subtrees stay attached; without freezing, each reader bar toggle, desktop window resize, or keyboard frame rebuilt and relaid out hidden scaffolds/tabs.
+- **Check:** `test/func_page_test.dart` "a page ${covered ? 'covered by a route' : 'in a hidden branch'} keeps the media and shell chrome it saw until it shows again"
+- **Code:** `lib/app/navigation/frozen_while_hidden.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/func_bottom_nav.dart`

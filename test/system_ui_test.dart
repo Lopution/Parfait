@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/app/app.dart';
 import 'package:parfait/app/system_ui.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/download/download_manager.dart';
@@ -49,7 +50,133 @@ List<String> _recordSystemUiModes() {
   return modes;
 }
 
+/// Mounts the root system-bar default exactly like app.dart's builder: the
+/// outermost widget inside the theme, reading the resolved brightness.
+Widget _app({
+  required ThemeData theme,
+  GlobalKey<NavigatorState>? navigatorKey,
+  Widget? home,
+}) {
+  return localizedApp(
+    builder: (context, routeChild) => FuncSystemBars(
+      background: Theme.of(context).brightness,
+      child: routeChild ?? const SizedBox.shrink(),
+    ),
+    theme: theme,
+    navigatorKey: navigatorKey,
+    home: home ?? const Scaffold(body: SizedBox.expand()),
+  );
+}
+
 void main() {
+  testWidgets('a page with no AppBar keeps bar icons inverted to the theme', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SizedBox.expand())),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+      Brightness.light,
+    );
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarColor,
+      const Color(0xFF000000),
+    );
+
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(_app(theme: replicaTheme(brightness)));
+      await tester.pumpAndSettle();
+      await tester.pump();
+
+      final style = SystemChrome.latestStyle;
+      final icons = brightness == Brightness.light
+          ? Brightness.dark
+          : Brightness.light;
+      expect(
+        style?.statusBarIconBrightness,
+        icons,
+        reason: '$brightness theme must paint $icons status-bar icons',
+      );
+      expect(
+        style?.systemNavigationBarIconBrightness,
+        icons,
+        reason: '$brightness theme must paint $icons nav-bar icons',
+      );
+      expect(style?.statusBarColor, const Color(0x00000000));
+      expect(style?.systemNavigationBarColor, const Color(0x00000000));
+    }
+  });
+
+  testWidgets('a scoped FuncSystemBars overrides the root and restores', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      _app(theme: replicaTheme(Brightness.light), navigatorKey: navigatorKey),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
+
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const FuncSystemBars(
+          background: Brightness.dark,
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(
+      SystemChrome.latestStyle?.statusBarIconBrightness,
+      Brightness.light,
+      reason: 'the black page must paint light icons while it is mounted',
+    );
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+      Brightness.light,
+    );
+
+    navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(
+      SystemChrome.latestStyle?.statusBarIconBrightness,
+      Brightness.dark,
+      reason: 'leaving the page restores the root style — no imperative reset',
+    );
+  });
+
+  testWidgets('the image viewer pins light bar icons while mounted', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      withStalledImages(
+        localizedApp(
+          theme: replicaTheme(Brightness.light),
+          home: const ImageViewerPage(
+            urls: ['https://i.pximg.net/1/original.jpg'],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.light);
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+      Brightness.light,
+    );
+  });
+
   test('a platform failure is logged, not thrown or dropped', () async {
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;

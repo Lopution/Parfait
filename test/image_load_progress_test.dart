@@ -55,6 +55,32 @@ void main() {
       ..clearLiveImages(),
   );
 
+  testWidgets('a slow load shows its percentage, then the ring goes', (
+    tester,
+  ) async {
+    final ring = find.byType(CircularProgressIndicator);
+    final semantics = tester.ensureSemantics();
+    final progress = ValueNotifier(const ImageLoadProgress.idle());
+    addTearDown(progress.dispose);
+    await tester.pumpWidget(_app(ImageLoadProgressOverlay(progress: progress)));
+    progress.value = const ImageLoadProgress.loading();
+    await tester.pump(const Duration(milliseconds: 290));
+    expect(ring, findsNothing);
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(ring, findsOneWidget);
+    expect(tester.widget<CircularProgressIndicator>(ring).value, isNull);
+
+    progress.value = const ImageLoadProgress.loading(0.5);
+    // Past the fade-in: a transparent ring is left out of semantics.
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.getSemantics(find.bySemanticsLabel('图片加载中')).value, '50%');
+
+    progress.value = const ImageLoadProgress.idle();
+    await tester.pumpAndSettle();
+    expect(ring, findsNothing);
+    semantics.dispose();
+  });
+
   testWidgets('PixivImage reports the download it is painting', (tester) async {
     final transfer = _Transfer(total: onePixelPng.length);
     final progress = ValueNotifier(const ImageLoadProgress.idle());

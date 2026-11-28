@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/profile/profile_edit_controller.dart';
@@ -57,7 +58,9 @@ Future<void> _dragBackGesture(double progress) =>
 Future<PageRoute<void>> _pushSecondPage(
   WidgetTester tester, {
   Duration duration = const Duration(milliseconds: 800),
+  Widget? home,
   Widget second = const Text('page b'),
+  bool settle = true,
 }) async {
   late PageRoute<void> pushed;
   late BuildContext rootContext;
@@ -85,7 +88,7 @@ Future<PageRoute<void>> _pushSecondPage(
                       pushed = page(second);
                       Navigator.of(context).push(pushed);
                     },
-                    child: const Text('page a'),
+                    child: home ?? const Text('page a'),
                   ),
                 ),
               ),
@@ -96,7 +99,11 @@ Future<PageRoute<void>> _pushSecondPage(
     ),
   );
   await tester.tap(find.text('page a'));
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
   expect(find.text('page b'), findsOneWidget);
   return pushed;
 }
@@ -382,4 +389,107 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
+
+  for (final covered in [true, false]) {
+    testWidgets(
+      'a page ${covered ? 'covered by a route' : 'in a hidden branch'} keeps '
+      'the media and shell chrome it saw until it shows again',
+      (tester) async {
+        setViewSize(tester, const Size(400, 800));
+        addTearDown(tester.platformDispatcher.clearAllTestValues);
+        final seen = <(MediaQueryData, double)>[];
+        final hidden = ValueNotifier(false);
+        addTearDown(hidden.dispose);
+        final navigator = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Builder(
+              builder: (context) => HomeShellChrome(
+                bottomBarExtent: 80 + MediaQuery.paddingOf(context).bottom,
+                bottomBarVisibleExtent: const AlwaysStoppedAnimation(0),
+                bottomBarVisibility: kAlwaysCompleteAnimation,
+                onBranchRootScroll: (_) => false,
+                child: ValueListenableBuilder(
+                  valueListenable: hidden,
+                  builder: (_, off, child) =>
+                      TickerMode(enabled: !off, child: child!),
+                  child: Navigator(
+                    key: navigator,
+                    onGenerateRoute: (_) => FuncPage<void>(
+                      child: Builder(
+                        builder: (context) {
+                          seen.add((
+                            MediaQuery.of(context),
+                            HomeShellChrome.of(context).bottomBarExtent,
+                          ));
+                          return const SizedBox.expand();
+                        },
+                      ),
+                    ).createRoute(context),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        if (covered) {
+          unawaited(
+            navigator.currentState!.push(
+              const FuncPage<void>(
+                child: SizedBox.expand(),
+              ).createRoute(navigator.currentContext!),
+            ),
+          );
+          await tester.pumpAndSettle();
+        } else {
+          hidden.value = true;
+          await tester.pump();
+        }
+        final builds = seen.length;
+
+        tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+        await tester.pump();
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        tester.view.physicalSize = const Size(800, 400);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+        await tester.pump();
+        expect(seen, hasLength(builds));
+
+        if (covered) {
+          navigator.currentState!.pop();
+          await tester.pump();
+        } else {
+          hidden.value = false;
+          await tester.pump();
+        }
+        final live = MediaQuery.of(navigator.currentContext!);
+        expect(live.size, const Size(800, 400));
+        expect(seen.last.$1, live);
+        expect(seen.last.$2, 80 + live.padding.bottom);
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets('a leaving page mid-pop lets taps reach the page below', (
+    tester,
+  ) async {
+    final route = await _pushSecondPage(
+      tester,
+      home: const SizedBox.expand(child: Text('page a')),
+      settle: false,
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    final navigator = route.navigator!;
+    navigator.pop();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // Leaving page is still on screen during pop, yet taps must reach page a.
+    expect(find.text('page b'), findsOneWidget);
+    await tester.tap(find.text('page a'));
+    await tester.pumpAndSettle();
+    expect(find.text('page b'), findsOneWidget);
+  });
 }

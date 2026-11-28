@@ -51,7 +51,7 @@ reviewed: 2026-11-28
 ### FEED-04 The card key lives inside the grid extent
 - **Rule:** `IllustFeedGrid` leaves `FeedItemExtent` unkeyed and places `ValueKey(entity.id)` on the inner card subtree; item-scoped state and `findChildIndexCallback` key by entity ID, never index.
 - **Why:** Keying `FeedItemExtent` triggered a `flutter_staggered_grid_view` 0.7.0 null-offset crash when refresh reordered visible items.
-- **Check:** manual — structural key placement
+- **Check:** `test/responsive_layout_test.dart` "a refresh that moves visible works to the head lays out" "scrolled IllustFeedGrid survives cross-column resizes and taps without blanking"
 - **Code:** `lib/app/widgets/feed/feed_grid.dart`
 
 ### FEED-05 No feed prefetch

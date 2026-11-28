@@ -377,6 +377,23 @@ void main() {
       matching: find.bySubtype<ListView>(),
     );
 
+    testWidgets('the bottom bar stays on screen while scrolling', (
+      tester,
+    ) async {
+      await _pumpHome(
+        tester,
+        location: '/settings',
+        height: _shortHeight,
+        touchExploration: Stream.value(true),
+      );
+      final nav = find.byType(FuncBottomNav);
+      final shownTop = tester.getTopLeft(nav).dy;
+
+      await tester.drag(settingsList, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
+    });
+
     testWidgets('starting touch exploration brings a hidden bar back', (
       tester,
     ) async {

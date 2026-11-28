@@ -4,7 +4,9 @@ import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/motion/app_overlays.dart';
+import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/widgets/app_dialog.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 
@@ -62,6 +64,45 @@ void main() {
     ('sheet', _openSheet),
   ]) {
     group(kind, () {
+      testWidgets('a drag outside closes it on release, one layer only', (
+        tester,
+      ) async {
+        await _pumpPage(tester, open: open);
+        expect(find.text('overlay'), findsOneWidget);
+
+        // Starts and ends on the scrim, well above the overlay.
+        final gesture = await tester.startGesture(const Offset(200, 120));
+        await gesture.moveBy(const Offset(0, 100));
+        await tester.pump();
+        expect(find.text('overlay'), findsOneWidget, reason: 'not yet');
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        expect(find.text('overlay'), findsNothing);
+        expect(find.text('open'), findsOneWidget);
+        expect(find.text('root'), findsNothing);
+      });
+
+      testWidgets('a tap outside closes one layer', (tester) async {
+        await _pumpPage(tester, open: open);
+        await tester.tapAt(const Offset(200, 120));
+        await tester.pumpAndSettle();
+        expect(find.text('overlay'), findsNothing);
+        expect(find.text('open'), findsOneWidget);
+      });
+
+      testWidgets('a drag that ends over the content keeps it open', (
+        tester,
+      ) async {
+        await _pumpPage(tester, open: open);
+        final target = tester.getCenter(find.text('overlay'));
+        final gesture = await tester.startGesture(const Offset(200, 120));
+        await gesture.moveTo(target);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(find.text('overlay'), findsOneWidget);
+      });
+
       testWidgets('the scrim offers a dismiss action to assistive tech', (
         tester,
       ) async {
@@ -170,4 +211,66 @@ void main() {
       );
     },
   );
+
+  testWidgets('smooth_sheets handles scroll handoff and reduced motion', (
+    tester,
+  ) async {
+    setViewSize(tester, _page);
+    Future<void> pumpSheetHost({
+      required Widget child,
+      bool isScrollControlled = false,
+      bool disableAnimations = false,
+    }) => tester.pumpWidget(
+      MediaQuery(
+        data: MediaQueryData(size: _page, disableAnimations: disableAnimations),
+        child: MaterialApp(
+          scrollBehavior: const FuncScrollBehavior(),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showAppBottomSheet<void>(
+                context: context,
+                isScrollControlled: isScrollControlled,
+                builder: (_) => child,
+              ),
+              child: const Text('open-sheet'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Scroll down, return to top, then drag downward to close the sheet.
+    await pumpSheetHost(
+      child: ListView.builder(
+        itemCount: 30,
+        itemBuilder: (_, i) => ListTile(title: Text('item $i')),
+      ),
+    );
+    await tester.tap(find.text('open-sheet'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('item 1'), const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppBottomSheet), findsOneWidget);
+    await tester.drag(find.text('item 4'), const Offset(0, 600));
+    await tester.pumpAndSettle();
+    if (find.byType(AppBottomSheet).evaluate().isNotEmpty) {
+      await tester.drag(find.text('item 1'), const Offset(0, 350));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byType(AppBottomSheet), findsNothing);
+
+    // Reduced motion uses ClampingSheetPhysics & opens immediately.
+    await pumpSheetHost(
+      isScrollControlled: true,
+      disableAnimations: true,
+      child: const SizedBox(height: 160, child: Text('reduced-sheet')),
+    );
+    await tester.tap(find.text('open-sheet'));
+    await tester.pump();
+    expect(find.text('reduced-sheet'), findsOneWidget);
+    expect(
+      tester.widget<Sheet>(find.byType(Sheet)).physics,
+      isA<ClampingSheetPhysics>(),
+    );
+  });
 }

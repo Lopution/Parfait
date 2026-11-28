@@ -30,12 +30,14 @@ reviewed: 2026-11-28
   Notes on how to use a setting are not written (PAGE-20). On one page either
   every group has a title or none does. A leaving `Removable` row stops
   counting from the exit's first frame so its hairline closes smoothly.
+  `SettingsChoiceTile` exposes the chosen option through `ListTile.selected`
+  so screen readers announce selection without deprecated radios.
 - **Why:** One inset grouped card with 1dp hairlines keeps settings and the Me
   dashboard calm across desktop and mobile without stacked thick card slabs.
   Notes set apart from their row and a page with one titled group read as
   unrelated. An empty group's note on a card read as a row to press.
-- **Check:** `test/architecture/ui_conventions_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"
-- **Code:** `lib/app/widgets/settings/settings_group.dart`
+- **Check:** `test/architecture/ui_conventions_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"; `test/settings_test.dart` "SettingsChoiceTile exposes ListTile.selected semantics to screen readers"
+- **Code:** `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
 
 ### SET-08 Page entries use monochrome icons without color discs
 - **Rule:** A row that opens a settings page from the index (`SettingsTile.topLevel`)
