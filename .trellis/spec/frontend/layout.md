@@ -72,7 +72,7 @@ reviewed: 2026-11-28
   theme's font fallbacks, the letter spacing and even leading of the
   dense CJK type): full lines ran wider than measured, short mixed-script
   lines taller.
-- **Check:** `test/architecture/l10n_and_errors_test.dart` "fitted labels are measured in the style and locale they paint in"; `test/fit_label_test.dart` "the painted width is the measured width times the scale" "a non-linear text scaler measures and paints alike"; `test/app_tab_bar_test.dart` "a wide row keeps its tabs together at the start"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
+- **Check:** `test/architecture/l10n_and_errors_test.dart` "fitted labels are measured in the style and locale they paint in"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
 - **Code:** `lib/app/widgets/fit_label.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_tab_bar.dart`, `lib/app/widgets/follow_switch_button.dart`, `lib/features/search/search_filter_sheet.dart`, `lib/features/novel/novel_layout.dart`
 
 ### LAYOUT-05 The selection bar title is the bare count
@@ -183,8 +183,7 @@ reviewed: 2026-11-28
   or touch rather than Tab focus).
 - **Why:** Selection cannot span `SelectableText` paragraphs. Each also
   owns a scrollable that inherited the bouncing physics, so every
-  paragraph dragged on its own; FEED-11 now stops that for all text, and
-  nesting `SelectableText` inside `SelectionArea` broke continuous drag
+  paragraph dragged on its own; nesting `SelectableText` inside `SelectionArea` broke continuous drag
   selection.
 - **Check:** `test/onboarding_pages_test.dart` "a drag on a paragraph scrolls the whole page", `test/spotlight_article_test.dart` "a drag on a paragraph scrolls the whole article", `test/illust_detail_page_test.dart` "two-pane panorama preserves 280dp height, tag block mode shows Done & intercepts back, single tag mute confirms silently on right-click, and TranslationPanel avoids nested SelectableText"
 - **Code:** `lib/features/spotlight/spotlight_article_page.dart`, `lib/app/widgets/inline_translation.dart`, `lib/app/widgets/caption_rich_text.dart`, `lib/features/profile/profile_about_tab.dart`, `lib/features/novel/novel_page.dart`, `lib/app/widgets/tag_actions_sheet.dart`

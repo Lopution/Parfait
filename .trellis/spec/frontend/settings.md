@@ -56,7 +56,7 @@ reviewed: 2026-11-28
   `selected` is what screen readers announce; segmented buttons were
   removed (NAV-17), while locked-on bar destinations needed clear active
   visual state without looking toggleable.
-- **Check:** `test/selection_controls_haptics_test.dart` "SettingsControl locked mode renders disabled active FSwitch with lock icon"
+- **Check:** manual
 - **Code:** `lib/app/widgets/settings/settings_control.dart`, `lib/app/widgets/settings/settings_menu_tile.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`, `lib/features/settings/pages/bottom_bar_settings_page.dart`, `lib/features/settings/network_probe_page.dart`
 
 ### SET-08 Page entries use monochrome icons without color discs
@@ -171,7 +171,7 @@ reviewed: 2026-11-28
   master-detail hosting keeps deep-linked settings pages coherent beside the
   collapsed shell rail without double headers, orphaned single-column sheets,
   or silently discarded form drafts on category switch or outer back.
-- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column" "wide settings prompts confirmDiscardDraft on category switch and outer pop for dirty root and child forms"; `test/shared_widgets_test.dart` "MasterDetailWorkspace wraps scrollable masterBody in vertical ScrollEdgeFade"
+- **Check:** `test/settings_search_test.dart` "every catalog entry is on its page" "Setting.available and ThemeSettingsPage adapt haptics and system colors on iOS"; `test/settings_master_detail_test.dart` "wide desktop uses master-detail with nested navigation; below 840dp stays single column" "wide settings prompts confirmDiscardDraft on category switch and outer pop for dirty root and child forms"
 - **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/navigation/route_branches.dart`, `lib/features/settings/settings_catalog.dart`, `lib/features/settings/settings_page.dart`, `lib/features/settings/settings_helpers.dart`, `lib/features/settings/pages/motion_settings_page.dart`, `lib/features/settings/pages/theme_settings_page.dart`, `lib/features/settings/pages/download_destination_page.dart`
 
 ## Me tab

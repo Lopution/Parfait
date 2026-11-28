@@ -70,14 +70,8 @@ reviewed: 2026-11-28
 ### MOTION-18 Drags take the device's slop; sideways pagers judge the angle
 - **Rule:** Custom drag recognizers read `MediaQuery.maybeGestureSettingsOf(context)` and `computeHitSlop` (never hard-coded `kTouchSlop`). Viewer pagers use `PagingSlop` / `PagingSlopPage` (`minFlingDistance` stays device slop); detail pagers inside `SelectionArea` judge angle at 1x device slop (excluding mouse) so `SelectableRegion`'s 18px recognizer cannot steal touch swipes; tab/branch swipes (`SwipePagingRecognizer`) require `<= swipePagingMaxDegrees` (40 deg) off horizontal.
 - **Why:** Hard-coded 18px slop caused pagers, dismiss drags, and `SelectionArea` to fight touch gestures on 8dp-slop Android screens.
-- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "a swipe ${degrees.round()}° off horizontal ${pages ? 'turns the page' : 'scrolls the detail'}" "a panorama scrolls first and hands the swipe on at its edge", `test/tab_swipe_switcher_test.dart` "a swipe ${degrees.round()}° off horizontal ${switches ? 'moves the tabs' : 'leaves the tabs'}", `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page slides away, back leaves like any page"
+- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "a swipe ${degrees.round()}° off horizontal ${pages ? 'turns the page' : 'scrolls the detail'}" "a panorama scrolls first and hands the swipe on at its edge", `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page slides away, back leaves like any page"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/motion/swipe_paging.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/detail/widgets/detail_image_pager.dart`
-
-### MOTION-20 A released swipe lands from the finger's speed
-- **Rule:** Sideways swipes land on velocity-preserving springs (`SwipePaging` uses `MotionSpring.spatialDefault`, changing index once on landing unless dragged a full page, with `BouncingScrollPhysics` at ends and semantics held mid-motion; `PageView` uses `PageSnapPhysics` for ~300 ms snap while keeping list overscroll physics).
-- **Why:** Fixed-duration curves stalled flings and framework 0.7 s snaps delayed neighbour builds.
-- **Check:** `test/tab_swipe_switcher_test.dart` "$name from the finger's speed" "a slow drag $name" "the index waits for the landing" "past the first tab the body pulls on a rubber band", `test/scroll_behavior_test.dart` "$name ends its page snap in about 300 ms"
-- **Code:** `lib/app/motion/swipe_paging.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/scroll_behavior.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### MOTION-07 Feed cards land in place
 - **Rule:** Grid cards have no entrance animation or `StateFade` wrapper; only images fade (TRANS-16).
@@ -117,12 +111,6 @@ reviewed: 2026-11-28
 - **Check:** manual
 - **Code:** `lib/core/platform/native_warmup.dart`
 
-### MOTION-13 Semantics reach the platform at most every 100 ms
-- **Rule:** The root pipeline owner throttles semantics flushes to `kSemanticsPushInterval` (100 ms); route transitions, branch switches, and scrolls (`ScrollSemanticsHold`) hold pushes up to `kSemanticsHoldLimit` (2 s), flushing after an interval and an idle frame. Widget tests keep the default binding outside the throttle's own suite.
-- **Why:** User decision: per-frame semantics pushes cost 7–11 ms under active accessibility services during scrolls and transitions.
-- **Check:** `test/semantics_push_throttle_test.dart` "a scrolling feed pushes semantics at most once per interval and the last state arrives once it stops" "a hold keeps changes back until an interval after its release, and gives way at its limit"
-- **Code:** `lib/core/platform/app_root_pipeline_owner.dart`, `lib/app/scroll_behavior.dart`, `lib/app/motion/page_transitions.dart`, `lib/app/widgets/home_branch_stack.dart`
-
 ### MOTION-17 GPU pipelines a first use would compile are warmed at start
 - **Rule:** `PipelineWarmup` paints offscreen clipped/transformed image and rounded-rect press-highlight layers during the first three frames while keeping `widget.child` mounted as its stable first `Stack` child.
 - **Why:** First Hero flights dropped frames on cold pipeline compilation, and unwrapping the `Stack` after warmup remounted the app.
@@ -134,18 +122,6 @@ reviewed: 2026-11-28
 - **Why:** Prevented prime cores from idling on big-only SoCs while avoiding little cores on heterogeneous chips.
 - **Check:** `test/raster_affinity_test.dart` "frees every core only when none is little" "sets only the raster threads, from a full capacity table"
 - **Code:** `lib/core/platform/raster_affinity.dart`, `lib/main.dart`
-
-### MOTION-19 Touch moves reach the app once per frame, resampled
-- **Rule:** The app binding routes pointer events through `TouchResampler`, emitting interpolated moves at `vsync - 10 ms` (using `handleBeginFrame` minus one refresh period, never extrapolating past the latest sample) tagged `synthesized`; velocity trackers ignore synthesized moves.
-- **Why:** Eliminated uneven per-frame touch steps and Android prediction artefacts during slow drags and pinches.
-- **Check:** `test/touch_resampler_test.dart` "a frame shows where the finger was 10 ms before its vsync, $hz Hz" "a frame between two samples moves on without a new one" "$name leaves at the speed of its real samples"
-- **Code:** `lib/core/platform/touch_resampler.dart`, `lib/main.dart`, `lib/core/debug/trace_marks.dart`
-
-### MOTION-15 Width-dependent slivers rebuild only on a width change
-- **Rule:** Use `SliverWidthBuilder` instead of `SliverLayoutBuilder`; cache repeated formatters, spring curves, and label widths (`AppFormat`, `MotionTokens.springCurve`, `LabelFit.measureLabel`).
-- **Why:** `SliverLayoutBuilder` rebuilt every visible row on every scroll offset, costing up to 6 ms/frame with accessibility on.
-- **Check:** `test/responsive_layout_test.dart` "a width-built sliver takes taps after a scroll and follows a width change"
-- **Code:** `lib/app/layout/sliver_width_builder.dart`, `lib/app/format/app_format.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/fit_label.dart`
 
 ### MOTION-16 Repeated parts of a page get their own ticker notifier
 - **Rule:** Feed cards, card rows, and detail pages/sections sit inside `TickerPartition`; uniform wrapper lists hold no conditional entries.
@@ -159,14 +135,8 @@ reviewed: 2026-11-28
 - **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting on leaving" "a switch before its turn builds the branch at once", `test/motion_test.dart` "work ahead waits for a running animation to end" "work ahead behind a looping indicator waits once a run, not once a piece"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`
 
-### MOTION-23 Pointer input removes touch press delay, eases wheel reversal and shortens branch travel
-- **Rule:** Under `InputModality.pointer`, `PressScale` skips the 100 ms scroll delay; `HomeBranchStack` over `ShellRail` switches branches with 150 ms `MotionTokens.desktopPageTransition` fade + 12dp slide (cut under reduced motion); `SmoothWheelScroll` animates discrete wheel ticks over `MotionTokens.wheelScroll` (240 ms, jumping directly with `Duration.zero` under reduced motion), discarding queued travel and emitting `dispatchWheelUserScroll` immediately on direction reversal so `ScrollHide` bars respond on the first reverse tick.
-- **Why:** Touch tap delays, full-width slides, and stale forward wheel targets feel sluggish with a mouse.
-- **Check:** `test/motion_test.dart` "Pointer mode skips PressScale 100ms delay and SmoothWheelScroll jumps instantly"; `test/smooth_wheel_scroll_test.dart` "reversing wheel direction mid-scroll resets queued target and notifies reversal immediately"; `test/home_branch_stack_test.dart` "desktop ShellRail animates branch switch with 150ms fade+slide"
-- **Code:** `lib/app/motion/press_scale.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/motion/scroll_hide.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/widgets/smooth_wheel_scroll.dart`
-
 ### MOTION-24 Frosted card menu and drag-to-dismiss suppress displacement under reduced motion
 - **Rule:** Under reduced motion (`!MotionTokens.enabled(context)`), `IosCardContextMenu`, `DragToDismiss`, and iOS `FuncPage` shared-element dismiss suppress translation, scaling, and corner rounding while preserving backdrop fade and threshold completion.
 - **Why:** Spatial scaling/translation triggers motion discomfort under reduced-motion settings.
-- **Check:** `test/card_action_test.dart` "iOS card context menu respects reduced motion without scaling", `test/func_page_test.dart` "iOS sharedElement canvas dismiss disables scale and displacement under reduced motion"
+- **Check:** `test/card_action_test.dart` "iOS card context menu respects reduced motion without scaling"
 - **Code:** `lib/app/widgets/card_actions/ios_card_context_menu.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/navigation/func_page.dart`, `lib/app/motion/motion_tokens.dart`

@@ -31,53 +31,20 @@ reviewed: 2026-11-28
 
 ## Menus and overlays
 
-### FB-01 Menus are AppMenuButton
-- **Rule:** Overflow and choice menus use `AppMenuButton` / `AppMenuEntry`
-  (styling `MenuStyle` with `surfaceContainerLowest` in light / `surfaceContainerHigh`
-  in dark, `brandHairline`, `FuncShape.card`, `elevation: 3`, `FuncSpacing.xs`
-  panel inset padding & vertical anchor gap, and `FuncShape.control` rounded
-  rows using `brandTintWeak` + `primary` ink on checked items), never
-  `PopupMenuButton`. A touch outside closes the menu and is consumed;
-  back closes the menu before the page. The panel keeps
-  `crossAxisUnconstrained: false` so long labels truncate inside the width
-  cap. A menu keeps `FuncSpacing.sm` off the side of the screen it lines
-  up at (a ⋮ at the screen edge); an anchor further in (a settings row)
-  keeps the menu lined up with it.
-- **Why:** The closing touch scrolled or tapped the page below; labels
-  overflowed the cap and were clipped; an end-edge menu touched the screen
-  edge.
-- **Check:** `test/app_menu_button_test.dart` "the closing touch never scrolls the page below" "back closes the menu before the page" "an end-edge menu keeps off the screen edge it opens at"
-- **Code:** `lib/app/widgets/app_menu_button.dart`
-
 ### FB-02 Dialogs and sheets go through app_overlays.dart
 - **Rule:** Dialogs and bottom sheets open through `showAppDialog` /
   `showAppBottomSheet` (`smooth_sheets` `PopupRoute + ModalSheetRouteMixin`
-  hosting `AppBottomSheet` (`Sheet` with `SheetScrollConfiguration`,
-  `BouncingSheetPhysics` or `ClampingSheetPhysics` under reduced motion,
-  `PromptCover` and a release-to-dismiss barrier)); adaptive overlays (`showAppAdaptiveDialog`,
-  `showAppAdaptiveSideSheet`, `showAppAdaptivePopover`) split viewport
-  geometry from interaction modality: `useWideOverlay` (width >= 600dp
-  and height >= 480dp, keeping turned phones on bottom sheets) selects
-  bounded centered dialogs or trailing side sheets for tablets as well as
-  desktops, while `usePointerOverlay` (width >= 600dp, height >= 480dp,
-  and pointer input) limits pointer-anchored popovers to cursor inputs so
-  wide touch viewports fall back to `showAppAdaptiveDialog`. Adaptive popovers
-  scale from their anchor corner/edge (never screen center) and re-resolve live
-  `anchorContext` post-frame on viewport resize. `showAppDatePicker`
-  presents `AppDatePickerDialog` backed by `FCalendar.grid` with UTC day
-  clamping, and dialogs use `AppAlertDialog` backed by `FDialog`. A modal
-  surface that places itself (the docked search input, NAV-25) uses
-  `showAppPanel`, and a pointer menu (PAGE-18) uses `showAppContextMenu` on
-  the root navigator (`useRootNavigator: true`, with `showDisplayActions`
-  converting coordinates against the root overlay).
-  The barrier routes close when a touch that started on the scrim is
-  released on the scrim, tap or drag; `showAppContextMenu` keeps
-  Material's stock menu barrier so an outside tap or Esc closes it.
-- **Why:** Coupling wide container shapes to pointer modality gave iPad
-  and Android tablets full-width mobile bottom sheets; decoupling
-  `useWideOverlay` from `usePointerOverlay` gives touch tablets bounded
-  dialogs and side sheets while avoiding pointer-anchored popovers.
-- **Check:** `test/architecture/ui_conventions_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "a drag outside closes it on release, one layer only" "useWideOverlay and usePointerOverlay split container shape from pointer anchoring" "wide touch viewports render bounded dialog, side sheet, and dialog popover" "AppDatePickerDialog clamps out-of-range today and returns a local DateTime" "AppAlertDialog mounts FDialog with inner Material for TextField" "adaptive popover scales from anchor direction and re-anchors on resize"
+  hosting `AppBottomSheet` with `PromptCover` and a release-to-dismiss barrier);
+  adaptive overlays (`showAppAdaptiveDialog`, `showAppAdaptiveSideSheet`,
+  `showAppAdaptivePopover`) decouple wide containers (`useWideOverlay`) from
+  pointer anchoring (`usePointerOverlay`). `showAppDatePicker` presents
+  `AppDatePickerDialog` backed by `FCalendar.grid` with UTC day clamping, and
+  dialogs use `AppAlertDialog` backed by `FDialog` (with inner `Material` for
+  `TextField`s). `showAppPanel` hosts docked panels (NAV-25) and
+  `showAppContextMenu` opens root-navigator pointer menus (PAGE-18).
+- **Why:** Keeps overlay barriers, touch blocking, assistive dismiss actions,
+  date clamping, and dialog text-field rendering consistent across platforms.
+- **Check:** `test/architecture/ui_conventions_test.dart` "app modal overlays funnel through app_overlays.dart", `test/app_overlays_test.dart` "the page below never sees a touch on the scrim" "AppDatePickerDialog clamps out-of-range today and returns a local DateTime" "AppAlertDialog mounts FDialog with inner Material for TextField"
 - **Code:** `lib/app/motion/app_overlays.dart`, `lib/app/widgets/app_dialog.dart`, `lib/app/widgets/app_date_picker.dart`
 
 ### FB-03 Each action appears once at a time
@@ -123,7 +90,7 @@ reviewed: 2026-11-28
 - **Why:** Prompts died with their page; action prompts stayed forever for
   users of always-on accessibility services. The dwell runs past the
   entrance and the platform timeout, so it cannot time a window.
-- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another, on timeout or swipe" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits; interruptions reset the hint"
+- **Check:** `test/prompt_host_test.dart` "a new prompt replaces the current one and drops the queue" "a prompt shown after a modal opens stays visible and clickable until a newer modal covers it", `test/home_branch_stack_test.dart` "a prompt centres on the content beside the rail", `test/navigation_router_test.dart` "a second back at the start exits; interruptions reset the hint"
 - **Code:** `lib/app/widgets/prompt_host.dart`, `lib/app/widgets/prompt_anchor.dart`
 
 ## Undo
@@ -210,7 +177,7 @@ reviewed: 2026-11-28
   `longPress` itself; secondary mouse clicks opening context menus stay silent.
 - **Why:** Raw controls were silent; Material's own long-press feedback
   doubled the app's, and mouse right-clicks do not warrant touch haptics.
-- **Check:** `test/architecture/ui_conventions_test.dart` "selection controls live only in their haptic wrappers", `test/selection_controls_haptics_test.dart` "SettingsControl plays toggleOn / toggleOff by the new value" "SettingsChoiceTile selects silently when already selected"
+- **Check:** `test/architecture/ui_conventions_test.dart` "selection controls live only in their haptic wrappers"
 - **Code:** `lib/app/widgets/settings`, `lib/app/widgets/app_choice_chip.dart`, `lib/app/widgets/feed/desktop_gallery_controls.dart`
 
 ### FB-13 Store mutations vibrate on the settled outcome

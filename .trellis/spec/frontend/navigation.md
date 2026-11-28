@@ -81,24 +81,6 @@ reviewed: 2026-11-28
 
 ## Bottom bar
 
-### NAV-07 The bottom bar is the Shaft-style bar
-- **Rule:** `FuncBottomNav` is a custom 56dp bar (never M3 `NavigationBar`): tint-only selection (`primary` + heavier weight on `effectsFast`), casting `barShadow` with a continuous 1dp top `brandHairline` (`THEME-18`), labels sharing one `LabelFit` capped at 1.3x text scale. From 600dp wide (landscape phones, NAV-20), items sit centered with icon beside label (falling back to stacked cells when labels won't fit at `LabelFit.minScale`).
-- **Why:** User decisions: Shaft-style indicator-free bar, clean hairline+shadow separation, and centered side-by-side layout on wide phones.
-- **Check:** `test/locale_layout/compact_controls_test.dart` "a turned phone's bottom bar keeps every label whole"; `test/func_bottom_nav_test.dart` "a wide bar puts each icon beside its label, centred"
-- **Code:** `lib/app/widgets/func_bottom_nav.dart`
-
-### NAV-08 Bar geometry is published, never measured
-- **Rule:** Resting bar height comes from `HomeShellChrome`; live covered height comes from `HomeShellChrome.bottomBarVisibleExtent.value` without rebuilding or post-layout measurement.
-- **Why:** Post-layout measurement delayed Hero landing clips and spacers by a frame.
-- **Check:** `test/func_bottom_nav_test.dart` "the bar follows a drag and settles at the nearer end"
-- **Code:** `lib/app/navigation/home_shell_metrics.dart`
-
-### NAV-09 The bar follows the user's own scrolling
-- **Rule:** Both `FuncBottomNav` and `DetailActionBar` move 1:1 with user scrolls on the current root page (settling to the nearer end after drags, or the scroll direction after wheel ticks), ignoring programmatic scrolls, overscroll, and horizontal strips; branch switches restore the bar.
-- **Why:** User decision (M3 `exitAlways` feel) without edge-bounce or programmatic-scroll flicker.
-- **Check:** `test/func_bottom_nav_test.dart` "edge bounce never toggles the bar" "the bar follows a drag and settles at the nearer end" "a wheel tick settles the way it went; other scrolls do not", `test/illust_detail_actions_test.dart` "the action bar follows a drag and settles at the nearer end"
-- **Code:** `lib/app/motion/scroll_hide.dart`
-
 ### NAV-10 Pushed pages cover the bar
 - **Rule:** While a branch root is covered by a pushed route or an exiting transition (`ExitAwareRouteObserver` tracking popup exits in `didPopNext`), the real bar goes `Offstage` and the root draws an inert copy in place so both overlap seamlessly at push start and pop completion.
 - **Why:** Prevented the bottom bar from floating over pushed pages or closing sheets.
@@ -120,7 +102,7 @@ reviewed: 2026-11-28
 ## Branch switching and re-tap
 
 ### NAV-12 Branches slide under a tap or a swipe; the shell chrome stays still
-- **Rule:** On bottom-bar shells, taps slide branches side-by-side (300 ms `branchSwitchCurve`, freezing the outgoing branch; rail/pointer shells use the 150 ms fade + 12dp short slide of `MOTION-23`, cut under reduced motion). On phones, root-page horizontal swipes drag adjacent bar branches (`SwipePaging`, MOTION-20, non-wrapping; tabs yield only at ends via `SwipePagerScope`; disabled when covered, on rails, or under touch exploration). Never wrap the whole `StatefulNavigationShell` in a transition.
+- **Rule:** On bottom-bar shells, taps slide branches side-by-side (300 ms `branchSwitchCurve`, freezing the outgoing branch; rail/pointer shells use 150 ms fade + 12dp short slide, cut under reduced motion). On phones, root-page horizontal swipes drag adjacent bar branches (`SwipePaging`, non-wrapping; tabs yield only at ends via `SwipePagerScope`; disabled when covered, on rails, or under touch exploration). Never wrap the whole `StatefulNavigationShell` in a transition.
 - **Why:** User decisions; wrapping the shell flashed white and swiping under leaving routes hid the bar.
 - **Check:** `test/home_branch_stack_test.dart` "a bar tap slides the new branch in from its side" "the incoming branch stays live while the outgoing one freezes" "takes over from the tabs at their last one" "a page without tabs pages at once; the end of the bar bounces" "$name keeps its destination"
 - **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/app/motion/swipe_paging.dart`
@@ -132,12 +114,6 @@ reviewed: 2026-11-28
 - **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/app/pull_to_refresh.dart`
 
 ## Top bars, tabs and choices
-
-### NAV-14 Top tabs are AppTabBar and never shrink
-- **Rule:** Every tab row uses `AppTabBar` at themed text size (measured in `TabBar`'s painted style, LAYOUT-04): equal shares when all fit (`>= 600dp` caps slots at `maxEqualSlotWidth ?? 120dp`, `76dp` on wide profiles, or the widest label plus padding when wider; start-aligned; `tabsBesideTitle` always caps); otherwise scrollable with 48dp `ScrollEdgeFade(initialAfter: true)`, compact `FuncSpacing.sm` padding under 420dp, and vertical mouse-wheel horizontal scrolling via an owned `TabBarScrollController`.
-- **Why:** Shrunk labels broke long locales, uncapped wide shares spread tabs across 1300dp, and desktop users could not wheel-scroll overflowing tab strips.
-- **Check:** `test/app_tab_bar_test.dart` "a wide row keeps its tabs together at the start" "labels that do not fit scroll from the start at 14sp" "overflowing AppTabBar scrolls horizontally on vertical mouse wheel"
-- **Code:** `lib/app/widgets/app_tab_bar.dart`
 
 ### NAV-15 A tab tap never calls animateTo again
 - **Rule:** `TabBar` animates taps itself; `onTap` never calls `animateTo` for the tapped index.
@@ -160,7 +136,7 @@ reviewed: 2026-11-28
 ### NAV-18 Page top bars are AppTopBar
 - **Rule:** All page headers use `AppTopBar` (leading-aligned titles, `ScrollEdgeShadow` on scroll). Under `DesktopCommandBarScope` or `EmbeddedHeaderScope`, non-immersed bars lay out at exact 52dp (`kDesktopPageHeaderHeight`, no extra wrapper inflating height to 56dp) with a 1dp `brandHairline` bottom edge and omit redundant implicit `BackButton`s (keeping explicit `up` paths).
 - **Why:** Unifies bar shadows, removes the 4dp gap below flat headers, and avoids duplicate desktop back arrows beside `DesktopCommandBar`.
-- **Check:** `test/architecture/ui_conventions_test.dart` "page top bars are AppTopBar"; `test/app_tab_bar_test.dart` "a top bar with tabs casts its shadow once content scrolls under it"; `test/desktop_command_bar_test.dart` "DesktopCommandBar chrome, drag regions, header deduplication, and popovers" "flat AppTopBar occupies exact 52dp and narrow command bar preserves 48dp drag space"
+- **Check:** `test/architecture/ui_conventions_test.dart` "page top bars are AppTopBar"; `test/desktop_command_bar_test.dart` "DesktopCommandBar chrome, drag regions, header deduplication, and popovers" "flat AppTopBar occupies exact 52dp and narrow command bar preserves 48dp drag space"
 - **Code:** `lib/app/widgets/app_top_bar.dart`, `lib/app/widgets/replica_scaffold.dart`, `lib/app/widgets/master_detail_workspace.dart`
 
 ## Wide windows

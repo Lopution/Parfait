@@ -17,16 +17,15 @@ reviewed: 2026-11-28
 
 - [Status views](#status-views)
 - [Grid](#grid)
-- [Pull to refresh](#pull-to-refresh)
-- [Scroll physics](#scroll-physics)
+- [Pull to refresh and scroll](#pull-to-refresh-and-scroll)
 - [First-load skeletons](#first-load-skeletons)
 
 ## Status views
 
 ### FEED-01 Status views come from feed_states.dart
-- **Rule:** Empty, error, and tail states use `FeedEmpty`, `FeedError`, and `FeedTail` (custom restricted/blocked states use `StateActionButton`) with required localized strings and no English fallbacks. Empty/error views place a 40dp `onSurfaceVariant` icon on a `surfaceContainerHigh` disc above a `titleSmall` title (no explanatory prose, PAGE-20), positioned at optical center (40% free space above, accounting for toolbar extensions at layout). `FeedError` offers category-scoped secondary recovery buttons (Network settings for network/DNS/TLS errors, Account settings for auth errors) guarded by `GoRouter.maybeOf` and popping `PopupRoute` ancestors first; signed-out `HistoryPage` uses `FeedEmpty` with a Login action. Oversized empty views scroll only when taller than their viewport so pull-to-refresh keeps normal drags.
-- **Why:** Prevents untranslated fallbacks, drifting status layouts, dead-end network/auth error walls, off-center views under tabs, and overflow on landscape phones.
-- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without" "an empty state scrolls only when the window cannot hold it" "FeedError exposes category-scoped settings action with GoRouter and LoginWebViewErrorCard offers browser fallback", `test/history_page_test.dart` "signed-out state uses FeedEmpty with Login action"
+- **Rule:** Empty, error, and tail states use `FeedEmpty`, `FeedError`, and `FeedTail` (custom restricted/blocked states use `StateActionButton`) with required localized strings and no English fallbacks. `FeedError` offers category-scoped secondary recovery buttons (Network settings for network/DNS/TLS errors, Account settings for auth errors) guarded by `GoRouter.maybeOf` and popping `PopupRoute` ancestors first; signed-out `HistoryPage` uses `FeedEmpty` with a Login action.
+- **Why:** Prevents untranslated fallbacks, drifting status layouts, and dead-end network/auth error walls.
+- **Check:** `test/shared_widgets_test.dart` "FeedError exposes category-scoped settings action with GoRouter and LoginWebViewErrorCard offers browser fallback", `test/history_page_test.dart` "signed-out state uses FeedEmpty with Login action"
 - **Code:** `lib/app/widgets/feed/feed_states.dart`, `lib/features/history/history_page.dart`
 
 ### FEED-02 Refresh only where content can still arrive
@@ -52,14 +51,8 @@ reviewed: 2026-11-28
 ### FEED-04 The card key lives inside the grid extent
 - **Rule:** `IllustFeedGrid` leaves `FeedItemExtent` unkeyed and places `ValueKey(entity.id)` on the inner card subtree; item-scoped state and `findChildIndexCallback` key by entity ID, never index.
 - **Why:** Keying `FeedItemExtent` triggered a `flutter_staggered_grid_view` 0.7.0 null-offset crash when refresh reordered visible items.
-- **Check:** `test/responsive_layout_test.dart` "a refresh that moves visible works to the head lays out"
+- **Check:** manual — structural key placement
 - **Code:** `lib/app/widgets/feed/feed_grid.dart`
-
-### FEED-19 Grid columns follow the user's density
-- **Rule:** Every illustration grid uses `IllustFeedGrid` with `illustColumnsForContext(context, extent, density)` over `illustColumnsFor(extent, density)`: compact/medium touch viewports (`< AppBreakpoints.expanded`) use min card extent 120/180/360dp and min columns 3/2/1 (compact/standard/comfortable); `FormFactor.pc` and wide tablets (`crossAxisExtent >= AppBreakpoints.expanded`, 840dp) use 176/204/268dp for compact/standard/comfortable (min columns 3/2/1; keeping 3 columns beside the 1280px inspector, ~5 columns full-width at 1440px, and avoiding 10-column cramping on 1366dp tablets). Under `FoldPosture.book`, `IllustFeedGrid` splits items across left/right wings around `hingeBounds` via `WindowLayoutSpec.bookSplitFor` so cards never straddle the hinge.
-- **Why:** User decision: unified density preference with comfortable desktop/large-tablet proportions and hinge-safe foldable grids.
-- **Check:** `test/responsive_layout_test.dart` "illustColumnsFor derives columns from the extent and density" "IllustFeedGrid counts columns on the sliver extent, not the window" "PC standard grid keeps 3 columns at 1280px inspector width" "FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping"
-- **Code:** `lib/app/widgets/feed/feed_grid.dart`, `lib/app/layout/window_layout_spec.dart`, `lib/core/settings/app_settings.dart`
 
 ### FEED-05 No feed prefetch
 - **Rule:** Feeds never prefetch images; grid cache extent mounts cards ahead and each card fetches on mount.
@@ -79,12 +72,6 @@ reviewed: 2026-11-28
 - **Check:** manual — warm-up only saves layout time inside a frame (TEST-12)
 - **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/features/illust/detail/widgets/info_block.dart`, `lib/app/widgets/tag_chips.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/widgets/author_summary.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
 
-### FEED-18 A list builds its cache area from its second frame
-- **Rule:** Lists using `kFeedCacheExtent`, settings, and detail pages use `DeferredCacheScrollView` / `DeferredCacheListView` (first frame builds visible items only; cache extent activates next frame) with `SliverCacheRamp` growing trailing cache by at most 1/4 viewport per frame. Look up scroll views by subtype (`CustomScrollView`), never exact type.
-- **Why:** Eagerly building half a screen of cache on mount/push frames caused 13–25 ms frame spikes.
-- **Check:** `test/shared_widgets_test.dart` "sliver cache ramp"
-- **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/layout/sliver_cache_ramp.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/illust_detail_shells.dart`
-
 ### FEED-21 A built card rebuilds only when its own inputs change
 - **Rule:** Feed grids/lists pass `items` and `itemDeps` so `FeedItemCache` reuses unchanged cards; bodies reading `Notifier<Map>` stores select via `StoredEntities` (lists with per-row selection rebuild directly).
 - **Why:** Avoids rebuilding every visible card on unrelated store merges or page appends.
@@ -97,45 +84,13 @@ reviewed: 2026-11-28
 - **Check:** `test/feed_selection_test.dart` "SelectableFeedHost gates >=600dp multi-select, Ctrl/Cmd+Click, Shift range, Ctrl+A, Esc, and batch bookmark/download" "touch tablet enters multi-select via card sheet, landscape phone bar clears bottom nav, and inspector respects content width & auto-closes"
 - **Code:** `lib/app/widgets/feed/feed_selection.dart`, `lib/app/widgets/feed/feed_grid.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/widgets/card_actions/card_action_sheet.dart`, `lib/app/widgets/card_actions/ios_card_context_menu.dart`, `lib/core/bookmark/bookmark_actions.dart`
 
-## Pull to refresh
+## Pull to refresh and scroll
 
 ### FEED-07 PullToRefresh is the only refresh wrapper
-- **Rule:** All feeds (including `SearchHomePage` trending tags + Spotlight) refresh via `PullToRefresh` (`SakuraRefreshIndicator` on `MotionTokens.refreshSpin`; `FeedTail`/`FeedLoading` use `AppSpinner`), using `clamping: false` so lists pull down with the finger, passing explicit `scrollController` for active-tab re-tap refresh (`reTapScrollToTop`), exposing `HeaderRefresh` on wide headers, and surfacing pull-to-refresh failures on loaded feeds via `listenFeedRefreshError` (`showErrorSnackBar` + Retry) rather than silent swallows or bottom-of-list banners. `TabSlideStack` keeps resting neighbors (`|i - pos| >= 1.0`) offstage, pins non-adjacent `animateTo` hops (`|to - from| > 1`) to `{previousIndex, index}` so intermediate tabs never wake, wraps inactive slots in `FrozenWhileHidden`, and `isRenderBoxVisibleOnScreen` excludes offstage/clipped ancestors so refresh and select-all shortcuts hit only the visible tab. `RankingTabs` caps mounted mode subtrees to 5 LRU modes (preserving active, transition peer, and ±1 neighbors while restoring saved scroll offsets on re-entry). Inside `NestedScrollView`, tab bodies pass `isNested: true` with `PullToRefresh.nestedHeader` and the outer view uses `NestedRefreshOuterPhysics` (never wrap the whole `NestedScrollView`).
-- **Why:** User decision: list pulls down cleanly across platforms without clamping bugs, dead search headers, buried refresh errors, clipped neighbor hijacking, or nested profile-header conflicts.
-- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/feed_selection_test.dart` "wide split TabSlideStack keeps resting neighbors offstage for both refresh and select-all", `test/search_result_page_test.dart` "search refresh failure surfaces a Retry prompt and active tab re-tap triggers refresh", `test/search_catalog_test.dart` "SearchHomePage supports pull-to-refresh for trending tags & spotlight and InkWell hover/focus on tag tiles", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses" "a header pushed up during a refresh stays when it ends"
+- **Rule:** All feeds (including `SearchHomePage` trending tags + Spotlight) refresh via `PullToRefresh` (`clamping: false`, passing explicit `scrollController` for active-tab re-tap refresh, exposing `HeaderRefresh` on wide headers, and surfacing pull-to-refresh failures on loaded feeds via `listenFeedRefreshError`). `TabSlideStack` keeps resting neighbors (`|i - pos| >= 1.0`) offstage and `isRenderBoxVisibleOnScreen` excludes offstage/clipped ancestors so refresh and select-all shortcuts hit only the visible tab. Inside `NestedScrollView`, tab bodies pass `isNested: true` with `PullToRefresh.nestedHeader` and the outer view uses `NestedRefreshOuterPhysics` (never wrap the whole `NestedScrollView`).
+- **Why:** User decision: list pulls down cleanly across platforms without dead search headers, buried refresh errors, clipped neighbor hijacking, or nested profile-header conflicts.
+- **Check:** `test/feed_selection_test.dart` "wide split TabSlideStack keeps resting neighbors offstage for both refresh and select-all", `test/search_result_page_test.dart` "search refresh failure surfaces a Retry prompt and active tab re-tap triggers refresh", `test/search_catalog_test.dart` "SearchHomePage supports pull-to-refresh for trending tags & spotlight and InkWell hover/focus on tag tiles", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses" "a header pushed up during a refresh stays when it ends"
 - **Code:** `lib/app/pull_to_refresh.dart`, `lib/app/widgets/app_spinner.dart`, `lib/app/widgets/feed/feed_states.dart`, `lib/features/search/search_page.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_illust_feed.dart`, `pubspec.yaml`
-
-### FEED-08 The indicator follows observable outcomes
-- **Rule:** Reversing a pull retracts the indicator before scrolling the list; ballistic overscroll after pointer-up never arms a pull; every pull ends with the indicator hidden; qualifying pulls invoke `onRefresh` once and stay refreshing until its future completes.
-- **Why:** Prevents stuck indicators and ballistic re-arming.
-- **Check:** `test/pull_to_refresh_test.dart` "a reverse drag retracts the indicator and cancels" "a released armed pull refreshes once and hides the indicator" "ballistic overscroll after the pointer lifts starts no pull", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
-- **Code:** `lib/app/pull_to_refresh.dart`
-
-### FEED-09 The framework decides the threshold
-- **Rule:** `PullToRefresh` reads scroll metrics only to render the indicator and never tracks duplicate drag distance or vetoes framework triggers.
-- **Why:** A parallel state machine disagreed with EasyRefresh and caused stuck indicators.
-- **Check:** `test/pull_to_refresh_test.dart` "reversing an armed pull retracts the indicator before the list scrolls"
-- **Code:** `lib/app/pull_to_refresh.dart`
-
-### FEED-10 Pull tests pull past the arm threshold
-- **Rule:** Pull-to-refresh tests drive a real scrollable past the arm threshold before reversing and assert final indicator visibility.
-- **Why:** Sub-threshold pulls bypassed the real refresh path.
-- **Check:** `test/pull_to_refresh_test.dart` "crossing the refresh trigger is felt both ways" "a released armed pull refreshes once and hides the indicator"
-- **Code:** `test/pull_to_refresh_test.dart`
-
-### FEED-17 PullToRefresh keeps one EasyRefresh while its settings hold
-- **Rule:** `PullToRefresh` rebuilds `EasyRefresh` only when colors, exit mode, `isNested`, or `scrollController` change (child arrives via inherited slot, `onRefresh` via forwarding); EasyRefresh avoids global `MediaQuery` dependencies.
-- **Why:** Rebuilding `EasyRefresh` on page appends or inset changes walked the entire list every frame.
-- **Check:** `test/pull_to_refresh_test.dart` "a new list keeps the refresh and refreshes with the new callback"
-- **Code:** `lib/app/pull_to_refresh.dart`, `pubspec.yaml`
-
-## Scroll physics
-
-### FEED-11 Per-platform scroll physics and drag devices; flings stop at the edge
-- **Rule:** `FuncScrollBehavior` and `PullToRefresh` (`NotLoadFooter(hitOver: false)`) keep `textScrollPhysics` inside `EditableText` and adapt per platform: Android uses `AndroidDragPhysics` over `FuncScrollPhysics` (zero dead zone, no carried flick momentum, mouse drag + `mouseScrollbar`); iOS uses `FuncScrollPhysics` directly (native bouncing carry and 3.5px threshold); Desktop removes `PointerDeviceKind.mouse` from global `dragDevices` so mouse drags select text (only media pagers like `ImageViewerPage` locally mount `MousePageDragSurface` inside `InteractiveViewer` so unzoomed mouse drag turns pages while zoomed drag pans and touch/trackpad pinch stays intact), using `ClampingScrollPhysics` on Windows/Linux and bouncing `FuncScrollPhysics` on macOS. Flings stop at edges everywhere.
-- **Why:** Matches each OS's scroll feel, enables desktop text selection without blocking desktop viewer mouse-drag paging, and avoids bouncing off loading tails.
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself${inRefreshList ? ' (refresh list)' : ''}" "the list follows the finger from the move past the slop${inRefreshList ? ' (refresh list)' : ''}" "a flick while the list coasts starts at its own speed${inRefreshList ? ' (refresh list)' : ''}" "iOS restores bouncing momentum carry and 3.5px drag threshold" "desktop removes mouse drag and splits Windows/Linux clamping from macOS bouncing", `test/illust_detail_viewer_test.dart` "desktop mouse drag pages unzoomed ImageViewerPage and pans while zoomed", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
-- **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab
 - **Rule:** `NestedScrollView` passes `ScrollConfiguration.of(context).getScrollPhysics(context)` as parent of its outer physics; nested `PullToRefresh` layers `FuncScrollPhysics` over EasyRefresh's nested physics; only the active tab attaches to the inner controller (`PrimaryScrollController` is never `.none`).
@@ -166,7 +121,7 @@ reviewed: 2026-11-28
 ### FEED-16 Skeleton geometry matches the real layout
 - **Rule:** `IllustGridSkeleton` matches `illustColumnsForContext`, `FoldPosture.book` wing splits (`WindowLayoutSpec.bookSplitFor`), padding, and spacing (non-scrolling, clipped); `ProfileSkeleton` aligns avatar/name with the real header and keeps a real `BackButton` outside excluded semantics.
 - **Why:** Prevents layout jumps on load and lets users leave slow profiles.
-- **Check:** `test/user_profile_test.dart` "a pending profile shows the skeleton and the back button leaves"; `test/responsive_layout_test.dart` "FoldPosture.book splits IllustFeedGrid, IllustGridSkeleton, and SliverCardList around hingeBounds and wide tablets avoid 10-column cramping"
+- **Check:** `test/user_profile_test.dart` "a pending profile shows the skeleton and the back button leaves"
 - **Code:** `lib/app/widgets/skeleton/illust_grid_skeleton.dart`, `lib/features/profile/profile_skeleton.dart`
 
 ### FEED-23 A restored offset lands on content or on a skeleton that reaches it
