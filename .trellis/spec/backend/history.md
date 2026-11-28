@@ -3,7 +3,7 @@ prefix: HIST
 applies_to:
   - lib/core/history/**
   - lib/features/history/**
-reviewed: 2026-11-25
+reviewed: 2026-11-28
 ---
 
 # Browsing history
@@ -100,7 +100,7 @@ reviewed: 2026-11-25
   another tab with nothing over it, it re-reads out of sight.
 - **Why:** The Me tab's recent row kept what it read when first built;
   the history page kept the list of its first open for the whole session.
-- **Check:** `test/history_persistence_test.dart` "announces writes to the local rows, not to the outbox"; `test/history_page_test.dart` "each open reads afresh; open, the order holds; hidden, it "
+- **Check:** `test/history_persistence_test.dart` "announces writes to the local rows, not to the outbox"; `test/history_page_test.dart` "each open reads afresh; open, the order holds; hidden, it catches up"
 - **Code:** `lib/core/history/history_repository.dart`, `lib/core/history/history_feed_controller.dart`, `lib/features/history/history_page.dart`
 
 ## Reading
@@ -124,5 +124,5 @@ reviewed: 2026-11-25
   moves its row to the top, behind the reader, whether pages go by offset
   or by cursor. A delete between a page's read and its count ended the
   paging early.
-- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"; `test/history_persistence_test.dart` "a delete while a page is read leaves the rest reachable" "searches title, author, tags, IDs and pages filtered results"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
+- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)${overlapping ? ', nor comes back with that page' : ''}" "a failed first read offers a retry, not \"no history\" (B10)"; `test/history_persistence_test.dart` "a delete while a page is read leaves the rest reachable" "searches title, author, tags, IDs and pages filtered results"; `test/backup_test.dart` "views recorded during an export neither repeat nor drop a row"
 - **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`, `lib/features/history/history_body.dart`, `lib/core/backup/backup_service.dart`

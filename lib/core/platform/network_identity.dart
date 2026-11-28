@@ -30,31 +30,45 @@ class ChannelNetworkIdentitySource implements NetworkIdentitySource {
       _channel.receiveBroadcastStream().map((event) => event as String);
 }
 
-/// Windows: the kinds of link `connectivity_plus` reports. No carrier is
-/// visible there.
+/// Windows/macOS/Linux: the kinds of link `connectivity_plus` reports. No
+/// carrier is visible there.
 class ConnectivityNetworkIdentitySource implements NetworkIdentitySource {
-  const ConnectivityNetworkIdentitySource();
+  const ConnectivityNetworkIdentitySource({
+    Connectivity Function()? createConnectivity,
+  }) : _createConnectivity = createConnectivity;
+
+  final Connectivity Function()? _createConnectivity;
+
+  /// Returns true when a Linux host has no `org.freedesktop.NetworkManager`
+  /// DBus service (or denies access to it), where subscribing to
+  /// `connectivity_plus_linux`'s `onConnectivityChanged` would leak an
+  /// unhandled async exception from `StreamController.onListen`.
+  static bool isMissingLinuxNetworkManagerError(Object error) {
+    final text = error.toString();
+    return text.contains('org.freedesktop.DBus.Error.ServiceUnknown') ||
+        text.contains('org.freedesktop.DBus.Error.AccessDenied') ||
+        text.contains('org.freedesktop.NetworkManager');
+  }
 
   /// A failed first look is logged and skipped: an error inside this
   /// generator would end the stream before it follows any change. When Linux
-  /// has no `org.freedesktop.NetworkManager` DBus service, subscribing to
-  /// `onConnectivityChanged` would leak an unhandled async exception from
-  /// `connectivity_plus_linux`'s `StreamController.onListen`, so stop after
-  /// logging instead of subscribing.
+  /// has no `org.freedesktop.NetworkManager` DBus service, stop after logging
+  /// instead of subscribing; runtime stream errors are also logged via
+  /// `handleError` rather than leaking out of the zone.
   @override
   Stream<String> identities() async* {
-    final connectivity = Connectivity();
+    final connectivity = (_createConnectivity ?? Connectivity.new)();
     try {
       yield _identityOf(await connectivity.checkConnectivity());
     } on Object catch (error) {
       log('network identity: $error');
-      final text = error.toString();
-      if (text.contains('org.freedesktop.DBus.Error.ServiceUnknown') ||
-          text.contains('org.freedesktop.NetworkManager')) {
+      if (isMissingLinuxNetworkManagerError(error)) {
         return;
       }
     }
-    yield* connectivity.onConnectivityChanged.map(_identityOf);
+    yield* connectivity.onConnectivityChanged
+        .handleError((Object error) => log('network identity: $error'))
+        .map(_identityOf);
   }
 
   /// Sorted, so a VPN layered over Wi-Fi differs from plain Wi-Fi: tunnel

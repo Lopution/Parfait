@@ -54,7 +54,7 @@ reviewed: 2026-11-23
 ### DETAIL-06 Below-the-fold sections load on demand
 - **Rule:** Related works, comment preview, and author's other works use `OnDemandSliver`: requests wait until on-screen and current in the pager for 300 ms, holding a static placeholder (never a spinner) beforehand. `IllustSeriesSection` gates recent-episode writes on `DetailPageActivity.of(context)` so prebuilt neighbours never overwrite "Continue episode N". Paging only calls `loadMore` on already-loaded providers.
 - **Why:** Prebuilt pager neighbours fired premature requests, overwrote series reading state, and off-screen spinners ticked frames continuously.
-- **Check:** `test/illust_detail_pager_test.dart` "only the current page requests its related works" "a neighbour requests once it has stayed settled"; `test/series_section_test.dart` "inactive DetailPageActivity skips recording recent series open until active"
+- **Check:** `test/illust_detail_pager_test.dart` "only the current page requests its related works" "a neighbour requests once it has stayed settled"; `test/series_feed_test.dart` "inactive DetailPageActivity skips recording recent series open until active"
 - **Code:** `lib/features/illust/detail/on_demand_sliver.dart`, `lib/features/illust/detail/detail_page_activity.dart`, `lib/features/illust/detail/widgets/illust_series_section.dart`
 
 ### DETAIL-07 Sections replace their states without fades

@@ -6,7 +6,7 @@ applies_to:
   - lib/core/auth/credential_store.dart
   - lib/core/translation/**
   - lib/core/auth/account_transfer*.dart
-reviewed: 2026-11-25
+reviewed: 2026-11-28
 ---
 
 # Settings persistence and secrets
@@ -131,5 +131,5 @@ reviewed: 2026-11-25
   off a display that had been unplugged, forced the user to place it again
   every launch; writing on every drag event cost a preferences write per
   frame.
-- **Check:** `test/window_geometry_test.dart` "a first launch opens at the default size" "a saved place mostly off the work area is centred instead" "a saved place picks the display it overlaps most"; `test/app_settings_test.dart` "the desktop window place round-trips; damage falls back"
+- **Check:** `test/window_geometry_test.dart` "a first launch opens at the default size, centred on the work area" "a saved place mostly off the work area is centred instead" "a saved place picks the display it overlaps most"; `test/app_settings_test.dart` "the desktop window place round-trips; damage falls back"
 - **Code:** `lib/app/window/desktop_window.dart`, `lib/app/window/window_geometry.dart`, `lib/core/settings/app_settings.dart`, `lib/core/settings/settings_controller.dart`

@@ -6,7 +6,7 @@ applies_to:
   - lib/features/novel/**
   - lib/features/illust/viewer/**
   - lib/features/profile/profile_header_delegate.dart
-reviewed: 2026-11-17
+reviewed: 2026-11-28
 ---
 
 # System bars and immersive pages
@@ -87,5 +87,5 @@ reviewed: 2026-11-17
 ### SYS-07 Pages out of sight keep the insets and constraints they last saw
 - **Rule:** Every page route and inactive `TabSlideStack` slot wraps its subtree in `FrozenWhileHidden` (or `FrozenWhileHidden.when(hidden: !active)`): while hidden (`TickerMode` off or `hidden: true`), the subtree keeps the `MediaQueryData`, `HomeShellChrome`, and already-sized `BoxConstraints` it last saw, skipping hidden relayouts on window/keyboard resizes and calling `markNeedsLayout` on reveal. The covered shell bar keeps its last widget and media the same way. Skeleton text bones look their line height up by style, scaler and direction.
 - **Why:** Covered and hidden subtrees stay attached and still build and lay out. Each reader bar toggle, desktop window resize, and keyboard frame rebuilt and relaid out hidden scaffolds/tabs and measured 64 skeleton lines in hidden branches (9–15 ms frames on device).
-- **Check:** `test/func_page_test.dart` "the media and shell chrome it saw until it shows again", `test/shared_widgets_test.dart` "a text bone is as tall as a line of its style"
+- **Check:** `test/func_page_test.dart` "a page ${covered ? 'covered by a route' : 'in a hidden branch'} keeps the media and shell chrome it saw until it shows again", `test/shared_widgets_test.dart` "a text bone is as tall as a line of its style at every text scale"
 - **Code:** `lib/app/navigation/frozen_while_hidden.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/skeleton/func_skeleton.dart`

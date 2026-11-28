@@ -3,7 +3,7 @@ prefix: SET
 applies_to:
   - lib/app/widgets/settings/**
   - lib/features/settings/**
-reviewed: 2026-11-22
+reviewed: 2026-11-28
 ---
 
 # Settings pages and the Me tab
@@ -133,7 +133,7 @@ reviewed: 2026-11-22
   the catalog and is anchored. Conditional rows' titles go in
   `extraKeys`.
 - **Why:** Rows missing from the index were unreachable from search.
-- **Check:** `test/settings_search_test.dart` "title hits come before option hits, case and spaces ignored" "a result opens its page with the setting revealed and marked"
+- **Check:** `test/settings_search_test.dart` "title hits come before option hits, case and spaces ignored" "a result opens its page with the setting revealed and marked; back returns to the search"
 - **Code:** `lib/features/settings/settings_catalog.dart`, `lib/app/widgets/settings/settings_anchor.dart`
 
 ### SET-06 Each setting has one home page and master-detail layout on wide workspaces
@@ -176,57 +176,57 @@ reviewed: 2026-11-22
 
 ## Me tab
 
-### SET-07 The Me tab puts content before settings on unified workspaces and cards
+### SET-07 Narrow Me tab puts account, history strip, and monochrome library rows before settings
 - **Rule:** On narrow layouts (`!MasterDetailWorkspace.canDisplay`), the Me root
   shows an `AppIcons.settings` shortcut (`settingsTitle` tooltip) in
   `AppTopBar.actions` (omitted when `DesktopCommandBarScope` owns chrome)
   while keeping the bottom `设置` row (`SET-08`). First comes the atmospheric
-  account header (a `FuncShape.panel` card on `surfaceContainer`
-  layered with an `AmbientWash` backdrop tinted from the user's cover/work
-  image at `decodeWidth: 96`, containing `PersonCard` at 52dp avatar, name with
-  neutral "Premium" pill, user ID, and trailing manage icon button — or one
-  sign-in button when signed out — plus a `brandHairline`-separated 3-column
+  account header (a `FuncShape.panel` card on `surfaceContainer` layered with
+  an `AmbientWash` backdrop tinted from the user's cover/work image at
+  `decodeWidth: 96`, containing `PersonCard` at 52dp avatar, name with neutral
+  "Premium" pill, user ID, and trailing manage icon button — or one sign-in
+  button when signed out — plus a `brandHairline`-separated 3-column
   interactive `收藏 / 关注 / 好P友` stat row once `userDetail` loads). Next
   comes the last eight history records as a row of square covers (or an
-  empty-history `暂无浏览历史` entry card without a `"see all"` button when empty),
-  followed by monochrome grouped `SettingsGroup` / `SettingsTile.topLevel`
-  sections (`showChevron: true`, 22dp `AppIcons`, `SET-08`, single-line library
-  and collection rows carrying live `trailingText` counts when non-zero, keeping
-  `Badge` on downloads and subtitle on `设置` / `关于`) ordering library,
-  collections, recent tools and settings/about. An illustration cover opens the
-  detail pager over the row's illustrations; covers in `IllustStore` fly via
-  Hero (`'me-history'`, TRANS-07) while unseen ones do not. The row uses
+  empty-history `暂无浏览历史` entry card without a `"see all"` button when
+  empty), followed by monochrome grouped `SettingsGroup` /
+  `SettingsTile.topLevel` sections (`showChevron: true`, 22dp `AppIcons`,
+  `SET-08`, live `trailingText` counts when non-zero, `Badge` on downloads,
+  subtitle on `设置` / `关于`). Illustration covers open the detail pager in row
+  order and fly via Hero (`'me-history'`, TRANS-07) when in `IllustStore`;
   `HistoryVisibility` settled-route gating plus root-to-leaf `Navigator`
-  secondary-animation checks so, while covered, it holds its order and slides
-  on `MotionTokens.spatial` once uncovered (painting hovered covers in the top
-  layer with unclipped `FuncSpacing.xs` lift headroom and symmetric
-  `Curves.easeInOutCubic` curves so promoted/displaced slots leave no gap, plus
-  horizontal `ScrollEdgeFade(axis: Axis.horizontal, fadeExtent: FuncSpacing.lg)`).
-  When `MasterDetailWorkspace.canDisplay` holds (`>= 840x480` content), the Me
-  tab mounts `MasterDetailWorkspace` (`masterBody` scrolled with vertical
-  `ScrollEdgeFade`) wrapping its nested detail `Navigator` in
+  secondary-animation checks hold row order while covered and slide on
+  `MotionTokens.spatial` once uncovered (unclipped `FuncSpacing.xs` lift
+  headroom, symmetric `Curves.easeInOutCubic`, horizontal `ScrollEdgeFade`).
+- **Why:** User decision: settings filled two thirds of the page in a style of
+  their own; monochrome grouped rows clarify mobile hierarchy, and holding
+  history order while covered keeps Hero return flights aimed at the right
+  cover before sliding.
+- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"
+- **Code:** `lib/app/widgets/scroll_edge_fade.dart`, `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_tile.dart`, `lib/core/history/history_visibility.dart`, `lib/features/settings/me_dashboard_page.dart`
+
+### SET-11 Wide Me tab opens directly into a 280dp MasterDetailWorkspace
+- **Rule:** When `MasterDetailWorkspace.canDisplay` holds (`>= 840x480`
+  content), the Me tab mounts `MasterDetailWorkspace` (`masterBody` scrolled
+  with vertical `ScrollEdgeFade`) wrapping its nested detail `Navigator` in
   `SettingsDetailScope`: a `280dp` left rail (a compact 40dp account header
   card opening the signed-in user's profile or login with an inline
   `AppIcons.accountManage` button, plus grouped `showChevron: false` monochrome
-  single-entry destination items with live `trailingText` counts and
-  `*Filled` selected states `heartFilled` / `watchLaterFilled`, including
-  `HistoryPage` under data and settings/about on touch tablets without
+  single-entry destination items with live `trailingText` counts and `*Filled`
+  selected states `heartFilled` / `watchLaterFilled`, including `HistoryPage`
+  under data and settings/about on touch tablets without
   `DesktopCommandBarScope`) that opens directly onto the bookmarks pane (`收藏`)
   on touch tablets — or onto `关注` under `DesktopCommandBarScope`, omitting
   the `收藏` and `下载` rows already owned by the adjacent desktop `ShellRail` —
   without duplicating profile cards, library metric cards, or history strips in
-  a separate overview pane; the bookmarks and following panes defer
-  network-backed filters and feeds until the Me tab's network scope is active,
-  and the detail `Navigator` reports `NavigationNotification` to an outer
+  a separate overview pane. Bookmarks and following panes defer network-backed
+  filters and feeds until the Me tab's network scope is active, and the detail
+  `Navigator` reports `NavigationNotification` to an outer
   `PopScope(canPop: !_detailCanHandlePop)` so `Esc`/back exits management modes
   inside detail pages before leaving the Me tab.
-- **Why:** User decision: settings filled two thirds of the page in a
-  style of their own, while static multi-hue icon lists under-utilized desktop
-  canvas space; monochrome grouped rows clarify visual hierarchy on mobile, and
-  removing the redundant overview studio eliminates duplicate entries in the wide
-  2-column workspace so every library section opens cleanly in one click inside
-  the shared 280dp `MasterDetailWorkspace` / `SettingsDetailScope` pattern. The
-  history row holds its order while covered so Hero landing flights target the
-  right cover before sliding to match recent history.
-- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"; `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly" "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me"
-- **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/widgets/scroll_edge_fade.dart`, `lib/app/widgets/settings/settings_group.dart`, `lib/app/widgets/settings/settings_tile.dart`, `lib/core/history/history_visibility.dart`, `lib/features/settings/me_dashboard_page.dart`
+- **Why:** Removes the redundant overview studio in wide 2-column workspaces so
+  every library section opens in one click inside the shared 280dp
+  `MasterDetailWorkspace` / `SettingsDetailScope` pattern and back exits inner
+  selection modes before popping Me.
+- **Check:** `test/settings_master_detail_test.dart` "wide Me dashboard wraps SettingsDetailScope and opens bookmarks directly" "wide Me dashboard forwards back to exit WatchLater managing mode before popping Me"
+- **Code:** `lib/app/widgets/master_detail_workspace.dart`, `lib/app/widgets/scroll_edge_fade.dart`, `lib/features/settings/me_dashboard_page.dart`
