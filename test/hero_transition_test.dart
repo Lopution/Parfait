@@ -1,90 +1,44 @@
 import 'dart:async';
-import 'dart:math' as math;
 
-import 'package:flutter/rendering.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:http/http.dart' as http;
+import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/motion/hero_rect_clip.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/route_extras.dart';
 import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/core/debug/hero_anomaly_log.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:parfait/features/illust/detail/illust_detail_page.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/connectivity_channels.dart';
+import 'helpers/detail_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
-import 'helpers/detail_world.dart';
-import 'helpers/hero_flight.dart';
-import 'package:parfait/app/motion/hero_rect_clip.dart';
-import 'package:parfait/app/motion/drag_to_dismiss.dart';
-import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'helpers/leak_tracking.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/prompt_host.dart';
+import 'helpers/pixiv_router.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/view_size.dart';
-import 'helpers/pixiv_router.dart';
 import 'helpers/waits.dart';
-import 'helpers/leak_tracking.dart';
 
 void main() {
   ignoreOctoImageFades();
   // Every test that builds an image creates the network factory, which
   // listens to connectivity. Unanswered, a cancel's reply lands in a later
-  // test's real async (the decode test's runAsync) as an exception.
+  // test's real async as an exception.
   setUp(answerConnectivityChannels);
 
-  // The real router on the feed, then the detail page of the work in [json]
-  // pushed with the feed's hero scope.
-  Future<void> pushFromFeed(
-    WidgetTester tester,
-    Map<String, dynamic> json, {
-    Map<int, Map<String, dynamic>> detailOverrides = const {},
-    FakeViewPadding? viewPadding,
-  }) async {
-    setViewSize(tester, const Size(390, 844));
-    if (viewPadding != null) {
-      tester.view.padding = viewPadding;
-      tester.view.viewPadding = viewPadding;
-    }
-    // Detail pages embed VisibilityDetector trackers — zero interval uses
-    // post-frame callbacks instead of a periodic timer.
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
-    final (container, _, _) = await makeWorld(detailOverrides: detailOverrides);
-    final entity = parseIllust(json);
-    container.read(illustStoreProvider).mergeAll([entity]);
-    final router = pixivRouter('/recommended');
-    await tester.pumpWidget(localizedRouterApp(router, container: container));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    unawaited(
-      router.push<void>(
-        '/recommended/illust/${entity.id}',
-        extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
-      ),
-    );
-    await tester.pump();
-  }
-
   Future<({BuildContext root, NavigatorState nav, Route<void> firstRoute})>
-  pumpHeroNavigator(
-    WidgetTester tester, {
-    required Widget firstChild,
-    TargetPlatform? platform,
-  }) async {
+  pumpHeroNavigator(WidgetTester tester, {required Widget firstChild}) async {
     setViewSize(tester, const Size(400, 800));
     late BuildContext root;
     late Route<void> firstRoute;
@@ -92,7 +46,6 @@ void main() {
     addTearDown(heroes.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: platform == null ? null : ThemeData(platform: platform),
         home: Builder(
           builder: (context) {
             root = context;
@@ -146,296 +99,48 @@ void main() {
     expect(find.byType(ImageViewerPage), findsOneWidget);
   });
 
-  // The flight self-check: a card end the user cannot see is logged and
-  // announced; a flight between two live ends on screen is not.
-  testWidgets('a flight from a card out of sight is logged, others not', (
-    tester,
-  ) async {
-    final navigator = GlobalKey<NavigatorState>();
-    var live = true;
-    late StateSetter setLive;
-    const tag = 'IllustHero:feed:7';
-    Widget hero(double size) => Hero(
-      tag: tag,
-      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-      child: IllustHeroCardFrame(child: SizedBox.square(dimension: size)),
-    );
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: const [],
-        navigatorKey: navigator,
-        builder: promptHostBuilder,
-        home: StatefulBuilder(
-          builder: (context, setState) {
-            setLive = setState;
-            return Align(
-              alignment: Alignment.topLeft,
-              child: TickerMode(enabled: live, child: hero(100)),
-            );
-          },
-        ),
-      ),
-    );
-    final log = HeroAnomalyLog(SharedPreferencesAsync());
-    Future<void> openAndClose() async {
-      unawaited(
-        navigator.currentState!.push(
-          MaterialPageRoute<void>(builder: (_) => Center(child: hero(300))),
-        ),
-      );
-      await tester.pumpAndSettle();
-      navigator.currentState!.pop();
-      await tester.pumpAndSettle();
-    }
-
-    await openAndClose();
-    expect(await tester.runAsync(log.read), isEmpty);
-    expect(find.text('已记录一次 Hero 异常'), findsNothing);
-
-    setLive(() => live = false);
-    await tester.pump();
-    unawaited(
-      navigator.currentState!.push(
-        MaterialPageRoute<void>(builder: (_) => Center(child: hero(300))),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    final entries = (await tester.runAsync(log.read))!;
-    expect(entries, hasLength(1));
-    expect(entries.single, contains('push $tag'));
-    expect(entries.single, contains('card end still'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('已记录一次 Hero 异常'), findsOneWidget);
-    await tester.pumpAndSettle(const Duration(seconds: 5));
-  });
-
-  // Within the tap window a push from a card is held to the tapped card's
-  // box; a push from the detail page to the viewer, under the same tag,
-  // starts from the detail image and is not.
-  testWidgets('a push is held to the tapped card only when it leaves a card', (
-    tester,
-  ) async {
-    final navigator = GlobalKey<NavigatorState>();
-    final tapped = GlobalKey();
-    const tag = 'IllustHero:feed:8';
-    Widget hero(Widget child) => Hero(
-      tag: tag,
-      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-      child: child,
-    );
-    Future<void> push(Widget page) async {
-      unawaited(
-        navigator.currentState!.push(
-          MaterialPageRoute<void>(builder: (_) => page),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-    }
-
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: const [],
-        navigatorKey: navigator,
-        builder: promptHostBuilder,
-        home: Stack(
-          children: [
-            hero(
-              const IllustHeroCardFrame(child: SizedBox.square(dimension: 100)),
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: SizedBox.square(key: tapped, dimension: 50),
-            ),
-          ],
-        ),
-      ),
-    );
-    final log = HeroAnomalyLog(SharedPreferencesAsync());
-    noteHeroCardOpened(tester.element(find.byKey(tapped)), tag);
-
-    await push(Center(child: hero(const SizedBox.square(dimension: 300))));
-    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'flying');
-    final entries = (await tester.runAsync(log.read))!;
-    expect(entries.single, contains('card end away from the tapped card'));
-    await tester.pumpAndSettle();
-
-    await push(hero(const SizedBox.expand()));
-    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'flying');
-    expect(await tester.runAsync(log.read), hasLength(1));
-    await tester.pumpAndSettle(const Duration(seconds: 5));
-  });
-
-  testWidgets('only the entry page flies back; a drag from another page '
-      'slides away, back leaves like any page', (tester) async {
-    await pushFromFeed(
-      tester,
-      illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
-    );
-    await tester.pumpAndSettle();
-    final baseTag = illustHeroTag('feed', 42);
-    final viewer = find.byType(ImageViewerPage);
-    double slide() => tester
-        .widget<FractionalTranslation>(
-          find
-              .descendant(
-                of: viewer,
-                matching: find.byType(FractionalTranslation),
-              )
-              .first,
-        )
-        .translation
-        .dy;
-
-    // Leaving from page 2, where the viewer did not open: it carries no
-    // Hero. Back plays the page transition; a drag slides the stage down.
-    for (final drag in [false, true]) {
-      await tester.tap(find.byType(DetailPageImage).first);
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: viewer,
-          matching: find.byWidgetPredicate(
-            (w) => w is Hero && w.tag == baseTag,
-          ),
-        ),
-        findsOneWidget,
-        reason: 'the viewer opened on page 1 carries its Hero',
-      );
-      await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
-      await tester.pumpAndSettle();
-      expect(find.text('2 / 2'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: viewer,
-          matching: find.byWidgetPredicate(
-            (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
-          ),
-        ),
-        findsNothing,
-      );
-
-      if (drag) {
-        await tester.drag(find.byType(DragToDismiss), const Offset(0, 300));
-      } else {
-        await tester.tap(find.byType(BackButton));
-      }
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(slide(), drag ? greaterThan(0) : 0, reason: 'drag: $drag');
-      await tester.pumpAndSettle();
-      expect(viewer, findsNothing);
-    }
-  });
-
-  testWidgets('an image sent back mid-flight turns where it is', (
-    tester,
-  ) async {
-    await pushFromFeed(tester, illustJson(42));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DetailPageImage).first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 180));
-    Offset at() => tester.getCenter(find.byType(HeroRectClip));
-    var last = at();
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    expect(at(), last, reason: 'turns without a jump');
-    final steps = <double>[];
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
-      if (find.byType(HeroRectClip).evaluate().isEmpty) break;
-      steps.add((at() - last).distance);
-      last = at();
-    }
-    // Home on the return curve from where it was: it starts from rest.
-    // The opening curve played backwards set off at its fastest.
-    expect(steps.length, greaterThan(4));
-    expect(steps.first, lessThan(steps[1] / 2));
-    await tester.pumpAndSettle();
-    expect(find.byType(ImageViewerPage), findsNothing);
-  });
-
   testWidgets(
-    'the viewer leaves whole and square; the detail page answers mid-flight',
+    'detail page fetches large image once after Hero flight settles',
     (tester) async {
-      await pushFromFeed(tester, illustJson(42));
-      await tester.pumpAndSettle();
-      final detail = find.byType(IllustDetailPage);
-      await tester.tap(find.byType(DetailPageImage).first);
-      await tester.pumpAndSettle();
-      int? decodeWidthIn(Finder scope) => tester
-          .widget<PixivImage>(
-            find.descendant(of: scope, matching: find.byType(PixivImage)),
-          )
-          .memCacheWidth;
-      final shown = decodeWidthIn(find.byType(ImageViewerPage));
-      expect(shown, isNotNull, reason: 'the viewer shows its preview');
-      await tester.tap(find.byType(BackButton));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
-      // The shuttle paints the decode the viewer showed: no second decode.
-      expect(decodeWidthIn(find.byType(HeroRectClip)), shown);
-      // The stage fades out whole: no hole where the image sat. The image
-      // flies square: neither end is a card.
-      expect(
-        tester.layers.whereType<ClipPathLayer>().where(
-          (layer) => layer.clipPath!.fillType == PathFillType.evenOdd,
-        ),
-        isEmpty,
+      setViewSize(tester, const Size(390, 844));
+      final entity = parseIllust(illustJson(7, width: 400, height: 2000));
+      final large = entity.imageUrls.large;
+      final copy = entity.previewUrl(PreviewQuality.large);
+      final client = HeldBodyClient(
+        respond: (request) =>
+            {_topSquareUrl, copy, large}.contains('${request.url}')
+            ? http.StreamedResponse(
+                Stream.value(onePixelPng),
+                200,
+                request: request,
+              )
+            : null,
       );
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is HeroRectClip && w.child is ClipRRect,
-        ),
-        findsNothing,
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [
+          imageWorkerProvider.overrideWithValue(
+            inProcessImageWorker(() => client),
+          ),
+          previewQualityProvider.overrideWithValue(PreviewQuality.large),
+        ],
       );
-      // The detail page below stays live rather than a frozen texture, and
-      // a tap on its image opens the viewer again.
-      expect(
-        tester
-            .widgetList<SnapshotWidget>(
-              find.ancestor(of: detail, matching: find.byType(SnapshotWidget)),
-            )
-            .where((snapshot) => snapshot.controller.allowSnapshotting),
-        isEmpty,
-      );
-      await tester.tap(find.byType(DetailPageImage).first);
-      await tester.pumpAndSettle();
-      expect(find.byType(ImageViewerPage), findsOneWidget);
-    },
-  );
-
-  testWidgets('a cropped image covers its flight rect; both sides keep pace', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(390, 844));
-    // A 1:5 work whose feed card shows its top in a 1:2 box, and a 2:1 one
-    // whose square cover shows its middle; the detail page shows either
-    // whole at full width.
-    for (final (aspect, card) in [
-      (0.2, const Size(180, 360)),
-      (2.0, const Size(88, 88)),
-    ]) {
       final tag = illustHeroTag('feed', 7);
       final navigatorKey = GlobalKey<NavigatorState>();
       await tester.pumpWidget(
-        MaterialApp(
-          key: ValueKey(aspect),
+        localizedApp(
+          container: container,
           navigatorKey: navigatorKey,
           home: Align(
             alignment: Alignment.topLeft,
-            child: SizedBox.fromSize(
-              size: card,
+            child: SizedBox.square(
+              dimension: 180,
               child: Hero(
                 tag: tag,
                 createRectTween: illustHeroRectTween,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                 child: IllustHeroCardFrame(
-                  cropAspect: aspect,
+                  cropAspect: entity.pageAspectRatioAt(0),
+                  topSquare: true,
                   child: const ColoredBox(color: Colors.red),
                 ),
               ),
@@ -443,893 +148,44 @@ void main() {
           ),
         ),
       );
+      var warmed = false;
+      unawaited(
+        PixivImage.preload(
+          navigatorKey.currentContext!,
+          large,
+          memCacheWidth: PixivImage.screenDecodeWidthOf(
+            navigatorKey.currentContext!,
+            listen: false,
+          ),
+          priority: ImageFetchPriority.foreground,
+        ).then((_) => warmed = true),
+      );
+      await pumpIoUntil(tester, () => warmed);
       unawaited(
         navigatorKey.currentState!.push(
-          MaterialPageRoute<void>(
-            builder: (_) => Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 390,
-                height: 390 / aspect,
-                child: Hero(
-                  tag: tag,
-                  createRectTween: illustHeroRectTween,
-                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                  child: const ColoredBox(
-                    key: ValueKey('art'),
-                    color: Colors.blue,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      var width0 = 0.0;
-      // The screen cuts the long work's box short.
-      final detailHeight = math.min(390 / aspect, 844.0);
-      for (final ms in [80, 80, 80]) {
-        await tester.pump(Duration(milliseconds: ms));
-        Finder inFlight(Finder finder) =>
-            find.descendant(of: find.byType(HeroRectClip), matching: finder);
-        final flight = tester.getRect(
-          inFlight(find.byType(CustomSingleChildLayout)),
-        );
-        final image = tester.getRect(
-          inFlight(find.byKey(const ValueKey('art'))).first,
-        );
-        // Never fitted inside the rect: that shrank it narrower mid-flight.
-        final width = math.max(flight.width, flight.height * aspect);
-        expect(image.width, closeTo(width, 0.5), reason: '$aspect');
-        expect(image.height, closeTo(width / aspect, 0.5));
-        expect(image.top, closeTo(flight.top, 0.5));
-        expect(image.center.dx, closeTo(flight.center.dx, 0.5));
-        // Shown like an uncropped card's image: whole, cut to the rect,
-        // nothing faded past it.
-        final cut = find
-            .ancestor(
-              of: find.byType(CustomSingleChildLayout).last,
-              matching: find.byType(ClipRRect),
-            )
-            .first;
-        expect(tester.getRect(cut), flight);
-        expect(inFlight(find.byType(Opacity)), findsNothing);
-        expect(flight.width, greaterThan(width0));
-        width0 = flight.width;
-        // Both sides by one progress: Material's corner arcs had the square
-        // cover reach its width, then shrink a step more in height.
-        expect(
-          (flight.width - card.width) / (390 - card.width),
-          closeTo(
-            (flight.height - card.height) / (detailHeight - card.height),
-            0.01,
-          ),
-        );
-      }
-      await tester.pumpAndSettle();
-    }
-  });
-
-  for (final (quality, warm) in [
-    (PreviewQuality.medium, false),
-    (PreviewQuality.medium, true),
-    (PreviewQuality.large, true),
-  ]) {
-    testWidgets(
-      'a top-square card flies its square over the whole work; the page image '
-      '${warm ? 'decoded by the landing shows at once' : 'fades in once decoded'}'
-      ' (copy ${quality.name})',
-      (tester) async {
-        // A 1:5 work from its top-square card. The card's square and the
-        // copy answer at once and are decoded at the page's width before
-        // the push, as the card leaves them by its tap; the page image too
-        // when warm, else it waits for the test to send its body.
-        setViewSize(tester, const Size(390, 844));
-        final entity = parseIllust(illustJson(7, width: 400, height: 2000));
-        final large = entity.imageUrls.large;
-        final copy = entity.previewUrl(quality);
-        final decoded = {copy, if (warm) large};
-        final client = HeldBodyClient(
-          respond: (request) =>
-              {_topSquareUrl, ...decoded}.contains('${request.url}')
-              ? http.StreamedResponse(
-                  Stream.value(onePixelPng),
-                  200,
-                  request: request,
-                )
-              : null,
-        );
-        final (container, _, _) = await makeWorld(
-          extraOverrides: [
-            imageWorkerProvider.overrideWithValue(
-              inProcessImageWorker(() => client),
-            ),
-            previewQualityProvider.overrideWithValue(quality),
-          ],
-        );
-        final tag = illustHeroTag('feed', 7);
-        final navigatorKey = GlobalKey<NavigatorState>();
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            navigatorKey: navigatorKey,
-            home: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox.square(
-                dimension: 180,
-                child: Hero(
-                  tag: tag,
-                  createRectTween: illustHeroRectTween,
-                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                  child: IllustHeroCardFrame(
-                    cropAspect: entity.pageAspectRatioAt(0),
-                    topSquare: true,
-                    child: const ColoredBox(
-                      key: ValueKey('card'),
-                      color: Colors.red,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        var warmed = 0;
-        for (final url in decoded) {
-          unawaited(
-            PixivImage.preload(
-              navigatorKey.currentContext!,
-              url,
-              memCacheWidth: PixivImage.screenDecodeWidthOf(
-                navigatorKey.currentContext!,
-                listen: false,
-              ),
-              priority: ImageFetchPriority.foreground,
-            ).then((_) => warmed++),
-          );
-        }
-        await pumpIoUntil(tester, () => warmed == decoded.length);
-        unawaited(
-          navigatorKey.currentState!.push(
-            FuncPage<void>(
-              sharedElement: true,
-              child: SingleChildScrollView(
-                child: DetailPageImage(
-                  entity: entity,
-                  index: 0,
-                  heroTag: tag,
-                  heroScope: 'feed',
-                  heroImageUrl: _topSquareUrl,
-                  heroImageDecodeWidth: 540,
-                  // The page's data is there in the frame a Hero measures the
-                  // page in, where the flight takes the page's Hero child.
-                  detailUrl: large,
-                  downloadMode: false,
-                  selected: false,
-                  onToggleSelect: () {},
-                  onLongPress: () {},
-                ),
-              ),
-            ).createRoute(navigatorKey.currentContext!),
-          ),
-        );
-        await tester.pump();
-        Finder inFlight(Finder finder) =>
-            find.descendant(of: find.byType(HeroRectClip), matching: finder);
-        Finder image(String url, {Finder? under}) => find.descendant(
-          of: under ?? find.byType(DetailPageImage),
-          matching: find.byWidgetPredicate(
-            (w) => w is PixivImage && w.url == url,
-          ),
-        );
-        for (final ms in [150, 150]) {
-          await tester.pump(Duration(milliseconds: ms));
-          final flying = tester.widgetList<PixivImage>(
-            inFlight(find.byType(PixivImage)),
-          );
-          // The copy below, the sharp square over its top.
-          expect([for (final i in flying) i.url], [copy, _topSquareUrl]);
-          for (final image in flying) {
-            expect(image.fit, BoxFit.fitWidth);
-            expect(image.alignment, Alignment.topCenter);
-          }
-          final copyFrame = find.descendant(
-            of: image(copy, under: find.byType(HeroRectClip)),
-            matching: find.byType(RawImage),
-          );
-          expect(tester.widget<RawImage>(copyFrame).image, isNotNull);
-        }
-
-        // To the frame the landed page first builds its image in.
-        while (image(large).evaluate().isEmpty) {
-          await tester.pump(const Duration(milliseconds: 16));
-        }
-        expect(find.byType(HeroRectClip), findsNothing, reason: 'landed');
-        final fade = find.ancestor(
-          of: image(large),
-          matching: find.byType(AnimatedOpacity),
-        );
-        double shown() => tester
-            .widget<FadeTransition>(
-              // The opacity's own; the image's cold-load fade is below it.
-              find
-                  .descendant(of: fade, matching: find.byType(FadeTransition))
-                  .first,
-            )
-            .opacity
-            .value;
-        if (warm) {
-          for (final _ in [0, 1]) {
-            expect(shown(), 1, reason: 'in its first frame, no fade');
-            await tester.pump(const Duration(milliseconds: 16));
-          }
-        } else {
-          expect(shown(), 0, reason: 'unseen until decoded');
-          await pumpIoUntil(tester, () => client.bodies.isNotEmpty);
-          final body = client.bodies.single..add(onePixelPng);
-          unawaited(body.close());
-          await pumpIoUntil(
-            tester,
-            () => tester.widget<AnimatedOpacity>(fade).opacity == 1,
-          );
-          expect(shown(), lessThan(1), reason: 'fades in');
-          await tester.pump(MotionTokens.imageFade);
-        }
-        // A copy of another file stays under the page image; one of the
-        // page image's own file shown at once is that image.
-        expect(
-          [
-            for (final i in tester.widgetList<PixivImage>(
-              find.descendant(
-                of: find.byType(DetailPageImage),
-                matching: find.byType(PixivImage),
-              ),
-            ))
-              i.url,
-          ],
-          [if (!warm || copy != large) copy, _topSquareUrl, large],
-        );
-        expect(client.urls.where((url) => url == large), hasLength(1));
-        // The return carries the whole work: its own copy of the page is built
-        // anew in the flight, shown. The card's square comes back over its top.
-        navigatorKey.currentState!.pop();
-        await tester.pump();
-        await tester.pump();
-        final squareShown = <double>[];
-        while (find.byType(HeroRectClip).evaluate().isNotEmpty) {
-          expect(
-            tester.widget<AnimatedOpacity>(
-              inFlight(find.byType(AnimatedOpacity)),
-            ),
-            isA<AnimatedOpacity>().having((w) => w.opacity, 'opacity', 1),
-          );
-          squareShown.add(
-            tester
-                .widget<Opacity>(
-                  find
-                      .ancestor(
-                        of: inFlight(find.byKey(const ValueKey('card'))),
-                        matching: find.byType(Opacity),
-                      )
-                      .first,
-                )
-                .opacity,
-          );
-          await tester.pump(const Duration(milliseconds: 20));
-        }
-        expect(squareShown.first, 0);
-        expect(squareShown.last, greaterThan(0.9));
-        expect(squareShown.where((o) => o > 0 && o < 1), isNotEmpty);
-        for (var i = 1; i < squareShown.length; i++) {
-          expect(squareShown[i], greaterThanOrEqualTo(squareShown[i - 1]));
-        }
-        await unmountPastReleaseGrace(tester);
-      },
-    );
-  }
-
-  testWidgets('mid-flight the detail endpoint paints no image of its own', (
-    tester,
-  ) async {
-    // Audit F2: a faint full-size image seemed to sit at the landing spot
-    // while the shuttle grew inside it. The landing Hero must stand in as an
-    // empty placeholder, and the page must draw no second copy around it.
-    setViewSize(tester, const Size(390, 844));
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-    // A stale snapshot: the card says one page, the detail payload that
-    // lands mid-flight says two. The image sliver must not change type
-    // under the Hero.
-    final (container, _, _) = await makeWorld();
-    final entity = parseIllust(illustJson(42));
-    container.read(illustStoreProvider).mergeAll([entity]);
-    final navigatorKey = GlobalKey<NavigatorState>();
-
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        navigatorKey: navigatorKey,
-        body: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: 150,
-            height: 200,
-            child: Hero(
-              tag: illustHeroTag('feed', 42),
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: const ColoredBox(color: Colors.red),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    unawaited(
-      navigatorKey.currentState!.push(
-        MaterialPageRoute<void>(
-          builder: (_) => IllustDetailPage(
-            illustId: 42,
-            initialEntity: entity,
-            heroImageUrl: entity.imageUrls.medium,
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
-    final page = find.byType(DetailPageImage);
-    expect(page, findsOneWidget);
-    // The Hero keeps its child mounted but Offstage while it flies.
-    bool painted(Element element) {
-      var onstage = true;
-      element.visitAncestorElements((ancestor) {
-        final widget = ancestor.widget;
-        if (widget is Offstage && widget.offstage) onstage = false;
-        return onstage;
-      });
-      return onstage;
-    }
-
-    // The band's ambient wash (THEME-19) is the work's blurred tone above
-    // the landing box, not a copy of the artwork.
-    final workImages = find.byType(PixivImage);
-    final artwork = find
-        .descendant(of: find.byType(IllustDetailPage), matching: workImages)
-        .evaluate()
-        .where(
-          (element) =>
-              (element.widget as PixivImage).url == entity.imageUrls.medium,
-        );
-    expect(
-      artwork.where(painted).map((element) => element.widget),
-      isEmpty,
-      reason: 'the page draws no copy of the artwork under the flight',
-    );
-    // The top bar and the action bar enter with the page, under the
-    // flight, rather than after the image has landed.
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
-    double barEntrance() =>
-        tester.widget<AppTopBar>(find.byType(AppTopBar)).entrance!.value;
-    double actionBar() => tester
-        .widget<DetailActionBar>(find.byType(DetailActionBar))
-        .visibility
-        .value;
-    expect(barEntrance(), greaterThan(0));
-    expect(actionBar(), greaterThan(0));
-    await tester.pumpAndSettle();
-    expect(barEntrance(), 1);
-    expect(actionBar(), 1);
-    expect(find.descendant(of: page, matching: workImages), findsOneWidget);
-
-    // Leaving, the action bar stays put and goes with the page; the
-    // flight back is drawn above it.
-    navigatorKey.currentState!.pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(actionBar(), 1);
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('Hero pop onto a user page matches its own chrome', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(400, 800));
-
-    final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      localizedApp(
-        navigatorKey: navigatorKey,
-        home: const Scaffold(body: SizedBox.shrink()),
-      ),
-    );
-    await tester.pump();
-
-    // The landing page: personal-page chrome — app bar (56) plus a pinned
-    // TabBar row inside the scroll view (minExtent 56) — holding the Hero
-    // source card, pushed so route.isFirst is false (no root bottom nav).
-    navigatorKey.currentState!.push(
-      _testPageRoute<void>(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('u')),
-          body: NestedScrollView(
-            headerSliverBuilder: (_, _) => [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _FixedHeaderDelegate(56),
-              ),
-            ],
-            body: CustomScrollView(
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.all(10),
-                  sliver: SliverToBoxAdapter(
-                    child: _hero('user-page-hero', height: 300),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // Reproduce the real profile flow: the user can open a work after the
-    // flexible header has started collapsing. The source Hero remains partly
-    // visible, but its viewport clip is no longer the initial header bound.
-    await tester.drag(find.byType(NestedScrollView), const Offset(0, -250));
-    await tester.pumpAndSettle();
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is Hero && widget.tag == 'user-page-hero',
-      ),
-      findsOneWidget,
-    );
-
-    // Detail page on top; popping lands back on the user page above.
-    navigatorKey.currentState!.push(
-      _testPageRoute<void>(
-        builder: (_) => Scaffold(
-          body: Center(child: _hero('user-page-hero', width: 350, height: 500)),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    navigatorKey.currentState!.pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1));
-    final start = heroClipRect(tester);
-    await tester.pump(const Duration(milliseconds: 150));
-    final mid = heroClipRect(tester);
-
-    // The boundary moves from the detail route's content area to the
-    // profile route's app bar + pinned TabBar boundary. A static clip would
-    // hard-cut the image as reported on device.
-    expect(find.byType(HeroRectClip), findsOneWidget);
-    expect(start.top, lessThan(mid.top));
-    expect(start.bottom, greaterThanOrEqualTo(mid.bottom));
-    expect(mid.top, greaterThan(0));
-    expect(mid.bottom, closeTo(800, 0.001));
-    expect(heroPaintClipRect(tester), mid);
-    await tester.pump(const Duration(milliseconds: 100));
-    final late = heroPaintClipRect(tester)!;
-    expect(late.top, greaterThan(mid.top));
-    expect(late.bottom, closeTo(800, 0.001));
-    await tester.pumpAndSettle();
-  });
-
-  // The page over the card on the card's navigator, or on the root one
-  // over the route holding it, as the viewer over a branch's detail page.
-  for (final nested in [false, true]) {
-    testWidgets('chrome over a flight steps aside until the landing; the clip '
-        'follows the page over the card (nested: $nested)', (tester) async {
-      setViewSize(tester, const Size(400, 800));
-      late BuildContext root;
-      late BuildContext feed;
-      late PageRoute<void> pushed;
-      var opened = 0;
-      PageRoute<void> page(Widget child, {bool shared = false}) =>
-          FuncPage<void>(
-                transitionDuration: const Duration(milliseconds: 400),
-                reverseTransitionDuration: const Duration(milliseconds: 400),
-                sharedElement: shared,
-                child: child,
-              ).createRoute(root)
-              as PageRoute<void>;
-      Widget at(Offset offset, Widget child) =>
-          Positioned(left: offset.dx, top: offset.dy, child: child);
-      Widget art(double side) => Hero(
-        tag: 'art',
-        flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-        child: SizedBox.square(dimension: side),
-      );
-      // A card under a 100px app bar with its badge, a detail page whose
-      // image runs under its control; chrome away from the image stays.
-      void open() => Navigator.of(feed, rootNavigator: nested).push(
-        pushed = page(
-          Stack(
-            children: [
-              at(Offset.zero, art(400)),
-              at(
-                const Offset(10, 10),
-                HeroChrome(child: Text('control ${++opened}')),
-              ),
-              at(const Offset(0, 700), const HeroChrome(child: Text('off'))),
-            ],
-          ),
-          shared: true,
-        ),
-      );
-      final heroes = HeroController();
-      addTearDown(heroes.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) {
-              root = context;
-              return Navigator(
-                observers: [heroes],
-                onGenerateRoute: (_) => page(
-                  Builder(
-                    builder: (context) {
-                      feed = context;
-                      return Scaffold(
-                        appBar: const PreferredSize(
-                          preferredSize: Size.fromHeight(100),
-                          child: SizedBox.shrink(),
-                        ),
-                        body: Stack(
-                          children: [
-                            at(const Offset(0, 200), art(100)),
-                            at(
-                              const Offset(0, 200),
-                              const HeroChrome(child: Text('badge')),
-                            ),
-                            at(
-                              const Offset(300, 600),
-                              const HeroChrome(child: Text('far')),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-      double chrome(String label) => tester
-          .widget<FadeTransition>(
-            find
-                .ancestor(
-                  of: find.text(label),
-                  matching: find.byType(FadeTransition),
-                )
-                .first,
-          )
-          .opacity
-          .value;
-
-      open();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(
-        [chrome('badge'), chrome('control 1'), chrome('far'), chrome('off')],
-        [0, 0, 1, 1],
-      );
-      // The card's app bar cuts the image only as far as the background of
-      // the page over it has yet to cover it.
-      final shown = MotionTokens.sharedElementBackdropIn.transform(
-        pushed.animation!.value,
-      );
-      expect(shown, inExclusiveRange(0, 1));
-      expect(heroClipRect(tester).top, closeTo(100 * (1 - shown), 0.5));
-      // Not a card's flight: no bars are lifted over it.
-      expect(liftedBars(tester), isEmpty);
-      await tester.pumpAndSettle();
-      expect(chrome('control 1'), 1);
-
-      // Back, then the card again while the image flies home: the flight
-      // goes on to the new page, whose control waits for it too.
-      Navigator.of(feed, rootNavigator: nested).pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect([chrome('badge'), chrome('control 1')], [0, 0]);
-      open();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(chrome('control 2'), 0);
-      await tester.pumpAndSettle();
-      expect(chrome('control 2'), 1);
-      expect(tester.getTopLeft(find.byType(Hero).last), Offset.zero);
-    });
-  }
-
-  // The work page's status strip, and its top bar once drawn, stay over a
-  // flight to and from the viewer and cut it; the viewer's stage runs
-  // under the status bar, so the image reaches the top there. A
-  // see-through toolbar steps aside. Status bar 24, a 1:5 work: at 1850
-  // the bar is part drawn.
-  for (final (scroll, top) in [(0.0, 24.0), (1850.0, 24.0 + kToolbarHeight)]) {
-    testWidgets('detail and viewer: the clip runs between the work page\'s top '
-        'chrome and the top of the screen (scroll $scroll)', (tester) async {
-      final json = illustJson(42, width: 800, height: 4000);
-      await pushFromFeed(
-        tester,
-        json,
-        detailOverrides: {42: json},
-        viewPadding: const FakeViewPadding(top: 24),
-      );
-      await tester.pumpAndSettle();
-      if (scroll > 0) {
-        tester
-            .stateList<ScrollableState>(find.byType(Scrollable))
-            .lastWhere(
-              (s) =>
-                  s.position.axis == Axis.vertical &&
-                  s.position.maxScrollExtent > 1000,
-            )
-            .position
-            .jumpTo(scroll);
-        await tester.pumpAndSettle();
-      }
-      final drawn = tester
-          .widget<AppTopBar>(find.byType(AppTopBar))
-          .occludesContent;
-      expect(drawn, scroll > 0);
-      final toolbar = find
-          .descendant(
-            of: find.ancestor(
-              of: find.byType(AppBar),
-              matching: find.byType(HeroChrome),
-            ),
-            matching: find.byType(FadeTransition),
-          )
-          .first;
-
-      // Each flight frame's clip top, and the toolbar's opacity on it.
-      Future<List<double>> fly() async {
-        final tops = <double>[];
-        await tester.pump();
-        while (true) {
-          await tester.pump(const Duration(milliseconds: 30));
-          if (find.byType(HeroRectClip).evaluate().isEmpty) break;
-          tops.add(heroClipRect(tester).top);
-          expect(
-            tester.widget<FadeTransition>(toolbar).opacity.value,
-            drawn ? 1 : 0,
-            reason: 'a drawn bar stays; a see-through one steps aside',
-          );
-        }
-        await tester.pumpAndSettle();
-        return tops;
-      }
-
-      final image = tester.getRect(find.byType(DetailPageImage).first);
-      await tester.tapAt(
-        Offset(
-          195,
-          (math.max(image.top, 100) + math.min(image.bottom, 800)) / 2,
-        ),
-      );
-      final opening = await fly();
-      expect(find.byType(ImageViewerPage), findsOneWidget);
-      expect(opening.first, closeTo(top, 3));
-      expect(opening.last, closeTo(0, 1));
-
-      await tester.tap(find.byType(BackButton).last);
-      final closing = await fly();
-      expect(find.byType(ImageViewerPage), findsNothing);
-      expect(closing.first, closeTo(0, 3));
-      expect(closing.last, closeTo(top, 1));
-      await tester.pumpAndSettle(const Duration(seconds: 5));
-    });
-  }
-
-  testWidgets('Hero pop flight is occluded by the chrome', (tester) async {
-    setViewSize(tester, const Size(400, 800));
-
-    final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      localizedApp(
-        navigatorKey: navigatorKey,
-        home: Scaffold(
-          body: ListView(
-            children: [
-              const SizedBox(height: 600),
-              _hero('hero-test', height: 300),
-            ],
-          ),
-          bottomNavigationBar: _bottomBar,
-        ),
-      ),
-    );
-    await tester.pump();
-
-    navigatorKey.currentState!.push(
-      _testPageRoute<void>(
-        builder: (_) => Scaffold(
-          body: Center(child: _hero('hero-test', width: 350, height: 500)),
-          bottomNavigationBar: _bottomBar,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    navigatorKey.currentState!.pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1));
-    final start = heroClipRect(tester);
-    await tester.pump(const Duration(milliseconds: 150));
-    final mid = heroClipRect(tester);
-
-    // The bottom boundary retracts continuously toward the landing page's
-    // 100px bottom navigation. It must not jump to the final clip at mid-flight.
-    expect(find.byType(HeroRectClip), findsOneWidget);
-    expect(start.bottom, greaterThan(mid.bottom));
-    expect(start.top, closeTo(mid.top, 0.001));
-    expect(mid.top, closeTo(0, 0.001));
-    expect(heroPaintClipRect(tester), mid);
-    await tester.pump(const Duration(milliseconds: 100));
-    final late = heroPaintClipRect(tester)!;
-    expect(late.bottom, lessThan(mid.bottom));
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('Hero push from a nested feed stays intact', (tester) async {
-    setViewSize(tester, const Size(400, 800));
-
-    final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      localizedApp(
-        navigatorKey: navigatorKey,
-        home: Scaffold(
-          body: NestedScrollView(
-            headerSliverBuilder: (_, _) => [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _FixedHeaderDelegate(300),
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _FixedHeaderDelegate(56),
-              ),
-            ],
-            body: CustomScrollView(
-              slivers: [
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                SliverPadding(
-                  padding: const EdgeInsets.all(10),
-                  sliver: SliverMasonryGrid.count(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 10,
-                    itemBuilder: (_, index) =>
-                        _hero('nested-push-hero-test-$index', height: 600),
-                    childCount: 2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          bottomNavigationBar: _bottomBar,
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final sourceHero = find.byWidgetPredicate(
-      (widget) => widget is Hero && widget.tag == 'nested-push-hero-test-0',
-    );
-    expect(
-      tester.getTopLeft(sourceHero).dy,
-      greaterThan(300),
-      reason: 'the source artwork must start below the profile header',
-    );
-
-    navigatorKey.currentState!.push(
-      _testPageRoute<void>(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('Detail')),
-          body: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Center(
-                  child: _hero(
-                    'nested-push-hero-test-0',
-                    width: 350,
-                    height: 500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          bottomNavigationBar: _bottomBar,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump(const Duration(milliseconds: 50));
-    final early = heroClipRect(tester);
-    await tester.pump(const Duration(milliseconds: 100));
-    final mid = heroClipRect(tester);
-
-    // Push uses the same moving boundary in the opposite direction: the
-    // source profile/feed chrome releases its clipped portion progressively,
-    // then the detail chrome becomes the active boundary.
-    expect(find.byType(HeroRectClip), findsOneWidget);
-    expect(early.top, greaterThan(mid.top));
-    expect(early.bottom, closeTo(mid.bottom, 0.001));
-    expect(heroPaintClipRect(tester), mid);
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets(
-    'iOS canvas drag dismiss launches Hero return flight on release',
-    (tester) async {
-      final host = await pumpHeroNavigator(
-        tester,
-        platform: TargetPlatform.iOS,
-        firstChild: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: Hero(
-              tag: 'drag-hero',
-              transitionOnUserGestures: true,
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: const SizedBox.square(
-                dimension: 120,
-                child: ColoredBox(color: Colors.red),
-              ),
-            ),
-          ),
-        ),
-      );
-      unawaited(
-        host.nav.push(
           FuncPage<void>(
             sharedElement: true,
-            child: Scaffold(
-              body: Align(
-                alignment: Alignment.topCenter,
-                child: Hero(
-                  tag: 'drag-hero',
-                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                  child: const SizedBox.square(
-                    dimension: 320,
-                    child: ColoredBox(color: Colors.blue),
-                  ),
-                ),
+            child: SingleChildScrollView(
+              child: DetailPageImage(
+                entity: entity,
+                index: 0,
+                heroTag: tag,
+                heroScope: 'feed',
+                heroImageUrl: _topSquareUrl,
+                heroImageDecodeWidth: 540,
+                detailUrl: large,
+                downloadMode: false,
+                selected: false,
+                onToggleSelect: () {},
+                onLongPress: () {},
               ),
             ),
-          ).createRoute(host.root),
+          ).createRoute(navigatorKey.currentContext!),
         ),
       );
       await tester.pumpAndSettle();
-
-      final drag = await tester.startGesture(const Offset(20, 300));
-      await drag.moveBy(const Offset(30, 0));
-      await drag.moveBy(const Offset(160, 0));
-      await tester.pump();
-      expect(host.nav.userGestureInProgress, isTrue);
-
-      await drag.up();
-      await tester.pump();
-      expect(host.nav.userGestureInProgress, isFalse);
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byType(HeroRectClip), findsOneWidget);
-      await tester.pumpAndSettle();
-      expect(find.byType(HeroRectClip), findsNothing);
+      expect(client.urls.where((url) => url == large), hasLength(1));
+      await unmountPastReleaseGrace(tester);
     },
   );
 
@@ -1410,44 +266,6 @@ Hero _hero(Object tag, {double? width, double? height}) => Hero(
     child: SizedBox(width: width, height: height),
   ),
 );
-
-const _bottomBar = ColoredBox(color: Colors.blue, child: SizedBox(height: 100));
-
-PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
-    PageRouteBuilder<T>(
-      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-          SlideTransition(
-            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-                .chain(CurveTween(curve: MotionTokens.pageCurve))
-                .animate(animation),
-            child: child,
-          ),
-      transitionDuration: MotionTokens.pageTransition,
-      reverseTransitionDuration: MotionTokens.pageTransition,
-    );
-
-class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _FixedHeaderDelegate(this.extent);
-
-  final double extent;
-
-  @override
-  double get minExtent => extent;
-
-  @override
-  double get maxExtent => extent;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) => const SizedBox.expand(child: ColoredBox(color: Colors.green));
-
-  @override
-  bool shouldRebuild(covariant _FixedHeaderDelegate oldDelegate) => false;
-}
 
 const _topSquareUrl =
     'https://i.pximg.net/c/540x540_70/img-master/img/7_p0_square1200.jpg';

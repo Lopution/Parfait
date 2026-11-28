@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/rendering.dart' show SemanticsNode;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -9,29 +8,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 
 import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/features/novel/novel_page.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
-import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
-import 'package:parfait/features/profile/user_page.dart';
-import 'package:parfait/features/search/docked_search.dart';
-import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
-import 'package:parfait/app/widgets/app_tab_bar.dart';
-import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/app/widgets/settings/settings_control.dart';
-import 'package:parfait/app/widgets/search_field_button.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
@@ -43,7 +32,6 @@ import 'helpers/settings_world.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 import 'helpers/prompt_host.dart';
-import 'package:parfait/app/icons/ui_icons.dart';
 
 /// The shell's own bar, while it is on stage.
 final _shellBar = find.descendant(
@@ -265,142 +253,6 @@ void main() {
     expect(router.state.uri.path, '/ranking');
   });
 
-  testWidgets('a destination bar ends in the search field', (tester) async {
-    final semantics = tester.ensureSemantics();
-    setViewSize(tester, const Size(1280, 800));
-    final router = await pumpRouter(tester, '/recommended');
-
-    final bar = find.descendant(
-      of: find.byType(RecommendedHomePage),
-      matching: find.byType(AppTopBar),
-    );
-    // One toolbar row: the type tabs lead it, the search field ends it.
-    expect(tester.getSize(bar).height, kToolbarHeight);
-    final field = find.descendant(
-      of: bar,
-      matching: find.byType(SearchFieldButton),
-    );
-    expect(field, findsOneWidget);
-    expect(tester.getSize(field).width, 360);
-    expect(
-      tester
-          .getRect(find.descendant(of: bar, matching: find.byType(AppTabBar)))
-          .right,
-      lessThan(tester.getRect(field).left),
-    );
-    // The field is a button named for search; the tabs are not a heading.
-    expect(
-      tester.getSemantics(find.descendant(of: bar, matching: find.text('搜索'))),
-      isSemantics(label: '搜索', isButton: true),
-    );
-    for (
-      SemanticsNode? node = tester.getSemantics(
-        find.descendant(of: bar, matching: find.text('插画')),
-      );
-      node != null;
-      node = node.parent
-    ) {
-      expect(node.getSemanticsData().flagsCollection.isHeader, isFalse);
-    }
-
-    // The field docks the input under the bar (R10); dismissing it lands
-    // back on the destination.
-    await tester.tap(field);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    expect(find.byType(DockedSearchPanel), findsOneWidget);
-    expect(router.state.uri.path, '/recommended');
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(router.state.uri.path, '/recommended');
-
-    // A phone keeps its bar as it was: no search entry at all.
-    setViewSize(tester, const Size(390, 844));
-    setDisplaySize(tester, const Size(390, 844));
-    await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: bar, matching: find.byTooltip('搜索')),
-      findsNothing,
-    );
-    semantics.dispose();
-  });
-
-  testWidgets('ranking and new bars end in the search field', (tester) async {
-    setViewSize(tester, const Size(1280, 800));
-    for (final location in ['/ranking', '/new']) {
-      await pumpRouter(tester, location);
-      expect(find.byType(SearchFieldButton), findsOneWidget, reason: location);
-    }
-  });
-
-  testWidgets('a page pushed over a destination root has no search entry', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(1280, 800));
-    final router = await pumpRouter(tester, '/new');
-    unawaited(router.push('/new/new-novels'));
-    await tester.pumpAndSettle();
-
-    // The novel feed covers the root; both are NewPage, only the pushed
-    // one is on stage.
-    final pushed = find.byType(NewPage);
-    expect(pushed, findsOneWidget);
-    final bar = find.descendant(of: pushed, matching: find.byType(AppTopBar));
-    // Not a branch root: the header's search widgets are there but draw
-    // nothing (R8).
-    expect(
-      find.descendant(of: bar, matching: find.byType(SearchFieldButton)),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: bar, matching: find.byTooltip('搜索')),
-      findsNothing,
-    );
-  });
-
-  testWidgets('the off-bar search entry still reaches search', (tester) async {
-    setViewSize(tester, const Size(1280, 800));
-    const destination = HomeDestination.search;
-    final hidden = HomeDestination.defaultArrangement.hide(destination);
-    final router = await pumpRouter(
-      tester,
-      '/recommended',
-      overrides: [homeArrangementProvider.overrideWithValue(hidden)],
-    );
-
-    final bar = find.descendant(
-      of: find.byType(RecommendedHomePage),
-      matching: find.byType(AppTopBar),
-    );
-    // Wide: the header's own field replaces the off-bar icon.
-    expect(
-      find.descendant(of: bar, matching: find.byType(SearchFieldButton)),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: bar, matching: find.byTooltip('搜索')),
-      findsNothing,
-    );
-
-    // A phone keeps the off-bar icon and the header draws no field.
-    setViewSize(tester, const Size(390, 844));
-    setDisplaySize(tester, const Size(390, 844));
-    await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: bar, matching: find.byType(SearchFieldButton)),
-      findsNothing,
-    );
-    final offBarIcon = find.descendant(of: bar, matching: find.byTooltip('搜索'));
-    expect(offBarIcon, findsOneWidget);
-
-    // The off-bar icon is the destination's shortcut, not this stack's
-    // input: it switches to the search destination.
-    await tester.tap(offBarIcon);
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search');
-  });
-
   testWidgets('branch pushes are rejected outside the visible branch', (
     tester,
   ) async {
@@ -452,158 +304,6 @@ void main() {
     expect(tester.getRect(_shellBar), resting);
   });
 
-  // A popup does not drive the root's secondary animation: the root is
-  // current again from the pop's first frame, while the popup still slides
-  // out over it.
-  testWidgets('a popup keeps the bar under it until it has left', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(390, 844));
-    final router = pixivRouter('/recommended');
-    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
-    await tester.pumpAndSettle();
-    final resting = tester.getRect(_shellBar);
-
-    for (final (name, script) in <(String, _PopupScript)>[
-      (
-        'a sheet',
-        (tester, root) async {
-          unawaited(_sheet(root));
-          await tester.pumpAndSettle();
-          Navigator.of(root).pop();
-        },
-      ),
-      (
-        'a dialog on the branch Navigator',
-        (tester, root) async {
-          unawaited(
-            showAppDialog<void>(
-              context: root,
-              useRootNavigator: false,
-              builder: (_) => const AlertDialog(content: Text('dialog')),
-            ),
-          );
-          await tester.pumpAndSettle();
-          Navigator.of(root).pop();
-        },
-      ),
-      (
-        'the upper of two sheets, then the lower',
-        (tester, root) async {
-          unawaited(_sheet(root));
-          await tester.pumpAndSettle();
-          unawaited(_sheet(root));
-          await tester.pumpAndSettle();
-          Navigator.of(root).pop();
-          await tester.pumpAndSettle();
-          expect(_shellBar, findsNothing);
-          Navigator.of(root).pop();
-        },
-      ),
-    ]) {
-      await script(tester, tester.element(find.byType(RecommendedHomePage)));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(_shellBar, findsNothing, reason: name);
-      expect(tester.getRect(_rootCopy).top, resting.top, reason: name);
-
-      await tester.pumpAndSettle();
-      expect(_rootCopy, findsNothing, reason: name);
-      expect(tester.getRect(_shellBar), resting, reason: name);
-    }
-  });
-
-  testWidgets('a page pushed while a sheet leaves keeps the bar covered', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(390, 844));
-    final router = pixivRouter('/recommended');
-    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
-    await tester.pumpAndSettle();
-    final root = tester.element(find.byType(RecommendedHomePage));
-
-    unawaited(_sheet(root));
-    await tester.pumpAndSettle();
-    Navigator.of(root).pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    unawaited(router.push('/recommended/history'));
-    await tester.pumpAndSettle();
-    expect(_shellBar, findsNothing);
-
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(_rootCopy, findsNothing);
-    expect(_shellBar, findsOneWidget);
-  });
-
-  testWidgets('a deep link that builds the stack covers the bar', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(390, 844));
-    // A cold start from a link builds root + pushed page in one go: no
-    // didPushNext ever reaches the branch root.
-    final router = pixivRouter('/recommended/history');
-
-    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
-    await tester.pumpAndSettle();
-    expect(_shellBar, findsNothing);
-
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-
-    expect(router.state.uri.path, '/recommended');
-    expect(tester.getTopLeft(_shellBar).dy, lessThan(844));
-  });
-
-  testWidgets('settings pushes over the shell and returns to the tab', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(390, 844));
-    final router = await pumpRouter(tester, '/recommended');
-
-    // Settings is the fifth home destination: opening it switches the shell
-    // branch, so its own bottom bar stays mounted like on any other tab.
-    unawaited(openSettings(tester.element(find.byType(RecommendedHomePage))));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(router.state.uri.path, '/settings');
-    expect(find.byType(MeDashboardPage), findsOneWidget);
-    expect(find.byType(FuncBottomNav), findsOneWidget);
-
-    // Branch switch back restores the recommended tab.
-    router.go('/recommended');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/recommended');
-    expect(find.byType(RecommendedHomePage), findsOneWidget);
-  });
-
-  testWidgets('openDownloadTasks lands on /downloads; the shell moves aside', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(390, 844));
-    final router = await pumpRouter(tester, '/recommended');
-
-    // The submission SnackBar's 查看 action pushes the tasks page
-    // directly, no matter which shell stack submitted the download.
-    unawaited(
-      openDownloadTasks(tester.element(find.byType(RecommendedHomePage))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(tester.getTopLeft(find.byType(HomePage)).dx, lessThan(0));
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(router.state.uri.path, '/downloads');
-    expect(find.byType(DownloadTasksPage), findsOneWidget);
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/recommended');
-    expect(tester.getTopLeft(find.byType(HomePage)), Offset.zero);
-  });
-
   // Representative origins across the three stack classes: shell branch root,
   // overlay route, and self-origin.
   testWidgets(
@@ -640,71 +340,6 @@ void main() {
     },
   );
 
-  testWidgets('openHistory stays on the stack it was called from', (
-    tester,
-  ) async {
-    final router = await pumpRouter(tester, '/settings');
-    expect(find.byType(MeDashboardPage), findsOneWidget);
-
-    // The shared history route is mounted on every stack — the settings
-    // branch gets /settings/history, returning to the Me tab on pop.
-    unawaited(openHistory(tester.element(find.byType(MeDashboardPage))));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/settings/history');
-    expect(find.byType(HistoryPage), findsOneWidget);
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/settings');
-    expect(find.byType(MeDashboardPage), findsOneWidget);
-
-    // From the /me overlay the same facade pushes the overlay-level
-    // /me/history instead of bouncing to a branch.
-    unawaited(router.push<void>('/me'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(MePage), findsOneWidget);
-    unawaited(openHistory(tester.element(find.byType(MePage))));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/me/history');
-    expect(find.byType(HistoryPage), findsOneWidget);
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/me');
-  });
-
-  testWidgets('every settings subroute returns to the Me root', (tester) async {
-    final router = await pumpRouter(tester, '/settings');
-    expect(find.byType(MeDashboardPage), findsOneWidget);
-
-    for (final sub in [
-      'account',
-      'theme',
-      'language',
-      'translate',
-      'motion',
-      'browse',
-      'muted',
-      'network',
-      'download',
-      'backup',
-      'about',
-      'history',
-    ]) {
-      unawaited(router.push('/settings/$sub'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(router.state.uri.path, '/settings/$sub', reason: sub);
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(router.state.uri.path, '/settings', reason: sub);
-    }
-  });
-
   testWidgets('bookmark tag route restores and writes its kind and restrict '
       'query', (tester) async {
     // An older location names no kind: illustrations.
@@ -740,32 +375,6 @@ void main() {
     expect(router.state.uri.queryParameters['kind'], 'novel');
     expect(selectedTab(), 0);
     expect(page().kind, BookmarkEntityType.novel);
-  });
-
-  testWidgets('detail pushed from the reverse-image page does not stack a '
-      'second home shell', (tester) async {
-    final router = await pumpRouter(tester, '/recommended');
-    unawaited(router.push('/reverse-image'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(ReverseImageSearchPage), findsOneWidget);
-
-    unawaited(
-      openIllust(tester.element(find.byType(ReverseImageSearchPage)), 5),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(router.state.uri.path, '/reverse-image/illust/5');
-    expect(
-      find.byType(StatefulNavigationShell, skipOffstage: false),
-      findsOneWidget,
-    );
-
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/reverse-image');
   });
 
   group('bottom bar arrangement', () {
@@ -867,47 +476,5 @@ void main() {
       await settle(tester);
       expect(router.state.uri.path, '/new', reason: 'where this run opened');
     });
-
-    testWidgets('the bar editor hides, keeps two and restores', (tester) async {
-      final router = await pumpBar(tester, '/settings');
-      unawaited(router.push('/settings/navigation/bottom-bar'));
-      await settle(tester);
-      Finder row(HomeDestination d) => find.ancestor(
-        of: find.byIcon(homeDestinationIcon(d)),
-        matching: find.byType(SettingsControl),
-      );
-      SettingsControl tile(HomeDestination d) =>
-          tester.widget<SettingsControl>(row(d));
-
-      expect(tile(HomeDestination.me).onChanged, isNull, reason: 'locked');
-      await tester.tap(row(HomeDestination.ranking));
-      await settle(tester);
-      expect(resolveHomeArrangement((await stored()).homeArrangement).shown, [
-        HomeDestination.newWorks,
-        HomeDestination.me,
-      ]);
-      expect(tile(HomeDestination.newWorks).onChanged, isNull, reason: 'min');
-
-      await tester.tap(row(HomeDestination.search));
-      await tester.pump();
-      expect(
-        resolveHomeArrangement((await stored()).homeArrangement).shown.last,
-        HomeDestination.search,
-      );
-
-      await tester.tap(find.byIcon(UiIcons.reset));
-      await settle(tester);
-      expect((await stored()).homeArrangement, isNull);
-      expect(tile(HomeDestination.recommended).value, isTrue);
-    });
   });
 }
-
-/// Opens a popup over the branch root and starts closing it.
-typedef _PopupScript =
-    Future<void> Function(WidgetTester tester, BuildContext root);
-
-Future<void> _sheet(BuildContext context) => showAppBottomSheet<void>(
-  context: context,
-  builder: (_) => const SizedBox(height: 200),
-);

@@ -5,7 +5,7 @@ applies_to:
   - lib/app/icons/**
   - lib/app/widgets/**
   - lib/app/app.dart
-reviewed: 2026-11-21
+reviewed: 2026-11-28
 ---
 
 # Theme, color and type
@@ -23,7 +23,7 @@ reviewed: 2026-11-21
 ### THEME-01 One theme, read from context
 - **Rule:** `replicaTheme` builds the sole light and dark `ThemeData` (`NoSplash.splashFactory` with visible `onSurface` highlight/hover/focus layers; tinted pills place their fill on the outer `Material`, not inside `InkWell.child`). Feature code reads `Theme.of(context)` instead of building local palettes. `MaterialUiCompatibilityBridge` and `ForuiThemeHost` (`foruiThemeFrom`, localized for all four shipped locales with `FHapticFeedback.none()`) bridge `ColorScheme`, `FuncSemanticTokens`, `MotionScope`, and platform typography one-way without bundled fonts.
 - **Why:** Local palettes broke dark mode and system colors; transparent `highlightColor` under `NoSplash` left controls without press feedback.
-- **Check:** `test/replica_theme_test.dart` "replicaTheme provides visible pressed state feedback for InkWell, ListTile, and buttons" "foruiThemeFrom bridges colors, hairlines, haptics, and keeps platform font" "ForuiThemeHost forwards MotionScope reduce to FAccessibilityMotion.disabled"
+- **Check:** `test/replica_theme_test.dart` "foruiThemeFrom bridges colors, hairlines, haptics, and keeps platform font"
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/forui_theme_bridge.dart`, `lib/l10n/app_localizations_delegates.dart`, `lib/app/app.dart`
 
 ### THEME-02 No bundled font
@@ -31,12 +31,6 @@ reviewed: 2026-11-21
 - **Why:** Preserves mobile ROM fonts and APK size caps while preventing Windows `SimSun` fallback and Linux JP/bitmap CJK mismatches.
 - **Check:** `test/architecture/l10n_and_errors_test.dart` "no bundled Montserrat: text uses the platform font"; `test/replica_theme_test.dart` "platformFontFamilyFallback resolves Windows and Linux locale chains without touching mobile or macOS"
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/forui_theme_bridge.dart`, `lib/app/app.dart`
-
-### THEME-03 Component text styles derive from the resolved text theme
-- **Rule:** AppBar, SnackBar, chip, dialog, and rail text styles derive from `theme.textTheme` in `replicaTheme`'s trailing `copyWith`, never as raw `TextStyle` literals inside `ThemeData(...)`.
-- **Why:** Raw `TextStyle` drops letter spacing, line height, and fallback chain.
-- **Check:** manual
-- **Code:** `lib/app/theme/replica_theme.dart`
 
 ## Color
 
@@ -71,36 +65,12 @@ reviewed: 2026-11-21
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/widgets/settings/settings_tile.dart`, `lib/app/widgets/tag_chips.dart`, `lib/app/widgets/danger_filled_button.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
 
 ### THEME-18 The accent is two colors: text and fill, plus canvas top bars
-- **Rule:** Default palette splits `colorScheme.primary` (#B44673 light / #EBA6C6 dark) for text/icons/outlines from `FuncSemanticTokens.brand` (#E077A6 under white `onBrand`) for fills (`FilledButton`, follow, solid `ReplicaButton`), with tonal selection containers. `AppTopBar` uses `FuncSemanticTokens.canvas` across all five platforms, revealing `topBarShadow` + 1dp `brandHairline` in `ScrollEdgeShadow` on scroll (while `FuncBottomNav` draws a continuous 1dp top `brandHairline`, NAV-07). `TextButtonThemeData` and `AppTopBar` leading/actions `IconButtonTheme` keep disabled alpha at 0.48 (>= 0.45); `ProgressIndicatorThemeData` uses `primary` / `brandHairline` / `StrokeCap.round`.
+- **Rule:** Default palette splits `colorScheme.primary` (#B44673 light / #EBA6C6 dark) for text/icons/outlines from `FuncSemanticTokens.brand` (#E077A6 under white `onBrand`) for fills (`FilledButton`, follow, solid `ReplicaButton`), with tonal selection containers. `AppTopBar` uses `FuncSemanticTokens.canvas` across all five platforms, revealing `topBarShadow` + 1dp `brandHairline` in `ScrollEdgeShadow` on scroll (while `FuncBottomNav` draws a continuous 1dp top `brandHairline`). `TextButtonThemeData` and `AppTopBar` leading/actions `IconButtonTheme` keep disabled alpha at 0.48 (>= 0.45); `ProgressIndicatorThemeData` uses `primary` / `brandHairline` / `StrokeCap.round`.
 - **Why:** Brand pink measured 2.9:1 as light-mode text; unified canvas headers align all five platforms cleanly.
 - **Check:** `test/replica_theme_test.dart` "fills are the brand pink under white; selection stays tonal" "header tokens use clean canvas and keep >= 4.5:1 contrast"; `test/shared_widgets_test.dart` "AppTopBar keeps disabled IconButton and TextButton foreground alpha >= 0.45"
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/func_tokens.dart`, `lib/app/theme/func_semantic_tokens.dart`, `lib/app/widgets/app_top_bar.dart`, `lib/app/widgets/func_bottom_nav.dart`
 
-### THEME-08 Status color goes on the icon, not the text
-- **Rule:** Status rows apply semantic colors (M3 tone 40 light / tone 80 dark; probe keeps fixed literals) to the icon only, leaving status text on `onSurfaceVariant`.
-- **Why:** Tinted status text failed 4.5:1 on `surface`.
-- **Check:** manual
-- **Code:** `lib/features/settings/pages/download_task_presentation.dart`
-
-### THEME-09 A chip on a same-tier surface needs a hairline
-- **Rule:** Chips or action pills matching their host surface tier draw a hairline border (`divider` or tinted outline).
-- **Why:** Same-value fills vanish in both themes.
-- **Check:** manual
-- **Code:** `lib/app/widgets/tag_chips.dart`
-
-### THEME-10 Prompts follow inverted light / elevated dark chrome
-- **Rule:** Light prompts use `inverseSurface`/`onInverseSurface`/`inversePrimary`; dark prompts use elevated `surfaceContainerHigh` with `onSurface`, `primary`, and an `outlineVariant` border (`FuncShape.card`, THEME-20).
-- **Why:** Avoids blinding white slabs in dark mode while keeping clear separation above sheets and cards.
-- **Check:** manual
-- **Code:** `lib/app/widgets/prompt_host.dart`
-
 ## Type and spacing
-
-### THEME-11 One type scale
-- **Rule:** Text sizes and weights come from `replicaTheme`'s `textTheme` or derived `FuncSemanticTokens` styles; raw `fontSize:` literals are restricted to deliberately fixed bases (e.g. bottom bar 12sp).
-- **Why:** Prevented ad-hoc type scales drifting from the theme.
-- **Check:** manual
-- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/func_semantic_tokens.dart`
 
 ### THEME-12 Spacing and radii use tokens
 - **Rule:** Outside `lib/app/theme/**`, `EdgeInsets`, `Radius.circular`, and `SizedBox` gaps use `FuncSpacing` and `FuncShape` (`badge` 6, `control` 10, `card` 12, `panel` 16, `dialog` 18, `sheet` top-22, `pill` 999); exceptions require a justified file allowlist entry.
@@ -108,25 +78,7 @@ reviewed: 2026-11-21
 - **Check:** `test/architecture/ui_conventions_test.dart` "spacing and radius literals use FuncSpacing/FuncShape"
 - **Code:** `lib/app/theme/func_semantic_tokens.dart`, `lib/app/theme/func_tokens.dart`
 
-### THEME-13 Text fields share one look
-- **Rule:** Text fields use the theme's outlined floating-label decoration without custom `border`; content filters use `SearchBar` on `surfaceContainerHigh`; form saves use a trailing `FilledButton` (SET-09).
-- **Why:** Keeps form inputs and filters visually consistent across pages.
-- **Check:** manual
-- **Code:** `lib/app/theme/replica_theme.dart`
-
 ## Chrome over artwork
-
-### THEME-14 Controls over artwork use ArtworkControls
-- **Rule:** Icon controls over artwork (detail bar, profile banner, viewer) use `ArtworkControls` (neutral `onSurface` or viewer white with dual-ring surface outline + dual ambient blur, no disc or gradient scrim; `AppTopBar` applies `overArtwork` to both `iconTheme` and `actionsIconTheme`). Pills/counters use `FuncTokens.imageControl`/`onImageControl`; viewer accents use `brand`.
-- **Why:** Bare glyphs washed out on white/busy art while discs obscured the artwork.
-- **Check:** manual
-- **Code:** `lib/app/widgets/artwork_controls.dart`, `lib/app/widgets/app_top_bar.dart`
-
-### THEME-15 Badges over artwork are EntityBadge
-- **Rule:** Over-artwork markers use `EntityBadge` on `imageControl` (differentiated by text, never per-badge fill colors). Ranking positions use tabular `EntityRankLabel` (`rankPodium` for 1–3, `rank` otherwise).
-- **Why:** Colored badges lost legibility and read as warnings.
-- **Check:** manual — visual inspection of EntityBadge and EntityRankLabel over artwork
-- **Code:** `lib/app/widgets/entity_row.dart`
 
 ### THEME-16 Icons are unified outlined vector glyphs; filled marks selection or state
 - **Rule:** All UI icons come from `AppIcons` (`assets/icon.ttf`, built by `tool/build_icons.py`) or `UiIcons` (`FLucideIcons` bridge with RTL mirroring, horizontal `UiIcons.more`, and `UiIcons.dropdown`); no raw `FLucideIcons.*` or Material icon classes appear outside `lib/app/icons/` (`BackButtonIcon` remains platform-supplied). Outlined glyphs denote actions/unselected states; `*Filled` twins mark selected destinations or active states (bookmark, watch-later, mute, download status). One glyph, one meaning (`watchLater`, `heart`, `series`, `watchlistAdd`/`watchlistAdded`, `motion`/`playCircle`, `accountManage`; unmuting is text-only).
@@ -145,7 +97,7 @@ reviewed: 2026-11-21
 ### THEME-19 Ambient light is the subject's tone, around it
 - **Rule:** `AmbientWash` blurs a small decode once (`BlurredImage`) and applies `AmbientTone` (page lightness + share of image hue) in the page's own paint pass with page-color gradient fades (no per-frame filter/mask over scrolling or swiping content; only the static welcome glow uses a widget blur). Used on the detail short-image band (rising via `MotionTokens.ambientRise` after Hero landing), wide detail stage, cover-less profile header (from avatar), and first-run `ScrollableFormShell.brandGlow`.
 - **Why:** User decision: warm subject-matched framing without muddy tints or Impeller offscreen-layer frame drops during swipes.
-- **Check:** `test/replica_theme_test.dart` "ambient light keeps the page lightness and a share of the colour" "a wash draws its image toned, in the page pass", `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it" "the band lights up from the image once it has landed", `test/user_profile_test.dart` "a profile without a cover lights its header from the avatar"
+- **Check:** `test/replica_theme_test.dart` "ambient light keeps the page lightness and a share of the colour"
 - **Code:** `lib/app/widgets/ambient_wash.dart`, `lib/features/illust/detail/widgets/page_image.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/profile/profile_header_delegate.dart`, `lib/app/widgets/scrollable_form_shell.dart`
 
 ### THEME-20 A shadow marks a layer, or content under a bar

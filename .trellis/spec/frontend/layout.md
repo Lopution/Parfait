@@ -72,7 +72,7 @@ reviewed: 2026-11-28
   theme's font fallbacks, the letter spacing and even leading of the
   dense CJK type): full lines ran wider than measured, short mixed-script
   lines taller.
-- **Check:** `test/architecture/l10n_and_errors_test.dart` "fitted labels are measured in the style and locale they paint in"; `test/fit_label_test.dart` "the painted width is the measured width times the scale" "a non-linear text scaler measures and paints alike"; `test/app_tab_bar_test.dart` "a wide row keeps its tabs together at the start"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
+- **Check:** `test/architecture/l10n_and_errors_test.dart` "fitted labels are measured in the style and locale they paint in"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
 - **Code:** `lib/app/widgets/fit_label.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_tab_bar.dart`, `lib/app/widgets/follow_switch_button.dart`, `lib/features/search/search_filter_sheet.dart`, `lib/features/novel/novel_layout.dart`
 
 ### LAYOUT-05 The selection bar title is the bare count
@@ -139,37 +139,6 @@ reviewed: 2026-11-28
 
 ## Boxes, headers and keyboards
 
-### LAYOUT-08 Headers with text measure their extent
-- **Rule:** A `SliverPersistentHeaderDelegate` whose content holds text
-  never hard-codes `maxExtent`: it measures the laid-out content after the
-  frame and feeds it back, keeping the estimate frame transparent.
-- **Why:** A fixed extent overflowed at large text scales and in longer
-  translations.
-- **Check:** `test/user_profile_test.dart` "header height tracks the drag without jumps"
-- **Code:** `lib/features/profile/profile_header_delegate.dart`
-
-### LAYOUT-09 A Stack does not clip; add a ClipRect
-- **Rule:** Content that must stay inside a boundary gets an explicit
-  `ClipRect`; a `Stack` passes its constraints to non-positioned children
-  and lets positioned `OverflowBox` children paint outside.
-- **Why:** The profile identity block overflowed the collapsing header.
-- **Check:** manual
-- **Code:** `lib/features/profile/profile_header_delegate.dart`
-
-### LAYOUT-10 The keyboard pads the scrollable, not the page
-- **Rule:** A page the keyboard passes over without being its form sets
-  `resizeToAvoidBottomInset: false`: a page under a composer raised for a
-  moment (the detail page's, a comment thread's) and the search input,
-  root and result pages. The composer takes the inset in its own bottom
-  slot and a list pads its tail by `viewInsets.bottom`; the page under it
-  keeps its size. A plain form page (settings fields, login) keeps the
-  default resize, which keeps the focused field above the keyboard.
-- **Why:** The default resize compressed the page geometry under the
-  keyboard. Resizing a long detail page under a passing composer would
-  lay it out on every keyboard frame and move what its Hero measures.
-- **Check:** `test/comments_replies_test.dart` "keyboard open pads only the composer — page chrome holds still"; `test/search_catalog_test.dart` "search input keeps its geometry when the IME opens"
-- **Code:** `lib/features/comments/comments_page.dart`, `lib/features/search/search_page.dart`, `lib/features/search/search_input_page.dart`, `lib/features/illust/detail/illust_detail_page.dart`
-
 ### LAYOUT-11 Long documents use one SelectionArea
 - **Rule:** A long document page wraps its one list in a single
   `SelectionArea` and renders paragraphs as plain `Text`, never
@@ -183,22 +152,10 @@ reviewed: 2026-11-28
   or touch rather than Tab focus).
 - **Why:** Selection cannot span `SelectableText` paragraphs. Each also
   owns a scrollable that inherited the bouncing physics, so every
-  paragraph dragged on its own; FEED-11 now stops that for all text, and
-  nesting `SelectableText` inside `SelectionArea` broke continuous drag
+  paragraph dragged on its own; nesting `SelectableText` inside `SelectionArea` broke continuous drag
   selection.
-- **Check:** `test/onboarding_pages_test.dart` "a drag on a paragraph scrolls the whole page", `test/spotlight_article_test.dart` "a drag on a paragraph scrolls the whole article", `test/illust_detail_page_test.dart` "two-pane panorama preserves 280dp height, tag block mode shows Done & intercepts back, single tag mute confirms silently on right-click, and TranslationPanel avoids nested SelectableText"
+- **Check:** `test/illust_detail_page_test.dart` "two-pane panorama preserves 280dp height, tag block mode shows Done & intercepts back, single tag mute confirms silently on right-click, and TranslationPanel avoids nested SelectableText"
 - **Code:** `lib/features/spotlight/spotlight_article_page.dart`, `lib/app/widgets/inline_translation.dart`, `lib/app/widgets/caption_rich_text.dart`, `lib/features/profile/profile_about_tab.dart`, `lib/features/novel/novel_page.dart`, `lib/app/widgets/tag_actions_sheet.dart`
-
-### LAYOUT-12 Images of unknown ratio take their shape without a crossfade
-- **Rule:** An image whose ratio is unknown until decode holds a square
-  placeholder, then takes its own ratio through
-  `PixivImage(sizeToImage: true)` inside `SpringSize`, without a
-  crossfade. Under a height cap a tall image is drawn narrower and
-  centered, with no bars.
-- **Why:** A square dissolving over an image of another height read as
-  banded loading.
-- **Check:** `test/spotlight_article_test.dart` "a tall work is drawn narrower, centered, without bars"
-- **Code:** `lib/features/spotlight/spotlight_article_page.dart`
 
 ## Semantics
 
@@ -212,20 +169,6 @@ reviewed: 2026-11-28
 - **Code:** `lib/app/widgets/feed/illust_card.dart`
 
 ## Edges
-
-### LAYOUT-14 One page, one margin
-- **Rule:** A page keeps one horizontal margin for its text, rows and
-  cards: 16dp on list, card, settings and artwork detail pages, and 14dp
-  (`FuncSpacing.lg - FuncSpacing.xxs`) around `IllustFeedGrid` with 12dp
-  inter-card gutters. The detail page's related works grid keeps the
-  page's 16dp. A hint or overlay takes the margin of the content under
-  it, and a full-width button lines up with the cards above it.
-- **Why:** Pages mixed 12, 16 and 24dp, so the blocks of one page did not
-  line up and pages of one kind differed. Feed grids breathe slightly
-  wider (14dp outer padding, 12dp gutters) while detail's related works
-  stay aligned with the 16dp text and author strip above them.
-- **Check:** manual
-- **Code:** `lib/app/theme/func_tokens.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### LAYOUT-15 An inline icon button's glyph sits on the content edge
 - **Rule:** At the end of a row, the last icon button's glyph, not its

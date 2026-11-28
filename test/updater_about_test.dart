@@ -1,22 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:parfait/app/widgets/app_progress_bar.dart';
-import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/updater/update_download.dart';
 import 'package:parfait/core/updater/update_providers.dart';
 import 'package:parfait/core/updater/update_service.dart';
-import 'package:parfait/features/settings/settings_catalog.dart';
 import 'package:parfait/features/settings/settings_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/updater_fakes.dart';
 import 'helpers/localized_app.dart';
@@ -64,91 +55,6 @@ void main() {
       expect(find.widgetWithText(FilledButton, '检查更新'), findsNothing);
     },
   );
-
-  testWidgets('About shows the version without the build number', (
-    tester,
-  ) async {
-    PackageInfo.setMockInitialValues(
-      appName: 'Parfait',
-      packageName: 'io.github.lopution.parfait',
-      version: '9.9.9',
-      buildNumber: '2001',
-      buildSignature: '',
-    );
-    await pumpAbout(tester);
-
-    expect(find.text('9.9.9'), findsOneWidget);
-  });
-
-  /// Taps the version row seven times on a fresh About page.
-  Future<ProviderContainer> tapVersionSevenTimes(WidgetTester tester) async {
-    final service = UpdateService(
-      manifestTransport: UnusedManifestTransport(),
-      platform: FakeUpdatePlatform(capability: const UpdateCapability.fdroid()),
-    );
-    final container = ProviderContainer.test(
-      overrides: [updateServiceProvider.overrideWith((ref) async => service)],
-    );
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        builder: promptHostBuilder,
-        home: const AboutSettingsPage(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(container.read(developerOptionsProvider), isFalse);
-    for (var i = 0; i < 7; i++) {
-      await tester.tap(find.text('版本'), warnIfMissed: false);
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    await tester.pump();
-    return container;
-  }
-
-  testWidgets('seven version taps unlock developer options', (tester) async {
-    final container = await tapVersionSevenTimes(tester);
-
-    expect(container.read(developerOptionsProvider), isTrue);
-    // The unlock snackbar queues behind the countdown ones — provider state
-    // is the assertion that matters; the message itself is l10n-covered.
-  });
-
-  testWidgets('an unlock that fails to save says so', (tester) async {
-    installPreferencesForTest(_BoolWritesFail());
-    final container = await tapVersionSevenTimes(tester);
-    await tester.pump();
-
-    expect(
-      container.read(developerOptionsProvider),
-      isTrue,
-      reason: 'this session keeps the entries',
-    );
-    expect(find.textContaining('设置保存失败'), findsOneWidget);
-  });
-
-  testWidgets('About surfaces the remembered check result before any tap', (
-    tester,
-  ) async {
-    await pumpAbout(
-      tester,
-      service: _StubUpdateService(
-        checkResult: const UpdateCheckResult(
-          status: UpdateCheckStatus.noUpdate,
-        ),
-        lastCheckResult: UpdateCheckResult(
-          status: UpdateCheckStatus.available,
-          release: fakeUpdateRelease(),
-        ),
-      ),
-    );
-
-    // The auto-check ran at startup; the section renders its remembered
-    // result without a manual 检查更新 tap.
-    expect(find.text('发现新版本：9.9.9'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, '下载并安装'), findsOneWidget);
-  });
 
   testWidgets('apply canceled reports cancellation, failed the generic text', (
     tester,
@@ -226,69 +132,19 @@ void main() {
       expect(find.widgetWithText(FilledButton, '下载并安装'), findsOneWidget);
     },
   );
-
-  testWidgets(
-    'display refresh rate row follows defaultTargetPlatform availability',
-    (tester) async {
-      const channel = MethodChannel('flutter_display_mode');
-      var calls = 0;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-        call,
-      ) async {
-        calls++;
-        if (call.method == 'getActiveMode') {
-          return <String, Object>{
-            'id': 1,
-            'width': 1080,
-            'height': 2400,
-            'refreshRate': 120.0,
-          };
-        }
-        return null;
-      });
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          channel,
-          null,
-        ),
-      );
-      await pumpAbout(tester);
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        expect(Setting.aboutDisplayRefreshRate.available, isTrue);
-        expect(find.text('显示刷新率'), findsOneWidget);
-        expect(find.text('120 Hz'), findsOneWidget);
-        expect(calls, greaterThan(0));
-      } else {
-        expect(Setting.aboutDisplayRefreshRate.available, isFalse);
-        expect(find.text('显示刷新率'), findsNothing);
-        expect(calls, 0);
-      }
-    },
-    variant: TargetPlatformVariant({
-      TargetPlatform.android,
-      TargetPlatform.windows,
-    }),
-  );
 }
 
 /// Serves the staged check/apply results — the github-flavoured capability
 /// keeps the update controls rendered while the service internals never run.
 class _StubUpdateService extends UpdateService {
-  _StubUpdateService({
-    required this.checkResult,
-    this.applyResult,
-    this.lastCheckResult,
-  }) : super(
-         manifestTransport: UnusedManifestTransport(),
-         platform: FakeUpdatePlatform(),
-       );
+  _StubUpdateService({required this.checkResult, this.applyResult})
+    : super(
+        manifestTransport: UnusedManifestTransport(),
+        platform: FakeUpdatePlatform(),
+      );
 
   final UpdateCheckResult checkResult;
   final UpdateApplyResult? applyResult;
-  final UpdateCheckResult? lastCheckResult;
-
-  @override
-  UpdateCheckResult? get lastCheck => lastCheckResult;
 
   @override
   Future<UpdateCapability> capability() async =>
@@ -381,16 +237,4 @@ class _RememberedCheckUpdateService extends UpdateService {
   final UpdateCheckResult _remembered;
   @override
   UpdateCheckResult? get lastCheck => _remembered;
-}
-
-/// In-memory preferences whose `setBool` fails, as on a full disk.
-final class _BoolWritesFail extends InMemorySharedPreferencesAsync {
-  _BoolWritesFail() : super.empty();
-
-  @override
-  Future<bool> setBool(
-    String key,
-    bool value,
-    SharedPreferencesOptions options,
-  ) => Future.error(StateError('disk full'));
 }

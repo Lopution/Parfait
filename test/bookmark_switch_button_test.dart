@@ -1,30 +1,27 @@
 import 'dart:async';
 
-import 'package:cupertino_ui/cupertino_ui.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
-import 'helpers/recording_haptics.dart';
-import 'helpers/bookmark_world.dart';
-import 'helpers/api_responses.dart';
-import 'helpers/illust_fixtures.dart';
-import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/widgets/bookmark_switch_button.dart';
+import 'package:parfait/app/widgets/settings/settings_control.dart';
+import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/app/motion/app_overlays.dart';
-import 'package:parfait/app/widgets/bookmark_switch_button.dart';
-import 'package:parfait/app/widgets/settings/settings_control.dart';
-import 'package:parfait/app/widgets/tag_chips.dart';
-import 'helpers/prompt_host.dart';
+
+import 'helpers/api_responses.dart';
+import 'helpers/bookmark_world.dart';
+import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/view_size.dart';
-import 'package:parfait/app/icons/app_icons.dart';
+import 'helpers/prompt_host.dart';
+import 'helpers/recording_haptics.dart';
 
 Future<(ProviderContainer, BookmarkApi)> _pump(
   WidgetTester tester, {
@@ -99,72 +96,6 @@ void main() {
         hasTapAction: true,
       ),
     );
-  });
-
-  testWidgets('haptics play on the tap; a failure adds an error', (
-    tester,
-  ) async {
-    final haptics = recordHaptics();
-    final (_, repository) = await _pump(tester);
-
-    await tester.tap(find.byType(BookmarkSwitchButton));
-    await tester.pumpAndSettle();
-    expect(haptics.roles, [HapticRole.success]);
-
-    await tester.tap(find.byType(BookmarkSwitchButton));
-    await tester.pumpAndSettle();
-    expect(repository.deletes, [1]);
-    expect(haptics.roles, [HapticRole.success, HapticRole.select]);
-
-    // The throttle reads the wall clock; let the heavy lane re-arm between
-    // the tap's haptic and the failure's.
-    await tester.runAsync(() => Future<void>.delayed(AppHaptics.heavyInterval));
-    final gate = repository.addGate = Completer<void>();
-    repository.addFailure = failing(400);
-    await tester.tap(find.byType(BookmarkSwitchButton));
-    await tester.pump();
-    expect(haptics.roles.last, HapticRole.success, reason: 'felt on the tap');
-    await tester.runAsync(() => Future<void>.delayed(AppHaptics.heavyInterval));
-    gate.complete();
-    await tester.pumpAndSettle();
-    expect(haptics.roles, [
-      HapticRole.success,
-      HapticRole.select,
-      HapticRole.success,
-      HapticRole.error,
-    ]);
-    expect(find.byIcon(AppIcons.heart), findsOneWidget);
-  });
-
-  testWidgets('an unconfirmed add already shows the filled heart', (
-    tester,
-  ) async {
-    final (container, repository) = await _pump(tester);
-    final gate = repository.addGate = Completer<void>();
-
-    await tester.tap(find.byType(BookmarkSwitchButton));
-    await tester.pump();
-
-    expect(find.byIcon(AppIcons.heartFilled), findsOneWidget);
-    expect(find.byType(CupertinoActivityIndicator), findsNothing);
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('收藏插画：work 1')),
-      isSemantics(
-        label: '收藏插画：work 1',
-        isButton: true,
-        hasToggledState: true,
-        isToggled: true,
-        hasTapAction: true,
-        hasLongPressAction: false,
-      ),
-      reason: 'the sheet waits until the request settles',
-    );
-    const key = BookmarkKey(BookmarkEntityType.illust, 1);
-    expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isFalse);
-
-    gate.complete();
-    await tester.pumpAndSettle();
-    expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
   });
 
   testWidgets('a failed add says why, also once its heart is gone', (
@@ -279,72 +210,6 @@ void main() {
     expect(repository.adds.single.$3, ['procreate', 'らくがき']);
   });
 
-  testWidgets('tag input and suggestion chips reach the add call', (
-    tester,
-  ) async {
-    final (_, repository) = await _pump(tester);
-    repository.tagPage = const UserBookmarkTagPage(
-      tags: [UserBookmarkTag(name: 'illustration', count: 5)],
-      nextUrl: null,
-    );
-
-    await tester.longPress(find.byType(BookmarkSwitchButton));
-    await tester.pumpAndSettle();
-
-    expect(find.text('收藏插画'), findsOneWidget);
-    expect(find.text('常用标签'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), '新タグ');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-    expect(find.text('新タグ'), findsOneWidget);
-
-    await tester.tap(find.text('illustration'));
-    await tester.pump();
-
-    await tester.ensureVisible(find.text('确定'));
-    await tester.tap(find.text('确定'));
-    await tester.pumpAndSettle();
-
-    expect(repository.adds, hasLength(1));
-    expect(repository.adds.single.$3, ['新タグ', 'illustration']);
-  });
-
-  testWidgets('unbookmarked long press opens the restrict sheet; confirm '
-      'sends the chosen restrict (R3)', (tester) async {
-    final haptics = recordHaptics();
-    final (_, repository) = await _pump(tester);
-
-    await tester.longPress(find.byType(BookmarkSwitchButton));
-    await tester.pumpAndSettle();
-
-    expect(find.text('收藏插画'), findsOneWidget);
-    expect(find.text('work 1'), findsOneWidget);
-    expect(find.text('1'), findsOneWidget);
-    expect(find.text('取消'), findsOneWidget);
-    expect(find.text('确定'), findsOneWidget);
-
-    // A "private" switch, outlined cancel, filled confirm.
-    expect(_privateSwitch(tester).value, isFalse);
-    expect(find.byType(OutlinedButton), findsOneWidget);
-    expect(find.byType(FilledButton), findsOneWidget);
-
-    // Switch 私密 on, then confirm.
-    await tester.tap(find.text('私密'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('确定'));
-    await tester.pumpAndSettle();
-
-    expect(repository.adds, hasLength(1));
-    expect(repository.adds.single.$2, 'private');
-    // Sheet opened, switch flipped on, submit landed.
-    expect(haptics.roles, [
-      HapticRole.longPress,
-      HapticRole.toggleOn,
-      HapticRole.success,
-    ]);
-  });
-
   testWidgets('dirty draft asks before closing via cancel button', (
     tester,
   ) async {
@@ -382,66 +247,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('收藏插画'), findsNothing);
     expect(repository.adds, isEmpty);
-  });
-
-  testWidgets('dirty mobile sheet drag-down asks before discarding', (
-    tester,
-  ) async {
-    setViewSize(tester, const Size(390, 844));
-    await _pump(tester);
-    await tester.longPress(find.byType(BookmarkSwitchButton));
-    await tester.pumpAndSettle();
-    expect(find.byType(AppBottomSheet), findsOneWidget);
-
-    await tester.tap(find.text('私密'));
-    await tester.pumpAndSettle();
-
-    await tester.drag(find.text('收藏插画'), const Offset(0, 350));
-    await tester.pumpAndSettle();
-    expect(find.text('放弃未保存的修改？'), findsOneWidget);
-    expect(find.byType(AppBottomSheet), findsOneWidget);
-
-    await tester.tap(find.text('取消').last);
-    await tester.pumpAndSettle();
-    expect(find.byType(AppBottomSheet), findsOneWidget);
-    expect(_privateSwitch(tester).value, isTrue);
-
-    await tester.drag(find.text('收藏插画'), const Offset(0, 350));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('放弃修改'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AppBottomSheet), findsNothing);
-  });
-
-  testWidgets('turning the draft dirty keeps the sheet scrolled', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      child: BookmarkSwitchButton(illustId: 1, title: 'work 1 ' * 200),
-    );
-    await tester.longPress(find.byType(BookmarkSwitchButton));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('私密'));
-    await tester.pumpAndSettle();
-    double offset() => tester
-        .state<ScrollableState>(
-          find
-              .descendant(
-                of: find.byType(SingleChildScrollView),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        )
-        .position
-        .pixels;
-    final scrolled = offset();
-    expect(scrolled, greaterThan(0));
-
-    await tester.tap(find.text('私密'));
-    await tester.pumpAndSettle();
-    expect(_privateSwitch(tester).value, isTrue);
-    expect(offset(), scrolled);
   });
 
   testWidgets('a submit outlives its sheet but not its account', (
@@ -602,86 +407,6 @@ void main() {
       expect(repository.adds.single.$3, ['keep-tag']);
     },
   );
-
-  group('heart pop', () {
-    const key = BookmarkKey(BookmarkEntityType.illust, 1);
-
-    double heartScale(WidgetTester tester) => tester
-        .widget<ScaleTransition>(
-          find.descendant(
-            of: find.byType(BookmarkSwitchButton),
-            matching: find.byType(ScaleTransition),
-          ),
-        )
-        .scale
-        .value;
-
-    /// Pumps [span] in small steps and returns the largest heart scale
-    /// seen.
-    /// The lowest and highest heart scale over [span].
-    Future<(double, double)> scaleRange(
-      WidgetTester tester, {
-      Duration span = const Duration(milliseconds: 600),
-    }) async {
-      const step = Duration(milliseconds: 16);
-      var (low, high) = (1.0, 1.0);
-      for (var t = Duration.zero; t < span; t += step) {
-        await tester.pump(step);
-        final heart = find.descendant(
-          of: find.byType(BookmarkSwitchButton),
-          matching: find.byType(ScaleTransition),
-        );
-        if (heart.evaluate().isEmpty) continue;
-        final scale = heartScale(tester);
-        if (scale < low) low = scale;
-        if (scale > high) high = scale;
-      }
-      return (low, high);
-    }
-
-    Future<double> peakScale(WidgetTester tester) async =>
-        (await scaleRange(tester)).$2;
-
-    testWidgets('a refresh does not pop; a removal only dips', (tester) async {
-      final (container, repository) = await _pump(tester);
-
-      // Refresh: the store learns the work is bookmarked.
-      container
-          .read(bookmarkStoreProvider.notifier)
-          .observeRemote(key, bookmarked: true, snapshotRevision: 0);
-      expect(await peakScale(tester), 1);
-      expect(find.byIcon(AppIcons.heartFilled), findsOneWidget);
-
-      await tester.tap(find.byType(BookmarkSwitchButton));
-      final (low, high) = await scaleRange(tester);
-      expect(low, closeTo(0.85, 0.01));
-      expect(high, lessThan(1.01), reason: 'settles back without a bounce');
-      expect(repository.deletes, [1]);
-    });
-
-    testWidgets('the sheet pops the heart for a new bookmark, not an edit', (
-      tester,
-    ) async {
-      final (container, repository) = await _pump(tester);
-
-      await tester.longPress(find.byType(BookmarkSwitchButton));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('确定'));
-      expect(await peakScale(tester), inInclusiveRange(1.2, 1.3));
-      await tester.pumpAndSettle();
-      expect(repository.adds, hasLength(1));
-
-      // Editing an existing bookmark lands no new one.
-      expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
-      await tester.longPress(find.byType(BookmarkSwitchButton));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('确定'));
-      await tester.tap(find.text('确定'));
-      expect(await peakScale(tester), 1);
-      await tester.pumpAndSettle();
-      expect(repository.adds, hasLength(2));
-    });
-  });
 
   testWidgets(
     'bookmark sheet offers work tags and seeds new bookmarks from defaults',

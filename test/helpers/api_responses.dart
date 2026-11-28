@@ -152,14 +152,6 @@ Map<String, dynamic> userJson(UserEntity user) => {
   if (!user.visible) 'is_access_blocking_user': true,
 };
 
-/// [user] as a `user_previews` item.
-Map<String, dynamic> userPreviewJson(UserEntity user) => {
-  'user': userJson(user),
-  'illusts': const <Object?>[],
-  'novels': const <Object?>[],
-  'is_muted': user.isMuted,
-};
-
 /// [user] as the `/v1/user/detail` envelope.
 Map<String, dynamic> userDetailJson(UserEntity user) => {
   'user': userJson(user),

@@ -1,5 +1,5 @@
 ---
-reviewed: 2026-10-12
+reviewed: 2026-11-28
 ---
 
 # Frontend
@@ -34,6 +34,22 @@ for every spec file are in the [spec root](../index.md).
 | [pages.md](./pages.md) | Profile, ranking, search results, comments, translation, library and management lists. |
 | [settings.md](./settings.md) | Settings rows, settings search, the Me tab, adding a setting. |
 | [novel-reader.md](./novel-reader.md) | Novel markup parsing, reader layout, bilingual reading, reader chrome. |
+
+## Hotspot Primary Owners
+
+Cross-cutting UI files appear in several spec files, but each hotspot has one primary owner for new rules (other specs cross-reference its ID instead of duplicating behavior):
+
+| Hotspot file | Primary owner | Scope |
+|---|---|---|
+| `lib/app/navigation/routes.dart` | `navigation.md` | Route tree, typed facade, branch isolation |
+| `lib/app/widgets/home_branch_stack.dart` | `navigation.md` | Shell branches, rail scrim, resize preservation |
+| `lib/app/widgets/app_top_bar.dart` | `navigation.md` | Page header chrome, scroll shadow, flat desktop bar |
+| `lib/app/widgets/func_bottom_nav.dart` | `navigation.md` | Bottom bar visibility, handoff, arrangement |
+| `lib/app/widgets/feed/feed_grid.dart` | `feeds.md` | Masonry grid layout, paging, selection |
+| `lib/features/illust/detail/illust_detail_page.dart` | `artwork-detail.md` | Detail lifecycle, sections, overlay host |
+| `lib/features/illust/detail/illust_detail_shells.dart` | `artwork-detail.md` | Single-column vs two-pane / inspector shells |
+| `lib/features/illust/detail/widgets/page_image.dart` | `artwork-detail.md` | Per-page sizing, panorama scroll, image handoff |
+| `lib/features/novel/novel_reader_stage.dart` | `novel-reader.md` | Pagination stage, chrome, immersive lifecycle |
 
 ## Quality Check
 

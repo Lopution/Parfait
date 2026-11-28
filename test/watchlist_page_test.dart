@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
-import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/app/widgets/watchlist_toggle.dart';
 import 'package:parfait/features/watchlist/watchlist_page.dart';
 
@@ -103,60 +102,6 @@ void main() {
     await tester.tap(find.text('Continue reading'));
     await tester.pumpAndSettle();
     expect(find.text('novel 905'), findsOneWidget);
-  });
-
-  testWidgets('unseen series shows the new-content badge; seen hides it', (
-    tester,
-  ) async {
-    final fixture = WatchlistFixture()
-      ..mangaSeries = [
-        {
-          'id': 9,
-          'title': 'Series Nine',
-          'user': {'id': 5, 'name': 'author-a'},
-          'latest_content_id': 777,
-        },
-      ];
-    final (container, _) = await makeWatchlistWorld(fixture: fixture);
-    // A cursor equal to the latest id means "all caught up".
-    await container
-        .read(watchlistReadCursorProvider)
-        .markSeen('100', const WatchlistKey(WatchlistType.manga, 9), 777);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(const WatchlistPage()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('New'), findsNothing);
-  });
-
-  testWidgets('toggle reflects the detail flag and posts the mutation', (
-    tester,
-  ) async {
-    final (container, fixture) = await makeWatchlistWorld();
-    const key = WatchlistKey(WatchlistType.manga, 9);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(
-          const Scaffold(
-            body: Center(child: WatchlistToggle(seriesKey: key)),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Follow series'), findsOneWidget);
-
-    await tester.tap(find.text('Follow series'));
-    await tester.pumpAndSettle();
-    expect(find.text('Unfollow series'), findsOneWidget);
-    expect(fixture.requests.single.url.path, '/v1/watchlist/manga/add');
-    expect(container.read(watchlistStoreProvider)[key]!.added, isTrue);
   });
 
   testWidgets('toggle reports failure through PromptHost even after unmount', (

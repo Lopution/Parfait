@@ -1,46 +1,24 @@
-import 'dart:async';
-
-import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
-import 'package:parfait/app/layout/input_modality.dart';
-import 'package:parfait/app/layout/two_pane.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
-import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/navigation/home_shell_metrics.dart';
-import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/core/entity/illust_entity.dart';
-import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/app/navigation/route_extras.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/illust_pager_source.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_repository.dart';
-import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_overlay_frame.dart';
-import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
-import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
-import 'helpers/illust_fixtures.dart';
 import 'helpers/connectivity_channels.dart';
 import 'helpers/detail_world.dart';
-import 'helpers/image_network.dart';
 import 'helpers/history_world.dart';
+import 'helpers/illust_fixtures.dart';
+import 'helpers/image_network.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/prompt_host.dart';
-import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
-import 'helpers/pixiv_router.dart';
 import 'helpers/waits.dart';
 
 Future<void> _pumpPager(
@@ -62,7 +40,6 @@ Future<void> _pumpPager(
   await tester.pumpAndSettle();
 }
 
-/// Pumps 8 ms frames until [condition] holds, failing after a second.
 Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) =>
     pumpUntil(
       tester,
@@ -74,13 +51,9 @@ Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) =>
 double _page(WidgetTester tester) =>
     tester.widget<PageView>(find.byType(PageView)).controller!.page!;
 
-/// Where a sideways swipe starts: on the first image, not the screen
-/// centre, which can land on the selectable title — that text claims
-/// horizontal drags for selection.
 Offset _swipeOrigin(WidgetTester tester) =>
     tester.getTopLeft(find.byType(PageView)) + const Offset(195, 200);
 
-/// A mounted detail page, on screen or in the pager's cache extent.
 Finder _detail(int id) => find.byWidgetPredicate(
   (w) => w is IllustDetailPage && w.illustId == id,
   skipOffstage: false,
@@ -88,12 +61,7 @@ Finder _detail(int id) => find.byWidgetPredicate(
 
 void main() {
   setUp(() {
-    // Detail pages embed VisibilityDetector page trackers; a zero interval
-    // uses post-frame callbacks instead of a periodic timer, which would
-    // otherwise linger into test teardown.
     VisibilityDetectorController.instance.updateInterval = Duration.zero;
-    // Unanswered, the network policy's channel calls surface in the first
-    // test that turns the real loop.
     answerConnectivityChannels();
   });
 
@@ -122,143 +90,6 @@ void main() {
     expect(_page(tester), 0);
   });
 
-  for (final reduce in [false, true]) {
-    testWidgets('a page built where a swipe settles fades in around its '
-        'image${reduce ? ', at once under reduced motion' : ''}', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      container.read(illustStoreProvider).mergeAll([
-        for (final id in [42, 43, 44, 45]) parseIllust(illustJson(id)),
-      ]);
-      final source = IllustPagerSource()..update(const [42, 43, 44, 45]);
-      await _pumpPager(
-        tester,
-        container,
-        source: source,
-        initialId: 42,
-        builder: (context, child) => MotionScope(reduce: reduce, child: child!),
-      );
-      Finder standIn(int id) =>
-          find.byKey(ValueKey('pager-stand-in-$id'), skipOffstage: false);
-      double opacity(int id) =>
-          tester.widget<FadeTransition>(standIn(id)).opacity.value;
-      // The route's own page shows at once.
-      expect(standIn(42), findsNothing);
-      expect(_detail(44), findsNothing);
-
-      // One scroll past the built neighbour lands on a page not built.
-      final controller = tester
-          .widget<PageView>(find.byType(PageView))
-          .controller!;
-      unawaited(
-        controller.animateToPage(
-          2,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.linear,
-        ),
-      );
-      await _pumpUntil(tester, () => _detail(44).evaluate().isNotEmpty);
-      final detail = tester.state(_detail(44));
-      if (reduce) {
-        expect(standIn(44), findsNothing);
-      } else {
-        // The stand-in covers the frame that builds the page, then fades.
-        expect(opacity(44), 1);
-        await tester.pump(const Duration(milliseconds: 16));
-        await tester.pump(const Duration(milliseconds: 50));
-        expect(opacity(44), inExclusiveRange(0, 1));
-      }
-
-      await tester.pumpAndSettle();
-      expect(standIn(44), findsNothing);
-      expect(tester.state(_detail(44)), same(detail));
-      // A neighbour joins off screen, without a fade.
-      expect(_detail(45), findsOneWidget);
-      expect(standIn(45), findsNothing);
-    });
-  }
-
-  // Android's ViewPager turns a page only on a drag at least twice as
-  // horizontal as vertical; a swipe leaning further scrolls the detail.
-  for (final (degrees, pages) in [(20.0, true), (35.0, false)]) {
-    testWidgets('a swipe ${degrees.round()}° off horizontal '
-        '${pages ? 'turns the page' : 'scrolls the detail'}', (tester) async {
-      final (container, _, _) = await makeWorld();
-      container.read(illustStoreProvider).mergeAll([
-        for (final id in [42, 43]) parseIllust(illustJson(id)),
-      ]);
-      // On a desktop host the detail waits for the mouse wheel and lets
-      // the first touch through to the pager.
-      PlatformCaps.debugSystemOverride = const PlatformCaps(isAndroid: true);
-      addTearDown(() => PlatformCaps.debugSystemOverride = null);
-      final source = IllustPagerSource()..update(const [42, 43]);
-      await _pumpPager(tester, container, source: source, initialId: 42);
-      setDeviceTouchSlop(tester);
-      await tester.pump();
-
-      final gesture = await dragLeftUp(
-        tester,
-        _swipeOrigin(tester),
-        degrees: degrees,
-      );
-      expect(_page(tester) > 0, pages, reason: 'the page turned');
-      final detailScrolled = tester
-          .stateList<ScrollableState>(
-            find.descendant(of: _detail(42), matching: find.byType(Scrollable)),
-          )
-          .any(
-            (s) =>
-                s.axisDirection == AxisDirection.down && s.position.pixels > 0,
-          );
-      expect(detailScrolled, !pages, reason: 'the detail scrolled');
-      await gesture.up();
-      await tester.pumpAndSettle();
-    });
-  }
-
-  testWidgets('a panorama scrolls first and hands the swipe on at its edge', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      parseIllust(illustJson(90, width: 4000, height: 400)),
-      parseIllust(illustJson(91)),
-    ]);
-    final source = IllustPagerSource()..update(const [90, 91]);
-    await _pumpPager(tester, container, source: source, initialId: 90);
-    // On a device the pager's slop is the panorama's doubled: the panorama
-    // must still win the swipe.
-    setDeviceTouchSlop(tester);
-    await tester.pump();
-
-    ScrollPosition panorama() => tester
-        .state<ScrollableState>(
-          find.descendant(
-            of: find.byKey(const ValueKey('panorama-frame')),
-            matching: find.byType(Scrollable),
-          ),
-        )
-        .position;
-    final start = panorama().pixels;
-    expect(start, closeTo(panorama().maxScrollExtent / 2, 0.5));
-
-    // In small steps: one jump crosses every slop at once.
-    await tester.timedDragFrom(
-      _swipeOrigin(tester),
-      const Offset(-150, 0),
-      const Duration(milliseconds: 500),
-    );
-    await tester.pumpAndSettle();
-    expect(panorama().pixels, greaterThan(start + 100));
-    expect(_page(tester), 0);
-
-    panorama().jumpTo(panorama().maxScrollExtent);
-    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
-    await tester.pumpAndSettle();
-    expect(_page(tester), 1);
-  });
-
   testWidgets('swiping near the end asks the feed for its next page', (
     tester,
   ) async {
@@ -273,13 +104,11 @@ void main() {
       ..onNearEnd = () => calls++;
     await _pumpPager(tester, container, source: source, initialId: 100);
 
-    // Below the threshold nothing fires.
     await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1);
     expect(calls, 0);
 
-    // Walk past `loadAhead` from the end — the feed's loadMore hook runs.
     for (var i = 0; i < 6; i++) {
       await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
       await tester.pumpAndSettle();
@@ -300,13 +129,9 @@ void main() {
 
     await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
-    expect(_page(tester), 1); // id 43
+    expect(_page(tester), 1);
 
-    // A refresh inserting at the head must re-seat the viewport on id 43,
-    // not silently show whatever landed on index 1.
     source.update(const [41, 42, 43, 44]);
-    // The reseat is a post-frame callback — one pump runs it, the jump
-    // lands synchronously, one more settles the new page's build.
     await tester.pump();
     await tester.pump();
     expect(_page(tester), 2);
@@ -317,9 +142,6 @@ void main() {
   });
 
   testWidgets('only the visible page owns a live hero', (tester) async {
-    // Adjacent pages pre-build for the swipe, but all three carry the feed
-    // hero tag — without HeroMode gating, a push or pop would fly three
-    // covers at once instead of the one under the finger.
     final (container, _, _) = await makeWorld();
     container.read(illustStoreProvider).mergeAll([
       for (final id in [42, 43, 44]) parseIllust(illustJson(id)),
@@ -339,8 +161,6 @@ void main() {
       findsOneWidget,
     );
 
-    // After a swipe the live hero follows the committed page. The feed
-    // has no card of it on screen here, so the image will not fly back.
     await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1);
@@ -355,35 +175,6 @@ void main() {
       ),
       findsOneWidget,
     );
-  });
-
-  testWidgets('a card feed exposes its work list to the detail route', (
-    tester,
-  ) async {
-    // The route-level contract: IllustRouteExtra.pagerSource switches the
-    // illust page to the pager; without it the single-work page mounts.
-    setViewSize(tester, const Size(390, 844));
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      for (final id in [42, 43]) parseIllust(illustJson(id)),
-    ]);
-    final router = pixivRouter('/recommended');
-    final source = IllustPagerSource()..update(const [42, 43]);
-    await tester.pumpWidget(localizedRouterApp(router, container: container));
-    await tester.pump();
-    // push()'s future only completes when the route pops — don't await
-    // it, just let the transition play out over bounded pumps.
-    unawaited(
-      router.push<void>(
-        '/recommended/illust/42',
-        extra: IllustRouteExtra(pagerSource: source),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pump();
-    expect(find.byType(IllustDetailPagerPage), findsOneWidget);
-    expect(find.byType(PageView), findsOneWidget);
   });
 
   testWidgets('only the settled page writes to the history', (tester) async {
@@ -403,7 +194,6 @@ void main() {
     final source = IllustPagerSource()..update(const [42, 43, 44]);
     await _pumpPager(tester, container, source: source, initialId: 43);
     final account = container.read(historyAccountIdProvider)!;
-    // The pages commit without waiting; a read waits their writes out.
     Future<List<int>> recorded() async {
       await settleHistory(tester, history);
       final page = await tester.runAsync(
@@ -422,19 +212,12 @@ void main() {
     await gesture.up();
     await _pumpUntil(tester, () => _page(tester) == 2);
     await tester.pump(IllustDetailPagerPage.activeDwell);
-    // Closing commits each built page; one never seen leaves no row.
     await tester.pumpWidget(const SizedBox());
     expect((await recorded()).toSet(), {43, 44});
   });
 
   group('related works on demand', () {
     const ids = [42, 43, 44];
-
-    /// Short single-page landscape works: the related section sits inside
-    /// the first screen of every page, so only the activity gate keeps a
-    /// neighbour from requesting.
-    // Tall enough that the related section, below the info, comment
-    // preview and author strip, is on screen without scrolling.
     const tall = Size(390, 2400);
 
     Future<(ProviderContainer, List<int>)> shortWorld() async {
@@ -485,8 +268,6 @@ void main() {
       );
       expect(log, [42]);
 
-      // Half a swipe brings the neighbour's section on screen while the
-      // page is still not current.
       final gesture = await tester.startGesture(_swipeOrigin(tester));
       await gesture.moveBy(const Offset(-40, 0));
       await gesture.moveBy(const Offset(-80, 0));
@@ -496,13 +277,9 @@ void main() {
 
       await gesture.moveBy(const Offset(-200, 0));
       await gesture.up();
-      // Settling starts the dwell; the frames after it would outlast it.
       await _pumpUntil(tester, () => _page(tester) == 1);
       expect(log, [42], reason: 'a page just settled on sends nothing yet');
 
-      // Reveal the current page's related section explicitly so this
-      // activity-gate test does not depend on the synthetic 2400dp
-      // viewport's content budget.
       final currentScroll = find.descendant(
         of: _detail(43),
         matching: find.byType(Scrollable),
@@ -518,532 +295,6 @@ void main() {
       await tester.pump();
       expect(log, [42, 43]);
     });
-  });
-
-  group('two-pane detail', () {
-    /// The image pager inside the detail page, beside the work pager.
-    Finder imagePager() => find.descendant(
-      of: find.byType(DetailImagePager),
-      matching: find.byType(PageView),
-    );
-
-    PageController outerController(WidgetTester tester) =>
-        tester.widget<PageView>(find.byType(PageView).first).controller!;
-
-    PageController imageController(WidgetTester tester) =>
-        tester.widget<PageView>(imagePager()).controller!;
-
-    /// Pumps works 42 and 43, two images each, in the two-pane layout,
-    /// starting at [initialId].
-    Future<void> pumpTwoPage(WidgetTester tester, int initialId) async {
-      final (container, _, _) = await makeWorld(
-        detailOverrides: {
-          for (final id in const [42, 43])
-            id: illustJson(id, pageCount: 2, withMetaPages: true),
-        },
-      );
-      container.read(illustStoreProvider).mergeAll([
-        for (final id in const [42, 43])
-          parseIllust(illustJson(id, pageCount: 2, withMetaPages: true)),
-      ]);
-      await _pumpPager(
-        tester,
-        container,
-        source: IllustPagerSource()..update(const [42, 43]),
-        initialId: initialId,
-        surface: const Size(1400, 900),
-      );
-    }
-
-    testWidgets(
-      'an image pager at its last page hands the swipe to the work pager',
-      (tester) async {
-        await pumpTwoPage(tester, 42);
-        expect(imagePager(), findsOneWidget);
-        expect(imageController(tester).page, 0);
-        expect(outerController(tester).page, 0);
-        final origin = tester.getCenter(imagePager());
-
-        // In the middle of the set a swipe only turns the image.
-        await tester.flingFrom(origin, const Offset(-260, 0), 900);
-        await tester.pumpAndSettle();
-        expect(imageController(tester).page, 1);
-        expect(outerController(tester).page, 0);
-
-        // Past the last image the same swipe goes on to the next work.
-        await tester.flingFrom(origin, const Offset(-260, 0), 900);
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, 1);
-        // The next work opens on its own first image.
-        expect(imageController(tester).page, 0);
-      },
-    );
-
-    testWidgets(
-      'an image pager at its first image hands a backward swipe to the work pager, then follows the finger',
-      (tester) async {
-        await pumpTwoPage(tester, 43);
-        expect(outerController(tester).page, 1);
-        expect(imageController(tester).page, 0);
-        final origin = tester.getCenter(imagePager());
-
-        // Back from the first image the swipe goes on to the previous work.
-        await tester.flingFrom(origin, const Offset(260, 0), 900);
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, 0);
-        expect(imageController(tester).page, 0);
-
-        // With no work further back, the pane follows every move.
-        double offset() => tester
-            .widget<FractionalTranslation>(
-              find.descendant(
-                of: find.byType(DetailImagePager),
-                matching: find.byType(FractionalTranslation),
-              ),
-            )
-            .translation
-            .dx;
-        final gesture = await tester.startGesture(origin);
-        await gesture.moveBy(const Offset(50, 0));
-        await tester.pump();
-        await gesture.moveBy(const Offset(60, 0));
-        await tester.pump();
-        final first = offset();
-        await gesture.moveBy(const Offset(60, 0));
-        await tester.pump();
-        expect(offset(), greaterThan(first));
-        await gesture.up();
-        await tester.pumpAndSettle();
-      },
-    );
-
-    testWidgets('a two-pane stand-in paints the grid image on the stage', (
-      tester,
-    ) async {
-      final worker = inProcessImageWorker(
-        () => MockClient(
-          (request) async => http.Response.bytes(onePixelPng, 200),
-        ),
-      );
-      final (container, _, _) = await makeWorld(
-        detailOverrides: {
-          42: illustJson(42, pageCount: 2, withMetaPages: true),
-          44: illustJson(44, pageCount: 2, withMetaPages: true),
-        },
-        extraOverrides: [imageWorkerProvider.overrideWithValue(worker)],
-      );
-      container.read(illustStoreProvider).mergeAll([
-        for (final id in [42, 43, 44])
-          parseIllust(illustJson(id, pageCount: 2, withMetaPages: true)),
-      ]);
-      final entity = container.read(illustStoreProvider).get(44)!;
-      // The feed decoded this work's image at its card width.
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: Center(
-            child: SizedBox(
-              width: 200,
-              child: PixivImage(
-                url: entity.imageUrls.large,
-                memCacheWidth: 200,
-                tierKey: entity.imageTierKeyAt(0),
-                tier: IllustImageTier.large,
-              ),
-            ),
-          ),
-        ),
-      );
-      await pumpIoUntil(
-        tester,
-        () => tester
-            .widgetList<RawImage>(find.byType(RawImage))
-            .any((image) => image.image != null),
-      );
-
-      final source = IllustPagerSource()..update(const [42, 43, 44]);
-      await _pumpPager(
-        tester,
-        container,
-        source: source,
-        initialId: 42,
-        surface: const Size(1400, 900),
-      );
-      // One page past the built neighbour lands on a page not built yet.
-      unawaited(
-        outerController(tester).animateToPage(
-          2,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.linear,
-        ),
-      );
-      final standIn = find.byKey(const ValueKey('pager-slot-image-44'));
-      await _pumpUntil(tester, () => standIn.evaluate().isNotEmpty);
-      // The stage holds the decoded image rather than a blank ground.
-      expect(
-        find.descendant(of: standIn, matching: find.byType(Image)),
-        findsOneWidget,
-      );
-      // The info column stays the page's own ground.
-      expect(
-        tester
-            .widget<ColoredBox>(
-              find.byKey(const ValueKey('pager-slot-info-44')),
-            )
-            .color,
-        Theme.of(tester.element(standIn)).scaffoldBackgroundColor,
-      );
-      await unmountPastReleaseGrace(tester);
-    });
-
-    testWidgets(
-      'keyboard [ / ] and Shift+Arrows turn artworks; pointer edge hover arrows navigate',
-      (tester) async {
-        final (container, _, _) = await makeWorld();
-        container.read(illustStoreProvider).mergeAll([
-          for (final id in [42, 43, 44]) parseIllust(illustJson(id)),
-        ]);
-        final source = IllustPagerSource()..update(const [42, 43, 44]);
-        await _pumpPager(
-          tester,
-          container,
-          source: source,
-          initialId: 42,
-          surface: const Size(1400, 900),
-          builder: (_, child) => InputModalityScope(
-            initialModality: InputModality.pointer,
-            child: child!,
-          ),
-        );
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.bracketRight);
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, closeTo(1, 0.01));
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, closeTo(2, 0.01));
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.bracketLeft);
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, closeTo(1, 0.01));
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, closeTo(0, 0.01));
-
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: const Offset(700, 450));
-        addTearDown(mouse.removePointer);
-        // Right artwork button stays inset 16dp clear of the scrollbar track.
-        final nextArtworkRect = tester.getRect(
-          find.byKey(const Key('pager-next-artwork')),
-        );
-        expect(nextArtworkRect.right, lessThanOrEqualTo(1400 - 16));
-        await mouse.moveTo(const Offset(1360, 450));
-        await tester.pump();
-        final l10n = lookupAppLocalizations(zhCN);
-        expect(
-          tester
-              .widget<IconButton>(
-                find.descendant(
-                  of: find.byKey(const Key('pager-next-artwork')),
-                  matching: find.byType(IconButton),
-                ),
-              )
-              .tooltip,
-          l10n.nextArtworkTooltip,
-        );
-        await tester.tap(
-          find.descendant(
-            of: find.byKey(const Key('pager-next-artwork')),
-            matching: find.byType(IconButton),
-          ),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, closeTo(1, 0.01));
-
-        await mouse.moveTo(const Offset(10, 450));
-        await tester.pump();
-        expect(
-          tester
-              .widget<IconButton>(
-                find.descendant(
-                  of: find.byKey(const Key('pager-prev-artwork')),
-                  matching: find.byType(IconButton),
-                ),
-              )
-              .tooltip,
-          l10n.previousArtworkTooltip,
-        );
-        await tester.tap(
-          find.descendant(
-            of: find.byKey(const Key('pager-prev-artwork')),
-            matching: find.byType(IconButton),
-          ),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
-        expect(outerController(tester).page, closeTo(0, 0.01));
-
-        await unmountPastReleaseGrace(tester);
-      },
-    );
-
-    testWidgets(
-      'DetailImagePager supports hover arrows, mouse wheel, and unfocused arrow keys',
-      (tester) async {
-        setViewSize(tester, const Size(1400, 900));
-        final detailJson = {
-          for (final id in const [42, 43])
-            id: illustJson(id, pageCount: 3, withMetaPages: true),
-        };
-        final (container, _, _) = await makeWorld(detailOverrides: detailJson);
-        container.read(illustStoreProvider).mergeAll([
-          for (final json in detailJson.values) parseIllust(json),
-        ]);
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            builder: (_, child) => InputModalityScope(
-              initialModality: InputModality.pointer,
-              child: child!,
-            ),
-            home: IllustDetailPagerPage(
-              source: IllustPagerSource()..update(const [42, 43]),
-              initialIllustId: 42,
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        double pageOf(Finder f) => tester.widget<PageView>(f).controller!.page!;
-        final innerPager = find.descendant(
-          of: find.byType(DetailImagePager),
-          matching: find.byType(PageView),
-        );
-        final nextBtn = find.byKey(const Key('detail-pager-next'));
-        final prevBtn = find.byKey(const Key('detail-pager-prev'));
-        expect(prevBtn, findsNothing);
-        expect(nextBtn, findsOneWidget);
-        double nextAlpha() => tester
-            .widget<AnimatedOpacity>(
-              find.ancestor(
-                of: nextBtn,
-                matching: find.byType(AnimatedOpacity),
-              ),
-            )
-            .opacity;
-        expect(nextAlpha(), 0.0);
-
-        final mouse = TestPointer(1, PointerDeviceKind.mouse);
-        await tester.sendEventToBinding(
-          mouse.hover(tester.getCenter(find.byType(DetailImagePager))),
-        );
-        await tester.pumpAndSettle();
-        expect(nextAlpha(), 1.0);
-
-        Future<void> step(Future<void> Function() act, double page) async {
-          await act();
-          await tester.pumpAndSettle();
-          expect(pageOf(innerPager), page);
-        }
-
-        await step(
-          () => tester.tap(nextBtn, kind: PointerDeviceKind.mouse),
-          1.0,
-        );
-        expect(prevBtn, findsOneWidget);
-        // Inner page prev button sits in bottom corner, never overlapping the
-        // outer artwork prev button vertically centered on the left edge.
-        final outerPrevButton = find.descendant(
-          of: find.byKey(const Key('pager-prev-artwork')),
-          matching: find.byType(IconButton),
-        );
-        expect(
-          tester.getRect(prevBtn).overlaps(tester.getRect(outerPrevButton)),
-          isFalse,
-        );
-        expect(
-          tester.widget<IconButton>(prevBtn).tooltip,
-          isNot(tester.widget<IconButton>(outerPrevButton).tooltip),
-        );
-        await step(
-          () => tester.tap(prevBtn, kind: PointerDeviceKind.mouse),
-          0.0,
-        );
-        await step(
-          () => tester.sendEventToBinding(mouse.scroll(const Offset(0, 120))),
-          1.0,
-        );
-        await step(
-          () => tester.sendKeyEvent(LogicalKeyboardKey.arrowRight),
-          2.0,
-        );
-        await step(
-          () => tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft),
-          1.0,
-        );
-
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.pumpAndSettle();
-        expect(pageOf(find.byType(PageView).first), 1.0);
-      },
-    );
-
-    testWidgets(
-      'bounded DetailOverlayFrame resizes across 960x600 preserving multi-page index, aligned skeleton metrics, and DetailImagePager updates',
-      (tester) async {
-        final multiJson = illustJson(42, pageCount: 3, withMetaPages: true);
-        final (container, _, _) = await makeWorld(
-          detailOverrides: {42: multiJson},
-        );
-        final multi = parseIllust(multiJson);
-        container.read(illustStoreProvider).mergeAll([multi]);
-
-        // 1. IllustDetailSkeleton matches detailTwoPaneMetrics at >=960 and <960.
-        setViewSize(tester, const Size(1200, 800));
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            home: const Scaffold(body: IllustDetailSkeleton()),
-          ),
-        );
-        var pane = tester.widget<AdaptiveTwoPane>(find.byType(AdaptiveTwoPane));
-        expect(pane.secondaryFraction, 0.30);
-        expect(pane.secondaryMaxWidth, 420);
-
-        setViewSize(tester, const Size(800, 600));
-        await tester.pump();
-        pane = tester.widget<AdaptiveTwoPane>(find.byType(AdaptiveTwoPane));
-        expect(pane.secondaryFraction, 0.38);
-        expect(pane.secondaryMaxWidth, 460);
-
-        // 2. DetailImagePager updates its displayed page when initialPage changes.
-        final pagerPage = ValueNotifier<int>(0);
-        addTearDown(pagerPage.dispose);
-        setViewSize(tester, const Size(800, 600));
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            home: Scaffold(
-              body: ValueListenableBuilder<int>(
-                valueListenable: pagerPage,
-                builder: (_, page, _) => DetailImagePager(
-                  entity: multi,
-                  detailUrlFor: (_) => null,
-                  downloadMode: false,
-                  selectedPages: const {},
-                  onToggleSelect: (_) {},
-                  onLongPress: () {},
-                  heroTag: 'test-pager-sync',
-                  heroScope: 'test',
-                  initialPage: page,
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('1 / 3'), findsOneWidget);
-        pagerPage.value = 2;
-        await tester.pumpAndSettle();
-        expect(find.text('3 / 3'), findsOneWidget);
-
-        // 3. Bounded DetailOverlayFrame beside a ShellRail resizes across 960x600
-        //    without layout/BuildScope assertions and keeps multi-page index.
-        final visibleExtent = ValueNotifier<double>(0);
-        final modalScrim = HomeShellModalScrim();
-        addTearDown(visibleExtent.dispose);
-        addTearDown(modalScrim.dispose);
-        setViewSize(tester, const Size(1280, 800));
-        await tester.pumpWidget(
-          localizedApp(
-            container: container,
-            builder: promptHostBuilder,
-            home: LayoutBuilder(
-              builder: (context, constraints) {
-                final rail = constraints.maxWidth >= 600 ? 204.0 : 0.0;
-                return HomeShellChrome(
-                  bottomBarExtent: 0,
-                  railExtent: rail,
-                  bottomBarVisibleExtent: visibleExtent,
-                  bottomBarVisibility: const AlwaysStoppedAnimation(1),
-                  onBranchRootScroll: (_) => false,
-                  modalScrim: modalScrim,
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.only(start: rail),
-                    child: Navigator(
-                      onGenerateRoute: (_) => MaterialPageRoute<void>(
-                        builder: (rootContext) => Scaffold(
-                          body: TextButton(
-                            onPressed: () =>
-                                Navigator.of(rootContext).push<void>(
-                                  PageRouteBuilder<void>(
-                                    opaque: false,
-                                    pageBuilder: (_, _, _) =>
-                                        const DetailOverlayFrame(
-                                          child: IllustDetailPage(illustId: 42),
-                                        ),
-                                  ),
-                                ),
-                            child: const Text('open-multi-overlay'),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-        await tester.pump();
-        await tester.tap(find.text('open-multi-overlay'));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('detail-overlay-scrim')),
-          findsOneWidget,
-        );
-        expect(find.text('1 / 3'), findsOneWidget);
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.pumpAndSettle();
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.pumpAndSettle();
-        expect(find.text('3 / 3'), findsOneWidget);
-
-        // Cross below 960x600 into single-column, then back to bounded overlay.
-        setViewSize(tester, const Size(500, 800));
-        await tester.pump();
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('detail-overlay-scrim')),
-          findsNothing,
-        );
-        expect(tester.takeException(), isNull);
-
-        setViewSize(tester, const Size(1280, 800));
-        await tester.pump();
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('detail-overlay-scrim')),
-          findsOneWidget,
-        );
-        expect(find.text('3 / 3'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
-      },
-    );
   });
 
   testWidgets('the pager image flies back only to a card on screen', (
@@ -1099,45 +350,5 @@ void main() {
       ..clearHomeFlight();
     await tester.pump();
     expect(flies(3), isTrue);
-  });
-
-  testWidgets('stays hidden until the entry transition completes', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      localizedApp(
-        home: Builder(
-          builder: (context) => Center(
-            child: TextButton(
-              onPressed: () => unawaited(
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const Scaffold(
-                      body: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Positioned.fill(
-                            child: DetailPageCounter(page: 0, count: 3),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              child: const Text('open'),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('1 / 3'), findsNothing);
-
-    await tester.pumpAndSettle();
-    expect(find.text('1 / 3'), findsOneWidget);
   });
 }

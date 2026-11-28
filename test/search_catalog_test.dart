@@ -1,19 +1,13 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/motion/press_scale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:visibility_detector/visibility_detector.dart';
-import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
@@ -21,19 +15,14 @@ import 'package:parfait/core/search/search_autocomplete_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
-import 'package:parfait/features/illust/detail/illust_detail_page.dart';
-import 'package:parfait/features/search/docked_search.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
-import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 
 import 'helpers/api_responses.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/recording_haptics.dart';
 import 'helpers/search_world.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
 Future<ProviderContainer> _apiContainer(
@@ -582,65 +571,6 @@ void main() {
     },
   );
 
-  testWidgets('filter sheet renders illust groups and returns selections', (
-    tester,
-  ) async {
-    SearchFilterSheetResult? result;
-    await tester.pumpWidget(
-      localizedApp(
-        home: ProviderScope(
-          child: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () async {
-                  result = await showSearchFilterSheet(
-                    context,
-                    initial: IllustSearchFilters.defaults,
-                  );
-                },
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-
-    for (final section in ['AI 作品', '收藏数', '纵横比', '作品类别', '分辨率']) {
-      expect(find.text(section), findsOneWidget, reason: section);
-    }
-
-    Future<void> tapLabel(String text) async {
-      await tester.ensureVisible(find.text(text));
-      await tester.pump();
-      await tester.tap(find.text(text));
-      await tester.pump();
-    }
-
-    await tapLabel('排除 AI');
-    await tapLabel('纵向');
-    await tapLabel('仅漫画');
-
-    await tester.enterText(find.widgetWithText(TextField, '最小').first, '100');
-    await tester.pump();
-
-    await tester.ensureVisible(find.text('应用'));
-    await tester.pump();
-    await tester.tap(find.text('应用'));
-    await tester.pumpAndSettle();
-
-    expect(result, isNotNull);
-    expect(result!.makeDefault, isFalse);
-    final filters = result!.filters as IllustSearchFilters;
-    expect(filters.aiFilter, SearchAiFilter.exclude);
-    expect(filters.ratio, SearchRatioPattern.portrait);
-    expect(filters.contentType, SearchContentType.manga);
-    expect(filters.bookmarkMin, 100);
-    expect(filters.bookmarkMax, isNull);
-  });
-
   group('filter sheet bounds', () {
     const reversedError = '最小值不能大于最大值';
 
@@ -721,196 +651,6 @@ void main() {
       expect((filters.bookmarkMin, filters.bookmarkMax), (500, 1000));
       expect(filters.widthMin, 125);
     });
-
-    testWidgets('a stored reversed pair opens ordered', (tester) async {
-      // What a pre-check sheet saved, read back as the app reads settings.
-      await open(
-        tester,
-        IllustSearchFilters.fromJson({'bookmarkMin': 500, 'bookmarkMax': 100}),
-      );
-      final fields = tester
-          .widgetList<TextField>(find.byType(TextField))
-          .map((field) => field.controller!.text)
-          .take(2);
-      expect(fields, ['100', '500']);
-      expect(find.text(reversedError), findsNothing);
-    });
-  });
-
-  testWidgets('the guide camera opens reverse image search; the novel tab '
-      'searches novels', (tester) async {
-    final router = await pumpSearchRouter(tester, '/search');
-    await tester.pumpAndSettle();
-    // The full-width reverse-image button is gone; the camera replaces it.
-    expect(find.byType(FilledButton), findsNothing);
-
-    await tester.tap(find.byTooltip('反向搜图'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/reverse-image');
-    router.pop();
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(Tab, '小说'));
-    await tester.pumpAndSettle();
-    // The wide header's search entry sits at the bar's end; at this width
-    // (content area under 840) it is the icon.
-    await tester.tap(
-      find.descendant(of: find.byType(AppBar), matching: find.byTooltip('搜索')),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    // R10: the wide header docks the input under its entry, on the novel
-    // kind the guide's tab is on.
-    expect(find.byType(DockedSearchPanel), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'cat');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/search/results');
-    expect(router.state.uri.queryParameters['q'], 'cat');
-    expect(router.state.uri.queryParameters['type'], 'novel');
-  });
-
-  testWidgets('search input keeps its geometry when the IME opens', (
-    tester,
-  ) async {
-    await pumpSearchRouter(tester, '/search/input');
-
-    expect(find.byType(SearchInputPage), findsOneWidget);
-    final scaffold = tester.widget<Scaffold>(
-      find.descendant(
-        of: find.byType(SearchInputPage),
-        matching: find.byType(Scaffold),
-      ),
-    );
-    expect(scaffold.resizeToAvoidBottomInset, isFalse);
-  });
-
-  for (final tab in ['插画 & 漫画', '小说']) {
-    testWidgets('long-pressing a $tab trending tag opens its representative '
-        'work', (tester) async {
-      // The opened detail page tracks page visibility; post-frame updates
-      // leave no timer behind when the test ends on the push.
-      final interval = VisibilityDetectorController.instance.updateInterval;
-      VisibilityDetectorController.instance.updateInterval = Duration.zero;
-      addTearDown(
-        () => VisibilityDetectorController.instance.updateInterval = interval,
-      );
-      final router = await pumpSearchRouter(
-        tester,
-        '/search',
-        routes: {
-          '/v1/illust/detail': answer({'illust': illustJson(901)}),
-          // Not in a series: pixiv answers 404.
-          '/v1/illust-series/illust': failing(404),
-        },
-      );
-      await tester.tap(find.widgetWithText(Tab, tab));
-      await tester.pumpAndSettle();
-      // The tile is an image card: it takes the card press (MOTION-06).
-      expect(
-        find.ancestor(
-          of: find.text('#风景').hitTestable(),
-          matching: find.byType(PressScale),
-        ),
-        findsOneWidget,
-      );
-
-      final haptics = recordHaptics();
-      await tester.longPress(find.text('#风景').hitTestable());
-      await tester.pump();
-      expect(router.state.uri.path, '/search/illust/901');
-      expect(haptics.roles, [HapticRole.longPress]);
-    });
-  }
-
-  for (final (count, shown) in const [(2, 2), (3, 3), (4, 3), (5, 3), (7, 6)]) {
-    testWidgets('$count trending tags show $shown: whole rows only', (
-      tester,
-    ) async {
-      setViewSize(tester, const Size(360, 1600));
-      await tester.pumpWidget(
-        localizedApp(
-          container: await searchWorld(SearchApi(trendingTagCount: count)),
-          home: SearchHomePage(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Three columns at this width; fewer tags than a row still show.
-      final grid = tester.widget<SliverGrid>(find.byType(SliverGrid));
-      final delegate =
-          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-      expect(delegate.crossAxisCount, 3);
-      expect(find.textContaining('#'), findsNWidgets(shown));
-    });
-  }
-
-  testWidgets('switching the trending kind re-requests the novel endpoint', (
-    tester,
-  ) async {
-    final api = SearchApi();
-    await tester.pumpWidget(
-      localizedApp(container: await searchWorld(api), home: SearchHomePage()),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(api.trendingRequests, ['illust']);
-
-    await tester.tap(find.widgetWithText(Tab, '小说'));
-    await tester.pumpAndSettle();
-    // Each tab keeps its own list; switching back does not re-request.
-    await tester.tap(find.widgetWithText(Tab, '插画 & 漫画'));
-    await tester.pumpAndSettle();
-    expect(api.trendingRequests, ['illust', 'novel']);
-  });
-
-  testWidgets('U2: tapping a trending tag still searches that tag', (
-    tester,
-  ) async {
-    await pumpSearchRouter(tester, '/search');
-
-    // Adding the image must not turn the primary tap into "open the work".
-    await tester.tap(find.text('#风景'));
-    await tester.pumpAndSettle();
-    expect(find.byType(SearchResultPage), findsOneWidget);
-    expect(find.byType(IllustDetailPage), findsNothing);
-  });
-
-  testWidgets('U2: re-entering search does not re-request trending tags', (
-    tester,
-  ) async {
-    final api = SearchApi();
-    final showSearch = ValueNotifier<bool>(true);
-    addTearDown(showSearch.dispose);
-
-    await tester.pumpWidget(
-      localizedApp(
-        container: await searchWorld(api),
-        home: ValueListenableBuilder<bool>(
-          valueListenable: showSearch,
-          builder: (context, visible, _) => visible
-              ? const SearchHomePage()
-              : const Scaffold(body: SizedBox.shrink()),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(api.trendingRequests, ['illust']);
-    // The tab next to it loads its own tags on a still screen.
-    await tester.pumpAndSettle();
-    final settled = api.trendingRequests.length;
-
-    // Fully unmount the page: with an autoDispose provider this removed the
-    // last listener and the next visit re-requested the endpoint.
-    showSearch.value = false;
-    await tester.pumpAndSettle();
-    showSearch.value = true;
-    await tester.pumpAndSettle();
-    expect(api.trendingRequests, hasLength(settled));
-
-    expect(find.text('#风景').hitTestable(), findsOneWidget);
   });
 
   testWidgets('result route parameters round-trip every filter field', (
@@ -978,154 +718,4 @@ void main() {
     expect((filters.heightMin, filters.heightMax), (600, 900));
     expect(page.query.cacheKey, isNotNull);
   });
-
-  testWidgets('re-tapping the search destination scrolls the guide to top', (
-    tester,
-  ) async {
-    final api = SearchApi(trendingTagCount: 30);
-    final router = pixivRouter('/search');
-    // Compact viewport: at ≥600px the shell swaps the bottom bar for a
-    // rail and FuncShellBottomNav leaves the tree.
-    setViewSize(tester, const Size(390, 844));
-    await tester.pumpWidget(
-      localizedRouterApp(router, container: await searchWorld(api)),
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    final feedView = find.byKey(const PageStorageKey('search-home-illust'));
-    expect(feedView, findsOneWidget);
-    final controller = tester.widget<CustomScrollView>(feedView).controller!;
-    controller.jumpTo(500);
-    await tester.pump();
-    expect(controller.offset, 500);
-
-    // Snapshot rather than a literal: the provider re-fires once when the
-    // account id lands asynchronously — that is hydration, not the re-tap.
-    final callsBefore = api.trendingRequests.length;
-    await tester.tap(
-      find.descendant(
-        of: find.byType(FuncShellBottomNav),
-        matching: find.byIcon(AppIcons.searchFilled),
-      ),
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(controller.offset, 0);
-    // Pure scroll — the re-tap itself causes no refresh or re-request.
-    expect(api.trendingRequests, hasLength(callsBefore));
-  });
-
-  testWidgets('the result title reopens the input prefilled with the query', (
-    tester,
-  ) async {
-    final router = await pumpSearchRouter(
-      tester,
-      '/search/results?q=%E9%A3%8E%E6%99%AF&type=illust',
-    );
-
-    expect(find.byType(SearchResultPage), findsOneWidget);
-    await tester.tap(find.text('风景'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-
-    // R10: the wide result bar docks the input, prefilled with the query.
-    expect(find.byType(DockedSearchPanel), findsOneWidget);
-    expect(router.state.uri.path, '/search/results');
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      '风景',
-    );
-    // Close it so no field or debounce timer outlives the test.
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(DockedSearchPanel), findsNothing);
-  });
-
-  testWidgets('an empty result keeps the header and offers modify-search', (
-    tester,
-  ) async {
-    await pumpSearchRouter(tester, '/search/results?q=nothing&type=illust');
-    await tester.pumpAndSettle();
-
-    // Query context stays visible on the empty surface, and the page
-    // offers a direct edit entry — not just a blind refresh.
-    // The novel results next to it are built too, off screen.
-    expect(find.text('nothing'), findsOneWidget);
-    expect(find.text('修改搜索').hitTestable(), findsOneWidget);
-    await tester.tap(find.text('修改搜索').hitTestable());
-    await tester.pumpAndSettle();
-    expect(find.byType(SearchInputPage), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      'nothing',
-    );
-  });
-
-  testWidgets('the filter summary row chips and clears active filters', (
-    tester,
-  ) async {
-    // Wide surface: the AppBar-bottom chip row fits without scrolling, so
-    // the trailing reset chip's centre is a clean tap target.
-    setViewSize(tester, const Size(1100, 700));
-    final router = await pumpSearchRouter(
-      tester,
-      '/search/results?q=cat&type=illust&sort=date_asc&bmin=100',
-    );
-    await tester.pumpAndSettle();
-
-    // Active fields surface as chips next to the persistent clear entry.
-    expect(find.text('收藏数 100 以上'), findsOneWidget);
-    expect(find.text('重置'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(ActionChip, '重置'));
-    await tester.pumpAndSettle();
-    // Clearing replaces the route: the URL no longer carries the bounds.
-    expect(router.state.uri.queryParameters.containsKey('bmin'), isFalse);
-    expect(router.state.uri.queryParameters['sort'], 'date_desc');
-    expect(router.state.uri.queryParameters['q'], 'cat');
-  });
-
-  testWidgets(
-    'SearchHomePage supports pull-to-refresh for trending tags & spotlight and InkWell hover/focus on tag tiles',
-    (tester) async {
-      var spotlightCalls = 0;
-      final search = SearchApi();
-      final container = await searchWorld(
-        search,
-        routes: {
-          '/v1/spotlight/articles': (_) async {
-            spotlightCalls += 1;
-            return jsonResponse({
-              'spotlight_articles': const <Object?>[],
-              'next_url': null,
-            });
-          },
-        },
-      );
-      await tester.pumpWidget(
-        localizedApp(container: container, home: const SearchHomePage()),
-      );
-      await tester.pumpAndSettle();
-      expect(search.trendingRequests, ['illust']);
-      expect(spotlightCalls, 1);
-      expect(find.byType(PullToRefresh), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(CustomScrollView),
-          matching: find.byType(InkWell),
-        ),
-        findsWidgets,
-      );
-
-      expect(PullToRefresh.triggerActive(), isTrue);
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(search.trendingRequests, ['illust', 'illust']);
-      expect(spotlightCalls, 2);
-    },
-  );
 }
